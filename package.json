@@ -4,10 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "npm-run-all --parallel dev:frontend dev:backend",
-    "dev:frontend": "next dev",
+    "dev:frontend": "next dev -p 3001",
     "dev:backend": "convex dev",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p 3001",
     "lint": "next lint",
     "elo": "bash ./elo"
   },
@@ -82,7 +82,6 @@
     "dommatrix": "^1.0.3",
     "embla-carousel-react": "^8.6.0",
     "framer-motion": "^12.23.6",
-    "googleapis": "^170.0.0",
     "jotai": "^2.12.5",
     "jspdf": "^2.5.2",
     "jspdf-autotable": "^3.8.4",
@@ -133,5 +132,9 @@
     "tailwindcss": "^4",
     "tw-animate-css": "^1.3.4",
     "typescript": "^5"
+  },
+  "packageManager": "pnpm@9.15.5",
+  "engines": {
+    "node": "20.x"
   }
 }
