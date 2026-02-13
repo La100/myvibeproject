@@ -13,7 +13,7 @@ import { ProjectChangelog } from "./ProjectChangelog";
 
 function ProjectOverviewSkeleton() {
   return (
-    <div className="px-4 lg:px-0 animate-pulse">
+    <div className="animate-pulse space-y-6">
       <div className="mb-4 lg:mb-6">
         <Skeleton className="h-9 w-1/3 mb-2" />
         <Skeleton className="h-5 w-1/2" />
@@ -88,25 +88,26 @@ function ProjectOverviewContent() {
   const currencySymbol = project.currency === "EUR" ? "€" : project.currency === "PLN" ? "zł" : "$";
 
   const statusColors = {
-    planning: "bg-gray-100 text-gray-800",
-    active: "bg-green-100 text-green-800",
-    on_hold: "bg-yellow-100 text-yellow-800",
-    done: "bg-blue-100 text-blue-800",
-    cancelled: "bg-red-100 text-red-800",
+    planning: "border-sky-200 bg-sky-50 text-sky-700",
+    active: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    on_hold: "border-amber-200 bg-amber-50 text-amber-700",
+    completed: "border-indigo-200 bg-indigo-50 text-indigo-700",
+    done: "border-indigo-200 bg-indigo-50 text-indigo-700",
+    cancelled: "border-rose-200 bg-rose-50 text-rose-700",
   };
 
   return (
-    <div className="px-4 lg:px-0">
-      <div className="mb-4 lg:mb-6">
-        <h1 className="text-2xl lg:text-3xl font-bold">Project Overview</h1>
-        <p className="text-muted-foreground text-sm lg:text-base">
+    <div className="space-y-7">
+      <div className="clean-panel px-6 py-5 lg:px-7 lg:py-6">
+        <h1 className="clean-title text-3xl font-medium tracking-tight lg:text-4xl">Project Overview</h1>
+        <p className="clean-subtitle mt-2 text-sm lg:text-base">
           A summary of {project.name} 
         </p>
       </div>
 
-      <div className="grid gap-4 lg:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mb-6 lg:mb-8">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:mb-8 lg:grid-cols-3 lg:gap-5">
         {/* Total Project Cost */}
-        <Card>
+        <Card className="bg-card/90">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <DollarSign className="h-4 w-4" />
@@ -124,7 +125,7 @@ function ProjectOverviewContent() {
         </Card>
 
         {/* Tasks Cost */}
-        <Card>
+        <Card className="bg-card/90">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <CheckCircle className="h-4 w-4" />
@@ -142,7 +143,7 @@ function ProjectOverviewContent() {
         </Card>
 
         {/* Shopping List Cost */}
-        <Card>
+        <Card className="bg-card/90">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <Building2 className="h-4 w-4" />
@@ -160,7 +161,7 @@ function ProjectOverviewContent() {
         </Card>
 
         {/* Project Status */}
-        <Card>
+        <Card className="bg-card/90">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <Target className="h-4 w-4" />
@@ -168,7 +169,7 @@ function ProjectOverviewContent() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Badge className={statusColors[project.status as keyof typeof statusColors]}>
+            <Badge variant="outline" className={statusColors[project.status as keyof typeof statusColors]}>
               {project.status.replace("_", " ").toUpperCase()}
             </Badge>
           </CardContent>
@@ -176,7 +177,7 @@ function ProjectOverviewContent() {
 
         {/* Client */}
         {project.customer && (
-          <Card>
+          <Card className="bg-card/90">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <User className="h-4 w-4" />
@@ -191,7 +192,7 @@ function ProjectOverviewContent() {
 
         {/* Location */}
         {project.location && (
-          <Card>
+          <Card className="bg-card/90">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <MapPin className="h-4 w-4" />
@@ -206,7 +207,7 @@ function ProjectOverviewContent() {
 
         {/* Budget */}
         {project.budget && (
-          <Card>
+          <Card className="bg-card/90">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <DollarSign className="h-4 w-4" />
@@ -226,7 +227,7 @@ function ProjectOverviewContent() {
 
         {/* Project Dates */}
         {(project.startDate || project.endDate) && (
-          <Card>
+          <Card className="bg-card/90">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
@@ -258,7 +259,7 @@ function ProjectOverviewContent() {
 
         {/* Project Cost vs Budget */}
         {project.budget && (
-          <Card>
+          <Card className="bg-card/90">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <TrendingUp className="h-4 w-4" />
@@ -275,7 +276,7 @@ function ProjectOverviewContent() {
                   <span>Budget:</span>
                   <span className="font-semibold">{project.budget.toLocaleString()} {currencySymbol}</span>
                 </div>
-                <div className="w-full bg-muted rounded-full h-2 mt-2">
+                <div className="mt-2 h-2 w-full rounded-full bg-secondary/75">
                   <div 
                     className={`h-2 rounded-full transition-all ${
                       (totalCost / project.budget) > 1 ? 'bg-red-500' : 
@@ -296,11 +297,11 @@ function ProjectOverviewContent() {
 
       {/* Project Description */}
       {project.description && (
-        <Card>
+        <Card className="bg-card/92">
           <CardHeader className="pb-4">
-            <CardTitle className="text-lg lg:text-xl">Project Description</CardTitle>
+            <CardTitle className="clean-title text-lg font-medium lg:text-xl">Project Description</CardTitle>
           </CardHeader>
-          <CardContent className="px-4 lg:px-6">
+          <CardContent className="px-6">
             <p className="text-muted-foreground leading-relaxed">
               {project.description}
             </p>
@@ -309,16 +310,16 @@ function ProjectOverviewContent() {
       )}
 
       <Collapsible open={isChangelogOpen} onOpenChange={setChangelogOpen}>
-        <Card className="mt-6 lg:mt-8">
+        <Card className="mt-6 bg-card/92 lg:mt-8">
           <CardHeader className="pb-2">
             <CollapsibleTrigger asChild>
               <button
                 type="button"
-                className="flex w-full items-center justify-between gap-3 text-left"
+                className="flex w-full items-center justify-between gap-3 rounded-xl px-1 text-left"
               >
                 <div className="flex items-center gap-2">
                   <History className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-lg lg:text-xl">Project Changelog</CardTitle>
+                  <CardTitle className="clean-title text-lg font-medium lg:text-xl">Project Changelog</CardTitle>
                 </div>
                 <ChevronDown
                   className={`h-4 w-4 transition-transform ${isChangelogOpen ? "rotate-180" : ""}`}

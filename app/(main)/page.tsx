@@ -1,11 +1,15 @@
-import { Hero } from "@/components/ui/landing/minimal/Hero";
-import { Features } from "@/components/ui/landing/minimal/Features";
+import { HeroSection } from "@/components/ui/landing/minimal/HeroSection";
+import { FeaturesGrid } from "@/components/ui/landing/minimal/FeaturesGrid";
+import { PricingSection } from "@/components/ui/landing/minimal/PricingSection";
+import { FaqSection } from "@/components/ui/landing/minimal/FaqSection";
 
 export default function LandingPage() {
   return (
     <>
-      <Hero />
-      <Features />
+      <HeroSection />
+      <FeaturesGrid />
+      <PricingSection />
+      <FaqSection />
     </>
   );
 }

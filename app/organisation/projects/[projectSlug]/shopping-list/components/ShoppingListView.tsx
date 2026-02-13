@@ -210,11 +210,6 @@ export default function ShoppingListView() {
     }
   };
 
-  const handleStartEdit = (item: ShoppingListItem) => {
-    // This function is passed to ShoppingListSection but not used in this component
-    console.log('Edit item:', item);
-  };
-
   // Export handlers
   const handleExportCSV = () => {
     const filteredItems = items.filter(item => {
@@ -578,25 +573,11 @@ export default function ShoppingListView() {
                 sections={sections}
                 onUpdateItem={handleUpdateItem}
                 onDeleteItem={handleDeleteItem}
-                onStartEdit={handleStartEdit}
                 onAddItem={handleAddItem}
                 isPending={isPending}
               />
             );
           })}
-
-        {/* Add Item Form for No Category items */}
-        {hasItemsWithoutSection && (
-          <div className="mb-6">
-            <AddItemForm
-              sections={sections}
-              teamMembers={teamMembers}
-              currencySymbol={currencySymbol}
-              onAddItem={handleAddItem}
-              isPending={isPending}
-            />
-          </div>
-        )}
 
         {/* Grand Total */}
         <div className="mt-12 rounded-[32px] border border-[#E7E2D9] bg-white p-8 shadow-[0_24px_60px_rgba(20,20,20,0.08)]">

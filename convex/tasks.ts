@@ -1,9 +1,7 @@
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
-import { query, mutation, internalMutation, internalQuery, action } from "./_generated/server";
+import { query, mutation, internalQuery, action } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
-
-const internalAny = internal as any;
 
 // Utility function to check project read access
 const hasProjectAccess = async (ctx: any, projectId: Id<"projects">, requireWriteAccess = false): Promise<boolean> => {
@@ -398,7 +396,8 @@ export const createTask = mutation({
       updatedAt: Date.now(),
       content: args.content ?? undefined,
     });
-    await ctx.runMutation(internal.activityLog.logActivity, {
+    // @ts-ignore
+    await ctx.runMutation((internal as any).activityLog.logActivity, {
       teamId: args.teamId,
       projectId: args.projectId,
       taskId: taskId,
@@ -406,31 +405,6 @@ export const createTask = mutation({
       details: { title: args.title },
       entityId: taskId,
       entityType: "task",
-    });
-
-    const targetUserId = args.assignedTo ?? identity.subject;
-
-    let attendees: string[] | undefined;
-    if (args.assignedTo) {
-      const assignee = await ctx.db
-        .query("users")
-        .withIndex("by_clerk_user_id", (q) => q.eq("clerkUserId", args.assignedTo!))
-        .unique();
-      if (assignee?.email) {
-        attendees = [assignee.email];
-      }
-    }
-
-    await ctx.scheduler.runAfter(0, internalAny.googleCalendar.syncTaskEvent, {
-      taskId,
-      projectId: args.projectId,
-      teamId: args.teamId,
-      clerkUserId: targetUserId,
-      title: args.title,
-      description: args.description,
-      startDate: args.startDate,
-      endDate: args.endDate,
-      attendees,
     });
 
     return taskId;
@@ -460,10 +434,6 @@ export const updateTask = mutation({
 
     const { taskId, ...updates } = args;
     const updatePayload = { ...updates, updatedAt: Date.now() };
-    const assignedToProvided = Object.prototype.hasOwnProperty.call(updates, "assignedTo");
-    const nextAssignedTo = assignedToProvided ? (updates.assignedTo ?? null) : (task.assignedTo ?? null);
-    const prevAssignedTo = task.assignedTo ?? null;
-    const targetUserId = nextAssignedTo ?? task.createdBy;
 
     await ctx.db.patch(taskId, updatePayload as Partial<Doc<"tasks">>);
 
@@ -477,46 +447,6 @@ export const updateTask = mutation({
       entityType: "task",
     });
 
-    let attendees: string[] | undefined;
-    if (nextAssignedTo) {
-      const assignee = await ctx.db
-        .query("users")
-        .withIndex("by_clerk_user_id", (q) => q.eq("clerkUserId", nextAssignedTo))
-        .unique();
-      if (assignee?.email) {
-        attendees = [assignee.email];
-      }
-    }
-
-    await ctx.scheduler.runAfter(0, internalAny.googleCalendar.syncTaskEvent, {
-      taskId: args.taskId,
-      projectId: task.projectId,
-      teamId: task.teamId,
-      clerkUserId: targetUserId,
-      title: updates.title ?? task.title,
-      description: updates.description ?? task.description,
-      startDate: updates.startDate ?? task.startDate,
-      endDate: updates.endDate ?? task.endDate,
-      attendees,
-    });
-
-    if (prevAssignedTo && prevAssignedTo !== nextAssignedTo) {
-      await ctx.scheduler.runAfter(0, internalAny.googleCalendar.deleteGoogleEventForSource, {
-        sourceType: "task",
-        sourceId: args.taskId,
-        clerkUserId: prevAssignedTo,
-        teamId: task.teamId,
-      });
-    }
-
-    if (!prevAssignedTo && nextAssignedTo && task.createdBy !== nextAssignedTo) {
-      await ctx.scheduler.runAfter(0, internalAny.googleCalendar.deleteGoogleEventForSource, {
-        sourceType: "task",
-        sourceId: args.taskId,
-        clerkUserId: task.createdBy,
-        teamId: task.teamId,
-      });
-    }
   },
 });
 
@@ -563,13 +493,7 @@ export const deleteTask = mutation({
     });
     await ctx.db.delete(args.taskId);
 
-    const targetUserId = task.assignedTo ?? task.createdBy;
-    await ctx.scheduler.runAfter(0, internalAny.googleCalendar.deleteGoogleEventForSource, {
-      sourceType: "task",
-      sourceId: args.taskId,
-      clerkUserId: targetUserId,
-      teamId: task.teamId,
-    });
+
   },
 });
 
@@ -593,33 +517,6 @@ export const assignTask = mutation({
       entityType: "task",
     });
 
-    let attendees: string[] | undefined;
-    if (args.userId) {
-      const assignee = await ctx.db
-        .query("users")
-        .withIndex("by_clerk_user_id", (q) => q.eq("clerkUserId", args.userId!))
-        .unique();
-      if (assignee?.email) {
-        attendees = [assignee.email];
-      }
-    }
-
-    // We need to use the target user (assignee) as the context for the sync if possible,
-    // or keep using the creator/previous assignee?
-    // In updateTask we used: const targetUserId = nextAssignedTo ?? task.createdBy;
-    const targetUserId = args.userId ?? task.createdBy;
-
-    await ctx.scheduler.runAfter(0, internalAny.googleCalendar.syncTaskEvent, {
-      taskId: args.taskId,
-      projectId: task.projectId,
-      teamId: task.teamId,
-      clerkUserId: targetUserId,
-      title: task.title,
-      description: task.description,
-      startDate: task.startDate,
-      endDate: task.endDate,
-      attendees,
-    });
   },
 });
 
@@ -681,7 +578,8 @@ export const generateTaskDetailsFromPrompt = action({
 
     let taskContext = "";
     if (args.taskId) {
-      const task = await ctx.runQuery(api.tasks.getTask, { taskId: args.taskId });
+      // @ts-ignore
+      const task = await ctx.runQuery((api as any).tasks.getTask, { taskId: args.taskId });
       if (task) {
         taskContext = `
 The user is editing an existing task. Here is the current state of the task:

@@ -1,132 +1,272 @@
-import { NextResponse } from 'next/server';
-import { ConvexHttpClient } from 'convex/browser';
-import { Id } from '@/convex/_generated/dataModel';
-import { apiAny } from '@/lib/convexApiAny';
+import { NextResponse } from "next/server"
+import { ConvexHttpClient } from "convex/browser"
+import type { Id } from "@/convex/_generated/dataModel"
+import { apiAny } from "@/lib/convexApiAny"
 
-// Helper function to get the token from the request
-function getTokenFromRequest(req: Request): string | null {
-  const authHeader = req.headers.get('Authorization');
+const PRIORITIES = new Set(["low", "medium", "high", "urgent"] as const)
+const REALIZATION_STATUSES = new Set(
+  ["PLANNED", "ORDERED", "IN_TRANSIT", "DELIVERED", "COMPLETED", "CANCELLED"] as const,
+)
+
+type Priority = "low" | "medium" | "high" | "urgent"
+type RealizationStatus =
+  | "PLANNED"
+  | "ORDERED"
+  | "IN_TRANSIT"
+  | "DELIVERED"
+  | "COMPLETED"
+  | "CANCELLED"
+
+interface AddShoppingListItemPayload {
+  name: string
+  projectId: Id<"projects">
+  sectionId?: Id<"shoppingListSections">
+  unitPrice?: number
+  quantity: number
+  totalPrice?: number
+  supplier?: string
+  notes?: string
+  productLink?: string
+  imageUrl?: string
+  priority: Priority
+  realizationStatus: RealizationStatus
+}
+
+function jsonError(message: string, status: number) {
+  return NextResponse.json({ message }, { status })
+}
+
+function getAuthTokenFromRequest(req: Request): string | null {
+  const authHeader = req.headers.get("authorization") ?? req.headers.get("Authorization")
   if (!authHeader) {
-    console.log("🚫 GET /api/clipper - No Authorization header found");
-    return null;
+    return null
   }
-  if (authHeader.startsWith('Bearer ')) {
-    const token = authHeader.substring(7, authHeader.length);
-    console.log(`✅ GET /api/clipper - Extracted token: ${token.substring(0, 20)}...`);
-    return token;
+
+  const [scheme, value] = authHeader.split(" ")
+  if (scheme !== "Bearer" || !value?.trim()) {
+    return null
   }
-  console.log("🚫 GET /api/clipper - Authorization header is not a Bearer token");
-  return null;
+
+  return value.trim()
+}
+
+function getConvexClient(token: string): ConvexHttpClient {
+  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL
+  if (!convexUrl) {
+    throw new Error("Missing NEXT_PUBLIC_CONVEX_URL")
+  }
+
+  const client = new ConvexHttpClient(convexUrl)
+  client.setAuth(token)
+  return client
+}
+
+function asOptionalBoundedString(
+  value: unknown,
+  fieldName: string,
+  maxLength: number,
+): string | undefined {
+  if (value === undefined || value === null || value === "") {
+    return undefined
+  }
+
+  if (typeof value !== "string") {
+    throw new Error(`Invalid field: ${fieldName}`)
+  }
+
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return undefined
+  }
+
+  if (trimmed.length > maxLength) {
+    throw new Error(`Field too long: ${fieldName}`)
+  }
+
+  return trimmed
+}
+
+function asOptionalNumber(value: unknown, fieldName: string): number | undefined {
+  if (value === undefined || value === null || value === "") {
+    return undefined
+  }
+
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    throw new Error(`Invalid numeric field: ${fieldName}`)
+  }
+
+  return value
+}
+
+function asRequiredQuantity(value: unknown): number {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 1 || value > 100_000) {
+    throw new Error("Invalid quantity")
+  }
+
+  return value
+}
+
+function asOptionalHttpUrl(value: unknown, fieldName: string): string | undefined {
+  const normalized = asOptionalBoundedString(value, fieldName, 2_000)
+  if (!normalized) {
+    return undefined
+  }
+
+  let parsed: URL
+  try {
+    parsed = new URL(normalized)
+  } catch {
+    throw new Error(`Invalid URL field: ${fieldName}`)
+  }
+
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error(`Invalid URL protocol for: ${fieldName}`)
+  }
+
+  return normalized
+}
+
+function validateClipperPostPayload(raw: unknown): AddShoppingListItemPayload {
+  if (!raw || typeof raw !== "object") {
+    throw new Error("Invalid request body")
+  }
+
+  const body = raw as Record<string, unknown>
+
+  const name = asOptionalBoundedString(body.name, "name", 240)
+  if (!name) {
+    throw new Error("Product name is required")
+  }
+
+  const projectId = asOptionalBoundedString(body.projectId, "projectId", 256)
+  if (!projectId) {
+    throw new Error("projectId is required")
+  }
+
+  const sectionId = asOptionalBoundedString(body.sectionId, "sectionId", 256)
+
+  const priorityRaw = asOptionalBoundedString(body.priority, "priority", 20)
+  const priority = (priorityRaw ?? "medium") as Priority
+  if (!PRIORITIES.has(priority)) {
+    throw new Error("Invalid priority")
+  }
+
+  const statusRaw = asOptionalBoundedString(body.realizationStatus, "realizationStatus", 20)
+  const realizationStatus = (statusRaw ?? "PLANNED") as RealizationStatus
+  if (!REALIZATION_STATUSES.has(realizationStatus)) {
+    throw new Error("Invalid realizationStatus")
+  }
+
+  const quantity = asRequiredQuantity(body.quantity)
+  const unitPrice = asOptionalNumber(body.unitPrice, "unitPrice")
+  const totalPrice = asOptionalNumber(body.totalPrice, "totalPrice")
+
+  return {
+    name,
+    projectId: projectId as Id<"projects">,
+    sectionId: sectionId as Id<"shoppingListSections"> | undefined,
+    unitPrice,
+    quantity,
+    totalPrice,
+    supplier: asOptionalBoundedString(body.supplier, "supplier", 160),
+    notes: asOptionalBoundedString(body.notes, "notes", 8_000),
+    productLink: asOptionalHttpUrl(body.productLink, "productLink"),
+    imageUrl: asOptionalHttpUrl(body.imageUrl, "imageUrl"),
+    priority,
+    realizationStatus,
+  }
+}
+
+function extractErrorMessage(error: unknown): string {
+  if (error && typeof error === "object" && "data" in error) {
+    const data = (error as { data?: { message?: string } }).data
+    if (data?.message && typeof data.message === "string") {
+      return data.message
+    }
+  }
+
+  if (error instanceof Error) {
+    return error.message
+  }
+
+  return "Unexpected error"
 }
 
 export async function GET(req: Request) {
-  console.log("🚀 GET /api/clipper request received");
+  const token = getAuthTokenFromRequest(req)
+  if (!token) {
+    return jsonError("Authorization token is missing.", 401)
+  }
+
   try {
-    const token = getTokenFromRequest(req);
-    if (!token) {
-      console.log("❌ No token found in request");
-      return new NextResponse('Authorization token is missing.', { status: 401 });
-    }
-    
-    // Debug token
-    try {
-      const tokenParts = token.split('.');
-      if (tokenParts.length === 3) {
-        const header = JSON.parse(Buffer.from(tokenParts[0], 'base64').toString());
-        const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
-        console.log("🔍 JWT Header:", header);
-        console.log("🔍 JWT Payload:", { 
-          iss: payload.iss, 
-          aud: payload.aud,
-          exp: payload.exp,
-          sub: payload.sub?.substring(0, 10) + "..." 
-        });
-      }
-    } catch {
-      console.log("⚠️ Could not decode token for debugging");
+    const convex = getConvexClient(token)
+    const convexAny = convex as typeof convex & {
+      query: (ref: unknown, args: unknown) => Promise<unknown>
     }
 
-    console.log("🔗 CONVEX_URL:", process.env.NEXT_PUBLIC_CONVEX_URL);
-    const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
-    console.log("🔧 Initialized Convex client");
-    convex.setAuth(token);
-    console.log("🔑 Set auth on Convex client");
-    
-    const { searchParams } = new URL(req.url);
-    const teamId = searchParams.get('teamId');
-    const projectId = searchParams.get('projectId');
+    const { searchParams } = new URL(req.url)
+    const teamId = searchParams.get("teamId")?.trim() || null
+    const projectId = searchParams.get("projectId")?.trim() || null
 
-    console.log("🔍 Query params - teamId:", teamId, "projectId:", projectId);
+    if (projectId && !teamId) {
+      return jsonError("teamId is required when projectId is provided.", 400)
+    }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const convexAny = convex as any;
     if (teamId && projectId) {
-      // Pobierz sekcje dla projektu
-      console.log("📞 Calling getShoppingListSections");
       const sections = await convexAny.query(apiAny.clipper.getShoppingListSections, {
         projectId: projectId as Id<"projects">,
-        teamId: teamId as Id<"teams">
-      });
-      console.log("✅ Sections query successful");
-      return NextResponse.json({ sections });
-    } else if (teamId) {
-      // Pobierz projekty dla zespołu
-      console.log("📞 Calling getProjectsForTeam");
-      const projects = await convexAny.query(apiAny.clipper.getProjectsForTeam, {
-        teamId: teamId as Id<"teams">
-      });
-      console.log("✅ Projects query successful");
-      return NextResponse.json({ projects });
-    } else {
-      // Domyślne zachowanie: pobierz zespoły i projekty dla użytkownika
-      console.log("📞 Calling convex.query(api.clipper.getTeamsAndProjects)");
-      const data = await convexAny.query(apiAny.clipper.getTeamsAndProjects, {});
-      console.log("🎉 Convex query successful, data:", JSON.stringify(data, null, 2));
-      // Zakładamy, że getTeamsAndProjects zwraca { user, teams }
-      return NextResponse.json(data);
+        teamId: teamId as Id<"teams">,
+      })
+      return NextResponse.json({ sections })
     }
 
-  } catch (error: unknown) {
-    console.error('[CLIPPER_API_GET_ERROR]', error);
-    console.error('[ERROR_DETAILS]', {
-      message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-      data: error && typeof error === 'object' && 'data' in error ? (error as { data: unknown }).data : undefined
-    });
-     // Zwróć błąd z Convex, jeśli jest dostępny
-    if (error && typeof error === 'object' && 'data' in error) {
-      const errorData = (error as { data: { message?: string; code?: string } }).data;
-      console.error('[CONVEX_ERROR_DATA]', errorData);
-      return NextResponse.json({ message: errorData.message, code: errorData.code }, { status: 400 });
+    if (teamId) {
+      const projects = await convexAny.query(apiAny.clipper.getProjectsForTeam, {
+        teamId: teamId as Id<"teams">,
+      })
+      return NextResponse.json({ projects })
     }
-    return new NextResponse(`Internal Server Error: ${error instanceof Error ? error.message : 'Unknown error'}`, { status: 500 });
+
+    const data = await convexAny.query(apiAny.clipper.getTeamsAndProjects, {})
+    return NextResponse.json(data)
+  } catch (error: unknown) {
+    const message = extractErrorMessage(error)
+    const status = /not authenticated|authorization|token/i.test(message)
+      ? 401
+      : /not a member|forbidden/i.test(message)
+        ? 403
+        : 500
+
+    console.error("[CLIPPER_API_GET_ERROR]", { message })
+    return jsonError(message, status)
   }
 }
 
 export async function POST(req: Request) {
-  try {
-    const token = getTokenFromRequest(req);
-    if (!token) {
-      return new NextResponse('Authorization token is missing.', { status: 401 });
-    }
-    
-    const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
-    convex.setAuth(token);
-
-    const body = await req.json();
-
-    // Używamy nowej, bardziej szczegółowej mutacji
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const convexAny = convex as any;
-    const newItem = await convexAny.mutation(apiAny.clipper.addShoppingListItem, body);
-
-    return NextResponse.json(newItem);
-
-  } catch (error: unknown) {
-    console.error('[CLIPPER_API_POST_ERROR]', error);
-     if (error && typeof error === 'object' && 'data' in error) {
-      return NextResponse.json((error as { data: unknown }).data, { status: 400 });
-    }
-    return new NextResponse('Internal Server Error', { status: 500 });
+  const token = getAuthTokenFromRequest(req)
+  if (!token) {
+    return jsonError("Authorization token is missing.", 401)
   }
-} 
+
+  try {
+    const payload = validateClipperPostPayload(await req.json())
+
+    const convex = getConvexClient(token)
+    const convexAny = convex as typeof convex & {
+      mutation: (ref: unknown, args: unknown) => Promise<unknown>
+    }
+
+    const newItem = await convexAny.mutation(apiAny.clipper.addShoppingListItem, payload)
+    return NextResponse.json(newItem)
+  } catch (error: unknown) {
+    const message = extractErrorMessage(error)
+    const status = /invalid|required|field/i.test(message)
+      ? 400
+      : /not authenticated|authorization|token|forbidden/i.test(message)
+        ? 401
+        : 500
+
+    console.error("[CLIPPER_API_POST_ERROR]", { message })
+    return jsonError(message, status)
+  }
+}

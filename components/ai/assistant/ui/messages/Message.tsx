@@ -6,23 +6,12 @@ import type { UIMessage } from "@convex-dev/agent/react";
 import { useQuery } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import type { Id } from "@/convex/_generated/dataModel";
+import { Button } from "@/components/ui/button";
 import { MessageContent } from "@/components/ai/primitives/message";
 import { MessageResponse } from "@/components/ai/primitives/message";
 import { InlineConfirmationList } from "../confirmations/InlineConfirmation";
 import type { PendingContentItem, PendingContentType } from "../../data/types";
-import {
-  ChainOfThought,
-  ChainOfThoughtContent,
-  ChainOfThoughtHeader,
-  ChainOfThoughtStep,
-} from "@/components/ai/primitives/chain-of-thought";
-import {
-  Reasoning,
-  ReasoningContent,
-  ReasoningTrigger,
-} from "@/components/ai/primitives/reasoning";
-import { getToolConfig } from "@/components/ai/shared/ToolIcons";
-import { Sparkles } from "lucide-react";
+import { Download, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const toolResultDataSchema = z.record(z.unknown());
@@ -280,6 +269,10 @@ type PreviewMessageProps = {
   onRejectAll?: () => void | Promise<void>;
   onUpdateItem?: (index: number | string, updates: Partial<PendingContentItem>) => void;
   isProcessing?: boolean;
+  mediaImageUrl?: string;
+  onImageClick?: (payload: { url: string; prompt: string }) => void;
+  onDownloadImage?: (url: string) => void;
+  hideGeneratedPlaceholderText?: boolean;
 };
 
 export const PurePreviewMessage = ({
@@ -295,6 +288,10 @@ export const PurePreviewMessage = ({
   onRejectAll,
   onUpdateItem,
   isProcessing,
+  mediaImageUrl,
+  onImageClick,
+  onDownloadImage,
+  hideGeneratedPlaceholderText = false,
 }: PreviewMessageProps & { pendingItems?: PendingContentItem[] }) => {
   const isUser = message.role === "user";
   const textFromParts =
@@ -303,23 +300,10 @@ export const PurePreviewMessage = ({
         part.type === "text" && hasText(part)
     )?.text ?? "";
   const messageText = message.text || textFromParts;
-
-  const reasoningText = useMemo(() => {
-    return (
-      message.parts
-        ?.filter(
-          (part): part is UIMessagePart & { text: string } =>
-            part.type === "reasoning" && hasText(part)
-        )
-        .map((part) => part.text)
-        .join("\n\n") ?? ""
-    ).trim();
-  }, [message.parts]);
-
-  const toolParts = useMemo(
-    () => message.parts?.filter((part) => part.type.startsWith("tool-") && ("toolName" in part || "name" in part)) ?? [],
-    [message.parts]
-  );
+  const resolvedMessageText =
+    hideGeneratedPlaceholderText && messageText.trim() === "Generated image."
+      ? ""
+      : messageText;
 
   // Extract items and merge with local pending state for optimistic updates
   const inlineItems = useMemo(() => {
@@ -344,72 +328,92 @@ export const PurePreviewMessage = ({
   }, [message, pendingItems]);
 
   const hasConfirmations = inlineItems.length > 0 && !isLoading;
+  const hasVisibleAssistantContent =
+    resolvedMessageText.trim().length > 0 ||
+    Boolean(mediaImageUrl) ||
+    hasConfirmations;
+
+  if (!isUser && !isLoading && !hasVisibleAssistantContent) {
+    return null;
+  }
 
   return (
     <div
-      className="group/message fade-in w-full animate-in duration-200"
+      className="group/message fade-in mx-auto w-full max-w-[44rem] animate-in px-2 py-3 duration-150"
       data-role={message.role}
     >
       <div
-        className={cn("flex w-full items-start gap-2 md:gap-3", {
+        className={cn("flex w-full items-start gap-3", {
           "justify-end": isUser,
           "justify-start": !isUser,
         })}
       >
         {!isUser && (
-          <div className="-mt-1 flex size-8 shrink-0 items-center justify-center rounded-full bg-background ring-1 ring-border">
-            <Sparkles className="size-4" />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-primary">
+            <Sparkles className="h-4 w-4" />
           </div>
         )}
 
         <div
           className={cn("flex flex-col", {
-            "gap-2 md:gap-4": true,
+            "gap-2": true,
             "w-full": !isUser,
-            "max-w-[calc(100%-2.5rem)] sm:max-w-[min(fit-content,80%)]": isUser,
+            "max-w-[85%]": isUser,
           })}
         >
           {isUser && (
             <UserAttachmentPreview metadata={metadata} localAttachments={localAttachments} />
           )}
 
-          {reasoningText && !isUser && (
-            <Reasoning isStreaming={isLoading} defaultOpen={isLoading}>
-              <ReasoningTrigger />
-              <ReasoningContent>{reasoningText}</ReasoningContent>
-            </Reasoning>
-          )}
-
-          {!isUser && toolParts.length > 0 && (
-            <ChainOfThought defaultOpen={isLoading}>
-              <ChainOfThoughtHeader>Chain of Thought</ChainOfThoughtHeader>
-              <ChainOfThoughtContent>
-                {toolParts.map((part, index) => {
-                  const toolName = (part as { toolName?: string; name?: string }).toolName || (part as { toolName?: string; name?: string }).name;
-                  const config = toolName ? getToolConfig(toolName) : null;
-                  return (
-                    <ChainOfThoughtStep
-                      key={`${part.type}-${index}`}
-                      icon={config?.icon}
-                      label={config?.label ?? toolName ?? "Tool"}
-                      status={isLoading && index === toolParts.length - 1 ? "active" : "complete"}
-                    />
-                  );
-                })}
-              </ChainOfThoughtContent>
-            </ChainOfThought>
-          )}
-
-          {messageText && (
+          {resolvedMessageText && (
             <MessageContent
               className={cn({
-                "wrap-break-word w-fit rounded-2xl px-3 py-2 text-right text-white": isUser,
-                "bg-transparent px-0 py-0 text-left": !isUser,
+                "wrap-break-word w-fit rounded-2xl bg-muted px-4 py-2.5 text-left text-foreground": isUser,
+                "bg-transparent px-0 py-0 text-left leading-relaxed": !isUser,
               })}
-              style={isUser ? { backgroundColor: "#006cff" } : undefined}
             >
-              <MessageResponse>{messageText}</MessageResponse>
+              <MessageResponse>{resolvedMessageText}</MessageResponse>
             </MessageContent>
+          )}
+
+          {!isUser && mediaImageUrl && (
+            <div className="max-w-full space-y-2">
+              <div
+                className={cn(
+                  "relative overflow-hidden rounded-2xl border border-border/50 bg-muted/20 shadow-sm transition-shadow",
+                  onImageClick ? "cursor-zoom-in hover:shadow-md" : "",
+                )}
+                onClick={() => {
+                  if (!onImageClick) return;
+                  onImageClick({
+                    url: mediaImageUrl,
+                    prompt: resolvedMessageText || messageText,
+                  });
+                }}
+              >
+                <img
+                  src={mediaImageUrl}
+                  alt={resolvedMessageText || messageText || "Generated image"}
+                  className="max-h-[60vh] w-full object-contain"
+                />
+              </div>
+
+              {onDownloadImage && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onDownloadImage(mediaImageUrl);
+                  }}
+                >
+                  <Download className="mr-2 h-3.5 w-3.5" />
+                  Download
+                </Button>
+              )}
+            </div>
           )}
 
           {hasConfirmations && onConfirmItem && onRejectItem && (
@@ -425,6 +429,12 @@ export const PurePreviewMessage = ({
             />
           )}
         </div>
+
+        {isUser && (
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/60 bg-muted text-xs font-semibold text-muted-foreground">
+            U
+          </div>
+        )}
       </div>
     </div>
   );

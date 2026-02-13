@@ -1,5 +1,5 @@
 import { R2 } from "@convex-dev/r2";
-import { api, components, internal } from "./_generated/api";
+import { components } from "./_generated/api";
 import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { SUBSCRIPTION_PLANS } from "./stripe";
@@ -118,7 +118,7 @@ export const checkStorageLimit = internalQuery({
   },
 });
 
-// Konfiguracja klienta R2 z walidacją dla interior design
+// Konfiguracja klienta R2 z walidacją dla projektów architektonicznych
 export const { generateUploadUrl, syncMetadata } = r2.clientApi({
   checkUpload: async (ctx, bucket) => {
     // Sprawdź czy użytkownik jest zalogowany
@@ -173,14 +173,29 @@ export const generateUploadUrlWithCustomKey = mutation({
       throw new Error("No access to this project");
     }
 
-    // Check storage limit
-    const storageCheck = await ctx.runQuery(internal.files.checkStorageLimit, {
-      teamId: project.teamId,
-      additionalBytes: args.fileSize,
-    });
+    // Check storage limit locally to avoid cross-function type instantiation depth issues.
+    const teamProjects = await ctx.db
+      .query("projects")
+      .withIndex("by_team", (q) => q.eq("teamId", project.teamId))
+      .collect();
 
-    if (!storageCheck.allowed) {
-      throw new Error(storageCheck.message);
+    let totalBytes = 0;
+    for (const teamProject of teamProjects) {
+      const files = await ctx.db
+        .query("files")
+        .withIndex("by_project", (q) => q.eq("projectId", teamProject._id))
+        .filter((q) => q.eq(q.field("isLatest"), true))
+        .collect();
+      totalBytes += files.reduce((sum, file) => sum + (file.size || 0), 0);
+    }
+
+    const plan = (team.subscriptionPlan || "free") as keyof typeof SUBSCRIPTION_PLANS;
+    const limits = team.subscriptionLimits || SUBSCRIPTION_PLANS[plan];
+    const limitBytes = limits.maxStorageGB * 1024 * 1024 * 1024;
+    const newTotal = totalBytes + (args.fileSize || 0);
+
+    if (newTotal >= limitBytes) {
+      throw new Error(`Storage limit reached (${limits.maxStorageGB} GB). Please upgrade your plan.`);
     }
 
     const contextFolder = args.origin === "ai"
@@ -205,6 +220,113 @@ export const generateUploadUrlWithCustomKey = mutation({
       key: customKey,
       publicUrl: "", // Not needed - we use signed URLs
     };
+  },
+});
+
+const resolveFileType = (mimeType: string) => {
+  if (mimeType.startsWith("image/")) return "image";
+  if (mimeType.startsWith("video/")) return "video";
+  if (mimeType === "application/pdf" || mimeType.includes("document")) return "document";
+  if (mimeType.includes("dwg") || mimeType.includes("dxf")) return "drawing";
+  return "other";
+};
+const checkStorageLimitRef = { _name: "files:checkStorageLimit" } as const;
+
+const getProjectAccessForUser = async (ctx: any, projectId: Id<"projects">, actorUserId: string) => {
+  const project = await ctx.db.get(projectId) as any;
+  if (!project) {
+    return null;
+  }
+
+  const membership = await ctx.db
+    .query("teamMembers")
+    .withIndex("by_team_and_user", (q: any) =>
+      q.eq("teamId", project.teamId).eq("clerkUserId", actorUserId)
+    )
+    .filter((q: any) => q.eq(q.field("isActive"), true))
+    .first();
+
+  if (!membership || (membership.role !== "admin" && membership.role !== "member")) {
+    return null;
+  }
+
+  return { project, membership };
+};
+
+// Internal upload URL generator used by Telegram attachment ingestion.
+export const generateUploadUrlWithCustomKeyInternal = internalMutation({
+  args: {
+    projectId: v.id("projects"),
+    actorUserId: v.string(),
+    fileName: v.string(),
+    origin: v.optional(v.union(v.literal("ai"), v.literal("general"))),
+    fileSize: v.optional(v.number()),
+  },
+  returns: v.object({
+    url: v.string(),
+    key: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    const access = await getProjectAccessForUser(ctx, args.projectId, args.actorUserId);
+    if (!access) throw new Error("No access to this project");
+
+    const project = access.project;
+    const team = await ctx.db.get(project.teamId) as any;
+    if (!team) throw new Error("Team not found");
+
+    const storageCheck = await ctx.runQuery(checkStorageLimitRef as any, {
+      teamId: project.teamId,
+      additionalBytes: args.fileSize,
+    });
+    if (!storageCheck.allowed) {
+      throw new Error(storageCheck.message);
+    }
+
+    const contextFolder = args.origin === "ai" ? "ai" : "files";
+    const path = `${team.slug}/${project.slug}/${contextFolder}`;
+    const fileExtension = args.fileName.includes(".") ? args.fileName.split(".").pop() : "";
+    const baseName = args.fileName.replace(/\.[^/.]+$/, "");
+    const uuid = crypto.randomUUID();
+    const customKey = `${path}/${uuid}-${baseName}${fileExtension ? "." + fileExtension : ""}`;
+
+    const uploadData = await r2.generateUploadUrl(customKey);
+    return { url: uploadData.url, key: customKey };
+  },
+});
+
+// Internal file record creation used by Telegram attachment ingestion.
+export const createFileRecordInternal = internalMutation({
+  args: {
+    projectId: v.id("projects"),
+    actorUserId: v.string(),
+    fileKey: v.string(),
+    fileName: v.string(),
+    fileType: v.string(),
+    fileSize: v.optional(v.number()),
+    origin: v.optional(v.union(v.literal("ai"), v.literal("general"))),
+  },
+  handler: async (ctx, args) => {
+    const access = await getProjectAccessForUser(ctx, args.projectId, args.actorUserId);
+    if (!access) throw new Error("No access to this project");
+
+    const project = access.project;
+    const origin = args.origin ?? "general";
+
+    const fileId = await ctx.db.insert("files", {
+      name: args.fileName,
+      teamId: project.teamId,
+      projectId: args.projectId,
+      fileType: resolveFileType(args.fileType),
+      storageId: args.fileKey,
+      size: args.fileSize || 0,
+      mimeType: args.fileType,
+      uploadedBy: args.actorUserId,
+      version: 1,
+      isLatest: true,
+      origin,
+    });
+
+    return fileId;
   },
 });
 
@@ -316,10 +438,11 @@ export const addFile = mutation({
     // Log activity if file is attached to a task
     if (args.taskId) {
       const task = await ctx.db.get(args.taskId);
-      await ctx.runMutation(internal.activityLog.logActivity, {
+      await ctx.db.insert("activityLog", {
         teamId: project.teamId,
         projectId: args.projectId,
         taskId: args.taskId,
+        userId: identity.subject,
         actionType: "task.file.add",
         details: { taskTitle: task?.title, fileName: args.fileName, fileType: getFileType(args.fileType) },
         entityId: fileId,
@@ -836,8 +959,19 @@ export const getFilesForTask = query({
         const task = await ctx.db.get(args.taskId);
         if (!task) return [];
 
-        const hasAccess = await ctx.runQuery(api.projects.checkUserProjectAccess, { projectId: task.projectId });
+        if (!task.projectId) return [];
+
+        const project = await ctx.db.get(task.projectId);
+        if (!project) return [];
+
+        const hasAccess = await ctx.db
+            .query("teamMembers")
+            .withIndex("by_team_and_user", (q) =>
+              q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
+            )
+            .unique();
         if (!hasAccess) return [];
+        if (!hasAccess.isActive) return [];
 
         const files = await ctx.db
             .query("files")

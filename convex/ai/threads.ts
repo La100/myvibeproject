@@ -13,6 +13,10 @@ function resolveAgentThreadId(thread: { threadId: string; agentThreadId?: string
   return thread.threadId;
 }
 
+function isLegacyThreadId(threadId: string): boolean {
+  return threadId.startsWith("thread-") || threadId.startsWith("thread_");
+}
+
 // Internal version - used by server-side functions
 export const getOrCreateThread = internalMutation({
   args: {
@@ -225,6 +229,79 @@ export const updateThreadSummary = internalMutation({
     }
 
     return null;
+  },
+});
+
+// Internal helper for bot/webhook flows: ensure a project thread exists for a user.
+export const getProjectThreadInternal = internalMutation({
+  args: {
+    projectId: v.id("projects"),
+    userClerkId: v.string(),
+    title: v.optional(v.string()),
+  },
+  returns: v.string(),
+  handler: async (ctx, args) => {
+    const existingThread = await ctx.db
+      .query("aiThreads")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .filter((q) => q.eq(q.field("userClerkId"), args.userClerkId))
+      .first();
+
+    if (existingThread) {
+      return existingThread.threadId;
+    }
+
+    const project = await ctx.db.get(args.projectId);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    const threadId = `thread-${args.projectId}-${args.userClerkId}-${Date.now()}`;
+    await ctx.db.insert("aiThreads", {
+      threadId,
+      projectId: args.projectId,
+      teamId: project.teamId,
+      userClerkId: args.userClerkId,
+      lastMessageAt: Date.now(),
+      messageCount: 0,
+      title: args.title ?? "Assistant Chat",
+    });
+
+    return threadId;
+  },
+});
+
+// Internal helper: resolve latest assistant message text for Telegram responses.
+export const getLatestAssistantMessageText = internalQuery({
+  args: {
+    threadId: v.string(),
+  },
+  returns: v.union(v.null(), v.string()),
+  handler: async (ctx, args) => {
+    let agentThreadId = args.threadId;
+
+    if (isLegacyThreadId(args.threadId)) {
+      const mapping = await ctx.db
+        .query("aiThreads")
+        .withIndex("by_thread_id", (q) => q.eq("threadId", args.threadId))
+        .unique();
+      if (!mapping?.agentThreadId) {
+        return null;
+      }
+      agentThreadId = mapping.agentThreadId;
+    }
+
+    const latestMessages = await listMessages(ctx, components.agent, {
+      threadId: agentThreadId,
+      paginationOpts: { cursor: null, numItems: 5 },
+      excludeToolMessages: true,
+    });
+
+    const latestAssistant = latestMessages.page.find(
+      (msg) => msg.message?.role === "assistant"
+    );
+
+    return latestAssistant?.text ?? null;
   },
 });
 
@@ -759,6 +836,50 @@ export const clearAllThreadsForUser = mutation({
     }
 
     return { success: true, removedThreads: threadsToRemove.length };
+  },
+});
+
+// Internal helper for bot flows: clear an entire thread without user auth context.
+export const clearThreadInternal = internalMutation({
+  args: {
+    threadId: v.string(),
+    projectId: v.id("projects"),
+  },
+  returns: v.object({
+    success: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    const thread = await ctx.db
+      .query("aiThreads")
+      .withIndex("by_thread_id", (q) => q.eq("threadId", args.threadId))
+      .unique();
+
+    if (!thread) {
+      return { success: true };
+    }
+
+    if (thread.projectId !== args.projectId) {
+      throw new Error("Thread does not belong to this project");
+    }
+
+    const functionCalls = await ctx.db
+      .query("aiFunctionCalls")
+      .withIndex("by_thread", (q) => q.eq("threadId", args.threadId))
+      .collect();
+
+    for (const call of functionCalls) {
+      await ctx.db.delete(call._id);
+    }
+
+    const agentThreadId = resolveAgentThreadId(thread);
+    if (agentThreadId) {
+      await ctx.runMutation(components.agent.threads.deleteAllForThreadIdAsync, {
+        threadId: agentThreadId,
+      });
+    }
+
+    await ctx.db.delete(thread._id);
+    return { success: true };
   },
 });
 

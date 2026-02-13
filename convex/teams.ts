@@ -1,7 +1,7 @@
 import { v } from "convex/values";
+import type { FunctionReference } from "convex/server";
 import { query, mutation, internalMutation, internalQuery, internalAction } from "./_generated/server";
-import { Doc, Id } from "./_generated/dataModel";
-import { internal, api } from "./_generated/api";
+import { Doc } from "./_generated/dataModel";
 
 export const listUserTeams = query({
   args: {},
@@ -278,7 +278,7 @@ export const inviteCustomerToProject = mutation({
     email: v.string(),
     projectId: v.id("projects"),
   },
-  async handler(ctx, args): Promise<{ invitationId: any; customerId: any }> {
+  async handler(ctx, args) {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new Error("Not authenticated");
@@ -305,25 +305,81 @@ export const inviteCustomerToProject = mutation({
       throw new Error("Insufficient permissions to invite a customer");
     }
 
-    // Najpierw stwórz pending invitation
-    const invitationId = await ctx.runMutation(internal.teams.createPendingCustomerInvitation, {
-      email: args.email,
+    const normalizedEmail = args.email.trim().toLowerCase();
+
+    // Replace any older pending invitation for this email+project pair.
+    const existingPendingInvitations = await ctx.db
+      .query("pendingCustomerInvitations")
+      .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
+      .filter((q) => q.eq(q.field("projectId"), args.projectId))
+      .collect();
+
+    for (const pendingInvitation of existingPendingInvitations) {
+      await ctx.db.delete(pendingInvitation._id);
+    }
+
+    const invitationId = await ctx.db.insert("pendingCustomerInvitations", {
+      email: normalizedEmail,
       projectId: args.projectId,
       clerkOrgId: team.clerkOrgId,
       invitedBy: identity.subject,
+      status: "pending",
+      expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
     });
 
-    // Następnie dodaj klienta do projektu (utworzy rekord w customers)
-    const customerId = await ctx.runMutation(internal.teams.addCustomerToProject, {
-      email: args.email,
-      projectId: args.projectId,
-      clerkOrgId: team.clerkOrgId,
-    });
+    const existingCustomer = await ctx.db
+      .query("customers")
+      .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
+      .filter((q) => q.eq(q.field("projectId"), args.projectId))
+      .unique();
+
+    let customerId;
+    if (existingCustomer) {
+      if (existingCustomer.status !== "active") {
+        await ctx.db.patch(existingCustomer._id, { status: "active" });
+      }
+      customerId = existingCustomer._id;
+    } else {
+      const existingUser = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
+        .unique();
+
+      customerId = await ctx.db.insert("customers", {
+        email: normalizedEmail,
+        clerkUserId: existingUser?.clerkUserId,
+        clerkOrgId: team.clerkOrgId,
+        projectId: args.projectId,
+        teamId: project.teamId,
+        invitedBy: identity.subject,
+        status: existingUser ? "active" : "invited",
+        invitedAt: Date.now(),
+        joinedAt: existingUser ? Date.now() : undefined,
+      });
+    }
 
     // Wyślij email przez Clerk
-    await ctx.scheduler.runAfter(0, internal.teams.sendCustomerClerkInvitation, {
+    const sendCustomerInvitationRef = {
+      _name: "teams:sendCustomerClerkInvitation",
+    } as unknown as FunctionReference<"action">;
+
+    const scheduler = ctx.scheduler as unknown as {
+      runAfter: (
+        delayMs: number,
+        reference: FunctionReference<"action">,
+        args: {
+          clerkOrgId: string;
+          email: string;
+          projectId: string;
+          projectName: string;
+          invitedBy: string;
+        },
+      ) => Promise<void>;
+    };
+
+    await scheduler.runAfter(0, sendCustomerInvitationRef, {
       clerkOrgId: team.clerkOrgId,
-      email: args.email,
+      email: normalizedEmail,
       projectId: args.projectId,
       projectName: project.name,
       invitedBy: identity.subject,
@@ -811,7 +867,24 @@ export const inviteTeamMember = mutation({
       throw new Error("Only admins can invite members");
     }
 
-    await ctx.scheduler.runAfter(0, internal.teams.sendClerkInvitation, {
+    const sendClerkInvitationRef = {
+      _name: "teams:sendClerkInvitation",
+    } as unknown as FunctionReference<"action">;
+
+    const scheduler = ctx.scheduler as unknown as {
+      runAfter: (
+        delayMs: number,
+        reference: FunctionReference<"action">,
+        args: {
+          clerkOrgId: string;
+          email: string;
+          role: "admin" | "member";
+          invitedBy: string;
+        },
+      ) => Promise<void>;
+    };
+
+    await scheduler.runAfter(0, sendClerkInvitationRef, {
       clerkOrgId: team.clerkOrgId,
       email: args.email,
       role: args.role,
@@ -1291,6 +1364,7 @@ export const updateTeamSettings = mutation({
       v.literal("HUF"), v.literal("CNY"), v.literal("INR"), v.literal("BRL"),
       v.literal("MXN"), v.literal("KRW"), v.literal("SGD"), v.literal("HKD")
     )),
+    timezone: v.optional(v.string()),
   },
   async handler(ctx, args) {
     const identity = await ctx.auth.getUserIdentity();
@@ -1310,14 +1384,20 @@ export const updateTeamSettings = mutation({
       throw new Error("Only admins can update team settings");
     }
 
-    // Przygotuj dane do aktualizacji
-    const updateData: any = {};
-    if (args.currency !== undefined) {
-      updateData.currency = args.currency;
+    if (args.currency !== undefined && args.timezone !== undefined) {
+      await ctx.db.patch(args.teamId, {
+        currency: args.currency,
+        timezone: args.timezone.trim(),
+      });
+    } else if (args.currency !== undefined) {
+      await ctx.db.patch(args.teamId, {
+        currency: args.currency,
+      });
+    } else if (args.timezone !== undefined) {
+      await ctx.db.patch(args.teamId, {
+        timezone: args.timezone.trim(),
+      });
     }
-
-    // Aktualizuj zespół
-    await ctx.db.patch(args.teamId, updateData);
 
     return { success: true };
   },

@@ -22,9 +22,11 @@ import {
 
 import { toast } from "sonner";
 import { useState, useMemo, useEffect } from "react";
-import { LayoutGrid, List, ChevronsUpDown, X, MessageSquare } from "lucide-react";
+import { LayoutGrid, List, ChevronsUpDown, X, MessageSquare, ListTodo, Plus } from "lucide-react";
 import Link from "next/link";
 import TaskForm from "./TaskForm";
+import { EmptyState } from "@/components/ui/empty-state";
+import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -441,7 +443,18 @@ export default function TasksView() {
       </Dialog>
 
       <div className="flex-grow overflow-y-auto overflow-x-hidden">
-        {viewMode === "kanban" ? (
+        {localKanbanTasks.length === 0 ? (
+          <EmptyState
+            icon={ListTodo}
+            title="No tasks yet"
+            description="Get started by creating your first task to track your project progress"
+            action={{
+              label: "Create Task",
+              onClick: () => setIsTaskFormOpen(true),
+              icon: Plus,
+            }}
+          />
+        ) : viewMode === "kanban" ? (
           <KanbanProvider onDragEnd={handleDragEnd}>
             <div className="grid flex-grow grid-cols-1 gap-4 items-start md:grid-cols-2 lg:grid-cols-4">
               {statusOptions.map((status) => (
@@ -460,6 +473,7 @@ export default function TasksView() {
                           name={task.name}
                           index={index}
                           parent={status.value}
+                          className="border-0 bg-transparent p-0 shadow-none"
                         >
                             <TaskCardContent
                             task={task}
@@ -560,17 +574,34 @@ export default function TasksView() {
 
 function TaskCardContent({ task, projectSlug }: { task: KanbanTask, projectSlug: string }) {
   const priority = getPriorityDisplay(task.priority);
+
+  // Priority accent colors
+  const priorityAccentColors = {
+    urgent: "bg-red-500",
+    high: "bg-orange-500",
+    medium: "bg-yellow-500",
+    low: "bg-green-500",
+  };
+
   return (
-    <div className="block">
-      <div className="flex justify-between items-start">
-        <Link href={`/organisation/projects/${projectSlug}/tasks/${task.id}`}>
-          <h4 className="font-semibold text-sm mb-2 hover:underline">{task.title}</h4>
+    <div className="relative block hover-lift bg-card border border-border rounded-lg p-4 shadow-sm hover:shadow-md transition-all cursor-pointer">
+      {/* Priority accent bar */}
+      {task.priority && (
+        <div className={cn(
+          "absolute left-0 top-0 bottom-0 w-1 rounded-l-lg",
+          priorityAccentColors[task.priority as keyof typeof priorityAccentColors]
+        )} />
+      )}
+
+      <div className="flex justify-between items-start mb-2">
+        <Link href={`/organisation/projects/${projectSlug}/tasks/${task.id}`} className="flex-1">
+          <h4 className="font-semibold text-sm hover:underline line-clamp-2">{task.title}</h4>
         </Link>
         {task.priority && (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Badge className={`${priority.color} text-xs`}>{priority.label}</Badge>
+                <Badge className={`${priority.color} text-xs ml-2 shrink-0`}>{priority.label}</Badge>
               </TooltipTrigger>
               <TooltipContent>
                 <p>Priority: {priority.label}</p>
@@ -579,41 +610,48 @@ function TaskCardContent({ task, projectSlug }: { task: KanbanTask, projectSlug:
           </TooltipProvider>
         )}
       </div>
-      {task.description && <p className="text-xs text-muted-foreground mb-2">{task.description}</p>}
-      
-      {(task.startDate || task.endDate) && (
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              {task.startDate && task.endDate ? (
-                <span>{formatDateTime(task.startDate)} - {formatDateTime(task.endDate)}</span>
-              ) : task.endDate ? (
-                <span>Due: {formatDateTime(task.endDate)}</span>
-              ) : (
-                <span>Start: {formatDateTime(task.startDate!)}</span>
-              )}
-          </div>
+
+      {task.description && (
+        <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{task.description}</p>
       )}
 
-      <div className="flex flex-wrap gap-1 mb-2">
-        {task.tags?.map(tag => (
-          <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
-        ))}
-      </div>
+      {(task.startDate || task.endDate) && (
+        <div className="flex items-center gap-1 text-xs text-muted-foreground mb-3">
+          {task.startDate && task.endDate ? (
+            <span>{formatDateTime(task.startDate)} - {formatDateTime(task.endDate)}</span>
+          ) : task.endDate ? (
+            <span>Due: {formatDateTime(task.endDate)}</span>
+          ) : (
+            <span>Start: {formatDateTime(task.startDate!)}</span>
+          )}
+        </div>
+      )}
 
-      <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-100">
-        {task.commentCount > 0 && (
-          <div className="flex items-center gap-1 text-muted-foreground text-xs">
-            <MessageSquare className="w-3 h-3" />
-            <span>{task.commentCount}</span>
-          </div>
-        )}
+      {task.tags && task.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-3">
+          {task.tags.map(tag => (
+            <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
+          ))}
+        </div>
+      )}
+
+      <div className="flex justify-between items-center mt-auto pt-3 border-t">
+        <div className="flex items-center gap-3">
+          {task.commentCount > 0 && (
+            <div className="flex items-center gap-1 text-muted-foreground text-xs">
+              <MessageSquare className="w-3.5 h-3.5" />
+              <span>{task.commentCount}</span>
+            </div>
+          )}
+        </div>
         <div className="flex items-center -space-x-2">
           {task.assignedTo && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Avatar className="w-6 h-6 border-2 border-white">
+                  <Avatar className="w-6 h-6 border-2 border-background hover:scale-110 transition-transform">
                     <AvatarImage src={task.assignedToImageUrl} />
-                    <AvatarFallback>{task.assignedToName?.charAt(0)}</AvatarFallback>
+                    <AvatarFallback className="text-xs">{task.assignedToName?.charAt(0)}</AvatarFallback>
                   </Avatar>
                 </TooltipTrigger>
                 <TooltipContent>

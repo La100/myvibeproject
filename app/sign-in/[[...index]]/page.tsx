@@ -1,30 +1,66 @@
 "use client";
 
-import { useSignIn } from "@clerk/nextjs";
+import { useEffect } from "react";
+import { useSignIn, useSignUp, useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 
 export default function SignInPage() {
   const { signIn } = useSignIn();
+  const { signUp } = useSignUp();
+  const { isLoaded, isSignedIn } = useUser();
   const router = useRouter();
 
+  useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      router.replace("/dashboard");
+    }
+  }, [isLoaded, isSignedIn, router]);
+
   const handleGoogleSignIn = async () => {
+    if (isSignedIn) {
+      router.replace("/dashboard");
+      return;
+    }
+
     try {
       await signIn?.authenticateWithRedirect({
         strategy: "oauth_google",
         redirectUrl: "/sso-callback",
-        redirectUrlComplete: "/dashboard",
-        // @ts-expect-error -- Scope is missing in the type definition but required by Google
-        scope: "https://www.googleapis.com/auth/calendar.events",
+        redirectUrlComplete: "/onboarding",
+
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.toLowerCase().includes("already signed in")) {
+        router.replace("/dashboard");
+        return;
+      }
       console.error("Error signing in with Google:", error);
     }
   };
 
-  const handleSignUp = () => {
-    router.push("/sign-up");
+  const handleSignUp = async () => {
+    if (isSignedIn) {
+      router.replace("/dashboard");
+      return;
+    }
+
+    try {
+      await signUp?.authenticateWithRedirect({
+        strategy: "oauth_google",
+        redirectUrl: "/sso-callback",
+        redirectUrlComplete: "/onboarding",
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.toLowerCase().includes("already signed in")) {
+        router.replace("/dashboard");
+        return;
+      }
+      console.error("Error signing up with Google:", error);
+    }
   };
 
   return (
@@ -34,7 +70,7 @@ export default function SignInPage() {
         <div className="relative w-full rounded-[24px] overflow-hidden">
           <Image
             src="/auth-image.jpg"
-            alt="VibePlanner"
+            alt="Myvibe project"
             fill
             className="object-cover"
             priority
@@ -49,8 +85,8 @@ export default function SignInPage() {
       <div className="flex-1 flex items-center justify-center p-8 lg:p-12">
         <div className="w-full max-w-[340px] flex flex-col items-center">
           {/* Logo/Title */}
-          <h1 className="text-3xl font-medium text-gray-900 mb-2">VibePlanner</h1>
-          <p className="text-gray-500 text-base mb-10">Architectural Project Manager.</p>
+          <h1 className="text-3xl font-medium text-gray-900 mb-2">Myvibe project</h1>
+          <p className="text-gray-500 text-base mb-10">AI assistant workspace.</p>
 
           {/* Google Sign In Button */}
           <button
@@ -93,6 +129,8 @@ export default function SignInPage() {
             Sign up
           </button>
 
+          <div id="clerk-captcha" className="w-full mb-8" />
+
           {/* Terms */}
           <p className="text-center text-xs text-gray-500 mb-16">
             By signing in you agree to our{" "}
@@ -110,7 +148,7 @@ export default function SignInPage() {
           <p className="text-sm text-gray-500">
             by{" "}
             <Link href="/" className="underline hover:text-gray-700">
-              VibePlanner
+              Myvibe project
             </Link>
           </p>
         </div>

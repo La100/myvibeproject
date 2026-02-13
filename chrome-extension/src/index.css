@@ -1,0 +1,125 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --radius: 0.875rem;
+    --background: 48 23% 95%;
+    --foreground: 0 0% 9%;
+    --card: 60 20% 98%;
+    --card-foreground: 0 0% 9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 9%;
+    --primary: 0 0% 9%;
+    --primary-foreground: 45 20% 97%;
+    --secondary: 45 16% 90%;
+    --secondary-foreground: 30 5% 15%;
+    --muted: 48 13% 92%;
+    --muted-foreground: 40 4% 41%;
+    --accent: 45 15% 89%;
+    --accent-foreground: 30 5% 15%;
+    --destructive: 1 71% 52%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 45 17% 87%;
+    --input: 44 14% 83%;
+    --ring: 42 5% 28%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body,
+  #root {
+    width: 420px;
+    min-width: 420px;
+    max-width: 420px;
+    height: 600px;
+    min-height: 600px;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: "Avenir Next", "Segoe UI", "Trebuchet MS", sans-serif;
+    font-feature-settings: "liga" 1, "cv03" 1, "cv04" 1;
+    background-image:
+      radial-gradient(circle at 14% 0%, rgba(255, 255, 255, 0.9), transparent 36%),
+      radial-gradient(circle at 100% 100%, rgba(235, 232, 223, 0.45), transparent 40%);
+  }
+}
+
+@layer components {
+  .vp-shell {
+    @apply relative h-full w-full overflow-hidden border border-border/70 bg-background shadow-[0_20px_42px_-30px_rgba(22,22,22,0.58)];
+  }
+
+  .vp-content {
+    @apply relative h-full;
+  }
+
+  .vp-glass {
+    @apply rounded-2xl border border-border/80 bg-card/95 shadow-[0_14px_32px_-26px_rgba(22,22,22,0.52)];
+  }
+
+  .vp-chip {
+    @apply inline-flex items-center rounded-full border border-border/90 bg-card px-2.5 py-1 text-[11px] font-medium tracking-tight text-muted-foreground;
+  }
+
+  .vp-title {
+    @apply text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground;
+  }
+
+  .clean-title {
+    font-family: Georgia, "Times New Roman", serif;
+    letter-spacing: -0.02em;
+  }
+
+  .clean-surface {
+    @apply border border-border/85 bg-card;
+    box-shadow: 0 8px 22px -20px rgba(22, 22, 22, 0.36);
+  }
+
+  .clean-panel {
+    @apply rounded-2xl border border-border/85 bg-card;
+    box-shadow: 0 16px 30px -28px rgba(22, 22, 22, 0.45);
+  }
+}
+
+@layer utilities {
+  .vp-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(22, 22, 22, 0.22) transparent;
+  }
+
+  .vp-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .vp-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .vp-scrollbar::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: rgba(22, 22, 22, 0.2);
+  }
+
+  .vp-float {
+    animation: vpFloat 2.6s ease-in-out infinite;
+  }
+}
+
+@keyframes vpFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}

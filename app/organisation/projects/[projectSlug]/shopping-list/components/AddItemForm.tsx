@@ -1,36 +1,15 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { 
-  ChevronDownIcon, 
-  ChevronUpIcon, 
-  PlusIcon, 
-  CalendarIcon 
-} from 'lucide-react';
+import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Doc, Id } from '@/convex/_generated/dataModel';
-
-type TeamMember = {
-  _id: Id<"teamMembers">;
-  _creationTime: number;
-  teamId: Id<"teams">;
-  clerkUserId: string;
-  clerkOrgId: string;
-  role: string;
-  permissions: string[];
-  name: string;
-  email: string;
-  imageUrl?: string;
-  joinedAt?: number;
-  projectIds?: Id<"projects">[];
-  isActive: boolean;
-};
+import type { TeamMember } from '@/lib/teamMember';
 
 interface AddItemFormProps {
   sections: Doc<"shoppingListSections">[];
@@ -54,21 +33,16 @@ interface AddItemFormProps {
   }) => Promise<void>;
   isPending: boolean;
   defaultSectionId?: Id<"shoppingListSections">;
-  isInline?: boolean;
 }
 
-export function AddItemForm({ 
-  sections, 
-  teamMembers, 
-  currencySymbol, 
-  onAddItem, 
+export function AddItemForm({
+  sections,
+  teamMembers,
+  currencySymbol,
+  onAddItem,
   isPending,
   defaultSectionId,
-  isInline = false
 }: AddItemFormProps) {
-  const [isExpanded, setIsExpanded] = useState(isInline);
-  
-  // Form states
   const [newItemName, setNewItemName] = useState('');
   const [newItemSupplier, setNewItemSupplier] = useState('');
   const [newItemCategory, setNewItemCategory] = useState('');
@@ -96,7 +70,7 @@ export function AddItemForm({
         catalogNumber: newItemCatalogNumber.trim() || undefined,
         dimensions: newItemDimensions.trim() || undefined,
         quantity: newItemQuantity,
-        unitPrice: unitPrice,
+        unitPrice,
         productLink: newItemProductLink.trim() || undefined,
         imageUrl: newItemImageUrl.trim() || undefined,
         priority: "medium",
@@ -105,7 +79,6 @@ export function AddItemForm({
         buyBefore: newItemBuyBefore?.getTime(),
       });
 
-      // Reset form
       setNewItemName('');
       setNewItemSupplier('');
       setNewItemCategory('');
@@ -118,16 +91,14 @@ export function AddItemForm({
       setNewItemImageUrl('');
       setNewItemAssignedTo('none');
       setNewItemBuyBefore(undefined);
-      
-      if (!isInline) {
-        setIsExpanded(false);
-      }
     } catch (error) {
       console.error('Error creating item:', error);
     }
   };
 
-  const formContent = (
+  const totalPrice = newItemUnitPrice ? newItemQuantity * (parseFloat(newItemUnitPrice) || 0) : 0;
+
+  return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <div>
@@ -141,8 +112,8 @@ export function AddItemForm({
         </div>
         <div>
           <label className="text-sm font-medium text-[#3C3A37] mb-1.5 block">Section</label>
-          <Select 
-            value={newItemSectionId} 
+          <Select
+            value={newItemSectionId}
             onValueChange={(value) => setNewItemSectionId(value as Id<"shoppingListSections"> | "none")}
           >
             <SelectTrigger className="h-12 rounded-[18px] border-[#E7E2D9] bg-white text-sm focus-visible:ring-[#6D8B73]">
@@ -200,7 +171,7 @@ export function AddItemForm({
             type="number"
             min="1"
             value={newItemQuantity}
-            onChange={(e) => setNewItemQuantity(parseInt(e.target.value) || 1)}
+            onChange={(e) => setNewItemQuantity(parseInt(e.target.value, 10) || 1)}
             className="h-12 rounded-[18px] border-[#E7E2D9] bg-white text-sm focus-visible:ring-[#6D8B73]"
           />
         </div>
@@ -244,7 +215,7 @@ export function AddItemForm({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">Unassigned</SelectItem>
-              {teamMembers?.map((member: TeamMember) => (
+              {teamMembers?.map((member) => (
                 <SelectItem key={member.clerkUserId} value={member.clerkUserId}>
                   <div className="flex items-center gap-2">
                     <Avatar className="h-5 w-5">
@@ -284,56 +255,25 @@ export function AddItemForm({
           </Popover>
         </div>
       </div>
+
+      {totalPrice > 0 && (
+        <div className="flex items-center justify-end gap-2 text-sm">
+          <span className="text-[#8C8880]">Total:</span>
+          <span className="font-medium text-[#1A1A1A]">
+            {totalPrice.toFixed(2)} {currencySymbol}
+          </span>
+        </div>
+      )}
+
       <div className="flex justify-end gap-3">
-        <Button 
-          onClick={handleAddItem} 
+        <Button
+          onClick={handleAddItem}
           disabled={isPending || !newItemName.trim()}
           className="rounded-full bg-[#0E0E0E] px-6 h-11 text-white shadow-[0_14px_36px_rgba(14,14,14,0.18)] hover:bg-[#1F1F1F]"
         >
           {isPending ? 'Adding...' : 'Add Product'}
         </Button>
-        {!isInline && (
-          <Button 
-            variant="outline" 
-            onClick={() => setIsExpanded(false)}
-            className="rounded-full border-[#E7E2D9] bg-white px-6 h-11 text-[#1A1A1A] hover:bg-[#FAF7F2]"
-          >
-            Cancel
-          </Button>
-        )}
       </div>
     </div>
   );
-
-  if (isInline) {
-    return formContent;
-  }
-
-  return (
-    <Card className="mb-6">
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <div 
-            className="flex items-center gap-2 cursor-pointer hover:text-gray-600 transition-colors"
-            onClick={() => setIsExpanded(!isExpanded)}
-          >
-            <PlusIcon className="h-5 w-5" />
-            Add New Product
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsExpanded(!isExpanded)}
-          >
-            {isExpanded ? <ChevronUpIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
-          </Button>
-        </CardTitle>
-      </CardHeader>
-      {isExpanded && (
-        <CardContent>
-          {formContent}
-        </CardContent>
-      )}
-    </Card>
-  );
-} 
+}

@@ -13,5 +13,6 @@ export * from './confirmations';
 // Other UI components
 export { ChatSidebar as Sidebar } from './Sidebar';
 export { ChatInput } from './ChatInput';
+export { Composer } from './Composer';
 export { ThinkingIndicator } from './ThinkingIndicator';
 export { SuggestedActions } from './SuggestedActions';

@@ -110,3 +110,66 @@ export const getForTask = query({
     return activitiesWithUsers;
   },
 }); 
+
+export const getTeamProductKpis = query({
+  args: {
+    teamId: v.id("teams"),
+    days: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const membership = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", args.teamId).eq("clerkUserId", identity.subject),
+      )
+      .unique();
+
+    if (!membership || !membership.isActive) {
+      throw new Error("Not authorized");
+    }
+
+    const days = Math.max(1, Math.min(args.days ?? 30, 365));
+    const since = Date.now() - days * 24 * 60 * 60 * 1000;
+
+    const analyticsEvents = await ctx.db
+      .query("activityLog")
+      .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+      .collect();
+
+    let onboardingCompleted = 0;
+    let projectsCreated = 0;
+    let aiMessagesSent = 0;
+    const activeUsers = new Set<string>();
+
+    for (const event of analyticsEvents) {
+      if (event._creationTime < since) {
+        continue;
+      }
+
+      if (event.actionType === "analytics.onboarding.completed") {
+        onboardingCompleted += 1;
+        activeUsers.add(event.userId);
+      } else if (event.actionType === "analytics.project.created") {
+        projectsCreated += 1;
+        activeUsers.add(event.userId);
+      } else if (event.actionType === "analytics.ai.message_sent") {
+        aiMessagesSent += 1;
+        activeUsers.add(event.userId);
+      }
+    }
+
+    return {
+      days,
+      since,
+      onboardingCompleted,
+      projectsCreated,
+      aiMessagesSent,
+      activeUsers: activeUsers.size,
+    };
+  },
+});

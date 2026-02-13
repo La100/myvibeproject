@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useOrganization } from "@clerk/nextjs";
 import { useQuery, useAction, useMutation } from "convex/react";
+import type { ChatStatus, FileUIPart } from "ai";
+import type { UIMessage } from "@convex-dev/agent/react";
 import { apiAny } from "@/lib/convexApiAny";
 import { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
@@ -13,8 +15,6 @@ import {
   Loader2,
   X,
   Download,
-  Sparkles,
-  Paperclip,
   History,
 } from "lucide-react";
 import { AISubscriptionWall } from "@/components/ai/shared";
@@ -22,14 +22,77 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/ca
 import { Badge } from "@/components/ui/badge";
 
 import { ChatSidebar, ThreadListItem } from "@/components/ai/assistant/ui/Sidebar";
-import { ChatInput } from "@/components/ai/assistant/ui/ChatInput";
+import { Composer } from "@/components/ai/assistant/ui/Composer";
+import { Message as AssistantMessage, ThinkingMessage } from "@/components/ai/assistant/ui/messages";
+import { PromptInputProvider, usePromptInputController } from "@/components/ai/primitives/prompt-input";
+
+type VisualizationMessage = {
+  _id: Id<"aiVisualizationMessages">;
+  _creationTime: number;
+  role: "user" | "model";
+  text: string;
+  messageIndex: number;
+  imageStorageKey?: string;
+  imageMimeType?: string;
+  imageUrl?: string;
+  referenceImages?: Array<{
+    storageKey: string;
+    mimeType: string;
+    name: string;
+  }>;
+};
+
+type Suggestion = {
+  text: string;
+  image: string;
+};
+
+function VisualizationSuggestions({ suggestions }: { suggestions: Suggestion[] }) {
+  const { textInput } = usePromptInputController();
+
+  return (
+    <div className="mt-16 w-full flex flex-col items-center max-w-4xl">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 }}
+        className="flex flex-nowrap overflow-x-auto snap-x snap-mandatory gap-5 pb-4 -mx-6 px-6 max-w-5xl mx-auto no-scrollbar w-full"
+      >
+        {suggestions.map((suggestion) => (
+          <button
+            key={suggestion.text}
+            onClick={() => textInput.setInput(suggestion.text)}
+            className={cn(
+              "group relative overflow-hidden rounded-[20px] text-left transition-all duration-300 aspect-[5/3] flex-shrink-0 border border-white/40 shadow-lg",
+              "min-w-[70vw] sm:min-w-[300px] md:min-w-[280px] lg:min-w-[260px] snap-center",
+              "hover:shadow-2xl hover:-translate-y-1.5 hover:border-white/70"
+            )}
+          >
+            <div className="absolute inset-0 z-0">
+              <img
+                src={suggestion.image}
+                alt=""
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+              />
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+            </div>
+
+            <div className="relative z-10 h-full flex flex-col justify-end p-5">
+              <p className="text-white font-semibold leading-snug text-sm drop-shadow-sm">
+                {suggestion.text}
+              </p>
+            </div>
+          </button>
+        ))}
+      </motion.div>
+    </div>
+  );
+}
 
 export default function VisualizationsPage() {
   const { organization } = useOrganization();
-  const [message, setMessage] = useState("");
   const [generatingSessionId, setGeneratingSessionId] = useState<string | null>(null);
   const isGenerating = !!generatingSessionId;
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
   // Session state
@@ -64,8 +127,6 @@ export default function VisualizationsPage() {
     currentSessionId ? { sessionId: currentSessionId } : "skip"
   );
 
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Actions and mutations
@@ -86,92 +147,84 @@ export default function VisualizationsPage() {
     }));
   }, [sessions]);
 
+  const normalizedMessages = useMemo(
+    () => ((sessionMessages ?? []) as VisualizationMessage[]),
+    [sessionMessages]
+  );
+
+  const displayMessages = useMemo(() => {
+    return normalizedMessages.map((msg) => {
+      const baseText = msg.role === "model" && msg.text.trim() === "Generated image." ? "" : msg.text;
+
+      const mapped: UIMessage = {
+        id: msg._id,
+        key: msg._id,
+        role: msg.role === "model" ? "assistant" : "user",
+        content: baseText,
+        text: baseText,
+        parts: baseText
+          ? [
+              {
+                type: "text",
+                text: baseText,
+              },
+            ]
+          : [],
+        order: msg.messageIndex,
+        stepOrder: msg.messageIndex,
+        status: "success",
+        _creationTime: msg._creationTime,
+      } as UIMessage;
+
+      return { raw: msg, mapped };
+    });
+  }, [normalizedMessages]);
+
+  const convertPromptFiles = async (files: FileUIPart[]) => {
+    const uploadFiles: File[] = [];
+
+    for (let index = 0; index < files.length; index += 1) {
+      const file = files[index];
+      if (!file.url) continue;
+
+      try {
+        const response = await fetch(file.url);
+        const blob = await response.blob();
+        const name = file.filename || `attachment-${index + 1}`;
+        const type = file.mediaType || blob.type || "application/octet-stream";
+        const converted = new File([blob], name, { type });
+        uploadFiles.push(converted);
+      } catch {
+        continue;
+      }
+    }
+
+    return uploadFiles;
+  };
+
   // Auto-scroll to bottom of messages
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [sessionMessages]);
-
-  // Auto-resize textarea
-  useEffect(() => {
-    if (inputRef.current) {
-      inputRef.current.style.height = "auto";
-      inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 200)}px`;
-    }
-  }, [message]);
-
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0 || !team) return;
-
-    setIsUploading(true);
-    const newFiles: File[] = [];
-
-    for (const file of Array.from(files)) {
-      if (file.size > 20 * 1024 * 1024) {
-        toast.error(`${file.name} is too large (max 20MB)`);
-        continue;
-      }
-      newFiles.push(file);
-    }
-
-    setSelectedFiles((prev) => [...prev, ...newFiles]);
-    setIsUploading(false);
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  };
-
-  const handleRemoveFile = (index: number) => {
-    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handlePasteFiles = async (files: File[]) => {
-    if (!team) return;
-
-    setIsUploading(true);
-    const newFiles: File[] = [];
-
-    for (const file of files) {
-      if (file.size > 20 * 1024 * 1024) {
-        toast.error(`${file.name} is too large (max 20MB)`);
-        continue;
-      }
-      newFiles.push(file);
-    }
-
-    if (newFiles.length > 0) {
-      setSelectedFiles((prev) => [...prev, ...newFiles]);
-      toast.success(`${newFiles.length} image${newFiles.length !== 1 ? 's' : ''} pasted`);
-    }
-
-    setIsUploading(false);
-  };
+  }, [displayMessages.length, isGenerating]);
 
   const handleNewChat = () => {
     setCurrentSessionId(null);
-    setMessage("");
-    setSelectedFiles([]);
   };
 
   const handleThreadSelect = (threadId: string) => {
     setCurrentSessionId(threadId as Id<"aiVisualizationSessions">);
-    setMessage("");
-    setSelectedFiles([]);
   };
 
-  const handleSendMessage = async () => {
-    if (!message.trim() || isGenerating || isUploading || !team) return;
+  const handleSendMessage = async (payload: { text: string; files: FileUIPart[] }) => {
+    if (isGenerating || isUploading || !team) return;
 
-    const userPrompt = message;
-    setMessage("");
+    const userPrompt = payload.text.trim();
+    if (!userPrompt) return;
+
     // Track generation for current session (or "new" if creating one)
     setGeneratingSessionId(currentSessionId || "new");
-
-    const filesToUpload = [...selectedFiles];
-    setSelectedFiles([]);
 
     try {
       let sessionId = currentSessionId;
@@ -183,13 +236,24 @@ export default function VisualizationsPage() {
         });
         setCurrentSessionId(sessionId);
       }
+
       // Update generating session ID to the real one
       setGeneratingSessionId(sessionId);
 
       // Upload reference images if any
+      const uploadFiles = await convertPromptFiles(payload.files);
       const uploadedRefs: Array<{ storageKey: string; mimeType: string; name: string; base64?: string }> = [];
 
-      for (const file of filesToUpload) {
+      if (uploadFiles.length > 0) {
+        setIsUploading(true);
+      }
+
+      for (const file of uploadFiles) {
+        if (file.size > 20 * 1024 * 1024) {
+          toast.error(`${file.name} is too large (max 20MB)`);
+          continue;
+        }
+
         try {
           const { url, key } = await getUploadUrl({
             teamId: team._id,
@@ -221,12 +285,12 @@ export default function VisualizationsPage() {
       });
 
       // Build history from session messages
-      const history = sessionMessages?.map((msg) => ({
+      const history = normalizedMessages.map((msg) => ({
         role: msg.role as "user" | "model",
         text: msg.text,
         imageStorageKey: msg.imageStorageKey,
         imageMimeType: msg.imageMimeType,
-      })) || [];
+      }));
 
       // Generate visualization
       const result = await generateVisualization({
@@ -247,6 +311,7 @@ export default function VisualizationsPage() {
       console.error(error);
     } finally {
       setGeneratingSessionId(null);
+      setIsUploading(false);
     }
   };
 
@@ -278,7 +343,7 @@ export default function VisualizationsPage() {
     }
   };
 
-  const suggestions = [
+  const suggestions: Suggestion[] = [
     {
       text: "Minimalist Scandinavian living room with natural oak floors",
       image: "/samplevisuals/sample1.jpeg",
@@ -297,11 +362,13 @@ export default function VisualizationsPage() {
     },
   ];
 
+  const submitStatus = (isGenerating ? "streaming" : "ready") as ChatStatus;
+
   // Check access
   const isQuotaBlocked = !!(
     aiAccess &&
     !aiAccess.hasAccess &&
-    (aiAccess.remainingTokens === 0 || (aiAccess.message || "").toLowerCase().includes("wyczerpan"))
+    (aiAccess.remainingTokens === 0 || (aiAccess.message || "").toLowerCase().includes("exhaust"))
   );
 
   if (aiAccess !== undefined && !aiAccess.hasAccess && team?._id) {
@@ -314,9 +381,9 @@ export default function VisualizationsPage() {
                 variant="secondary"
                 className="w-fit bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400 border-0 px-3 py-1 rounded-full"
               >
-                Tokeny wyczerpane
+                Tokens exhausted
               </Badge>
-              <CardTitle className="text-2xl font-display tracking-tight">Brak tokenów AI</CardTitle>
+              <CardTitle className="text-2xl font-display tracking-tight">No AI tokens available</CardTitle>
               <CardDescription className="text-base">{aiAccess.message}</CardDescription>
             </CardHeader>
           </Card>
@@ -337,294 +404,183 @@ export default function VisualizationsPage() {
   const showEmptyState = !currentSessionId && !isGenerating;
 
   return (
-    <>
-      <div className="flex h-[calc(100vh-4rem)] bg-background text-foreground overflow-hidden">
-        {/* Main content area */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center justify-between gap-3 p-4 border-b border-border/50">
-            <div className="flex items-center gap-2">
-              {currentSession && (
-                <>
-                  <h2 className="font-medium truncate max-w-[300px]">
-                    {currentSession.title || "New visualization"}
-                  </h2>
-                  <Badge variant="secondary" className="text-xs">
-                    {currentSession.imageCount} image{currentSession.imageCount !== 1 ? "s" : ""}
-                  </Badge>
-                </>
+    <PromptInputProvider>
+      <>
+        <div className="flex h-[calc(100vh-4rem)] text-foreground overflow-hidden">
+          {/* Main content area */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between gap-3 p-4 border-b border-border/50">
+              <div className="flex items-center gap-2">
+                {currentSession && (
+                  <>
+                    <h2 className="font-medium truncate max-w-[300px]">
+                      {currentSession.title || "New visualization"}
+                    </h2>
+                    <Badge variant="secondary" className="text-xs">
+                      {currentSession.imageCount} image{currentSession.imageCount !== 1 ? "s" : ""}
+                    </Badge>
+                  </>
+                )}
+              </div>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowHistory(!showHistory)}
+                className="h-8 w-8"
+                title="Toggle history"
+              >
+                <History className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Messages area */}
+            <div className="flex-1 overflow-y-auto px-6">
+              {showEmptyState ? (
+                <div className="flex flex-col items-center justify-center min-h-full w-full max-w-2xl mx-auto px-4 py-12 animate-in fade-in zoom-in-95 duration-500">
+                  <h1 className="text-4xl md:text-5xl font-medium tracking-tight mb-3 text-center text-foreground font-display">
+                    Visualizations
+                  </h1>
+
+                  <p className="text-muted-foreground text-center mb-12 text-lg">
+                    Describe your <span className="italic font-serif text-foreground">vision</span>. AI
+                    brings it to{" "}
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 font-semibold">
+                      life
+                    </span>
+                    .
+                  </p>
+
+                  <Composer
+                    submitStatus={submitStatus}
+                    onSubmit={handleSendMessage}
+                    onStopResponse={handleStopResponse}
+                    placeholder="Describe your visualization..."
+                    accept="image/*"
+                    maxFiles={10}
+                    maxFileSize={20 * 1024 * 1024}
+                    isUploading={isUploading}
+                    disabled={isGenerating}
+                  />
+
+                  <VisualizationSuggestions suggestions={suggestions} />
+                </div>
+              ) : (
+                <div className="max-w-4xl mx-auto py-6 space-y-6">
+                  {displayMessages.map(({ raw, mapped }) => (
+                    <AssistantMessage
+                      key={raw._id}
+                      message={mapped}
+                      isLoading={false}
+                      localAttachments={
+                        raw.role === "user"
+                          ? raw.referenceImages?.map((image) => ({
+                              name: image.name,
+                              size: 0,
+                              type: image.mimeType,
+                            }))
+                          : undefined
+                      }
+                      mediaImageUrl={raw.role === "model" ? raw.imageUrl : undefined}
+                      hideGeneratedPlaceholderText
+                      onImageClick={(payload) => setSelectedLightbox(payload)}
+                      onDownloadImage={handleDownload}
+                    />
+                  ))}
+
+                  {/* Generating indicator - only show if for this session */}
+                  {isGenerating && (generatingSessionId === currentSessionId || (generatingSessionId === "new" && !currentSessionId)) && (
+                    <ThinkingMessage />
+                  )}
+
+                  <div ref={messagesEndRef} />
+                </div>
               )}
             </div>
 
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setShowHistory(!showHistory)}
-              className="h-8 w-8"
-              title="Toggle history"
-            >
-              <History className="h-4 w-4" />
-            </Button>
-          </div>
-
-          {/* Messages area */}
-          <div className="flex-1 overflow-y-auto px-6">
-            {showEmptyState ? (
-              /* Empty State / Hero */
-              <div className="flex flex-col items-center justify-center min-h-full w-full max-w-2xl mx-auto px-4 py-12 animate-in fade-in zoom-in-95 duration-500">
-                <h1 className="text-4xl md:text-5xl font-medium tracking-tight mb-3 text-center text-foreground font-display">
-                  Visualizations
-                </h1>
-
-                <p className="text-muted-foreground text-center mb-12 text-lg">
-                  Describe your <span className="italic font-serif text-foreground">vision</span>. AI
-                  brings it to{" "}
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 font-semibold">
-                    life
-                  </span>
-                  .
-                </p>
-
-                {/* Input area using ChatInput */}
-                <ChatInput
-                  message={message}
-                  setMessage={setMessage}
-                  selectedFiles={selectedFiles}
-                  isLoading={isGenerating}
-                  isUploading={isUploading}
-                  inputRef={inputRef}
-                  fileInputRef={fileInputRef}
-                  onSendMessage={handleSendMessage}
+            {/* Input area for conversation */}
+            {!showEmptyState && (
+              <div className="w-full px-6 py-4 border-t border-border/50">
+                <Composer
+                  submitStatus={submitStatus}
+                  onSubmit={handleSendMessage}
                   onStopResponse={handleStopResponse}
-                  onFileSelect={handleFileSelect}
-                  onRemoveFile={handleRemoveFile}
-                  onAttachmentClick={() => fileInputRef.current?.click()}
-                  onPasteFiles={handlePasteFiles}
+                  placeholder="Describe your visualization..."
+                  accept="image/*"
+                  maxFiles={10}
+                  maxFileSize={20 * 1024 * 1024}
+                  isUploading={isUploading}
+                  disabled={isGenerating}
                 />
-
-                {/* Suggestions */}
-                <div className="mt-16 w-full flex flex-col items-center max-w-4xl">
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.5 }}
-                    className="flex flex-nowrap overflow-x-auto snap-x snap-mandatory gap-5 pb-4 -mx-6 px-6 max-w-5xl mx-auto no-scrollbar w-full"
-                  >
-                    {suggestions.map((suggestion) => (
-                      <button
-                        key={suggestion.text}
-                        onClick={() => setMessage(suggestion.text)}
-                        className={cn(
-                          "group relative overflow-hidden rounded-[20px] text-left transition-all duration-300 aspect-[5/3] flex-shrink-0 border border-white/40 shadow-lg",
-                          "min-w-[70vw] sm:min-w-[300px] md:min-w-[280px] lg:min-w-[260px] snap-center",
-                          "hover:shadow-2xl hover:-translate-y-1.5 hover:border-white/70"
-                        )}
-                      >
-                        <div className="absolute inset-0 z-0">
-                          <img
-                            src={suggestion.image}
-                            alt=""
-                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                          />
-                          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-                        </div>
-
-                        <div className="relative z-10 h-full flex flex-col justify-end p-5">
-                          <p className="text-white font-semibold leading-snug text-sm drop-shadow-sm">
-                            {suggestion.text}
-                          </p>
-                        </div>
-                      </button>
-                    ))}
-                  </motion.div>
-                </div>
-              </div>
-            ) : (
-              /* Conversation view */
-              <div className="max-w-4xl mx-auto py-6 space-y-6">
-                <AnimatePresence initial={false}>
-                  {sessionMessages?.map((msg) => (
-                    <motion.div
-                      key={msg._id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className={cn(
-                        "flex gap-4",
-                        msg.role === "user" ? "justify-end" : "justify-start"
-                      )}
-                    >
-                      {msg.role === "user" ? (
-                        /* User message */
-                        <div className="max-w-[80%] bg-foreground text-background rounded-2xl rounded-tr-sm px-4 py-3">
-                          <p className="text-sm">{msg.text}</p>
-                          {msg.referenceImages && msg.referenceImages.length > 0 && (
-                            <div className="flex gap-2 mt-2">
-                              {msg.referenceImages.map((img, i) => (
-                                <div key={i} className="text-xs opacity-70 flex items-center gap-1">
-                                  <Paperclip className="h-3 w-3" />
-                                  {img.name}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        /* Model message with image */
-                        <div className="max-w-[85%] space-y-3">
-                          {msg.imageUrl && (
-                            <div
-                              className="relative rounded-2xl overflow-hidden border border-border/50 shadow-lg cursor-pointer hover:shadow-xl transition-shadow group"
-                              onClick={() =>
-                                setSelectedLightbox({
-                                  url: msg.imageUrl!,
-                                  prompt: msg.text,
-                                })
-                              }
-                            >
-                              <img
-                                src={msg.imageUrl}
-                                alt={msg.text}
-                                className="w-full max-h-[60vh] object-contain bg-muted/20"
-                              />
-                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                                <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <Sparkles className="h-8 w-8 text-white drop-shadow-lg" />
-                                </div>
-                              </div>
-                            </div>
-                          )}
-
-                          {msg.text && msg.text !== "Generated image." && (
-                            <div className="bg-muted/50 rounded-2xl rounded-tl-sm px-4 py-3">
-                              <p className="text-sm text-muted-foreground">{msg.text}</p>
-                            </div>
-                          )}
-
-                          {msg.imageUrl && (
-                            <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-8"
-                                onClick={() => handleDownload(msg.imageUrl!)}
-                              >
-                                <Download className="h-3.5 w-3.5 mr-2" />
-                                Download
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-
-                {/* Generating indicator - only show if for this session */}
-                {isGenerating && (generatingSessionId === currentSessionId || (generatingSessionId === "new" && !currentSessionId)) && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex gap-4 justify-start"
-                  >
-                    <div className="bg-muted/50 rounded-2xl px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="h-2.5 w-2.5 rounded-full bg-foreground animate-pulse" />
-                        <span className="text-muted-foreground text-sm">Generating visualization...</span>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-
-                <div ref={messagesEndRef} />
               </div>
             )}
           </div>
 
-          {/* Input area for conversation */}
-          {!showEmptyState && (
-            <div className="w-full px-6 py-4 border-t border-border/50">
-              <ChatInput
-                message={message}
-                setMessage={setMessage}
-                selectedFiles={selectedFiles}
-                isLoading={isGenerating}
-                isUploading={isUploading}
-                inputRef={inputRef}
-                fileInputRef={fileInputRef}
-                onSendMessage={handleSendMessage}
-                onStopResponse={handleStopResponse}
-                onFileSelect={handleFileSelect}
-                onRemoveFile={handleRemoveFile}
-                onAttachmentClick={() => fileInputRef.current?.click()}
-                onPasteFiles={handlePasteFiles}
-              />
-            </div>
-          )}
+          {/* Sidebar using ChatSidebar */}
+          <ChatSidebar
+            showHistory={showHistory}
+            setShowHistory={setShowHistory}
+            isThreadListLoading={sessions === undefined}
+            hasThreads={(sessions?.length ?? 0) > 0}
+            threadList={threadList}
+            currentThreadId={currentSessionId ?? undefined}
+            onThreadSelect={handleThreadSelect}
+            onNewChat={handleNewChat}
+          />
         </div>
 
-        {/* Sidebar using ChatSidebar */}
-        <ChatSidebar
-          showHistory={showHistory}
-          setShowHistory={setShowHistory}
-          isThreadListLoading={sessions === undefined}
-          hasThreads={(sessions?.length ?? 0) > 0}
-          threadList={threadList}
-          currentThreadId={currentSessionId ?? undefined}
-          onThreadSelect={handleThreadSelect}
-          onNewChat={handleNewChat}
-        />
-      </div>
-
-      {/* Lightbox Modal */}
-      <AnimatePresence>
-        {selectedLightbox && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-background/95 backdrop-blur-xl z-[10000] flex flex-col items-center justify-center p-8"
-            onClick={() => setSelectedLightbox(null)}
-          >
-            <div className="absolute top-4 right-4 z-50">
-              <Button
-                variant="secondary"
-                size="icon"
-                className="rounded-full h-12 w-12 shadow-lg"
-                onClick={() => setSelectedLightbox(null)}
-              >
-                <X className="h-6 w-6" />
-              </Button>
-            </div>
-
+        {/* Lightbox Modal */}
+        <AnimatePresence>
+          {selectedLightbox && (
             <motion.div
-              className="relative w-full h-full flex items-center justify-center"
-              initial={{ scale: 0.95 }}
-              animate={{ scale: 1 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-background/95 backdrop-blur-xl z-[10000] flex flex-col items-center justify-center p-8"
+              onClick={() => setSelectedLightbox(null)}
             >
-              <img
-                src={selectedLightbox.url}
-                alt={selectedLightbox.prompt}
-                className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
-                onClick={(e) => e.stopPropagation()}
-              />
-            </motion.div>
+              <div className="absolute top-4 right-4 z-50">
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="rounded-full h-12 w-12 shadow-lg"
+                  onClick={() => setSelectedLightbox(null)}
+                >
+                  <X className="h-6 w-6" />
+                </Button>
+              </div>
 
-            <div
-              className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 z-50 bg-black/50 backdrop-blur-md p-2 rounded-full border border-white/10 shadow-xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Button
-                variant="ghost"
-                className="rounded-full text-white hover:bg-white/20 hover:text-white px-6 h-10"
-                onClick={() => handleDownload(selectedLightbox.url)}
+              <motion.div
+                className="relative w-full h-full flex items-center justify-center"
+                initial={{ scale: 0.95 }}
+                animate={{ scale: 1 }}
               >
-                <Download className="h-4 w-4 mr-2" />
-                Download
-              </Button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </>
+                <img
+                  src={selectedLightbox.url}
+                  alt={selectedLightbox.prompt}
+                  className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </motion.div>
+
+              <div
+                className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 z-50 bg-black/50 backdrop-blur-md p-2 rounded-full border border-white/10 shadow-xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Button
+                  variant="ghost"
+                  className="rounded-full text-white hover:bg-white/20 hover:text-white px-6 h-10"
+                  onClick={() => handleDownload(selectedLightbox.url)}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download
+                </Button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </>
+    </PromptInputProvider>
   );
 }

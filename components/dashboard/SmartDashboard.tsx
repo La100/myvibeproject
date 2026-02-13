@@ -1,15 +1,19 @@
 "use client";
 
-import { useOrganizationList } from "@clerk/nextjs";
+import { useOrganization, useOrganizationList } from "@clerk/nextjs";
 import { useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useQuery } from "convex/react";
+import { apiAny } from "@/lib/convexApiAny";
 
 
 export function SmartDashboard() {
   const router = useRouter();
+  const onboardingStatus = useQuery(apiAny.onboarding.getStatus);
   const { userMemberships, setActive, isLoaded } = useOrganizationList({
     userMemberships: { infinite: true },
   });
+  const { organization: activeOrganization } = useOrganization();
 
   const organizations = useMemo(
     () =>
@@ -19,6 +23,15 @@ export function SmartDashboard() {
         role: membership.role,
       })) || [],
     [userMemberships?.data]
+  );
+
+  const hasActiveMembership = useMemo(
+    () =>
+      Boolean(
+        activeOrganization?.id &&
+          organizations.some((organization) => organization.id === activeOrganization.id)
+      ),
+    [activeOrganization?.id, organizations],
   );
   const hasRedirectedRef = useRef(false);
 
@@ -48,12 +61,32 @@ export function SmartDashboard() {
 
   // Auto-redirect based on organization status
   useEffect(() => {
-    if (!isLoaded || hasRedirectedRef.current) return;
+    if (!isLoaded || onboardingStatus === undefined || hasRedirectedRef.current) return;
+    if (!onboardingStatus.authenticated) return;
 
-    if (organizations.length >= 1) {
-      // Has organization - redirect to it
+    if (!onboardingStatus.completed) {
+      router.replace("/onboarding");
+      hasRedirectedRef.current = true;
+      return;
+    }
+
+    if (organizations.length === 0) {
+      // No organization - force custom onboarding organization setup
+      console.log("No organization found, redirecting to /onboarding");
+      router.replace("/onboarding");
+      hasRedirectedRef.current = true;
+      return;
+    }
+
+    if (hasActiveMembership) {
+      router.replace("/organisation");
+      hasRedirectedRef.current = true;
+      return;
+    }
+
+    if (organizations.length === 1) {
       const org = organizations[0];
-      console.log("Redirecting to organization:", org);
+      console.log("One organization found, activating:", org);
       (async () => {
         try {
           if (setActive) {
@@ -63,20 +96,33 @@ export function SmartDashboard() {
           console.error("Failed to set active organization, continuing redirect", error);
         } finally {
           console.log("Pushing to: /organisation");
-          router.push("/organisation");
+          router.replace("/organisation");
           hasRedirectedRef.current = true;
         }
       })();
-    } else {
-      // No organization - redirect to onboarding
-      console.log("No organization found, redirecting to onboarding");
-      router.push("/onboarding/step1");
-      hasRedirectedRef.current = true;
+      return;
     }
-  }, [isLoaded, organizations, setActive, router]);
+
+    // Multiple organizations with no active selection: let user choose in onboarding.
+    console.log("Multiple organizations found without active org, redirecting to /onboarding");
+    router.replace("/onboarding");
+    hasRedirectedRef.current = true;
+  }, [isLoaded, onboardingStatus, organizations, hasActiveMembership, setActive, router]);
+
+  const loadingMessage = useMemo(() => {
+    if (organizations.length === 0) {
+      return "Redirecting to workspace setup...";
+    }
+    if (hasActiveMembership || organizations.length === 1) {
+      return "Redirecting to your organization...";
+    }
+    return "Preparing organization selection...";
+  }, [organizations.length, hasActiveMembership]);
 
   // Check if there's a pending invitation ticket
-  const hasInvitationTicket = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('__clerk_ticket');
+  const hasInvitationTicket =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).has("__clerk_ticket");
 
   // Show special loading for invitation acceptance
   if (hasInvitationTicket) {
@@ -105,16 +151,34 @@ export function SmartDashboard() {
     );
   }
 
-  // Always show loading while redirecting (either to org or organisation)
+  if (onboardingStatus === undefined) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="text-center space-y-4">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto" />
+          <p className="text-muted-foreground">Preparing onboarding...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!onboardingStatus.authenticated) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="text-center space-y-4">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto" />
+          <p className="text-muted-foreground">Authorizing workspace...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Always show loading while redirecting
   return (
     <div className="flex items-center justify-center py-8">
       <div className="text-center space-y-4">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto" />
-        <p className="text-muted-foreground">
-          {organizations.length >= 1
-            ? "Redirecting to your organization..."
-            : "Redirecting to onboarding..."}
-        </p>
+        <p className="text-muted-foreground">{loadingMessage}</p>
       </div>
     </div>
   );

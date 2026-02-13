@@ -1,5 +1,5 @@
 /**
- * VibePlanner AI Tools - Shared tool definitions
+ * Myvibe project AI Tools - Shared tool definitions
  *
  * This file is the SINGLE SOURCE OF TRUTH for all AI tools.
  * It exports:
@@ -342,14 +342,14 @@ export function createStreamingTools(options?: StreamingToolOptions) {
 
         if (options?.runAction) {
           try {
-            const { internal } = await import("../_generated/api");
+            const internalAny = require("../_generated/api").internal as any;
             const tableName = typeToTable[args.type];
             debugInfo.tableName = tableName;
             debugInfo.itemId = args.itemId;
 
             if (tableName) {
               try {
-                originalItem = await options.runAction(internal.ai.search.getItemById, {
+                originalItem = await options.runAction(internalAny.ai.search.getItemById, {
                   tableName,
                   itemId: args.itemId,
                 });
@@ -389,7 +389,7 @@ export function createStreamingTools(options?: StreamingToolOptions) {
         const originalItems: any[] = [];
         if (options?.runAction) {
           try {
-            const { internal } = await import("../_generated/api");
+            const internalAny = require("../_generated/api").internal as any;
             const typeToTable: Record<string, string> = {
               task: "tasks",
               note: "notes",
@@ -403,7 +403,7 @@ export function createStreamingTools(options?: StreamingToolOptions) {
             const tableName = typeToTable[args.type];
             if (tableName) {
               for (const update of args.updates) {
-                const item = await options.runAction(internal.ai.search.getItemById, {
+                const item = await options.runAction(internalAny.ai.search.getItemById, {
                   tableName,
                   itemId: update.itemId,
                 });
@@ -445,7 +445,7 @@ export function createStreamingTools(options?: StreamingToolOptions) {
         let originalItem: { title?: string; name?: string; _id?: string } | null = null;
         if (options?.runAction) {
           try {
-            const { internal } = await import("../_generated/api");
+            const internalAny = require("../_generated/api").internal as any;
             const typeToTable: Record<string, string> = {
               task: "tasks",
               note: "notes",
@@ -458,7 +458,7 @@ export function createStreamingTools(options?: StreamingToolOptions) {
             };
             const tableName = typeToTable[args.type];
             if (tableName) {
-              originalItem = await options.runAction(internal.ai.search.getItemById, {
+              originalItem = await options.runAction(internalAny.ai.search.getItemById, {
                 tableName,
                 itemId: args.itemId,
               });
@@ -487,16 +487,16 @@ export function createStreamingTools(options?: StreamingToolOptions) {
         }
 
         try {
-          const { internal } = await import("../_generated/api");
+          const internalAny = require("../_generated/api").internal as any;
 
           // Route to appropriate search function based on type
           const searchMap = {
-            task: internal.ai.search.searchTasks,
-            note: internal.ai.search.searchNotes,
-            shopping: internal.ai.search.searchShoppingItems,
-            labor: internal.ai.search.searchLaborItems,
-            survey: internal.ai.search.searchSurveys,
-            contact: internal.ai.search.searchContacts,
+            task: internalAny.ai.search.searchTasks,
+            note: internalAny.ai.search.searchNotes,
+            shopping: internalAny.ai.search.searchShoppingItems,
+            labor: internalAny.ai.search.searchLaborItems,
+            survey: internalAny.ai.search.searchSurveys,
+            contact: internalAny.ai.search.searchContacts,
           };
 
           const searchFn = searchMap[args.type];

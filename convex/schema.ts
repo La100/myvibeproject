@@ -135,7 +135,7 @@ export default defineSchema({
     taskStatusSettings: v.optional(v.object({
       todo: v.object({ name: v.string(), color: v.string() }),
       in_progress: v.object({ name: v.string(), color: v.string() }),
-      review: v.object({ name: v.string(), color: v.string() }),
+      review: v.optional(v.object({ name: v.string(), color: v.string() })),
       done: v.object({ name: v.string(), color: v.string() }),
     })),
     sidebarPermissions: v.optional(v.object({
@@ -154,12 +154,18 @@ export default defineSchema({
     })),
     // Custom AI assistant prompt override
     customAiPrompt: v.optional(v.string()),
+    // Messaging bot configuration (project-scoped assistant integration)
+    telegramBotUsername: v.optional(v.string()), // Telegram bot username (without @)
+    telegramBotToken: v.optional(v.string()), // Telegram bot token from @BotFather
+    telegramWebhookSecret: v.optional(v.string()), // Secret validated by Telegram webhook
+    whatsappNumber: v.optional(v.string()), // Reserved for WhatsApp compatibility
   })
     .index("by_team", ["teamId"])
     .index("by_team_and_slug", ["teamId", "slug"])
     .index("by_project_id", ["projectId"])
     .index("by_status", ["status"])
-    .index("by_created_by", ["createdBy"]),
+    .index("by_created_by", ["createdBy"])
+    .index("by_telegram_webhook_secret", ["telegramWebhookSecret"]),
 
   // Tasks in projects
   tasks: defineTable({
@@ -355,6 +361,32 @@ export default defineSchema({
     email: v.string(),
     name: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
+    displayName: v.optional(v.string()),
+    countryCode: v.optional(v.string()),
+    preferredCurrency: v.optional(v.union(
+      v.literal("USD"),
+      v.literal("EUR"),
+      v.literal("PLN"),
+      v.literal("GBP"),
+      v.literal("CAD"),
+      v.literal("AUD"),
+      v.literal("JPY"),
+      v.literal("CHF"),
+      v.literal("SEK"),
+      v.literal("NOK"),
+      v.literal("DKK"),
+      v.literal("CZK"),
+      v.literal("HUF"),
+      v.literal("CNY"),
+      v.literal("INR"),
+      v.literal("BRL"),
+      v.literal("MXN"),
+      v.literal("KRW"),
+      v.literal("SGD"),
+      v.literal("HKD"),
+    )),
+    preferredTimezone: v.optional(v.string()),
+    onboardingCompletedAt: v.optional(v.number()),
   })
     .index("by_clerk_user_id", ["clerkUserId"])
     .index("by_email", ["email"]),
@@ -873,53 +905,55 @@ export default defineSchema({
     .index("by_thread_and_status", ["threadId", "status"])
     .index("by_response_id", ["responseId"]),
 
+  // Messaging platform channels connected to assistants/projects.
+  messagingChannels: defineTable({
+    teamId: v.id("teams"),
+    projectId: v.id("projects"),
+    platform: v.union(v.literal("telegram"), v.literal("whatsapp")),
+    externalUserId: v.string(), // Telegram chat ID / external platform user ID
+    userClerkId: v.optional(v.string()), // Internal user who approved pairing
+    threadId: v.optional(v.string()), // AI thread bound to this channel
+    isActive: v.boolean(),
+    lastMessageAt: v.optional(v.number()),
+    metadata: v.optional(v.any()),
+  })
+    .index("by_team", ["teamId"])
+    .index("by_project", ["projectId"])
+    .index("by_platform_and_external_id", ["platform", "externalUserId"])
+    .index("by_user", ["userClerkId"]),
 
-
-  // Google Calendar Events Cache - synced events from Google Calendar
-  googleCalendarEvents: defineTable({
-    googleEventId: v.string(), // Google Calendar event ID
+  // Temporary pairing tokens (kept for compatibility with vibeplanner flow).
+  messagingPairingTokens: defineTable({
+    token: v.string(),
     projectId: v.id("projects"),
     teamId: v.id("teams"),
-    createdByClerkUserId: v.string(),
-    title: v.string(),
-    description: v.optional(v.string()),
-    startTime: v.number(), // Unix timestamp
-    endTime: v.number(), // Unix timestamp
-    allDay: v.boolean(),
-    location: v.optional(v.string()),
-    attendees: v.optional(v.array(v.object({
-      email: v.string(),
-      name: v.optional(v.string()),
-      responseStatus: v.optional(v.string()),
-    }))),
-    htmlLink: v.optional(v.string()), // Link to Google Calendar event
-    status: v.optional(v.string()), // confirmed, tentative, cancelled
-    colorId: v.optional(v.string()),
-    lastSyncAt: v.number(),
-    sourceType: v.optional(v.union(
-      v.literal("task"),
-      v.literal("shopping"),
-      v.literal("labor")
-    )),
+    userClerkId: v.string(),
+    platform: v.union(v.literal("telegram"), v.literal("whatsapp")),
+    expiresAt: v.number(),
+    usedAt: v.optional(v.number()),
+    usedByExternalId: v.optional(v.string()),
   })
-    .index("by_project", ["projectId"])
-    .index("by_team", ["teamId"])
-    .index("by_google_event_id", ["googleEventId"])
-    .index("by_project_and_time", ["projectId", "startTime"]),
+    .index("by_token", ["token"])
+    .index("by_project_and_platform", ["projectId", "platform"])
+    .index("by_user", ["userClerkId"]),
 
-  // Google Calendar Source Links - maps internal items to Google events
-  googleCalendarLinks: defineTable({
-    sourceType: v.union(v.literal("task"), v.literal("shopping"), v.literal("labor")),
-    sourceId: v.string(),
+  // Pending pairing requests awaiting approval in assistant settings.
+  messagingPairingRequests: defineTable({
     projectId: v.id("projects"),
-    teamId: v.id("teams"),
-    clerkUserId: v.string(),
-    googleEventId: v.string(),
-    lastSyncedAt: v.number(),
+    platform: v.union(v.literal("telegram"), v.literal("whatsapp")),
+    externalUserId: v.string(),
+    pairingCode: v.string(),
+    metadata: v.optional(v.any()),
+    status: v.union(v.literal("pending"), v.literal("approved"), v.literal("rejected")),
+    createdAt: v.number(),
+    resolvedAt: v.optional(v.number()),
+    resolvedBy: v.optional(v.string()),
   })
-    .index("by_source_and_user", ["sourceType", "sourceId", "clerkUserId"])
-    .index("by_google_event_id", ["googleEventId"])
     .index("by_project", ["projectId"])
-    .index("by_team", ["teamId"])
-    .index("by_user", ["clerkUserId"]),
+    .index("by_code", ["pairingCode"])
+    .index("by_external_id", ["platform", "externalUserId"]),
+
+
+
+
 });

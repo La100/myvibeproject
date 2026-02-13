@@ -8,11 +8,13 @@ import Link from "next/link";
 
 export function Header() {
   return (
-    <header className="sticky top-0 z-40 bg-background border-b p-4 flex flex-row justify-between items-center shadow-sm">
-      <Link href="/dashboard" className="flex items-center gap-3 cursor-pointer">
-        <Building2 className="h-8 w-8 text-primary" />
+    <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border/70 bg-background/90 p-4 shadow-[0_10px_30px_-26px_rgba(22,22,22,0.75)] backdrop-blur-md">
+      <Link href="/dashboard" className="flex cursor-pointer items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border/70 bg-card">
+          <Building2 className="h-5 w-5 text-primary" />
+        </div>
         <div className="flex flex-col">
-          <h1 className="text-xl font-bold">VibePlanner</h1>
+          <h1 className="clean-title text-xl font-medium">Myvibe project</h1>
           <Badge variant="secondary" className="w-fit">
             Architectural Project Manager
           </Badge>

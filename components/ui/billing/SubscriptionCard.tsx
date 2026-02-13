@@ -203,7 +203,7 @@ export function SubscriptionCard({ teamId }: SubscriptionCardProps) {
                  <h3 className="text-xl font-bold tracking-tight">Upgrade to AI Pro</h3>
                </div>
                <p className="text-muted-foreground font-light leading-relaxed max-w-sm">
-                 Unlock the full power of VibePlanner with AI-driven insights, more storage, and unlimited potential.
+                 Unlock the full power of Myvibe project with AI-driven insights, more storage, and unlimited potential.
                </p>
                <div className="flex flex-wrap gap-4 pt-2">
                   <div className="flex items-center gap-2 text-sm">

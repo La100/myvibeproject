@@ -62,7 +62,7 @@ export const bulkEditConfirmedTasks = action({
           assignedToValue = null;
         } else {
           const clerkUserId = args.updates.assignedTo;
-          // @ts-expect-error Type instantiation depth issue
+          // @ts-ignore - Convex deep type instantiation issue
           const userDoc: Doc<"users"> | null = await ctx.runQuery(api.users.getByClerkId, {
             clerkUserId,
           });

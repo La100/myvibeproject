@@ -7,6 +7,7 @@ import { useMessages } from "../../data/hooks/useMessages";
 import { Greeting } from "./Greeting";
 import { PreviewMessage } from "./Message";
 import { ThinkingMessage } from "./ThinkingMessage";
+import { cn } from "@/lib/utils";
 
 type MessagesProps = {
   messages: UIMessage[];
@@ -65,13 +66,25 @@ export function Messages({
     hasSentMessage,
   } = useMessages({ status, messagesLength: messages.length });
 
+  const shouldDockMessages =
+    messages.length > 0 || Boolean(pendingUserMessage) || hasSentMessage;
+  const lastMessage = messages[messages.length - 1];
+  const shouldShowThinking =
+    (status === "submitted" || status === "streaming") &&
+    lastMessage?.role !== "assistant";
+
   return (
-    <div className="relative flex-1">
+    <div className="relative flex-1 min-h-0">
       <div
-        className="absolute inset-0 touch-pan-y overflow-y-auto"
+        className="absolute inset-0 touch-pan-y overflow-y-scroll scroll-smooth px-4 pt-4 pb-6"
         ref={messagesContainerRef}
       >
-        <div className="mx-auto flex min-w-0 max-w-4xl flex-col gap-4 px-2 py-4 md:gap-6 md:px-4">
+        <div
+          className={cn(
+            "mx-auto flex w-full min-w-0 max-w-[44rem] flex-col gap-2",
+            shouldDockMessages && "min-h-full"
+          )}
+        >
           {messages.length === 0 && !pendingUserMessage && !hasSentMessage && <Greeting />}
 
           {messages.map((message, index) => {
@@ -125,9 +138,7 @@ export function Messages({
               />
             )}
 
-          {status === "submitted" && (messages.length > 0 || pendingUserMessage || hasSentMessage) && (
-            <ThinkingMessage />
-          )}
+          {shouldShowThinking && <ThinkingMessage />}
 
           <div
             className="min-h-[24px] min-w-[24px] shrink-0"
@@ -138,7 +149,7 @@ export function Messages({
 
       <button
         aria-label="Scroll to bottom"
-        className={`absolute bottom-4 left-1/2 z-10 -translate-x-1/2 rounded-full border bg-background p-2 shadow-lg transition-all hover:bg-muted ${isAtBottom
+        className={`absolute bottom-8 left-1/2 z-10 -translate-x-1/2 rounded-full border border-border/70 bg-background p-2 shadow-md transition-all hover:bg-muted ${isAtBottom
           ? "pointer-events-none scale-0 opacity-0"
           : "pointer-events-auto scale-100 opacity-100"
           }`}

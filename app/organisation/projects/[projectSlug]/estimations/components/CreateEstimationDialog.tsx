@@ -199,7 +199,7 @@ export function CreateEstimationDialog({
                 <Input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Bathroom Renovation"
+                  placeholder="e.g. Residential Architecture Phase 1"
                   className="mt-1"
                 />
               </div>

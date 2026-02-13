@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import NextImage from "next/image";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import { Suspense } from "react";
 import { useClerk, useUser } from "@clerk/nextjs";
 import { useProject } from "@/components/providers/ProjectProvider";
@@ -48,6 +48,7 @@ import {
 
 function ProjectSidebarContent() {
   const params = useParams<{ projectSlug: string }>();
+  const pathname = usePathname();
   const router = useRouter();
   const { setOpenMobile } = useSidebar();
   const { project, team, permissions: sidebarPermissions } = useProject();
@@ -56,15 +57,15 @@ function ProjectSidebarContent() {
 
   const allNavItems = [
     { href: `/organisation/projects/${params.projectSlug}`, label: "Overview", icon: LayoutDashboard, key: "overview", group: "project" },
-    { href: `/organisation/projects/${params.projectSlug}/tasks`, label: "Tasks", icon: CheckSquare, key: "tasks", group: "renovation" },
+    { href: `/organisation/projects/${params.projectSlug}/tasks`, label: "Tasks", icon: CheckSquare, key: "tasks", group: "architecture" },
     { href: `/organisation/projects/${params.projectSlug}/moodboard`, label: "Moodboard", icon: Image, key: "moodboard", group: "project" },
     { href: `/organisation/projects/${params.projectSlug}/notes`, label: "Notes", icon: StickyNote, key: "notes", group: "project" },
     { href: `/organisation/projects/${params.projectSlug}/contacts`, label: "Contacts", icon: Contact, key: "contacts", group: "project" },
     { href: `/organisation/projects/${params.projectSlug}/calendar`, label: "Calendar", icon: Calendar, key: "calendar", group: "project" },
     { href: `/organisation/projects/${params.projectSlug}/surveys`, label: "Surveys", icon: ClipboardList, key: "surveys", group: "project" },
     { href: `/organisation/projects/${params.projectSlug}/files`, label: "Files", icon: Files, key: "files", group: "project" },
-    { href: `/organisation/projects/${params.projectSlug}/shopping-list`, label: "Materials", icon: ShoppingCart, key: "shopping_list", group: "renovation" },
-    { href: `/organisation/projects/${params.projectSlug}/labor`, label: "Labor", icon: Hammer, key: "labor", group: "renovation" },
+    { href: `/organisation/projects/${params.projectSlug}/shopping-list`, label: "Materials", icon: ShoppingCart, key: "shopping_list", group: "architecture" },
+    { href: `/organisation/projects/${params.projectSlug}/labor`, label: "Labor", icon: Hammer, key: "labor", group: "architecture" },
     { href: `/organisation/projects/${params.projectSlug}/estimations`, label: "Estimations", icon: Calculator, key: "estimations", group: "project" },
   ];
 
@@ -75,7 +76,7 @@ function ProjectSidebarContent() {
     ? allNavItems.filter((item) => sidebarPermissions.permissions?.[item.key as keyof typeof sidebarPermissions.permissions]?.visible !== false)
     : allNavItems;
   const projectNavItems = navItems.filter((item) => item.group === "project");
-  const renovationNavItems = navItems.filter((item) => item.group === "renovation");
+  const architectureNavItems = navItems.filter((item) => item.group === "architecture");
 
   const showSettings =
     sidebarPermissions?.permissions?.settings?.visible !== false;
@@ -98,15 +99,20 @@ function ProjectSidebarContent() {
     router.prefetch(href);
   };
 
+  const isItemActive = (href: string) => {
+    const isOverviewRoute = href === `/organisation/projects/${params.projectSlug}`;
+    return isOverviewRoute ? pathname === href : pathname.startsWith(href);
+  };
+
   return (
     <Sidebar variant="inset">
-      <SidebarHeader className="border-b border-sidebar-border">
+      <SidebarHeader className="border-b border-sidebar-border/70">
         <div className="flex flex-col gap-0.5 py-4 px-4">
           <Link
             href="/organisation"
             onClick={handleLinkClick}
             onMouseEnter={() => handleLinkHover("/organisation")}
-            className="flex items-center gap-2 group mb-3 text-sidebar-foreground/70"
+            className="group mb-3 flex items-center gap-2 text-sidebar-foreground/65 transition-colors hover:text-sidebar-foreground"
           >
             <ArrowLeft className="h-4 w-4 text-sidebar-foreground/50" />
             <span className="text-[10px] font-medium tracking-[0.2em] uppercase">
@@ -115,7 +121,7 @@ function ProjectSidebarContent() {
           </Link>
 
           <div className="px-0.5">
-            <h2 className="text-xl font-medium tracking-tight text-sidebar-foreground leading-tight font-[var(--font-display-serif)]">
+            <h2 className="clean-title text-xl font-medium leading-tight tracking-tight text-sidebar-foreground">
               {project.name}
             </h2>
           </div>
@@ -129,43 +135,59 @@ function ProjectSidebarContent() {
               Project
             </SidebarGroupLabel>
             <SidebarMenu className="space-y-1">
-              {projectNavItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton asChild className="h-10 justify-start gap-3 rounded-lg px-3 text-sm font-medium tracking-tight text-sidebar-foreground">
-                    <Link
-                      href={item.href}
-                      onClick={handleLinkClick}
-                      onMouseEnter={() => handleLinkHover(item.href)}
-                      className="flex flex-1 items-center gap-3"
+              {projectNavItems.map((item) => {
+                const isActive = isItemActive(item.href);
+                return (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton
+                      asChild
+                      variant={isActive ? "active" : "default"}
+                      isActive={isActive}
+                      className="h-10 justify-start gap-3 text-sm text-sidebar-foreground"
                     >
-                      <item.icon className="h-4 w-4 text-sidebar-foreground/70" />
-                      <span className="truncate">{item.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+                      <Link
+                        href={item.href}
+                        onClick={handleLinkClick}
+                        onMouseEnter={() => handleLinkHover(item.href)}
+                        className="flex flex-1 items-center gap-3"
+                      >
+                        <item.icon className={isActive ? "h-4 w-4 text-sidebar-foreground" : "h-4 w-4 text-sidebar-foreground/65"} />
+                        <span className="truncate">{item.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
           <SidebarGroupContent className="pt-2">
             <SidebarGroupLabel className="text-xs uppercase tracking-[0.2em] text-sidebar-foreground/60">
-              Renovation
+              Architecture
             </SidebarGroupLabel>
             <SidebarMenu className="space-y-1">
-              {renovationNavItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton asChild className="h-10 justify-start gap-3 rounded-lg px-3 text-sm font-medium tracking-tight text-sidebar-foreground">
-                    <Link
-                      href={item.href}
-                      onClick={handleLinkClick}
-                      onMouseEnter={() => handleLinkHover(item.href)}
-                      className="flex flex-1 items-center gap-3"
+              {architectureNavItems.map((item) => {
+                const isActive = isItemActive(item.href);
+                return (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton
+                      asChild
+                      variant={isActive ? "active" : "default"}
+                      isActive={isActive}
+                      className="h-10 justify-start gap-3 text-sm text-sidebar-foreground"
                     >
-                      <item.icon className="h-4 w-4 text-sidebar-foreground/70" />
-                      <span className="truncate">{item.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+                      <Link
+                        href={item.href}
+                        onClick={handleLinkClick}
+                        onMouseEnter={() => handleLinkHover(item.href)}
+                        className="flex flex-1 items-center gap-3"
+                      >
+                        <item.icon className={isActive ? "h-4 w-4 text-sidebar-foreground" : "h-4 w-4 text-sidebar-foreground/65"} />
+                        <span className="truncate">{item.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -176,32 +198,40 @@ function ProjectSidebarContent() {
               href={aiItem.href}
               onClick={handleLinkClick}
               onMouseEnter={() => handleLinkHover(aiItem.href)}
-              className="flex items-center justify-center gap-2 w-full h-12 px-4 bg-[#000000] text-white hover:bg-black/90 rounded-full transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5"
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-sidebar-border/70 bg-sidebar-accent text-sidebar-foreground transition-all duration-200 hover:bg-sidebar-accent/75"
             >
-              <aiItem.icon className="h-5 w-5" />
-              <span className="text-base font-medium tracking-tight">{aiItem.label}</span>
+              <aiItem.icon className="h-4 w-4" />
+              <span className="text-sm font-semibold tracking-tight">{aiItem.label}</span>
             </Link>
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup className="border-t border-sidebar-border">
+        <SidebarGroup className="border-t border-sidebar-border/70 pt-2">
           <SidebarGroupContent className="pt-2">
             <SidebarMenu>
-              {footerItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton asChild className="h-10 justify-start gap-3 rounded-lg px-3 text-sm font-medium tracking-tight text-sidebar-foreground">
-                    <Link
-                      href={item.href}
-                      onClick={handleLinkClick}
-                      onMouseEnter={() => handleLinkHover(item.href)}
-                      className="flex flex-1 items-center gap-3"
+              {footerItems.map((item) => {
+                const isActive = pathname.startsWith(item.href);
+                return (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton
+                      asChild
+                      variant={isActive ? "active" : "default"}
+                      isActive={isActive}
+                      className="h-10 justify-start gap-3 text-sm text-sidebar-foreground"
                     >
-                      <item.icon className="h-4 w-4 text-sidebar-foreground/70" />
-                      <span className="truncate">{item.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+                      <Link
+                        href={item.href}
+                        onClick={handleLinkClick}
+                        onMouseEnter={() => handleLinkHover(item.href)}
+                        className="flex flex-1 items-center gap-3"
+                      >
+                        <item.icon className={isActive ? "h-4 w-4 text-sidebar-foreground" : "h-4 w-4 text-sidebar-foreground/65"} />
+                        <span className="truncate">{item.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
           <SidebarGroupContent className="px-2 pb-2">
@@ -209,10 +239,10 @@ function ProjectSidebarContent() {
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition hover:bg-sidebar-accent/50"
+                  className="flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2 text-left transition hover:border-sidebar-border/70 hover:bg-sidebar-accent/50"
                 >
                   {user?.imageUrl ? (
-                    <div className="relative h-9 w-9 overflow-hidden rounded-full border border-sidebar-border/50">
+                    <div className="relative h-9 w-9 overflow-hidden rounded-full border border-sidebar-border/70">
                       <NextImage
                         src={user.imageUrl}
                         alt={user.fullName || user.firstName || "User"}
@@ -236,7 +266,7 @@ function ProjectSidebarContent() {
                   <ChevronDown className="h-4 w-4 text-sidebar-foreground/60" />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuContent align="end" className="w-64 rounded-xl border-border/70">
                 <div className="px-3 py-2">
                   <p className="text-sm font-semibold text-foreground">
                     {user?.fullName || user?.firstName || "Account"}
@@ -268,7 +298,7 @@ export function ProjectSidebar() {
     <Suspense
       fallback={
         <Sidebar variant="inset">
-          <SidebarHeader className="border-b border-sidebar-border">
+          <SidebarHeader className="border-b border-sidebar-border/70">
             <div className="flex flex-col gap-2 py-2 px-2">
               <div className="px-2 py-1">
                 <div className="h-7 bg-muted rounded animate-pulse mb-1" />

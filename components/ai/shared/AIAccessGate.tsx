@@ -24,7 +24,7 @@ export const renderAccessGate = ({ aiAccess, team }: AccessGateProps) => {
     !aiAccess.hasAccess &&
     (
       aiAccess.remainingTokens === 0 ||
-      (aiAccess.message || "").toLowerCase().includes("wyczerpano")
+      (aiAccess.message || "").toLowerCase().includes("exhaust")
     )
   );
 

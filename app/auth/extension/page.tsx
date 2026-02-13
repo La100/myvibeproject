@@ -1,108 +1,74 @@
 /// <reference types="chrome" />
-"use client";
+"use client"
 
-import { useAuth, useUser } from "@clerk/nextjs";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useAuth, useUser } from "@clerk/nextjs"
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+
+const TOKEN_SYNC_KEY = "myvibeproject_extension_token_sync"
+const LEGACY_TOKEN_SYNC_KEY = "vibeplanner_extension_token_sync"
 
 export default function ExtensionAuthPage() {
-  const { getToken } = useAuth();
-  const { isSignedIn, isLoaded } = useUser();
-  const router = useRouter();
-  const [status, setStatus] = useState("Checking authentication...");
-  const [error, setError] = useState("");
+  const { getToken } = useAuth()
+  const { isSignedIn, isLoaded } = useUser()
+  const router = useRouter()
+
+  const [status, setStatus] = useState("Sprawdzanie autoryzacji...")
+  const [error, setError] = useState("")
 
   useEffect(() => {
-    // Sprawdź czy dane użytkownika są załadowane
     if (!isLoaded) {
-      return;
+      return
     }
 
-    // Jeśli nie jest zalogowany, przekieruj na logowanie
     if (!isSignedIn) {
-      console.log("🚫 User not signed in, redirecting to sign-up...");
-      setStatus("Not authenticated - redirecting to login...");
-      router.push("/sign-up");
-      return;
+      setStatus("Brak sesji. Przekierowanie do logowania...")
+      router.push("/sign-up")
+      return
     }
 
-    // Użytkownik jest zalogowany, kontynuuj z pozyskiwaniem tokenu
-    setStatus("User authenticated, getting token...");
-  }, [isLoaded, isSignedIn, router]);
+    setStatus("Pobieranie tokena dla rozszerzenia...")
+  }, [isLoaded, isSignedIn, router])
 
   useEffect(() => {
-    // Tylko wykonaj jeśli użytkownik jest zalogowany
     if (!isLoaded || !isSignedIn) {
-      return;
+      return
     }
 
-        const storeToken = async () => {
-      console.log("🚀 Extension auth page - Starting token fetch...");
-      setStatus("Getting auth token...");
+    const storeToken = async () => {
       try {
-        console.log("📞 Calling getToken with template 'convex'...");
-        const token = await getToken({ template: "convex" });
-        console.log("🎯 Token received:", token ? `${token.substring(0, 20)}...` : "null");
+        const token = await getToken({ template: "convex" })
 
         if (!token) {
-          console.error("❌ No token received from Clerk");
-          setStatus("Error");
-          setError("Failed to retrieve authentication token. Are you logged in?");
-          return;
+          setStatus("Błąd")
+          setError("Nie udało się pobrać tokena autoryzacji.")
+          return
         }
 
-        // Debug token contents
-        try {
-          const tokenParts = token.split('.');
-          if (tokenParts.length === 3) {
-            const payload = JSON.parse(atob(tokenParts[1]));
-            console.log("🔍 Token payload debug:", {
-              iss: payload.iss,
-              aud: payload.aud,
-              exp: payload.exp,
-              sub: payload.sub?.substring(0, 10) + "..."
-            });
-          }
-        } catch {
-          console.warn("⚠️ Could not decode token for debugging");
-        }
+        localStorage.setItem(TOKEN_SYNC_KEY, token)
+        localStorage.setItem(LEGACY_TOKEN_SYNC_KEY, token)
 
-        // Zapisz token w localStorage tej strony.
-        // Skrypt tła wtyczki go stąd odczyta.
-        console.log("💾 Storing token in localStorage...");
-        localStorage.setItem("vibeplanner_extension_token_sync", token);
-        console.log("✅ Token stored successfully");
-        
-        setStatus("Authentication successful! Check the console for logs, then close this tab manually.");
-        setError(""); // Wyczyść ewentualne poprzednie błędy
-
-        // Wyłączamy auto-zamykanie żeby móc sprawdzić logi
-        // setTimeout(() => {
-        //   console.log("🚪 Auto-closing tab...");
-        //   window.close();
-        // }, 2000);
-
+        setStatus("Sukces. Możesz zamknąć tę kartę.")
+        setError("")
       } catch (e: unknown) {
-        console.error("❌ Auth Error:", e);
-        console.error("❌ Error details:", {
-          message: e instanceof Error ? e.message : 'Unknown error',
-          stack: e instanceof Error ? e.stack : undefined,
-          name: e instanceof Error ? e.name : 'UnknownError'
-        });
-        setStatus("Error");
-        setError(`An error occurred: ${e instanceof Error ? e.message : 'Unknown error'}`);
+        setStatus("Błąd")
+        setError(
+          `Wystąpił problem podczas autoryzacji: ${
+            e instanceof Error ? e.message : "Unknown error"
+          }`,
+        )
       }
-    };
+    }
 
-    storeToken();
-  }, [getToken, isLoaded, isSignedIn]);
+    void storeToken()
+  }, [getToken, isLoaded, isSignedIn])
 
   return (
     <div style={{ padding: "40px", fontFamily: "sans-serif", textAlign: "center", color: "#333" }}>
-      <h1>VibePlanner Extension Authentication</h1>
-      <h2 style={{ color: error ? 'red' : 'green' }}>{status}</h2>
-      {error && <p style={{ color: "red" }}>{error}</p>}
-      <p>Please do not close this window. It will close automatically.</p>
+      <h1>MyVibeProject Extension Authentication</h1>
+      <h2 style={{ color: error ? "#b91c1c" : "#15803d" }}>{status}</h2>
+      {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
+      <p>Po zakończeniu możesz wrócić do rozszerzenia i kontynuować.</p>
     </div>
-  );
-} 
+  )
+}

@@ -21,27 +21,12 @@ import {
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Doc, Id } from '@/convex/_generated/dataModel';
+import type { TeamMember } from '@/lib/teamMember';
 import { AddItemForm } from './AddItemForm';
 import { ShoppingListItemDetails } from './ShoppingListItemDetails';
 
 type ShoppingListItem = Doc<"shoppingListItems">;
 type Priority = ShoppingListItem["priority"];
-
-type TeamMember = {
-  _id: Id<"teamMembers">;
-  _creationTime: number;
-  teamId: Id<"teams">;
-  clerkUserId: string;
-  clerkOrgId: string;
-  role: string;
-  permissions: string[];
-  name: string;
-  email: string;
-  imageUrl?: string;
-  joinedAt?: number;
-  projectIds?: Id<"projects">[];
-  isActive: boolean;
-};
 
 interface EditFormData {
   name?: string;
@@ -70,7 +55,6 @@ interface ShoppingListSectionProps {
   sections: Doc<"shoppingListSections">[];
   onUpdateItem: (id: Id<"shoppingListItems">, updates: Partial<ShoppingListItem>) => Promise<void>;
   onDeleteItem: (id: Id<"shoppingListItems">) => Promise<void>;
-  onStartEdit: (item: ShoppingListItem) => void;
   onAddItem: (itemData: {
     name: string;
     notes?: string;
@@ -241,7 +225,6 @@ export function ShoppingListSection({
               }}
               isPending={isPending}
               defaultSectionId={sectionId}
-              isInline={true}
             />
           </div>
         )}
@@ -591,6 +574,21 @@ export function ShoppingListSection({
             </div>
           ))}
         </div>
+
+        {items.length === 0 && !showAddForm && (
+          <div className="text-center py-8 text-[#8C8880]">
+            <p className="text-sm">No shopping items in this section</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mt-2"
+              onClick={() => setShowAddForm(true)}
+            >
+              <PlusIcon className="h-4 w-4 mr-2" />
+              Add first item
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

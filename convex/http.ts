@@ -4,8 +4,16 @@ import { internal, components } from "./_generated/api";
 import handleClerkWebhook from "./clerk";
 import { registerRoutes } from "@convex-dev/stripe";
 import type Stripe from "stripe";
+import { telegramWebhook } from "./messaging/telegram";
 
 const http = httpRouter();
+
+// Telegram webhook (assistant integration)
+http.route({
+  path: "/telegram/webhook",
+  method: "POST",
+  handler: telegramWebhook,
+});
 
 
 

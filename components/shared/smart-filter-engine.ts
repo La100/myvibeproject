@@ -1,4 +1,4 @@
-// 🧠 INTELLIGENT FILTERING ENGINE - VibePlanner
+// 🧠 INTELLIGENT FILTERING ENGINE - Myvibe project
 // Advanced filtering logic with AI-like intelligence
 
 import { CalendarEvent } from "@/components/calendar/utils";

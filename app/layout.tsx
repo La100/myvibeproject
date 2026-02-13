@@ -1,30 +1,13 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono, Merriweather } from "next/font/google";
 import "./globals.css";
 import ConvexClientProvider from "@/components/providers/ConvexClientProvider";
 import { ClerkProvider } from "@clerk/nextjs";
 import type { ClerkProviderProps } from "@clerk/clerk-react";
+import type { CSSProperties } from "react";
 import { Toaster } from "@/components/ui/sonner";
 
-const inter = Inter({
-  variable: "--font-sans",
-  subsets: ["latin"],
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-mono",
-  subsets: ["latin"],
-});
-
-const merriweather = Merriweather({
-  variable: "--font-serif",
-  subsets: ["latin"],
-  weight: ["300", "400", "700", "900"],
-  display: "swap",
-});
-
 export const metadata: Metadata = {
-  title: "VibePlanner",
+  title: "Myvibe project",
   description: "Architektoniczny Project Manager",
   icons: {
     icon: "/convex.svg",
@@ -37,37 +20,45 @@ const clerkAppearance: ClerkProviderProps["appearance"] = {
     socialButtonsPlacement: "top",
   },
   variables: {
-    colorPrimary: "#000000",
-    colorText: "#000000",
-    colorInputText: "#000000",
-    colorInputBackground: "#F3EFE7",
+    colorPrimary: "#171717",
+    colorText: "#171717",
+    colorInputText: "#171717",
+    colorInputBackground: "#FAFAF8",
     colorBackground: "#FFFFFF",
-    borderRadius: "2rem",
+    borderRadius: "1rem",
   },
   elements: {
     modalBackdrop: "backdrop-blur-sm bg-black/60",
-    modal: "rounded-3xl shadow-[0_24px_80px_rgba(0,0,0,0.1)] border border-[#D8D4CC] bg-[#F3EFE7]",
-    card: "rounded-3xl border border-[#D8D4CC] shadow-[0_22px_70px_rgba(0,0,0,0.05)] bg-[#FAF9F6]",
-    headerTitle: "text-xl font-semibold text-[#000000]",
-    headerSubtitle: "text-sm text-[#525252]",
+    modal: "rounded-3xl shadow-[0_24px_80px_rgba(18,18,18,0.09)] border border-[#E4E2DB] bg-[#F7F6F2]",
+    card: "rounded-3xl border border-[#E4E2DB] shadow-[0_20px_60px_rgba(18,18,18,0.05)] bg-[#FCFCFA]",
+    headerTitle: "text-xl font-semibold text-[#171717]",
+    headerSubtitle: "text-sm text-[#686662]",
     socialButtons: "gap-3",
     socialButtonsBlockButton:
-      "h-11 rounded-xl border border-[#D8D4CC] bg-[#FFFFFF] text-[#000000] hover:bg-[#F3EFE7] shadow-none",
+      "h-11 rounded-xl border border-[#E4E2DB] bg-[#FFFFFF] text-[#171717] hover:bg-[#F7F6F2] shadow-none",
     socialButtonsBlockButtonText: "text-sm font-semibold",
     socialButtonsProviderIcon: "text-base",
-    dividerText: "text-[#a3a3a3] text-xs font-semibold uppercase tracking-[0.16em]",
-    dividerLine: "bg-[#e5e5e5]",
-    formFieldLabel: "text-xs font-semibold text-[#525252] uppercase tracking-[0.06em]",
+    dividerText: "text-[#9E9A92] text-xs font-semibold uppercase tracking-[0.16em]",
+    dividerLine: "bg-[#E9E7E1]",
+    formFieldLabel: "text-xs font-semibold text-[#686662] uppercase tracking-[0.06em]",
     formFieldInput:
-      "h-11 rounded-3xl border border-[#D8D4CC] bg-[#FFFFFF] text-[#000000] placeholder:text-[#a3a3a3] focus:ring-2 focus:ring-[#000000] focus:border-[#000000]",
-    formFieldInputShowPasswordButton: "text-[#525252]",
+      "h-11 rounded-2xl border border-[#E4E2DB] bg-[#FFFFFF] text-[#171717] placeholder:text-[#9E9A92] focus:ring-2 focus:ring-[#171717]/20 focus:border-[#171717]",
+    formFieldInputShowPasswordButton: "text-[#686662]",
     formButtonPrimary:
-      "h-11 rounded-full bg-[#000000] text-white text-sm font-semibold shadow-[0_12px_28px_rgba(0,0,0,0.1)] hover:bg-[#1a1a1a]",
-    footerActionText: "text-[#6b7280] text-sm",
-    footerActionLink: "text-[#111111] font-semibold hover:underline",
+      "h-11 rounded-xl bg-[#171717] text-white text-sm font-semibold shadow-[0_12px_28px_rgba(18,18,18,0.12)] hover:bg-[#262626]",
+    footerActionText: "text-[#6E6B65] text-sm",
+    footerActionLink: "text-[#171717] font-semibold hover:underline",
     footer: "pt-2",
   },
 };
+
+const rootFontVariables = {
+  "--font-sans":
+    '"Manrope", "Avenir Next", "Segoe UI", "Inter", -apple-system, BlinkMacSystemFont, sans-serif',
+  "--font-mono":
+    '"JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", monospace',
+  "--font-serif": '"Newsreader", Georgia, "Times New Roman", serif',
+} as CSSProperties;
 
 export default function RootLayout({
   children,
@@ -76,15 +67,18 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${inter.variable} ${jetbrainsMono.variable} ${merriweather.variable} antialiased`}
-      >
+      <body className="antialiased" style={rootFontVariables}>
         <ClerkProvider
           appearance={clerkAppearance}
-          signInFallbackRedirectUrl="/dashboard"
-          signUpFallbackRedirectUrl="/dashboard"
-          afterSignInUrl="/dashboard"
-          afterSignUpUrl="/dashboard"
+          signInUrl="/sign-in"
+          signUpUrl="/sign-up"
+          signInForceRedirectUrl="/onboarding"
+          signUpForceRedirectUrl="/onboarding"
+          signInFallbackRedirectUrl="/onboarding"
+          signUpFallbackRedirectUrl="/onboarding"
+          taskUrls={{
+            "choose-organization": "/onboarding",
+          }}
         >
           <ConvexClientProvider>
             {children}

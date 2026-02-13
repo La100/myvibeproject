@@ -1,0 +1,13 @@
+import type { ExtensionConfig } from "../types"
+
+const MAIN_APP_URL =
+  import.meta.env.VITE_MAIN_APP_URL?.trim() || "http://localhost:3001"
+
+export const CONFIG: ExtensionConfig = {
+  API_BASE: `${MAIN_APP_URL}/api`,
+  MAIN_APP_URL,
+  EXTENSION_ID: chrome.runtime?.id ?? "",
+  VERSION: "3.0.0",
+}
+
+export type { ExtensionConfig }

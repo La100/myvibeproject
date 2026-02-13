@@ -1,7 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
-
 const internalAny = internal as any;
 
 // Common unit types for labor
@@ -169,7 +168,7 @@ export const createLaborItem = mutation({
       updatedAt: Date.now(),
     });
 
-    await ctx.runMutation(internal.activityLog.logActivity, {
+    await ctx.runMutation(internalAny.activityLog.logActivity, {
       teamId: project.teamId,
       projectId: args.projectId,
       actionType: "labor.create",
@@ -181,34 +180,6 @@ export const createLaborItem = mutation({
         unit: args.unit,
       },
     });
-
-    // Sync to Google Calendar
-    if (identity.subject) {
-      let attendees: string[] | undefined;
-      if (args.assignedTo) {
-        const assignee = await ctx.db
-          .query("users")
-          .withIndex("by_clerk_user_id", (q) => q.eq("clerkUserId", args.assignedTo!))
-          .unique();
-        if (assignee?.email) {
-          attendees = [assignee.email];
-        }
-      }
-
-      await ctx.scheduler.runAfter(0, internalAny.googleCalendar.syncLaborEvent, {
-        itemId,
-        projectId: args.projectId,
-        teamId: project.teamId,
-        clerkUserId: identity.subject,
-        name: args.name,
-        notes: args.notes,
-        quantity: args.quantity,
-        unit: args.unit,
-        startDate: args.startDate,
-        endDate: args.endDate,
-        attendees,
-      });
-    }
 
     return itemId;
   },
@@ -251,7 +222,7 @@ export const updateLaborItem = mutation({
 
     await ctx.db.patch(itemId, patch);
 
-    await ctx.runMutation(internal.activityLog.logActivity, {
+    await ctx.runMutation(internalAny.activityLog.logActivity, {
       teamId: item.teamId,
       projectId: item.projectId,
       actionType: "labor.update",
@@ -262,38 +233,6 @@ export const updateLaborItem = mutation({
         updates: patch,
       },
     });
-
-    // Sync to Google Calendar
-    if (identity.subject) {
-      // Fetch full item again to get latest values if some were optional
-      const updatedItem = await ctx.db.get(itemId);
-      if (updatedItem) {
-        let attendees: string[] | undefined;
-        if (updatedItem.assignedTo) {
-          const assignee = await ctx.db
-            .query("users")
-            .withIndex("by_clerk_user_id", (q) => q.eq("clerkUserId", updatedItem.assignedTo!))
-            .unique();
-          if (assignee?.email) {
-            attendees = [assignee.email];
-          }
-        }
-
-        await ctx.scheduler.runAfter(0, internalAny.googleCalendar.syncLaborEvent, {
-          itemId,
-          projectId: updatedItem.projectId,
-          teamId: updatedItem.teamId,
-          clerkUserId: identity.subject,
-          name: updatedItem.name,
-          notes: updatedItem.notes,
-          quantity: updatedItem.quantity,
-          unit: updatedItem.unit,
-          startDate: updatedItem.startDate,
-          endDate: updatedItem.endDate,
-          attendees,
-        });
-      }
-    }
 
     return args.itemId;
   },
@@ -308,7 +247,7 @@ export const deleteLaborItem = mutation({
     const item = await ctx.db.get(args.itemId);
     if (!item) throw new Error("Item not found");
 
-    await ctx.runMutation(internal.activityLog.logActivity, {
+    await ctx.runMutation(internalAny.activityLog.logActivity, {
       teamId: item.teamId,
       projectId: item.projectId,
       actionType: "labor.delete",
@@ -320,16 +259,6 @@ export const deleteLaborItem = mutation({
     });
 
     await ctx.db.delete(args.itemId);
-
-    // Remove from Google Calendar
-    if (identity.subject) {
-      await ctx.scheduler.runAfter(0, internalAny.googleCalendar.deleteGoogleEventForSource, {
-        sourceType: "labor",
-        sourceId: args.itemId,
-        clerkUserId: identity.subject,
-        teamId: item.teamId,
-      });
-    }
 
     return args.itemId;
   },
@@ -368,5 +297,3 @@ export const getLaborForIndexing = query({
       .collect();
   },
 });
-
-

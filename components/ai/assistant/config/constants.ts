@@ -61,11 +61,11 @@ export const LEGACY_TYPE_TO_CANONICAL: Record<string, PendingItemType> = {
 export const QUICK_PROMPTS: QuickPrompt[] = [
   {
     label: "Plan",
-    prompt: "Sketch a focused renovation plan for this week with the key tasks and owners.",
+    prompt: "Sketch a focused architectural project plan for this week with key tasks and owners.",
   },
   {
     label: "Budget",
-    prompt: "Review our remodeling budget and flag any cost overruns we should tackle.",
+    prompt: "Review our project budget and flag any cost overruns we should tackle.",
   },
   {
     label: "Supplies",
@@ -73,11 +73,11 @@ export const QUICK_PROMPTS: QuickPrompt[] = [
   },
   {
     label: "Update",
-    prompt: "Draft a client update summarizing today's progress on the remodel.",
+    prompt: "Draft a client update summarizing today's architectural project progress.",
   },
   {
     label: "Risks",
-    prompt: "List potential blockers that might delay the renovation timeline.",
+    prompt: "List potential blockers that might delay the architectural project timeline.",
   },
 ];
 

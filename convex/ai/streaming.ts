@@ -1,7 +1,7 @@
 "use node";
 
 /**
- * VibePlanner AI Streaming Chat
+ * Myvibe project AI Streaming Chat
  * 
  * Streaming architecture:
  * 1. Client calls /api/ai/stream which calls initializeStreaming mutation
@@ -13,10 +13,14 @@
  * See: https://docs.convex.dev/agents/streaming
  */
 
-import { internal, api } from "../_generated/api";
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const apiAny = require("../_generated/api").api as any;
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const internalAny = require("../_generated/api").internal as any;
+import { components } from "../_generated/api";
 import { action, internalAction } from "../_generated/server";
 import { v } from "convex/values";
-import { createVibePlannerAgent } from "./agent";
+import { createMyvibeProjectAgent } from "./agent";
 import {
   buildTeamMembersContext,
   buildSystemInstructions,
@@ -28,6 +32,9 @@ import { AI_MODEL, calculateCost } from "./config";
 import { defaultPrompt } from "./prompt";
 import type { Id } from "../_generated/dataModel";
 import { buildFallbackResponseFromTools } from "./helpers/streamResponseBuilder";
+
+const AI_CREDITS_EXHAUSTED_MESSAGE =
+  "You've run out of AI credits. Contact your administrator to add more tokens.";
 
 /**
  * Internal action that does the actual streaming work
@@ -68,9 +75,9 @@ export const internalDoStreaming = internalAction({
       // AUTO-REJECT LOGIC:
       // If there are any pending function calls from previous turns, reject them now.
       // This allows the user to "cancel" a pending action simply by sending a new message.
-      const pendingCalls = await ctx.runQuery(api.ai.threads.listPendingItems, {
+      const pendingCalls = await ctx.runQuery(apiAny.ai.threads.listPendingItems, {
         threadId: providedThreadId,
-      });
+      }) as Array<{ status: string; callId: string; responseId: string }>;
 
       if (pendingCalls.length > 0) {
         // Filter to only actual pending items to avoid touching history
@@ -92,7 +99,7 @@ export const internalDoStreaming = internalAction({
 
           // Execute rejections
           for (const [responseId, results] of pendingByResponse.entries()) {
-            await ctx.runMutation(api.ai.threads.markFunctionCallsAsConfirmed, {
+            await ctx.runMutation(apiAny.ai.threads.markFunctionCallsAsConfirmed, {
               threadId: providedThreadId,
               responseId,
               results: results.map((r) => ({ ...r, status: "rejected" })) as any,
@@ -104,26 +111,12 @@ export const internalDoStreaming = internalAction({
       // Streaming start
 
       // Resolve teamId from project
-      const projectForTeam = await ctx.runQuery(api.projects.getProject, {
+      const projectForTeam = await ctx.runQuery(apiAny.projects.getProject, {
         projectId: args.projectId,
-      });
+      }) as { teamId?: Id<"teams">; customAiPrompt?: string } | null;
       const teamId = projectForTeam?.teamId ?? null;
       if (!teamId) {
         throw new Error("Unable to resolve teamId");
-      }
-
-      const aiAccess = await ctx.runQuery(internal.stripe.checkAIFeatureAccessByProject, {
-        projectId: args.projectId,
-      });
-
-      console.log("🔐 [AI ACCESS CHECK]", {
-        allowed: aiAccess.allowed,
-        message: aiAccess.message,
-      });
-
-      if (!aiAccess.allowed) {
-        console.error("❌ [AI ACCESS DENIED]", aiAccess.message);
-        throw new Error(aiAccess.message || "AI features are unavailable for this project.");
       }
 
       // Snapshot loaded on-demand
@@ -131,10 +124,9 @@ export const internalDoStreaming = internalAction({
 
       const ensureSnapshot = async (): Promise<ProjectContextSnapshot> => {
         if (!snapshot) {
-          snapshot = (await ctx.runQuery(
-            internal.ai.longContextQueries.getProjectContextSnapshot,
-            { projectId: args.projectId }
-          )) as unknown as ProjectContextSnapshot;
+          snapshot = (await ctx.runQuery(internalAny.ai.longContextQueries.getProjectContextSnapshot, {
+            projectId: args.projectId,
+          })) as unknown as ProjectContextSnapshot;
         }
         return snapshot!;
       };
@@ -142,11 +134,12 @@ export const internalDoStreaming = internalAction({
       // Build system instructions
       // Use custom AI prompt from project if available, otherwise use default
       const systemPrompt = projectForTeam?.customAiPrompt || defaultPrompt;
-      const teamMembers = await ctx.runQuery(internal.teams.getTeamMembersWithUserDetails, {
+
+      const teamMembers = await ctx.runQuery(internalAny.teams.getTeamMembersWithUserDetails, {
         projectId: args.projectId,
-      });
+      }) as Array<Record<string, unknown>>;
       const teamMembersContext = buildTeamMembersContext(teamMembers);
-      const team = await ctx.runQuery(api.teams.getTeamById, { teamId: teamId! });
+      const team = await ctx.runQuery(apiAny.teams.getTeamById, { teamId: teamId! }) as { timezone?: string } | null;
       const timezone = team?.timezone; // Get timezone from team
 
       const { currentDate, currentDateTime } = getCurrentDateTime(timezone);
@@ -200,7 +193,7 @@ export const internalDoStreaming = internalAction({
       });
 
       // Create agent
-      const agent = createVibePlannerAgent(systemInstructions, {
+      const agent = createMyvibeProjectAgent(systemInstructions, {
         projectId: args.projectId as string,
         runAction: ctx.runAction,
         loadSnapshot: ensureSnapshot,
@@ -213,7 +206,7 @@ export const internalDoStreaming = internalAction({
 
       if (isLegacyThreadId) {
         // Legacy thread ID - look up or create mapping
-        const mapping: any = await ctx.runQuery(internal.ai.threads.getThreadForResponses, {
+        const mapping: any = await ctx.runQuery(internalAny.ai.threads.getThreadForResponses, {
           threadId: providedThreadId
         });
         if (mapping && mapping.agentThreadId) {
@@ -235,7 +228,7 @@ export const internalDoStreaming = internalAction({
             agentThreadId: agentThreadId,
           });
 
-          await ctx.runMutation(internal.ai.threads.saveAgentThreadMapping, {
+          await ctx.runMutation(internalAny.ai.threads.saveAgentThreadMapping, {
             threadId: providedThreadId,
             agentThreadId: agentThreadId
           });
@@ -254,6 +247,50 @@ export const internalDoStreaming = internalAction({
         providedThreadId,
       });
 
+      if (!agentThreadId) {
+        throw new Error("Unable to resolve agent thread ID");
+      }
+
+      const aiAccess = await ctx.runQuery(internalAny.stripe.checkAIFeatureAccessByProject, {
+        projectId: args.projectId,
+      }) as { allowed: boolean; message?: string };
+
+      console.log("🔐 [AI ACCESS CHECK]", {
+        allowed: aiAccess.allowed,
+        message: aiAccess.message,
+      });
+
+      if (!aiAccess.allowed) {
+        const quotaMessage = aiAccess.message || AI_CREDITS_EXHAUSTED_MESSAGE;
+        console.error("❌ [AI ACCESS DENIED]", quotaMessage);
+
+        await ctx.runMutation(components.agent.messages.addMessages, {
+          threadId: agentThreadId,
+          userId: args.userClerkId,
+          messages: [
+            {
+              message: {
+                role: "assistant",
+                content: quotaMessage,
+              },
+              text: quotaMessage,
+              status: "success",
+              finishReason: "stop",
+            },
+          ],
+        });
+
+        await ctx.runMutation(internalAny.ai.threads.updateThreadSummary, {
+          threadId: providedThreadId,
+          lastMessageAt: Date.now(),
+          lastMessagePreview: quotaMessage,
+          lastMessageRole: "assistant",
+          messageCountDelta: 1,
+        });
+
+        return null;
+      }
+
       // Stream via Convex Agent (saves deltas for subscriptions)
 
       console.log("🌊 [START STREAMING]", {
@@ -263,7 +300,7 @@ export const internalDoStreaming = internalAction({
 
       // REPLAY LOGIC:
       // Fetch confirmed/rejected calls to feed back into agent history
-      const replayCalls = (await ctx.runQuery(internal.ai.threads.getPendingFunctionCalls, {
+      const replayCalls = (await ctx.runQuery(internalAny.ai.threads.getPendingFunctionCalls, {
         threadId: providedThreadId,
       })) as any[];
 
@@ -316,7 +353,7 @@ export const internalDoStreaming = internalAction({
 
         // Mark calls as replayed to prevent duplicate processing
         if (replayedCallIds.length > 0) {
-          await ctx.runMutation(internal.ai.threads.markFunctionCallsAsReplayed, {
+          await ctx.runMutation(internalAny.ai.threads.markFunctionCallsAsReplayed, {
             callIds: replayedCallIds as any,
           });
         }
@@ -345,6 +382,7 @@ export const internalDoStreaming = internalAction({
       });
 
       let fullResponse = "";
+      let shouldPersistSyntheticFallback = false;
 
       if (steps && Array.isArray(steps)) {
         let latestStepText = "";
@@ -423,6 +461,12 @@ export const internalDoStreaming = internalAction({
         } else {
           fullResponse = "✅ Operation completed";
         }
+      }
+
+      // Guard against empty assistant messages.
+      if ((!fullResponse || fullResponse.trim().length === 0) && totalOutputTokens === 0) {
+        fullResponse = "I'm sorry, I couldn't generate a response. Please try again.";
+        shouldPersistSyntheticFallback = true;
       }
 
       console.log("💬 [FINAL RESPONSE]", {
@@ -538,9 +582,9 @@ export const internalDoStreaming = internalAction({
           }
         }
 
-        const pendingCalls = await ctx.runQuery(api.ai.threads.listPendingItems, {
+        const pendingCalls = await ctx.runQuery(apiAny.ai.threads.listPendingItems, {
           threadId: providedThreadId,
-        });
+        }) as Array<{ callId: string; status: string; responseId: string; arguments?: string }>;
 
         const shouldReplacePending =
           pendingCalls.length === 1 &&
@@ -588,7 +632,7 @@ export const internalDoStreaming = internalAction({
             ]);
 
             for (const [responseId, results] of groupedResults.entries()) {
-              await ctx.runMutation(api.ai.threads.markFunctionCallsAsConfirmed, {
+              await ctx.runMutation(apiAny.ai.threads.markFunctionCallsAsConfirmed, {
                 threadId: providedThreadId,
                 responseId,
                 results,
@@ -624,7 +668,7 @@ export const internalDoStreaming = internalAction({
             filteredOutCount: functionCalls.length - actionFunctionCalls.length,
           });
 
-          await ctx.runMutation(internal.ai.threads.saveFunctionCalls, {
+          await ctx.runMutation(internalAny.ai.threads.saveFunctionCalls, {
             threadId: providedThreadId,
             projectId: args.projectId,
             responseId,
@@ -665,7 +709,7 @@ export const internalDoStreaming = internalAction({
                   };
                 });
 
-                await ctx.runMutation(internal.ai.threads.saveFunctionCalls, {
+                await ctx.runMutation(internalAny.ai.threads.saveFunctionCalls, {
                   threadId: providedThreadId,
                   projectId: args.projectId,
                   responseId,
@@ -685,7 +729,7 @@ export const internalDoStreaming = internalAction({
                       data: { itemId, name: firstItem?.name },
                     }),
                   };
-                  await ctx.runMutation(internal.ai.threads.saveFunctionCalls, {
+                  await ctx.runMutation(internalAny.ai.threads.saveFunctionCalls, {
                     threadId: providedThreadId,
                     projectId: args.projectId,
                     responseId,
@@ -698,6 +742,24 @@ export const internalDoStreaming = internalAction({
             }
           }
         }
+      }
+
+      if (shouldPersistSyntheticFallback) {
+        await ctx.runMutation(components.agent.messages.addMessages, {
+          threadId: agentThreadId,
+          userId: args.userClerkId,
+          messages: [
+            {
+              message: {
+                role: "assistant",
+                content: fullResponse,
+              },
+              text: fullResponse,
+              status: "success",
+              finishReason: "stop",
+            },
+          ],
+        });
       }
 
       // Calculate token usage
@@ -719,7 +781,7 @@ export const internalDoStreaming = internalAction({
         responsePreview: fullResponse.substring(0, 50) + "...",
       });
 
-      await ctx.runMutation(internal.ai.threads.updateThreadSummary, {
+      await ctx.runMutation(internalAny.ai.threads.updateThreadSummary, {
         threadId: providedThreadId,
         lastMessageAt: Date.now(),
         lastMessagePreview: fullResponse,
@@ -736,7 +798,7 @@ export const internalDoStreaming = internalAction({
       });
 
       // Save usage statistics
-      await ctx.runMutation(internal.ai.usage.saveTokenUsage, {
+      await ctx.runMutation(internalAny.ai.usage.saveTokenUsage, {
         projectId: args.projectId,
         teamId: teamId as Id<"teams">,
         userClerkId: args.userClerkId,
@@ -817,14 +879,14 @@ export const startStreamingChat = action({
         throw new Error("Forbidden");
       }
 
-      const project = await ctx.runQuery(api.projects.getProject, { projectId: args.projectId });
+      const project = await ctx.runQuery(apiAny.projects.getProject, { projectId: args.projectId }) as { teamId: Id<"teams"> } | null;
       if (!project) {
         throw new Error("Project not found");
       }
 
-      const membership = await ctx.runQuery(api.teams.getCurrentUserTeamMember, {
+      const membership = await ctx.runQuery(apiAny.teams.getCurrentUserTeamMember, {
         teamId: project.teamId,
-      });
+      }) as { isActive?: boolean } | null;
 
       if (!membership || membership.isActive === false) {
         throw new Error("Forbidden");
@@ -835,6 +897,18 @@ export const startStreamingChat = action({
         ? args.threadId
         : `thread-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
+      await ctx.runMutation(internalAny.activityLog.logActivity, {
+        teamId: project.teamId,
+        actionType: "analytics.ai.message_sent",
+        details: {
+          threadId: providedThreadId,
+          hasFiles: Boolean(args.fileId || (args.fileIds && args.fileIds.length > 0)),
+          messageLength: args.message.length,
+        },
+        entityId: providedThreadId,
+        entityType: "ai_thread",
+      });
+
       console.log("📅 [SCHEDULE STREAMING]", {
         providedThreadId,
         isNewThread: !args.threadId,
@@ -842,7 +916,7 @@ export const startStreamingChat = action({
 
       // Call the mutation to initialize and schedule streaming
       // Type annotation to break circular reference
-      await ctx.scheduler.runAfter(0, internal.ai.streaming.internalDoStreaming, {
+      await ctx.scheduler.runAfter(0, internalAny.ai.streaming.internalDoStreaming, {
         message: args.message,
         projectId: args.projectId,
         userClerkId: args.userClerkId,

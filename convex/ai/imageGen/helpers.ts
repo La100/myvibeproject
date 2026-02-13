@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery } from "../../_generated/server";
 import type { Id } from "../../_generated/dataModel";
 import { r2 } from "../../files";
+import { SUBSCRIPTION_PLANS } from "../../stripe";
 
 /**
  * Internal helper functions for image generation
@@ -236,6 +237,17 @@ export const logImageGeneration = internalMutation({
   },
   returns: v.id("aiGeneratedImages"),
   handler: async (ctx, args) => {
+    const [hadPreviousTokenUsage, hadPreviousImageUsage] = await Promise.all([
+      ctx.db
+        .query("aiTokenUsage")
+        .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+        .first(),
+      ctx.db
+        .query("aiGeneratedImages")
+        .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+        .first(),
+    ]);
+
     const promptForGallery = normalizePromptForGallery(args.prompt);
     const generationId = await ctx.db.insert("aiGeneratedImages", {
       projectId: args.projectId,
@@ -259,11 +271,29 @@ export const logImageGeneration = internalMutation({
       success: args.success,
     });
 
-    // Decrement aiTokens from team (only for successful generations)
+    // Decrement aiTokens from team (only for successful generations).
+    // If balance was never initialized, seed from plan limit first.
     if (args.success) {
       const team = await ctx.db.get(args.teamId);
-      if (team && team.aiTokens !== undefined) {
-        const newBalance = Math.max(0, (team.aiTokens || 0) - IMAGE_GENERATION_TOKENS);
+      if (team) {
+        const plan = (team.subscriptionPlan || "free") as keyof typeof SUBSCRIPTION_PLANS;
+        const defaultPlanTokens = SUBSCRIPTION_PLANS[plan]?.aiMonthlyTokens ?? 0;
+        const storedPlanTokens = team.subscriptionLimits?.aiMonthlyTokens;
+        const planTokens =
+          plan === "free"
+            ? Math.max(defaultPlanTokens, storedPlanTokens ?? 0)
+            : (storedPlanTokens ?? defaultPlanTokens);
+        const isLegacyFreeZeroBalance =
+          plan === "free" &&
+          team.aiTokens === 0 &&
+          ((storedPlanTokens ?? 0) <= 0) &&
+          !hadPreviousTokenUsage &&
+          !hadPreviousImageUsage;
+        const currentBalance =
+          typeof team.aiTokens === "number" && !isLegacyFreeZeroBalance
+            ? Math.max(0, team.aiTokens)
+            : Math.max(0, planTokens);
+        const newBalance = Math.max(0, currentBalance - IMAGE_GENERATION_TOKENS);
         await ctx.db.patch(args.teamId, { aiTokens: newBalance });
       }
     }

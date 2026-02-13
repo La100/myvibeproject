@@ -3,12 +3,12 @@ import Link from 'next/link';
 
 const Logo = () => {
   return (
-    <Link href="/" className="flex items-center gap-3 group" aria-label="VibePlanner">
-      <span className="flex h-10 w-10 items-center justify-center rounded-sm bg-[#C06A3D] text-white font-semibold tracking-tight transition-transform duration-200 group-hover:-translate-y-0.5">
+    <Link href="/" className="flex items-center gap-3 group" aria-label="Myvibe project">
+      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-semibold tracking-tight transition-transform duration-200 group-hover:-translate-y-0.5">
         VP
       </span>
-      <span className="text-xl font-medium tracking-tight font-[var(--font-display-serif)] text-foreground group-hover:opacity-90 transition-opacity duration-200">
-        VibePlanner
+      <span className="text-lg font-normal tracking-tight font-[var(--font-display-serif)] text-foreground group-hover:opacity-90 transition-opacity duration-200">
+        Myvibe project
       </span>
     </Link>
   );

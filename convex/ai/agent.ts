@@ -1,5 +1,5 @@
 /**
- * VibePlanner AI Agent - Convex Agent Implementation
+ * Myvibe project AI Agent - Convex Agent Implementation
  *
  * This replaces the manual OpenAI Responses API implementation with @convex-dev/agent
  * while preserving all custom tools and functionality.
@@ -25,7 +25,7 @@ interface AgentOptions {
 }
 
 /**
- * Create the VibePlanner AI Agent with all tools and advanced features
+ * Create the Myvibe project AI Agent with all tools and advanced features
  *
  * Features:
  * - All 27 custom tools
@@ -34,14 +34,14 @@ interface AgentOptions {
  *
  * See: https://docs.convex.dev/agents/context
  */
-export const createVibePlannerAgent = (
+export const createMyvibeProjectAgent = (
   instructions: string,
   options?: AgentOptions
 ) => {
   // Agent configuration with proper typing
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const agentConfig: Record<string, any> = {
-    name: "VibePlanner Assistant",
+    name: "Myvibe project Assistant",
     languageModel: openai(AI_MODEL),
     instructions,
     maxSteps: AI_CONFIG.maxSteps,

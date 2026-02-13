@@ -1,8 +1,6 @@
 import { v } from "convex/values";
-import { action, mutation, query } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { Id } from "./_generated/dataModel";
-
 const internalAny = internal as any;
 
 // ====== SHOPPING LIST SECTIONS ======
@@ -163,7 +161,7 @@ export const createShoppingListItem = mutation({
       completed: false,
     });
 
-    await ctx.runMutation(internal.activityLog.logActivity, {
+    await ctx.runMutation(internalAny.activityLog.logActivity, {
       teamId: project.teamId,
       projectId: args.projectId,
 
@@ -177,17 +175,7 @@ export const createShoppingListItem = mutation({
       },
     });
 
-    const targetUserId = args.assignedTo ?? identity.subject;
-    await ctx.scheduler.runAfter(0, internalAny.googleCalendar.syncShoppingItemEvent, {
-      itemId,
-      projectId: args.projectId,
-      teamId: project.teamId,
-      clerkUserId: targetUserId,
-      name: args.name,
-      notes: args.notes,
-      buyBefore: args.buyBefore,
-      quantity: args.quantity,
-    });
+
 
     return itemId;
   },
@@ -236,7 +224,7 @@ export const updateShoppingListItem = mutation({
 
     await ctx.db.patch(itemId, patch);
 
-    await ctx.runMutation(internal.activityLog.logActivity, {
+    await ctx.runMutation(internalAny.activityLog.logActivity, {
       teamId: item.teamId,
       projectId: item.projectId,
 
@@ -248,40 +236,6 @@ export const updateShoppingListItem = mutation({
         updates: patch,
       },
     });
-
-    const assignedToProvided = Object.prototype.hasOwnProperty.call(updates, "assignedTo");
-    const nextAssignedTo = assignedToProvided ? (updates.assignedTo ?? null) : (item.assignedTo ?? null);
-    const prevAssignedTo = item.assignedTo ?? null;
-    const targetUserId = nextAssignedTo ?? item.createdBy;
-
-    await ctx.scheduler.runAfter(0, internalAny.googleCalendar.syncShoppingItemEvent, {
-      itemId: args.itemId,
-      projectId: item.projectId,
-      teamId: item.teamId,
-      clerkUserId: targetUserId,
-      name: updates.name ?? item.name,
-      notes: updates.notes ?? item.notes,
-      buyBefore: updates.buyBefore ?? item.buyBefore,
-      quantity: updates.quantity ?? item.quantity,
-    });
-
-    if (prevAssignedTo && prevAssignedTo !== nextAssignedTo) {
-      await ctx.scheduler.runAfter(0, internalAny.googleCalendar.deleteGoogleEventForSource, {
-        sourceType: "shopping",
-        sourceId: args.itemId,
-        clerkUserId: prevAssignedTo,
-        teamId: item.teamId,
-      });
-    }
-
-    if (!prevAssignedTo && nextAssignedTo && item.createdBy !== nextAssignedTo) {
-      await ctx.scheduler.runAfter(0, internalAny.googleCalendar.deleteGoogleEventForSource, {
-        sourceType: "shopping",
-        sourceId: args.itemId,
-        clerkUserId: item.createdBy,
-        teamId: item.teamId,
-      });
-    }
 
     return args.itemId;
   },
@@ -297,7 +251,7 @@ export const cancelShoppingListItem = mutation({
     const item = await ctx.db.get(args.itemId);
     if (!item) throw new Error("Item not found");
 
-    await ctx.runMutation(internal.activityLog.logActivity, {
+    await ctx.runMutation(internalAny.activityLog.logActivity, {
       teamId: item.teamId,
       projectId: item.projectId,
 
@@ -328,7 +282,7 @@ export const deleteShoppingListItem = mutation({
     const item = await ctx.db.get(args.itemId);
     if (!item) throw new Error("Item not found");
 
-    await ctx.runMutation(internal.activityLog.logActivity, {
+    await ctx.runMutation(internalAny.activityLog.logActivity, {
       teamId: item.teamId,
       projectId: item.projectId,
 
@@ -343,13 +297,7 @@ export const deleteShoppingListItem = mutation({
     // Actually delete the item from database
     await ctx.db.delete(args.itemId);
 
-    const targetUserId = item.assignedTo ?? item.createdBy;
-    await ctx.scheduler.runAfter(0, internalAny.googleCalendar.deleteGoogleEventForSource, {
-      sourceType: "shopping",
-      sourceId: args.itemId,
-      clerkUserId: targetUserId,
-      teamId: item.teamId,
-    });
+
 
     return args.itemId;
   },

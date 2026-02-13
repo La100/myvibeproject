@@ -1,31 +1,16 @@
 "use client";
 
-import { motion } from "framer-motion";
-
 export const Greeting = () => {
   return (
-    <div
-      className="mx-auto mt-4 flex size-full max-w-3xl flex-col justify-center px-4 md:mt-16 md:px-8"
-      key="overview"
-    >
-      <motion.div
-        animate={{ opacity: 1, y: 0 }}
-        className="text-xl font-semibold md:text-2xl"
-        exit={{ opacity: 0, y: 10 }}
-        initial={{ opacity: 0, y: 10 }}
-        transition={{ delay: 0.5 }}
-      >
-        Hello there!
-      </motion.div>
-      <motion.div
-        animate={{ opacity: 1, y: 0 }}
-        className="text-xl text-muted-foreground md:text-2xl"
-        exit={{ opacity: 0, y: 10 }}
-        initial={{ opacity: 0, y: 10 }}
-        transition={{ delay: 0.6 }}
-      >
-        How can I help you today?
-      </motion.div>
+    <div className="mx-auto flex min-h-full w-full max-w-[44rem] flex-col items-center justify-center gap-16 py-16 text-center">
+      <div className="flex w-full flex-col items-center justify-center px-4">
+        <h1 className="animate-in fade-in slide-in-from-bottom-1 font-semibold text-2xl duration-200">
+          Hi, I&apos;m your AI assistant.
+        </h1>
+        <p className="animate-in fade-in slide-in-from-bottom-1 text-muted-foreground text-xl delay-75 duration-200">
+          I&apos;m here to help you get things done. What would you like to work on?
+        </p>
+      </div>
     </div>
   );
 };

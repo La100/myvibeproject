@@ -1,89 +1,154 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useOrganization } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
-
-import { Download, Calendar, DollarSign, BarChart3, TrendingUp, Clock, AlertCircle } from "lucide-react";
+import {
+  Download,
+  Calendar,
+  DollarSign,
+  BarChart3,
+  TrendingUp,
+  Clock,
+  AlertCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+const SHOPPING_STATUSES = [
+  "PLANNED",
+  "ORDERED",
+  "IN_TRANSIT",
+  "DELIVERED",
+  "COMPLETED",
+  "CANCELLED",
+] as const;
 
 export default function CompanyReports() {
   const { organization, isLoaded } = useOrganization();
   const [timeRange, setTimeRange] = useState<string>("30d");
-  
-  // Check if team exists first
-  const team = useQuery(apiAny.teams.getTeamByClerkOrg, 
-    organization?.id ? { clerkOrgId: organization.id } : "skip"
-  );
-  
-  // Get projects for this organization
-  const projects = useQuery(apiAny.projects.listProjectsByClerkOrg, 
-    organization?.id ? { clerkOrgId: organization.id } : "skip"
-  );
-  
-  // Get team tasks for overview
-  const teamTasks = useQuery(apiAny.tasks.listTeamTasks,
-    team && team._id ? { teamId: team._id } : "skip"
+
+  const team = useQuery(
+    apiAny.teams.getTeamByClerkOrg,
+    organization?.id ? { clerkOrgId: organization.id } : "skip",
   );
 
-  // Get shopping list items for financial data
-  const shoppingItems = useQuery(apiAny.shopping.getShoppingListItemsByTeam,
-    team && team._id ? { teamId: team._id } : "skip"
+  const projects = useQuery(
+    apiAny.projects.listProjectsByClerkOrg,
+    organization?.id ? { clerkOrgId: organization.id } : "skip",
+  );
+
+  const teamTasks = useQuery(
+    apiAny.tasks.listTeamTasks,
+    team && team._id ? { teamId: team._id } : "skip",
+  );
+
+  const shoppingItems = useQuery(
+    apiAny.shopping.getShoppingListItemsByTeam,
+    team && team._id ? { teamId: team._id } : "skip",
+  );
+
+  const analyticsMetrics = useQuery(
+    apiAny.activityLog.getTeamProductKpis,
+    team && team._id ? { teamId: team._id, days: 30 } : "skip",
   );
 
   if (!isLoaded || !organization) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
 
-  // Calculate metrics
-  const totalProjects = projects?.length || 0;
-  const activeProjects = projects?.filter(p => p.status === "active").length || 0;
-  const totalBudget = projects?.reduce((sum, p) => sum + (p.budget || 0), 0) || 0;
+  const projectList = projects || [];
+  const tasksList = teamTasks || [];
+  const shoppingList = shoppingItems || [];
+  const activeCurrency = team?.currency || projectList[0]?.currency || "USD";
 
-  const totalTasks = teamTasks?.length || 0;
-  const completedTasks = teamTasks?.filter(task => task.status === "done").length || 0;
-  const inProgressTasks = teamTasks?.filter(task => task.status === "in_progress").length || 0;
+  const formatMoney = (amount: number, currency?: string) =>
+    new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: currency || activeCurrency,
+      maximumFractionDigits: 0,
+    }).format(amount);
+
+  const projectById = new Map<string, { name?: string }>(
+    projectList.map((project) => [String(project._id), project]),
+  );
+
+  const tasksByProject = tasksList.reduce((map, task) => {
+    const key = String(task.projectId);
+    const current = map.get(key) || [];
+    current.push(task);
+    map.set(key, current);
+    return map;
+  }, new Map<string, typeof tasksList>());
+
+  const totalProjects = projectList.length;
+  const activeProjects = projectList.filter((project) => project.status === "active").length;
+  const totalBudget = projectList.reduce((sum, project) => sum + (project.budget || 0), 0);
+
+  const totalTasks = tasksList.length;
+  const completedTasks = tasksList.filter((task) => task.status === "done").length;
+  const inProgressTasks = tasksList.filter((task) => task.status === "in_progress").length;
   const completionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
-  const totalTaskCost = teamTasks?.reduce((sum, task) => sum + (task.cost || 0), 0) || 0;
+  const totalTaskCost = tasksList.reduce((sum, task) => sum + (task.cost || 0), 0);
+  const totalShoppingCost = shoppingList.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
+  const orderedShoppingCost = shoppingList
+    .filter((item) =>
+      ["ORDERED", "IN_TRANSIT", "DELIVERED", "COMPLETED"].includes(item.realizationStatus),
+    )
+    .reduce((sum, item) => sum + (item.totalPrice || 0), 0);
 
-  // Shopping list costs
-  const totalShoppingCost = shoppingItems?.reduce((sum, item) => sum + (item.totalPrice || 0), 0) || 0;
-  const orderedShoppingCost = shoppingItems
-    ?.filter(item => ["ORDERED", "IN_TRANSIT", "DELIVERED", "COMPLETED"].includes(item.realizationStatus))
-    .reduce((sum, item) => sum + (item.totalPrice || 0), 0) || 0;
-
-  // Overdue tasks
   const now = Date.now();
-  const overdueTasks = teamTasks?.filter(task => {
-    const taskEndDate = task.endDate || task.startDate;
-    return taskEndDate && taskEndDate < now && task.status !== "done";
-  }).length || 0;
+  const overdueTaskList = tasksList
+    .filter((task) => {
+      const taskEndDate = task.endDate || task.startDate;
+      return taskEndDate && taskEndDate < now && task.status !== "done";
+    })
+    .sort((a, b) => (a.endDate || a.startDate || 0) - (b.endDate || b.startDate || 0))
+    .slice(0, 10);
+  const overdueTasks = overdueTaskList.length;
 
-  // Group projects by status
-  const projectsByStatus = (projects?.reduce((acc, project) => {
-    const status = project.status || 'unknown';
+  const projectsByStatus = projectList.reduce((acc, project) => {
+    const status = project.status || "unknown";
     acc[status] = (acc[status] || 0) + 1;
     return acc;
-  }, {} as Record<string, number>) || {}) as Record<string, number>;
+  }, {} as Record<string, number>);
 
-  // Group tasks by status
-  const tasksByStatus = (teamTasks?.reduce((acc, task) => {
+  const tasksByStatus = tasksList.reduce((acc, task) => {
     acc[task.status] = (acc[task.status] || 0) + 1;
     return acc;
-  }, {} as Record<string, number>) || {}) as Record<string, number>;
+  }, {} as Record<string, number>);
+
+  const shoppingByStatus = SHOPPING_STATUSES.map((status) => {
+    const items = shoppingList.filter((item) => item.realizationStatus === status);
+    return {
+      status,
+      count: items.length,
+      total: items.reduce((sum, item) => sum + (item.totalPrice || 0), 0),
+    };
+  }).filter((entry) => entry.count > 0);
 
   return (
     <div className="flex-1 p-6 space-y-6">
-      {/* Controls */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Reports & Analytics</h1>
-        
+
         <div className="flex items-center gap-3">
           <Select value={timeRange} onValueChange={setTimeRange}>
             <SelectTrigger className="w-40">
@@ -104,7 +169,6 @@ export default function CompanyReports() {
         </div>
       </div>
 
-      {/* Content */}
       <Tabs defaultValue="overview" className="w-full">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -115,7 +179,6 @@ export default function CompanyReports() {
 
         <TabsContent value="overview" className="mt-6">
           <div className="space-y-6">
-            {/* Key Metrics */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -124,9 +187,7 @@ export default function CompanyReports() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{totalProjects}</div>
-                  <p className="text-xs text-muted-foreground">
-                    {activeProjects} active
-                  </p>
+                  <p className="text-xs text-muted-foreground">{activeProjects} active</p>
                 </CardContent>
               </Card>
 
@@ -136,10 +197,8 @@ export default function CompanyReports() {
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{totalBudget.toLocaleString()} $</div>
-                  <p className="text-xs text-muted-foreground">
-                    Across all projects
-                  </p>
+                  <div className="text-2xl font-bold">{formatMoney(totalBudget)}</div>
+                  <p className="text-xs text-muted-foreground">Across all projects</p>
                 </CardContent>
               </Card>
 
@@ -174,80 +233,37 @@ export default function CompanyReports() {
               </Card>
             </div>
 
-            {/* Quick Stats Grid */}
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <Card>
-                <CardHeader>
-                  <CardTitle>Active Projects</CardTitle>
-                  <CardDescription>Currently in progress</CardDescription>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Onboarding (30d)</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
-                    {projects && projects.filter(p => p.status === "active").length > 0 ? (
-                      projects
-                        .filter(p => p.status === "active")
-                        .slice(0, 5)
-                        .map(project => {
-                          const projectTasks = teamTasks?.filter(t => t.projectId === project._id) || [];
-                          const completedCount = projectTasks.filter(t => t.status === "done").length;
-                          const progress = projectTasks.length > 0 ? (completedCount / projectTasks.length) * 100 : 0;
-
-                          return (
-                            <div key={project._id} className="space-y-1">
-                              <div className="flex items-center justify-between">
-                                <p className="font-medium text-sm">{project.name}</p>
-                                <span className="text-xs text-muted-foreground">{Math.round(progress)}%</span>
-                              </div>
-                              <div className="w-full bg-secondary rounded-full h-1.5">
-                                <div
-                                  className="bg-primary h-1.5 rounded-full transition-all duration-300"
-                                  style={{ width: `${progress}%` }}
-                                ></div>
-                              </div>
-                            </div>
-                          );
-                        })
-                    ) : (
-                      <div className="text-center py-8 text-muted-foreground text-sm">
-                        No active projects
-                      </div>
-                    )}
-                  </div>
+                  <div className="text-2xl font-bold">{analyticsMetrics?.onboardingCompleted ?? 0}</div>
                 </CardContent>
               </Card>
-
               <Card>
-                <CardHeader>
-                  <CardTitle>Task Priority</CardTitle>
-                  <CardDescription>Tasks by priority level</CardDescription>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Projects Created (30d)</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
-                    {["urgent", "high", "medium", "low"].map(priority => {
-                      const count = teamTasks?.filter(t => t.priority === priority && t.status !== "done").length || 0;
-                      if (count === 0) return null;
-
-                      return (
-                        <div key={priority} className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Badge variant={
-                              priority === "urgent" ? "destructive" :
-                              priority === "high" ? "default" :
-                              "secondary"
-                            }>
-                              {priority.toUpperCase()}
-                            </Badge>
-                          </div>
-                          <span className="text-sm font-medium">{count} tasks</span>
-                        </div>
-                      );
-                    })}
-                    {!teamTasks?.some(t => t.priority && t.status !== "done") && (
-                      <div className="text-center py-8 text-muted-foreground text-sm">
-                        No prioritized tasks
-                      </div>
-                    )}
-                  </div>
+                  <div className="text-2xl font-bold">{analyticsMetrics?.projectsCreated ?? 0}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">AI Messages (30d)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{analyticsMetrics?.aiMessagesSent ?? 0}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Active Users (30d)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{analyticsMetrics?.activeUsers ?? 0}</div>
                 </CardContent>
               </Card>
             </div>
@@ -259,72 +275,58 @@ export default function CompanyReports() {
             <Card>
               <CardHeader>
                 <CardTitle>Project Status Distribution</CardTitle>
-                <CardDescription>Breakdown of projects by their current status</CardDescription>
+                <CardDescription>Breakdown of projects by current status</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {Object.entries(projectsByStatus).map(([status, count]) => {
-                    const numCount = count as number;
-                    return (
+                  {Object.entries(projectsByStatus as Record<string, number>).map(([status, count]) => (
                     <div key={status} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Badge variant={
-                          status === "completed" ? "default" :
-                          status === "active" ? "secondary" :
-                          "outline"
-                        }>
+                        <Badge variant={status === "completed" ? "default" : status === "active" ? "secondary" : "outline"}>
                           {status.toUpperCase()}
                         </Badge>
-                        <span className="text-sm">{status.charAt(0).toUpperCase() + status.slice(1)}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="w-32 bg-secondary rounded-full h-2">
                           <div
-                            className="bg-primary h-2 rounded-full transition-all duration-300"
-                            style={{ width: `${totalProjects > 0 ? (numCount / totalProjects) * 100 : 0}%` }}
-                          ></div>
+                            className="bg-primary h-2 rounded-full"
+                            style={{ width: `${totalProjects > 0 ? (Number(count) / totalProjects) * 100 : 0}%` }}
+                          />
                         </div>
-                        <span className="text-sm font-medium w-8">{numCount}</span>
+                        <span className="text-sm font-medium w-8">{Number(count)}</span>
                       </div>
                     </div>
-                  )})}
+                  ))}
                 </div>
               </CardContent>
             </Card>
 
-            {/* Projects List */}
             <Card>
               <CardHeader>
                 <CardTitle>All Projects</CardTitle>
-                <CardDescription>Overview of all team projects</CardDescription>
+                <CardDescription>Progress, budget, and schedule overview</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {projects && projects.length > 0 ? (
-                    projects
+                  {projectList.length > 0 ? (
+                    projectList
+                      .slice()
                       .sort((a, b) => b._creationTime - a._creationTime)
-                      .map(project => {
-                        const projectTasks = teamTasks?.filter(t => t.projectId === project._id) || [];
-                        const completedCount = projectTasks.filter(t => t.status === "done").length;
-                        const progress = projectTasks.length > 0 ? (completedCount / projectTasks.length) * 100 : 0;
+                      .map((project) => {
+                        const projectTasks = tasksByProject.get(String(project._id)) || [];
+                        const done = projectTasks.filter((task) => task.status === "done").length;
+                        const progress = projectTasks.length > 0 ? (done / projectTasks.length) * 100 : 0;
 
                         return (
                           <div key={project._id} className="border rounded-lg p-4">
                             <div className="flex items-start justify-between mb-2">
                               <div>
                                 <h4 className="font-semibold">{project.name}</h4>
-                                {project.customer && (
+                                {project.customer ? (
                                   <p className="text-sm text-muted-foreground">{project.customer}</p>
-                                )}
+                                ) : null}
                               </div>
-                              <Badge variant={
-                                project.status === "completed" ? "default" :
-                                project.status === "active" ? "secondary" :
-                                project.status === "on_hold" ? "outline" :
-                                "outline"
-                              }>
-                                {project.status}
-                              </Badge>
+                              <Badge variant="outline">{project.status}</Badge>
                             </div>
                             <div className="space-y-2">
                               <div className="flex items-center justify-between text-sm">
@@ -332,26 +334,23 @@ export default function CompanyReports() {
                                 <span className="font-medium">{Math.round(progress)}%</span>
                               </div>
                               <div className="w-full bg-secondary rounded-full h-2">
-                                <div
-                                  className="bg-primary h-2 rounded-full transition-all duration-300"
-                                  style={{ width: `${progress}%` }}
-                                ></div>
+                                <div className="bg-primary h-2 rounded-full" style={{ width: `${progress}%` }} />
                               </div>
                               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                                 <span>{projectTasks.length} tasks</span>
-                                {project.budget && <span>Budget: {project.budget.toLocaleString()} {project.currency || 'USD'}</span>}
-                                {project.startDate && (
+                                {typeof project.budget === "number" ? (
+                                  <span>Budget: {formatMoney(project.budget, project.currency || activeCurrency)}</span>
+                                ) : null}
+                                {project.startDate ? (
                                   <span>Start: {new Date(project.startDate).toLocaleDateString()}</span>
-                                )}
+                                ) : null}
                               </div>
                             </div>
                           </div>
                         );
                       })
                   ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      No projects yet
-                    </div>
+                    <div className="text-center py-8 text-muted-foreground">No projects yet</div>
                   )}
                 </div>
               </CardContent>
@@ -368,58 +367,25 @@ export default function CompanyReports() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {Object.entries(tasksByStatus).map(([status, count]) => {
-                    const statusLabels: Record<string, string> = {
-                      "todo": "To Do",
-                      "in_progress": "In Progress",
-                      "review": "Review",
-                      "done": "Done"
-                    };
-
-                    const getStatusStyle = (status: string) => {
-                      switch(status) {
-                        case "done":
-                          return { variant: "default" as const, className: "" };
-                        case "in_progress":
-                          return { variant: "secondary" as const, className: "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900 dark:text-blue-200" };
-                        case "review":
-                          return { variant: "secondary" as const, className: "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900 dark:text-amber-200" };
-                        case "todo":
-                          return { variant: "outline" as const, className: "" };
-                        default:
-                          return { variant: "outline" as const, className: "" };
-                      }
-                    };
-
-                    const statusStyle = getStatusStyle(status);
-
-                    return (
+                  {Object.entries(tasksByStatus as Record<string, number>).map(([status, count]) => (
                     <div key={status} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Badge
-                          variant={statusStyle.variant}
-                          className={statusStyle.className}
-                        >
-                          {statusLabels[status] || status}
-                        </Badge>
-                      </div>
+                      <Badge variant={status === "done" ? "default" : "outline"}>{status.replace("_", " ").toUpperCase()}</Badge>
                       <div className="flex items-center gap-2">
                         <div className="w-32 bg-secondary rounded-full h-2">
                           <div
-                            className="bg-primary h-2 rounded-full transition-all duration-300"
-                            style={{ width: `${totalTasks > 0 ? (count / totalTasks) * 100 : 0}%` }}
-                          ></div>
+                            className="bg-primary h-2 rounded-full"
+                            style={{ width: `${totalTasks > 0 ? (Number(count) / totalTasks) * 100 : 0}%` }}
+                          />
                         </div>
-                        <span className="text-sm font-medium w-8">{count}</span>
+                        <span className="text-sm font-medium w-8">{Number(count)}</span>
                       </div>
                     </div>
-                  )})}
+                  ))}
                 </div>
               </CardContent>
             </Card>
 
-            {/* Overdue Tasks List */}
-            {overdueTasks > 0 && (
+            {overdueTasks > 0 ? (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -430,204 +396,84 @@ export default function CompanyReports() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {teamTasks
-                      ?.filter(task => {
-                        const taskEndDate = task.endDate || task.startDate;
-                        return taskEndDate && taskEndDate < now && task.status !== "done";
-                      })
-                      .sort((a, b) => {
-                        const dateA = a.endDate || a.startDate || 0;
-                        const dateB = b.endDate || b.startDate || 0;
-                        return dateA - dateB;
-                      })
-                      .slice(0, 10)
-                      .map(task => {
-                        const project = projects?.find(p => p._id === task.projectId);
-                        return (
-                          <div key={task._id} className="flex items-center justify-between border-l-2 border-red-500 pl-3 py-2">
-                            <div className="flex-1">
-                              <p className="font-medium">{task.title}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {project?.name} • Due {new Date((task.endDate || task.startDate)!).toLocaleDateString()}
-                              </p>
-                            </div>
-                            <Badge variant={task.priority === "urgent" ? "destructive" : "secondary"}>
-                              {task.priority || "medium"}
-                            </Badge>
-                          </div>
-                        );
-                      })}
+                    {overdueTaskList.map((task) => (
+                      <div key={task._id} className="flex items-center justify-between border-l-2 border-red-500 pl-3 py-2">
+                        <div className="flex-1">
+                          <p className="font-medium">{task.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {projectById.get(String(task.projectId))?.name} • Due{" "}
+                            {new Date((task.endDate || task.startDate)!).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <Badge variant={task.priority === "urgent" ? "destructive" : "secondary"}>
+                          {task.priority || "medium"}
+                        </Badge>
+                      </div>
+                    ))}
                   </div>
                 </CardContent>
               </Card>
-            )}
-
-            {/* Recent Completed Tasks */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Recently Completed</CardTitle>
-                <CardDescription>Last 5 completed tasks</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {teamTasks && teamTasks.filter(t => t.status === "done").length > 0 ? (
-                    teamTasks
-                      .filter(task => task.status === "done")
-                      .sort((a, b) => (b.updatedAt || b._creationTime) - (a.updatedAt || a._creationTime))
-                      .slice(0, 5)
-                      .map(task => {
-                        const project = projects?.find(p => p._id === task.projectId);
-                        return (
-                          <div key={task._id} className="flex items-center justify-between">
-                            <div>
-                              <p className="font-medium">{task.title}</p>
-                              <p className="text-xs text-muted-foreground">{project?.name}</p>
-                            </div>
-                            <Badge variant="default">Done</Badge>
-                          </div>
-                        );
-                      })
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      No completed tasks yet
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            ) : null}
           </div>
         </TabsContent>
 
         <TabsContent value="financial" className="mt-6">
           <div className="space-y-6">
-            {/* Financial Metrics */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Budget</CardTitle>
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{totalBudget.toLocaleString()} $</div>
-                  <p className="text-xs text-muted-foreground">
-                    Across {totalProjects} projects
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Shopping List</CardTitle>
-                  <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{totalShoppingCost.toLocaleString()} $</div>
-                  <p className="text-xs text-muted-foreground">
-                    {shoppingItems?.length || 0} items planned
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Ordered Items</CardTitle>
-                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{orderedShoppingCost.toLocaleString()} $</div>
-                  <p className="text-xs text-muted-foreground">
-                    Already ordered/delivered
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Task Costs</CardTitle>
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{totalTaskCost.toLocaleString()} $</div>
-                  <p className="text-xs text-muted-foreground">
-                    Total task costs tracked
-                  </p>
-                </CardContent>
-              </Card>
+              <FinancialCard title="Total Budget" value={formatMoney(totalBudget)} subtitle={`Across ${totalProjects} projects`} icon={<DollarSign className="h-4 w-4 text-muted-foreground" />} />
+              <FinancialCard title="Shopping List" value={formatMoney(totalShoppingCost)} subtitle={`${shoppingList.length} items planned`} icon={<BarChart3 className="h-4 w-4 text-muted-foreground" />} />
+              <FinancialCard title="Ordered Items" value={formatMoney(orderedShoppingCost)} subtitle="Already ordered/delivered" icon={<TrendingUp className="h-4 w-4 text-muted-foreground" />} />
+              <FinancialCard title="Task Costs" value={formatMoney(totalTaskCost)} subtitle="Total task costs tracked" icon={<Clock className="h-4 w-4 text-muted-foreground" />} />
             </div>
 
-            {/* Shopping List Breakdown */}
             <Card>
               <CardHeader>
                 <CardTitle>Shopping List by Status</CardTitle>
-                <CardDescription>Items breakdown by realization status</CardDescription>
+                <CardDescription>Items and cost by realization status</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {shoppingItems && shoppingItems.length > 0 ? (
-                    ["PLANNED", "ORDERED", "IN_TRANSIT", "DELIVERED", "COMPLETED", "CANCELLED"].map(status => {
-                      const items = shoppingItems.filter(item => item.realizationStatus === status);
-                      const cost = items.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
-                      if (items.length === 0) return null;
-
-                      return (
-                        <div key={status} className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Badge variant={
-                              status === "COMPLETED" ? "default" :
-                              status === "DELIVERED" ? "secondary" :
-                              status === "CANCELLED" ? "outline" :
-                              "secondary"
-                            }>
-                              {status}
-                            </Badge>
-                            <span className="text-sm">{items.length} items</span>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-bold">{cost.toLocaleString()} $</p>
-                          </div>
+                  {shoppingByStatus.length > 0 ? (
+                    shoppingByStatus.map((entry) => (
+                      <div key={entry.status} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Badge variant={entry.status === "COMPLETED" ? "default" : "secondary"}>
+                            {entry.status}
+                          </Badge>
+                          <span className="text-sm">{entry.count} items</span>
                         </div>
-                      );
-                    })
+                        <p className="font-bold">{formatMoney(entry.total)}</p>
+                      </div>
+                    ))
                   ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      No shopping list items yet
-                    </div>
+                    <div className="text-center py-8 text-muted-foreground">No shopping list items yet</div>
                   )}
                 </div>
               </CardContent>
             </Card>
 
-            {/* Budget by Project */}
             <Card>
               <CardHeader>
                 <CardTitle>Budget Overview</CardTitle>
-                <CardDescription>Project budgets comparison</CardDescription>
+                <CardDescription>Top projects by budget</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {projects && projects.length > 0 ? (
-                    projects
-                      .filter(p => p.budget && p.budget > 0)
-                      .sort((a, b) => (b.budget || 0) - (a.budget || 0))
-                      .slice(0, 5)
-                      .map(project => (
-                        <div key={project._id} className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium">{project.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {project.currency || 'USD'} • {project.status}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-bold">{(project.budget || 0).toLocaleString()} $</p>
-                          </div>
+                  {projectList
+                    .filter((project) => (project.budget || 0) > 0)
+                    .sort((a, b) => (b.budget || 0) - (a.budget || 0))
+                    .slice(0, 5)
+                    .map((project) => (
+                      <div key={project._id} className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">{project.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {project.currency || activeCurrency} • {project.status}
+                          </p>
                         </div>
-                      ))
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      No budget data available yet
-                    </div>
-                  )}
+                        <p className="font-bold">{formatMoney(project.budget || 0, project.currency || activeCurrency)}</p>
+                      </div>
+                    ))}
                 </div>
               </CardContent>
             </Card>
@@ -635,5 +481,30 @@ export default function CompanyReports() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+function FinancialCard({
+  title,
+  value,
+  subtitle,
+  icon,
+}: {
+  title: string;
+  value: string;
+  subtitle: string;
+  icon: ReactNode;
+}) {
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium">{title}</CardTitle>
+        {icon}
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold">{value}</div>
+        <p className="text-xs text-muted-foreground">{subtitle}</p>
+      </CardContent>
+    </Card>
   );
 }

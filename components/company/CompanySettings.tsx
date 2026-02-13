@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { OrganizationProfile, useOrganization } from "@clerk/nextjs";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { useOrganization } from "@clerk/nextjs";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import { toast } from "sonner";
@@ -25,6 +26,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -33,7 +35,11 @@ import { Separator } from "@/components/ui/separator";
 import { GEMINI_4K_IMAGE_TOKENS, formatTokens } from "@/lib/aiPricing";
 
 export default function CompanySettings() {
-  const { organization } = useOrganization();
+  const router = useRouter();
+  const { organization, isLoaded } = useOrganization();
+  const ensureCurrentUserTeamMembership = useMutation(apiAny.teamMembership.ensureCurrentUserTeamMembership);
+  const [repairingTeamState, setRepairingTeamState] = useState(false);
+  const attemptedRepairRef = useRef<string | null>(null);
   
   // Loading actual data from backend
   const teamData = useQuery(
@@ -58,18 +64,52 @@ export default function CompanySettings() {
   // Local state for team settings
   const [teamSettings, setTeamSettings] = useState<{
     currency: "USD" | "EUR" | "PLN" | "GBP" | "CAD" | "AUD" | "JPY" | "CHF" | "SEK" | "NOK" | "DKK" | "CZK" | "HUF" | "CNY" | "INR" | "BRL" | "MXN" | "KRW" | "SGD" | "HKD";
+    timezone: string;
   }>({
     currency: "PLN",
+    timezone: "UTC",
   });
   const [savingPreferences, setSavingPreferences] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
   const billingWindowEnsuredRef = useRef(false);
+  
+  const repairTeamMembership = useCallback(async () => {
+    if (!organization?.id) return;
+    setRepairingTeamState(true);
+    try {
+      await ensureCurrentUserTeamMembership({
+        clerkOrgId: organization.id,
+        orgName: organization.name,
+      });
+    } catch (error) {
+      console.error("Failed to repair team membership", error);
+      throw error;
+    } finally {
+      setRepairingTeamState(false);
+    }
+  }, [organization?.id, organization?.name, ensureCurrentUserTeamMembership]);
+
+  useEffect(() => {
+    if (!isLoaded || !organization?.id || teamData !== null) {
+      return;
+    }
+
+    if (attemptedRepairRef.current === organization.id) {
+      return;
+    }
+
+    attemptedRepairRef.current = organization.id;
+    repairTeamMembership().catch(() => {
+      // Render fallback UI below if sync cannot repair the state.
+    });
+  }, [isLoaded, organization?.id, teamData, repairTeamMembership]);
 
   // Synchronize data from backend
   useEffect(() => {
     if (teamData) {
       setTeamSettings({
         currency: (teamData.currency as "USD" | "EUR" | "PLN" | "GBP" | "CAD" | "AUD" | "JPY" | "CHF" | "SEK" | "NOK" | "DKK" | "CZK" | "HUF" | "CNY" | "INR" | "BRL" | "MXN" | "KRW" | "SGD" | "HKD") || "PLN",
+        timezone: teamData.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
       });
     }
   }, [teamData]);
@@ -94,11 +134,70 @@ export default function CompanySettings() {
     }
   }, [subscription, teamData?.teamId, ensureBillingWindow]);
 
-  if (!teamData) {
+  if (!isLoaded) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         <p className="text-sm text-muted-foreground animate-pulse">Loading settings...</p>
+      </div>
+    );
+  }
+
+  if (!organization) {
+    return (
+      <div className="flex min-h-[70vh] items-center justify-center p-6">
+        <div className="w-full max-w-md space-y-4 text-center">
+          <h1 className="text-2xl font-semibold">Finish workspace setup</h1>
+          <p className="text-sm text-muted-foreground">
+            You need an active organization to access organization settings.
+          </p>
+          <Button type="button" onClick={() => router.replace("/onboarding")} className="rounded-full px-6">
+            Go to onboarding
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (teamData === undefined || repairingTeamState) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <p className="text-sm text-muted-foreground animate-pulse">Loading settings...</p>
+      </div>
+    );
+  }
+
+  if (teamData === null) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Card className="max-w-lg w-full border-border/40">
+          <CardHeader>
+            <CardTitle>Couldn&apos;t load organization settings</CardTitle>
+            <CardDescription>
+              The app couldn&apos;t find your team membership for this organization.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Click retry to re-sync your organization and permissions.
+            </p>
+            <Button
+              onClick={async () => {
+                attemptedRepairRef.current = null;
+                try {
+                  await repairTeamMembership();
+                  toast.success("Organization sync completed. Reloading settings...");
+                } catch {
+                  toast.error("Could not sync organization membership");
+                }
+              }}
+              disabled={repairingTeamState}
+            >
+              {repairingTeamState ? "Syncing..." : "Retry sync"}
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -109,6 +208,7 @@ export default function CompanySettings() {
       await updateTeamSettings({
         teamId: teamData.teamId,
         currency: teamSettings.currency,
+        timezone: teamSettings.timezone,
       });
       toast.success("Preferences updated successfully");
     } catch (error) {
@@ -207,15 +307,26 @@ export default function CompanySettings() {
                 <div className="flex flex-col gap-1">
                   <h2 className="text-lg font-medium">Organization Profile</h2>
                   <p className="text-sm text-muted-foreground">
-                    Update your organization's logo, name, and manage members.
+                    Basic organization identity from your current workspace context.
                   </p>
                 </div>
                 
                 <Card className="border-border/40 shadow-sm overflow-hidden">
-                  <CardContent className="p-0">
-                    <OrganizationProfile 
-                      routing="hash"
-                    />
+                  <CardContent className="space-y-4 p-6">
+                    <div className="grid gap-2">
+                      <Label>Organization name</Label>
+                      <Input value={organization?.name || "No active organization"} readOnly />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label>Organization ID</Label>
+                      <Input value={organization?.id || "No active organization"} readOnly />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      This section uses your custom app UI only. Clerk organization profile is disabled.
+                    </p>
+                    <Button type="button" variant="outline" onClick={() => router.replace("/onboarding")}>
+                      Re-run organization onboarding
+                    </Button>
                   </CardContent>
                 </Card>
               </div>
@@ -229,7 +340,7 @@ export default function CompanySettings() {
                 <div className="flex flex-col gap-1">
                   <h2 className="text-lg font-medium">Regional Settings</h2>
                   <p className="text-sm text-muted-foreground">
-                    Configure your region and currency preferences.
+                    Configure your currency and timezone preferences.
                   </p>
                 </div>
                 
@@ -271,10 +382,42 @@ export default function CompanySettings() {
                         </SelectContent>
                       </Select>
                     </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="timezone">Timezone</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="timezone"
+                          value={teamSettings.timezone}
+                          onChange={(event) =>
+                            setTeamSettings({
+                              ...teamSettings,
+                              timezone: event.target.value,
+                            })
+                          }
+                          placeholder="Europe/Warsaw"
+                          className="bg-background/50"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() =>
+                            setTeamSettings({
+                              ...teamSettings,
+                              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+                            })
+                          }
+                        >
+                          Auto
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Use IANA timezone format, for example `Europe/Warsaw` or `America/New_York`.
+                      </p>
+                    </div>
                   </CardContent>
                   <CardFooter className="bg-muted/30 border-t border-border/40 px-6 py-4 flex justify-between items-center">
                     <p className="text-xs text-muted-foreground">
-                      Changes apply to all new projects.
+                      Changes apply to all new projects and AI date handling.
                     </p>
                     <Button 
                       onClick={handleSaveTeamSettings} 

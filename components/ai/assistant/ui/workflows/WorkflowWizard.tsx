@@ -3,7 +3,7 @@
 /**
  * Workflow Wizard Component
  * 
- * Multi-step guided wizard for renovation workflows.
+ * Multi-step guided wizard for architectural project workflows.
  * Integrates with AI Assistant for step execution.
  */
 
@@ -87,7 +87,7 @@ interface WorkflowSelectorProps {
 function WorkflowSelector({ workflows, onSelect, onClose }: WorkflowSelectorProps) {
   const categories = {
     analysis: { label: "Analysis", workflows: workflows.filter(w => w.category === "analysis") },
-    renovation: { label: "Renovation", workflows: workflows.filter(w => w.category === "renovation") },
+    renovation: { label: "Architecture", workflows: workflows.filter(w => w.category === "renovation") },
     design: { label: "Design", workflows: workflows.filter(w => w.category === "design") },
     planning: { label: "Planning", workflows: workflows.filter(w => w.category === "planning") },
   };
@@ -508,4 +508,3 @@ export function WorkflowWizard({
 }
 
 export default WorkflowWizard;
-

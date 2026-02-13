@@ -19,11 +19,11 @@ type SuggestedActionsProps = {
 const DEFAULT_SUGGESTIONS = [
   {
     label: "Plan tasks",
-    prompt: "Help me plan the renovation tasks for this week",
+    prompt: "Help me plan the architectural project tasks for this week",
   },
   {
     label: "Generate estimate",
-    prompt: "Create a cost estimate for kitchen renovation",
+    prompt: "Create a cost estimate for a kitchen architecture scope",
   },
   {
     label: "Shopping list",

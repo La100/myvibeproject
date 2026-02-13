@@ -1,5 +1,5 @@
 /**
- * Workflow Types for VibePlanner Renovation Workflows
+ * Workflow Types for Myvibe project Renovation Workflows
  * 
  * Defines the structure for guided multi-step workflows loaded from .md files.
  */

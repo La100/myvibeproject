@@ -6,7 +6,7 @@ export default function PrivacyPolicyPage() {
                 <div className="prose prose-sm max-w-none text-gray-600">
                     <p>Last updated: {new Date().toLocaleDateString()}</p>
                     <p className="mt-4">
-                        Welcome to VibePlanner. This Privacy Policy explains how we collect, use, and protect your information.
+                        Welcome to Myvibe project. This Privacy Policy explains how we collect, use, and protect your information.
                     </p>
                     <h2 className="text-xl font-medium text-gray-800 mt-6 mb-2">1. Information We Collect</h2>
                     <p>

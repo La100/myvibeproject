@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { PlusIcon, TrashIcon, ChevronDownIcon, ChevronUpIcon } from 'lucide-react';
+import { PlusIcon, TrashIcon, FolderIcon, ChevronDownIcon, ChevronUpIcon } from 'lucide-react';
 import { Doc, Id } from '@/convex/_generated/dataModel';
 
 interface SectionManagerProps {
@@ -22,77 +22,103 @@ export function SectionManager({
 
   const handleCreateSection = async () => {
     if (!newSectionName.trim()) return;
-    
-    try {
-      await onCreateSection(newSectionName.trim());
-      setNewSectionName('');
-    } catch (error) {
-      console.error('Error creating section:', error);
-    }
+
+    await onCreateSection(newSectionName.trim());
+    setNewSectionName('');
   };
 
-  const handleDeleteSection = async (sectionId: Id<"shoppingListSections">) => {
-    try {
-      await onDeleteSection(sectionId);
-    } catch (error) {
-      console.error('Error deleting section:', error);
-    }
-  };
+  const defaultSections = [
+    "Kitchen",
+    "Bathroom",
+    "Living Room",
+    "Bedroom",
+    "Lighting",
+    "Furniture",
+    "Hardware",
+    "Decor",
+  ];
+
+  const existingSectionNames = sections.map(s => s.name.toLowerCase());
+  const suggestedSections = defaultSections.filter(
+    name => !existingSectionNames.includes(name.toLowerCase())
+  );
 
   return (
-    <div className="mb-10 rounded-[32px] border border-[#E7E2D9] bg-white p-8 shadow-[0_24px_60px_rgba(20,20,20,0.08)]">
-      <div className="flex items-center justify-between">
-        <div 
-          className="flex items-center gap-4 cursor-pointer hover:opacity-70 transition-opacity"
-          onClick={() => setIsExpanded(!isExpanded)}
-        >
-          <h3 className="text-xl font-medium font-[var(--font-display-serif)] text-[#1A1A1A]">Manage Sections</h3>
-          <span className="inline-flex items-center justify-center rounded-full bg-[#FAF7F2] border border-[#E7E2D9] px-3 py-1 text-xs font-medium text-[#3C3A37]">
-            {sections.length}
+    <div className="mb-8 rounded-[24px] border border-[#E7E2D9] bg-white p-6 shadow-sm">
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="flex items-center justify-between w-full text-left"
+      >
+        <div className="flex items-center gap-3">
+          <FolderIcon className="h-5 w-5 text-[#6D8B73]" />
+          <span className="text-lg font-medium font-[var(--font-display-serif)] text-[#1A1A1A]">
+            Manage Sections
+          </span>
+          <span className="text-sm text-[#8C8880]">
+            ({sections.length} sections)
           </span>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="rounded-full hover:bg-[#FAF7F2]"
-        >
-          {isExpanded ? <ChevronUpIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
-        </Button>
-      </div>
+        {isExpanded ? (
+          <ChevronUpIcon className="h-5 w-5 text-[#8C8880]" />
+        ) : (
+          <ChevronDownIcon className="h-5 w-5 text-[#8C8880]" />
+        )}
+      </button>
+
       {isExpanded && (
         <div className="mt-6 space-y-6">
           <div className="flex gap-3">
             <Input
               value={newSectionName}
               onChange={(e) => setNewSectionName(e.target.value)}
-              placeholder="Section name (e.g. Kitchen, Bathroom)"
+              placeholder="New section name..."
               onKeyDown={(e) => e.key === 'Enter' && handleCreateSection()}
               className="h-11 rounded-[18px] border-[#E7E2D9] bg-white text-sm focus-visible:ring-[#6D8B73]"
             />
-            <Button 
-              onClick={handleCreateSection} 
+            <Button
+              onClick={handleCreateSection}
               disabled={isPending || !newSectionName.trim()}
-              className="rounded-full bg-[#0E0E0E] px-6 h-11 text-white hover:bg-[#1F1F1F]"
+              className="rounded-full bg-[#0E0E0E] px-5 h-11 text-white shadow-sm hover:bg-[#1F1F1F]"
             >
               <PlusIcon className="h-4 w-4 mr-2" />
-              Add Section
+              Add
             </Button>
           </div>
-            
+
+          {suggestedSections.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-[#8C8880] mb-2">Quick add:</p>
+              <div className="flex flex-wrap gap-2">
+                {suggestedSections.map((name) => (
+                  <button
+                    key={name}
+                    onClick={() => onCreateSection(name)}
+                    disabled={isPending}
+                    className="px-3 py-1.5 text-xs font-medium rounded-full border border-[#E7E2D9] bg-[#FAF7F2] text-[#3C3A37] hover:bg-[#F0EBE3] transition-colors disabled:opacity-50"
+                  >
+                    + {name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {sections.length > 0 && (
-            <div className="space-y-4">
-              <h4 className="text-sm font-medium text-[#8C8880] uppercase tracking-wider">Existing Sections</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div>
+              <p className="text-xs font-medium text-[#8C8880] mb-3">Existing sections:</p>
+              <div className="space-y-2">
                 {sections.map((section) => (
-                  <div key={section._id} className="flex items-center justify-between p-3 border border-[#E7E2D9] rounded-[16px] bg-[#FAF7F2]">
+                  <div
+                    key={section._id}
+                    className="flex items-center justify-between p-3 rounded-[14px] border border-[#E7E2D9] bg-[#FAF7F2]"
+                  >
                     <span className="text-sm font-medium text-[#3C3A37]">{section.name}</span>
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleDeleteSection(section._id)}
+                      onClick={() => onDeleteSection(section._id)}
                       disabled={isPending}
-                      className="h-8 w-8 p-0 hover:bg-red-100 hover:text-red-600 rounded-full"
+                      className="h-8 w-8 p-0 text-[#8C8880] hover:text-red-600 hover:bg-red-50"
                     >
                       <TrashIcon className="h-4 w-4" />
                     </Button>

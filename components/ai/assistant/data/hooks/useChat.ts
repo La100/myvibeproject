@@ -170,6 +170,13 @@ export const useAIChat = ({ projectId, userClerkId }: UseAIChatProps): UseAIChat
   // Extract results - always from hook when subscribed
   const rawUiMessages = shouldSubscribe ? streamingHookResult.results : undefined;
 
+  const stripThinking = useCallback((text: string) => {
+    if (!text.includes("<thinking>")) return text;
+    const withoutBlocks = text.replace(/<thinking>[\s\S]*?<\/thinking>/g, "");
+    const withoutOpen = withoutBlocks.replace(/<thinking>[\s\S]*$/g, "");
+    return withoutOpen.replace(/<\/thinking>/g, "");
+  }, []);
+
   // Merge persistent status into UI messages
   const uiMessages = useMemo(() => {
     if (!rawUiMessages) return undefined;
@@ -249,83 +256,37 @@ export const useAIChat = ({ projectId, userClerkId }: UseAIChatProps): UseAIChat
         }
       }
 
-      // 3. Process <thinking> tags in text parts
-      // We do this LAST so we don't interfere with tool logic, but we need to restructure text parts
-      const processedParts: MessagePart[] = [];
+      // 3. Strip any <thinking> tags or reasoning parts from text
       let partsChanged = false;
+      const processedParts: MessagePart[] = [];
 
       for (const part of parts) {
-        if (part.type === "text" && typeof (part as unknown as { text: string }).text === "string") {
-          const text = (part as unknown as { text: string }).text as string;
-
-          // Check if text contains <thinking> tags
-          if (text.includes("<thinking>")) {
-            partsChanged = true;
-            hasUpdates = true; // Mark as updated so we trigger the state update
-
-            // Regex to match <thinking>content</thinking> blocks
-            // Capture group 1 is the content
-            const thinkingRegex = /<thinking>([\s\S]*?)<\/thinking>/g;
-            let match;
-            let lastIndex = 0;
-
-            // Find all complete thinking blocks
-            while ((match = thinkingRegex.exec(text)) !== null) {
-              // Push text before the thinking block
-              if (match.index > lastIndex) {
-                processedParts.push({
-                  type: "text",
-                  text: text.substring(lastIndex, match.index)
-                } as MessagePart);
-              }
-
-              // Push the reasoning part
-              processedParts.push({
-                type: "reasoning",
-                text: match[1]
-              } as MessagePart);
-
-              lastIndex = thinkingRegex.lastIndex;
-            }
-
-            // Handle remaining text
-            const remaining = text.substring(lastIndex);
-
-            // Check for incomplete open <thinking> tag at the end (for streaming)
-            const openTagRegex = /<thinking>([\s\S]*)$/;
-            const openMatch = openTagRegex.exec(remaining);
-
-            if (openMatch) {
-              // Push text before the open tag
-              if (openMatch.index > 0) {
-                processedParts.push({
-                  type: "text",
-                  text: remaining.substring(0, openMatch.index)
-                } as MessagePart);
-              }
-
-              // Push the partial reasoning content
-              processedParts.push({
-                type: "reasoning",
-                text: openMatch[1]
-              } as MessagePart);
-            } else {
-              // Just push remaining text if not empty
-              if (remaining.length > 0) {
-                processedParts.push({
-                  type: "text",
-                  text: remaining
-                } as MessagePart);
-              }
-            }
-          } else {
-            // No thinking tags, keep original part
-            processedParts.push(part);
-          }
-        } else {
-          // Not a text part, keep logic
-          processedParts.push(part);
+        if (part.type === "reasoning") {
+          partsChanged = true;
+          hasUpdates = true;
+          continue;
         }
+
+        if (part.type === "text" && typeof (part as unknown as { text: string }).text === "string") {
+          const rawText = (part as unknown as { text: string }).text as string;
+          const cleaned = stripThinking(rawText).trimEnd();
+          if (cleaned !== rawText) {
+            partsChanged = true;
+            hasUpdates = true;
+          }
+          if (cleaned.length > 0) {
+            processedParts.push({
+              ...part,
+              text: cleaned,
+            } as MessagePart);
+          } else {
+            partsChanged = true;
+            hasUpdates = true;
+          }
+          continue;
+        }
+
+        processedParts.push(part);
       }
 
       if (partsChanged) {
@@ -334,12 +295,8 @@ export const useAIChat = ({ projectId, userClerkId }: UseAIChatProps): UseAIChat
 
       if (!hasUpdates) return msg;
 
-      // If we modified parts (either via tools/status or parsing thinking tags),
-      // we need to return the updated object.
-      // CRITICAL: If we extracted reasoning, we MUST update the 'text' property
-      // because Message.tsx prefers message.text over parts. If we don't update it,
-      // the original text (containing the raw <thinking> tags) will be displayed
-      // in the main bubble, causing duplication.
+      // If we modified parts (either via tools/status or stripping thinking tags),
+      // update both parts and the flattened text field to avoid rendering raw tags.
       if (partsChanged) {
         const newText = parts
           .filter(p => p.type === "text" && typeof (p as unknown as { text: string }).text === "string")
@@ -357,8 +314,20 @@ export const useAIChat = ({ projectId, userClerkId }: UseAIChatProps): UseAIChat
         ...msg,
         parts
       };
+    }).map((msg) => {
+      if (!msg.parts && typeof (msg as { text?: unknown }).text === "string") {
+        const rawText = (msg as { text: string }).text;
+        const cleaned = stripThinking(rawText).trimEnd();
+        if (cleaned !== rawText) {
+          return {
+            ...msg,
+            text: cleaned,
+          };
+        }
+      }
+      return msg;
     });
-  }, [rawUiMessages, persistentFunctionCalls]);
+  }, [rawUiMessages, persistentFunctionCalls, stripThinking]);
 
   const streamingStatus = shouldSubscribe ? streamingHookResult.status : "Exhausted";
   const loadMoreMessages = streamingHookResult.loadMore;

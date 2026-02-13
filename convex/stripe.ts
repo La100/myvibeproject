@@ -5,6 +5,11 @@ import { Id } from "./_generated/dataModel";
 import { AI_MODEL, calculateCost } from "./ai/config";
 
 const DEFAULT_BILLING_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+const FREE_TRIAL_AI_BUDGET_USD = 1;
+const TOKEN_EQ_COST_PER_1M_USD = 5;
+
+const tokenBudgetFromUsd = (usd: number) =>
+  Math.max(0, Math.floor((usd / TOKEN_EQ_COST_PER_1M_USD) * 1_000_000));
 
 // Token system - direct token usage tracking
 // Stripe subscription plans configuration
@@ -16,9 +21,9 @@ export const SUBSCRIPTION_PLANS = {
     maxTeamMembers: 1,
     maxStorageGB: 1,
     hasAdvancedFeatures: false,
-    hasAIFeatures: false,
+    hasAIFeatures: true,
     price: 0,
-    aiMonthlyTokens: 0,
+    aiMonthlyTokens: tokenBudgetFromUsd(FREE_TRIAL_AI_BUDGET_USD),
   },
   basic: {
     id: "basic",
@@ -83,13 +88,21 @@ function getEffectiveLimits(team: any) {
   const storedLimits = team.subscriptionLimits;
 
   if (plan === "free") {
-    return {
+    const mergedLimits = {
       ...defaultLimits,
       ...(storedLimits || {}),
+    };
+    const defaultFreeTokens = defaultLimits.aiMonthlyTokens ?? 0;
+    const storedFreeTokens = storedLimits?.aiMonthlyTokens ?? 0;
+
+    return {
+      ...mergedLimits,
       maxTeamMembers: Math.min(
         storedLimits?.maxTeamMembers ?? defaultLimits.maxTeamMembers,
         defaultLimits.maxTeamMembers
       ),
+      hasAIFeatures: true,
+      aiMonthlyTokens: Math.max(defaultFreeTokens, storedFreeTokens),
     };
   }
 
@@ -182,18 +195,44 @@ export const ensureBillingWindow = mutation({
 
 async function evaluateAIAccess(ctx: any, team: any) {
   const plan = (team.subscriptionPlan || "free") as keyof typeof SUBSCRIPTION_PLANS;
-  const planTokens = getEffectiveLimits(team)?.aiMonthlyTokens ?? 0;
+  const planTokens = Math.max(0, getEffectiveLimits(team)?.aiMonthlyTokens ?? 0);
+  const legacyStoredTokens = team.subscriptionLimits?.aiMonthlyTokens ?? 0;
+  const isLegacyFreeZeroBalance =
+    plan === "free" &&
+    team.aiTokens === 0 &&
+    legacyStoredTokens <= 0;
+
+  let shouldUsePlanTokensAsBalance = typeof team.aiTokens !== "number";
+  if (isLegacyFreeZeroBalance) {
+    const [previousTokenUsage, previousImageUsage] = await Promise.all([
+      ctx.db
+        .query("aiTokenUsage")
+        .withIndex("by_team", (q: any) => q.eq("teamId", team._id))
+        .first(),
+      ctx.db
+        .query("aiGeneratedImages")
+        .withIndex("by_team", (q: any) => q.eq("teamId", team._id))
+        .first(),
+    ]);
+    shouldUsePlanTokensAsBalance = !previousTokenUsage && !previousImageUsage;
+  }
   
   // Simple token system: aiTokens = remaining balance (gets decremented on use)
-  const remainingTokens = team.aiTokens || 0;
+  const remainingTokens =
+    shouldUsePlanTokensAsBalance
+      ? planTokens
+      : Math.max(0, team.aiTokens || 0);
   const totalTokens = Math.max(remainingTokens, planTokens);
-  const usedTokens = Math.max(0, totalTokens - remainingTokens);
+  const usedTokens =
+    shouldUsePlanTokensAsBalance
+      ? 0
+      : Math.max(0, totalTokens - remainingTokens);
   
   // If no tokens, deny access
   if (remainingTokens <= 0) {
     return {
       allowed: false,
-      message: "🔒 Tokeny AI zostały wyczerpane. Skontaktuj się z administratorem.",
+      message: "AI tokens are exhausted. Contact your administrator.",
       currentPlan: plan,
       subscriptionStatus: team.subscriptionStatus || null,
       totalTokens,
@@ -385,6 +424,7 @@ export const updateTeamToFree = internalMutation({
       trialEnd: undefined,
       cancelAtPeriodEnd: false,
       subscriptionLimits: SUBSCRIPTION_PLANS.free,
+      aiTokens: SUBSCRIPTION_PLANS.free.aiMonthlyTokens,
     });
   },
 });
@@ -434,6 +474,12 @@ export const fixTeamAIAccess = internalMutation({
 
     await ctx.db.patch(args.teamId as Id<"teams">, {
       subscriptionLimits: limits,
+      ...(plan === "free" && (
+        team.aiTokens === undefined ||
+        (team.aiTokens === 0 && (team.subscriptionLimits?.aiMonthlyTokens ?? 0) <= 0)
+      )
+        ? { aiTokens: limits.aiMonthlyTokens || 0 }
+        : {}),
     });
 
     return { success: true, plan, limits };
@@ -472,6 +518,12 @@ export const refreshTeamLimits = mutation({
 
     await ctx.db.patch(args.teamId, {
       subscriptionLimits: limits,
+      ...(plan === "free" && (
+        team.aiTokens === undefined ||
+        (team.aiTokens === 0 && (team.subscriptionLimits?.aiMonthlyTokens ?? 0) <= 0)
+      )
+        ? { aiTokens: limits.aiMonthlyTokens || 0 }
+        : {}),
     });
 
     return { success: true, plan, limits };

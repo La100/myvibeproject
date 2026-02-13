@@ -29,6 +29,7 @@ const getActivityIcon = (actionType: string) => {
     case "task.update":
       return <Edit3 className="h-4 w-4 text-blue-600" />;
     case "task.status.change":
+    case "task.status_change":
       return <CheckCircle2 className="h-4 w-4 text-orange-600" />;
     case "task.assign":
       return <Users className="h-4 w-4 text-purple-600" />;
@@ -52,6 +53,7 @@ const getActivityColor = (actionType: string) => {
     case "task.update":
       return "bg-blue-50 border-blue-200";
     case "task.status.change":
+    case "task.status_change":
       return "bg-orange-50 border-orange-200";
     case "task.assign":
       return "bg-purple-50 border-purple-200";
@@ -68,10 +70,35 @@ const getActivityColor = (actionType: string) => {
   }
 };
 
+const getStatusLabel = (status: string) => {
+  switch (status) {
+    case "todo":
+      return "To Do";
+    case "in_progress":
+      return "In Progress";
+    case "review":
+      return "Review";
+    case "done":
+      return "Done";
+    default:
+      return status;
+  }
+};
+
+const getTaskTitle = (details: Record<string, unknown>) => {
+  const title = details.title ?? details.taskTitle;
+  if (typeof title === "string" && title.trim()) {
+    return title;
+  }
+  return "Untitled task";
+};
+
 const getActivityDescription = (actionType: string, details: Record<string, unknown>) => {
+  const taskTitle = getTaskTitle(details);
+
   switch (actionType) {
     case "task.create":
-      return `created the task "${details.title}"`;
+      return `created the task "${taskTitle}"`;
     case "task.update":
       const updatedFields = Array.isArray(details.updatedFields) ? details.updatedFields : [];
       const friendlyFields = updatedFields.map((field: string) => {
@@ -82,6 +109,8 @@ const getActivityDescription = (actionType: string, details: Record<string, unkn
           case "status": return "status";
           case "priority": return "priority";
           case "assignedTo": return "assignee";
+          case "startDate": return "start date";
+          case "endDate": return "due date";
           case "dueDate": return "due date";
           case "tags": return "tags";
           case "cost": return "cost";
@@ -91,21 +120,40 @@ const getActivityDescription = (actionType: string, details: Record<string, unkn
       }).filter(Boolean); // Remove null values
       
       if (friendlyFields.length === 0) {
-        return "updated the task";
+        return `updated task "${taskTitle}"`;
       }
-      return `updated ${friendlyFields.join(", ")}`;
+      return `updated ${friendlyFields.join(", ")} in task "${taskTitle}"`;
     case "task.status.change":
-      return `changed status from "${details.from}" to "${details.to}"`;
+    case "task.status_change": {
+      const fromStatus = (details.fromStatus || details.from) as string | undefined;
+      const toStatus = (details.toStatus || details.to) as string | undefined;
+
+      if (toStatus === "done") {
+        return `marked task "${taskTitle}" as done`;
+      }
+
+      if (fromStatus && toStatus && fromStatus !== toStatus) {
+        return `moved task "${taskTitle}" from ${getStatusLabel(fromStatus)} to ${getStatusLabel(toStatus)}`;
+      }
+
+      if (toStatus) {
+        return `changed task "${taskTitle}" status to ${getStatusLabel(toStatus)}`;
+      }
+
+      return `updated task "${taskTitle}" status`;
+    }
     case "task.assign":
-      return `reassigned task from "${details.from}" to "${details.to}"`;
+      return `updated assignee in task "${taskTitle}"`;
     case "task.comment.add":
-      return `added a comment`;
+      return `added a comment to task "${taskTitle}"`;
     case "task.file.add":
-      return `uploaded file "${details.fileName}"`;
+      return details.fileName
+        ? `uploaded file "${String(details.fileName)}" to task "${taskTitle}"`
+        : `uploaded a file to task "${taskTitle}"`;
     case "task.content.update":
-      return `updated task description`;
+      return `updated task "${taskTitle}" description`;
     case "task.delete":
-      return `deleted the task "${details.title}"`;
+      return `deleted the task "${taskTitle}"`;
     default:
       return "performed an action";
   }
@@ -186,17 +234,22 @@ export default function ActivityLog({ taskId }: ActivityLogProps) {
             </div>
 
             {/* Additional Details */}
-            {activity.actionType === "task.status.change" && (
-              <div className="mt-2 flex items-center space-x-2">
-                <Badge className={getStatusBadgeColor(activity.details.from)}>
-                  {activity.details.from}
-                </Badge>
-                <span className="text-gray-400">→</span>
-                <Badge className={getStatusBadgeColor(activity.details.to)}>
-                  {activity.details.to}
-                </Badge>
-              </div>
-            )}
+            {(activity.actionType === "task.status.change" || activity.actionType === "task.status_change") && (() => {
+              const fromStatus = (activity.details.fromStatus || activity.details.from) as string | undefined;
+              const toStatus = (activity.details.toStatus || activity.details.to) as string | undefined;
+              if (!fromStatus || !toStatus) return null;
+              return (
+                <div className="mt-2 flex items-center space-x-2">
+                  <Badge className={getStatusBadgeColor(fromStatus)}>
+                    {getStatusLabel(fromStatus)}
+                  </Badge>
+                  <span className="text-gray-400">→</span>
+                  <Badge className={getStatusBadgeColor(toStatus)}>
+                    {getStatusLabel(toStatus)}
+                  </Badge>
+                </div>
+              );
+            })()}
 
             {activity.actionType === "task.comment.add" && activity.details.commentPreview && (
               <div className="mt-2 p-2 bg-white/50 rounded text-xs text-gray-600 italic">

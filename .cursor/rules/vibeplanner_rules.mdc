@@ -1,7 +1,7 @@
 
-# VibePlanner Project Rules for LLM
+# Myvibe project Rules for LLM
 
-This document outlines the core architecture, data models, and conventions for the VibePlanner project to guide the LLM assistant.
+This document outlines the core architecture, data models, and conventions for the Myvibe project to guide the LLM assistant.
 
 ## 1. Core Technologies
 

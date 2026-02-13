@@ -1,5 +1,5 @@
 /**
- * VibePlanner AI Streaming Queries
+ * Myvibe project AI Streaming Queries
  * 
  * Queries for real-time streaming subscriptions.
  * Clients subscribe to these queries to receive stream deltas.

@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { DownloadIcon, PlusIcon } from 'lucide-react';
+import { DownloadIcon, PlusIcon, ShoppingCart } from 'lucide-react';
 
 interface ShoppingListHeaderProps {
   projectName: string;
@@ -19,9 +19,12 @@ export function ShoppingListHeader({
   return (
     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-10">
       <div className="mb-4 sm:mb-0 space-y-4">
-        <h1 className="text-4xl md:text-5xl font-medium tracking-tight font-[var(--font-display-serif)] text-[#1A1A1A]">
-          Shopping List
-        </h1>
+        <div className="flex items-center gap-3">
+          <ShoppingCart className="h-8 w-8 text-[#6D8B73]" />
+          <h1 className="text-4xl md:text-5xl font-medium tracking-tight font-[var(--font-display-serif)] text-[#1A1A1A]">
+            Shopping List
+          </h1>
+        </div>
         <div className="flex flex-wrap gap-3 items-center">
           <span className="inline-flex items-center gap-2 rounded-full border border-[#E7E2D9] bg-white px-4 py-2 text-sm font-medium text-[#6D8B73]">
             {projectName}

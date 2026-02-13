@@ -408,7 +408,7 @@ export const createOrUpdateMembership = internalMutation({
         let projectIds: Id<"projects">[] | undefined = undefined;
 
         // 1. Sprawdź rolę z Clerk
-        if (args.role === "admin") {
+        if (args.role === "admin" || args.role === "org:admin") {
             role = "admin";
         } else if (args.role === "org:customer") {
             role = "customer";
@@ -696,5 +696,4 @@ export const updateInvitationStatus = internalMutation({
 // =================================================================
 // ============== UI-FACING QUERIES & MUTATIONS ====================
 // =================================================================
-
 

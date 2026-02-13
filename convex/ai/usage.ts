@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, query } from "../_generated/server";
 import { Id } from "../_generated/dataModel";
-import { getBillingWindow } from "../stripe";
+import { getBillingWindow, SUBSCRIPTION_PLANS } from "../stripe";
 
 // ====== TOKEN USAGE TRACKING ======
 
@@ -36,6 +36,17 @@ export const saveTokenUsage = internalMutation({
     errorMessage: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const [hadPreviousTokenUsage, hadPreviousImageUsage] = await Promise.all([
+      ctx.db
+        .query("aiTokenUsage")
+        .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+        .first(),
+      ctx.db
+        .query("aiGeneratedImages")
+        .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+        .first(),
+    ]);
+
     const resolvedFeature =
       args.feature ||
       (args.requestType === "chat" ? "assistant" : "other");
@@ -46,10 +57,27 @@ export const saveTokenUsage = internalMutation({
       feature: resolvedFeature,
     });
 
-    // Decrement aiTokens from team
+    // Decrement aiTokens from team. If balance was never initialized, seed from plan limit first.
     const team = await ctx.db.get(args.teamId);
-    if (team && team.aiTokens !== undefined) {
-      const newBalance = Math.max(0, (team.aiTokens || 0) - args.totalTokens);
+    if (team) {
+      const plan = (team.subscriptionPlan || "free") as keyof typeof SUBSCRIPTION_PLANS;
+      const defaultPlanTokens = SUBSCRIPTION_PLANS[plan]?.aiMonthlyTokens ?? 0;
+      const storedPlanTokens = team.subscriptionLimits?.aiMonthlyTokens;
+      const planTokens =
+        plan === "free"
+          ? Math.max(defaultPlanTokens, storedPlanTokens ?? 0)
+          : (storedPlanTokens ?? defaultPlanTokens);
+      const isLegacyFreeZeroBalance =
+        plan === "free" &&
+        team.aiTokens === 0 &&
+        ((storedPlanTokens ?? 0) <= 0) &&
+        !hadPreviousTokenUsage &&
+        !hadPreviousImageUsage;
+      const currentBalance =
+        typeof team.aiTokens === "number" && !isLegacyFreeZeroBalance
+          ? Math.max(0, team.aiTokens)
+          : Math.max(0, planTokens);
+      const newBalance = Math.max(0, currentBalance - args.totalTokens);
       await ctx.db.patch(args.teamId, { aiTokens: newBalance });
     }
 

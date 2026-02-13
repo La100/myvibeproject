@@ -1,7 +1,8 @@
 import { v } from "convex/values";
-import { internal, api } from "./_generated/api";
+import { internal } from "./_generated/api";
 import { internalMutation, internalQuery, query, mutation } from "./_generated/server";
 import { Id, Doc } from "./_generated/dataModel";
+const internalAny = require("./_generated/api").internal as any;
 
 // Utility function to generate a slug from a string
 const generateSlug = (name: string) => {
@@ -13,11 +14,13 @@ const generateSlug = (name: string) => {
 
 // Utility function to generate next project ID
 const generateNextProjectId = async (ctx: any) => {
-  const projects = await ctx.db.query("projects").collect();
-  const maxProjectId = projects.reduce((max: number, project: any) => {
-    return (project.projectId || 0) > max ? (project.projectId || 0) : max;
-  }, 0);
-  return maxProjectId + 1;
+  const lastProject = await ctx.db
+    .query("projects")
+    .withIndex("by_project_id")
+    .order("desc")
+    .first();
+
+  return (lastProject?.projectId || 0) + 1;
 };
 
 // ====== CORE PROJECT FUNCTIONS ======
@@ -58,7 +61,10 @@ export const listProjectsByClerkOrg = query({
   async handler(ctx, args) {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new Error("Not authenticated");
+      // During Clerk -> Convex auth handoff (e.g. right after onboarding),
+      // this query can run before identity is available.
+      // Return an empty list instead of crashing the client.
+      return [];
     }
 
     const team = await ctx.db
@@ -127,22 +133,42 @@ export const listProjectsByClerkOrg = query({
       }
     }
 
-    const projectsWithTasks = await Promise.all(
-      projects.map(async (project) => {
-        const tasks = await ctx.db
-          .query("tasks")
-          .withIndex("by_project", (q) => q.eq("projectId", project._id))
-          .collect();
-        const completedTasks = tasks.filter(
-          (task) => task.status === "done"
-        ).length;
-        return {
-          ...project,
-          taskCount: tasks.length,
-          completedTasks: completedTasks,
-        };
-      })
-    );
+    const tasks = await ctx.db
+      .query("tasks")
+      .withIndex("by_team", (q) => q.eq("teamId", team._id))
+      .collect();
+
+    const taskStatsByProject = new Map<
+      Id<"projects">,
+      { taskCount: number; completedTasks: number }
+    >();
+
+    for (const task of tasks) {
+      const currentStats = taskStatsByProject.get(task.projectId) || {
+        taskCount: 0,
+        completedTasks: 0,
+      };
+
+      currentStats.taskCount += 1;
+      if (task.status === "done") {
+        currentStats.completedTasks += 1;
+      }
+
+      taskStatsByProject.set(task.projectId, currentStats);
+    }
+
+    const projectsWithTasks = projects.map((project) => {
+      const stats = taskStatsByProject.get(project._id) || {
+        taskCount: 0,
+        completedTasks: 0,
+      };
+
+      return {
+        ...project,
+        taskCount: stats.taskCount,
+        completedTasks: stats.completedTasks,
+      };
+    });
 
     return projectsWithTasks;
   },
@@ -269,6 +295,17 @@ export const createProjectInOrg = mutation({
       taskStatusSettings: defaultStatusSettings,
     });
 
+    await ctx.runMutation(internal.activityLog.logActivity, {
+      teamId: team._id,
+      actionType: "analytics.project.created",
+      details: {
+        name: args.name,
+        status: "planning",
+      },
+      entityId: projectId,
+      entityType: "project",
+    });
+
     return { id: projectId, slug: slug };
   },
 });
@@ -332,6 +369,82 @@ export const getProject = query({
   }
 });
 
+// Internal query used by messaging/webhook actions.
+export const getProjectByIdInternal = internalQuery({
+  args: { projectId: v.id("projects") },
+  async handler(ctx, args) {
+    const project = await ctx.db.get(args.projectId);
+    if (!project) {
+      return null;
+    }
+    const team = await ctx.db.get(project.teamId);
+    return { ...project, teamName: team?.name || "Unknown Team" };
+  },
+});
+
+// Resolve project by Telegram webhook secret sent in header.
+export const getProjectByTelegramWebhookSecret = internalQuery({
+  args: { telegramWebhookSecret: v.string() },
+  async handler(ctx, args) {
+    return await ctx.db
+      .query("projects")
+      .withIndex("by_telegram_webhook_secret", (q) =>
+        q.eq("telegramWebhookSecret", args.telegramWebhookSecret)
+      )
+      .first();
+  },
+});
+
+// Internal entrypoint for assistant/tools to configure Telegram credentials.
+export const updateProjectTelegramConfigInternal = internalMutation({
+  args: {
+    projectId: v.id("projects"),
+    actorUserId: v.string(),
+    telegramBotToken: v.string(),
+    telegramBotUsername: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    const membership = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", project.teamId).eq("clerkUserId", args.actorUserId)
+      )
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .first();
+
+    if (!membership || (membership.role !== "admin" && membership.role !== "member")) {
+      throw new Error("Not authorized");
+    }
+
+    const isTokenUpdated = args.telegramBotToken !== project.telegramBotToken;
+    const shouldRotateTelegramSecret =
+      !!args.telegramBotToken &&
+      (!project.telegramWebhookSecret || isTokenUpdated);
+    const telegramWebhookSecret = shouldRotateTelegramSecret
+      ? generateTelegramWebhookSecret()
+      : project.telegramWebhookSecret;
+
+    await ctx.db.patch(args.projectId, {
+      telegramBotToken: args.telegramBotToken,
+      ...(args.telegramBotUsername ? { telegramBotUsername: args.telegramBotUsername } : {}),
+      ...(shouldRotateTelegramSecret ? { telegramWebhookSecret } : {}),
+    });
+
+    if (isTokenUpdated || shouldRotateTelegramSecret) {
+      await ctx.scheduler.runAfter(0, internalAny.messaging.telegramActions.setTelegramWebhook, {
+        projectId: args.projectId,
+      });
+    }
+
+    return { success: true };
+  },
+});
+
 export const updateProject = mutation({
   args: {
     projectId: v.id("projects"),
@@ -358,12 +471,15 @@ export const updateProject = mutation({
     )),
     taskStatusSettings: v.optional(v.any()), // Allow any object for simplification
     customAiPrompt: v.optional(v.string()),
+    telegramBotUsername: v.optional(v.string()),
+    telegramBotToken: v.optional(v.string()),
+    whatsappNumber: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
-    const { projectId, name, ...rest } = args;
+    const { projectId, name, telegramBotToken, ...rest } = args;
 
     const existingProject = await ctx.db.get(projectId);
     if (!existingProject) {
@@ -375,6 +491,17 @@ export const updateProject = mutation({
     // if (!member || (member.role !== 'admin' && member.role !== 'member')) {
     //   throw new Error("You don't have permission to update this project.");
     // }
+
+    const telegramTokenProvided = Object.prototype.hasOwnProperty.call(args, "telegramBotToken");
+    const isTokenUpdated =
+      telegramTokenProvided && telegramBotToken !== existingProject.telegramBotToken;
+    const shouldRotateTelegramSecret =
+      !!((telegramTokenProvided ? telegramBotToken : existingProject.telegramBotToken)) &&
+      (!existingProject.telegramWebhookSecret || isTokenUpdated);
+    const telegramWebhookSecret = shouldRotateTelegramSecret
+      ? generateTelegramWebhookSecret()
+      : existingProject.telegramWebhookSecret;
+    const telegramTokenPatch = telegramTokenProvided ? { telegramBotToken } : {};
     
     if (name && name !== existingProject.name) {
       const baseSlug = generateSlug(name);
@@ -395,14 +522,42 @@ export const updateProject = mutation({
         }
       } while (existing);
       
-      await ctx.db.patch(projectId, { name, slug, ...rest });
+      await ctx.db.patch(projectId, {
+        name,
+        slug,
+        ...telegramTokenPatch,
+        ...(shouldRotateTelegramSecret ? { telegramWebhookSecret } : {}),
+        ...rest,
+      });
+
+      if (isTokenUpdated || shouldRotateTelegramSecret) {
+        await ctx.scheduler.runAfter(0, internalAny.messaging.telegramActions.setTelegramWebhook, {
+          projectId,
+        });
+      }
+
       return { slug };
     } else {
-      await ctx.db.patch(projectId, rest);
+      await ctx.db.patch(projectId, {
+        ...telegramTokenPatch,
+        ...(shouldRotateTelegramSecret ? { telegramWebhookSecret } : {}),
+        ...rest,
+      });
+
+      if (isTokenUpdated || shouldRotateTelegramSecret) {
+        await ctx.scheduler.runAfter(0, internalAny.messaging.telegramActions.setTelegramWebhook, {
+          projectId,
+        });
+      }
+
       return { slug: existingProject.slug };
     }
   }
 });
+
+function generateTelegramWebhookSecret(): string {
+  return crypto.randomUUID().replace(/-/g, "");
+}
 
 export const listTeamProjects = query({
   args: { teamId: v.id("teams") },
@@ -723,6 +878,15 @@ export const deleteProject = mutation({
       throw new Error("Insufficient permissions to delete this project. Only admin can delete projects.");
     }
 
+    // Unregister Telegram webhook before deleting the project.
+    if (project.telegramBotToken) {
+      await ctx.scheduler.runAfter(
+        0,
+        internalAny.messaging.telegramActions.deleteTelegramWebhook,
+        { botToken: project.telegramBotToken }
+      );
+    }
+
     // Delete all tasks associated with the project
     const tasks = await ctx.db
       .query("tasks")
@@ -824,6 +988,35 @@ export const deleteProject = mutation({
     const customerDeletionPromises = projectCustomers.map(customer => ctx.db.delete(customer._id));
     await Promise.all(customerDeletionPromises);
 
+    // Delete messaging channels and pairing artifacts.
+    const messagingChannels = await ctx.db
+      .query("messagingChannels")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+    await Promise.all(messagingChannels.map((channel) => ctx.db.delete(channel._id)));
+
+    const pairingRequests = await ctx.db
+      .query("messagingPairingRequests")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+    await Promise.all(pairingRequests.map((request) => ctx.db.delete(request._id)));
+
+    const pairingTokensTelegram = await ctx.db
+      .query("messagingPairingTokens")
+      .withIndex("by_project_and_platform", (q) =>
+        q.eq("projectId", args.projectId).eq("platform", "telegram")
+      )
+      .collect();
+    const pairingTokensWhatsapp = await ctx.db
+      .query("messagingPairingTokens")
+      .withIndex("by_project_and_platform", (q) =>
+        q.eq("projectId", args.projectId).eq("platform", "whatsapp")
+      )
+      .collect();
+    await Promise.all(
+      [...pairingTokensTelegram, ...pairingTokensWhatsapp].map((token) => ctx.db.delete(token._id))
+    );
+
     // Delete all folders related to the project
     const projectFolders = await ctx.db
       .query("folders")
@@ -873,9 +1066,27 @@ export const updateProjectTaskStatusSettings = mutation({
       throw new Error("Not authenticated");
     }
 
-    const hasAccess = await ctx.runQuery(api.projects.checkUserProjectAccess, {
-      projectId: args.projectId,
-    });
+    const project = await ctx.db.get(args.projectId);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    const membership = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject),
+      )
+      .unique();
+
+    const hasAccess = Boolean(
+      membership &&
+        membership.isActive &&
+        (membership.role === "admin" ||
+          (membership.role === "member" &&
+            (!membership.projectIds ||
+              membership.projectIds.length === 0 ||
+              membership.projectIds.includes(args.projectId)))),
+    );
 
     if (!hasAccess) {
       throw new Error("You don't have permission to update these settings.");

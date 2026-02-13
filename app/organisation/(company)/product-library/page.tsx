@@ -20,6 +20,7 @@ import { ProductModal } from "./components/ProductModal";
 import { AddProductModal } from "./components/AddProductModal";
 import { AddToProjectModal } from "./components/AddToProjectModal";
 import { formatCurrency } from "@/lib/utils";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export default function ProductLibraryPage() {
   const { organization } = useOrganization();
@@ -200,15 +201,16 @@ export default function ProductLibraryPage() {
       {/* Products Grid/List */}
       <div className="flex-1 p-6 overflow-auto">
         {filteredProducts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
-            <Package className="h-12 w-12 mb-4" />
-            <h3 className="text-lg font-medium">No products found</h3>
-            <p className="text-sm">Try adjusting your filters or add some products to get started.</p>
-            <Button className="mt-4" onClick={() => setShowAddModal(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Your First Product
-            </Button>
-          </div>
+          <EmptyState
+            icon={Package}
+            title="Build your studio's own product database"
+            description="Add products once, then access them across Programa without repetitive data entry"
+            action={{
+              label: "Add a Product",
+              onClick: () => setShowAddModal(true),
+              icon: Plus,
+            }}
+          />
         ) : (
           <div className={`grid gap-6 ${
             viewMode === "grid" 

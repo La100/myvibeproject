@@ -1,4 +1,4 @@
-// 🚀 WORLD-CLASS FILTERING SYSTEM - VibePlanner
+// 🚀 WORLD-CLASS FILTERING SYSTEM - Myvibe project
 // Advanced filter types with intelligent context awareness
 
 export interface AdvancedFilters {

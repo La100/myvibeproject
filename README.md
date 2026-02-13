@@ -1,8 +1,8 @@
-# VibePlanner
+# Myvibe project
 
 **Architektoniczny Project Manager**
 
-VibePlanner is a comprehensive project management tool tailored for architectural and design projects. It manages teams, projects, tasks, finances (shopping lists, labor, estimations), and interactions with clients through surveys. It features robust AI integration for chat assistance and visualizations.
+Myvibe project is a comprehensive project management tool tailored for architectural projects. It manages teams, projects, tasks, finances (shopping lists, labor, estimations), and interactions with clients through surveys. It features robust AI integration for chat assistance and visualizations.
 
 ## 🤖 AI Agent Context
 **This section is specifically designed to help AI agents understand the codebase.**
@@ -64,7 +64,7 @@ VibePlanner is a comprehensive project management tool tailored for architectura
 1.  **Clone the repository**:
     ```bash
     git clone <repository-url>
-    cd vibeplanner
+    cd myvibeproject
     ```
 
 2.  **Install dependencies**:
