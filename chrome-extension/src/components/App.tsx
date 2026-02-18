@@ -237,7 +237,7 @@ const App = () => {
       isLoading: false,
     })
 
-    showToast("Wylogowano", "info")
+    showToast("Signed out.", "info")
   }
 
   const handleTeamSelect = async (team: Team) => {
@@ -266,7 +266,7 @@ const App = () => {
       currentView: "clipper",
     }))
 
-    showToast(`Wybrano projekt: ${project.name}`, "success")
+    showToast(`Selected project: ${project.name}`, "success")
   }
 
   const handleBackToTeams = async () => {
@@ -300,7 +300,7 @@ const App = () => {
         <div className="vp-content flex h-full items-center justify-center">
           <div className="clean-panel flex items-center gap-3 px-5 py-3">
             <div className="h-3 w-3 animate-pulse rounded-full bg-primary" />
-            <span className="text-sm font-semibold text-foreground/80">Ładowanie danych...</span>
+            <span className="text-sm font-semibold text-foreground/80">Loading data...</span>
           </div>
         </div>
       </div>

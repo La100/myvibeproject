@@ -20,11 +20,11 @@ const ProjectView = ({ team, onProjectSelect, onBack }: ProjectViewProps) => {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <p className="vp-title">Projekty zespołu</p>
+            <p className="vp-title">Team projects</p>
             <h2 className="mt-1 text-xl font-semibold">{team.name}</h2>
           </div>
         </div>
-        <span className="vp-chip">{projects.length} aktywnych</span>
+        <span className="vp-chip">{projects.length} active</span>
       </div>
 
       {projects.length > 0 ? (
@@ -45,7 +45,7 @@ const ProjectView = ({ team, onProjectSelect, onBack }: ProjectViewProps) => {
                     <div>
                       <p className="text-sm font-semibold">{project.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {project.sections.length} sekcji listy zakupów
+                        {project.sections.length} shopping list sections
                       </p>
                     </div>
                   </div>
@@ -56,11 +56,11 @@ const ProjectView = ({ team, onProjectSelect, onBack }: ProjectViewProps) => {
           </div>
         </ScrollArea>
       ) : (
-        <div className="clean-panel flex flex-1 flex-col items-center justify-center px-6 text-center">
-          <FolderOpen className="mb-3 h-12 w-12 text-muted-foreground" />
-          <h3 className="mb-1 text-base font-semibold">Brak projektów</h3>
+          <div className="clean-panel flex flex-1 flex-col items-center justify-center px-6 text-center">
+            <FolderOpen className="mb-3 h-12 w-12 text-muted-foreground" />
+          <h3 className="mb-1 text-base font-semibold">No projects found</h3>
           <p className="text-sm text-muted-foreground">
-            Ten zespół nie ma jeszcze aktywnych projektów.
+            This team does not have any active projects yet.
           </p>
         </div>
       )}

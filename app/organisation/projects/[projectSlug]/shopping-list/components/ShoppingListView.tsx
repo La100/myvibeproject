@@ -10,14 +10,7 @@ import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { TooltipProvider } from '@/components/ui/tooltip';
-
-// Extend jsPDF type to include autoTable method
-declare module 'jspdf' {
-  interface jsPDF {
-    autoTable: (options: unknown) => void;
-    lastAutoTable: { finalY: number };
-  }
-}
+import { addBrandHeader, addDocumentMeta, addPageNumbers, formatMoney, pdfTableTheme, resolvePageBreak, sanitizeFileName } from '@/lib/pdfExport';
 
 // Import new components
 import { ShoppingListHeader } from './ShoppingListHeader';
@@ -28,6 +21,22 @@ import { ExportModal } from './ExportModal';
 
 type ShoppingListItem = Doc<"shoppingListItems">;
 
+const STATUS_FILTER_TO_VALUE: Record<'planned' | 'ordered' | 'completed', ShoppingListItem["realizationStatus"]> = {
+  planned: 'PLANNED',
+  ordered: 'ORDERED',
+  completed: 'COMPLETED',
+};
+
+const STATUS_LABELS: Record<ShoppingListItem["realizationStatus"], string> = {
+  PLANNED: 'Planned',
+  ORDERED: 'Ordered',
+  IN_TRANSIT: 'In Transit',
+  DELIVERED: 'Delivered',
+  COMPLETED: 'Completed',
+  CANCELLED: 'Cancelled',
+};
+
+const getStatusLabel = (status: ShoppingListItem["realizationStatus"]) => STATUS_LABELS[status] ?? status;
 
 
 export function ShoppingListViewSkeleton() {
@@ -211,11 +220,34 @@ export default function ShoppingListView() {
   };
 
   // Export handlers
+  const filteredItemsForExport = items.filter((item) => {
+    if (exportOptions.statusFilter === 'all') {
+      return true;
+    }
+    return item.realizationStatus === STATUS_FILTER_TO_VALUE[exportOptions.statusFilter];
+  });
+
+  const groupedFilteredItems = Object.entries(itemsBySection)
+    .sort(([a], [b]) => {
+      if (a === 'No Category') return 1;
+      if (b === 'No Category') return -1;
+      return a.localeCompare(b);
+    })
+    .map(([sectionName, sectionItems]) => ({
+      sectionName,
+      sectionItems: sectionItems.filter((item) =>
+        exportOptions.statusFilter === 'all'
+          ? true
+          : item.realizationStatus === STATUS_FILTER_TO_VALUE[exportOptions.statusFilter],
+      ),
+    }))
+    .filter(({ sectionItems }) => sectionItems.length > 0);
+
   const handleExportCSV = () => {
-    const filteredItems = items.filter(item => {
-      if (exportOptions.statusFilter === 'all') return true;
-      return item.realizationStatus.toLowerCase() === exportOptions.statusFilter;
-    });
+    if (filteredItemsForExport.length === 0) {
+      toast.info('No items match the current export filters.');
+      return;
+    }
 
     const csvHeaders = [
       'Section',
@@ -234,7 +266,7 @@ export default function ShoppingListView() {
       ...(exportOptions.includeNotes ? ['Notes'] : [])
     ];
 
-    const csvData = filteredItems.map(item => {
+    const csvData = filteredItemsForExport.map(item => {
       const sectionName = item.sectionId ? sectionMap.get(item.sectionId) || 'No Category' : 'No Category';
       const assignedMember = item.assignedTo ? teamMembers?.find(m => m.clerkUserId === item.assignedTo)?.name : '';
       
@@ -248,7 +280,7 @@ export default function ShoppingListView() {
         item.quantity,
         item.unitPrice ? `${item.unitPrice.toFixed(2)} ${currencySymbol}` : '',
         item.totalPrice ? `${item.totalPrice.toFixed(2)} ${currencySymbol}` : '',
-        item.realizationStatus,
+        getStatusLabel(item.realizationStatus),
         item.priority || '',
         assignedMember || '',
         item.buyBefore ? format(new Date(item.buyBefore), 'yyyy-MM-dd') : '',
@@ -257,7 +289,11 @@ export default function ShoppingListView() {
     });
 
     const csvContent = [csvHeaders, ...csvData]
-      .map(row => row.map(cell => `"${cell}"`).join(','))
+      .map((row) =>
+        row
+          .map((cell) => `"${String(cell).replace(/"/g, '""')}"`)
+          .join(','),
+      )
       .join('\n');
 
     const BOM = '\uFEFF';
@@ -266,7 +302,10 @@ export default function ShoppingListView() {
     if (link.download !== undefined) {
       const url = URL.createObjectURL(blob);
       link.setAttribute('href', url);
-      link.setAttribute('download', `shopping-list-${project.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}-${format(new Date(), 'yyyy-MM-dd')}.csv`);
+      link.setAttribute(
+        'download',
+        `shopping-list-${sanitizeFileName(project.name)}-${format(new Date(), 'yyyy-MM-dd')}.csv`,
+      );
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
@@ -279,8 +318,12 @@ export default function ShoppingListView() {
 
   const handleExportPDF = async () => {
     try {
+      if (filteredItemsForExport.length === 0) {
+        toast.info('No items match the current export filters.');
+        return;
+      }
+
       const jsPDF = (await import('jspdf')).default;
-      // Import and initialize the autoTable plugin
       await import('jspdf-autotable');
       
       const doc = new jsPDF({
@@ -289,203 +332,131 @@ export default function ShoppingListView() {
         unit: 'mm'
       });
       
-      // Add support for Polish characters by using a font that supports UTF-8
       doc.setFont('helvetica', 'normal');
-      
-      let yPosition = 20;
-      
-      // Organization Header
-      if (team) {
-        // Organization name - properly encoded for Polish characters
-        doc.setFontSize(22);
-        doc.setFont('helvetica', 'bold');
-        const orgName = team.name || 'Organizacja';
-        doc.text(orgName, 20, yPosition);
-        yPosition += 12;
-        
-        // Add logo if available
-        if (team.imageUrl) {
-          try {
-            // Create a temporary image element to load the logo
-            const img = new Image();
-            img.crossOrigin = 'anonymous';
-            
-            await new Promise((resolve) => {
-              img.onload = () => {
-                try {
-                  // Create canvas to convert image to base64
-                  const canvas = document.createElement('canvas');
-                  const ctx = canvas.getContext('2d');
-                  canvas.width = img.width;
-                  canvas.height = img.height;
-                  ctx?.drawImage(img, 0, 0);
-                  
-                  const dataURL = canvas.toDataURL('image/png');
-                  
-                  // Add logo to PDF (positioned at top right)
-                  const logoWidth = 30;
-                  const logoHeight = (img.height / img.width) * logoWidth;
-                  const pageWidth = doc.internal.pageSize.getWidth();
-                  
-                  doc.addImage(dataURL, 'PNG', pageWidth - logoWidth - 20, 10, logoWidth, logoHeight);
-                  resolve(true);
-                } catch (error) {
-                  console.warn('Error adding logo to PDF:', error);
-                  resolve(false);
-                }
-              };
-              img.onerror = () => {
-                console.warn('Could not load organization logo');
-                resolve(false);
-              };
-              img.src = team.imageUrl!;
-            });
-          } catch (error) {
-            console.warn('Error processing organization logo:', error);
-          }
-        }
-        
-        // Add separator line
-        doc.setLineWidth(0.5);
-        doc.line(20, yPosition, doc.internal.pageSize.getWidth() - 20, yPosition);
-        yPosition += 10;
-      }
-      
-      // Document Header
-      doc.setFontSize(18);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`Shopping List - ${project.name}`, 20, yPosition);
-      yPosition += 10;
-      
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Generated on: ${new Date().toLocaleDateString('en-US')}`, 20, yPosition);
-      yPosition += 6;
-      doc.text(`Total Budget: ${grandTotal.toFixed(2)} ${currencySymbol}`, 20, yPosition);
-      yPosition += 15;
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const filteredTotal = filteredItemsForExport.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
+
+      let yPosition = await addBrandHeader(doc, {
+        teamName: team.name || 'Organization',
+        teamImageUrl: team.imageUrl,
+      });
+
+      yPosition = addDocumentMeta(doc, {
+        title: `Shopping List - ${project.name}`,
+        subtitle: `Items: ${filteredItemsForExport.length} | Total: ${formatMoney(filteredTotal, currencySymbol)}`,
+        generatedOn: format(new Date(), 'yyyy-MM-dd HH:mm'),
+        startY: yPosition,
+      });
 
       if (exportOptions.groupBySections) {
-        Object.entries(itemsBySection)
-          .sort(([a], [b]) => {
-            if (a === 'No Category') return 1;
-            if (b === 'No Category') return -1;
-            return a.localeCompare(b);
-          })
-          .forEach(([sectionName, sectionItems]) => {
-          if (sectionItems.length === 0) return;
-          
-          const filteredSectionItems = sectionItems.filter(item => {
-            if (exportOptions.statusFilter === 'all') return true;
-            return item.realizationStatus.toLowerCase() === exportOptions.statusFilter;
+        groupedFilteredItems.forEach(({ sectionName, sectionItems }) => {
+          yPosition = resolvePageBreak(doc, yPosition, 18);
+          const sectionTotal = sectionItems.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
+
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(12);
+          doc.setTextColor(30, 30, 30);
+          doc.text(sectionName, 18, yPosition);
+          doc.text(
+            `Section total: ${formatMoney(sectionTotal, currencySymbol)}`,
+            pageWidth - 18,
+            yPosition,
+            { align: 'right' },
+          );
+          yPosition += 3;
+
+          const tableData = sectionItems.map((item) => {
+            const productCell =
+              exportOptions.includeNotes && item.notes
+                ? `${item.name}\nNote: ${item.notes}`
+                : item.name;
+            const assignedMember = item.assignedTo
+              ? teamMembers?.find((member) => member.clerkUserId === item.assignedTo)?.name || item.assignedTo
+              : '-';
+
+            return [
+              productCell,
+              item.quantity.toString(),
+              formatMoney(item.unitPrice, currencySymbol),
+              formatMoney(item.totalPrice, currencySymbol),
+              getStatusLabel(item.realizationStatus),
+              item.supplier || '-',
+              assignedMember,
+            ];
           });
-
-          if (filteredSectionItems.length === 0) return;
-
-          doc.setFontSize(16);
-          doc.text(sectionName, 20, yPosition);
-          yPosition += 10;
-
-          const statusTranslations: Record<string, string> = {
-            'PLANNED': 'Planned',
-            'ORDERED': 'Ordered',
-            'IN_TRANSIT': 'In Transit',
-            'DELIVERED': 'Delivered',
-            'COMPLETED': 'Completed',
-            'CANCELLED': 'Cancelled'
-          };
-
-          const tableData = filteredSectionItems.map(item => [
-            item.name,
-            item.quantity.toString(),
-            item.unitPrice ? `${item.unitPrice.toFixed(2)} ${currencySymbol}` : '-',
-            item.totalPrice ? `${item.totalPrice.toFixed(2)} ${currencySymbol}` : '-',
-            statusTranslations[item.realizationStatus] || item.realizationStatus,
-            item.supplier || '-'
-          ]);
 
           doc.autoTable({
+            ...pdfTableTheme,
             startY: yPosition,
-            head: [['Product', 'Qty', 'Unit Price', 'Total', 'Status', 'Supplier']],
+            head: [['Product', 'Qty', 'Unit Price', 'Total', 'Status', 'Supplier', 'Assigned']],
             body: tableData,
-            margin: { left: 20, right: 20 },
-            styles: { 
-              fontSize: 9, 
-              cellPadding: 4,
-              font: 'helvetica',
-              fontStyle: 'normal',
-              textColor: [0, 0, 0],
-              lineColor: [200, 200, 200],
-              lineWidth: 0.1
+            columnStyles: {
+              0: { cellWidth: 56 },
+              1: { cellWidth: 13, halign: 'right' },
+              2: { cellWidth: 22, halign: 'right' },
+              3: { cellWidth: 22, halign: 'right' },
+              4: { cellWidth: 20 },
+              5: { cellWidth: 25 },
+              6: { cellWidth: 22 },
             },
-            headStyles: { 
-              fillColor: [70, 70, 70], 
-              textColor: [255, 255, 255],
-              fontSize: 10,
-              fontStyle: 'bold'
-            },
-            alternateRowStyles: {
-              fillColor: [245, 245, 245]
-            },
-            theme: 'striped'
           });
 
-          yPosition = doc.lastAutoTable.finalY + 10;
+          yPosition = doc.lastAutoTable.finalY + 6;
         });
       } else {
-        const filteredItems = items.filter(item => {
-          if (exportOptions.statusFilter === 'all') return true;
-          return item.realizationStatus.toLowerCase() === exportOptions.statusFilter;
-        });
-
-        const statusTranslations: Record<string, string> = {
-          'PLANNED': 'Planned',
-          'ORDERED': 'Ordered',
-          'IN_TRANSIT': 'In Transit',
-          'DELIVERED': 'Delivered',
-          'COMPLETED': 'Completed',
-          'CANCELLED': 'Cancelled'
-        };
-
-        const tableData = filteredItems.map(item => {
+        const tableData = filteredItemsForExport.map((item) => {
           const sectionName = item.sectionId ? sectionMap.get(item.sectionId) || 'No Category' : 'No Category';
+          const productCell =
+            exportOptions.includeNotes && item.notes
+              ? `${item.name}\nNote: ${item.notes}`
+              : item.name;
+          const assignedMember = item.assignedTo
+            ? teamMembers?.find((member) => member.clerkUserId === item.assignedTo)?.name || item.assignedTo
+            : '-';
+
           return [
             sectionName,
-            item.name,
+            productCell,
             item.quantity.toString(),
-            item.unitPrice ? `${item.unitPrice.toFixed(2)} ${currencySymbol}` : '',
-            item.totalPrice ? `${item.totalPrice.toFixed(2)} ${currencySymbol}` : '',
-            statusTranslations[item.realizationStatus] || item.realizationStatus
+            formatMoney(item.unitPrice, currencySymbol),
+            formatMoney(item.totalPrice, currencySymbol),
+            getStatusLabel(item.realizationStatus),
+            assignedMember,
           ];
         });
 
         doc.autoTable({
+          ...pdfTableTheme,
           startY: yPosition,
-          head: [['Section', 'Product', 'Qty', 'Unit Price', 'Total', 'Status']],
+          head: [['Section', 'Product', 'Qty', 'Unit Price', 'Total', 'Status', 'Assigned']],
           body: tableData,
-          margin: { left: 20, right: 20 },
-          styles: { 
-            fontSize: 9, 
-            cellPadding: 4,
-            font: 'helvetica',
-            fontStyle: 'normal',
-            textColor: [0, 0, 0],
-            lineColor: [200, 200, 200],
-            lineWidth: 0.1
+          columnStyles: {
+            0: { cellWidth: 30 },
+            1: { cellWidth: 52 },
+            2: { cellWidth: 13, halign: 'right' },
+            3: { cellWidth: 22, halign: 'right' },
+            4: { cellWidth: 22, halign: 'right' },
+            5: { cellWidth: 20 },
+            6: { cellWidth: 25 },
           },
-          headStyles: { 
-            fillColor: [70, 70, 70], 
-            textColor: [255, 255, 255],
-            fontSize: 10,
-            fontStyle: 'bold'
-          },
-          alternateRowStyles: {
-            fillColor: [245, 245, 245]
-          },
-          theme: 'striped'
         });
+
+        yPosition = doc.lastAutoTable.finalY + 6;
       }
 
-      doc.save(`shopping-list-${project.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+      yPosition = resolvePageBreak(doc, yPosition, 14);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.setTextColor(20, 20, 20);
+      doc.text(
+        `Grand total: ${formatMoney(filteredTotal, currencySymbol)}`,
+        pageWidth - 18,
+        yPosition,
+        { align: 'right' },
+      );
+
+      addPageNumbers(doc);
+      doc.save(`shopping-list-${sanitizeFileName(project.name)}-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
       
       setIsExportModalOpen(false);
       toast.success('PDF exported successfully!');

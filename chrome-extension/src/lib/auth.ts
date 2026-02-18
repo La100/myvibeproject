@@ -193,14 +193,24 @@ async function syncTokenWithMainApp(
 
 export async function ensureUsableToken(options?: {
   forceSync?: boolean
+  allowInteractiveAuth?: boolean
 }): Promise<string | null> {
   const forceSync = options?.forceSync === true
+  const allowInteractiveAuth = options?.allowInteractiveAuth === true
 
-  if (!forceSync) {
-    const token = await getStoredToken()
-    if (token && !isTokenExpiringSoon(token)) {
-      return token
-    }
+  const token = await getStoredToken()
+  if (token && !isTokenExpiringSoon(token)) {
+    return token
+  }
+
+  // Prevent opening /auth/extension implicitly during normal background calls.
+  // Interactive auth should happen only after explicit user intent.
+  if (!allowInteractiveAuth) {
+    return token ?? null
+  }
+
+  if (!forceSync && token) {
+    return token
   }
 
   return syncTokenWithMainApp()
@@ -221,15 +231,17 @@ export async function authenticatedFetch(
   options?: {
     retryOnAuthFailure?: boolean
     preferredToken?: string | null
+    allowInteractiveAuth?: boolean
   },
 ): Promise<Response> {
   const retryOnAuthFailure = options?.retryOnAuthFailure !== false
   const preferredToken = options?.preferredToken ?? null
+  const allowInteractiveAuth = options?.allowInteractiveAuth === true
 
   const firstToken =
     preferredToken && !isTokenExpiringSoon(preferredToken)
       ? preferredToken
-      : await ensureUsableToken()
+      : await ensureUsableToken({ allowInteractiveAuth })
 
   if (!firstToken) {
     throw new Error("AUTH_REQUIRED")
@@ -240,7 +252,10 @@ export async function authenticatedFetch(
     return firstResponse
   }
 
-  const refreshedToken = await ensureUsableToken({ forceSync: true })
+  const refreshedToken = await ensureUsableToken({
+    forceSync: true,
+    allowInteractiveAuth,
+  })
   if (!refreshedToken) {
     return firstResponse
   }

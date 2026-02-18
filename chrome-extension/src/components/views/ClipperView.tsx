@@ -148,7 +148,7 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
     try {
       const tab = await getActiveTab()
       if (!tab?.id || !isSupportedUrl(tab.url)) {
-        showToast("Detekcja produktu działa tylko na stronach http/https.", "info")
+        showToast("Product detection works only on http/https pages.", "info")
         return
       }
 
@@ -202,7 +202,7 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
         if (typeof incoming.imageUrl === "string" && incoming.imageUrl.length > 0) {
           setProduct((prev) => ({ ...prev, imageUrl: incoming.imageUrl }))
           setIsImagePickerActive(false)
-          showToast("Obraz został zaktualizowany.", "success")
+          showToast("Image updated.", "success")
         }
       }
     }
@@ -228,10 +228,10 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
     try {
       await sendMessageToActiveTab({ action: ACTIONS.ENABLE_IMAGE_PICKER })
       setIsImagePickerActive(true)
-      showToast("Kliknij obraz na stronie, aby go wybrać.", "info")
+      showToast("Click an image on the page to select it.", "info")
     } catch {
       setIsImagePickerActive(false)
-      showToast("Nie można uruchomić wyboru obrazu na tej stronie.", "error")
+      showToast("Could not start image picker on this page.", "error")
     }
   }
 
@@ -245,7 +245,7 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
 
   const handleSave = async () => {
     if (!product.name?.trim()) {
-      showToast("Nazwa produktu jest wymagana.", "error")
+      showToast("Product name is required.", "error")
       return
     }
 
@@ -287,24 +287,24 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
 
       if (!response.ok) {
         if (response.status === 401) {
-          throw new Error("Sesja wygasła. Zaloguj się ponownie.")
+          throw new Error("Session expired. Please sign in again.")
         }
 
         const errorPayload = (await response.json().catch(() => null)) as
           | { message?: string }
           | null
 
-        throw new Error(errorPayload?.message ?? "Błąd zapisu produktu")
+        throw new Error(errorPayload?.message ?? "Failed to save product")
       }
 
-      showToast("Produkt został dodany do listy zakupów.", "success")
+      showToast("Product added to shopping list.", "success")
     } catch (error) {
       const message =
         error instanceof Error
           ? error.message === "AUTH_REQUIRED"
-            ? "Sesja wygasła. Zaloguj się ponownie."
+            ? "Session expired. Please sign in again."
             : error.message
-          : "Nieznany błąd"
+          : "Unknown error"
       showToast(message, "error")
     } finally {
       setIsLoading(false)
@@ -316,7 +316,7 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
       <div className="clean-panel mb-3 px-4 py-3.5">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="vp-title">Aktywny projekt</p>
+            <p className="vp-title">Active project</p>
             <h1 className="mt-1 flex items-center gap-2 text-base font-semibold">
               <Package className="h-4 w-4 shrink-0 text-primary" />
               <span className="truncate">{project.name}</span>
@@ -330,7 +330,7 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
               size="sm"
               className="h-8 w-8 p-0"
               onClick={onBack}
-              title="Wróć"
+              title="Back"
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
@@ -341,7 +341,7 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
               className="h-8 w-8 p-0"
               onClick={detectProductFromPage}
               disabled={isDetecting}
-              title="Odśwież dane"
+              title="Refresh data"
             >
               {isDetecting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -356,7 +356,7 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
                 size="sm"
                 className="h-8 w-8 p-0"
                 onClick={handleCloseIframe}
-                title="Zamknij"
+                title="Close"
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -367,10 +367,10 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
         <div className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-border/80 bg-background/65 px-3 py-2 text-xs text-muted-foreground">
           <span>
             {isDetecting
-              ? "Skanowanie aktywnej strony..."
-              : "Możesz zapisać produkt ręcznie lub z detekcji."}
+              ? "Scanning current page..."
+              : "You can save manually or use auto-detection."}
           </span>
-          <span className="vp-chip">{sections.length} sekcji</span>
+          <span className="vp-chip">{sections.length} sections</span>
         </div>
       </div>
 
@@ -378,7 +378,7 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
         <div className="space-y-3 pb-1">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Obraz produktu</CardTitle>
+              <CardTitle className="text-sm">Product image</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {product.imageUrl ? (
@@ -391,7 +391,7 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
                 </div>
               ) : (
                 <div className="flex h-24 items-center justify-center rounded-xl border border-dashed border-input/90 bg-background/65 text-xs text-muted-foreground">
-                  Brak wybranego obrazu
+                  No image selected
                 </div>
               )}
 
@@ -403,29 +403,29 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
                 disabled={isImagePickerActive}
               >
                 <ImagePlus className="mr-2 h-4 w-4" />
-                {isImagePickerActive ? "Wybór obrazu aktywny" : "Wybierz obraz ze strony"}
+                {isImagePickerActive ? "Image picker active" : "Select image from page"}
               </Button>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Szczegóły produktu</CardTitle>
+              <CardTitle className="text-sm">Product details</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="space-y-1.5">
-                <Label htmlFor="product-name">Nazwa produktu *</Label>
+                <Label htmlFor="product-name">Product name *</Label>
                 <Input
                   id="product-name"
                   value={product.name ?? ""}
                   onChange={(event) => handleProductChange("name", event.target.value)}
-                  placeholder="Np. Płytki ceramiczne"
+                  placeholder="e.g. Ceramic tiles"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="product-price">Cena</Label>
+                  <Label htmlFor="product-price">Price</Label>
                   <Input
                     id="product-price"
                     value={product.price ?? ""}
@@ -435,7 +435,7 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="product-quantity">Ilość</Label>
+                  <Label htmlFor="product-quantity">Quantity</Label>
                   <Input
                     id="product-quantity"
                     type="number"
@@ -453,13 +453,13 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
               </div>
 
               <div className="space-y-1.5">
-                <Label>Sekcja listy zakupów</Label>
+                <Label>Shopping list section</Label>
                 <Select value={selectedSection} onValueChange={setSelectedSection}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Bez kategorii (domyślnie)" />
+                    <SelectValue placeholder="Uncategorized (default)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={NO_SECTION_VALUE}>Bez kategorii (domyślnie)</SelectItem>
+                    <SelectItem value={NO_SECTION_VALUE}>Uncategorized (default)</SelectItem>
                     {sections.map((section) => (
                       <SelectItem key={section._id} value={section._id}>
                         {section.name}
@@ -473,11 +473,11 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Dodatkowe informacje</CardTitle>
+              <CardTitle className="text-sm">Additional information</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="space-y-1.5">
-                <Label htmlFor="product-link">Link do produktu</Label>
+                <Label htmlFor="product-link">Product link</Label>
                 <div className="flex">
                   <Input
                     id="product-link"
@@ -499,26 +499,26 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="product-supplier">Dostawca</Label>
+                <Label htmlFor="product-supplier">Supplier</Label>
                 <div className="flex items-center gap-2">
                   <Store className="h-4 w-4 text-muted-foreground" />
                   <Input
                     id="product-supplier"
                     value={product.supplier ?? ""}
                     onChange={(event) => handleProductChange("supplier", event.target.value)}
-                    placeholder="Nazwa dostawcy"
+                    placeholder="Supplier name"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="product-notes">Notatki</Label>
+                <Label htmlFor="product-notes">Notes</Label>
                 <Textarea
                   id="product-notes"
                   rows={3}
                   value={product.notes ?? ""}
                   onChange={(event) => handleProductChange("notes", event.target.value)}
-                  placeholder="Dodatkowe informacje"
+                  placeholder="Additional details"
                   className="resize-none"
                 />
               </div>
@@ -537,12 +537,12 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Zapisywanie...
+              Saving...
             </>
           ) : (
             <>
               <ShoppingCart className="mr-2 h-4 w-4" />
-              Dodaj do listy zakupów
+              Add to shopping list
             </>
           )}
         </Button>

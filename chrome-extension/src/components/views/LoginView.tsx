@@ -21,7 +21,7 @@ interface LoginViewProps {
 const LoginView = ({ onLogin, showToast }: LoginViewProps) => {
   const [isLoading, setIsLoading] = useState(false)
 
-  const verifyTokenAndLogin = async (token: string) => {
+  const verifyTokenAndLogin = async (token: string): Promise<boolean> => {
     setIsLoading(true)
 
     try {
@@ -32,23 +32,72 @@ const LoginView = ({ onLogin, showToast }: LoginViewProps) => {
       })
 
       if (!response.ok) {
-        showToast("Sesja wygasła. Zaloguj się ponownie.", "error")
-        await chrome.storage.local.remove([STORAGE_KEYS.TOKEN])
-        return
+        let errorMessage = "Sign-in failed. Please sync your session again."
+        const payload = (await response.json().catch(() => null)) as
+          | { message?: string }
+          | null
+        if (payload?.message) {
+          errorMessage = payload.message
+        }
+        showToast(errorMessage, "error")
+        await chrome.storage.local.remove([STORAGE_KEYS.TOKEN, STORAGE_KEYS.TOKEN_TIMESTAMP])
+        return false
       }
 
       const data = (await response.json()) as { user?: User; teams?: Team[] }
       if (data.user && Array.isArray(data.teams)) {
         onLogin(data.user, data.teams)
-        showToast("Zalogowano pomyślnie.", "success")
+        showToast("Signed in successfully.", "success")
+        return true
       } else {
-        showToast("Nieprawidłowa odpowiedź serwera.", "error")
+        showToast("Invalid server response.", "error")
+        return false
       }
     } catch {
-      showToast("Błąd połączenia z serwerem.", "error")
+      showToast("Could not connect to the server.", "error")
+      return false
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const pollForSyncedToken = async (
+    baselineToken: string | null,
+    baselineTimestamp: number | null,
+  ) => {
+    const timeoutAt = Date.now() + 25_000
+    let seenToken = baselineToken
+    let seenTimestamp = baselineTimestamp
+
+    while (Date.now() < timeoutAt) {
+      const snapshot = await chrome.storage.local.get([
+        STORAGE_KEYS.TOKEN,
+        STORAGE_KEYS.TOKEN_TIMESTAMP,
+      ])
+      const token =
+        typeof snapshot[STORAGE_KEYS.TOKEN] === "string"
+          ? snapshot[STORAGE_KEYS.TOKEN]
+          : null
+      const timestamp =
+        typeof snapshot[STORAGE_KEYS.TOKEN_TIMESTAMP] === "number"
+          ? snapshot[STORAGE_KEYS.TOKEN_TIMESTAMP]
+          : null
+
+      const tokenChanged = token !== seenToken || timestamp !== seenTimestamp
+      if (token && tokenChanged) {
+        seenToken = token
+        seenTimestamp = timestamp
+        const success = await verifyTokenAndLogin(token)
+        if (success) {
+          return
+        }
+      }
+
+      await new Promise((resolve) => window.setTimeout(resolve, 400))
+    }
+
+    setIsLoading(false)
+    showToast("Sign-in timed out. Please click Sync session again.", "error")
   }
 
   useEffect(() => {
@@ -74,9 +123,9 @@ const LoginView = ({ onLogin, showToast }: LoginViewProps) => {
         void chrome.storage.local.get([STORAGE_KEYS.TOKEN]).then((result) => {
           const token = result[STORAGE_KEYS.TOKEN]
           if (typeof token === "string") {
-            return verifyTokenAndLogin(token)
+            void verifyTokenAndLogin(token)
+            return
           }
-          return Promise.resolve()
         })
       }
     }
@@ -90,21 +139,32 @@ const LoginView = ({ onLogin, showToast }: LoginViewProps) => {
     }
   }, [])
 
-  const handleSyncFromApp = () => {
+  const handleSyncFromApp = async () => {
     setIsLoading(true)
-    showToast("Dokończ logowanie w nowej karcie.", "info")
+    showToast("Finish sign-in in the newly opened tab.", "info")
+
+    const baseline = await chrome.storage.local.get([
+      STORAGE_KEYS.TOKEN,
+      STORAGE_KEYS.TOKEN_TIMESTAMP,
+    ])
+    const baselineToken =
+      typeof baseline[STORAGE_KEYS.TOKEN] === "string"
+        ? baseline[STORAGE_KEYS.TOKEN]
+        : null
+    const baselineTimestamp =
+      typeof baseline[STORAGE_KEYS.TOKEN_TIMESTAMP] === "number"
+        ? baseline[STORAGE_KEYS.TOKEN_TIMESTAMP]
+        : null
 
     chrome.runtime.sendMessage({ action: ACTIONS.INITIATE_AUTH }, () => {
       const runtimeError = chrome.runtime.lastError
       if (runtimeError) {
-        showToast("Nie udało się uruchomić logowania.", "error")
+        showToast("Could not start sign-in.", "error")
         setIsLoading(false)
         return
       }
 
-      window.setTimeout(() => {
-        setIsLoading(false)
-      }, 3000)
+      void pollForSyncedToken(baselineToken, baselineTimestamp)
     })
   }
 
@@ -117,38 +177,38 @@ const LoginView = ({ onLogin, showToast }: LoginViewProps) => {
       <div className="mb-4 space-y-2">
         <span className="vp-chip">MyVibeProject Clipper</span>
         <h1 className="clean-title text-2xl font-medium leading-tight text-foreground">
-          Dodawaj produkty
+          Add products
           <br />
-          bez opuszczania strony.
+          without leaving the page.
         </h1>
         <p className="text-sm text-muted-foreground">
-          Połącz rozszerzenie z MyVibeProject i zacznij automatyczne clipowanie.
+          Connect the extension to MyVibeProject and start clipping automatically.
         </p>
       </div>
 
       <Card className="clean-panel flex-1">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle>Logowanie</CardTitle>
+            <CardTitle>Sign In</CardTitle>
             <ShieldCheck className="h-5 w-5 text-primary" />
           </div>
           <CardDescription>
-            Uwierzytelnianie jest wykonywane przez główną aplikację.
+            Authentication is handled by the main app.
           </CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-3">
           <Button className="w-full" onClick={handleSyncFromApp} disabled={isLoading}>
             {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-            Synchronizuj sesję
+            Sync session
           </Button>
 
           <Button variant="outline" className="w-full" onClick={handleOpenMainApp}>
-            Otwórz MyVibeProject
+            Open MyVibeProject
           </Button>
 
           <div className="mt-2 rounded-xl border border-white/80 bg-white/75 px-3 py-2 text-[11px] text-muted-foreground">
-            Wersja {CONFIG.VERSION}
+            Version {CONFIG.VERSION}
           </div>
         </CardContent>
       </Card>

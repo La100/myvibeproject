@@ -1,10 +1,11 @@
 import { Button } from '@/components/ui/button';
-import { PlusIcon, Hammer } from 'lucide-react';
+import { DownloadIcon, PlusIcon, Hammer } from 'lucide-react';
 
 interface LaborListHeaderProps {
   projectName: string;
   grandTotal: number;
   currencySymbol: string;
+  onExportClick: () => void;
   onAddLaborClick: () => void;
 }
 
@@ -12,6 +13,7 @@ export function LaborListHeader({
   projectName,
   grandTotal,
   currencySymbol,
+  onExportClick,
   onAddLaborClick
 }: LaborListHeaderProps) {
   return (
@@ -34,6 +36,14 @@ export function LaborListHeader({
       </div>
       <div className="flex gap-3">
         <Button
+          onClick={onExportClick}
+          variant="outline"
+          className="rounded-full border-[#E7E2D9] bg-white px-6 text-[#1A1A1A] shadow-sm hover:bg-white/90 hover:-translate-y-0.5 transition-all"
+        >
+          <DownloadIcon className="h-4 w-4 mr-2" />
+          Export PDF
+        </Button>
+        <Button
           onClick={onAddLaborClick}
           className="rounded-full bg-[#0E0E0E] px-6 text-white shadow-[0_14px_36px_rgba(14,14,14,0.18)] hover:bg-[#1F1F1F] transition-transform hover:-translate-y-0.5"
         >
@@ -44,5 +54,4 @@ export function LaborListHeader({
     </div>
   );
 }
-
 

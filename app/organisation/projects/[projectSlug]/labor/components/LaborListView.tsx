@@ -8,6 +8,8 @@ import { useProject } from '@/components/providers/ProjectProvider';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { format } from 'date-fns';
+import { addBrandHeader, addDocumentMeta, addPageNumbers, formatMoney, pdfTableTheme, resolvePageBreak, sanitizeFileName } from '@/lib/pdfExport';
 
 import { LaborListHeader } from './LaborListHeader';
 import { LaborSectionManager } from './LaborSectionManager';
@@ -70,6 +72,7 @@ export default function LaborListView() {
   const items = useQuery(apiAny.labor.listLaborItems, { projectId: project._id }) as LaborItem[] | undefined;
   const sections = useQuery(apiAny.labor.listLaborSections, { projectId: project._id }) as Doc<"laborSections">[] | undefined;
   const teamMembers = useQuery(apiAny.teams.getTeamMembers, { teamId: project.teamId }) as TeamMember[] | undefined;
+  const team = useQuery(apiAny.teams.getTeamById, { teamId: project.teamId }) as Doc<"teams"> | undefined;
 
   const createItem = useMutation(apiAny.labor.createLaborItem);
   const updateItem = useMutation(apiAny.labor.updateLaborItem);
@@ -77,7 +80,7 @@ export default function LaborListView() {
   const createSection = useMutation(apiAny.labor.createLaborSection);
   const deleteSection = useMutation(apiAny.labor.deleteLaborSection);
 
-  if (items === undefined || sections === undefined) {
+  if (items === undefined || sections === undefined || team === undefined) {
     return null;
   }
 
@@ -168,6 +171,115 @@ export default function LaborListView() {
     }
   };
 
+  const handleExportPDF = async () => {
+    if (items.length === 0) {
+      toast.info('Add labor items before exporting.');
+      return;
+    }
+
+    try {
+      const jsPDF = (await import('jspdf')).default;
+      await import('jspdf-autotable');
+
+      const doc = new jsPDF({
+        putOnlyUsedFonts: true,
+        format: 'a4',
+        unit: 'mm'
+      });
+
+      doc.setFont('helvetica', 'normal');
+      const pageWidth = doc.internal.pageSize.getWidth();
+
+      let yPosition = await addBrandHeader(doc, {
+        teamName: team.name || 'Organization',
+        teamImageUrl: team.imageUrl,
+      });
+
+      yPosition = addDocumentMeta(doc, {
+        title: `Labor - ${project.name}`,
+        subtitle: `Items: ${items.length} | Total: ${formatMoney(grandTotal, currencySymbol)}`,
+        generatedOn: format(new Date(), 'yyyy-MM-dd HH:mm'),
+        startY: yPosition,
+      });
+
+      Object.entries(itemsBySection)
+        .sort(([a], [b]) => {
+          if (a === 'No Category') return 1;
+          if (b === 'No Category') return -1;
+          return a.localeCompare(b);
+        })
+        .forEach(([sectionName, sectionItems]) => {
+          if (sectionItems.length === 0) return;
+
+          yPosition = resolvePageBreak(doc, yPosition, 18);
+          const sectionTotal = sectionItems.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
+
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(12);
+          doc.setTextColor(30, 30, 30);
+          doc.text(sectionName, 18, yPosition);
+          doc.text(
+            `Section total: ${formatMoney(sectionTotal, currencySymbol)}`,
+            pageWidth - 18,
+            yPosition,
+            { align: 'right' },
+          );
+          yPosition += 3;
+
+          const tableData = sectionItems.map((item) => {
+            const assignedMember = item.assignedTo
+              ? teamMembers?.find((member) => member.clerkUserId === item.assignedTo)?.name || item.assignedTo
+              : '-';
+            const itemLabel = item.notes ? `${item.name}\nNote: ${item.notes}` : item.name;
+
+            return [
+              itemLabel,
+              item.quantity.toString(),
+              item.unit,
+              formatMoney(item.unitPrice, currencySymbol),
+              formatMoney(item.totalPrice, currencySymbol),
+              assignedMember,
+            ];
+          });
+
+          doc.autoTable({
+            ...pdfTableTheme,
+            startY: yPosition,
+            head: [['Work', 'Qty', 'Unit', 'Unit Price', 'Total', 'Assigned']],
+            body: tableData,
+            columnStyles: {
+              0: { cellWidth: 70 },
+              1: { cellWidth: 16, halign: 'right' },
+              2: { cellWidth: 16 },
+              3: { cellWidth: 25, halign: 'right' },
+              4: { cellWidth: 25, halign: 'right' },
+              5: { cellWidth: 28 },
+            },
+          });
+
+          yPosition = doc.lastAutoTable.finalY + 6;
+        });
+
+      yPosition = resolvePageBreak(doc, yPosition, 14);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.setTextColor(20, 20, 20);
+      doc.text(
+        `Labor total: ${formatMoney(grandTotal, currencySymbol)}`,
+        pageWidth - 18,
+        yPosition,
+        { align: 'right' },
+      );
+
+      addPageNumbers(doc);
+      doc.save(`labor-${sanitizeFileName(project.name)}-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+      toast.success('PDF exported successfully!');
+    } catch (error) {
+      console.error('Labor PDF export error:', error);
+      toast.error('Failed to export labor PDF');
+    }
+  };
+
   return (
     <TooltipProvider>
       <div className="w-full max-w-6xl mx-auto px-6 pb-24 pt-8 sm:px-8">
@@ -176,6 +288,7 @@ export default function LaborListView() {
           projectName={project.name}
           grandTotal={grandTotal}
           currencySymbol={currencySymbol}
+          onExportClick={handleExportPDF}
           onAddLaborClick={() => setShowMainAddForm(!showMainAddForm)}
         />
 
