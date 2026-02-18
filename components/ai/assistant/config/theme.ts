@@ -69,8 +69,8 @@ export const OPERATION_CONFIG = {
 
 export const MESSAGE_COLORS = {
   user: {
-    background: "#006cff",
-    text: "text-white",
+    background: "var(--primary)",
+    text: "text-primary-foreground",
   },
   assistant: {
     background: "bg-transparent",

@@ -25,7 +25,7 @@ const features: Feature[] = [
     title: "Smart Project Planning",
     description:
       "Plan tasks, phases, and milestones with timeline-aware workflows built for real project delivery.",
-    color: "#C06A3D",
+    color: "var(--ui-accent-copper)",
     span: "md:col-span-2 md:row-span-1",
   },
   {
@@ -33,7 +33,7 @@ const features: Feature[] = [
     title: "AI Project Assistant",
     description:
       "Generate tasks, rewrite specs, and summarize project context directly in your workspace.",
-    color: "#002FA7",
+    color: "var(--primary)",
     span: "md:col-span-1 md:row-span-2",
   },
   {
@@ -41,7 +41,7 @@ const features: Feature[] = [
     title: "Progress & Cost Insights",
     description:
       "Track execution status and budget impact with clear operational visibility.",
-    color: "#6D8B73",
+    color: "var(--ui-accent-brand)",
     span: "md:col-span-1 md:row-span-1",
   },
   {
@@ -49,7 +49,7 @@ const features: Feature[] = [
     title: "Deadline Awareness",
     description:
       "Stay aligned on due dates and dependencies with proactive reminders.",
-    color: "#7C5CE0",
+    color: "var(--ui-accent-indigo)",
     span: "md:col-span-1 md:row-span-1",
   },
   {
@@ -57,7 +57,7 @@ const features: Feature[] = [
     title: "Team Collaboration",
     description:
       "Coordinate members, clients, and stakeholders from one shared project source of truth.",
-    color: "#C06A3D",
+    color: "var(--ui-accent-copper)",
     span: "md:col-span-1 md:row-span-1",
   },
   {
@@ -65,7 +65,7 @@ const features: Feature[] = [
     title: "Unified Workflow",
     description:
       "Connect tasks, notes, files, calendar, and visualizations in a single operating system.",
-    color: "#6D8B73",
+    color: "var(--ui-accent-brand)",
     span: "md:col-span-2 md:row-span-1",
   },
 ];
@@ -113,7 +113,7 @@ export function FeaturesGrid() {
               <div
                 className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
                 style={{
-                  background: `radial-gradient(ellipse at 20% 50%, ${feature.color}08 0%, transparent 70%)`,
+                  background: `radial-gradient(ellipse at 20% 50%, color-mix(in oklab, ${feature.color} 16%, transparent) 0%, transparent 70%)`,
                 }}
               />
 
@@ -122,7 +122,9 @@ export function FeaturesGrid() {
                   whileHover={{ scale: 1.1, rotate: -5 }}
                   transition={{ type: "spring", stiffness: 400, damping: 15 }}
                   className="flex h-12 w-12 items-center justify-center rounded-2xl border border-border/50 shadow-sm"
-                  style={{ backgroundColor: `${feature.color}10` }}
+                  style={{
+                    backgroundColor: `color-mix(in oklab, ${feature.color} 12%, transparent)`,
+                  }}
                 >
                   <feature.icon
                     className="h-5 w-5"

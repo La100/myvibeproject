@@ -1,15 +1,18 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import { useProject } from "@/components/providers/ProjectProvider";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, Calendar, TrendingUp, MapPin, DollarSign, Building2, User, Target, History, ChevronDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Calendar, TrendingUp, MapPin, DollarSign, Building2, User, Target, History, ChevronDown, Hammer } from "lucide-react";
 import { Suspense, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ProjectChangelog } from "./ProjectChangelog";
+import { calculateShoppingTotal } from "@/lib/shoppingAlternatives";
+import { toast } from "sonner";
 
 function ProjectOverviewSkeleton() {
   return (
@@ -50,8 +53,10 @@ function ProjectOverviewSkeleton() {
 }
 
 function ProjectOverviewContent() {
-  const { project } = useProject();
+  const { project, permissions } = useProject();
   const [isChangelogOpen, setChangelogOpen] = useState(false);
+  const [isAcceptingPortal, setIsAcceptingPortal] = useState(false);
+  const acceptLatestClientPortal = useMutation(apiAny.projects.acceptLatestClientPortal);
   
   const hasAccess = useQuery(apiAny.projects.checkUserProjectAccess, {
     projectId: project._id,
@@ -65,26 +70,27 @@ function ProjectOverviewContent() {
     hasAccess ? { projectId: project._id } : "skip"
   );
 
-  if (hasAccess === false || !tasks || !shoppingListItems) {
-    if (hasAccess === false) {
-      return (
-        <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
-          <h1 className="text-2xl font-bold text-red-600 mb-2">Access Denied</h1>
-          <p className="text-muted-foreground">You don't have permission to view this project.</p>
-        </div>
-      );
-    }
-    if (!project) {
-       return <div>Project not found.</div>;
-    }
-    // This part should be handled by Suspense
-    return null;
+  const laborItems = useQuery(
+    apiAny.labor.listLaborItems,
+    hasAccess ? { projectId: project._id } : "skip"
+  );
+
+  if (hasAccess === false) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
+        <h1 className="text-2xl font-bold text-red-600 mb-2">Access Denied</h1>
+        <p className="text-muted-foreground">You don't have permission to view this project.</p>
+      </div>
+    );
   }
-  
-  
-  const tasksCost = tasks.reduce((sum: number, task) => sum + (task.cost || 0), 0);
-  const shoppingListCost = shoppingListItems.reduce((sum: number, item) => sum + (item.totalPrice || 0), 0);
-  const totalCost = tasksCost + shoppingListCost;
+
+  if (hasAccess === undefined || tasks === undefined || shoppingListItems === undefined || laborItems === undefined) {
+    return <ProjectOverviewSkeleton />;
+  }
+
+  const shoppingListCost = calculateShoppingTotal(shoppingListItems);
+  const laborCost = laborItems.reduce((sum: number, item) => sum + (item.totalPrice || 0), 0);
+  const totalCost = shoppingListCost + laborCost;
   const currencySymbol = project.currency === "EUR" ? "€" : project.currency === "PLN" ? "zł" : "$";
 
   const statusColors = {
@@ -94,6 +100,24 @@ function ProjectOverviewContent() {
     completed: "border-indigo-200 bg-indigo-50 text-indigo-700",
     done: "border-indigo-200 bg-indigo-50 text-indigo-700",
     cancelled: "border-rose-200 bg-rose-50 text-rose-700",
+  };
+  const portalState = permissions?.portal;
+  const isCustomerView = Boolean(permissions?.isCustomer);
+
+  const handleAcceptPortalUpdate = async () => {
+    setIsAcceptingPortal(true);
+    try {
+      const result = await acceptLatestClientPortal({ projectId: project._id });
+      toast.success("Portal update accepted", {
+        description: `Accepted portal version #${result.version}.`,
+      });
+    } catch (error) {
+      toast.error("Failed to accept portal update", {
+        description: (error as Error).message || "Try again.",
+      });
+    } finally {
+      setIsAcceptingPortal(false);
+    }
   };
 
   return (
@@ -119,25 +143,7 @@ function ProjectOverviewContent() {
               {totalCost.toFixed(2)} {currencySymbol}
             </div>
             <p className="text-xs text-muted-foreground">
-              Tasks & Shopping List
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Tasks Cost */}
-        <Card className="bg-card/90">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <CheckCircle className="h-4 w-4" />
-              Tasks Cost
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {tasksCost.toFixed(2)} {currencySymbol}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Cost from all tasks
+              Shopping List & Labor
             </p>
           </CardContent>
         </Card>
@@ -160,6 +166,24 @@ function ProjectOverviewContent() {
           </CardContent>
         </Card>
 
+        {/* Labor Cost */}
+        <Card className="bg-card/90">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Hammer className="h-4 w-4" />
+              Labor Cost
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {laborCost.toFixed(2)} {currencySymbol}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Cost from all labor items
+            </p>
+          </CardContent>
+        </Card>
+
         {/* Project Status */}
         <Card className="bg-card/90">
           <CardHeader className="pb-2">
@@ -174,6 +198,39 @@ function ProjectOverviewContent() {
             </Badge>
           </CardContent>
         </Card>
+
+        {/* Client Portal */}
+        {isCustomerView && (
+          <Card className="bg-card/90">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Client Portal</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {portalState?.version ? (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    Latest version: <span className="font-semibold text-foreground">#{portalState.version}</span>
+                  </p>
+                  {portalState.hasPendingUpdate ? (
+                    <Button
+                      size="sm"
+                      onClick={handleAcceptPortalUpdate}
+                      disabled={isAcceptingPortal}
+                    >
+                      {isAcceptingPortal ? "Accepting..." : "Accept latest update"}
+                    </Button>
+                  ) : (
+                    <Badge variant="outline">Accepted</Badge>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No published portal updates yet.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Client */}
         {project.customer && (

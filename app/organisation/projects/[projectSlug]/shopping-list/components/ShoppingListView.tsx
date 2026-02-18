@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { addBrandHeader, addDocumentMeta, addPageNumbers, formatMoney, pdfTableTheme, resolvePageBreak, sanitizeFileName } from '@/lib/pdfExport';
+import { calculateShoppingTotal } from '@/lib/shoppingAlternatives';
 
 // Import new components
 import { ShoppingListHeader } from './ShoppingListHeader';
@@ -19,7 +20,10 @@ import { AddItemForm } from './AddItemForm';
 import { ShoppingListSection } from './ShoppingListSection';
 import { ExportModal } from './ExportModal';
 
-type ShoppingListItem = Doc<"shoppingListItems">;
+type ShoppingListItem = Doc<"shoppingListItems"> & {
+  alternativeToItemId?: Id<"shoppingListItems"> | null;
+  selectedAlternativeItemId?: Id<"shoppingListItems"> | null;
+};
 
 const STATUS_FILTER_TO_VALUE: Record<'planned' | 'ordered' | 'completed', ShoppingListItem["realizationStatus"]> = {
   planned: 'PLANNED',
@@ -149,11 +153,11 @@ export default function ShoppingListView() {
   }
 
   const sectionTotals = Object.entries(itemsBySection).map(([section, sectionItems]) => {
-    const total = sectionItems.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
+    const total = calculateShoppingTotal(sectionItems);
     return { section, total, itemCount: sectionItems.length };
   });
 
-  const grandTotal = sectionTotals.reduce((sum, section) => sum + section.total, 0);
+  const grandTotal = calculateShoppingTotal(items);
 
   // Handlers
   const handleCreateSection = async (name: string) => {
@@ -334,7 +338,7 @@ export default function ShoppingListView() {
       
       doc.setFont('helvetica', 'normal');
       const pageWidth = doc.internal.pageSize.getWidth();
-      const filteredTotal = filteredItemsForExport.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
+      const filteredTotal = calculateShoppingTotal(filteredItemsForExport);
 
       let yPosition = await addBrandHeader(doc, {
         teamName: team.name || 'Organization',
@@ -351,7 +355,7 @@ export default function ShoppingListView() {
       if (exportOptions.groupBySections) {
         groupedFilteredItems.forEach(({ sectionName, sectionItems }) => {
           yPosition = resolvePageBreak(doc, yPosition, 18);
-          const sectionTotal = sectionItems.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
+          const sectionTotal = calculateShoppingTotal(sectionItems);
 
           doc.setFont('helvetica', 'bold');
           doc.setFontSize(12);
@@ -498,7 +502,7 @@ export default function ShoppingListView() {
 
         {/* Main Add Product Form */}
         {showMainAddForm && (
-          <div className="mb-10 rounded-[32px] border border-[#E7E2D9] bg-white p-8 shadow-[0_24px_60px_rgba(20,20,20,0.08)]">
+          <div className="mb-10 rounded-[32px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-8 shadow-[0_24px_60px_rgba(20,20,20,0.08)]">
             <h3 className="text-2xl font-medium font-[var(--font-display-serif)] mb-6">Add New Product</h3>
             <AddItemForm
               sections={sections}
@@ -551,15 +555,15 @@ export default function ShoppingListView() {
           })}
 
         {/* Grand Total */}
-        <div className="mt-12 rounded-[32px] border border-[#E7E2D9] bg-white p-8 shadow-[0_24px_60px_rgba(20,20,20,0.08)]">
+        <div className="mt-12 rounded-[32px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-8 shadow-[0_24px_60px_rgba(20,20,20,0.08)]">
           <div className="space-y-4">
             {sectionTotals.map(({ section, total }) => (
-              <div key={section} className="flex justify-between items-center text-base text-[#3C3A37]">
+              <div key={section} className="flex justify-between items-center text-base text-[var(--ui-text-main)]">
                 <span className="font-medium">{section}</span>
                 <span>{total.toFixed(2)} {currencySymbol}</span>
               </div>
             ))}
-            <div className="border-t border-[#E7E2D9] pt-4 flex justify-between items-center">
+            <div className="border-t border-[var(--ui-border-soft)] pt-4 flex justify-between items-center">
               <span className="text-xl font-medium font-[var(--font-display-serif)]">Grand Total</span>
               <span className="text-2xl font-medium font-[var(--font-display-serif)]">{grandTotal.toFixed(2)} {currencySymbol}</span>
             </div>

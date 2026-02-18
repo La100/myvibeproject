@@ -75,7 +75,7 @@ export function PricingSection() {
           className="text-center mb-16"
         >
           <span className="inline-flex items-center gap-2 rounded-full border border-primary-foreground/10 bg-primary-foreground/5 backdrop-blur-sm px-5 py-2.5 text-xs font-medium uppercase tracking-[0.2em] text-primary-foreground/60">
-            <Sparkles className="h-3.5 w-3.5 text-[#C06A3D]" />
+            <Sparkles className="h-3.5 w-3.5 text-[var(--ui-accent-copper)]" />
             Simple Pricing
           </span>
           <h2 className="mt-6 font-[var(--font-display-serif)] text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-normal tracking-tight text-primary-foreground leading-tight">
@@ -108,7 +108,7 @@ export function PricingSection() {
               }`}
             >
               {plan.highlighted && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#C06A3D] px-4 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-white shadow-[0_8px_20px_rgba(192,106,61,0.3)]">
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[var(--ui-accent-copper)] px-4 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-white shadow-[0_8px_20px_rgba(192,106,61,0.3)]">
                   Most Popular
                 </span>
               )}
@@ -158,8 +158,8 @@ export function PricingSection() {
                     <span
                       className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
                         plan.highlighted
-                          ? "bg-[#6D8B73]/15 text-[#6D8B73]"
-                          : "bg-primary-foreground/10 text-[#6D8B73]"
+                          ? "bg-[var(--ui-accent-brand)]/15 text-[var(--ui-accent-brand)]"
+                          : "bg-primary-foreground/10 text-[var(--ui-accent-brand)]"
                       }`}
                     >
                       <Check className="h-3 w-3" strokeWidth={2.5} />

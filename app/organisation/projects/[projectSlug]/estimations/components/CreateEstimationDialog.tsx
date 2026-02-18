@@ -171,10 +171,10 @@ export function CreateEstimationDialog({
                 className={cn(
                   "w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium",
                   step === s
-                    ? "bg-[#0E0E0E] text-white"
+                    ? "bg-[var(--ui-action-bg)] text-[var(--primary-foreground)]"
                     : step > s
-                    ? "bg-green-500 text-white"
-                    : "bg-[#E7E2D9] text-[#8C8880]"
+                    ? "bg-green-500 text-[var(--primary-foreground)]"
+                    : "bg-[var(--ui-border-soft)] text-[var(--ui-text-muted)]"
                 )}
               >
                 {s}
@@ -182,7 +182,7 @@ export function CreateEstimationDialog({
               {s < 4 && (
                 <div className={cn(
                   "w-12 h-0.5",
-                  step > s ? "bg-green-500" : "bg-[#E7E2D9]"
+                  step > s ? "bg-green-500" : "bg-[var(--ui-border-soft)]"
                 )} />
               )}
             </div>
@@ -273,21 +273,21 @@ export function CreateEstimationDialog({
           <div className="space-y-6">
             <h3 className="text-lg font-medium mb-4">Select Labor Items</h3>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-[#8C8880]">{selectedLaborIds.length} selected</span>
+              <span className="text-sm text-[var(--ui-text-muted)]">{selectedLaborIds.length} selected</span>
               <Button variant="ghost" size="sm" onClick={selectAllLabor}>
                 Select All
               </Button>
             </div>
             <div className="border rounded-lg max-h-64 overflow-y-auto">
               {laborItems?.length === 0 ? (
-                <div className="p-4 text-center text-[#8C8880]">
+                <div className="p-4 text-center text-[var(--ui-text-muted)]">
                   No labor items. Add some in the Labor section first.
                 </div>
               ) : (
                 laborItems?.map((item) => (
                   <div
                     key={item._id}
-                    className="flex items-center gap-3 p-3 border-b last:border-b-0 hover:bg-[#FAF7F2]"
+                    className="flex items-center gap-3 p-3 border-b last:border-b-0 hover:bg-[var(--ui-surface-soft)]"
                   >
                     <Checkbox
                       checked={selectedLaborIds.includes(item._id)}
@@ -295,7 +295,7 @@ export function CreateEstimationDialog({
                     />
                     <div className="flex-1">
                       <span className="font-medium">{item.name}</span>
-                      <span className="text-sm text-[#8C8880] ml-2">
+                      <span className="text-sm text-[var(--ui-text-muted)] ml-2">
                         {item.quantity} {item.unit}
                       </span>
                     </div>
@@ -309,21 +309,21 @@ export function CreateEstimationDialog({
 
             <h3 className="text-lg font-medium mb-4 mt-6">Select Materials</h3>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-[#8C8880]">{selectedMaterialIds.length} selected</span>
+              <span className="text-sm text-[var(--ui-text-muted)]">{selectedMaterialIds.length} selected</span>
               <Button variant="ghost" size="sm" onClick={selectAllMaterials}>
                 Select All
               </Button>
             </div>
             <div className="border rounded-lg max-h-64 overflow-y-auto">
               {materialItems?.length === 0 ? (
-                <div className="p-4 text-center text-[#8C8880]">
+                <div className="p-4 text-center text-[var(--ui-text-muted)]">
                   No materials. Add some in the Materials section first.
                 </div>
               ) : (
                 materialItems?.map((item) => (
                   <div
                     key={item._id}
-                    className="flex items-center gap-3 p-3 border-b last:border-b-0 hover:bg-[#FAF7F2]"
+                    className="flex items-center gap-3 p-3 border-b last:border-b-0 hover:bg-[var(--ui-surface-soft)]"
                   >
                     <Checkbox
                       checked={selectedMaterialIds.includes(item._id)}
@@ -331,7 +331,7 @@ export function CreateEstimationDialog({
                     />
                     <div className="flex-1">
                       <span className="font-medium">{item.name}</span>
-                      <span className="text-sm text-[#8C8880] ml-2">
+                      <span className="text-sm text-[var(--ui-text-muted)] ml-2">
                         Qty: {item.quantity}
                       </span>
                     </div>
@@ -432,24 +432,24 @@ export function CreateEstimationDialog({
           <div className="space-y-4">
             <h3 className="text-lg font-medium mb-4">Summary</h3>
 
-            <div className="rounded-lg border p-4 bg-[#FAF7F2]">
+            <div className="rounded-lg border p-4 bg-[var(--ui-surface-soft)]">
               <div className="flex justify-between items-center mb-2">
                 <span className="font-medium">{title || 'Untitled Estimation'}</span>
                 {nextNumber && (
-                  <span className="text-sm text-[#8C8880]">#{nextNumber}</span>
+                  <span className="text-sm text-[var(--ui-text-muted)]">#{nextNumber}</span>
                 )}
               </div>
-              {location && <p className="text-sm text-[#8C8880]">{location}</p>}
-              {customerName && <p className="text-sm text-[#8C8880]">Client: {customerName}</p>}
+              {location && <p className="text-sm text-[var(--ui-text-muted)]">{location}</p>}
+              {customerName && <p className="text-sm text-[var(--ui-text-muted)]">Client: {customerName}</p>}
             </div>
 
             <div className="space-y-3 pt-4">
               <div className="flex justify-between">
-                <span className="text-[#8C8880]">Labor ({selectedLaborIds.length} items)</span>
+                <span className="text-[var(--ui-text-muted)]">Labor ({selectedLaborIds.length} items)</span>
                 <span>{laborTotal.toFixed(2)} {currencySymbol}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#8C8880]">Materials ({selectedMaterialIds.length} items)</span>
+                <span className="text-[var(--ui-text-muted)]">Materials ({selectedMaterialIds.length} items)</span>
                 <span>{materialsTotal.toFixed(2)} {currencySymbol}</span>
               </div>
               <div className="flex justify-between font-medium border-t pt-3">
@@ -463,7 +463,7 @@ export function CreateEstimationDialog({
                 </div>
               )}
               <div className="flex justify-between">
-                <span className="text-[#8C8880]">VAT ({vatPercent}%)</span>
+                <span className="text-[var(--ui-text-muted)]">VAT ({vatPercent}%)</span>
                 <span>{vatAmount.toFixed(2)} {currencySymbol}</span>
               </div>
               <div className="flex justify-between text-xl font-semibold border-t pt-3">

@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { calculateShoppingTotal } from "@/lib/shoppingAlternatives";
 
 const SHOPPING_STATUSES = [
   "PLANNED",
@@ -76,6 +77,13 @@ export default function CompanyReports() {
   const projectList = projects || [];
   const tasksList = teamTasks || [];
   const shoppingList = shoppingItems || [];
+  const shoppingListWithStatus = shoppingList as Array<{
+    _id: string;
+    totalPrice?: number | null;
+    realizationStatus: string;
+    alternativeToItemId?: string | null;
+    selectedAlternativeItemId?: string | null;
+  }>;
   const activeCurrency = team?.currency || projectList[0]?.currency || "USD";
 
   const formatMoney = (amount: number, currency?: string) =>
@@ -106,13 +114,11 @@ export default function CompanyReports() {
   const inProgressTasks = tasksList.filter((task) => task.status === "in_progress").length;
   const completionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
-  const totalTaskCost = tasksList.reduce((sum, task) => sum + (task.cost || 0), 0);
-  const totalShoppingCost = shoppingList.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
-  const orderedShoppingCost = shoppingList
-    .filter((item) =>
-      ["ORDERED", "IN_TRANSIT", "DELIVERED", "COMPLETED"].includes(item.realizationStatus),
-    )
-    .reduce((sum, item) => sum + (item.totalPrice || 0), 0);
+  const totalShoppingCost = calculateShoppingTotal(shoppingListWithStatus);
+  const orderedShoppingCost = calculateShoppingTotal(
+    shoppingListWithStatus,
+    (item) => ["ORDERED", "IN_TRANSIT", "DELIVERED", "COMPLETED"].includes(item.realizationStatus),
+  );
 
   const now = Date.now();
   const overdueTaskList = tasksList
@@ -136,11 +142,11 @@ export default function CompanyReports() {
   }, {} as Record<string, number>);
 
   const shoppingByStatus = SHOPPING_STATUSES.map((status) => {
-    const items = shoppingList.filter((item) => item.realizationStatus === status);
+    const items = shoppingListWithStatus.filter((item) => item.realizationStatus === status);
     return {
       status,
       count: items.length,
-      total: items.reduce((sum, item) => sum + (item.totalPrice || 0), 0),
+      total: calculateShoppingTotal(items),
     };
   }).filter((entry) => entry.count > 0);
 
@@ -179,7 +185,7 @@ export default function CompanyReports() {
 
         <TabsContent value="overview" className="mt-6">
           <div className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Total Projects</CardTitle>
@@ -423,7 +429,6 @@ export default function CompanyReports() {
               <FinancialCard title="Total Budget" value={formatMoney(totalBudget)} subtitle={`Across ${totalProjects} projects`} icon={<DollarSign className="h-4 w-4 text-muted-foreground" />} />
               <FinancialCard title="Shopping List" value={formatMoney(totalShoppingCost)} subtitle={`${shoppingList.length} items planned`} icon={<BarChart3 className="h-4 w-4 text-muted-foreground" />} />
               <FinancialCard title="Ordered Items" value={formatMoney(orderedShoppingCost)} subtitle="Already ordered/delivered" icon={<TrendingUp className="h-4 w-4 text-muted-foreground" />} />
-              <FinancialCard title="Task Costs" value={formatMoney(totalTaskCost)} subtitle="Total task costs tracked" icon={<Clock className="h-4 w-4 text-muted-foreground" />} />
             </div>
 
             <Card>

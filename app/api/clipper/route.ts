@@ -21,6 +21,7 @@ interface AddShoppingListItemPayload {
   name: string
   projectId: Id<"projects">
   sectionId?: Id<"shoppingListSections">
+  alternativeToItemId?: Id<"shoppingListItems">
   unitPrice?: number
   quantity: number
   totalPrice?: number
@@ -144,6 +145,11 @@ function validateClipperPostPayload(raw: unknown): AddShoppingListItemPayload {
   }
 
   const sectionId = asOptionalBoundedString(body.sectionId, "sectionId", 256)
+  const alternativeToItemId = asOptionalBoundedString(
+    body.alternativeToItemId,
+    "alternativeToItemId",
+    256,
+  )
 
   const priorityRaw = asOptionalBoundedString(body.priority, "priority", 20)
   const priority = (priorityRaw ?? "medium") as Priority
@@ -165,6 +171,8 @@ function validateClipperPostPayload(raw: unknown): AddShoppingListItemPayload {
     name,
     projectId: projectId as Id<"projects">,
     sectionId: sectionId as Id<"shoppingListSections"> | undefined,
+    alternativeToItemId:
+      alternativeToItemId as Id<"shoppingListItems"> | undefined,
     unitPrice,
     quantity,
     totalPrice,
@@ -213,11 +221,17 @@ export async function GET(req: Request) {
     }
 
     if (teamId && projectId) {
-      const sections = await convexAny.query(apiAny.clipper.getShoppingListSections, {
-        projectId: projectId as Id<"projects">,
-        teamId: teamId as Id<"teams">,
-      })
-      return NextResponse.json({ sections })
+      const [sections, items] = await Promise.all([
+        convexAny.query(apiAny.clipper.getShoppingListSections, {
+          projectId: projectId as Id<"projects">,
+          teamId: teamId as Id<"teams">,
+        }),
+        convexAny.query(apiAny.clipper.getShoppingListItemsForProject, {
+          projectId: projectId as Id<"projects">,
+          teamId: teamId as Id<"teams">,
+        }),
+      ])
+      return NextResponse.json({ sections, items })
     }
 
     if (teamId) {

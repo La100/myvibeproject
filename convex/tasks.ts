@@ -212,7 +212,6 @@ export const listProjectTasksInternal = internalQuery({
       startDate: v.optional(v.number()),
       endDate: v.optional(v.number()),
       tags: v.array(v.string()),
-      cost: v.optional(v.number()),
       updatedAt: v.optional(v.number()),
     })
   ),
@@ -263,7 +262,6 @@ export const getTaskInternal = internalQuery({
       startDate: v.optional(v.number()),
       endDate: v.optional(v.number()),
       tags: v.array(v.string()),
-      cost: v.optional(v.number()),
       updatedAt: v.optional(v.number()),
     })
   ),
@@ -371,7 +369,6 @@ export const createTask = mutation({
     startDate: v.optional(v.number()),
     endDate: v.optional(v.number()),
     tags: v.optional(v.array(v.string())),
-    cost: v.optional(v.number()),
     content: v.optional(v.string()),
     sectionId: v.optional(v.union(v.id("taskSections"), v.null())),
   },
@@ -392,7 +389,6 @@ export const createTask = mutation({
       startDate: args.startDate,
       endDate: args.endDate,
       tags: args.tags ?? [],
-      cost: args.cost,
       updatedAt: Date.now(),
       content: args.content ?? undefined,
     });
@@ -422,7 +418,6 @@ export const updateTask = mutation({
     startDate: v.optional(v.number()),
     endDate: v.optional(v.number()),
     tags: v.optional(v.array(v.string())),
-    cost: v.optional(v.number()),
     content: v.optional(v.string()),
   },
   async handler(ctx, args) {
@@ -589,7 +584,6 @@ The user is editing an existing task. Here is the current state of the task:
 - Current Priority: ${task.priority || 'N/A'}
 - Current Assignee: ${task.assignedToName || 'N/A'}
 - Current Tags: ${task.tags?.join(', ') || 'N/A'}
-- Current Cost: ${task.cost || 'N/A'}
 
 Your goal is to intelligently modify this task based on the user's prompt. For example, if the user says 'add X to the description', you must append 'X' to the current description. If the user asks to add a tag, append it to the existing array of tags. Do not just replace fields unless the user's intent is clearly to replace.
 `;
@@ -609,7 +603,6 @@ The available properties are:
 - status: 'todo' | 'in_progress' | 'review' | 'done'
 - startDate: ISO 8601 date-time string (e.g., YYYY-MM-DDTHH:mm:ss.sssZ). IMPORTANT: After interpreting the time in the user's local timezone, convert it to UTC for the final ISO string. If the user does NOT provide a specific time, the time part of the string MUST be set to midnight UTC (T00:00:00.000Z).
 - endDate: ISO 8601 date-time string (e.g., YYYY-MM-DDTHH:mm:ss.sssZ). IMPORTANT: After interpreting the time in the user's local timezone, convert it to UTC for the final ISO string. If the user does NOT provide a specific time, the time part of the string MUST be set to midnight UTC (T00:00:00.000Z).
-- cost: number
 - assignedTo: string (must be one of the user IDs from the provided list)
 - tags: string[] (array of strings)
 

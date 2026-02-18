@@ -124,6 +124,8 @@ export const createShoppingListItem = mutation({
     dimensions: v.optional(v.string()),
     quantity: v.number(),
     unitPrice: v.optional(v.number()),
+    alternativeToItemId: v.optional(v.union(v.id("shoppingListItems"), v.null())),
+    selectedAlternativeItemId: v.optional(v.union(v.id("shoppingListItems"), v.null())),
     realizationStatus: v.union(v.literal("PLANNED"), v.literal("ORDERED"), v.literal("IN_TRANSIT"), v.literal("DELIVERED"), v.literal("COMPLETED"), v.literal("CANCELLED")),
     sectionId: v.optional(v.union(v.id("shoppingListSections"), v.null())),
     assignedTo: v.optional(v.string()),
@@ -153,6 +155,8 @@ export const createShoppingListItem = mutation({
       sectionId: args.sectionId || null,
       unitPrice: args.unitPrice || undefined,
       totalPrice: totalPrice,
+      alternativeToItemId: args.alternativeToItemId || null,
+      selectedAlternativeItemId: args.selectedAlternativeItemId || null,
       catalogNumber: args.catalogNumber || undefined,
       productLink: args.productLink || undefined,
       imageUrl: args.imageUrl || undefined,
@@ -196,6 +200,8 @@ export const updateShoppingListItem = mutation({
     dimensions: v.optional(v.string()),
     quantity: v.optional(v.number()),
     unitPrice: v.optional(v.number()),
+    alternativeToItemId: v.optional(v.union(v.id("shoppingListItems"), v.null())),
+    selectedAlternativeItemId: v.optional(v.union(v.id("shoppingListItems"), v.null())),
     realizationStatus: v.optional(v.union(v.literal("PLANNED"), v.literal("ORDERED"), v.literal("IN_TRANSIT"), v.literal("DELIVERED"), v.literal("COMPLETED"), v.literal("CANCELLED"))),
     sectionId: v.optional(v.union(v.id("shoppingListSections"), v.null())),
     assignedTo: v.optional(v.string()),
@@ -293,6 +299,32 @@ export const deleteShoppingListItem = mutation({
         name: item.name,
       },
     });
+
+    const projectItems = await ctx.db
+      .query("shoppingListItems")
+      .withIndex("by_project", (q) => q.eq("projectId", item.projectId))
+      .collect();
+
+    await Promise.all(
+      projectItems.map(async (projectItem) => {
+        if (projectItem._id === args.itemId) return;
+
+        const patch: Record<string, unknown> = {};
+
+        if (projectItem.alternativeToItemId === args.itemId) {
+          patch.alternativeToItemId = null;
+        }
+
+        if (projectItem.selectedAlternativeItemId === args.itemId) {
+          patch.selectedAlternativeItemId = null;
+        }
+
+        if (Object.keys(patch).length > 0) {
+          patch.updatedAt = Date.now();
+          await ctx.db.patch(projectItem._id, patch);
+        }
+      }),
+    );
 
     // Actually delete the item from database
     await ctx.db.delete(args.itemId);

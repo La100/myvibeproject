@@ -186,8 +186,6 @@ const getActivityDescription = (actionType: string, details: Record<string, unkn
               return "due date";
             case "tags":
               return "tags";
-            case "cost":
-              return "cost";
             case "content":
               return "content";
             default:

@@ -578,7 +578,6 @@ export const parseTaskFromChat = action({
                 "priority": "low" | "medium" | "high" | "urgent" | null,
                 "status": "todo" | "in_progress" | "review" | "done" | null,
                 "dueDate": ISO date string or null,
-                "cost": number or null,
                 "tags": string[]
               }
               
@@ -586,7 +585,6 @@ export const parseTaskFromChat = action({
               - If the message is not about creating a task, set "isTask" to false
               - For priority, default to "medium" unless specified
               - For status, default to "todo" unless specified
-              - For cost, parse it if mentioned, otherwise null.
               - KEEP THE SAME LANGUAGE as the input message (don't translate Polish to English!)
               - For dates, use current time context and return proper ISO date strings (YYYY-MM-DD)
               - Polish date parsing:
@@ -696,4 +694,3 @@ export const updateInvitationStatus = internalMutation({
 // =================================================================
 // ============== UI-FACING QUERIES & MUTATIONS ====================
 // =================================================================
-

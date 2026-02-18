@@ -312,7 +312,6 @@ export const usePendingItems = ({
                   startDate?: string;
                   endDate?: string;
                   tags?: string[];
-                  cost?: number;
                 },
               });
 
@@ -823,7 +822,6 @@ export const usePendingItems = ({
                       startDate?: string;
                       endDate?: string;
                       tags?: string[];
-                      cost?: number;
                     },
                   });
 
@@ -861,7 +859,6 @@ export const usePendingItems = ({
                 startDate?: string;
                 endDate?: string;
                 tags?: string[];
-                cost?: number;
               },
             });
           }
@@ -1494,7 +1491,6 @@ export const usePendingItems = ({
 };
 
 export default usePendingItems;
-
 
 
 

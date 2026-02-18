@@ -141,6 +141,7 @@ export default defineSchema({
     sidebarPermissions: v.optional(v.object({
       overview: v.optional(v.object({ visible: v.boolean() })),
       tasks: v.optional(v.object({ visible: v.boolean() })),
+      moodboard: v.optional(v.object({ visible: v.boolean() })),
       notes: v.optional(v.object({ visible: v.boolean() })),
       contacts: v.optional(v.object({ visible: v.boolean() })),
       surveys: v.optional(v.object({ visible: v.boolean() })),
@@ -152,6 +153,25 @@ export default defineSchema({
       estimations: v.optional(v.object({ visible: v.boolean() })),
       settings: v.optional(v.object({ visible: v.boolean() })),
     })),
+    // Published snapshot used by clients in the dedicated client portal.
+    clientPortalPublishedPermissions: v.optional(v.object({
+      overview: v.optional(v.object({ visible: v.boolean() })),
+      tasks: v.optional(v.object({ visible: v.boolean() })),
+      moodboard: v.optional(v.object({ visible: v.boolean() })),
+      notes: v.optional(v.object({ visible: v.boolean() })),
+      contacts: v.optional(v.object({ visible: v.boolean() })),
+      surveys: v.optional(v.object({ visible: v.boolean() })),
+      calendar: v.optional(v.object({ visible: v.boolean() })),
+      gantt: v.optional(v.object({ visible: v.boolean() })),
+      files: v.optional(v.object({ visible: v.boolean() })),
+      shopping_list: v.optional(v.object({ visible: v.boolean() })),
+      labor: v.optional(v.object({ visible: v.boolean() })),
+      estimations: v.optional(v.object({ visible: v.boolean() })),
+      settings: v.optional(v.object({ visible: v.boolean() })),
+    })),
+    clientPortalVersion: v.optional(v.number()),
+    clientPortalPublishedAt: v.optional(v.number()),
+    clientPortalPublishedBy: v.optional(v.string()),
     // Custom AI assistant prompt override
     customAiPrompt: v.optional(v.string()),
     // Messaging bot configuration (project-scoped assistant integration)
@@ -192,7 +212,6 @@ export default defineSchema({
     startDate: v.optional(v.number()), // Unix timestamp (UTC)
     endDate: v.optional(v.number()), // Unix timestamp (UTC)
     tags: v.array(v.string()),
-    cost: v.optional(v.number()),
     updatedAt: v.optional(v.number()),
   })
     .index("by_project", ["projectId"])
@@ -355,6 +374,17 @@ export default defineSchema({
     .index("by_org_and_user", ["clerkOrgId", "clerkUserId"])
     .index("by_status", ["status"]),
 
+  clientPortalAcceptances: defineTable({
+    teamId: v.id("teams"),
+    projectId: v.id("projects"),
+    clerkUserId: v.string(),
+    version: v.number(),
+    acceptedAt: v.number(),
+  })
+    .index("by_project_and_user", ["projectId", "clerkUserId"])
+    .index("by_project_and_version", ["projectId", "version"])
+    .index("by_user", ["clerkUserId"]),
+
   // Users
   users: defineTable({
     clerkUserId: v.string(),
@@ -432,6 +462,10 @@ export default defineSchema({
     unit: v.optional(v.string()), // Unit type (pcs, m², m, kg, etc.)
     unitPrice: v.optional(v.number()),
     totalPrice: v.optional(v.number()),
+    // Item can be marked as an alternative for another shopping item
+    alternativeToItemId: v.optional(v.union(v.id("shoppingListItems"), v.null())),
+    // Stored on base item: which alternative was chosen by customer
+    selectedAlternativeItemId: v.optional(v.union(v.id("shoppingListItems"), v.null())),
     realizationStatus: v.union(
       v.literal("PLANNED"),
       v.literal("ORDERED"),
@@ -465,6 +499,8 @@ export default defineSchema({
   laborItems: defineTable({
     name: v.string(), // Work description (e.g., "Tile installation")
     notes: v.optional(v.string()),
+    referenceLink: v.optional(v.union(v.string(), v.null())),
+    attachmentFileId: v.optional(v.union(v.id("files"), v.null())),
     quantity: v.number(),
     unit: v.string(), // Unit type (m², hours, pcs, lm, etc.)
     unitPrice: v.optional(v.number()),

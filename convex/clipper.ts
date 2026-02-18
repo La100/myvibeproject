@@ -158,6 +158,43 @@ export const getShoppingListSections = query({
   },
 });
 
+export const getShoppingListItemsForProject = query({
+  args: {
+    projectId: v.id("projects"),
+    teamId: v.id("teams"),
+  },
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    if (project.teamId !== args.teamId) {
+      throw new Error("Project does not belong to the selected team");
+    }
+
+    const member: Doc<"teamMembers"> | null = await ctx.runQuery(
+      api.teams.getCurrentUserTeamMember,
+      { teamId: project.teamId },
+    );
+
+    if (!member) {
+      throw new Error("Current user is not a team member");
+    }
+
+    const items = await ctx.db
+      .query("shoppingListItems")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+
+    return items.map((item) => ({
+      _id: item._id,
+      name: item.name,
+      alternativeToItemId: item.alternativeToItemId ?? null,
+    }));
+  },
+});
+
 /**
  * Mutacja do dodawania nowego przedmiotu do listy zakupów z rozszerzenia.
  */
@@ -187,6 +224,7 @@ export const addShoppingListItem = mutation({
         v.literal("COMPLETED"),
         v.literal("CANCELLED")
       ),
+    alternativeToItemId: v.optional(v.union(v.id("shoppingListItems"), v.null())),
   },
   handler: async (ctx, args): Promise<Id<"shoppingListItems">> => {
     const project = await ctx.db.get(args.projectId);
@@ -204,9 +242,18 @@ export const addShoppingListItem = mutation({
     // Aplikacja automatycznie zgrupuje takie itemy jako "No Category"
     const finalSectionId = args.sectionId || undefined;
 
+    if (args.alternativeToItemId) {
+      const alternativeTarget = await ctx.db.get(args.alternativeToItemId);
+      if (!alternativeTarget || alternativeTarget.projectId !== args.projectId) {
+        throw new Error("Invalid alternative target");
+      }
+    }
+
     const newItem: Id<"shoppingListItems"> = await ctx.db.insert("shoppingListItems", {
         ...args,
         sectionId: finalSectionId,
+        alternativeToItemId: args.alternativeToItemId ?? null,
+        selectedAlternativeItemId: null,
         teamId: project.teamId,
         createdBy: member.clerkUserId,
         completed: false, 

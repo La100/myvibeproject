@@ -23,6 +23,98 @@ const generateNextProjectId = async (ctx: any) => {
   return (lastProject?.projectId || 0) + 1;
 };
 
+const clientPortalPermissionsValidator = {
+  overview: v.optional(v.object({ visible: v.boolean() })),
+  tasks: v.optional(v.object({ visible: v.boolean() })),
+  moodboard: v.optional(v.object({ visible: v.boolean() })),
+  notes: v.optional(v.object({ visible: v.boolean() })),
+  contacts: v.optional(v.object({ visible: v.boolean() })),
+  surveys: v.optional(v.object({ visible: v.boolean() })),
+  calendar: v.optional(v.object({ visible: v.boolean() })),
+  gantt: v.optional(v.object({ visible: v.boolean() })),
+  files: v.optional(v.object({ visible: v.boolean() })),
+  shopping_list: v.optional(v.object({ visible: v.boolean() })),
+  labor: v.optional(v.object({ visible: v.boolean() })),
+  estimations: v.optional(v.object({ visible: v.boolean() })),
+  settings: v.optional(v.object({ visible: v.boolean() })),
+};
+
+const defaultClientPortalPermissions = {
+  overview: { visible: true },
+  tasks: { visible: true },
+  moodboard: { visible: true },
+  notes: { visible: true },
+  contacts: { visible: true },
+  surveys: { visible: true },
+  calendar: { visible: true },
+  gantt: { visible: true },
+  files: { visible: true },
+  shopping_list: { visible: true },
+  labor: { visible: true },
+  estimations: { visible: true },
+  settings: { visible: false },
+};
+
+type ClientPortalPermissionKey = keyof typeof defaultClientPortalPermissions;
+type ClientPortalPermissions = Record<ClientPortalPermissionKey, { visible: boolean }>;
+
+const getResolvedClientPortalPermissions = (
+  permissions?: Partial<ClientPortalPermissions> | null
+): ClientPortalPermissions => {
+  const resolved = { ...defaultClientPortalPermissions } as ClientPortalPermissions;
+  (Object.keys(defaultClientPortalPermissions) as ClientPortalPermissionKey[]).forEach((key) => {
+    resolved[key] = {
+      visible: permissions?.[key]?.visible ?? defaultClientPortalPermissions[key].visible,
+    };
+  });
+  return resolved;
+};
+
+const hasPermissionChanges = (
+  left: ClientPortalPermissions,
+  right: ClientPortalPermissions
+): boolean =>
+  (Object.keys(defaultClientPortalPermissions) as ClientPortalPermissionKey[]).some(
+    (key) => left[key].visible !== right[key].visible
+  );
+
+const getProjectManagerMembership = async (
+  ctx: any,
+  projectId: Id<"projects">,
+  clerkUserId: string
+) => {
+  const project = await ctx.db.get(projectId);
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  const teamMember = await ctx.db
+    .query("teamMembers")
+    .withIndex("by_team_and_user", (q: any) =>
+      q.eq("teamId", project.teamId).eq("clerkUserId", clerkUserId)
+    )
+    .unique();
+
+  if (!teamMember) {
+    throw new Error("User is not a team member");
+  }
+
+  if (teamMember.role === "admin") {
+    return { project, teamMember };
+  }
+
+  if (teamMember.role === "member") {
+    if (teamMember.projectIds && teamMember.projectIds.length > 0) {
+      if (!teamMember.projectIds.includes(projectId)) {
+        throw new Error("Insufficient permissions to manage this project");
+      }
+    }
+    return { project, teamMember };
+  }
+
+  throw new Error("Insufficient permissions to manage this project");
+};
+
 // ====== CORE PROJECT FUNCTIONS ======
 
 // Get projects by team ID
@@ -295,7 +387,7 @@ export const createProjectInOrg = mutation({
       taskStatusSettings: defaultStatusSettings,
     });
 
-    await ctx.runMutation(internal.activityLog.logActivity, {
+    await ctx.runMutation(internalAny.activityLog.logActivity, {
       teamId: team._id,
       actionType: "analytics.project.created",
       details: {
@@ -703,16 +795,115 @@ export const checkUserProjectAccess = query({
 export const updateProjectSidebarPermissions = mutation({
   args: {
     projectId: v.id("projects"),
-    sidebarPermissions: v.object({
-      overview: v.optional(v.object({ visible: v.boolean() })),
-      tasks: v.optional(v.object({ visible: v.boolean() })),
-      surveys: v.optional(v.object({ visible: v.boolean() })),
-      calendar: v.optional(v.object({ visible: v.boolean() })),
-      gantt: v.optional(v.object({ visible: v.boolean() })),
-      files: v.optional(v.object({ visible: v.boolean() })),
-      shopping_list: v.optional(v.object({ visible: v.boolean() })),
-      settings: v.optional(v.object({ visible: v.boolean() })),
-    }),
+    sidebarPermissions: v.object(clientPortalPermissionsValidator),
+  },
+  async handler(ctx, args) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    await getProjectManagerMembership(ctx, args.projectId, identity.subject);
+
+    await ctx.db.patch(args.projectId, {
+      sidebarPermissions: args.sidebarPermissions,
+    });
+
+    return { success: true };
+  },
+});
+
+export const publishClientPortal = mutation({
+  args: {
+    projectId: v.id("projects"),
+  },
+  async handler(ctx, args) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const { project } = await getProjectManagerMembership(ctx, args.projectId, identity.subject);
+    const publishedAt = Date.now();
+    const nextVersion = (project.clientPortalVersion || 0) + 1;
+    const draftPermissions = getResolvedClientPortalPermissions(
+      project.sidebarPermissions as Partial<ClientPortalPermissions> | null
+    );
+
+    await ctx.db.patch(args.projectId, {
+      clientPortalPublishedPermissions: draftPermissions,
+      clientPortalVersion: nextVersion,
+      clientPortalPublishedAt: publishedAt,
+      clientPortalPublishedBy: identity.subject,
+    });
+
+    return {
+      success: true,
+      version: nextVersion,
+      publishedAt,
+      publishedBy: identity.subject,
+    };
+  },
+});
+
+export const getClientPortalConfiguration = query({
+  args: {
+    projectId: v.id("projects"),
+  },
+  async handler(ctx, args) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return null;
+    }
+
+    const { project } = await getProjectManagerMembership(ctx, args.projectId, identity.subject);
+    const portalVersion = project.clientPortalVersion || 0;
+    const draftPermissions = getResolvedClientPortalPermissions(
+      project.sidebarPermissions as Partial<ClientPortalPermissions> | null
+    );
+    const publishedPermissions = getResolvedClientPortalPermissions(
+      (project.clientPortalPublishedPermissions ||
+        project.sidebarPermissions) as Partial<ClientPortalPermissions> | null
+    );
+    const hasUnpublishedChanges =
+      portalVersion === 0 || hasPermissionChanges(draftPermissions, publishedPermissions);
+
+    const projectCustomers = await ctx.db
+      .query("customers")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+
+    let acceptedCustomers = 0;
+    if (portalVersion > 0) {
+      const acceptances = await ctx.db
+        .query("clientPortalAcceptances")
+        .withIndex("by_project_and_version", (q) =>
+          q.eq("projectId", args.projectId).eq("version", portalVersion)
+        )
+        .collect();
+      acceptedCustomers = acceptances.length;
+    }
+
+    return {
+      draftPermissions,
+      publishedPermissions,
+      hasUnpublishedChanges,
+      version: portalVersion,
+      publishedAt: project.clientPortalPublishedAt || null,
+      publishedBy: project.clientPortalPublishedBy || null,
+      stats: {
+        totalCustomers: projectCustomers.length,
+        activeCustomers: projectCustomers.filter((customer) => customer.status === "active").length,
+        pendingCustomers: projectCustomers.filter((customer) => customer.status === "invited").length,
+        acceptedCustomers,
+      },
+    };
+  },
+});
+
+export const acceptLatestClientPortal = mutation({
+  args: {
+    projectId: v.id("projects"),
   },
   async handler(ctx, args) {
     const identity = await ctx.auth.getUserIdentity();
@@ -725,39 +916,68 @@ export const updateProjectSidebarPermissions = mutation({
       throw new Error("Project not found");
     }
 
-    // Check permissions - only admin and member can change permissions
     const teamMember = await ctx.db
       .query("teamMembers")
-      .withIndex("by_team_and_user", q => 
+      .withIndex("by_team_and_user", (q) =>
         q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
+      )
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .unique();
+
+    const customerRecord = await ctx.db
+      .query("customers")
+      .withIndex("by_clerk_user", (q) => q.eq("clerkUserId", identity.subject))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("projectId"), args.projectId),
+          q.eq(q.field("status"), "active")
+        )
+      )
+      .first();
+
+    const hasCustomerRoleInProject =
+      teamMember?.role === "customer" &&
+      (!teamMember.projectIds ||
+        teamMember.projectIds.length === 0 ||
+        teamMember.projectIds.includes(args.projectId));
+
+    if (!hasCustomerRoleInProject && !customerRecord) {
+      throw new Error("Only project customers can accept portal updates.");
+    }
+
+    const latestVersion = project.clientPortalVersion || 0;
+    if (latestVersion === 0) {
+      throw new Error("No portal update has been published yet.");
+    }
+
+    const acceptedAt = Date.now();
+    const existingAcceptance = await ctx.db
+      .query("clientPortalAcceptances")
+      .withIndex("by_project_and_user", (q) =>
+        q.eq("projectId", args.projectId).eq("clerkUserId", identity.subject)
       )
       .unique();
 
-    if (!teamMember) {
-      throw new Error("User is not a team member");
-    }
-
-    // Admin always has access
-    if (teamMember.role === "admin") {
-      // OK - admin can modify permissions
-    } else if (teamMember.role === "member") {
-      // Check if member has access to this project
-      if (teamMember.projectIds && teamMember.projectIds.length > 0) {
-        if (!teamMember.projectIds.includes(args.projectId)) {
-          throw new Error("Insufficient permissions to update sidebar permissions");
-        }
-      }
-      // Member without restrictions can modify permissions
+    if (existingAcceptance) {
+      await ctx.db.patch(existingAcceptance._id, {
+        version: latestVersion,
+        acceptedAt,
+      });
     } else {
-      throw new Error("Insufficient permissions to update sidebar permissions");
+      await ctx.db.insert("clientPortalAcceptances", {
+        teamId: project.teamId,
+        projectId: args.projectId,
+        clerkUserId: identity.subject,
+        version: latestVersion,
+        acceptedAt,
+      });
     }
 
-    // Update sidebar permissions
-    await ctx.db.patch(args.projectId, {
-      sidebarPermissions: args.sidebarPermissions,
-    });
-
-    return { success: true };
+    return {
+      success: true,
+      version: latestVersion,
+      acceptedAt,
+    };
   },
 });
 
@@ -788,25 +1008,34 @@ export const getProjectSidebarPermissions = query({
       ))
       .unique();
 
-    // Default permissions
-    const defaultPermissions = {
-      overview: { visible: true },
-      tasks: { visible: true },
-      surveys: { visible: true },
-      calendar: { visible: true },
-      gantt: { visible: true },
-      files: { visible: true },
-      shopping_list: { visible: true },
-      settings: { visible: true },
+    const acceptance = await ctx.db
+      .query("clientPortalAcceptances")
+      .withIndex("by_project_and_user", (q) =>
+        q.eq("projectId", args.projectId).eq("clerkUserId", identity.subject)
+      )
+      .unique();
+
+    const portalVersion = project.clientPortalVersion || 0;
+    const acceptedVersion = acceptance?.version || 0;
+    const portalState = {
+      version: portalVersion,
+      publishedAt: project.clientPortalPublishedAt || null,
+      acceptedVersion,
+      acceptedAt: acceptance?.acceptedAt || null,
+      hasPendingUpdate: portalVersion > 0 && acceptedVersion < portalVersion,
     };
+
+    const managerPermissions = getResolvedClientPortalPermissions(null);
+    managerPermissions.settings = { visible: true };
 
     // Check if user has access to the project
     if (teamMember && teamMember.role === "admin") {
       // Admin always has full permissions
       return {
-        permissions: defaultPermissions,
+        permissions: managerPermissions,
         userRole: teamMember.role,
         isCustomer: false,
+        portal: portalState,
       };
     }
 
@@ -819,9 +1048,10 @@ export const getProjectSidebarPermissions = query({
       
       if (hasAccess) {
         return {
-          permissions: defaultPermissions,
+          permissions: managerPermissions,
           userRole: teamMember.role,
           isCustomer: false,
+          portal: portalState,
         };
       }
       // If no access, treat as customer
@@ -829,21 +1059,16 @@ export const getProjectSidebarPermissions = query({
 
     // If user is a customer, apply restrictions
     if (teamMember?.role === "customer" || customerAccess) {
-      const sidebarPermissions = project.sidebarPermissions || {};
+      const publishedPermissions = getResolvedClientPortalPermissions(
+        (project.clientPortalPublishedPermissions ||
+          project.sidebarPermissions) as Partial<ClientPortalPermissions> | null
+      );
       
       return {
-        permissions: {
-          overview: sidebarPermissions.overview || defaultPermissions.overview,
-          tasks: sidebarPermissions.tasks || defaultPermissions.tasks,
-          surveys: sidebarPermissions.surveys || defaultPermissions.surveys,
-          calendar: sidebarPermissions.calendar || defaultPermissions.calendar,
-          gantt: sidebarPermissions.gantt || defaultPermissions.gantt,
-          files: sidebarPermissions.files || defaultPermissions.files,
-          shopping_list: sidebarPermissions.shopping_list || defaultPermissions.shopping_list,
-          settings: sidebarPermissions.settings || { visible: false }, // By default customers don't see settings
-        },
+        permissions: publishedPermissions,
         userRole: teamMember?.role || "customer",
         isCustomer: true,
+        portal: portalState,
       };
     }
 
@@ -987,6 +1212,13 @@ export const deleteProject = mutation({
     // Delete all customer records for this project
     const customerDeletionPromises = projectCustomers.map(customer => ctx.db.delete(customer._id));
     await Promise.all(customerDeletionPromises);
+
+    // Delete all client portal acceptance records for this project
+    const portalAcceptances = await ctx.db
+      .query("clientPortalAcceptances")
+      .withIndex("by_project_and_version", (q) => q.eq("projectId", args.projectId))
+      .collect();
+    await Promise.all(portalAcceptances.map((acceptance) => ctx.db.delete(acceptance._id)));
 
     // Delete messaging channels and pairing artifacts.
     const messagingChannels = await ctx.db

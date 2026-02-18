@@ -225,7 +225,7 @@ function ProjectSettingsContent() {
           </TabsTrigger>
           <TabsTrigger value="permissions" className="flex flex-col items-center gap-1 p-2 text-xs data-[state=active]:bg-background">
             <Eye className="h-4 w-4" />
-            <span className="text-xs">Permissions</span>
+            <span className="text-xs">Portal</span>
           </TabsTrigger>
           <TabsTrigger value="taskstatus" className="flex flex-col items-center gap-1 p-2 text-xs data-[state=active]:bg-background">
             <Shield className="h-4 w-4" />

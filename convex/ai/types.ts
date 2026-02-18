@@ -36,7 +36,6 @@ export interface TaskContext {
   startDate?: number;
   endDate?: number;
   tags: Array<string>;
-  cost?: number;
 }
 
 export interface NoteContext {

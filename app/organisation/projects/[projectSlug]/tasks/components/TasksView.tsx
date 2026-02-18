@@ -68,7 +68,6 @@ type KanbanTask = {
   priority: TaskPriority;
   startDate: number | undefined;
   endDate: number | undefined;
-  cost: number | undefined;
   status: TaskStatusLiterals;
   assignedTo: string | null | undefined;
   assignedToName: string | undefined;
@@ -85,7 +84,6 @@ type TaskWithDetails = {
   priority?: TaskPriority;
   startDate?: number;
   endDate?: number;
-  cost?: number;
   status: TaskStatusLiterals;
   assignedTo?: string | null;
   assignedToName?: string;
@@ -261,7 +259,6 @@ export default function TasksView() {
     priority: task.priority as TaskPriority,
     startDate: task.startDate,
     endDate: task.endDate,
-    cost: task.cost,
     status: task.status,
     assignedTo: task.assignedTo,
     assignedToName: task.assignedToName,
@@ -432,7 +429,6 @@ export default function TasksView() {
               projectId={project._id}
               teamId={project.teamId}
               teamMembers={teamMembers || []}
-              currency={project.currency}
               setIsOpen={setIsTaskFormOpen}
               onTaskCreated={() => {
                 // Optionally refetch tasks or handle UI update

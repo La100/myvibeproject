@@ -144,6 +144,8 @@ export default function LaborListView() {
     unit: string;
     unitPrice?: number;
     assignedTo?: string;
+    referenceLink?: string | null;
+    attachmentFileId?: Id<"files"> | null;
   }) => {
     await createItem({
       projectId: project._id,
@@ -294,9 +296,10 @@ export default function LaborListView() {
 
         {/* Main Add Labor Form */}
         {showMainAddForm && (
-          <div className="mb-10 rounded-[32px] border border-[#E7E2D9] bg-white p-8 shadow-[0_24px_60px_rgba(20,20,20,0.08)]">
+          <div className="mb-10 rounded-[32px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-8 shadow-[0_24px_60px_rgba(20,20,20,0.08)]">
             <h3 className="text-2xl font-medium font-[var(--font-display-serif)] mb-6">Add New Labor Item</h3>
             <AddLaborItemForm
+              projectId={project._id}
               sections={sections}
               teamMembers={teamMembers}
               currencySymbol={currencySymbol}
@@ -331,6 +334,7 @@ export default function LaborListView() {
             return (
               <LaborListSection
                 key={sectionName}
+                projectId={project._id}
                 sectionName={sectionName}
                 sectionId={sectionId}
                 items={sectionItems}
@@ -346,15 +350,15 @@ export default function LaborListView() {
           })}
 
         {/* Grand Total */}
-        <div className="mt-12 rounded-[32px] border border-[#E7E2D9] bg-white p-8 shadow-[0_24px_60px_rgba(20,20,20,0.08)]">
+        <div className="mt-12 rounded-[32px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-8 shadow-[0_24px_60px_rgba(20,20,20,0.08)]">
           <div className="space-y-4">
             {sectionTotals.map(({ section, total }) => (
-              <div key={section} className="flex justify-between items-center text-base text-[#3C3A37]">
+              <div key={section} className="flex justify-between items-center text-base text-[var(--ui-text-main)]">
                 <span className="font-medium">{section}</span>
                 <span>{total.toFixed(2)} {currencySymbol}</span>
               </div>
             ))}
-            <div className="border-t border-[#E7E2D9] pt-4 flex justify-between items-center">
+            <div className="border-t border-[var(--ui-border-soft)] pt-4 flex justify-between items-center">
               <span className="text-xl font-medium font-[var(--font-display-serif)]">Labor Total</span>
               <span className="text-2xl font-medium font-[var(--font-display-serif)]">{grandTotal.toFixed(2)} {currencySymbol}</span>
             </div>

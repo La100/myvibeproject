@@ -123,16 +123,16 @@ export default function EstimationsView() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-10">
         <div className="mb-4 sm:mb-0 space-y-4">
           <div className="flex items-center gap-3">
-            <Calculator className="h-8 w-8 text-[#6D8B73]" />
-            <h1 className="text-4xl md:text-5xl font-medium tracking-tight font-[var(--font-display-serif)] text-[#1A1A1A]">
+            <Calculator className="h-8 w-8 text-[var(--ui-accent-brand)]" />
+            <h1 className="text-4xl md:text-5xl font-medium tracking-tight font-[var(--font-display-serif)] text-[var(--ui-text-strong)]">
               Cost Estimations
             </h1>
           </div>
           <div className="flex flex-wrap gap-3 items-center">
-            <span className="inline-flex items-center gap-2 rounded-full border border-[#E7E2D9] bg-white px-4 py-2 text-sm font-medium text-[#6D8B73]">
+            <span className="inline-flex items-center gap-2 rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-4 py-2 text-sm font-medium text-[var(--ui-accent-brand)]">
               {project.name}
             </span>
-            <span className="inline-flex items-center gap-2 rounded-full border border-[#E7E2D9] bg-white px-4 py-2 text-sm font-medium text-[#3C3A37]">
+            <span className="inline-flex items-center gap-2 rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-4 py-2 text-sm font-medium text-[var(--ui-text-main)]">
               {stats.total} estimations
             </span>
             {stats.acceptedValue > 0 && (
@@ -144,7 +144,7 @@ export default function EstimationsView() {
         </div>
         <Button
           onClick={() => setIsCreateOpen(true)}
-          className="rounded-full bg-[#0E0E0E] px-6 text-white shadow-[0_14px_36px_rgba(14,14,14,0.18)] hover:bg-[#1F1F1F] transition-transform hover:-translate-y-0.5"
+          className="rounded-full bg-[var(--ui-action-bg)] px-6 text-[var(--primary-foreground)] shadow-[0_14px_36px_rgba(14,14,14,0.18)] hover:bg-[var(--ui-action-hover)] transition-transform hover:-translate-y-0.5"
         >
           <PlusIcon className="h-4 w-4 mr-2" />
           New Estimation
@@ -172,17 +172,17 @@ export default function EstimationsView() {
 
       {/* Estimations List */}
       {estimations.length === 0 ? (
-        <div className="rounded-[32px] border border-[#E7E2D9] bg-white p-12 text-center shadow-[0_24px_60px_rgba(20,20,20,0.08)]">
-          <FileTextIcon className="h-16 w-16 mx-auto text-[#C0B9AF] mb-4" />
-          <h3 className="text-xl font-medium font-[var(--font-display-serif)] text-[#1A1A1A] mb-2">
+        <div className="rounded-[32px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-12 text-center shadow-[0_24px_60px_rgba(20,20,20,0.08)]">
+          <FileTextIcon className="h-16 w-16 mx-auto text-[var(--ui-text-subtle)] mb-4" />
+          <h3 className="text-xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)] mb-2">
             No Estimations Yet
           </h3>
-          <p className="text-[#8C8880] mb-6">
+          <p className="text-[var(--ui-text-muted)] mb-6">
             Create your first cost estimation to generate professional quotations for clients.
           </p>
           <Button
             onClick={() => setIsCreateOpen(true)}
-            className="rounded-full bg-[#0E0E0E] px-6"
+            className="rounded-full bg-[var(--ui-action-bg)] px-6"
           >
             <PlusIcon className="h-4 w-4 mr-2" />
             Create Estimation
@@ -193,17 +193,17 @@ export default function EstimationsView() {
           {estimations.map((estimation) => (
             <div
               key={estimation._id}
-              className="rounded-[24px] border border-[#E7E2D9] bg-white p-6 shadow-sm hover:shadow-md transition-shadow"
+              className="rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-6 shadow-sm hover:shadow-md transition-shadow"
             >
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-lg font-medium text-[#1A1A1A]">{estimation.title}</h3>
+                    <h3 className="text-lg font-medium text-[var(--ui-text-strong)]">{estimation.title}</h3>
                     <Badge variant={getStatusColor(estimation.status)}>
                       {getStatusLabel(estimation.status)}
                     </Badge>
                   </div>
-                  <div className="flex flex-wrap gap-4 text-sm text-[#8C8880]">
+                  <div className="flex flex-wrap gap-4 text-sm text-[var(--ui-text-muted)]">
                     {estimation.estimationNumber && (
                       <span>#{estimation.estimationNumber}</span>
                     )}
@@ -219,8 +219,8 @@ export default function EstimationsView() {
 
                 <div className="flex items-center gap-4">
                   <div className="text-right">
-                    <div className="text-sm text-[#8C8880]">Gross Total</div>
-                    <div className="text-xl font-semibold text-[#1A1A1A]">
+                    <div className="text-sm text-[var(--ui-text-muted)]">Gross Total</div>
+                    <div className="text-xl font-semibold text-[var(--ui-text-strong)]">
                       {estimation.grossTotal?.toFixed(2) || '0.00'} {currencySymbol}
                     </div>
                   </div>
@@ -264,17 +264,17 @@ export default function EstimationsView() {
               </div>
 
               {/* Summary Row */}
-              <div className="mt-4 pt-4 border-t border-[#E7E2D9] flex flex-wrap gap-6 text-sm">
+              <div className="mt-4 pt-4 border-t border-[var(--ui-border-soft)] flex flex-wrap gap-6 text-sm">
                 <div>
-                  <span className="text-[#8C8880]">Labor: </span>
+                  <span className="text-[var(--ui-text-muted)]">Labor: </span>
                   <span className="font-medium">{estimation.laborTotal?.toFixed(2) || '0.00'} {currencySymbol}</span>
                 </div>
                 <div>
-                  <span className="text-[#8C8880]">Materials: </span>
+                  <span className="text-[var(--ui-text-muted)]">Materials: </span>
                   <span className="font-medium">{estimation.materialsTotal?.toFixed(2) || '0.00'} {currencySymbol}</span>
                 </div>
                 <div>
-                  <span className="text-[#8C8880]">VAT ({estimation.vatPercent}%): </span>
+                  <span className="text-[var(--ui-text-muted)]">VAT ({estimation.vatPercent}%): </span>
                   <span className="font-medium">{estimation.vatAmount?.toFixed(2) || '0.00'} {currencySymbol}</span>
                 </div>
                 {estimation.discountPercent && estimation.discountPercent > 0 && (

@@ -254,13 +254,6 @@ export function TaskSidebar({
                       </div>
                     </div>
                   )}
-                  
-                  {(event.sourceData as Doc<"tasks">).cost && (
-                    <div>
-                      <h4 className="font-medium text-gray-900 mb-2 text-sm sm:text-base">Cost</h4>
-                      <p className="text-sm text-gray-600">{(event.sourceData as Doc<"tasks">).cost} {currencySymbol}</p>
-                    </div>
-                  )}
                 </div>
               )}
 

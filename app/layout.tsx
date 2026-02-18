@@ -5,6 +5,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import type { ClerkProviderProps } from "@clerk/clerk-react";
 import type { CSSProperties } from "react";
 import { Toaster } from "@/components/ui/sonner";
+import { getUiVibeCssVariables, resolveUiVibeId } from "@/lib/ui-system";
 
 export const metadata: Metadata = {
   title: "Myvibe project",
@@ -14,40 +15,45 @@ export const metadata: Metadata = {
   },
 };
 
+const activeUiVibe = resolveUiVibeId(process.env.NEXT_PUBLIC_UI_VIBE);
+const uiVibeVariables = getUiVibeCssVariables(activeUiVibe);
+
 const clerkAppearance: ClerkProviderProps["appearance"] = {
   layout: {
     socialButtonsVariant: "blockButton",
     socialButtonsPlacement: "top",
   },
   variables: {
-    colorPrimary: "#171717",
-    colorText: "#171717",
-    colorInputText: "#171717",
-    colorInputBackground: "#FAFAF8",
-    colorBackground: "#FFFFFF",
-    borderRadius: "1rem",
+    colorPrimary: "var(--ui-clerk-primary)",
+    colorText: "var(--ui-clerk-text)",
+    colorInputText: "var(--ui-clerk-text)",
+    colorInputBackground: "var(--ui-clerk-input-bg)",
+    colorBackground: "var(--ui-clerk-card-bg)",
+    borderRadius: "var(--radius)",
   },
   elements: {
     modalBackdrop: "backdrop-blur-sm bg-black/60",
-    modal: "rounded-3xl shadow-[0_24px_80px_rgba(18,18,18,0.09)] border border-[#E4E2DB] bg-[#F7F6F2]",
-    card: "rounded-3xl border border-[#E4E2DB] shadow-[0_20px_60px_rgba(18,18,18,0.05)] bg-[#FCFCFA]",
-    headerTitle: "text-xl font-semibold text-[#171717]",
-    headerSubtitle: "text-sm text-[#686662]",
+    modal:
+      "rounded-3xl shadow-[0_24px_80px_rgba(18,18,18,0.09)] border border-[var(--ui-clerk-border)] bg-[var(--ui-clerk-modal-bg)]",
+    card:
+      "rounded-3xl border border-[var(--ui-clerk-border)] shadow-[0_20px_60px_rgba(18,18,18,0.05)] bg-[var(--ui-clerk-card-bg)]",
+    headerTitle: "text-xl font-semibold text-[var(--ui-clerk-text)]",
+    headerSubtitle: "text-sm text-[var(--ui-clerk-text-muted)]",
     socialButtons: "gap-3",
     socialButtonsBlockButton:
-      "h-11 rounded-xl border border-[#E4E2DB] bg-[#FFFFFF] text-[#171717] hover:bg-[#F7F6F2] shadow-none",
+      "h-11 rounded-xl border border-[var(--ui-clerk-border)] bg-[var(--ui-surface-base)] text-[var(--ui-clerk-text)] hover:bg-[var(--ui-surface-soft)] shadow-none",
     socialButtonsBlockButtonText: "text-sm font-semibold",
     socialButtonsProviderIcon: "text-base",
-    dividerText: "text-[#9E9A92] text-xs font-semibold uppercase tracking-[0.16em]",
-    dividerLine: "bg-[#E9E7E1]",
-    formFieldLabel: "text-xs font-semibold text-[#686662] uppercase tracking-[0.06em]",
+    dividerText: "text-[var(--ui-text-subtle)] text-xs font-semibold uppercase tracking-[0.16em]",
+    dividerLine: "bg-[var(--ui-clerk-divider)]",
+    formFieldLabel: "text-xs font-semibold text-[var(--ui-clerk-text-muted)] uppercase tracking-[0.06em]",
     formFieldInput:
-      "h-11 rounded-2xl border border-[#E4E2DB] bg-[#FFFFFF] text-[#171717] placeholder:text-[#9E9A92] focus:ring-2 focus:ring-[#171717]/20 focus:border-[#171717]",
-    formFieldInputShowPasswordButton: "text-[#686662]",
+      "h-11 rounded-2xl border border-[var(--ui-clerk-border)] bg-[var(--ui-surface-base)] text-[var(--ui-clerk-text)] placeholder:text-[var(--ui-text-subtle)] focus:ring-2 focus:ring-primary/20 focus:border-primary",
+    formFieldInputShowPasswordButton: "text-[var(--ui-clerk-text-muted)]",
     formButtonPrimary:
-      "h-11 rounded-xl bg-[#171717] text-white text-sm font-semibold shadow-[0_12px_28px_rgba(18,18,18,0.12)] hover:bg-[#262626]",
-    footerActionText: "text-[#6E6B65] text-sm",
-    footerActionLink: "text-[#171717] font-semibold hover:underline",
+      "h-11 rounded-xl bg-[var(--ui-clerk-primary)] text-[var(--primary-foreground)] text-sm font-semibold shadow-[0_12px_28px_rgba(18,18,18,0.12)] hover:bg-[var(--ui-clerk-primary-hover)]",
+    footerActionText: "text-[var(--ui-clerk-text-muted)] text-sm",
+    footerActionLink: "text-[var(--ui-clerk-text)] font-semibold hover:underline",
     footer: "pt-2",
   },
 };
@@ -60,14 +66,19 @@ const rootFontVariables = {
   "--font-serif": '"Newsreader", Georgia, "Times New Roman", serif',
 } as CSSProperties;
 
+const rootThemeVariables = {
+  ...rootFontVariables,
+  ...uiVibeVariables,
+} as CSSProperties;
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className="antialiased" style={rootFontVariables}>
+    <html lang="en" data-ui-vibe={activeUiVibe}>
+      <body className="antialiased" style={rootThemeVariables}>
         <ClerkProvider
           appearance={clerkAppearance}
           signInUrl="/sign-in"

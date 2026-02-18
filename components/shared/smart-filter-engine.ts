@@ -244,7 +244,9 @@ export class SmartFilterEngine {
    * 💰 Cost and budget filtering
    */
   private passesCostFilter(event: CalendarEvent, filters: Partial<AdvancedFilters>): boolean {
-    const cost = (event.sourceData as { cost?: number; totalPrice?: number }).cost || (event.sourceData as { cost?: number; totalPrice?: number }).totalPrice || 0;
+    const cost = event.sourceType === "shopping"
+      ? (event.sourceData as { totalPrice?: number }).totalPrice || 0
+      : 0;
     
     // Has cost
     if (filters.hasCost && !cost) return false;

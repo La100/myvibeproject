@@ -366,6 +366,53 @@ export const createFolder = mutation({
   },
 });
 
+// Ensure root "labor" folder exists for project attachments.
+export const ensureLaborFolder = mutation({
+  args: {
+    projectId: v.id("projects"),
+  },
+  returns: v.id("folders"),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const project = await ctx.db.get(args.projectId);
+    if (!project) throw new Error("Project not found");
+
+    const hasAccess = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
+      )
+      .unique();
+
+    if (!hasAccess || !hasAccess.isActive) {
+      throw new Error("No access to this project");
+    }
+
+    const rootFolders = await ctx.db
+      .query("folders")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .filter((q) => q.eq(q.field("parentFolderId"), undefined))
+      .collect();
+
+    const existingLaborFolder = rootFolders.find(
+      (folder) => folder.name.trim().toLowerCase() === "labor"
+    );
+
+    if (existingLaborFolder) {
+      return existingLaborFolder._id;
+    }
+
+    return await ctx.db.insert("folders", {
+      name: "labor",
+      teamId: project.teamId,
+      projectId: args.projectId,
+      createdBy: identity.subject,
+    });
+  },
+});
+
 // Dodaj plik do projektu/folderu
 export const addFile = mutation({
   args: {

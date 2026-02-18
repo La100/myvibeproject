@@ -245,7 +245,7 @@ export function EstimationPreviewDialog({
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="flex flex-row items-center justify-between">
           <div className="flex items-center gap-3">
-            <FileTextIcon className="h-6 w-6 text-[#6D8B73]" />
+            <FileTextIcon className="h-6 w-6 text-[var(--ui-accent-brand)]" />
             <DialogTitle className="text-xl font-[var(--font-display-serif)]">
               Estimation Preview
             </DialogTitle>
@@ -263,18 +263,18 @@ export function EstimationPreviewDialog({
         </DialogHeader>
 
         {/* Preview Content */}
-        <div className="mt-6 border rounded-lg p-6 bg-white">
+        <div className="mt-6 border rounded-lg p-6 bg-[var(--ui-surface-base)]">
           {/* Header */}
           <div className="flex justify-between items-start mb-6 pb-6 border-b">
             <div>
               {team && (
-                <h2 className="text-xl font-bold text-[#1A1A1A]">{team.name}</h2>
+                <h2 className="text-xl font-bold text-[var(--ui-text-strong)]">{team.name}</h2>
               )}
             </div>
             <div className="text-right">
               <div className="text-lg font-semibold">COST ESTIMATION</div>
               {estimation.estimationNumber && (
-                <div className="text-sm text-[#8C8880]">#{estimation.estimationNumber}</div>
+                <div className="text-sm text-[var(--ui-text-muted)]">#{estimation.estimationNumber}</div>
               )}
               <Badge variant={getStatusColor(estimation.status)} className="mt-2">
                 {estimation.status.toUpperCase()}
@@ -287,29 +287,29 @@ export function EstimationPreviewDialog({
             <div>
               <h3 className="font-semibold text-lg mb-2">{estimation.title}</h3>
               {estimation.location && (
-                <p className="text-sm text-[#8C8880]">Location: {estimation.location}</p>
+                <p className="text-sm text-[var(--ui-text-muted)]">Location: {estimation.location}</p>
               )}
-              <p className="text-sm text-[#8C8880]">
+              <p className="text-sm text-[var(--ui-text-muted)]">
                 Date: {format(new Date(estimation.estimationDate), 'MMMM d, yyyy')}
               </p>
               {estimation.plannedStartDate && (
-                <p className="text-sm text-[#8C8880]">
+                <p className="text-sm text-[var(--ui-text-muted)]">
                   Planned Start: {format(new Date(estimation.plannedStartDate), 'MMMM d, yyyy')}
                 </p>
               )}
             </div>
             {estimation.customerName && (
               <div>
-                <p className="text-sm font-medium text-[#8C8880] mb-1">Client:</p>
+                <p className="text-sm font-medium text-[var(--ui-text-muted)] mb-1">Client:</p>
                 <p className="font-medium">{estimation.customerName}</p>
                 {estimation.customerAddress && (
-                  <p className="text-sm text-[#8C8880]">{estimation.customerAddress}</p>
+                  <p className="text-sm text-[var(--ui-text-muted)]">{estimation.customerAddress}</p>
                 )}
                 {estimation.customerEmail && (
-                  <p className="text-sm text-[#8C8880]">{estimation.customerEmail}</p>
+                  <p className="text-sm text-[var(--ui-text-muted)]">{estimation.customerEmail}</p>
                 )}
                 {estimation.customerPhone && (
-                  <p className="text-sm text-[#8C8880]">{estimation.customerPhone}</p>
+                  <p className="text-sm text-[var(--ui-text-muted)]">{estimation.customerPhone}</p>
                 )}
               </div>
             )}
@@ -321,7 +321,7 @@ export function EstimationPreviewDialog({
               <h4 className="font-semibold mb-3">Labor</h4>
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b bg-[#FAF7F2]">
+                  <tr className="border-b bg-[var(--ui-surface-soft)]">
                     <th className="text-left py-2 px-3">Description</th>
                     <th className="text-right py-2 px-3 w-20">Qty</th>
                     <th className="text-center py-2 px-3 w-16">Unit</th>
@@ -345,7 +345,7 @@ export function EstimationPreviewDialog({
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="bg-[#FAF7F2]">
+                  <tr className="bg-[var(--ui-surface-soft)]">
                     <td colSpan={4} className="text-right py-2 px-3 font-medium">Labor Subtotal:</td>
                     <td className="text-right py-2 px-3 font-semibold">
                       {estimation.laborTotal?.toFixed(2) || '0.00'} {currencySymbol}
@@ -362,7 +362,7 @@ export function EstimationPreviewDialog({
               <h4 className="font-semibold mb-3">Materials</h4>
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b bg-[#FAF7F2]">
+                  <tr className="border-b bg-[var(--ui-surface-soft)]">
                     <th className="text-left py-2 px-3">Product</th>
                     <th className="text-right py-2 px-3 w-20">Qty</th>
                     <th className="text-right py-2 px-3 w-28">Price/Unit</th>
@@ -384,7 +384,7 @@ export function EstimationPreviewDialog({
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="bg-[#FAF7F2]">
+                  <tr className="bg-[var(--ui-surface-soft)]">
                     <td colSpan={3} className="text-right py-2 px-3 font-medium">Materials Subtotal:</td>
                     <td className="text-right py-2 px-3 font-semibold">
                       {estimation.materialsTotal?.toFixed(2) || '0.00'} {currencySymbol}
@@ -399,11 +399,11 @@ export function EstimationPreviewDialog({
           <div className="border-t pt-4">
             <div className="max-w-xs ml-auto space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-[#8C8880]">Labor:</span>
+                <span className="text-[var(--ui-text-muted)]">Labor:</span>
                 <span>{estimation.laborTotal?.toFixed(2) || '0.00'} {currencySymbol}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-[#8C8880]">Materials:</span>
+                <span className="text-[var(--ui-text-muted)]">Materials:</span>
                 <span>{estimation.materialsTotal?.toFixed(2) || '0.00'} {currencySymbol}</span>
               </div>
               <div className="flex justify-between font-medium border-t pt-2">
@@ -417,7 +417,7 @@ export function EstimationPreviewDialog({
                 </div>
               )}
               <div className="flex justify-between text-sm">
-                <span className="text-[#8C8880]">VAT ({estimation.vatPercent}%):</span>
+                <span className="text-[var(--ui-text-muted)]">VAT ({estimation.vatPercent}%):</span>
                 <span>{estimation.vatAmount?.toFixed(2) || '0.00'} {currencySymbol}</span>
               </div>
               <div className="flex justify-between text-xl font-semibold border-t pt-2">
@@ -431,7 +431,7 @@ export function EstimationPreviewDialog({
           {estimation.notes && (
             <div className="mt-6 pt-4 border-t">
               <h4 className="font-semibold mb-2">Notes</h4>
-              <p className="text-sm text-[#8C8880] whitespace-pre-wrap">{estimation.notes}</p>
+              <p className="text-sm text-[var(--ui-text-muted)] whitespace-pre-wrap">{estimation.notes}</p>
             </div>
           )}
         </div>

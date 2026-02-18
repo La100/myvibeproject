@@ -112,6 +112,14 @@ let imagePickerActive = false
 const imagePickerElements = new Set<HTMLImageElement>()
 const imageOriginalStyles = new Map<HTMLImageElement, string>()
 
+function setOverlayInteractivity(enabled: boolean): void {
+  if (!overlayElement) {
+    return
+  }
+
+  overlayElement.style.pointerEvents = enabled ? "auto" : "none"
+}
+
 function isSupportedImage(img: HTMLImageElement): boolean {
   if (!img.src) return false
   if (img.width < 80 || img.height < 80) return false
@@ -176,29 +184,39 @@ function handleImageClick(event: Event): void {
   disableImagePicker()
 }
 
-function enableImagePicker(): void {
+function enableImagePicker(): number {
   if (imagePickerActive) {
-    return
+    return imagePickerElements.size
   }
 
-  imagePickerActive = true
-
   const images = document.querySelectorAll("img")
+  let selectableCount = 0
+
   for (const img of images) {
     if (!(img instanceof HTMLImageElement) || !isSupportedImage(img)) {
       continue
     }
 
+    selectableCount += 1
     imagePickerElements.add(img)
     applyImagePickerStyles(img)
     img.addEventListener("click", handleImageClick, true)
     img.addEventListener("mouseenter", handleImageMouseEnter)
     img.addEventListener("mouseleave", handleImageMouseLeave)
   }
+
+  if (selectableCount === 0) {
+    return 0
+  }
+
+  imagePickerActive = true
+  setOverlayInteractivity(false)
+  return selectableCount
 }
 
 function disableImagePicker(): void {
   if (!imagePickerActive) {
+    setOverlayInteractivity(true)
     return
   }
 
@@ -212,6 +230,7 @@ function disableImagePicker(): void {
   }
 
   imagePickerElements.clear()
+  setOverlayInteractivity(true)
 }
 
 function removeIframePopup(): void {
@@ -307,8 +326,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.action === ACTIONS.ENABLE_IMAGE_PICKER) {
-    enableImagePicker()
-    sendResponse({ success: true })
+    const selectableCount = enableImagePicker()
+    sendResponse({ success: selectableCount > 0, count: selectableCount })
     return false
   }
 

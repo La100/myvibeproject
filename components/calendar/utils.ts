@@ -137,15 +137,15 @@ export function transformShoppingItemToEvent(item: ShoppingItem & {
 function getPriorityColor(priority?: string | null): string {
   switch (priority) {
     case 'urgent':
-      return '#ef4444'; // red-500
+      return 'var(--ui-priority-urgent)';
     case 'high':
-      return '#f97316'; // orange-500
+      return 'var(--ui-priority-high)';
     case 'medium':
-      return '#eab308'; // yellow-500
+      return 'var(--ui-priority-medium)';
     case 'low':
-      return '#22c55e'; // green-500
+      return 'var(--ui-priority-low)';
     default:
-      return '#6b7280'; // gray-500
+      return 'var(--ui-priority-default)';
   }
 }
 

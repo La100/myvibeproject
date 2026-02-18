@@ -22,7 +22,6 @@ export const createConfirmedTask = action({
       startDate: v.optional(v.string()),
       endDate: v.optional(v.string()),
       tags: v.optional(v.array(v.string())),
-      cost: v.optional(v.number()),
     }),
   },
   returns: v.object({
@@ -55,7 +54,6 @@ export const createConfirmedTask = action({
         startDate: startDateNumber,
         endDate: endDateNumber,
         tags: args.taskData.tags || [],
-        cost: args.taskData.cost,
       });
 
       return {
@@ -85,7 +83,6 @@ export const editConfirmedTask = action({
       startDate: v.optional(v.string()),
       endDate: v.optional(v.string()),
       tags: v.optional(v.array(v.string())),
-      cost: v.optional(v.number()),
     }),
   },
   returns: v.object({
@@ -120,7 +117,6 @@ export const editConfirmedTask = action({
         startDate: startDateNumber,
         endDate: endDateNumber,
         tags: args.updates.tags,
-        cost: args.updates.cost,
       });
 
       return {
@@ -169,7 +165,6 @@ export const deleteConfirmedTask = action({
     }
   },
 });
-
 
 
 

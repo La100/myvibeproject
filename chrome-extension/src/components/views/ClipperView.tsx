@@ -41,7 +41,19 @@ interface DetectResponse {
   error?: string
 }
 
+interface ImagePickerResponse {
+  success?: boolean
+  count?: number
+}
+
 const NO_SECTION_VALUE = "__none"
+const NO_ALTERNATIVE_VALUE = "__no_alternative"
+
+type ShoppingListItemOption = {
+  _id: string
+  name: string
+  alternativeToItemId?: string | null
+}
 
 function isSupportedUrl(url?: string): boolean {
   return Boolean(url && /^https?:\/\//.test(url))
@@ -73,7 +85,11 @@ function parseNumber(value?: string): number | null {
 
 const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => {
   const [sections, setSections] = useState(project.sections ?? [])
+  const [shoppingItems, setShoppingItems] = useState<ShoppingListItemOption[]>([])
   const [selectedSection, setSelectedSection] = useState(NO_SECTION_VALUE)
+  const [selectedAlternativeToItemId, setSelectedAlternativeToItemId] = useState(
+    NO_ALTERNATIVE_VALUE,
+  )
   const [product, setProduct] = useState<Partial<Product>>({ quantity: 1 })
   const [isLoading, setIsLoading] = useState(false)
   const [isDetecting, setIsDetecting] = useState(false)
@@ -120,23 +136,25 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
 
   const refreshSections = async () => {
     try {
-      const response = await authenticatedFetch(`${CONFIG.API_BASE}/clipper`, undefined, {
-        retryOnAuthFailure: true,
-      })
+      const response = await authenticatedFetch(
+        `${CONFIG.API_BASE}/clipper?teamId=${encodeURIComponent(team._id)}&projectId=${encodeURIComponent(project._id)}`,
+        undefined,
+        {
+          retryOnAuthFailure: true,
+        },
+      )
 
       if (!response.ok) {
         return
       }
 
-      const data = (await response.json()) as { teams?: Team[] }
-      const currentTeam = data.teams?.find((entry) => entry._id === team._id)
-      const currentProject = currentTeam?.projects.find(
-        (entry) => entry._id === project._id,
-      )
-
-      if (currentProject?.sections) {
-        setSections(currentProject.sections)
+      const data = (await response.json()) as {
+        sections?: Team["projects"][number]["sections"]
+        items?: ShoppingListItemOption[]
       }
+
+      setSections(Array.isArray(data.sections) ? data.sections : [])
+      setShoppingItems(Array.isArray(data.items) ? data.items : [])
     } catch {
       // Non-blocking: keep currently available sections.
     }
@@ -177,7 +195,8 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
           extractDomain(tab.url ?? "") ??
           prev.supplier ??
           "",
-        notes: response.product?.notes ?? prev.notes ?? "",
+        // Notes stay manual-only: never auto-fill from page detection.
+        notes: prev.notes ?? "",
         imageUrl: response.product?.imageUrl ?? prev.imageUrl ?? "",
         quantity: prev.quantity ?? 1,
       }))
@@ -226,7 +245,16 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
     if (isImagePickerActive) return
 
     try {
-      await sendMessageToActiveTab({ action: ACTIONS.ENABLE_IMAGE_PICKER })
+      const response = await sendMessageToActiveTab<ImagePickerResponse>({
+        action: ACTIONS.ENABLE_IMAGE_PICKER,
+      })
+
+      if (!response?.success) {
+        setIsImagePickerActive(false)
+        showToast("No selectable images found on this page.", "info")
+        return
+      }
+
       setIsImagePickerActive(true)
       showToast("Click an image on the page to select it.", "info")
     } catch {
@@ -260,6 +288,10 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
         name: product.name.trim(),
         projectId: project._id,
         sectionId: selectedSection === NO_SECTION_VALUE ? undefined : selectedSection,
+        alternativeToItemId:
+          selectedAlternativeToItemId === NO_ALTERNATIVE_VALUE
+            ? undefined
+            : selectedAlternativeToItemId,
         unitPrice: unitPriceNumber ?? 0,
         quantity,
         totalPrice,
@@ -298,6 +330,12 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
       }
 
       showToast("Product added to shopping list.", "success")
+
+      if (isIframeMode) {
+        await handleCloseIframe()
+      } else {
+        window.close()
+      }
     } catch (error) {
       const message =
         error instanceof Error
@@ -465,6 +503,30 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
                         {section.name}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Alternative for</Label>
+                <Select
+                  value={selectedAlternativeToItemId}
+                  onValueChange={setSelectedAlternativeToItemId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Standalone product (default)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_ALTERNATIVE_VALUE}>
+                      Standalone product (default)
+                    </SelectItem>
+                    {shoppingItems
+                      .filter((item) => !item.alternativeToItemId)
+                      .map((item) => (
+                        <SelectItem key={item._id} value={item._id}>
+                          {item.name}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>

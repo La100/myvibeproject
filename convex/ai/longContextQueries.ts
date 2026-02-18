@@ -80,7 +80,6 @@ export const getProjectContextSnapshot = internalQuery({
       startDate: v.optional(v.number()),
       endDate: v.optional(v.number()),
       tags: v.array(v.string()),
-      cost: v.optional(v.number()),
     })),
     notes: v.array(v.object({
       _id: v.id("notes"),
@@ -281,7 +280,6 @@ export const getProjectContextSnapshot = internalQuery({
         startDate: t.startDate,
         endDate: t.endDate,
         tags: t.tags,
-        cost: t.cost,
       })),
       notes: notes.map(n => ({
         _id: n._id,

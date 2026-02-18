@@ -53,7 +53,6 @@ interface TaskDetailSidebarProps {
     _id: Id<"tasks">;
     status: string;
     priority?: string | null;
-    cost?: number;
     startDate?: number;
     endDate?: number;
     assignedTo?: string | null;
@@ -64,7 +63,6 @@ interface TaskDetailSidebarProps {
     projectId: Id<"projects">;
   };
   project: {
-    currency?: string;
     taskStatusSettings?: Record<string, TaskStatusSetting>;
   };
   onDelete: () => void;
@@ -81,8 +79,6 @@ export default function TaskDetailSidebar({ task, project, onDelete }: TaskDetai
   const generateTaskDetails = useAction(apiAny.tasks.generateTaskDetailsFromPrompt);
   
   const teamMembers = useQuery(apiAny.teams.getTeamMembers, { teamId: task.teamId });
-
-  const currencySymbol = project.currency === "EUR" ? "€" : project.currency === "PLN" ? "zł" : project.currency === "USD" ? "$" : "$";
 
   const handleUpdate = async (field: string, value: string | string[] | number | undefined | null) => {
     setIsUpdating(field);
@@ -118,7 +114,6 @@ export default function TaskDetailSidebar({ task, project, onDelete }: TaskDetai
         if (result.description) updatePayload.description = result.description;
         if (result.hasOwnProperty('priority')) updatePayload.priority = result.priority;
         if (result.status) updatePayload.status = result.status;
-        if (result.cost) updatePayload.cost = result.cost;
         if (result.assignedTo) updatePayload.assignedTo = result.assignedTo;
         if (result.tags) updatePayload.tags = result.tags;
 
@@ -346,21 +341,6 @@ export default function TaskDetailSidebar({ task, project, onDelete }: TaskDetai
               Updating...
             </div>
           )}
-        </div>
-
-        {/* Cost */}
-        <div>
-          <Label className="text-sm font-medium">Cost ({currencySymbol})</Label>
-          <Input
-            type="number"
-            step="0.01"
-            placeholder="0.00"
-            defaultValue={task.cost || ""}
-            className="mt-1 no-arrows"
-            disabled={isUpdating === 'cost'}
-            onBlur={(e) => handleUpdate('cost', e.target.valueAsNumber)}
-            onKeyDown={(e) => e.key === 'Enter' && handleUpdate('cost', (e.target as HTMLInputElement).valueAsNumber)}
-          />
         </div>
 
         {/* Tags */}

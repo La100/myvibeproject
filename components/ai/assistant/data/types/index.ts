@@ -144,7 +144,6 @@ export type TaskInput = {
   startDate?: string;
   endDate?: string;
   tags?: string[];
-  cost?: number;
 };
 
 export type BulkTaskData = {

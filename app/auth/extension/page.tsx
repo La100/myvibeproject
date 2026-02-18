@@ -85,10 +85,17 @@ export default function ExtensionAuthPage() {
   }, [getToken, isLoaded, isSignedIn])
 
   return (
-    <div style={{ padding: "40px", fontFamily: "sans-serif", textAlign: "center", color: "#333" }}>
+    <div
+      style={{
+        padding: "40px",
+        fontFamily: "sans-serif",
+        textAlign: "center",
+        color: "var(--foreground)",
+      }}
+    >
       <h1>MyVibeProject Extension Authentication</h1>
-      <h2 style={{ color: error ? "#b91c1c" : "#15803d" }}>{status}</h2>
-      {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
+      <h2 style={{ color: error ? "var(--destructive)" : "var(--ui-accent-brand)" }}>{status}</h2>
+      {error && <p style={{ color: "var(--destructive)" }}>{error}</p>}
       <p>Once done, return to the extension to continue.</p>
     </div>
   )

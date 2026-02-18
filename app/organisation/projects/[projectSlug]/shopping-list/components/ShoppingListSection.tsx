@@ -22,10 +22,14 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Doc, Id } from '@/convex/_generated/dataModel';
 import type { TeamMember } from '@/lib/teamMember';
+import { buildAlternativeSelection, calculateShoppingTotal, isItemCountedInShoppingTotal } from '@/lib/shoppingAlternatives';
 import { AddItemForm } from './AddItemForm';
 import { ShoppingListItemDetails } from './ShoppingListItemDetails';
 
-type ShoppingListItem = Doc<"shoppingListItems">;
+type ShoppingListItem = Doc<"shoppingListItems"> & {
+  alternativeToItemId?: Id<"shoppingListItems"> | null;
+  selectedAlternativeItemId?: Id<"shoppingListItems"> | null;
+};
 type Priority = ShoppingListItem["priority"];
 
 interface EditFormData {
@@ -44,6 +48,7 @@ interface EditFormData {
   realizationStatus?: string;
   buyBefore?: string;
   assigneeId?: string;
+  alternativeToItemId?: string | Id<"shoppingListItems">;
 }
 
 interface ShoppingListSectionProps {
@@ -99,7 +104,31 @@ export function ShoppingListSection({
     }));
   };
 
-  const sectionTotal = items.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
+  const sectionTotal = calculateShoppingTotal(items);
+  const selection = buildAlternativeSelection(items);
+  const itemsById = new Map(items.map((item) => [String(item._id), item]));
+
+  const getAlternativeOptions = (item: ShoppingListItem) =>
+    items.filter((candidate) =>
+      candidate._id === item._id || candidate.alternativeToItemId === item._id,
+    );
+
+  const getSelectedAlternativeId = (item: ShoppingListItem) => {
+    const options = getAlternativeOptions(item);
+    if (options.length <= 1) {
+      return String(item._id);
+    }
+
+    const selectedId = item.selectedAlternativeItemId
+      ? String(item.selectedAlternativeItemId)
+      : String(item._id);
+
+    if (options.some((option) => String(option._id) === selectedId)) {
+      return selectedId;
+    }
+
+    return String(item._id);
+  };
 
   const handleStartEdit = (item: ShoppingListItem) => {
     setEditingItemId(item._id);
@@ -118,7 +147,8 @@ export function ShoppingListSection({
       priority: item.priority,
       realizationStatus: item.realizationStatus,
       buyBefore: item.buyBefore ? format(new Date(item.buyBefore), 'yyyy-MM-dd') : '',
-      assigneeId: item.assignedTo || 'none'
+      assigneeId: item.assignedTo || 'none',
+      alternativeToItemId: item.alternativeToItemId || 'none',
     });
   };
 
@@ -143,6 +173,9 @@ export function ShoppingListSection({
         realizationStatus: editFormData.realizationStatus as "PLANNED" | "ORDERED" | "IN_TRANSIT" | "DELIVERED" | "COMPLETED" | "CANCELLED",
         buyBefore: buyBefore,
         assignedTo: editFormData.assigneeId === 'none' ? undefined : editFormData.assigneeId,
+        alternativeToItemId: editFormData.alternativeToItemId === 'none'
+          ? null
+          : editFormData.alternativeToItemId as Id<"shoppingListItems">,
       });
       setEditingItemId(null);
       setEditFormData({});
@@ -183,17 +216,33 @@ export function ShoppingListSection({
     return member?.name || assignedTo;
   };
 
+  const handleSelectAlternative = async (
+    itemId: Id<"shoppingListItems">,
+    selectedId: string,
+  ) => {
+    try {
+      await onUpdateItem(itemId, {
+        selectedAlternativeItemId:
+          selectedId === String(itemId)
+            ? null
+            : (selectedId as Id<"shoppingListItems">),
+      });
+    } catch (error) {
+      console.error('Error selecting alternative:', error);
+    }
+  };
+
 
   return (
-    <div className="mb-10 rounded-[24px] sm:rounded-[32px] border border-[#E7E2D9] bg-white p-4 sm:p-8 shadow-[0_24px_60px_rgba(20,20,20,0.08)]">
+    <div className="mb-10 rounded-[24px] sm:rounded-[32px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-4 sm:p-8 shadow-[0_24px_60px_rgba(20,20,20,0.08)]">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 sm:mb-8 gap-4">
         <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-          <h2 className="text-xl sm:text-2xl font-medium font-[var(--font-display-serif)] text-[#1A1A1A]">{sectionName}</h2>
-          <span className="inline-flex items-center justify-center rounded-full bg-[#FAF7F2] border border-[#E7E2D9] px-3 py-1 text-xs font-medium text-[#8C8880]">
+          <h2 className="text-xl sm:text-2xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)]">{sectionName}</h2>
+          <span className="inline-flex items-center justify-center rounded-full bg-[var(--ui-surface-soft)] border border-[var(--ui-border-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-muted)]">
             {items.length} items
           </span>
           {sectionTotal > 0 && (
-            <span className="inline-flex items-center justify-center rounded-full bg-[#FAF7F2] border border-[#E7E2D9] px-3 py-1 text-xs font-medium text-[#3C3A37]">
+            <span className="inline-flex items-center justify-center rounded-full bg-[var(--ui-surface-soft)] border border-[var(--ui-border-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-main)]">
               {sectionTotal.toFixed(2)} {currencySymbol}
             </span>
           )}
@@ -201,7 +250,7 @@ export function ShoppingListSection({
         <Button
           variant="ghost"
           size="sm"
-          className="self-end sm:self-auto rounded-full hover:bg-[#FAF7F2]"
+          className="self-end sm:self-auto rounded-full hover:bg-[var(--ui-surface-soft)]"
           onClick={() => setShowAddForm(!showAddForm)}
         >
           <PlusIcon className="h-4 w-4" />
@@ -211,7 +260,7 @@ export function ShoppingListSection({
       <div className="space-y-4">
         {/* Add Item Form */}
         {showAddForm && (
-          <div className="mb-8 rounded-[24px] border border-[#E7E2D9] bg-[#FAF7F2] p-6">
+          <div className="mb-8 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] p-6">
             <AddItemForm
               sections={sections}
               teamMembers={teamMembers}
@@ -231,8 +280,18 @@ export function ShoppingListSection({
 
         {/* Items List */}
         <div className="space-y-4">
-          {items.map((item) => (
-            <div key={item._id} className="group relative rounded-[20px] border border-[#E7E2D9]/50 bg-white p-5 transition-all hover:border-[#E7E2D9] hover:shadow-sm">
+          {items.map((item) => {
+            const parentItem = item.alternativeToItemId
+              ? itemsById.get(String(item.alternativeToItemId))
+              : undefined;
+            const isAlternativeItem = !!parentItem;
+            const alternativeOptions = getAlternativeOptions(item);
+            const hasAlternatives = alternativeOptions.length > 1;
+            const selectedAlternativeId = getSelectedAlternativeId(item);
+            const isCountedInTotal = isItemCountedInShoppingTotal(item, selection);
+
+            return (
+            <div key={item._id} className="group relative rounded-[20px] border border-[var(--ui-border-soft)]/50 bg-[var(--ui-surface-base)] p-5 transition-all hover:border-[var(--ui-border-soft)] hover:shadow-sm">
               {editingItemId === item._id ? (
                 // Edit Mode
                 <div className="space-y-4">
@@ -260,6 +319,27 @@ export function ShoppingListSection({
                               {section.name}
                             </SelectItem>
                           ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Alternative For</label>
+                      <Select
+                        value={editFormData.alternativeToItemId || 'none'}
+                        onValueChange={(value) => setEditFormData({ ...editFormData, alternativeToItemId: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No Alternative Group</SelectItem>
+                          {items
+                            .filter((candidate) => candidate._id !== item._id && !candidate.alternativeToItemId)
+                            .map((candidate) => (
+                              <SelectItem key={candidate._id} value={candidate._id}>
+                                {candidate.name}
+                              </SelectItem>
+                            ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -449,7 +529,7 @@ export function ShoppingListSection({
                   <div className="flex flex-col sm:flex-row items-start justify-between gap-4 mb-2">
                     <div className="flex items-start gap-4 flex-1 w-full">
                       {item.imageUrl ? (
-                        <div className="w-24 h-24 sm:w-20 sm:h-20 rounded-xl border border-[#E7E2D9] overflow-hidden flex-shrink-0 bg-[#FAF7F2]">
+                        <div className="w-24 h-24 sm:w-20 sm:h-20 rounded-xl border border-[var(--ui-border-soft)] overflow-hidden flex-shrink-0 bg-[var(--ui-surface-soft)]">
                           <img 
                             src={item.imageUrl} 
                             alt={item.name}
@@ -457,43 +537,84 @@ export function ShoppingListSection({
                           />
                         </div>
                       ) : (
-                        <div className="w-24 h-24 sm:w-20 sm:h-20 rounded-xl border border-[#E7E2D9] overflow-hidden flex-shrink-0 bg-[#FAF7F2] flex items-center justify-center text-[#C0B9AF]">
+                        <div className="w-24 h-24 sm:w-20 sm:h-20 rounded-xl border border-[var(--ui-border-soft)] overflow-hidden flex-shrink-0 bg-[var(--ui-surface-soft)] flex items-center justify-center text-[var(--ui-text-subtle)]">
                            <span className="text-xs">No image</span>
                         </div>
                       )}
                       <div className="flex-1 min-w-0 py-1">
                         <div className="flex items-start justify-between gap-2 mb-1">
-                          <h4 className="font-medium text-lg text-[#1A1A1A] truncate pr-2">{item.name}</h4>
+                          <h4 className="font-medium text-lg text-[var(--ui-text-strong)] truncate pr-2">{item.name}</h4>
                           {item.priority && (
                              <div className={cn("w-2 h-2 rounded-full mt-2 flex-shrink-0", getPriorityColor(item.priority))} />
                           )}
                         </div>
+
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          {isAlternativeItem && (
+                            <Badge variant="outline" className="text-[10px]">
+                              Alternative for: {parentItem?.name}
+                            </Badge>
+                          )}
+                          {!isCountedInTotal && (
+                            <Badge variant="secondary" className="text-[10px]">
+                              Not counted in totals
+                            </Badge>
+                          )}
+                          {isAlternativeItem && isCountedInTotal && (
+                            <Badge variant="default" className="text-[10px]">
+                              Selected option
+                            </Badge>
+                          )}
+                        </div>
                         
-                        <div className="flex flex-col gap-1 text-sm text-[#3C3A37]">
+                        <div className="flex flex-col gap-1 text-sm text-[var(--ui-text-main)]">
                           <div className="flex items-center gap-3">
-                             <span className="bg-[#FAF7F2] px-2 py-0.5 rounded-md border border-[#E7E2D9] text-xs font-medium">Qty: {item.quantity}</span>
+                             <span className="bg-[var(--ui-surface-soft)] px-2 py-0.5 rounded-md border border-[var(--ui-border-soft)] text-xs font-medium">Qty: {item.quantity}</span>
                              {item.unitPrice && (
-                               <span className="text-[#8C8880]">
+                               <span className="text-[var(--ui-text-muted)]">
                                  {item.unitPrice.toFixed(2)} {currencySymbol} / unit
                                </span>
                              )}
                           </div>
                           {item.totalPrice && (
-                            <span className="font-medium mt-1">
+                            <span className={cn("font-medium mt-1", !isCountedInTotal && "text-[var(--ui-text-muted)]")}>
                               Total: {item.totalPrice.toFixed(2)} {currencySymbol}
                             </span>
                           )}
                         </div>
 
+                        {hasAlternatives && (
+                          <div className="mt-3 max-w-sm">
+                            <label className="text-xs font-medium text-[var(--ui-text-muted)] mb-1 block">
+                              Client choice (counted in total)
+                            </label>
+                            <Select
+                              value={selectedAlternativeId}
+                              onValueChange={(value) => handleSelectAlternative(item._id as Id<"shoppingListItems">, value)}
+                            >
+                              <SelectTrigger className="h-9">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {alternativeOptions.map((option) => (
+                                  <SelectItem key={option._id} value={option._id}>
+                                    {option.name} ({option.totalPrice?.toFixed(2) || '0.00'} {currencySymbol})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+
                         {item.assignedTo && (
                           <div className="flex items-center gap-2 mt-3">
                             <Avatar className="h-6 w-6 border border-white shadow-sm">
                               <AvatarImage src={teamMembers?.find(m => m.clerkUserId === item.assignedTo)?.imageUrl} />
-                              <AvatarFallback className="text-[10px] bg-[#FAF7F2] text-[#3C3A37]">
+                              <AvatarFallback className="text-[10px] bg-[var(--ui-surface-soft)] text-[var(--ui-text-main)]">
                                 {getAssignedMemberName(item.assignedTo)?.[0]}
                               </AvatarFallback>
                             </Avatar>
-                            <span className="text-xs text-[#666]">
+                            <span className="text-xs text-[var(--ui-text-muted)]">
                               {getAssignedMemberName(item.assignedTo)}
                             </span>
                           </div>
@@ -501,7 +622,7 @@ export function ShoppingListSection({
                       </div>
                     </div>
                     
-                    <div className="flex items-center justify-between w-full sm:w-auto sm:flex-col sm:items-end gap-3 sm:gap-2 flex-shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#E7E2D9] sm:border-none mt-2 sm:mt-0">
+                    <div className="flex items-center justify-between w-full sm:w-auto sm:flex-col sm:items-end gap-3 sm:gap-2 flex-shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-[var(--ui-border-soft)] sm:border-none mt-2 sm:mt-0">
                       <Badge variant={getStatusColor(item.realizationStatus)} className="order-1 sm:order-none text-xs px-2.5 py-0.5">
                         {item.realizationStatus}
                       </Badge>
@@ -511,7 +632,7 @@ export function ShoppingListSection({
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-8 w-8 p-0 text-[#8C8880] hover:text-[#1A1A1A] hover:bg-[#FAF7F2]"
+                              className="h-8 w-8 p-0 text-[var(--ui-text-muted)] hover:text-[var(--ui-text-strong)] hover:bg-[var(--ui-surface-soft)]"
                               onClick={() => toggleDetails(item._id)}
                             >
                               {expandedDetails[item._id] ? <ChevronUpIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
@@ -525,7 +646,7 @@ export function ShoppingListSection({
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-8 w-8 p-0 text-[#8C8880] hover:text-[#1A1A1A] hover:bg-[#FAF7F2]"
+                                className="h-8 w-8 p-0 text-[var(--ui-text-muted)] hover:text-[var(--ui-text-strong)] hover:bg-[var(--ui-surface-soft)]"
                                 onClick={() => window.open(item.productLink, '_blank')}
                               >
                                 <ExternalLinkIcon className="h-4 w-4" />
@@ -539,7 +660,7 @@ export function ShoppingListSection({
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-8 w-8 p-0 text-[#8C8880] hover:text-[#1A1A1A] hover:bg-[#FAF7F2]"
+                              className="h-8 w-8 p-0 text-[var(--ui-text-muted)] hover:text-[var(--ui-text-strong)] hover:bg-[var(--ui-surface-soft)]"
                               onClick={() => handleStartEdit(item)}
                             >
                               <EditIcon className="h-4 w-4" />
@@ -552,7 +673,7 @@ export function ShoppingListSection({
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-8 w-8 p-0 text-[#8C8880] hover:bg-red-50 hover:text-red-600"
+                              className="h-8 w-8 p-0 text-[var(--ui-text-muted)] hover:bg-red-50 hover:text-red-600"
                               onClick={() => onDeleteItem(item._id)}
                             >
                               <TrashIcon className="h-4 w-4" />
@@ -565,18 +686,19 @@ export function ShoppingListSection({
                   </div>
                   
                   {expandedDetails[item._id] && (
-                    <div className="pt-4 border-t border-[#E7E2D9] mt-4 animate-in slide-in-from-top-2 duration-200">
+                    <div className="pt-4 border-t border-[var(--ui-border-soft)] mt-4 animate-in slide-in-from-top-2 duration-200">
                       <ShoppingListItemDetails item={item} />
                     </div>
                   )}
                 </div>
               )}
             </div>
-          ))}
+          );
+          })}
         </div>
 
         {items.length === 0 && !showAddForm && (
-          <div className="text-center py-8 text-[#8C8880]">
+          <div className="text-center py-8 text-[var(--ui-text-muted)]">
             <p className="text-sm">No shopping items in this section</p>
             <Button
               variant="ghost"

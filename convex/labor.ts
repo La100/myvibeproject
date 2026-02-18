@@ -1,7 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { internal } from "./_generated/api";
-const internalAny = internal as any;
+import type { Id } from "./_generated/dataModel";
 
 // Common unit types for labor
 export const LABOR_UNITS = [
@@ -15,6 +14,44 @@ export const LABOR_UNITS = [
   "room",    // per room
   "item",    // per item
 ] as const;
+
+const normalizeReferenceLink = (input?: string | null) => {
+  if (!input) return null;
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+
+  const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    const url = new URL(candidate);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      throw new Error("Invalid protocol");
+    }
+    return url.toString();
+  } catch {
+    throw new Error("Invalid link format");
+  }
+};
+
+const assertAttachmentBelongsToProject = async (
+  ctx: {
+    db: {
+      get: (id: Id<"files">) => Promise<{ projectId?: Id<"projects"> } | null>;
+    };
+  },
+  projectId: Id<"projects">,
+  fileId?: Id<"files"> | null,
+) => {
+  if (!fileId) return;
+  const file = await ctx.db.get(fileId);
+  if (!file) throw new Error("Attachment file not found");
+  if (file.projectId !== projectId) {
+    throw new Error("Attachment must belong to the same project");
+  }
+};
+
+// Use a lightweight function reference to avoid deep generated type instantiation.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const logActivityMutationRef = { _name: "activityLog:logActivity" } as any;
 
 // ====== LABOR SECTIONS ======
 
@@ -136,6 +173,8 @@ export const createLaborItem = mutation({
     projectId: v.id("projects"),
     name: v.string(),
     notes: v.optional(v.string()),
+    referenceLink: v.optional(v.union(v.string(), v.null())),
+    attachmentFileId: v.optional(v.union(v.id("files"), v.null())),
     quantity: v.number(),
     unit: v.string(),
     unitPrice: v.optional(v.number()),
@@ -151,11 +190,16 @@ export const createLaborItem = mutation({
     const project = await ctx.db.get(args.projectId);
     if (!project) throw new Error("Project not found");
 
+    const normalizedReferenceLink = normalizeReferenceLink(args.referenceLink);
+    await assertAttachmentBelongsToProject(ctx, args.projectId, args.attachmentFileId);
+
     const totalPrice = args.unitPrice ? args.quantity * args.unitPrice : undefined;
 
     const itemId = await ctx.db.insert("laborItems", {
       name: args.name,
       notes: args.notes,
+      referenceLink: normalizedReferenceLink,
+      attachmentFileId: args.attachmentFileId || null,
       quantity: args.quantity,
       unit: args.unit,
       unitPrice: args.unitPrice || undefined,
@@ -168,7 +212,7 @@ export const createLaborItem = mutation({
       updatedAt: Date.now(),
     });
 
-    await ctx.runMutation(internalAny.activityLog.logActivity, {
+    await (ctx.runMutation as any)(logActivityMutationRef, {
       teamId: project.teamId,
       projectId: args.projectId,
       actionType: "labor.create",
@@ -178,6 +222,8 @@ export const createLaborItem = mutation({
         name: args.name,
         quantity: args.quantity,
         unit: args.unit,
+        hasAttachment: Boolean(args.attachmentFileId),
+        hasReferenceLink: Boolean(normalizedReferenceLink),
       },
     });
 
@@ -190,6 +236,8 @@ export const updateLaborItem = mutation({
     itemId: v.id("laborItems"),
     name: v.optional(v.string()),
     notes: v.optional(v.string()),
+    referenceLink: v.optional(v.union(v.string(), v.null())),
+    attachmentFileId: v.optional(v.union(v.id("files"), v.null())),
     quantity: v.optional(v.number()),
     unit: v.optional(v.string()),
     unitPrice: v.optional(v.number()),
@@ -220,9 +268,18 @@ export const updateLaborItem = mutation({
       updatedAt: Date.now(),
     };
 
+    if ("referenceLink" in updates) {
+      patch.referenceLink = normalizeReferenceLink(updates.referenceLink);
+    }
+
+    if ("attachmentFileId" in updates) {
+      await assertAttachmentBelongsToProject(ctx, item.projectId, updates.attachmentFileId);
+      patch.attachmentFileId = updates.attachmentFileId || null;
+    }
+
     await ctx.db.patch(itemId, patch);
 
-    await ctx.runMutation(internalAny.activityLog.logActivity, {
+    await (ctx.runMutation as any)(logActivityMutationRef, {
       teamId: item.teamId,
       projectId: item.projectId,
       actionType: "labor.update",
@@ -247,7 +304,7 @@ export const deleteLaborItem = mutation({
     const item = await ctx.db.get(args.itemId);
     if (!item) throw new Error("Item not found");
 
-    await ctx.runMutation(internalAny.activityLog.logActivity, {
+    await (ctx.runMutation as any)(logActivityMutationRef, {
       teamId: item.teamId,
       projectId: item.projectId,
       actionType: "labor.delete",

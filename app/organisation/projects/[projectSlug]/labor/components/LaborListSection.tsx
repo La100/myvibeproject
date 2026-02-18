@@ -10,6 +10,8 @@ import {
   SaveIcon,
   XIcon,
   PlusIcon,
+  ExternalLinkIcon,
+  PaperclipIcon,
 } from 'lucide-react';
 import { Doc, Id } from '@/convex/_generated/dataModel';
 import { AddLaborItemForm } from './AddLaborItemForm';
@@ -56,6 +58,7 @@ interface EditFormData {
 }
 
 interface LaborListSectionProps {
+  projectId: Id<"projects">;
   sectionName: string;
   sectionId?: Id<"laborSections">;
   items: LaborItem[];
@@ -72,11 +75,14 @@ interface LaborListSectionProps {
     unit: string;
     unitPrice?: number;
     assignedTo?: string;
+    referenceLink?: string | null;
+    attachmentFileId?: Id<"files"> | null;
   }) => Promise<void>;
   isPending: boolean;
 }
 
 export function LaborListSection({
+  projectId,
   sectionName,
   sectionId,
   items,
@@ -138,15 +144,15 @@ export function LaborListSection({
   };
 
   return (
-    <div className="mb-10 rounded-[24px] sm:rounded-[32px] border border-[#E7E2D9] bg-white p-4 sm:p-8 shadow-[0_24px_60px_rgba(20,20,20,0.08)]">
+    <div className="mb-10 rounded-[24px] sm:rounded-[32px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-4 sm:p-8 shadow-[0_24px_60px_rgba(20,20,20,0.08)]">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 sm:mb-8 gap-4">
         <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-          <h2 className="text-xl sm:text-2xl font-medium font-[var(--font-display-serif)] text-[#1A1A1A]">{sectionName}</h2>
-          <span className="inline-flex items-center justify-center rounded-full bg-[#FAF7F2] border border-[#E7E2D9] px-3 py-1 text-xs font-medium text-[#8C8880]">
+          <h2 className="text-xl sm:text-2xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)]">{sectionName}</h2>
+          <span className="inline-flex items-center justify-center rounded-full bg-[var(--ui-surface-soft)] border border-[var(--ui-border-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-muted)]">
             {items.length} items
           </span>
           {sectionTotal > 0 && (
-            <span className="inline-flex items-center justify-center rounded-full bg-[#FAF7F2] border border-[#E7E2D9] px-3 py-1 text-xs font-medium text-[#3C3A37]">
+            <span className="inline-flex items-center justify-center rounded-full bg-[var(--ui-surface-soft)] border border-[var(--ui-border-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-main)]">
               {sectionTotal.toFixed(2)} {currencySymbol}
             </span>
           )}
@@ -154,7 +160,7 @@ export function LaborListSection({
         <Button
           variant="ghost"
           size="sm"
-          className="self-end sm:self-auto rounded-full hover:bg-[#FAF7F2]"
+          className="self-end sm:self-auto rounded-full hover:bg-[var(--ui-surface-soft)]"
           onClick={() => setShowAddForm(!showAddForm)}
         >
           <PlusIcon className="h-4 w-4" />
@@ -164,8 +170,9 @@ export function LaborListSection({
       <div className="space-y-4">
         {/* Add Item Form */}
         {showAddForm && (
-          <div className="mb-8 rounded-[24px] border border-[#E7E2D9] bg-[#FAF7F2] p-6">
+          <div className="mb-8 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] p-6">
             <AddLaborItemForm
+              projectId={projectId}
               sections={sections}
               teamMembers={teamMembers}
               currencySymbol={currencySymbol}
@@ -188,18 +195,18 @@ export function LaborListSection({
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-[#E7E2D9]">
-                  <th className="text-left py-3 px-4 text-sm font-medium text-[#8C8880]">Work Description</th>
-                  <th className="text-right py-3 px-4 text-sm font-medium text-[#8C8880] w-24">Qty</th>
-                  <th className="text-center py-3 px-4 text-sm font-medium text-[#8C8880] w-20">Unit</th>
-                  <th className="text-right py-3 px-4 text-sm font-medium text-[#8C8880] w-32">Price/Unit</th>
-                  <th className="text-right py-3 px-4 text-sm font-medium text-[#8C8880] w-32">Total</th>
-                  <th className="text-right py-3 px-4 text-sm font-medium text-[#8C8880] w-24">Actions</th>
+                <tr className="border-b border-[var(--ui-border-soft)]">
+                  <th className="text-left py-3 px-4 text-sm font-medium text-[var(--ui-text-muted)]">Work Description</th>
+                  <th className="text-right py-3 px-4 text-sm font-medium text-[var(--ui-text-muted)] w-24">Qty</th>
+                  <th className="text-center py-3 px-4 text-sm font-medium text-[var(--ui-text-muted)] w-20">Unit</th>
+                  <th className="text-right py-3 px-4 text-sm font-medium text-[var(--ui-text-muted)] w-32">Price/Unit</th>
+                  <th className="text-right py-3 px-4 text-sm font-medium text-[var(--ui-text-muted)] w-32">Total</th>
+                  <th className="text-right py-3 px-4 text-sm font-medium text-[var(--ui-text-muted)] w-24">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((item) => (
-                  <tr key={item._id} className="border-b border-[#E7E2D9]/50 hover:bg-[#FAF7F2]/50 transition-colors">
+                  <tr key={item._id} className="border-b border-[var(--ui-border-soft)]/50 hover:bg-[var(--ui-surface-soft)]/50 transition-colors">
                     {editingItemId === item._id ? (
                       // Edit Mode
                       <>
@@ -246,7 +253,7 @@ export function LaborListSection({
                             className="h-9 rounded-lg text-sm text-right w-28"
                           />
                         </td>
-                        <td className="py-3 px-4 text-right text-sm font-medium text-[#1A1A1A]">
+                        <td className="py-3 px-4 text-right text-sm font-medium text-[var(--ui-text-strong)]">
                           {((editFormData.quantity || 0) * (parseFloat(editFormData.unitPrice || '0') || 0)).toFixed(2)} {currencySymbol}
                         </td>
                         <td className="py-3 px-4">
@@ -263,7 +270,7 @@ export function LaborListSection({
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-8 w-8 p-0 text-[#8C8880] hover:text-[#1A1A1A] hover:bg-[#FAF7F2]"
+                              className="h-8 w-8 p-0 text-[var(--ui-text-muted)] hover:text-[var(--ui-text-strong)] hover:bg-[var(--ui-surface-soft)]"
                               onClick={handleCancelEdit}
                             >
                               <XIcon className="h-4 w-4" />
@@ -276,13 +283,13 @@ export function LaborListSection({
                       <>
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-3">
-                            <span className="font-medium text-[#1A1A1A]">{item.name}</span>
+                            <span className="font-medium text-[var(--ui-text-strong)]">{item.name}</span>
                             {item.assignedTo && (
                               <Tooltip>
                                 <TooltipTrigger>
                                   <Avatar className="h-6 w-6 border border-white shadow-sm">
                                     <AvatarImage src={teamMembers?.find(m => m.clerkUserId === item.assignedTo)?.imageUrl} />
-                                    <AvatarFallback className="text-[10px] bg-[#FAF7F2] text-[#3C3A37]">
+                                    <AvatarFallback className="text-[10px] bg-[var(--ui-surface-soft)] text-[var(--ui-text-main)]">
                                       {getAssignedMemberName(item.assignedTo)?.[0]}
                                     </AvatarFallback>
                                   </Avatar>
@@ -292,15 +299,34 @@ export function LaborListSection({
                             )}
                           </div>
                           {item.notes && (
-                            <p className="text-xs text-[#8C8880] mt-1">{item.notes}</p>
+                            <p className="text-xs text-[var(--ui-text-muted)] mt-1">{item.notes}</p>
                           )}
+                          <div className="mt-1 flex flex-wrap items-center gap-3">
+                            {item.referenceLink && (
+                              <a
+                                href={item.referenceLink}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 text-xs text-[var(--ui-accent-brand)] hover:underline"
+                              >
+                                <ExternalLinkIcon className="h-3 w-3" />
+                                Link
+                              </a>
+                            )}
+                            {item.attachmentFileId && (
+                              <span className="inline-flex items-center gap-1 text-xs text-[var(--ui-text-muted)]">
+                                <PaperclipIcon className="h-3 w-3" />
+                                Attachment in Files/labor
+                              </span>
+                            )}
+                          </div>
                         </td>
-                        <td className="py-3 px-4 text-right text-sm text-[#3C3A37]">{item.quantity}</td>
-                        <td className="py-3 px-4 text-center text-sm text-[#8C8880]">{item.unit}</td>
-                        <td className="py-3 px-4 text-right text-sm text-[#3C3A37]">
+                        <td className="py-3 px-4 text-right text-sm text-[var(--ui-text-main)]">{item.quantity}</td>
+                        <td className="py-3 px-4 text-center text-sm text-[var(--ui-text-muted)]">{item.unit}</td>
+                        <td className="py-3 px-4 text-right text-sm text-[var(--ui-text-main)]">
                           {item.unitPrice ? `${item.unitPrice.toFixed(2)} ${currencySymbol}` : '-'}
                         </td>
-                        <td className="py-3 px-4 text-right text-sm font-medium text-[#1A1A1A]">
+                        <td className="py-3 px-4 text-right text-sm font-medium text-[var(--ui-text-strong)]">
                           {item.totalPrice ? `${item.totalPrice.toFixed(2)} ${currencySymbol}` : '-'}
                         </td>
                         <td className="py-3 px-4">
@@ -310,7 +336,7 @@ export function LaborListSection({
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-8 w-8 p-0 text-[#8C8880] hover:text-[#1A1A1A] hover:bg-[#FAF7F2]"
+                                  className="h-8 w-8 p-0 text-[var(--ui-text-muted)] hover:text-[var(--ui-text-strong)] hover:bg-[var(--ui-surface-soft)]"
                                   onClick={() => handleStartEdit(item)}
                                 >
                                   <EditIcon className="h-4 w-4" />
@@ -323,7 +349,7 @@ export function LaborListSection({
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-8 w-8 p-0 text-[#8C8880] hover:bg-red-50 hover:text-red-600"
+                                  className="h-8 w-8 p-0 text-[var(--ui-text-muted)] hover:bg-red-50 hover:text-red-600"
                                   onClick={() => onDeleteItem(item._id)}
                                 >
                                   <TrashIcon className="h-4 w-4" />
@@ -340,11 +366,11 @@ export function LaborListSection({
               </tbody>
               {/* Section Total Row */}
               <tfoot>
-                <tr className="bg-[#FAF7F2]">
-                  <td colSpan={4} className="py-3 px-4 text-right text-sm font-medium text-[#3C3A37]">
+                <tr className="bg-[var(--ui-surface-soft)]">
+                  <td colSpan={4} className="py-3 px-4 text-right text-sm font-medium text-[var(--ui-text-main)]">
                     Section Total:
                   </td>
-                  <td className="py-3 px-4 text-right text-sm font-semibold text-[#1A1A1A]">
+                  <td className="py-3 px-4 text-right text-sm font-semibold text-[var(--ui-text-strong)]">
                     {sectionTotal.toFixed(2)} {currencySymbol}
                   </td>
                   <td></td>
@@ -355,7 +381,7 @@ export function LaborListSection({
         )}
 
         {items.length === 0 && !showAddForm && (
-          <div className="text-center py-8 text-[#8C8880]">
+          <div className="text-center py-8 text-[var(--ui-text-muted)]">
             <p className="text-sm">No labor items in this section</p>
             <Button
               variant="ghost"
@@ -372,5 +398,3 @@ export function LaborListSection({
     </div>
   );
 }
-
-
