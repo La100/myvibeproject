@@ -73,11 +73,11 @@ const getActivityColor = (actionType: string) => {
 const getStatusLabel = (status: string) => {
   switch (status) {
     case "todo":
-      return "To Do";
+      return "To do";
     case "in_progress":
-      return "In Progress";
+      return "In progress";
     case "review":
-      return "Review";
+      return "In review";
     case "done":
       return "Done";
     default:

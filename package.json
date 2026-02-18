@@ -139,6 +139,6 @@
   },
   "packageManager": "pnpm@9.15.5",
   "engines": {
-    "node": "23.9.x"
+    "node": "24.x"
   }
 }

@@ -200,8 +200,24 @@ const getActivityDescription = (actionType: string, details: Record<string, unkn
         }
         return `updated ${friendlyFields.join(", ")} in task "${details.title || "Untitled"}"`;
       case "task.status.change":
-      case "task.status_change":
-        return `changed task "${details.title || "Untitled"}" status from "${details.fromStatus || details.from}" to "${details.toStatus || details.to}"`;
+      case "task.status_change": {
+        const fromStatus = (details.fromStatus || details.from) as string | undefined;
+        const toStatus = (details.toStatus || details.to) as string | undefined;
+
+        if (toStatus === "done") {
+          return `marked task "${details.title || "Untitled"}" as done`;
+        }
+
+        if (fromStatus && toStatus && fromStatus !== toStatus) {
+          return `changed task "${details.title || "Untitled"}" status from ${getStatusLabel(fromStatus)} to ${getStatusLabel(toStatus)}`;
+        }
+
+        if (toStatus) {
+          return `changed task "${details.title || "Untitled"}" status to ${getStatusLabel(toStatus)}`;
+        }
+
+        return `updated task "${details.title || "Untitled"}" status`;
+      }
       case "task.assign":
         return `reassigned task "${details.title || "Untitled"}" from "${details.from}" to "${details.to}"`;
       case "task.comment.add":
@@ -291,6 +307,21 @@ const getActivityDescription = (actionType: string, details: Record<string, unkn
   }
 
   return "performed an action";
+};
+
+const getStatusLabel = (status: string) => {
+  switch (status) {
+    case "todo":
+      return "To do";
+    case "in_progress":
+      return "In progress";
+    case "review":
+      return "In review";
+    case "done":
+      return "Done";
+    default:
+      return status;
+  }
 };
 
 const getStatusBadgeColor = (status: string) => {
@@ -517,11 +548,11 @@ export function ProjectChangelog({
                 {(activity.actionType === "task.status.change" || activity.actionType === "task.status_change") && (
                   <div className="mt-2 flex items-center space-x-2">
                     <Badge className={getStatusBadgeColor((activity.details.fromStatus || activity.details.from) as string)}>
-                      {(activity.details.fromStatus || activity.details.from) as string}
+                      {getStatusLabel((activity.details.fromStatus || activity.details.from) as string)}
                     </Badge>
                     <span className="text-gray-400">→</span>
                     <Badge className={getStatusBadgeColor((activity.details.toStatus || activity.details.to) as string)}>
-                      {(activity.details.toStatus || activity.details.to) as string}
+                      {getStatusLabel((activity.details.toStatus || activity.details.to) as string)}
                     </Badge>
                   </div>
                 )}
