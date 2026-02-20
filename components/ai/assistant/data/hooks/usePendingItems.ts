@@ -85,11 +85,20 @@ export const usePendingItems = ({
   const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
   const autoConfirmBatchKeyRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    if (pendingItems.length > 0) {
-      console.log("🔍 [usePendingItems] Current Pending Items:", JSON.stringify(pendingItems, null, 2));
+  const parseFunctionCallArguments = useCallback((raw: string): Record<string, unknown> | null => {
+    let parsed: unknown = raw;
+    for (let i = 0; i < 2 && typeof parsed === "string"; i += 1) {
+      try {
+        parsed = JSON.parse(parsed);
+      } catch {
+        return null;
+      }
     }
-  }, [pendingItems]);
+
+    return parsed && typeof parsed === "object"
+      ? (parsed as Record<string, unknown>)
+      : null;
+  }, []);
 
   // Queries
   const pendingFunctionCalls = useQuery(
@@ -138,16 +147,24 @@ export const usePendingItems = ({
 
   // Load pending items from DB
   useEffect(() => {
-    // Don't restore pending items when threadId is undefined (e.g., after "New Chat")
+    // Hard reset local confirmation state when there is no active thread.
     if (!threadId) {
+      if (pendingItems.length > 0) {
+        setPendingItems([]);
+      }
+      setCurrentItemIndex(0);
+      setShowConfirmationGrid(false);
+      setIsConfirmationDialogOpen(false);
       return;
     }
 
     if (pendingFunctionCalls && pendingFunctionCalls.length > 0) {
       const pendingItemsFromDB = pendingFunctionCalls.map((call) => {
         try {
-          console.log(`[usePendingItems] Raw call arguments for ${call.functionName}:`, call.arguments);
-          const parsed = JSON.parse(call.arguments);
+          const parsed = parseFunctionCallArguments(call.arguments);
+          if (!parsed) {
+            return null;
+          }
           const parsedTypeValue = typeof parsed?.type === "string" ? parsed.type : undefined;
           const parsedType = isPendingItemType(parsedTypeValue) ? parsedTypeValue : undefined;
           const functionCallType = isPendingItemType(call.functionName) ? call.functionName : undefined;
@@ -221,7 +238,7 @@ export const usePendingItems = ({
       setShowConfirmationGrid(false);
       setIsConfirmationDialogOpen(false);
     }
-  }, [threadId, pendingFunctionCalls, pendingItems.length]);
+  }, [threadId, pendingFunctionCalls, pendingItems.length, parseFunctionCallArguments]);
 
   const scheduleResolvedRemoval = useCallback((clientId?: string) => {
     // Intentionally left blank - keep resolved items visible in the UI.
@@ -1526,5 +1543,3 @@ export const usePendingItems = ({
 };
 
 export default usePendingItems;
-
-

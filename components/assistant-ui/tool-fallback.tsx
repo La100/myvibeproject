@@ -238,9 +238,18 @@ function toPendingItemFromResult(
   toolCallId: string,
   result: unknown,
 ): PendingContentItem | null {
-  if (!result || typeof result !== "object") return null;
+  let normalizedResult: unknown = result;
+  for (let i = 0; i < 2 && typeof normalizedResult === "string"; i += 1) {
+    try {
+      normalizedResult = JSON.parse(normalizedResult);
+    } catch {
+      return null;
+    }
+  }
 
-  const parsed = result as Record<string, unknown>;
+  if (!normalizedResult || typeof normalizedResult !== "object") return null;
+
+  const parsed = normalizedResult as Record<string, unknown>;
   const type = parsed.type;
   const operation = parsed.operation;
   const data = parsed.data;
@@ -371,12 +380,17 @@ const ToolFallbackImpl = ({
   const fallbackPendingItem = toolCallId
     ? toPendingItemFromResult(toolCallId, result)
     : null;
-  const confirmationItem = matchedPendingItem ?? fallbackPendingItem;
+  const isCrudLikeResult = !!matchedPendingItem || !!fallbackPendingItem;
+
+  // Render a single, current confirmation block only.
+  // Older/sibling CRUD tool cards are hidden to avoid stale duplicated confirmations.
+  if (isCrudLikeResult && !shouldRenderBatchForThisTool) {
+    return null;
+  }
+
   const itemsForInlineConfirmation = shouldRenderBatchForThisTool
     ? unresolvedPendingItems
-    : unresolvedPendingItems.length === 0 && confirmationItem
-      ? [confirmationItem]
-      : [];
+    : [];
 
   const showInlineConfirmation =
     itemsForInlineConfirmation.length > 0 &&
@@ -391,7 +405,7 @@ const ToolFallbackImpl = ({
       <ToolFallbackTrigger toolName={toolName} status={status} />
       <ToolFallbackContent>
         <ToolFallbackError status={status} />
-        {showInlineConfirmation && confirmationItem && (
+        {showInlineConfirmation && (
           <div className="px-4 pt-2">
             <InlineConfirmationList
               items={itemsForInlineConfirmation}
@@ -408,11 +422,15 @@ const ToolFallbackImpl = ({
             />
           </div>
         )}
-        <ToolFallbackArgs
-          argsText={argsText}
-          className={cn(isCancelled && "opacity-60")}
-        />
-        {!isCancelled && !showInlineConfirmation && <ToolFallbackResult result={result} />}
+        {!isCrudLikeResult && (
+          <ToolFallbackArgs
+            argsText={argsText}
+            className={cn(isCancelled && "opacity-60")}
+          />
+        )}
+        {!isCancelled && !showInlineConfirmation && !isCrudLikeResult && (
+          <ToolFallbackResult result={result} />
+        )}
       </ToolFallbackContent>
     </ToolFallbackRoot>
   );

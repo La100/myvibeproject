@@ -26,9 +26,7 @@ import {
 } from "lucide-react";
 import {
   useCallback,
-  useEffect,
   useMemo,
-  useRef,
   type FC,
   type ComponentProps,
 } from "react";
@@ -52,24 +50,6 @@ type ThreadProps = {
   isModeUpdating?: boolean;
 };
 
-type ThreadMessageState = {
-  assistantImageUrl?: string;
-  assistantFallback?: string;
-  userImageUrl?: string;
-  userFallback?: string;
-  pendingItems: PendingContentItem[];
-  onConfirmItem?: (index: number | string) => Promise<void>;
-  onRejectItem?: (index: number | string) => void | Promise<void>;
-  onEditItem?: (index: number) => void;
-  onConfirmAll?: () => Promise<void>;
-  onRejectAll?: () => void | Promise<void>;
-  onUpdateItem?: (index: number | string, updates: Partial<PendingContentItem>) => void;
-  isProcessing: boolean;
-  confirmationMode: "always_ask" | "auto_confirm";
-  onConfirmationModeChange?: (mode: "always_ask" | "auto_confirm") => void | Promise<void>;
-  isModeUpdating: boolean;
-};
-
 export const Thread: FC<ThreadProps> = ({
   showWelcome = true,
   assistantImageUrl,
@@ -88,47 +68,31 @@ export const Thread: FC<ThreadProps> = ({
   onConfirmationModeChange,
   isModeUpdating = false,
 }) => {
-  const messageStateRef = useRef<ThreadMessageState>({
-    assistantImageUrl,
-    assistantFallback,
-    userImageUrl,
-    userFallback,
-    pendingItems,
-    onConfirmItem,
-    onRejectItem,
-    onEditItem,
-    onConfirmAll,
-    onRejectAll,
-    onUpdateItem,
-    isProcessing,
-    confirmationMode,
-    onConfirmationModeChange,
-    isModeUpdating,
-  });
+  const StableUserMessage = useCallback(() => {
+    return <UserMessage imageUrl={userImageUrl} fallback={userFallback} />;
+  }, [userImageUrl, userFallback]);
 
-  useEffect(() => {
-    messageStateRef.current = {
-      assistantImageUrl,
-      assistantFallback,
-      userImageUrl,
-      userFallback,
-      pendingItems,
-      onConfirmItem,
-      onRejectItem,
-      onEditItem,
-      onConfirmAll,
-      onRejectAll,
-      onUpdateItem,
-      isProcessing,
-      confirmationMode,
-      onConfirmationModeChange,
-      isModeUpdating,
-    };
+  const StableAssistantMessage = useCallback(() => {
+    return (
+      <AssistantMessage
+        imageUrl={assistantImageUrl}
+        fallback={assistantFallback}
+        pendingItems={pendingItems}
+        onConfirmItem={onConfirmItem}
+        onRejectItem={onRejectItem}
+        onEditItem={onEditItem}
+        onConfirmAll={onConfirmAll}
+        onRejectAll={onRejectAll}
+        onUpdateItem={onUpdateItem}
+        isProcessing={isProcessing}
+        confirmationMode={confirmationMode}
+        onConfirmationModeChange={onConfirmationModeChange}
+        isModeUpdating={isModeUpdating}
+      />
+    );
   }, [
     assistantImageUrl,
     assistantFallback,
-    userImageUrl,
-    userFallback,
     pendingItems,
     onConfirmItem,
     onRejectItem,
@@ -141,32 +105,6 @@ export const Thread: FC<ThreadProps> = ({
     onConfirmationModeChange,
     isModeUpdating,
   ]);
-
-  const StableUserMessage = useCallback(() => {
-    const state = messageStateRef.current;
-    return <UserMessage imageUrl={state.userImageUrl} fallback={state.userFallback} />;
-  }, []);
-
-  const StableAssistantMessage = useCallback(() => {
-    const state = messageStateRef.current;
-    return (
-      <AssistantMessage
-        imageUrl={state.assistantImageUrl}
-        fallback={state.assistantFallback}
-        pendingItems={state.pendingItems}
-        onConfirmItem={state.onConfirmItem}
-        onRejectItem={state.onRejectItem}
-        onEditItem={state.onEditItem}
-        onConfirmAll={state.onConfirmAll}
-        onRejectAll={state.onRejectAll}
-        onUpdateItem={state.onUpdateItem}
-        isProcessing={state.isProcessing}
-        confirmationMode={state.confirmationMode}
-        onConfirmationModeChange={state.onConfirmationModeChange}
-        isModeUpdating={state.isModeUpdating}
-      />
-    );
-  }, []);
 
   const messageComponents = useMemo(
     () => ({
@@ -438,22 +376,27 @@ const AssistantMessage: FC<AssistantMessageProps> = ({
 }) => {
   const ToolFallbackWithPending = ToolFallback as unknown as FC<ToolFallbackWithPendingProps>;
 
-  const fallbackStateRef = useRef({
-    pendingItems,
-    onConfirmItem,
-    onRejectItem,
-    onEditItem,
-    onConfirmAll,
-    onRejectAll,
-    onUpdateItem,
-    isProcessing,
-    confirmationMode,
-    onConfirmationModeChange,
-    isModeUpdating,
-  });
-
-  useEffect(() => {
-    fallbackStateRef.current = {
+  const PendingAwareToolFallback = useCallback(
+    (props: ComponentProps<typeof ToolFallback>) => {
+      return (
+        <ToolFallbackWithPending
+          {...props}
+          pendingItems={pendingItems}
+          onConfirmItem={onConfirmItem}
+          onRejectItem={onRejectItem}
+          onEditItem={onEditItem}
+          onConfirmAll={onConfirmAll}
+          onRejectAll={onRejectAll}
+          onUpdateItem={onUpdateItem}
+          isProcessing={isProcessing}
+          confirmationMode={confirmationMode}
+          onConfirmationModeChange={onConfirmationModeChange}
+          isModeUpdating={isModeUpdating}
+        />
+      );
+    },
+    [
+      ToolFallbackWithPending,
       pendingItems,
       onConfirmItem,
       onRejectItem,
@@ -465,42 +408,7 @@ const AssistantMessage: FC<AssistantMessageProps> = ({
       confirmationMode,
       onConfirmationModeChange,
       isModeUpdating,
-    };
-  }, [
-    pendingItems,
-    onConfirmItem,
-    onRejectItem,
-    onEditItem,
-    onConfirmAll,
-    onRejectAll,
-    onUpdateItem,
-    isProcessing,
-    confirmationMode,
-    onConfirmationModeChange,
-    isModeUpdating,
-  ]);
-
-  const PendingAwareToolFallback = useCallback(
-    (props: ComponentProps<typeof ToolFallback>) => {
-      const state = fallbackStateRef.current;
-      return (
-        <ToolFallbackWithPending
-          {...props}
-          pendingItems={state.pendingItems}
-          onConfirmItem={state.onConfirmItem}
-          onRejectItem={state.onRejectItem}
-          onEditItem={state.onEditItem}
-          onConfirmAll={state.onConfirmAll}
-          onRejectAll={state.onRejectAll}
-          onUpdateItem={state.onUpdateItem}
-          isProcessing={state.isProcessing}
-          confirmationMode={state.confirmationMode}
-          onConfirmationModeChange={state.onConfirmationModeChange}
-          isModeUpdating={state.isModeUpdating}
-        />
-      );
-    },
-    [ToolFallbackWithPending],
+    ],
   );
 
   return (

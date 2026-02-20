@@ -18,74 +18,24 @@ import type { ProjectContextSnapshot } from "./types";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type RunActionFn = (action: any, args: any) => Promise<any>;
 
-// Search result types (matches what internal.ai.search returns)
-interface TaskSearchResult {
-  _id: Id<"tasks">;
-  title: string;
-  description?: string;
-  status?: string;
-  priority?: string;
-  assignedToName?: string;
-  startDate?: string;
-  endDate?: string;
-  tags?: string[];
-}
+type InternalSearchApi = {
+  getItemById: unknown;
+  searchTasks: unknown;
+  searchNotes: unknown;
+  searchShoppingItems: unknown;
+  searchLaborItems: unknown;
+  searchSurveys: unknown;
+  searchContacts: unknown;
+};
 
-interface ShoppingItemSearchResult {
-  _id: Id<"shoppingListItems">;
-  name: string;
-  quantity?: number;
-  notes?: string;
-  priority?: string;
-  supplier?: string;
-  category?: string;
-  unitPrice?: number;
-  completed?: boolean;
-  sectionId?: string;
-  sectionName?: string;
-}
-
-interface LaborItemSearchResult {
-  _id: Id<"laborItems">;
-  name: string;
-  quantity?: number;
-  unit?: string;
-  notes?: string;
-  unitPrice?: number;
-  totalPrice?: number;
-  sectionId?: string;
-  sectionName?: string;
-}
-
-interface NoteSearchResult {
-  _id: Id<"notes">;
-  title: string;
-  content?: string;
-  isArchived?: boolean;
-  updatedAt?: number;
-  createdAt?: number;
-}
-
-interface SurveySearchResult {
-  _id: Id<"surveys">;
-  title: string;
-  description?: string;
-  status?: string;
-  startDate?: string;
-  endDate?: string;
-  isRequired?: boolean;
-  allowMultipleResponses?: boolean;
-}
-
-interface ContactSearchResult {
-  _id: Id<"contacts">;
-  name: string;
-  companyName?: string;
-  email?: string;
-  phone?: string;
-  type?: string;
-  notes?: string;
-}
+const getInternalSearchApi = (): InternalSearchApi => {
+  // Keep this runtime-loaded to avoid deep type instantiation in TS.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const apiModule = require("../_generated/api") as { internal: unknown };
+  return (
+    apiModule.internal as { ai: { search: InternalSearchApi } }
+  ).ai.search;
+};
 
 // ============================================
 // TOOL SCHEMAS - OPTIMIZED VERSION
@@ -338,36 +288,25 @@ export function createStreamingTools(options?: StreamingToolOptions) {
 
         // Fetch original item from database to show in edit form
         let originalItem: { title?: string; name?: string; _id?: string } | null = null;
-        let debugInfo: any = {};
 
         if (options?.runAction) {
           try {
-            const internalAny = require("../_generated/api").internal as any;
             const tableName = typeToTable[args.type];
-            debugInfo.tableName = tableName;
-            debugInfo.itemId = args.itemId;
+            const searchApi = getInternalSearchApi();
 
             if (tableName) {
               try {
-                originalItem = await options.runAction(internalAny.ai.search.getItemById, {
+                originalItem = await options.runAction(searchApi.getItemById, {
                   tableName,
                   itemId: args.itemId,
                 });
-                debugInfo.lookupSuccess = true;
-                debugInfo.found = !!originalItem;
-              } catch (innerErr) {
-                console.error("Error in runAction:", innerErr);
-                debugInfo.lookupError = String(innerErr);
+              } catch {
+                // Keep fallback below if lookup fails.
               }
-            } else {
-              debugInfo.error = "No table name for type " + args.type;
             }
-          } catch (error) {
-            console.error("Failed to fetch original item:", error);
-            debugInfo.globalError = String(error);
+          } catch {
+            // Keep fallback below if lookup fails.
           }
-        } else {
-          debugInfo.error = "No runAction available";
         }
 
         return JSON.stringify({
@@ -376,7 +315,6 @@ export function createStreamingTools(options?: StreamingToolOptions) {
           data: { itemId: args.itemId },
           updates: args.data,
           originalItem: originalItem || { _id: args.itemId },
-          debug: debugInfo
         });
       },
     },
@@ -386,10 +324,13 @@ export function createStreamingTools(options?: StreamingToolOptions) {
       inputSchema: updateMultipleItemsSchema,
       execute: async (args: z.infer<typeof updateMultipleItemsSchema>) => {
         // Fetch original items from database for bulk edit
-        const originalItems: any[] = [];
+        const originalItems: Array<{
+          itemId: string;
+          originalItem: Record<string, unknown>;
+          updates: Record<string, unknown>;
+        }> = [];
         if (options?.runAction) {
           try {
-            const internalAny = require("../_generated/api").internal as any;
             const typeToTable: Record<string, string> = {
               task: "tasks",
               note: "notes",
@@ -401,14 +342,19 @@ export function createStreamingTools(options?: StreamingToolOptions) {
               laborSection: "laborSections",
             };
             const tableName = typeToTable[args.type];
+            const searchApi = getInternalSearchApi();
             if (tableName) {
               for (const update of args.updates) {
-                const item = await options.runAction(internalAny.ai.search.getItemById, {
+                const item = await options.runAction(searchApi.getItemById, {
                   tableName,
                   itemId: update.itemId,
                 });
-                if (item) {
-                  originalItems.push({ ...item, updates: update.data });
+                if (item && typeof item === "object") {
+                  originalItems.push({
+                    itemId: update.itemId,
+                    originalItem: item as Record<string, unknown>,
+                    updates: update.data as Record<string, unknown>,
+                  });
                 }
               }
             }
@@ -423,9 +369,9 @@ export function createStreamingTools(options?: StreamingToolOptions) {
           data: {
             items: originalItems.length > 0
               ? originalItems.map(item => ({
-                itemId: item._id,
-                originalItem: item,
-                updates: item.updates
+                itemId: item.itemId,
+                originalItem: item.originalItem,
+                updates: item.updates,
               }))
               : args.updates.map(u => ({
                 itemId: u.itemId,
@@ -445,7 +391,7 @@ export function createStreamingTools(options?: StreamingToolOptions) {
         let originalItem: { title?: string; name?: string; _id?: string } | null = null;
         if (options?.runAction) {
           try {
-            const internalAny = require("../_generated/api").internal as any;
+            const searchApi = getInternalSearchApi();
             const typeToTable: Record<string, string> = {
               task: "tasks",
               note: "notes",
@@ -458,7 +404,7 @@ export function createStreamingTools(options?: StreamingToolOptions) {
             };
             const tableName = typeToTable[args.type];
             if (tableName) {
-              originalItem = await options.runAction(internalAny.ai.search.getItemById, {
+              originalItem = await options.runAction(searchApi.getItemById, {
                 tableName,
                 itemId: args.itemId,
               });
@@ -487,16 +433,15 @@ export function createStreamingTools(options?: StreamingToolOptions) {
         }
 
         try {
-          const internalAny = require("../_generated/api").internal as any;
-
+          const searchApi = getInternalSearchApi();
           // Route to appropriate search function based on type
           const searchMap = {
-            task: internalAny.ai.search.searchTasks,
-            note: internalAny.ai.search.searchNotes,
-            shopping: internalAny.ai.search.searchShoppingItems,
-            labor: internalAny.ai.search.searchLaborItems,
-            survey: internalAny.ai.search.searchSurveys,
-            contact: internalAny.ai.search.searchContacts,
+            task: searchApi.searchTasks,
+            note: searchApi.searchNotes,
+            shopping: searchApi.searchShoppingItems,
+            labor: searchApi.searchLaborItems,
+            survey: searchApi.searchSurveys,
+            contact: searchApi.searchContacts,
           };
 
           const searchFn = searchMap[args.type];

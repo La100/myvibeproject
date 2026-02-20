@@ -456,7 +456,12 @@ export const useAIChat = ({ projectId, userClerkId }: UseAIChatProps): UseAIChat
 
   useEffect(() => {
     if (!threadStorageKey || typeof window === "undefined") return;
-    if (!threadId) return;
+
+    if (!threadId) {
+      window.localStorage.removeItem(threadStorageKey);
+      return;
+    }
+
     window.localStorage.setItem(threadStorageKey, threadId);
   }, [threadId, threadStorageKey]);
 
@@ -618,8 +623,6 @@ export const useAIChat = ({ projectId, userClerkId }: UseAIChatProps): UseAIChat
     addFile: (args: { projectId: Id<"projects">; fileKey: string; fileName: string; fileType: string; fileSize: number; origin: string }) => Promise<string>,
     promptOverride?: string
   ) => {
-    console.log("📤 [CLIENT] Starting handleSendMessage");
-
     const promptText = (promptOverride ?? message).trim();
     if (
       !projectId ||
@@ -629,14 +632,6 @@ export const useAIChat = ({ projectId, userClerkId }: UseAIChatProps): UseAIChat
       isStreaming ||
       isSendingRef.current
     ) {
-      console.log("⛔ [CLIENT] Send blocked:", {
-        hasProjectId: !!projectId,
-        hasMessage: !!(promptText || selectedFiles.length > 0),
-        hasUserClerkId: !!userClerkId,
-        isLoading,
-        isStreaming,
-        isSending: isSendingRef.current,
-      });
       return;
     }
 
@@ -644,13 +639,6 @@ export const useAIChat = ({ projectId, userClerkId }: UseAIChatProps): UseAIChat
 
     const userMessage = promptText;
     const hasFiles = selectedFiles.length > 0;
-
-    console.log("📨 [CLIENT] Message prepared:", {
-      messageLength: userMessage.length,
-      hasFiles,
-      filesCount: selectedFiles.length,
-      threadId,
-    });
 
     setIsLoading(true);
 
@@ -661,7 +649,6 @@ export const useAIChat = ({ projectId, userClerkId }: UseAIChatProps): UseAIChat
 
       // Handle file uploads
       if (selectedFiles.length > 0) {
-        console.log("📁 [CLIENT] Starting file uploads:", selectedFiles.length);
         onUploadStart();
 
         for (const file of selectedFiles) {
@@ -710,13 +697,6 @@ export const useAIChat = ({ projectId, userClerkId }: UseAIChatProps): UseAIChat
         ? `📎 Attached: ${selectedFiles.map(f => f.name).join(", ")}`
         : userMessage;
 
-      console.log("🚀 [CLIENT] Calling initiateStreamingMutation:", {
-        threadId: threadId || "undefined (new thread)",
-        projectId,
-        promptLength: prompt.length,
-        fileIds: hasFiles ? currentFileIds : undefined,
-      });
-
       // Use the streaming mutation - this will trigger optimistic update
       // and the useUIMessages hook will receive real-time updates
       const result = await initiateStreamingMutation({
@@ -726,14 +706,7 @@ export const useAIChat = ({ projectId, userClerkId }: UseAIChatProps): UseAIChat
         fileIds: hasFiles ? (currentFileIds as Id<"files">[]) : undefined,
       });
 
-      console.log("✅ [CLIENT] initiateStreamingMutation result:", {
-        success: result?.success,
-        threadId: result?.threadId,
-        error: result?.error,
-      });
-
       if (!threadId && result?.threadId) {
-        console.log("🆔 [CLIENT] Setting new threadId:", result.threadId);
         setThreadIdWithSuppression(result.threadId);
       }
 
@@ -750,7 +723,6 @@ export const useAIChat = ({ projectId, userClerkId }: UseAIChatProps): UseAIChat
       setIsLoading(false);
       throw error;
     } finally {
-      console.log("🏁 [CLIENT] handleSendMessage finished, isSending = false");
       isSendingRef.current = false;
     }
   }, [projectId, userClerkId, message, threadId, initiateStreamingMutation, isLoading, isStreaming, setThreadIdWithSuppression]);

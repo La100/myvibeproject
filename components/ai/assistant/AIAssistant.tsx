@@ -51,6 +51,7 @@ const AIAssistant = () => {
     chatIsLoading,
     handleSendMessage: sendMessageWithFile,
     handleStopResponse,
+    handleClearChat,
     handleNewChat,
     uiMessages,
     isStreaming,
@@ -79,9 +80,13 @@ const AIAssistant = () => {
   });
 
   const handleResetChat = useCallback(async () => {
-    handleNewChat();
+    if (threadId) {
+      await handleClearChat();
+    } else {
+      handleNewChat();
+    }
     resetPendingState();
-  }, [handleNewChat, resetPendingState]);
+  }, [threadId, handleClearChat, handleNewChat, resetPendingState]);
 
   const handleConversationSend = useCallback(
     async (payload: { text: string; files: File[] }) => {
