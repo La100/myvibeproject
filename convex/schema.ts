@@ -93,6 +93,7 @@ export default defineSchema({
   projects: defineTable({
     name: v.string(),
     description: v.optional(v.string()),
+    coverImageUrl: v.optional(v.string()),
     teamId: v.id("teams"),
     slug: v.string(),
     projectId: v.number(), // Numeric project ID for users
@@ -172,8 +173,19 @@ export default defineSchema({
     clientPortalVersion: v.optional(v.number()),
     clientPortalPublishedAt: v.optional(v.number()),
     clientPortalPublishedBy: v.optional(v.string()),
+    // Public, link-only customer panel token.
+    clientPanelAccessToken: v.optional(v.string()),
+    clientPanelPublishedSettings: v.optional(v.object({
+      showNotes: v.optional(v.boolean()),
+      showSupplier: v.optional(v.boolean()),
+      showPrice: v.optional(v.boolean()),
+    })),
+    clientPanelDataVersion: v.optional(v.number()),
+    clientPanelDataUpdatedAt: v.optional(v.number()),
     // Custom AI assistant prompt override
     customAiPrompt: v.optional(v.string()),
+    // If true, CRUD tool calls from AI are auto-confirmed in the assistant UI
+    aiAutoConfirmCrud: v.optional(v.boolean()),
     // Messaging bot configuration (project-scoped assistant integration)
     telegramBotUsername: v.optional(v.string()), // Telegram bot username (without @)
     telegramBotToken: v.optional(v.string()), // Telegram bot token from @BotFather
@@ -185,6 +197,7 @@ export default defineSchema({
     .index("by_project_id", ["projectId"])
     .index("by_status", ["status"])
     .index("by_created_by", ["createdBy"])
+    .index("by_client_panel_access_token", ["clientPanelAccessToken"])
     .index("by_telegram_webhook_secret", ["telegramWebhookSecret"]),
 
   // Tasks in projects
@@ -350,30 +363,6 @@ export default defineSchema({
     .index("by_project", ["projectId"])
     .index("by_org", ["clerkOrgId"]),
 
-  // Customers - 1 customer = 1 project (99% of cases)
-  // For multi-project access: add separate record per project
-  customers: defineTable({
-    email: v.string(),
-    clerkUserId: v.optional(v.string()), // After registration/invitation
-    clerkOrgId: v.string(),
-    projectId: v.id("projects"),         // ✅ 1-to-1 relationship  
-    teamId: v.id("teams"),
-    invitedBy: v.string(),
-    status: v.union(
-      v.literal("invited"),              // invited, waiting for acceptance
-      v.literal("active"),               // active access to project
-      v.literal("inactive")              // access suspended
-    ),
-    invitedAt: v.number(),
-    joinedAt: v.optional(v.number()),
-  })
-    .index("by_email", ["email"])
-    .index("by_project", ["projectId"])
-    .index("by_team", ["teamId"])
-    .index("by_clerk_user", ["clerkUserId"])
-    .index("by_org_and_user", ["clerkOrgId", "clerkUserId"])
-    .index("by_status", ["status"]),
-
   clientPortalAcceptances: defineTable({
     teamId: v.id("teams"),
     projectId: v.id("projects"),
@@ -484,6 +473,46 @@ export default defineSchema({
     .index("by_project", ["projectId"])
     .index("by_section", ["sectionId"])
     .index("by_status", ["realizationStatus"]),
+
+  // Published customer panel snapshot (sections).
+  clientPanelSections: defineTable({
+    projectId: v.id("projects"),
+    name: v.string(),
+    order: v.number(),
+  })
+    .index("by_project", ["projectId"]),
+
+  // Published customer panel snapshot (items/options).
+  clientPanelItems: defineTable({
+    projectId: v.id("projects"),
+    sourceItemId: v.id("shoppingListItems"),
+    name: v.string(),
+    realizationStatus: v.optional(v.union(
+      v.literal("PLANNED"),
+      v.literal("ORDERED"),
+      v.literal("IN_TRANSIT"),
+      v.literal("DELIVERED"),
+      v.literal("COMPLETED"),
+      v.literal("CANCELLED")
+    )),
+    notes: v.optional(v.string()),
+    supplier: v.optional(v.string()),
+    catalogNumber: v.optional(v.string()),
+    category: v.optional(v.string()),
+    dimensions: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
+    productLink: v.optional(v.string()),
+    quantity: v.number(),
+    unit: v.optional(v.string()),
+    unitPrice: v.optional(v.number()),
+    totalPrice: v.optional(v.number()),
+    sectionName: v.optional(v.string()),
+    sectionOrder: v.number(),
+    alternativeToSourceItemId: v.optional(v.union(v.id("shoppingListItems"), v.null())),
+    selectedAlternativeSourceItemId: v.optional(v.union(v.id("shoppingListItems"), v.null())),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_project_and_source", ["projectId", "sourceItemId"]),
 
   // Labor sections for grouping labor items
   laborSections: defineTable({

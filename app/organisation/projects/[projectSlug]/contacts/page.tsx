@@ -21,24 +21,25 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Plus, 
-  Trash2, 
-  Mail, 
-  Phone, 
-  MapPin, 
+import {
+  Plus,
+  Trash2,
+  Mail,
+  Phone,
+  MapPin,
   Building2,
   User
 } from "lucide-react";
 import { toast } from "sonner";
 import { ContactForm } from "@/app/organisation/(company)/contacts/components/ContactForm";
 import { Id } from "@/convex/_generated/dataModel";
+import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 
 export default function ContactsPage() {
   const { project } = useProject();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
-  
+
   // Get project contacts
   const projectContacts = useQuery(apiAny.contacts.getProjectContacts, {
     projectId: project._id,
@@ -53,7 +54,7 @@ export default function ContactsPage() {
         projectId: project._id,
         contactId,
       });
-      
+
       toast.success("Contact removed from project");
     } catch (error) {
       toast.error("Error removing contact");
@@ -69,7 +70,7 @@ export default function ContactsPage() {
   const getTypeLabel = (type: string) => {
     const labels = {
       contractor: "Contractor",
-      supplier: "Supplier", 
+      supplier: "Supplier",
       subcontractor: "Subcontractor",
       other: "Other"
     };
@@ -80,7 +81,7 @@ export default function ContactsPage() {
     const colors = {
       contractor: "bg-blue-100 text-blue-800",
       supplier: "bg-green-100 text-green-800",
-      subcontractor: "bg-purple-100 text-purple-800", 
+      subcontractor: "bg-purple-100 text-purple-800",
       other: "bg-gray-100 text-gray-800"
     };
     return colors[type as keyof typeof colors] || "bg-gray-100 text-gray-800";
@@ -88,15 +89,15 @@ export default function ContactsPage() {
 
 
   return (
-    <div className="p-6">
-      <div className="max-w-4xl mx-auto">
+    <ProjectPageLayout>
+      <div className="p-6">
         <div className="mb-6">
           <h1 className="text-2xl font-bold">Contacts</h1>
           <p className="text-muted-foreground">
             Manage contacts for {project.name}
           </p>
         </div>
-        
+
         <Card>
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
@@ -106,7 +107,7 @@ export default function ContactsPage() {
                   Create and manage contacts for this project
                 </CardDescription>
               </div>
-              
+
               <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                 <DialogTrigger asChild>
                   <Button>
@@ -121,7 +122,7 @@ export default function ContactsPage() {
                       Create a new contact for this project
                     </DialogDescription>
                   </DialogHeader>
-                  
+
                   <ContactForm
                     onSuccess={handleContactCreated}
                     onCancel={() => setIsAddDialogOpen(false)}
@@ -130,7 +131,7 @@ export default function ContactsPage() {
               </Dialog>
             </div>
           </CardHeader>
-          
+
           <CardContent className="px-4 lg:px-6">
             {projectContacts && projectContacts.length > 0 ? (
               <div className="space-y-4">
@@ -149,21 +150,21 @@ export default function ContactsPage() {
                             </Badge>
                           )}
                         </div>
-                        
+
                         {contact.companyName && (
                           <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
                             <Building2 className="h-4 w-4" />
                             <span>{contact.companyName}</span>
                           </div>
                         )}
-                        
+
                         {contact.projectRole && (
                           <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
                             <User className="h-4 w-4" />
                             <span className="font-medium">{contact.projectRole}</span>
                           </div>
                         )}
-                        
+
                         <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
                           {contact.email && (
                             <div className="flex items-center gap-1">
@@ -171,14 +172,14 @@ export default function ContactsPage() {
                               <span>{contact.email}</span>
                             </div>
                           )}
-                          
+
                           {contact.phone && (
                             <div className="flex items-center gap-1">
                               <Phone className="h-4 w-4" />
                               <span>{contact.phone}</span>
                             </div>
                           )}
-                          
+
                           {contact.city && (
                             <div className="flex items-center gap-1">
                               <MapPin className="h-4 w-4" />
@@ -186,14 +187,14 @@ export default function ContactsPage() {
                             </div>
                           )}
                         </div>
-                        
+
                         {contact.projectNotes && (
                           <p className="text-sm text-muted-foreground mt-2 p-2 bg-muted rounded">
                             {contact.projectNotes}
                           </p>
                         )}
                       </div>
-                      
+
                       <Button
                         variant="ghost"
                         size="sm"
@@ -219,6 +220,6 @@ export default function ContactsPage() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </ProjectPageLayout>
   );
 }

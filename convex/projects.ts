@@ -1,5 +1,4 @@
 import { v } from "convex/values";
-import { internal } from "./_generated/api";
 import { internalMutation, internalQuery, query, mutation } from "./_generated/server";
 import { Id, Doc } from "./_generated/dataModel";
 const internalAny = require("./_generated/api").internal as any;
@@ -11,6 +10,9 @@ const generateSlug = (name: string) => {
     .replace(/\s+/g, "-")
     .replace(/[^\w-]+/g, "");
 };
+
+const generateClientPanelAccessToken = () =>
+  crypto.randomUUID().replace(/-/g, "");
 
 // Utility function to generate next project ID
 const generateNextProjectId = async (ctx: any) => {
@@ -55,8 +57,21 @@ const defaultClientPortalPermissions = {
   settings: { visible: false },
 };
 
+const clientPanelDisplaySettingsValidator = {
+  showNotes: v.optional(v.boolean()),
+  showSupplier: v.optional(v.boolean()),
+  showPrice: v.optional(v.boolean()),
+};
+
+const defaultClientPanelDisplaySettings = {
+  showNotes: true,
+  showSupplier: true,
+  showPrice: true,
+};
+
 type ClientPortalPermissionKey = keyof typeof defaultClientPortalPermissions;
 type ClientPortalPermissions = Record<ClientPortalPermissionKey, { visible: boolean }>;
+type ClientPanelDisplaySettings = typeof defaultClientPanelDisplaySettings;
 
 const getResolvedClientPortalPermissions = (
   permissions?: Partial<ClientPortalPermissions> | null
@@ -77,6 +92,14 @@ const hasPermissionChanges = (
   (Object.keys(defaultClientPortalPermissions) as ClientPortalPermissionKey[]).some(
     (key) => left[key].visible !== right[key].visible
   );
+
+const getResolvedClientPanelDisplaySettings = (
+  settings?: Partial<ClientPanelDisplaySettings> | null
+): ClientPanelDisplaySettings => ({
+  showNotes: settings?.showNotes ?? defaultClientPanelDisplaySettings.showNotes,
+  showSupplier: settings?.showSupplier ?? defaultClientPanelDisplaySettings.showSupplier,
+  showPrice: settings?.showPrice ?? defaultClientPanelDisplaySettings.showPrice,
+});
 
 const getProjectManagerMembership = async (
   ctx: any,
@@ -205,24 +228,7 @@ export const listProjectsByClerkOrg = query({
         projects = projectResults.filter(p => p !== null);
       }
     } else {
-      // Check if user is a customer with access to specific projects (legacy)
-      const customerAccess = await ctx.db
-        .query("customers")
-        .withIndex("by_clerk_user", q => q.eq("clerkUserId", identity.subject))
-        .filter(q => q.and(
-          q.eq(q.field("teamId"), team._id),
-          q.eq(q.field("status"), "active")
-        ))
-        .collect();
-
-      if (customerAccess.length > 0) {
-        const projectIds = customerAccess.map(c => c.projectId);
-        const projectPromises = projectIds.map(id => ctx.db.get(id));
-        const projectResults = await Promise.all(projectPromises);
-        projects = projectResults.filter(p => p !== null);
-      } else {
-        return [];
-      }
+      return [];
     }
 
     const tasks = await ctx.db
@@ -300,6 +306,7 @@ export const createProjectInOrg = mutation({
   args: {
     name: v.string(),
     description: v.optional(v.string()),
+    coverImageUrl: v.optional(v.string()),
     clerkOrgId: v.string(),
     teamId: v.id("teams"),
     customer: v.optional(v.string()),
@@ -348,7 +355,7 @@ export const createProjectInOrg = mutation({
     const nextProjectId = await generateNextProjectId(ctx);
 
     // Check if creator is already a team member
-    let creatorMembership = await ctx.db
+    const creatorMembership = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) => q.eq("teamId", team._id).eq("clerkUserId", identity.subject))
       .unique();
@@ -369,9 +376,12 @@ export const createProjectInOrg = mutation({
       await ctx.db.patch(creatorMembership._id, { role: "admin" });
     }
 
+    const normalizedCoverImageUrl = args.coverImageUrl?.trim();
+
     const projectId = await ctx.db.insert("projects", {
       name: args.name,
       description: args.description,
+      coverImageUrl: normalizedCoverImageUrl || undefined,
       teamId: args.teamId,
       slug: slug,
       projectId: nextProjectId,
@@ -385,6 +395,7 @@ export const createProjectInOrg = mutation({
       createdBy: identity.subject,
       assignedTo: [],
       taskStatusSettings: defaultStatusSettings,
+      aiAutoConfirmCrud: false,
     });
 
     await ctx.runMutation(internalAny.activityLog.logActivity, {
@@ -542,6 +553,7 @@ export const updateProject = mutation({
     projectId: v.id("projects"),
     name: v.optional(v.string()),
     description: v.optional(v.string()),
+    coverImageUrl: v.optional(v.string()),
     status: v.optional(v.union(
       v.literal("planning"),
       v.literal("active"),
@@ -563,6 +575,7 @@ export const updateProject = mutation({
     )),
     taskStatusSettings: v.optional(v.any()), // Allow any object for simplification
     customAiPrompt: v.optional(v.string()),
+    aiAutoConfirmCrud: v.optional(v.boolean()),
     telegramBotUsername: v.optional(v.string()),
     telegramBotToken: v.optional(v.string()),
     whatsappNumber: v.optional(v.string()),
@@ -571,7 +584,7 @@ export const updateProject = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
-    const { projectId, name, telegramBotToken, ...rest } = args;
+    const { projectId, name, telegramBotToken, coverImageUrl, ...rest } = args;
 
     const existingProject = await ctx.db.get(projectId);
     if (!existingProject) {
@@ -594,6 +607,11 @@ export const updateProject = mutation({
       ? generateTelegramWebhookSecret()
       : existingProject.telegramWebhookSecret;
     const telegramTokenPatch = telegramTokenProvided ? { telegramBotToken } : {};
+    const coverImageProvided = Object.prototype.hasOwnProperty.call(args, "coverImageUrl");
+    const normalizedCoverImageUrl = coverImageProvided ? coverImageUrl?.trim() : undefined;
+    const coverImagePatch = coverImageProvided
+      ? { coverImageUrl: normalizedCoverImageUrl || undefined }
+      : {};
     
     if (name && name !== existingProject.name) {
       const baseSlug = generateSlug(name);
@@ -618,6 +636,7 @@ export const updateProject = mutation({
         name,
         slug,
         ...telegramTokenPatch,
+        ...coverImagePatch,
         ...(shouldRotateTelegramSecret ? { telegramWebhookSecret } : {}),
         ...rest,
       });
@@ -632,6 +651,7 @@ export const updateProject = mutation({
     } else {
       await ctx.db.patch(projectId, {
         ...telegramTokenPatch,
+        ...coverImagePatch,
         ...(shouldRotateTelegramSecret ? { telegramWebhookSecret } : {}),
         ...rest,
       });
@@ -813,6 +833,182 @@ export const updateProjectSidebarPermissions = mutation({
   },
 });
 
+export const ensureClientPanelAccessToken = mutation({
+  args: {
+    projectId: v.id("projects"),
+  },
+  async handler(ctx, args) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const { project } = await getProjectManagerMembership(ctx, args.projectId, identity.subject);
+
+    if (project.clientPanelAccessToken) {
+      return { token: project.clientPanelAccessToken };
+    }
+
+    const token = generateClientPanelAccessToken();
+    await ctx.db.patch(args.projectId, {
+      clientPanelAccessToken: token,
+    });
+
+    return { token };
+  },
+});
+
+export const regenerateClientPanelAccessToken = mutation({
+  args: {
+    projectId: v.id("projects"),
+  },
+  async handler(ctx, args) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    await getProjectManagerMembership(ctx, args.projectId, identity.subject);
+
+    const token = generateClientPanelAccessToken();
+    await ctx.db.patch(args.projectId, {
+      clientPanelAccessToken: token,
+    });
+
+    return { token };
+  },
+});
+
+export const getClientPanelConfiguration = query({
+  args: {
+    projectId: v.id("projects"),
+  },
+  async handler(ctx, args) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return null;
+    }
+
+    const { project } = await getProjectManagerMembership(ctx, args.projectId, identity.subject);
+
+    const itemCount = (
+      await ctx.db
+        .query("clientPanelItems")
+        .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+        .collect()
+    ).length;
+
+    return {
+      accessToken: project.clientPanelAccessToken || null,
+      settings: getResolvedClientPanelDisplaySettings(
+        project.clientPanelPublishedSettings as Partial<ClientPanelDisplaySettings> | null
+      ),
+      version: project.clientPanelDataVersion || 0,
+      updatedAt: project.clientPanelDataUpdatedAt || null,
+      itemCount,
+    };
+  },
+});
+
+export const publishClientPanelData = mutation({
+  args: {
+    projectId: v.id("projects"),
+    settings: v.object(clientPanelDisplaySettingsValidator),
+  },
+  async handler(ctx, args) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const { project } = await getProjectManagerMembership(ctx, args.projectId, identity.subject);
+
+    const sections = await ctx.db
+      .query("shoppingListSections")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .order("asc")
+      .collect();
+
+    const sectionMetaById = new Map(
+      sections.map((section) => [String(section._id), { name: section.name, order: section.order }])
+    );
+
+    const items = await ctx.db
+      .query("shoppingListItems")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+
+    const existingSnapshotItems = await ctx.db
+      .query("clientPanelItems")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+    await Promise.all(existingSnapshotItems.map((item) => ctx.db.delete(item._id)));
+
+    const existingSnapshotSections = await ctx.db
+      .query("clientPanelSections")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+    await Promise.all(existingSnapshotSections.map((section) => ctx.db.delete(section._id)));
+
+    for (const section of sections) {
+      await ctx.db.insert("clientPanelSections", {
+        projectId: args.projectId,
+        name: section.name,
+        order: section.order,
+      });
+    }
+
+    for (const item of items) {
+      const sectionMeta =
+        item.sectionId && sectionMetaById.has(String(item.sectionId))
+          ? sectionMetaById.get(String(item.sectionId))
+          : null;
+
+      await ctx.db.insert("clientPanelItems", {
+        projectId: args.projectId,
+        sourceItemId: item._id,
+        name: item.name,
+        realizationStatus: item.realizationStatus,
+        notes: item.notes,
+        supplier: item.supplier,
+        catalogNumber: item.catalogNumber,
+        category: item.category,
+        dimensions: item.dimensions,
+        imageUrl: item.imageUrl,
+        productLink: item.productLink,
+        quantity: item.quantity,
+        unit: item.unit,
+        unitPrice: item.unitPrice,
+        totalPrice: item.totalPrice,
+        sectionName: sectionMeta?.name,
+        sectionOrder: sectionMeta?.order ?? Number.MAX_SAFE_INTEGER,
+        alternativeToSourceItemId: item.alternativeToItemId || null,
+        selectedAlternativeSourceItemId: item.selectedAlternativeItemId || null,
+      });
+    }
+
+    const resolvedSettings = getResolvedClientPanelDisplaySettings(args.settings);
+    const version = (project.clientPanelDataVersion || 0) + 1;
+    const updatedAt = Date.now();
+    const token = project.clientPanelAccessToken || generateClientPanelAccessToken();
+
+    await ctx.db.patch(args.projectId, {
+      clientPanelAccessToken: token,
+      clientPanelPublishedSettings: resolvedSettings,
+      clientPanelDataVersion: version,
+      clientPanelDataUpdatedAt: updatedAt,
+    });
+
+    return {
+      success: true,
+      token,
+      version,
+      updatedAt,
+      itemCount: items.length,
+    };
+  },
+});
+
 export const publishClientPortal = mutation({
   args: {
     projectId: v.id("projects"),
@@ -868,12 +1064,13 @@ export const getClientPortalConfiguration = query({
     const hasUnpublishedChanges =
       portalVersion === 0 || hasPermissionChanges(draftPermissions, publishedPermissions);
 
-    const projectCustomers = await ctx.db
-      .query("customers")
+    const customerInvitations = await ctx.db
+      .query("pendingCustomerInvitations")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
 
-    let acceptedCustomers = 0;
+    const pendingCustomers = customerInvitations.filter((invitation) => invitation.status === "pending").length;
+    let acceptedCustomers = customerInvitations.filter((invitation) => invitation.status === "accepted").length;
     if (portalVersion > 0) {
       const acceptances = await ctx.db
         .query("clientPortalAcceptances")
@@ -892,9 +1089,9 @@ export const getClientPortalConfiguration = query({
       publishedAt: project.clientPortalPublishedAt || null,
       publishedBy: project.clientPortalPublishedBy || null,
       stats: {
-        totalCustomers: projectCustomers.length,
-        activeCustomers: projectCustomers.filter((customer) => customer.status === "active").length,
-        pendingCustomers: projectCustomers.filter((customer) => customer.status === "invited").length,
+        totalCustomers: pendingCustomers + acceptedCustomers,
+        activeCustomers: acceptedCustomers,
+        pendingCustomers,
         acceptedCustomers,
       },
     };
@@ -924,24 +1121,13 @@ export const acceptLatestClientPortal = mutation({
       .filter((q) => q.eq(q.field("isActive"), true))
       .unique();
 
-    const customerRecord = await ctx.db
-      .query("customers")
-      .withIndex("by_clerk_user", (q) => q.eq("clerkUserId", identity.subject))
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("projectId"), args.projectId),
-          q.eq(q.field("status"), "active")
-        )
-      )
-      .first();
-
     const hasCustomerRoleInProject =
       teamMember?.role === "customer" &&
       (!teamMember.projectIds ||
         teamMember.projectIds.length === 0 ||
         teamMember.projectIds.includes(args.projectId));
 
-    if (!hasCustomerRoleInProject && !customerRecord) {
+    if (!hasCustomerRoleInProject) {
       throw new Error("Only project customers can accept portal updates.");
     }
 
@@ -998,16 +1184,6 @@ export const getProjectSidebarPermissions = query({
       )
       .unique();
 
-    // Check if user is a project customer
-    const customerAccess = await ctx.db
-      .query("customers")
-      .withIndex("by_clerk_user", q => q.eq("clerkUserId", identity.subject))
-      .filter(q => q.and(
-        q.eq(q.field("projectId"), args.projectId),
-        q.eq(q.field("status"), "active")
-      ))
-      .unique();
-
     const acceptance = await ctx.db
       .query("clientPortalAcceptances")
       .withIndex("by_project_and_user", (q) =>
@@ -1058,7 +1234,7 @@ export const getProjectSidebarPermissions = query({
     }
 
     // If user is a customer, apply restrictions
-    if (teamMember?.role === "customer" || customerAccess) {
+    if (teamMember?.role === "customer") {
       const publishedPermissions = getResolvedClientPortalPermissions(
         (project.clientPortalPublishedPermissions ||
           project.sidebarPermissions) as Partial<ClientPortalPermissions> | null
@@ -1066,7 +1242,7 @@ export const getProjectSidebarPermissions = query({
       
       return {
         permissions: publishedPermissions,
-        userRole: teamMember?.role || "customer",
+        userRole: teamMember.role,
         isCustomer: true,
         portal: portalState,
       };
@@ -1155,12 +1331,6 @@ export const deleteProject = mutation({
       )
     ).then(results => results.flat());
 
-    // Delete all customer records associated with this project
-    const projectCustomers = await ctx.db
-      .query("customers")
-      .filter(q => q.eq(q.field("projectId"), args.projectId))
-      .collect();
-
     // Handle team members with role "customer" - remove project or delete member entirely
     const customerTeamMembers = await ctx.db
       .query("teamMembers")
@@ -1183,35 +1353,9 @@ export const deleteProject = mutation({
           await ctx.db.patch(member._id, { projectIds: updatedProjectIds });
           console.log(`Updated customer team member ${member.clerkUserId} - removed project from list`);
         }
-      } else {
-        // Check if customer has access to this project through customers table
-        const customerRecord = await ctx.db
-          .query("customers")
-          .withIndex("by_clerk_user", q => q.eq("clerkUserId", member.clerkUserId))
-          .filter(q => q.eq(q.field("projectId"), args.projectId))
-          .first();
-        
-        if (customerRecord) {
-          // Customer was linked to this project - check if they have other projects
-          const otherCustomerRecords = await ctx.db
-            .query("customers")
-            .withIndex("by_clerk_user", q => q.eq("clerkUserId", member.clerkUserId))
-            .filter(q => q.neq(q.field("projectId"), args.projectId))
-            .collect();
-          
-          if (otherCustomerRecords.length === 0) {
-            // No other projects - remove member
-            await ctx.db.delete(member._id);
-            console.log(`Deleted customer team member ${member.clerkUserId} - was only connected to deleted project`);
-          }
-        }
       }
     });
     await Promise.all(memberOperationPromises);
-
-    // Delete all customer records for this project
-    const customerDeletionPromises = projectCustomers.map(customer => ctx.db.delete(customer._id));
-    await Promise.all(customerDeletionPromises);
 
     // Delete all client portal acceptance records for this project
     const portalAcceptances = await ctx.db

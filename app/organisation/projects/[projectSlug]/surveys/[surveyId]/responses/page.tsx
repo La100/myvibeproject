@@ -8,6 +8,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Users, FileText } from "lucide-react";
+import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 
 interface SurveyResponsesPageProps {
   params: Promise<{
@@ -32,21 +33,21 @@ export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps
     });
   }, [params]);
 
-  const survey = useQuery(apiAny.surveys.getSurvey, 
+  const survey = useQuery(apiAny.surveys.getSurvey,
     routeParams ? { surveyId: routeParams.surveyId } : "skip"
   );
-  const responses = useQuery(apiAny.surveys.getSurveyResponses, 
+  const responses = useQuery(apiAny.surveys.getSurveyResponses,
     routeParams ? { surveyId: routeParams.surveyId } : "skip"
   );
 
   // Get user info for each response
   const userIds = responses?.map(r => r.respondentId).filter(Boolean) || [];
-  const users = useQuery(apiAny.users.getByClerkIds, 
+  const users = useQuery(apiAny.users.getByClerkIds,
     userIds.length > 0 ? { clerkUserIds: userIds } : "skip"
   );
 
   // Get current user role to customize view
-  const currentUserMember = useQuery(apiAny.teams.getCurrentUserTeamMember, 
+  const currentUserMember = useQuery(apiAny.teams.getCurrentUserTeamMember,
     routeParams && survey && survey.teamId ? { teamId: survey.teamId } : "skip"
   );
 
@@ -78,8 +79,8 @@ export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps
   };
 
   return (
-    <div className="min-h-screen bg-gray-50/50">
-      <div className="container mx-auto p-6 max-w-5xl">
+    <ProjectPageLayout>
+      <div className="p-6">
         <div className="flex items-center gap-4 mb-8">
           <Button
             variant="outline"
@@ -100,50 +101,50 @@ export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps
 
         <div className="grid gap-6 md:grid-cols-2 mb-6">
           <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Users className="h-5 w-5 text-black" />
-                  {isClient ? "Status" : "Responses"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {isClient ? (responses?.length ?? 0 > 0 ? "Submitted" : "None") : (responses?.length ?? 0)}
-                </div>
-                <p className="text-sm text-gray-600">
-                  {isClient ? "Your response" : "Total responses"}
-                </p>
-              </CardContent>
-            </Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Users className="h-5 w-5 text-black" />
+                {isClient ? "Status" : "Responses"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {isClient ? (responses?.length ?? 0 > 0 ? "Submitted" : "None") : (responses?.length ?? 0)}
+              </div>
+              <p className="text-sm text-gray-600">
+                {isClient ? "Your response" : "Total responses"}
+              </p>
+            </CardContent>
+          </Card>
 
           <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-black" />
-                  Questions
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {survey.questions ? survey.questions.length : 0}
-                </div>
-                <p className="text-sm text-gray-600">Number of questions</p>
-              </CardContent>
-            </Card>
-          </div>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <FileText className="h-5 w-5 text-black" />
+                Questions
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {survey.questions ? survey.questions.length : 0}
+              </div>
+              <p className="text-sm text-gray-600">Number of questions</p>
+            </CardContent>
+          </Card>
+        </div>
 
         {((responses?.length ?? 0) === 0) ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>{isClient ? "No response yet" : "No responses"}</CardTitle>
-                <CardDescription>
-                  {isClient 
-                  ? "You have not filled out this survey yet." 
+          <Card>
+            <CardHeader>
+              <CardTitle>{isClient ? "No response yet" : "No responses"}</CardTitle>
+              <CardDescription>
+                {isClient
+                  ? "You have not filled out this survey yet."
                   : "No one has responded to this survey yet."
-                  }
-                </CardDescription>
-              </CardHeader>
-            </Card>
+                }
+              </CardDescription>
+            </CardHeader>
+          </Card>
         ) : (
           <div className="space-y-6">
             {responses?.map((response, responseIndex) => (
@@ -192,6 +193,6 @@ export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps
           </div>
         )}
       </div>
-    </div>
+    </ProjectPageLayout>
   );
 }

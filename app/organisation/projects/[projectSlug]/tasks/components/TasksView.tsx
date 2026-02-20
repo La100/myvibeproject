@@ -38,7 +38,7 @@ import {
   KanbanHeader,
   type DragEndEvent,
 } from '@/components/ui/shadcn-io/kanban';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Spinner } from '@/components/ui/spinner';
 import { format } from 'date-fns';
 
 const formatDateTime = (timestamp: number | undefined): string => {
@@ -125,55 +125,7 @@ const getPriorityDisplay = (priority: TaskPriority) => {
 };
 
 export function TasksViewSkeleton({ viewMode = "kanban" }: { viewMode?: "kanban" | "list" }) {
-  return (
-    <div className="p-4 h-full flex flex-col animate-pulse">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-4">
-        <Skeleton className="h-9 w-48" />
-        <div className="flex items-center gap-2">
-          <Skeleton className="h-10 w-24" />
-          <Skeleton className="h-10 w-10" />
-          <Skeleton className="h-10 w-10" />
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="flex items-center gap-2 mb-4">
-        <Skeleton className="h-10 flex-grow" />
-        <Skeleton className="h-10 w-32" />
-        <Skeleton className="h-10 w-32" />
-        <Skeleton className="h-10 w-32" />
-        <Skeleton className="h-10 w-24" />
-      </div>
-
-      {/* Content */}
-      {viewMode === 'kanban' ? (
-        <div className="flex-grow grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="bg-muted/50 rounded-lg p-2">
-              <Skeleton className="h-6 w-3/4 mb-4" />
-              <div className="space-y-3">
-                <Skeleton className="h-24 w-full rounded-lg" />
-                <Skeleton className="h-24 w-full rounded-lg" />
-                <Skeleton className="h-24 w-full rounded-lg" />
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="flex-grow border rounded-lg">
-          <div className="p-4">
-            <Skeleton className="h-8 w-full" />
-          </div>
-          <div className="p-4 space-y-3">
-            {[...Array(5)].map((_, i) => (
-              <Skeleton key={i} className="h-12 w-full" />
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  return <Spinner className={cn("p-4", viewMode === "kanban" ? "min-h-[420px]" : "min-h-[320px]")} />;
 }
 
 export default function TasksView() {

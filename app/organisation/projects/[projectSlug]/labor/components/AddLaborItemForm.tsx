@@ -318,7 +318,7 @@ export function AddLaborItemForm({
         <Button
           onClick={handleAddItem}
           disabled={isPending || isUploadingAttachment || !newItemName.trim()}
-          className="rounded-full bg-[var(--ui-action-bg)] px-6 h-11 text-[var(--primary-foreground)] shadow-[0_14px_36px_rgba(14,14,14,0.18)] hover:bg-[var(--ui-action-hover)]"
+          className="rounded-lg bg-[var(--ui-action-bg)] px-6 h-11 text-[var(--primary-foreground)] shadow-[0_14px_36px_rgba(14,14,14,0.18)] hover:bg-[var(--ui-action-hover)]"
         >
           {isUploadingAttachment ? 'Uploading...' : isPending ? 'Adding...' : 'Add Labor Item'}
         </Button>

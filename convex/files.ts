@@ -7,6 +7,16 @@ import { Id } from "./_generated/dataModel";
 
 export const r2 = new R2(components.r2);
 
+const buildPublicR2FileUrl = (key: string) => {
+  const publicBaseUrl = (process.env.NEXT_PUBLIC_R2_PUBLIC_URL || process.env.R2_PUBLIC_URL || "")
+    .trim()
+    .replace(/\/+$/, "");
+  if (!publicBaseUrl) {
+    return "";
+  }
+  return `${publicBaseUrl}/${key}`;
+};
+
 // Get team storage usage in bytes
 export const getTeamStorageUsage = query({
   args: { teamId: v.id("teams") },
@@ -218,7 +228,7 @@ export const generateUploadUrlWithCustomKey = mutation({
     return {
       url: uploadData.url,
       key: customKey,
-      publicUrl: "", // Not needed - we use signed URLs
+      publicUrl: buildPublicR2FileUrl(customKey),
     };
   },
 });

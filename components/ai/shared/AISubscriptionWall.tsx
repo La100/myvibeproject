@@ -52,26 +52,26 @@ const AI_FEATURES = [
 
 export function AISubscriptionWall({ teamId }: AISubscriptionWallProps) {
   const [loading, setLoading] = useState(false);
-  
+
   const subscription = useQuery(apiAny.stripe.getTeamSubscription, { teamId });
   const createCheckoutSession = useAction(apiAny.stripeActions.createCheckoutSession);
 
   const handleSubscribe = async () => {
     const priceId = process.env.NEXT_PUBLIC_STRIPE_AI_PRICE_ID;
-    
+
     if (!priceId) {
       toast.error("Stripe price ID not configured. Please contact support.");
       console.error("NEXT_PUBLIC_STRIPE_AI_PRICE_ID is not set");
       return;
     }
-    
+
     setLoading(true);
     try {
       const result = await createCheckoutSession({
         teamId,
         priceId,
       });
-      
+
       if (result.url) {
         // Redirect to Stripe Checkout
         window.location.href = result.url;
@@ -106,19 +106,19 @@ export function AISubscriptionWall({ teamId }: AISubscriptionWallProps) {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ delay: 0.2 }}
-              className="inline-flex items-center rounded-full border border-border bg-background/50 px-3 py-1 text-sm font-medium text-muted-foreground backdrop-blur-sm mx-auto lg:mx-0"
+              className="inline-flex items-center rounded-lg border border-border bg-background/50 px-3 py-1 text-sm font-medium text-muted-foreground backdrop-blur-sm mx-auto lg:mx-0"
             >
               <Sparkles className="mr-2 h-4 w-4 text-foreground" />
               Unlock the full potential
             </motion.div>
-            
+
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight font-display">
               Power up with <br />
               <span className="italic text-muted-foreground font-serif">AI Intelligence</span>
             </h1>
-            
+
             <p className="text-xl text-muted-foreground max-w-lg mx-auto lg:mx-0 leading-relaxed">
-              Transform your project management with AI-powered assistance, 
+              Transform your project management with AI-powered assistance,
               smart content generation, and creative image synthesis.
             </p>
           </div>
@@ -154,22 +154,22 @@ export function AISubscriptionWall({ teamId }: AISubscriptionWallProps) {
           <Card className="relative overflow-hidden rounded-3xl border-2 border-primary/5 bg-card/80 backdrop-blur-xl shadow-2xl">
             {/* Subtle background glow */}
             <div className="absolute -top-20 -right-20 w-64 h-64 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
-            
+
             <CardHeader className="relative text-center pb-8 pt-8">
-              <Badge variant="secondary" className="w-fit mx-auto mb-6 rounded-full px-4 py-1.5 font-medium">
+              <Badge variant="secondary" className="w-fit mx-auto mb-6 rounded-lg px-4 py-1.5 font-medium">
                 Pro Plan
               </Badge>
-              
+
               <div className="flex items-baseline justify-center gap-1">
                 <span className="text-5xl font-bold tracking-tight font-display">$39</span>
                 <span className="text-muted-foreground text-lg font-normal">/month</span>
               </div>
-              
+
               <CardDescription className="text-base mt-4 max-w-xs mx-auto">
                 Everything you need to supercharge your workflow with AI
               </CardDescription>
             </CardHeader>
-            
+
             <CardContent className="relative space-y-8 pb-8 px-8">
               {/* Benefits list */}
               <div className="space-y-4">
@@ -199,7 +199,7 @@ export function AISubscriptionWall({ teamId }: AISubscriptionWallProps) {
                   disabled={loading}
                   size="lg"
                   className={cn(
-                    "w-full h-14 text-base font-semibold rounded-full",
+                    "w-full h-14 text-base font-semibold rounded-lg",
                     "bg-foreground text-background hover:bg-foreground/90",
                     "shadow-lg hover:shadow-xl transition-all duration-300"
                   )}
@@ -232,7 +232,7 @@ export function AISubscriptionWall({ teamId }: AISubscriptionWallProps) {
               transition={{ delay: 0.8 }}
               className="mt-6 text-center"
             >
-              <p className="text-sm text-muted-foreground bg-muted/50 inline-flex items-center px-3 py-1 rounded-full">
+              <p className="text-sm text-muted-foreground bg-muted/50 inline-flex items-center px-3 py-1 rounded-lg">
                 <Lock className="w-3 h-3 mr-2" />
                 Current plan: <span className="font-medium ml-1">{subscription.planDetails.name}</span>
                 {subscription.subscriptionStatus === "trialing" && (

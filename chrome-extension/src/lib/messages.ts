@@ -4,8 +4,10 @@ export const ACTIONS = {
   CAN_OPEN_CLIPPER: "canOpenClipper",
   DETECT_PRODUCT: "detectProduct",
   ENABLE_IMAGE_PICKER: "enableImagePicker",
+  ENABLE_SCREENSHOT_PICKER: "enableScreenshotPicker",
   OPEN_IFRAME_POPUP: "openIframePopup",
   CLOSE_IFRAME_POPUP: "closeIframePopup",
+  CAPTURE_VISIBLE_TAB: "captureVisibleTab",
   IMAGE_SELECTED: "imageSelected",
   AUTH_COMPLETED: "authCompleted",
 } as const

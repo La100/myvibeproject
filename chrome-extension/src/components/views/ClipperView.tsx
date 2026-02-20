@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   ArrowLeft,
+  Camera,
   ExternalLink,
   ImagePlus,
   Loader2,
@@ -41,9 +42,10 @@ interface DetectResponse {
   error?: string
 }
 
-interface ImagePickerResponse {
+interface PickerActivationResponse {
   success?: boolean
   count?: number
+  error?: string
 }
 
 const NO_SECTION_VALUE = "__none"
@@ -76,7 +78,17 @@ function parseNumber(value?: string): number | null {
       normalized = cleaned.replace(/,/g, "")
     }
   } else if (commaCount > 0) {
-    normalized = cleaned.replace(/,/g, ".")
+    if (commaCount > 1) {
+      normalized = cleaned.replace(/,/g, "")
+    } else {
+      const [whole = "", fraction = ""] = cleaned.split(",")
+      normalized =
+        fraction.length === 3 && whole.length > 0
+          ? `${whole}${fraction}`
+          : cleaned.replace(",", ".")
+    }
+  } else if (dotCount > 1) {
+    normalized = cleaned.replace(/\./g, "")
   }
 
   const parsed = Number.parseFloat(normalized)
@@ -94,6 +106,7 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
   const [isLoading, setIsLoading] = useState(false)
   const [isDetecting, setIsDetecting] = useState(false)
   const [isImagePickerActive, setIsImagePickerActive] = useState(false)
+  const [isScreenshotPickerActive, setIsScreenshotPickerActive] = useState(false)
 
   const isIframeMode = useMemo(() => window.self !== window.top, [])
 
@@ -207,6 +220,7 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
     }
   }
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refresh should run when selected project/team changes
   useEffect(() => {
     void refreshSections()
     void detectProductFromPage()
@@ -221,6 +235,7 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
         if (typeof incoming.imageUrl === "string" && incoming.imageUrl.length > 0) {
           setProduct((prev) => ({ ...prev, imageUrl: incoming.imageUrl }))
           setIsImagePickerActive(false)
+          setIsScreenshotPickerActive(false)
           showToast("Image updated.", "success")
         }
       }
@@ -242,24 +257,52 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
   }
 
   const handleImagePicker = async () => {
-    if (isImagePickerActive) return
+    if (isImagePickerActive || isScreenshotPickerActive) return
 
     try {
-      const response = await sendMessageToActiveTab<ImagePickerResponse>({
+      const response = await sendMessageToActiveTab<PickerActivationResponse>({
         action: ACTIONS.ENABLE_IMAGE_PICKER,
       })
 
       if (!response?.success) {
         setIsImagePickerActive(false)
+        setIsScreenshotPickerActive(false)
         showToast("No selectable images found on this page.", "info")
         return
       }
 
       setIsImagePickerActive(true)
+      setIsScreenshotPickerActive(false)
       showToast("Click an image on the page to select it.", "info")
     } catch {
       setIsImagePickerActive(false)
+      setIsScreenshotPickerActive(false)
       showToast("Could not start image picker on this page.", "error")
+    }
+  }
+
+  const handleScreenshotPicker = async () => {
+    if (isScreenshotPickerActive || isImagePickerActive) return
+
+    try {
+      const response = await sendMessageToActiveTab<PickerActivationResponse>({
+        action: ACTIONS.ENABLE_SCREENSHOT_PICKER,
+      })
+
+      if (!response?.success) {
+        setIsScreenshotPickerActive(false)
+        setIsImagePickerActive(false)
+        showToast(response?.error ?? "Could not start area capture.", "error")
+        return
+      }
+
+      setIsScreenshotPickerActive(true)
+      setIsImagePickerActive(false)
+      showToast("Drag on the page to capture an area.", "info")
+    } catch {
+      setIsScreenshotPickerActive(false)
+      setIsImagePickerActive(false)
+      showToast("Could not start area capture on this page.", "error")
     }
   }
 
@@ -402,14 +445,6 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
           </div>
         </div>
 
-        <div className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-border/80 bg-background/65 px-3 py-2 text-xs text-muted-foreground">
-          <span>
-            {isDetecting
-              ? "Scanning current page..."
-              : "You can save manually or use auto-detection."}
-          </span>
-          <span className="vp-chip">{sections.length} sections</span>
-        </div>
       </div>
 
       <ScrollArea className="vp-scrollbar flex-1 pr-1">
@@ -433,16 +468,29 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
                 </div>
               )}
 
-              <Button
-                variant="secondary"
-                size="sm"
-                className="w-full"
-                onClick={handleImagePicker}
-                disabled={isImagePickerActive}
-              >
-                <ImagePlus className="mr-2 h-4 w-4" />
-                {isImagePickerActive ? "Image picker active" : "Select image from page"}
-              </Button>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="w-full"
+                  onClick={handleImagePicker}
+                  disabled={isImagePickerActive || isScreenshotPickerActive}
+                >
+                  <ImagePlus className="mr-2 h-4 w-4" />
+                  {isImagePickerActive ? "Image picker active" : "Pick existing"}
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={handleScreenshotPicker}
+                  disabled={isScreenshotPickerActive || isImagePickerActive}
+                >
+                  <Camera className="mr-2 h-4 w-4" />
+                  {isScreenshotPickerActive ? "Area picker active" : "Capture area"}
+                </Button>
+              </div>
             </CardContent>
           </Card>
 

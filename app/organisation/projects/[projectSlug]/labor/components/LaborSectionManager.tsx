@@ -79,7 +79,7 @@ export function LaborSectionManager({
             <Button
               onClick={handleCreateSection}
               disabled={isPending || !newSectionName.trim()}
-              className="rounded-full bg-[var(--ui-action-bg)] px-5 h-11 text-[var(--primary-foreground)] shadow-sm hover:bg-[var(--ui-action-hover)]"
+              className="rounded-lg bg-[var(--ui-action-bg)] px-5 h-11 text-[var(--primary-foreground)] shadow-sm hover:bg-[var(--ui-action-hover)]"
             >
               <PlusIcon className="h-4 w-4 mr-2" />
               Add
@@ -95,7 +95,7 @@ export function LaborSectionManager({
                   <button
                     key={name}
                     onClick={() => onCreateSection(name)}
-                    className="px-3 py-1.5 text-xs font-medium rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] text-[var(--ui-text-main)] hover:bg-[var(--ui-surface-soft)] transition-colors"
+                    className="px-3 py-1.5 text-xs font-medium rounded-lg border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] text-[var(--ui-text-main)] hover:bg-[var(--ui-surface-soft)] transition-colors"
                   >
                     + {name}
                   </button>

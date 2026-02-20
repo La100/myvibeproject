@@ -6,6 +6,7 @@ import { AssistantRuntimeProvider, useExternalStoreRuntime } from "@assistant-ui
 import type { AttachmentAdapter } from "@assistant-ui/react";
 import type { UIMessage } from "@convex-dev/agent/react";
 import { MessageSquare, RotateCcw } from "lucide-react";
+import type { PendingContentItem } from "@/components/ai/assistant/data/types";
 
 import { Thread } from "@/components/assistant-ui/thread";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
@@ -39,6 +40,17 @@ type AssistantConversationProps = {
   onReset: () => Promise<void> | void;
   userImageUrl?: string;
   userFallback?: string;
+  pendingItems?: PendingContentItem[];
+  onConfirmItem?: (index: number | string) => Promise<void>;
+  onRejectItem?: (index: number | string) => void | Promise<void>;
+  onEditItem?: (index: number) => void;
+  onConfirmAll?: () => Promise<void>;
+  onRejectAll?: () => void | Promise<void>;
+  onUpdateItem?: (index: number | string, updates: Partial<PendingContentItem>) => void;
+  isProcessing?: boolean;
+  confirmationMode?: "always_ask" | "auto_confirm";
+  onConfirmationModeChange?: (mode: "always_ask" | "auto_confirm") => void | Promise<void>;
+  isModeUpdating?: boolean;
 };
 
 type MessageConversionOptions = {
@@ -189,6 +201,17 @@ export default function AssistantConversation({
   onReset,
   userImageUrl,
   userFallback = "U",
+  pendingItems = [],
+  onConfirmItem,
+  onRejectItem,
+  onEditItem,
+  onConfirmAll,
+  onRejectAll,
+  onUpdateItem,
+  isProcessing = false,
+  confirmationMode = "always_ask",
+  onConfirmationModeChange,
+  isModeUpdating = false,
 }: AssistantConversationProps) {
   const [optimisticMessages, setOptimisticMessages] = useState<ThreadMessageLike[]>([]);
 
@@ -380,6 +403,17 @@ export default function AssistantConversation({
               assistantFallback={resolvedAssistantFallback}
               userImageUrl={userImageUrl}
               userFallback={userFallback}
+              pendingItems={pendingItems}
+              onConfirmItem={onConfirmItem}
+              onRejectItem={onRejectItem}
+              onEditItem={onEditItem}
+              onConfirmAll={onConfirmAll}
+              onRejectAll={onRejectAll}
+              onUpdateItem={onUpdateItem}
+              isProcessing={isProcessing}
+              confirmationMode={confirmationMode}
+              onConfirmationModeChange={onConfirmationModeChange}
+              isModeUpdating={isModeUpdating}
             />
           </div>
           <div

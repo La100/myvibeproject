@@ -33,10 +33,10 @@ export default function SSOCallbackPage() {
         {
           signInUrl: "/sign-in",
           signUpUrl: "/sign-up",
-          signInFallbackRedirectUrl: "/onboarding",
-          signUpFallbackRedirectUrl: "/onboarding",
-          signInForceRedirectUrl: "/onboarding",
-          signUpForceRedirectUrl: "/onboarding",
+          signInFallbackRedirectUrl: "/dashboard",
+          signUpFallbackRedirectUrl: "/dashboard",
+          signInForceRedirectUrl: "/dashboard",
+          signUpForceRedirectUrl: "/dashboard",
         },
         async (to) => {
           if (isChooseOrganizationTaskUrl(to)) {

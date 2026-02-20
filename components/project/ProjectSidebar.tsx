@@ -12,7 +12,6 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarHeader,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -21,6 +20,7 @@ import {
 import {
   ArrowLeft,
   LayoutDashboard,
+  Eye,
   Settings,
   ShoppingCart,
   CheckSquare,
@@ -37,6 +37,9 @@ import {
   Settings2,
   ChevronDown,
   Calendar,
+  FolderOpen,
+  DraftingCompass,
+  type LucideIcon,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -51,12 +54,13 @@ function ProjectSidebarContent() {
   const pathname = usePathname();
   const router = useRouter();
   const { setOpenMobile } = useSidebar();
-  const { project, team, permissions: sidebarPermissions } = useProject();
+  const { project, permissions: sidebarPermissions } = useProject();
   const { signOut, openUserProfile } = useClerk();
   const { user } = useUser();
 
   const allNavItems = [
     { href: `/organisation/projects/${params.projectSlug}`, label: "Overview", icon: LayoutDashboard, key: "overview", group: "project" },
+    { href: `/organisation/projects/${params.projectSlug}/customer-panel`, label: "Customer Panel", icon: Eye, key: "customer_panel", group: "project" },
     { href: `/organisation/projects/${params.projectSlug}/tasks`, label: "Tasks", icon: CheckSquare, key: "tasks", group: "architecture" },
     { href: `/organisation/projects/${params.projectSlug}/moodboard`, label: "Moodboard", icon: Image, key: "moodboard", group: "project" },
     { href: `/organisation/projects/${params.projectSlug}/notes`, label: "Notes", icon: StickyNote, key: "notes", group: "project" },
@@ -75,7 +79,9 @@ function ProjectSidebarContent() {
   const navItems = sidebarPermissions?.permissions
     ? allNavItems.filter((item) => sidebarPermissions.permissions?.[item.key as keyof typeof sidebarPermissions.permissions]?.visible !== false)
     : allNavItems;
-  const projectNavItems = navItems.filter((item) => item.group === "project");
+  const projectNavItems = navItems.filter(
+    (item) => item.group === "project" && !(item.key === "customer_panel" && sidebarPermissions?.isCustomer)
+  );
   const architectureNavItems = navItems.filter((item) => item.group === "architecture");
 
   const showSettings =
@@ -90,6 +96,7 @@ function ProjectSidebarContent() {
     user?.firstName?.charAt(0) ||
     user?.primaryEmailAddress?.emailAddress?.charAt(0) ||
     "U";
+  const projectName = project?.name || "Project";
 
   const handleLinkClick = () => {
     setOpenMobile(false);
@@ -104,120 +111,103 @@ function ProjectSidebarContent() {
     return isOverviewRoute ? pathname === href : pathname.startsWith(href);
   };
 
+  const renderSection = (
+    title: string,
+    icon: LucideIcon,
+    items: typeof projectNavItems
+  ) => {
+    const Icon = icon;
+    return (
+      <SidebarGroupContent className="pt-3 first:pt-0">
+        <div className="mb-1.5 flex items-center gap-2.5 px-2">
+          <Icon className="h-3.5 w-3.5 text-sidebar-foreground/62" />
+          <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-sidebar-foreground/72">
+            {title}
+          </span>
+        </div>
+        <SidebarMenu className="gap-1">
+          {items.map((item) => {
+            const isActive = isItemActive(item.href);
+            return (
+              <SidebarMenuItem key={item.href}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={isActive}
+                  className={`h-9 justify-start gap-2.5 rounded-xl border px-3 text-[13px] font-medium ${isActive
+                      ? "border-sidebar-border/80 bg-sidebar-accent/45 text-sidebar-foreground"
+                      : "border-transparent bg-transparent text-sidebar-foreground/82 hover:bg-transparent hover:text-sidebar-foreground"
+                    }`}
+                >
+                  <Link
+                    href={item.href}
+                    onClick={handleLinkClick}
+                    onMouseEnter={() => handleLinkHover(item.href)}
+                    className="flex flex-1 items-center gap-3"
+                  >
+                    <item.icon className={`h-4 w-4 ${isActive ? "text-sidebar-foreground/88" : "text-sidebar-foreground/72"}`} />
+                    <span className="truncate">{item.label}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            );
+          })}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    );
+  };
+
   return (
     <Sidebar variant="inset">
-      <SidebarHeader className="border-b border-sidebar-border/70">
-        <div className="flex flex-col gap-0.5 py-4 px-4">
+      <SidebarHeader className="border-b border-sidebar-border/70 px-4 pt-5 pb-3">
+        <div className="flex items-center">
           <Link
             href="/organisation"
             onClick={handleLinkClick}
             onMouseEnter={() => handleLinkHover("/organisation")}
-            className="group mb-3 flex items-center gap-2 text-sidebar-foreground/65 transition-colors hover:text-sidebar-foreground"
+            className="group flex w-full items-center gap-2.5 rounded-xl border border-transparent px-1 py-1 text-sidebar-foreground/85 transition-colors hover:bg-transparent"
           >
-            <ArrowLeft className="h-4 w-4 text-sidebar-foreground/50" />
-            <span className="text-[10px] font-medium tracking-[0.2em] uppercase">
-              {team?.name || "Organization"}
+            <ArrowLeft className="h-4 w-4 text-sidebar-foreground/55" />
+            <span className="min-w-0 flex-1 truncate text-[17px] font-semibold tracking-tight text-sidebar-foreground">
+              {projectName}
             </span>
           </Link>
-
-          <div className="px-0.5">
-            <h2 className="clean-title text-xl font-medium leading-tight tracking-tight text-sidebar-foreground">
-              {project.name}
-            </h2>
-          </div>
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="flex flex-col">
-        <SidebarGroup className="flex-1">
-          <SidebarGroupContent>
-            <SidebarGroupLabel className="text-xs uppercase tracking-[0.2em] text-sidebar-foreground/60">
-              Project
-            </SidebarGroupLabel>
-            <SidebarMenu className="space-y-1">
-              {projectNavItems.map((item) => {
-                const isActive = isItemActive(item.href);
-                return (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                      asChild
-                      variant={isActive ? "active" : "default"}
-                      isActive={isActive}
-                      className="h-10 justify-start gap-3 text-sm text-sidebar-foreground"
-                    >
-                      <Link
-                        href={item.href}
-                        onClick={handleLinkClick}
-                        onMouseEnter={() => handleLinkHover(item.href)}
-                        className="flex flex-1 items-center gap-3"
-                      >
-                        <item.icon className={isActive ? "h-4 w-4 text-sidebar-foreground" : "h-4 w-4 text-sidebar-foreground/65"} />
-                        <span className="truncate">{item.label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-          <SidebarGroupContent className="pt-2">
-            <SidebarGroupLabel className="text-xs uppercase tracking-[0.2em] text-sidebar-foreground/60">
-              Architecture
-            </SidebarGroupLabel>
-            <SidebarMenu className="space-y-1">
-              {architectureNavItems.map((item) => {
-                const isActive = isItemActive(item.href);
-                return (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                      asChild
-                      variant={isActive ? "active" : "default"}
-                      isActive={isActive}
-                      className="h-10 justify-start gap-3 text-sm text-sidebar-foreground"
-                    >
-                      <Link
-                        href={item.href}
-                        onClick={handleLinkClick}
-                        onMouseEnter={() => handleLinkHover(item.href)}
-                        className="flex flex-1 items-center gap-3"
-                      >
-                        <item.icon className={isActive ? "h-4 w-4 text-sidebar-foreground" : "h-4 w-4 text-sidebar-foreground/65"} />
-                        <span className="truncate">{item.label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
+      <SidebarContent className="flex flex-col gap-0 px-2 pb-2">
+        <SidebarGroup className="flex-1 px-3 pt-7 pb-2">
+          {renderSection("Project", FolderOpen, projectNavItems)}
+          {renderSection("Architecture", DraftingCompass, architectureNavItems)}
         </SidebarGroup>
 
-        <SidebarGroup className="mt-auto">
-          <SidebarGroupContent className="px-2 pb-2">
+        <SidebarGroup className="mt-auto px-4 pb-9 pt-1.5">
+          <SidebarGroupContent>
             <Link
               href={aiItem.href}
               onClick={handleLinkClick}
               onMouseEnter={() => handleLinkHover(aiItem.href)}
-              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-sidebar-border/70 bg-sidebar-accent text-sidebar-foreground transition-all duration-200 hover:bg-sidebar-accent/75"
+              className="group flex h-10 w-full items-center justify-center gap-2.5 rounded-lg bg-primary px-3 text-[13px] font-semibold text-primary-foreground shadow-soft-sm transition-all duration-200 hover:bg-primary/90 hover:shadow-soft-md"
             >
               <aiItem.icon className="h-4 w-4" />
-              <span className="text-sm font-semibold tracking-tight">{aiItem.label}</span>
+              <span className="truncate">{aiItem.label}</span>
             </Link>
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup className="border-t border-sidebar-border/70 pt-2">
+        <SidebarGroup className="border-t border-sidebar-border/70 px-2 pb-1 pt-2.5">
           <SidebarGroupContent className="pt-2">
-            <SidebarMenu>
+            <SidebarMenu className="gap-1">
               {footerItems.map((item) => {
                 const isActive = pathname.startsWith(item.href);
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
                       asChild
-                      variant={isActive ? "active" : "default"}
                       isActive={isActive}
-                      className="h-10 justify-start gap-3 text-sm text-sidebar-foreground"
+                      className={`h-9 justify-start gap-2.5 rounded-xl border px-3 text-[13px] font-medium ${isActive
+                          ? "border-sidebar-border/80 bg-sidebar-accent/45 text-sidebar-foreground"
+                          : "border-transparent text-sidebar-foreground/82 hover:bg-transparent hover:text-sidebar-foreground"
+                        }`}
                     >
                       <Link
                         href={item.href}
@@ -225,7 +215,7 @@ function ProjectSidebarContent() {
                         onMouseEnter={() => handleLinkHover(item.href)}
                         className="flex flex-1 items-center gap-3"
                       >
-                        <item.icon className={isActive ? "h-4 w-4 text-sidebar-foreground" : "h-4 w-4 text-sidebar-foreground/65"} />
+                        <item.icon className={`h-4 w-4 ${isActive ? "text-sidebar-foreground/88" : "text-sidebar-foreground/72"}`} />
                         <span className="truncate">{item.label}</span>
                       </Link>
                     </SidebarMenuButton>
@@ -239,10 +229,10 @@ function ProjectSidebarContent() {
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2 text-left transition hover:border-sidebar-border/70 hover:bg-sidebar-accent/50"
+                  className="flex w-full items-center gap-2.5 rounded-xl border border-transparent bg-transparent px-2.5 py-1.5 text-left transition hover:bg-sidebar-accent/30"
                 >
                   {user?.imageUrl ? (
-                    <div className="relative h-9 w-9 overflow-hidden rounded-full border border-sidebar-border/70">
+                    <div className="relative h-8 w-8 overflow-hidden rounded-full border border-sidebar-border/70">
                       <NextImage
                         src={user.imageUrl}
                         alt={user.fullName || user.firstName || "User"}
@@ -251,19 +241,19 @@ function ProjectSidebarContent() {
                       />
                     </div>
                   ) : (
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold">
                       {userInitial.toUpperCase()}
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-sidebar-foreground truncate">
+                    <p className="truncate text-[13px] font-semibold text-sidebar-foreground">
                       {user?.fullName || user?.firstName || "Account"}
                     </p>
-                    <p className="text-xs text-sidebar-foreground/60 truncate">
+                    <p className="truncate text-[11px] text-sidebar-foreground/60">
                       {user?.primaryEmailAddress?.emailAddress || ""}
                     </p>
                   </div>
-                  <ChevronDown className="h-4 w-4 text-sidebar-foreground/60" />
+                  <ChevronDown className="h-3.5 w-3.5 text-sidebar-foreground/60" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-64 rounded-xl border-border/70">

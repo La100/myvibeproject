@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Spinner } from '@/components/ui/spinner';
 import { Badge } from '@/components/ui/badge';
 import { FileTextIcon, DownloadIcon, PrinterIcon } from 'lucide-react';
 import { format } from 'date-fns';
@@ -230,11 +230,7 @@ export function EstimationPreviewDialog({
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <div className="space-y-4">
-            <Skeleton className="h-8 w-1/2" />
-            <Skeleton className="h-4 w-1/3" />
-            <Skeleton className="h-64 w-full" />
-          </div>
+          <Spinner />
         </DialogContent>
       </Dialog>
     );
@@ -439,4 +435,3 @@ export function EstimationPreviewDialog({
     </Dialog>
   );
 }
-

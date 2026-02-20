@@ -4,8 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useQuery } from "convex/react";
 import { format, isValid } from "date-fns";
 import {
-    Calendar as CalendarIcon,
-    Command
+    Calendar as CalendarIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -25,6 +24,9 @@ interface InlineCreationFormProps {
     onConfirm: (index: number | string) => Promise<void>;
     onReject: (index: number | string) => void | Promise<void>;
     onUpdate: (index: number | string, updates: Partial<PendingContentItem>) => void;
+    confirmationMode?: "always_ask" | "auto_confirm";
+    onConfirmationModeChange?: (mode: "always_ask" | "auto_confirm") => void | Promise<void>;
+    isModeUpdating?: boolean;
 }
 
 export function InlineCreationForm({
@@ -33,6 +35,9 @@ export function InlineCreationForm({
     onConfirm,
     onReject,
     onUpdate,
+    confirmationMode = "always_ask",
+    onConfirmationModeChange,
+    isModeUpdating = false,
 }: InlineCreationFormProps) {
     // Determine operation from item
     const operation = item.operation || 'create';
@@ -80,18 +85,18 @@ export function InlineCreationForm({
     };
 
     return (
-        <div className="w-full max-w-2xl mx-auto bg-background rounded-xl border border-border/40 shadow-sm overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[50vh]">
-            {/* Header gradient line based on type */}
-            <div className={cn("h-1 w-full bg-gradient-to-r", getGradient(type))} />
-
-            <div className="p-5 sm:p-6 space-y-5 flex-1 min-h-0 overflow-y-auto">
-                {/* Header */}
-                <div className="flex items-center gap-2 text-sm font-medium text-foreground/80">
-                    <span>{operationVerb} {type}:</span>
-                    {operation === 'edit' && displayTitle && (
-                        <span className="text-foreground font-semibold">{displayTitle}</span>
-                    )}
+        <div className="w-full max-w-2xl mx-auto bg-card rounded-xl border border-border shadow-md overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[60vh] ring-1 ring-border/40">
+            <div className="px-5 py-3 border-b border-border bg-muted/20 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                    <div className={cn("w-2 h-2 rounded-full", getDotColor(type))} />
+                    <span>{operationVerb} {getLabel(type)}</span>
                 </div>
+                {operation === 'edit' && displayTitle && (
+                    <span className="text-xs text-muted-foreground truncate max-w-[220px]">{displayTitle}</span>
+                )}
+            </div>
+
+            <div className="p-5 space-y-5 flex-1 min-h-0 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
 
                 {/* Content Forms - only show for create/edit */}
                 {operation === 'delete' ? (
@@ -127,28 +132,38 @@ export function InlineCreationForm({
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-end p-4 bg-muted/10 border-t border-border/40">
+            <div className="flex items-center justify-between p-4 bg-muted/20 border-t border-border">
+                <div className="flex items-center gap-2">
+                    <Select
+                        value={confirmationMode}
+                        onValueChange={(value) => onConfirmationModeChange?.(value as "always_ask" | "auto_confirm")}
+                        disabled={isModeUpdating}
+                    >
+                        <SelectTrigger className="h-8 w-[130px] border-border/50 bg-background text-xs">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="always_ask">Always ask</SelectItem>
+                            <SelectItem value="auto_confirm">Auto-confirm CRUD</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+
                 <div className="flex items-center gap-3">
                     <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => onReject(item.functionCall?.callId ?? index)}
-                        className="text-muted-foreground hover:text-foreground h-8"
+                        className="text-muted-foreground hover:text-foreground h-9 px-3 hover:bg-muted/50"
                     >
                         Cancel
-                        <span className="ml-1.5 text-xs bg-muted px-1.5 py-0.5 rounded border border-border/50 text-muted-foreground flex items-center">
-                            <Command className="w-2.5 h-2.5 mr-0.5" /> ⌫
-                        </span>
                     </Button>
                     <Button
                         size="sm"
                         onClick={handleConfirm}
-                        className="bg-black dark:bg-white text-white dark:text-black hover:bg-black/90 dark:hover:bg-white/90 h-8 shadow-sm"
+                        className="bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 shadow-sm font-medium"
                     >
                         {operationVerb} {getLabel(type)}
-                        <span className="ml-2 text-xs opacity-70 flex items-center font-normal">
-                            <Command className="w-2.5 h-2.5 mr-0.5" /> ↵
-                        </span>
                     </Button>
                 </div>
             </div>
@@ -207,35 +222,35 @@ function TaskForm({
     }, [endDate, endTime]); // eslint-disable-line react-hooks/exhaustive-deps
 
     return (
-        <div className="space-y-3">
+        <div className="space-y-4">
             <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Title</Label>
+                <Label className="text-xs font-medium text-muted-foreground/80">Title</Label>
                 <Input
                     value={String(data.title || data.name || "")}
                     onChange={(e) => onUpdate({ title: e.target.value })}
-                    className="border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none text-base font-medium"
+                    className="bg-transparent border-border/60 focus:bg-background transition-colors"
                     placeholder="Enter title"
                 />
             </div>
 
             <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Description</Label>
+                <Label className="text-xs font-medium text-muted-foreground/80">Description</Label>
                 <Input
                     value={String(data.description || "")}
                     onChange={(e) => onUpdate({ description: e.target.value })}
-                    className="border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none"
+                    className="bg-transparent border-border/60 focus:bg-background transition-colors"
                     placeholder="Add description"
                 />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</Label>
+                    <Label className="text-xs font-medium text-muted-foreground/80">Status</Label>
                     <Select
                         value={statusValue}
                         onValueChange={(value) => onUpdate({ status: value })}
                     >
-                        <SelectTrigger className="h-9 border-0 border-b border-border/50 rounded-none px-0 focus:ring-0 shadow-none">
+                        <SelectTrigger className="bg-transparent border-border/60 hover:bg-muted/20">
                             <SelectValue placeholder="Select status" />
                         </SelectTrigger>
                         <SelectContent>
@@ -247,12 +262,12 @@ function TaskForm({
                     </Select>
                 </div>
                 <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Priority</Label>
+                    <Label className="text-xs font-medium text-muted-foreground/80">Priority</Label>
                     <Select
                         value={priorityValue}
                         onValueChange={(value) => onUpdate({ priority: value === "none" ? undefined : value })}
                     >
-                        <SelectTrigger className="h-9 border-0 border-b border-border/50 rounded-none px-0 focus:ring-0 shadow-none">
+                        <SelectTrigger className="bg-transparent border-border/60 hover:bg-muted/20">
                             <SelectValue placeholder="Select priority" />
                         </SelectTrigger>
                         <SelectContent>
@@ -267,7 +282,7 @@ function TaskForm({
             </div>
 
             <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Assigned To</Label>
+                <Label className="text-xs font-medium text-muted-foreground/80">Assigned To</Label>
                 <Select
                     value={assignedToValue}
                     onValueChange={(value) => {
@@ -282,7 +297,7 @@ function TaskForm({
                         });
                     }}
                 >
-                    <SelectTrigger className="h-9 border-0 border-b border-border/50 rounded-none px-0 focus:ring-0 shadow-none">
+                    <SelectTrigger className="bg-transparent border-border/60 hover:bg-muted/20">
                         <SelectValue placeholder="Select a person" />
                     </SelectTrigger>
                     <SelectContent>
@@ -297,7 +312,7 @@ function TaskForm({
             </div>
 
             <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Tags</Label>
+                <Label className="text-xs font-medium text-muted-foreground/80">Tags</Label>
                 <Input
                     value={tagsValue}
                     onChange={(e) => {
@@ -307,53 +322,45 @@ function TaskForm({
                             .filter(Boolean);
                         onUpdate({ tags: nextTags.length > 0 ? nextTags : undefined });
                     }}
-                    className="border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none"
-                    placeholder=""
+                    className="bg-transparent border-border/60 focus:bg-background transition-colors"
+                    placeholder="e.g. meeting, painter"
                 />
             </div>
 
-            <div className="grid grid-cols-1 gap-4 pt-1">
+            <div className="grid grid-cols-2 gap-4 pt-1">
                 <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Start Time</Label>
-                    <div className="flex items-center gap-2 border border-border/50 rounded-md p-1 bg-muted/20 overflow-hidden">
-                        <div className="flex-1 min-w-0">
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button variant={"ghost"} className={cn("w-full justify-start text-left font-normal h-8 px-2 truncate", !startDate && "text-muted-foreground")}>
-                                        <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
-                                        <span className="truncate">{startDate ? format(startDate, "MM / dd / yyyy") : "Pick a date"}</span>
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0">
-                                    <Calendar mode="single" selected={startDate} onSelect={setStartDate} initialFocus />
-                                </PopoverContent>
-                            </Popover>
-                        </div>
-                        <div className="flex items-center gap-1 border-l border-border/50 pl-2 shrink-0">
-                            <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="w-20 h-8 border-0 bg-transparent focus-visible:ring-0 p-0 text-sm" />
-                        </div>
+                    <Label className="text-xs font-medium text-muted-foreground/80">Start Time</Label>
+                    <div className="flex gap-2">
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal h-9 px-2.5 truncate border-border/60", !startDate && "text-muted-foreground")}>
+                                    <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+                                    <span className="truncate">{startDate ? format(startDate, "MMM d, yyyy") : "Pick date"}</span>
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar mode="single" selected={startDate} onSelect={setStartDate} initialFocus />
+                            </PopoverContent>
+                        </Popover>
+                        <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="w-[88px] border-border/60" />
                     </div>
                 </div>
 
                 <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">End Time</Label>
-                    <div className="flex items-center gap-2 border border-border/50 rounded-md p-1 bg-muted/20 overflow-hidden">
-                        <div className="flex-1 min-w-0">
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button variant={"ghost"} className={cn("w-full justify-start text-left font-normal h-8 px-2 truncate", !endDate && "text-muted-foreground")}>
-                                        <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
-                                        <span className="truncate">{endDate ? format(endDate, "MM / dd / yyyy") : "Pick a date"}</span>
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0">
-                                    <Calendar mode="single" selected={endDate} onSelect={setEndDate} initialFocus />
-                                </PopoverContent>
-                            </Popover>
-                        </div>
-                        <div className="flex items-center gap-1 border-l border-border/50 pl-2 shrink-0">
-                            <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="w-20 h-8 border-0 bg-transparent focus-visible:ring-0 p-0 text-sm" />
-                        </div>
+                    <Label className="text-xs font-medium text-muted-foreground/80">End Time</Label>
+                    <div className="flex gap-2">
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal h-9 px-2.5 truncate border-border/60", !endDate && "text-muted-foreground")}>
+                                    <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+                                    <span className="truncate">{endDate ? format(endDate, "MMM d, yyyy") : "Pick date"}</span>
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar mode="single" selected={endDate} onSelect={setEndDate} initialFocus />
+                            </PopoverContent>
+                        </Popover>
+                        <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="w-[88px] border-border/60" />
                     </div>
                 </div>
             </div>
@@ -670,17 +677,17 @@ function normalizeType(type: string): string {
     return "task";
 }
 
-function getGradient(type: string) {
+function getDotColor(type: string) {
     switch (type) {
-        case "task": return "from-pink-500 via-purple-500 to-indigo-500";
-        case "note": return "from-yellow-400 via-orange-500 to-red-500";
-        case "shopping": return "from-green-400 via-emerald-500 to-teal-600";
-        case "labor": return "from-orange-400 via-amber-500 to-yellow-600";
-        case "contact": return "from-blue-400 via-cyan-500 to-sky-600";
-        case "survey": return "from-violet-400 via-purple-500 to-fuchsia-600";
-        case "shoppingSection": return "from-green-300 via-emerald-400 to-teal-500";
-        case "laborSection": return "from-orange-300 via-amber-400 to-yellow-500";
-        default: return "from-gray-400 to-gray-600";
+        case "task": return "bg-purple-500";
+        case "note": return "bg-yellow-500";
+        case "shopping": return "bg-green-500";
+        case "labor": return "bg-orange-500";
+        case "contact": return "bg-blue-500";
+        case "survey": return "bg-violet-500";
+        case "shoppingSection": return "bg-emerald-500";
+        case "laborSection": return "bg-amber-500";
+        default: return "bg-gray-500";
     }
 }
 

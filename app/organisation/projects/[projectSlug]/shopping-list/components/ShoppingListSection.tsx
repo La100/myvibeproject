@@ -527,7 +527,7 @@ export function ShoppingListSection({
                 // View Mode
                 <div>
                   <div className="flex flex-col sm:flex-row items-start justify-between gap-4 mb-2">
-                    <div className="flex items-start gap-4 flex-1 w-full">
+                    <div className="flex items-start gap-4 flex-1 min-w-0 w-full">
                       {item.imageUrl ? (
                         <div className="w-24 h-24 sm:w-20 sm:h-20 rounded-xl border border-[var(--ui-border-soft)] overflow-hidden flex-shrink-0 bg-[var(--ui-surface-soft)]">
                           <img 
@@ -542,8 +542,8 @@ export function ShoppingListSection({
                         </div>
                       )}
                       <div className="flex-1 min-w-0 py-1">
-                        <div className="flex items-start justify-between gap-2 mb-1">
-                          <h4 className="font-medium text-lg text-[var(--ui-text-strong)] truncate pr-2">{item.name}</h4>
+                        <div className="flex items-start gap-2 mb-1 min-w-0">
+                          <h4 className="flex-1 min-w-0 font-medium text-lg leading-snug text-[var(--ui-text-strong)] break-words pr-2">{item.name}</h4>
                           {item.priority && (
                              <div className={cn("w-2 h-2 rounded-full mt-2 flex-shrink-0", getPriorityColor(item.priority))} />
                           )}

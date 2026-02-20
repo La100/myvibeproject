@@ -4,63 +4,26 @@ import { useState, useTransition } from 'react';
 import { useQuery, useMutation } from 'convex/react';
 import { apiAny } from '@/lib/convexApiAny';
 import { Doc, Id } from '@/convex/_generated/dataModel';
+import type { TeamMember } from '@/lib/teamMember';
 import { useProject } from '@/components/providers/ProjectProvider';
 import { toast } from 'sonner';
-import { Skeleton } from '@/components/ui/skeleton';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { Spinner } from '@/components/ui/spinner';
+import { Button } from '@/components/ui/button';
+import { Hammer, PlusIcon, DownloadIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { addBrandHeader, addDocumentMeta, addPageNumbers, formatMoney, pdfTableTheme, resolvePageBreak, sanitizeFileName } from '@/lib/pdfExport';
 
-import { LaborListHeader } from './LaborListHeader';
-import { LaborSectionManager } from './LaborSectionManager';
-import { AddLaborItemForm } from './AddLaborItemForm';
-import type { TeamMember } from '@/lib/teamMember';
 import { LaborListSection } from './LaborListSection';
+import { ProjectPageLayout } from '@/components/project/ProjectPageLayout';
+import { ProjectPageHeader } from '@/components/project/ProjectPageHeader';
+import { AddLaborItemForm } from './AddLaborItemForm';
+import { LaborSectionManager } from './LaborSectionManager';
 
 type LaborItem = Doc<"laborItems">;
 
 export function LaborListViewSkeleton() {
-  return (
-    <div className="p-4 sm:p-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
-        <div className="mb-4 sm:mb-0">
-          <Skeleton className="h-9 w-64 mb-2" />
-          <Skeleton className="h-5 w-80" />
-        </div>
-        <div className="flex gap-2">
-          <Skeleton className="h-10 w-36" />
-        </div>
-      </div>
-
-      <div className="mb-6 border rounded-lg p-4">
-        <Skeleton className="h-7 w-48 mb-4" />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        {[...Array(3)].map((_, i) => (
-          <div key={i} className="border rounded-lg p-4">
-            <Skeleton className="h-6 w-1/3 mb-4" />
-            <div className="space-y-3">
-              {[...Array(2)].map((_, j) => (
-                <div key={j} className="flex items-center gap-4 p-2 border rounded-md">
-                  <div className="flex-1 space-y-2">
-                    <Skeleton className="h-5 w-3/4" />
-                    <Skeleton className="h-4 w-1/2" />
-                  </div>
-                  <Skeleton className="h-8 w-24" />
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+  return <Spinner className="p-4 sm:p-6" />;
 }
 
 export default function LaborListView() {
@@ -284,14 +247,40 @@ export default function LaborListView() {
 
   return (
     <TooltipProvider>
-      <div className="w-full max-w-6xl mx-auto px-6 pb-24 pt-8 sm:px-8">
+      <ProjectPageLayout>
         {/* Header */}
-        <LaborListHeader
-          projectName={project.name}
-          grandTotal={grandTotal}
-          currencySymbol={currencySymbol}
-          onExportClick={handleExportPDF}
-          onAddLaborClick={() => setShowMainAddForm(!showMainAddForm)}
+        <ProjectPageHeader
+          title="Labor"
+          icon={<Hammer className="h-8 w-8" />}
+          tags={
+            <>
+              <span className="inline-flex items-center gap-2 rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-4 py-2 text-sm font-medium text-[var(--ui-accent-brand)]">
+                {project.name}
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-4 py-2 text-sm font-medium text-[var(--ui-text-main)]">
+                Total: {grandTotal.toFixed(2)} {currencySymbol}
+              </span>
+            </>
+          }
+          actions={
+            <>
+              <Button
+                onClick={handleExportPDF}
+                variant="outline"
+                className="rounded-lg border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-6 text-[var(--ui-text-strong)] shadow-sm hover:bg-[var(--ui-surface-base)]/90 hover:-translate-y-0.5 transition-all"
+              >
+                <DownloadIcon className="h-4 w-4 mr-2" />
+                Export PDF
+              </Button>
+              <Button
+                onClick={() => setShowMainAddForm(!showMainAddForm)}
+                className="rounded-lg bg-[var(--ui-action-bg)] px-6 text-[var(--primary-foreground)] shadow-[0_14px_36px_rgba(14,14,14,0.18)] hover:bg-[var(--ui-action-hover)] transition-transform hover:-translate-y-0.5"
+              >
+                <PlusIcon className="h-4 w-4 mr-2" />
+                Add Labor
+              </Button>
+            </>
+          }
         />
 
         {/* Main Add Labor Form */}
@@ -364,7 +353,7 @@ export default function LaborListView() {
             </div>
           </div>
         </div>
-      </div>
+      </ProjectPageLayout>
     </TooltipProvider>
   );
 }

@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Send, Upload } from "lucide-react";
 import { toast } from "sonner";
+import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 
 interface SurveyResponsePageProps {
   params: Promise<{
@@ -42,19 +43,19 @@ export default function SurveyResponsePage({ params }: SurveyResponsePageProps) 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentResponseId, setCurrentResponseId] = useState<Id<"surveyResponses"> | null>(null);
 
-  const survey = useQuery(apiAny.surveys.getSurvey, 
+  const survey = useQuery(apiAny.surveys.getSurvey,
     routeParams ? { surveyId: routeParams.surveyId } : "skip"
   );
-  const userResponse = useQuery(apiAny.surveys.getUserSurveyResponse, 
+  const userResponse = useQuery(apiAny.surveys.getUserSurveyResponse,
     routeParams ? { surveyId: routeParams.surveyId } : "skip"
   );
-  const project = useQuery(apiAny.projects.getProject, 
+  const project = useQuery(apiAny.projects.getProject,
     survey?.projectId ? { projectId: survey.projectId } : "skip"
   );
-  const team = useQuery(apiAny.teams.getTeam, 
+  const team = useQuery(apiAny.teams.getTeam,
     project?.teamId ? { teamId: project.teamId } : "skip"
   );
-  
+
   const startResponse = useMutation(apiAny.surveys.startSurveyResponse);
   const saveAnswer = useMutation(apiAny.surveys.saveAnswer);
   const submitResponse = useMutation(apiAny.surveys.submitSurveyResponse);
@@ -197,12 +198,12 @@ export default function SurveyResponsePage({ params }: SurveyResponsePageProps) 
         if (question) {
           // For boolean questions, false is a valid answer
           // For file questions, check if file exists
-          const isValidAnswer = question.questionType === "yes_no" 
+          const isValidAnswer = question.questionType === "yes_no"
             ? (value === true || value === false)
             : question.questionType === "file"
-            ? (value && (value as { fileId: unknown }).fileId)
-            : (value !== undefined && value !== null && value !== "");
-          
+              ? (value && (value as { fileId: unknown }).fileId)
+              : (value !== undefined && value !== null && value !== "");
+
           if (isValidAnswer) {
             const baseAnswerData = {
               responseId: currentResponseId,
@@ -294,7 +295,40 @@ export default function SurveyResponsePage({ params }: SurveyResponsePageProps) 
 
   if (isResponseComplete) {
     return (
-      <div className="container mx-auto p-6 max-w-4xl">
+      <ProjectPageLayout>
+        <div className="p-6">
+          <div className="flex items-center gap-4 mb-6">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.back()}
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
+            </Button>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-green-600">Survey completed</CardTitle>
+              <CardDescription>
+                Thank you for completing "{survey.title}". Your response has been saved.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-gray-600">
+                Submitted: {new Date(userResponse?.submittedAt || 0).toLocaleString()}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </ProjectPageLayout>
+    );
+  }
+
+  return (
+    <ProjectPageLayout>
+      <div className="p-6">
         <div className="flex items-center gap-4 mb-6">
           <Button
             variant="outline"
@@ -304,229 +338,200 @@ export default function SurveyResponsePage({ params }: SurveyResponsePageProps) 
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-green-600">Survey completed</CardTitle>
-            <CardDescription>
-              Thank you for completing "{survey.title}". Your response has been saved.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-gray-600">
-              Submitted: {new Date(userResponse?.submittedAt || 0).toLocaleString()}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  return (
-    <div className="container mx-auto p-6 max-w-4xl">
-      <div className="flex items-center gap-4 mb-6">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => router.back()}
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold">{survey.title}</h1>
-          {survey.description && (
-            <p className="text-gray-600 mt-2">{survey.description}</p>
-          )}
-        </div>
-      </div>
-
-
-      {!hasStarted ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Fill out the survey</CardTitle>
-            <CardDescription>
-              Click below to start answering the survey.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={handleStartResponse}>
-              Start survey
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-6">
-          {survey.questions.map((question, index) => (
-            <Card key={question._id}>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline">Question {index + 1}</Badge>
-                  {question.isRequired && (
-                    <Badge variant="destructive" className="text-xs">
-                      Required
-                    </Badge>
-                  )}
-                </div>
-                <CardTitle className="text-lg">{question.questionText}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {(question.questionType === "text_short" || question.questionType === "text_long") && (
-                  <Input
-                    value={String(answers[question._id] || "")}
-                    onChange={(e) => handleAnswerChange(question._id, e.target.value)}
-                    placeholder="Your answer"
-                  />
-                )}
-
-                {question.questionType === "single_choice" && (
-                  <RadioGroup
-                    value={String(answers[question._id] || "")}
-                    onValueChange={(value) => handleAnswerChange(question._id, value)}
-                  >
-                    {question.options?.map((option, optionIndex) => (
-                      <div key={optionIndex} className="flex items-center space-x-2">
-                        <RadioGroupItem value={option} id={`${question._id}-${optionIndex}`} />
-                        <Label htmlFor={`${question._id}-${optionIndex}`}>{option}</Label>
-                      </div>
-                    ))}
-                  </RadioGroup>
-                )}
-
-                {question.questionType === "multiple_choice" && (
-                  <div className="space-y-2">
-                    {question.options?.map((option, optionIndex) => (
-                      <div key={optionIndex} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`${question._id}-${optionIndex}`}
-                          checked={Array.isArray(answers[question._id]) && (answers[question._id] as string[]).includes(option)}
-                          onCheckedChange={(checked) => {
-                            const currentAnswers = Array.isArray(answers[question._id]) ? answers[question._id] as string[] : [];
-                            const newAnswers = checked
-                              ? [...currentAnswers, option]
-                              : currentAnswers.filter((a: string) => a !== option);
-                            handleAnswerChange(question._id, newAnswers);
-                          }}
-                        />
-                        <Label htmlFor={`${question._id}-${optionIndex}`}>{option}</Label>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {question.questionType === "rating" && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm text-gray-600">
-                      <span>{question.ratingScale?.minLabel || question.ratingScale?.min}</span>
-                      <span>{question.ratingScale?.maxLabel || question.ratingScale?.max}</span>
-                    </div>
-                    <RadioGroup
-                      value={answers[question._id]?.toString() || ""}
-                      onValueChange={(value) => handleAnswerChange(question._id, parseInt(value))}
-                    >
-                      <div className="flex items-center justify-between">
-                        {Array.from(
-                          { length: (question.ratingScale?.max || 5) - (question.ratingScale?.min || 1) + 1 },
-                          (_, i) => (question.ratingScale?.min || 1) + i
-                        ).map((value) => (
-                          <div key={value} className="flex flex-col items-center">
-                            <RadioGroupItem value={value.toString()} id={`${question._id}-${value}`} />
-                            <Label htmlFor={`${question._id}-${value}`} className="text-sm">
-                              {value}
-                            </Label>
-                          </div>
-                        ))}
-                      </div>
-                    </RadioGroup>
-                  </div>
-                )}
-
-                {question.questionType === "yes_no" && (
-                  <RadioGroup
-                    value={answers[question._id]?.toString() || ""}
-                    onValueChange={(value) => handleAnswerChange(question._id, value === "true")}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="true" id={`${question._id}-yes`} />
-                      <Label htmlFor={`${question._id}-yes`}>Yes</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="false" id={`${question._id}-no`} />
-                      <Label htmlFor={`${question._id}-no`}>No</Label>
-                    </div>
-                  </RadioGroup>
-                )}
-
-                {question.questionType === "file" && (
-                  <div className="space-y-3">
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                      <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                      <div className="text-lg font-medium text-gray-900 mb-2">
-                        Upload a file
-                      </div>
-                      <p className="text-sm text-gray-600 mb-4">
-                        Click to choose a file or drag and drop it here
-                      </p>
-                      <input
-                        type="file"
-                        id={`file-${question._id}`}
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            handleFileUpload(question._id, file);
-                          }
-                        }}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => document.getElementById(`file-${question._id}`)?.click()}
-                      >
-                        Choose file
-                      </Button>
-                    </div>
-                    {(answers[question._id] as { fileName?: string })?.fileName && (
-                      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                        <div className="flex items-center text-green-800">
-                          <Upload className="h-4 w-4 mr-2" />
-                          <span className="text-sm font-medium">
-                            Uploaded: {(answers[question._id] as { fileName: string })?.fileName}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {question.questionType === "number" && (
-                  <Input
-                    type="number"
-                    value={String(answers[question._id] || "")}
-                    onChange={(e) => handleAnswerChange(question._id, parseFloat(e.target.value))}
-                    placeholder="Enter a number"
-                  />
-                )}
-              </CardContent>
-            </Card>
-          ))}
-
-          <div className="flex justify-end gap-4">
-            <Button
-              variant="outline"
-              onClick={() => router.back()}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleSubmit} disabled={isSubmitting}>
-              <Send className="h-4 w-4 mr-2" />
-              {isSubmitting ? "Submitting..." : "Submit survey"}
-            </Button>
+          <div>
+            <h1 className="text-3xl font-bold">{survey.title}</h1>
+            {survey.description && (
+              <p className="text-gray-600 mt-2">{survey.description}</p>
+            )}
           </div>
         </div>
-      )}
-    </div>
+
+
+        {!hasStarted ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Fill out the survey</CardTitle>
+              <CardDescription>
+                Click below to start answering the survey.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={handleStartResponse}>
+                Start survey
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-6">
+            {survey.questions.map((question, index) => (
+              <Card key={question._id}>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline">Question {index + 1}</Badge>
+                    {question.isRequired && (
+                      <Badge variant="destructive" className="text-xs">
+                        Required
+                      </Badge>
+                    )}
+                  </div>
+                  <CardTitle className="text-lg">{question.questionText}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {(question.questionType === "text_short" || question.questionType === "text_long") && (
+                    <Input
+                      value={String(answers[question._id] || "")}
+                      onChange={(e) => handleAnswerChange(question._id, e.target.value)}
+                      placeholder="Your answer"
+                    />
+                  )}
+
+                  {question.questionType === "single_choice" && (
+                    <RadioGroup
+                      value={String(answers[question._id] || "")}
+                      onValueChange={(value) => handleAnswerChange(question._id, value)}
+                    >
+                      {question.options?.map((option, optionIndex) => (
+                        <div key={optionIndex} className="flex items-center space-x-2">
+                          <RadioGroupItem value={option} id={`${question._id}-${optionIndex}`} />
+                          <Label htmlFor={`${question._id}-${optionIndex}`}>{option}</Label>
+                        </div>
+                      ))}
+                    </RadioGroup>
+                  )}
+
+                  {question.questionType === "multiple_choice" && (
+                    <div className="space-y-2">
+                      {question.options?.map((option, optionIndex) => (
+                        <div key={optionIndex} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`${question._id}-${optionIndex}`}
+                            checked={Array.isArray(answers[question._id]) && (answers[question._id] as string[]).includes(option)}
+                            onCheckedChange={(checked) => {
+                              const currentAnswers = Array.isArray(answers[question._id]) ? answers[question._id] as string[] : [];
+                              const newAnswers = checked
+                                ? [...currentAnswers, option]
+                                : currentAnswers.filter((a: string) => a !== option);
+                              handleAnswerChange(question._id, newAnswers);
+                            }}
+                          />
+                          <Label htmlFor={`${question._id}-${optionIndex}`}>{option}</Label>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {question.questionType === "rating" && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm text-gray-600">
+                        <span>{question.ratingScale?.minLabel || question.ratingScale?.min}</span>
+                        <span>{question.ratingScale?.maxLabel || question.ratingScale?.max}</span>
+                      </div>
+                      <RadioGroup
+                        value={answers[question._id]?.toString() || ""}
+                        onValueChange={(value) => handleAnswerChange(question._id, parseInt(value))}
+                      >
+                        <div className="flex items-center justify-between">
+                          {Array.from(
+                            { length: (question.ratingScale?.max || 5) - (question.ratingScale?.min || 1) + 1 },
+                            (_, i) => (question.ratingScale?.min || 1) + i
+                          ).map((value) => (
+                            <div key={value} className="flex flex-col items-center">
+                              <RadioGroupItem value={value.toString()} id={`${question._id}-${value}`} />
+                              <Label htmlFor={`${question._id}-${value}`} className="text-sm">
+                                {value}
+                              </Label>
+                            </div>
+                          ))}
+                        </div>
+                      </RadioGroup>
+                    </div>
+                  )}
+
+                  {question.questionType === "yes_no" && (
+                    <RadioGroup
+                      value={answers[question._id]?.toString() || ""}
+                      onValueChange={(value) => handleAnswerChange(question._id, value === "true")}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="true" id={`${question._id}-yes`} />
+                        <Label htmlFor={`${question._id}-yes`}>Yes</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="false" id={`${question._id}-no`} />
+                        <Label htmlFor={`${question._id}-no`}>No</Label>
+                      </div>
+                    </RadioGroup>
+                  )}
+
+                  {question.questionType === "file" && (
+                    <div className="space-y-3">
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                        <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                        <div className="text-lg font-medium text-gray-900 mb-2">
+                          Upload a file
+                        </div>
+                        <p className="text-sm text-gray-600 mb-4">
+                          Click to choose a file or drag and drop it here
+                        </p>
+                        <input
+                          type="file"
+                          id={`file-${question._id}`}
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              handleFileUpload(question._id, file);
+                            }
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => document.getElementById(`file-${question._id}`)?.click()}
+                        >
+                          Choose file
+                        </Button>
+                      </div>
+                      {(answers[question._id] as { fileName?: string })?.fileName && (
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                          <div className="flex items-center text-green-800">
+                            <Upload className="h-4 w-4 mr-2" />
+                            <span className="text-sm font-medium">
+                              Uploaded: {(answers[question._id] as { fileName: string })?.fileName}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {question.questionType === "number" && (
+                    <Input
+                      type="number"
+                      value={String(answers[question._id] || "")}
+                      onChange={(e) => handleAnswerChange(question._id, parseFloat(e.target.value))}
+                      placeholder="Enter a number"
+                    />
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+
+            <div className="flex justify-end gap-4">
+              <Button
+                variant="outline"
+                onClick={() => router.back()}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleSubmit} disabled={isSubmitting}>
+                <Send className="h-4 w-4 mr-2" />
+                {isSubmitting ? "Submitting..." : "Submit survey"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </ProjectPageLayout>
   );
 }

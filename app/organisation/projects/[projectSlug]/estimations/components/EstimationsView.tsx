@@ -6,7 +6,7 @@ import { apiAny } from '@/lib/convexApiAny';
 import { Doc, Id } from '@/convex/_generated/dataModel';
 import { useProject } from '@/components/providers/ProjectProvider';
 import { toast } from 'sonner';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -29,29 +29,11 @@ import {
 
 import { CreateEstimationDialog } from './CreateEstimationDialog';
 import { EstimationPreviewDialog } from './EstimationPreviewDialog';
+import { ProjectPageLayout } from '@/components/project/ProjectPageLayout';
+import { ProjectPageHeader } from '@/components/project/ProjectPageHeader';
 
 export function EstimationsViewSkeleton() {
-  return (
-    <div className="p-4 sm:p-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
-        <div className="mb-4 sm:mb-0">
-          <Skeleton className="h-9 w-64 mb-2" />
-          <Skeleton className="h-5 w-80" />
-        </div>
-        <Skeleton className="h-10 w-48" />
-      </div>
-
-      <div className="grid gap-4">
-        {[...Array(3)].map((_, i) => (
-          <div key={i} className="border rounded-lg p-6">
-            <Skeleton className="h-6 w-1/3 mb-4" />
-            <Skeleton className="h-4 w-1/2 mb-2" />
-            <Skeleton className="h-4 w-1/4" />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+  return <Spinner className="p-4 sm:p-6" />;
 }
 
 export default function EstimationsView() {
@@ -118,17 +100,13 @@ export default function EstimationsView() {
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto px-6 pb-24 pt-8 sm:px-8">
+    <ProjectPageLayout>
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-10">
-        <div className="mb-4 sm:mb-0 space-y-4">
-          <div className="flex items-center gap-3">
-            <Calculator className="h-8 w-8 text-[var(--ui-accent-brand)]" />
-            <h1 className="text-4xl md:text-5xl font-medium tracking-tight font-[var(--font-display-serif)] text-[var(--ui-text-strong)]">
-              Cost Estimations
-            </h1>
-          </div>
-          <div className="flex flex-wrap gap-3 items-center">
+      <ProjectPageHeader
+        title="Cost Estimations"
+        icon={<Calculator className="h-8 w-8 text-[var(--ui-accent-brand)]" />}
+        tags={
+          <>
             <span className="inline-flex items-center gap-2 rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-4 py-2 text-sm font-medium text-[var(--ui-accent-brand)]">
               {project.name}
             </span>
@@ -140,16 +118,18 @@ export default function EstimationsView() {
                 Accepted: {stats.acceptedValue.toFixed(2)} {currencySymbol}
               </span>
             )}
-          </div>
-        </div>
-        <Button
-          onClick={() => setIsCreateOpen(true)}
-          className="rounded-full bg-[var(--ui-action-bg)] px-6 text-[var(--primary-foreground)] shadow-[0_14px_36px_rgba(14,14,14,0.18)] hover:bg-[var(--ui-action-hover)] transition-transform hover:-translate-y-0.5"
-        >
-          <PlusIcon className="h-4 w-4 mr-2" />
-          New Estimation
-        </Button>
-      </div>
+          </>
+        }
+        actions={
+          <Button
+            onClick={() => setIsCreateOpen(true)}
+            className="rounded-full bg-[var(--ui-action-bg)] px-6 text-[var(--primary-foreground)] shadow-[0_14px_36px_rgba(14,14,14,0.18)] hover:bg-[var(--ui-action-hover)] transition-transform hover:-translate-y-0.5"
+          >
+            <PlusIcon className="h-4 w-4 mr-2" />
+            New Estimation
+          </Button>
+        }
+      />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-10">
@@ -306,6 +286,6 @@ export default function EstimationsView() {
           currencySymbol={currencySymbol}
         />
       )}
-    </div>
+    </ProjectPageLayout>
   );
 }

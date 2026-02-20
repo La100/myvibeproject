@@ -159,14 +159,15 @@ const App = () => {
     const selectedProjectId =
       snapshot[STORAGE_KEYS.SELECTED_PROJECT_ID] ?? legacyProject?._id ?? null
 
-    const project =
-      selectedProjectId && team
-        ? team.projects.find((entry) => entry._id === selectedProjectId) ?? null
-        : null
-
     const fallback = pickDefaultSelection(teams)
     const finalTeam = team ?? fallback.team
-    const finalProject = team ? project : fallback.project
+
+    const project =
+      selectedProjectId && finalTeam
+        ? finalTeam.projects.find((entry) => entry._id === selectedProjectId) ?? null
+        : null
+
+    const finalProject = project ?? finalTeam?.projects?.[0] ?? null
 
     const currentView = finalTeam && finalProject ? "clipper" : finalTeam ? "project" : "team"
 
@@ -183,6 +184,7 @@ const App = () => {
     await persistSelection(finalTeam?._id ?? null, finalProject?._id ?? null)
   }
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: initialization should run once on mount
   useEffect(() => {
     const initialize = async () => {
       const snapshot = await loadStorage()

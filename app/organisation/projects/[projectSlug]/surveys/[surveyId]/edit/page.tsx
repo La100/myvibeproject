@@ -5,6 +5,7 @@ import { useQuery } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import { Id } from "@/convex/_generated/dataModel";
 import { EditSurveyForm } from "@/components/surveys/EditSurveyForm";
+import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 
 export default function EditSurveyPage() {
   const params = useParams();
@@ -26,9 +27,11 @@ export default function EditSurveyPage() {
   };
 
   return (
-    <div className="container mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-6">Edytuj ankietę</h1>
-      <EditSurveyForm survey={transformedSurvey} />
-    </div>
+    <ProjectPageLayout>
+      <div className="p-6">
+        <h1 className="text-3xl font-bold mb-6">Edytuj ankietę</h1>
+        <EditSurveyForm survey={transformedSurvey} />
+      </div>
+    </ProjectPageLayout>
   );
 }

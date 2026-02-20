@@ -60,47 +60,31 @@ export const ensureCurrentUserTeamMembership = mutation({
           : "member";
 
     let fallbackRole = derivedRole;
-    let fallbackProjectIds: Id<"projects">[] | undefined = undefined;
+    let fallbackProjectIds: Id<"projects">[] | undefined;
 
-    const activeCustomerRecords = await ctx.db
-      .query("customers")
-      .withIndex("by_org_and_user", (q) =>
-        q.eq("clerkOrgId", args.clerkOrgId).eq("clerkUserId", identity.subject)
-      )
-      .collect();
-
-    const nonInactiveCustomerRecords = activeCustomerRecords.filter((record) => record.status !== "inactive");
-
-    if (nonInactiveCustomerRecords.length > 0) {
-      fallbackRole = "customer";
-      fallbackProjectIds = Array.from(new Set(nonInactiveCustomerRecords.map((record) => record.projectId)));
-    } else if (identity.email) {
-      const invitedCustomerRecords = await ctx.db
-        .query("customers")
-        .withIndex("by_email", (q) => q.eq("email", identity.email!))
+    if (identity.email) {
+      const normalizedEmail = identity.email.trim().toLowerCase();
+      const now = Date.now();
+      const pendingInvitations = await ctx.db
+        .query("pendingCustomerInvitations")
+        .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
         .filter((q) =>
           q.and(
             q.eq(q.field("clerkOrgId"), args.clerkOrgId),
-            q.or(
-              q.eq(q.field("status"), "invited"),
-              q.eq(q.field("status"), "active")
-            )
+            q.eq(q.field("status"), "pending"),
+            q.gt(q.field("expiresAt"), now)
           )
         )
         .collect();
 
-      if (invitedCustomerRecords.length > 0) {
+      if (pendingInvitations.length > 0) {
         fallbackRole = "customer";
-        fallbackProjectIds = Array.from(new Set(invitedCustomerRecords.map((record) => record.projectId)));
+        fallbackProjectIds = Array.from(new Set(pendingInvitations.map((invitation) => invitation.projectId)));
 
-        for (const record of invitedCustomerRecords) {
-          if (record.status === "invited") {
-            await ctx.db.patch(record._id, {
-              status: "active",
-              clerkUserId: identity.subject,
-              joinedAt: Date.now(),
-            });
-          }
+        for (const invitation of pendingInvitations) {
+          await ctx.db.patch(invitation._id, {
+            status: "accepted",
+          });
         }
       }
     }
@@ -143,7 +127,6 @@ export const ensureCurrentUserTeamMembership = mutation({
         const existingProjectIds = membership.projectIds || [];
         patch.projectIds = Array.from(new Set([...existingProjectIds, ...fallbackProjectIds]));
       }
-
       if (Object.keys(patch).length > 0) {
         await ctx.db.patch(membership._id, patch);
       }

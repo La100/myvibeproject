@@ -6,6 +6,7 @@ import { AI_MODEL, calculateCost } from "./ai/config";
 
 const DEFAULT_BILLING_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 const FREE_TRIAL_AI_BUDGET_USD = 1;
+const FREE_TRIAL_AI_BUDGET_CENTS = FREE_TRIAL_AI_BUDGET_USD * 100;
 const TOKEN_EQ_COST_PER_1M_USD = 5;
 
 const tokenBudgetFromUsd = (usd: number) =>
@@ -23,6 +24,7 @@ export const SUBSCRIPTION_PLANS = {
     hasAdvancedFeatures: false,
     hasAIFeatures: true,
     price: 0,
+    aiMonthlySpendLimitCents: FREE_TRIAL_AI_BUDGET_CENTS,
     aiMonthlyTokens: tokenBudgetFromUsd(FREE_TRIAL_AI_BUDGET_USD),
   },
   basic: {
@@ -92,8 +94,6 @@ function getEffectiveLimits(team: any) {
       ...defaultLimits,
       ...(storedLimits || {}),
     };
-    const defaultFreeTokens = defaultLimits.aiMonthlyTokens ?? 0;
-    const storedFreeTokens = storedLimits?.aiMonthlyTokens ?? 0;
 
     return {
       ...mergedLimits,
@@ -102,7 +102,8 @@ function getEffectiveLimits(team: any) {
         defaultLimits.maxTeamMembers
       ),
       hasAIFeatures: true,
-      aiMonthlyTokens: Math.max(defaultFreeTokens, storedFreeTokens),
+      aiMonthlyTokens: defaultLimits.aiMonthlyTokens ?? 0,
+      aiMonthlySpendLimitCents: FREE_TRIAL_AI_BUDGET_CENTS,
     };
   }
 
@@ -218,11 +219,17 @@ async function evaluateAIAccess(ctx: any, team: any) {
   }
   
   // Simple token system: aiTokens = remaining balance (gets decremented on use)
+  const storedRemainingTokens = Math.max(0, team.aiTokens || 0);
+  const cappedStoredRemainingTokens =
+    plan === "free"
+      ? Math.min(storedRemainingTokens, planTokens)
+      : storedRemainingTokens;
+
   const remainingTokens =
     shouldUsePlanTokensAsBalance
       ? planTokens
-      : Math.max(0, team.aiTokens || 0);
-  const totalTokens = Math.max(remainingTokens, planTokens);
+      : cappedStoredRemainingTokens;
+  const totalTokens = plan === "free" ? planTokens : Math.max(remainingTokens, planTokens);
   const usedTokens =
     shouldUsePlanTokensAsBalance
       ? 0

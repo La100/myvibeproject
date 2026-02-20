@@ -5,7 +5,7 @@
  * Manages pending AI suggestions and their confirmation/rejection flow.
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import { toast } from "sonner";
@@ -37,6 +37,7 @@ interface UsePendingItemsProps {
   projectId: Id<"projects"> | undefined;
   teamSlug: string | undefined;
   threadId: string | undefined;
+  autoConfirmCrud?: boolean;
   setChatHistory: React.Dispatch<React.SetStateAction<ChatHistoryEntry[]>>;
 }
 
@@ -71,6 +72,7 @@ export const usePendingItems = ({
   projectId,
   teamSlug,
   threadId,
+  autoConfirmCrud = false,
   setChatHistory,
 }: UsePendingItemsProps): UsePendingItemsReturn => {
   // State
@@ -81,6 +83,7 @@ export const usePendingItems = ({
   const [isCreatingContent, setIsCreatingContent] = useState(false);
   const [isBulkProcessing, setIsBulkProcessing] = useState(false);
   const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
+  const autoConfirmBatchKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (pendingItems.length > 0) {
@@ -1424,6 +1427,38 @@ export const usePendingItems = ({
     }
   }, [pendingItems, threadId, confirmSingleItem, markFunctionCallsAsConfirmed, setChatHistory, scheduleResolvedRemoval]);
 
+  useEffect(() => {
+    if (!autoConfirmCrud) {
+      autoConfirmBatchKeyRef.current = null;
+      return;
+    }
+
+    if (isBulkProcessing || isCreatingContent) {
+      return;
+    }
+
+    const unresolvedItems = pendingItems.filter(
+      (item) => item.status !== "confirmed" && item.status !== "rejected"
+    );
+
+    if (unresolvedItems.length === 0) {
+      autoConfirmBatchKeyRef.current = null;
+      return;
+    }
+
+    const batchKey = unresolvedItems
+      .map((item) => item.clientId ?? item.functionCall?.callId ?? "")
+      .filter(Boolean)
+      .join("|");
+
+    if (!batchKey || autoConfirmBatchKeyRef.current === batchKey) {
+      return;
+    }
+
+    autoConfirmBatchKeyRef.current = batchKey;
+    void handleConfirmAll();
+  }, [autoConfirmCrud, pendingItems, isBulkProcessing, isCreatingContent, handleConfirmAll]);
+
 
 
   const handleEditItem = useCallback((indexOrCallId: number | string) => {
@@ -1491,6 +1526,5 @@ export const usePendingItems = ({
 };
 
 export default usePendingItems;
-
 
 

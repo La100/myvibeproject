@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import {
   Trash2,
@@ -65,6 +66,8 @@ export default function AISettings({ projectId }: AISettingsProps) {
   const [telegramBotUsername, setTelegramBotUsername] = useState("");
   const [telegramBotToken, setTelegramBotToken] = useState("");
   const [isSavingTelegram, setIsSavingTelegram] = useState(false);
+  const [aiAutoConfirmCrud, setAiAutoConfirmCrud] = useState(false);
+  const [isSavingAiConfirmMode, setIsSavingAiConfirmMode] = useState(false);
 
   // Get project data
   const project = useQuery(apiAny.projects.getProject, projectId ? { projectId } : "skip");
@@ -107,6 +110,7 @@ export default function AISettings({ projectId }: AISettingsProps) {
     if (!project) return;
     setTelegramBotUsername(project.telegramBotUsername || "");
     setTelegramBotToken(project.telegramBotToken || "");
+    setAiAutoConfirmCrud(Boolean((project as { aiAutoConfirmCrud?: boolean }).aiAutoConfirmCrud));
   }, [project]);
 
   const threadCount = userThreads?.length ?? 0;
@@ -134,6 +138,31 @@ export default function AISettings({ projectId }: AISettingsProps) {
 
   const handleResetToDefault = () => {
     setCustomPrompt(defaultPrompt);
+  };
+
+  const handleToggleAutoConfirmCrud = async (checked: boolean) => {
+    if (!projectId) return;
+
+    const previousValue = aiAutoConfirmCrud;
+    setAiAutoConfirmCrud(checked);
+    setIsSavingAiConfirmMode(true);
+    try {
+      await updateProject({
+        projectId,
+        aiAutoConfirmCrud: checked,
+      });
+      toast.success(
+        checked
+          ? "Włączono auto-confirm dla akcji CRUD AI"
+          : "Włączono ręczne potwierdzanie akcji CRUD AI"
+      );
+    } catch (error) {
+      setAiAutoConfirmCrud(previousValue);
+      console.error("Failed to update AI confirmation mode:", error);
+      toast.error("Nie udało się zapisać trybu potwierdzania AI");
+    } finally {
+      setIsSavingAiConfirmMode(false);
+    }
   };
 
   const handleClearAllHistory = async () => {
@@ -261,32 +290,55 @@ export default function AISettings({ projectId }: AISettingsProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="px-4 lg:px-6">
-          <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-full bg-primary/10">
-                <MessageSquare className="h-5 w-5 text-primary" />
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full bg-primary/10">
+                  <MessageSquare className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="font-medium">Historia konwersacji</p>
+                  <p className="text-sm text-muted-foreground">
+                    {userThreads === undefined ? (
+                      <span className="flex items-center gap-1">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Ładowanie...
+                      </span>
+                    ) : (
+                      <>
+                        {threadCount} {threadCount === 1 ? "konwersacja" : threadCount < 5 ? "konwersacje" : "konwersacji"}
+                      </>
+                    )}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="font-medium">Historia konwersacji</p>
+              {hasThreads && (
+                <Badge variant="secondary" className="text-xs">
+                  Aktywne
+                </Badge>
+              )}
+            </div>
+
+            <div className="flex items-start justify-between gap-4 p-4 rounded-lg border bg-muted/30">
+              <div className="space-y-1">
+                <p className="font-medium">Potwierdzanie akcji CRUD AI</p>
                 <p className="text-sm text-muted-foreground">
-                  {userThreads === undefined ? (
-                    <span className="flex items-center gap-1">
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                      Ładowanie...
-                    </span>
-                  ) : (
-                    <>
-                      {threadCount} {threadCount === 1 ? "konwersacja" : threadCount < 5 ? "konwersacje" : "konwersacji"}
-                    </>
-                  )}
+                  Gdy włączone, asystent automatycznie wykona create/edit/delete bez ręcznego akceptowania.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Aktualny tryb: {aiAutoConfirmCrud ? "Auto-confirm CRUD" : "Ręczne potwierdzanie"}
                 </p>
               </div>
+              <div className="flex items-center gap-2">
+                {isSavingAiConfirmMode && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                <Switch
+                  checked={aiAutoConfirmCrud}
+                  onCheckedChange={handleToggleAutoConfirmCrud}
+                  disabled={isSavingAiConfirmMode}
+                  aria-label="Przełącz auto-confirm CRUD"
+                />
+              </div>
             </div>
-            {hasThreads && (
-              <Badge variant="secondary" className="text-xs">
-                Aktywne
-              </Badge>
-            )}
           </div>
         </CardContent>
       </Card>

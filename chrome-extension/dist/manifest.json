@@ -10,22 +10,6 @@
     "scripting",
     "commands"
   ],
-  "host_permissions": [
-    "http://*/*",
-    "https://*/*"
-  ],
-  "content_scripts": [
-    {
-      "matches": [
-        "http://*/*",
-        "https://*/*"
-      ],
-      "js": [
-        "content.js"
-      ],
-      "run_at": "document_idle"
-    }
-  ],
   "background": {
     "service_worker": "background.js",
     "type": "module"
@@ -50,9 +34,9 @@
       ],
       "resources": [
         "popup.html",
-        "*.js",
-        "*.css",
-        "icons/*"
+        "popup.js",
+        "popup.css",
+        "storageKeys.js"
       ]
     }
   ],

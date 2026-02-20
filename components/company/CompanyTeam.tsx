@@ -21,7 +21,6 @@ import { InviteMemberDialog } from "@/components/team/InviteMemberDialog";
 import { useMutation } from "convex/react";
 import { toast } from "sonner";
 import { Id } from "@/convex/_generated/dataModel";
-import CustomerProjectMatrix from "@/components/project/CustomerProjectMatrix";
 import MemberDetailsModal from "@/components/team/MemberDetailsModal";
 
 // Define TeamMember type based on the structure returned by getTeamMembers
@@ -156,7 +155,6 @@ export default function CompanyTeam() {
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="team">Team Members</TabsTrigger>
-            <TabsTrigger value="customers">Customers</TabsTrigger>
             <TabsTrigger value="invitations">Invitations</TabsTrigger>
           </TabsList>
 
@@ -378,33 +376,6 @@ export default function CompanyTeam() {
                   </div>
                 </CardContent>
               </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="customers" className="mt-6">
-            <div className="space-y-4">
-              {/* Info Card */}
-              <Card className="border-blue-200 bg-blue-50">
-                <CardContent className="pt-6">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100">
-                      <Users className="h-4 w-4 text-blue-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-blue-900">About Customers</h3>
-                      <p className="text-sm text-blue-700 mt-1">
-                        Customers are clients assigned to specific projects. Unlike team members (admin/member) who have access to the organization,
-                        customers only see the projects they're invited to.
-                      </p>
-                      <p className="text-xs text-blue-600 mt-2">
-                        💡 To invite customers, go to a specific project's settings page.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <CustomerProjectMatrix teamId={team._id} />
             </div>
           </TabsContent>
 

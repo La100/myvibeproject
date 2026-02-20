@@ -65,7 +65,7 @@ export const saveTokenUsage = internalMutation({
       const storedPlanTokens = team.subscriptionLimits?.aiMonthlyTokens;
       const planTokens =
         plan === "free"
-          ? Math.max(defaultPlanTokens, storedPlanTokens ?? 0)
+          ? defaultPlanTokens
           : (storedPlanTokens ?? defaultPlanTokens);
       const isLegacyFreeZeroBalance =
         plan === "free" &&
@@ -75,7 +75,11 @@ export const saveTokenUsage = internalMutation({
         !hadPreviousImageUsage;
       const currentBalance =
         typeof team.aiTokens === "number" && !isLegacyFreeZeroBalance
-          ? Math.max(0, team.aiTokens)
+          ? (
+              plan === "free"
+                ? Math.min(Math.max(0, team.aiTokens), Math.max(0, planTokens))
+                : Math.max(0, team.aiTokens)
+            )
           : Math.max(0, planTokens);
       const newBalance = Math.max(0, currentBalance - args.totalTokens);
       await ctx.db.patch(args.teamId, { aiTokens: newBalance });

@@ -1,7 +1,6 @@
 import { v } from "convex/values";
-import { internal } from "./_generated/api";
 import { internalMutation, query, mutation, action } from "./_generated/server";
-import { Id, Doc } from "./_generated/dataModel";
+import type { Id } from "./_generated/dataModel";
 
 // Utility function to generate a slug from a string
 const generateSlug = (name: string) => {
@@ -168,12 +167,6 @@ export const deleteTeamInternal = internalMutation({
           .filter(q => q.eq(q.field("projectId"), project._id))
           .collect();
 
-        // Delete all customer records associated with this project
-        const projectCustomers = await ctx.db
-          .query("customers")
-          .filter(q => q.eq(q.field("projectId"), project._id))
-          .collect();
-
         // Delete all folders related to the project
         const projectFolders = await ctx.db
           .query("folders")
@@ -200,7 +193,6 @@ export const deleteTeamInternal = internalMutation({
           ...taskFiles.map(file => ctx.db.delete(file._id)),
           ...projectInvitations.map(invitation => ctx.db.delete(invitation._id)),
           ...pendingInvitations.map(invitation => ctx.db.delete(invitation._id)),
-          ...projectCustomers.map(customer => ctx.db.delete(customer._id)),
           ...projectFolders.map(folder => ctx.db.delete(folder._id)),
           ...shoppingListSections.map(section => ctx.db.delete(section._id)),
           ...shoppingListItems.map(item => ctx.db.delete(item._id)),
@@ -240,19 +232,12 @@ export const deleteTeamInternal = internalMutation({
         .withIndex("by_team", q => q.eq("teamId", team._id))
         .collect();
 
-      // Delete all remaining customers for this team
-      const remainingCustomers = await ctx.db
-        .query("customers")
-        .withIndex("by_team", q => q.eq("teamId", team._id))
-        .collect();
-
       // Execute team-level deletions
       await Promise.all([
         ...teamFolders.map(folder => ctx.db.delete(folder._id)),
         ...teamFiles.map(file => ctx.db.delete(file._id)),
         ...teamComments.map(comment => ctx.db.delete(comment._id)),
         ...teamInvitations.map(invitation => ctx.db.delete(invitation._id)),
-        ...remainingCustomers.map(customer => ctx.db.delete(customer._id)),
       ]);
 
       // 4. Delete all projects
@@ -332,69 +317,27 @@ export const createOrUpdateMembership = internalMutation({
             console.warn(`User not found and no valid email for clerkUserId=${args.clerkUserId}. Skipping user creation - will be created by user.created webhook.`);
         }
 
-        // Check for any customer records with this email or clerkUserId that need activation
-        let customerRecord: Doc<"customers"> | null = null;
-        let needsActivation = false;
-
         console.log(`[createOrUpdateMembership] Processing membership for email: ${args.userEmail}, clerkUserId: ${args.clerkUserId}, clerkOrgId: ${args.clerkOrgId}, role: ${args.role}`);
 
+        let invitedProjectIds: Id<"projects">[] = [];
         if (args.userEmail) {
-            // First check for invited customers by email
-            const invitedCustomers = await ctx.db
-                .query("customers")
-                .withIndex("by_email", q => q.eq("email", args.userEmail!))
+            const normalizedEmail = args.userEmail.trim().toLowerCase();
+            const now = Date.now();
+            const pendingInvitations = await ctx.db
+                .query("pendingCustomerInvitations")
+                .withIndex("by_email", q => q.eq("email", normalizedEmail))
                 .filter(q => q.and(
                     q.eq(q.field("clerkOrgId"), args.clerkOrgId),
-                    q.eq(q.field("status"), "invited")
+                    q.eq(q.field("status"), "pending"),
+                    q.gt(q.field("expiresAt"), now)
                 ))
                 .collect();
 
-            console.log(`[createOrUpdateMembership] Found ${invitedCustomers.length} invited customers for email ${args.userEmail}`);
-
-            if (invitedCustomers.length > 0) {
-                customerRecord = invitedCustomers[0]; // Use first one
-                needsActivation = true;
-                console.log(`[createOrUpdateMembership] Found invited customer for project: ${customerRecord.projectId}`);
-            } else {
-                // Check for already active customers
-                customerRecord = await ctx.db
-                    .query("customers")
-                    .withIndex("by_email", q => q.eq("email", args.userEmail!))
-                    .filter(q => q.and(
-                        q.eq(q.field("clerkOrgId"), args.clerkOrgId),
-                        q.eq(q.field("status"), "active")
-                    ))
-                    .first();
-
-                if (customerRecord) {
-                    console.log(`[createOrUpdateMembership] Found active customer for project: ${customerRecord.projectId}`);
-                } else {
-                    console.log(`[createOrUpdateMembership] No customer record found for email ${args.userEmail}`);
+            if (pendingInvitations.length > 0) {
+                invitedProjectIds = Array.from(new Set(pendingInvitations.map((invitation) => invitation.projectId)));
+                for (const invitation of pendingInvitations) {
+                    await ctx.db.patch(invitation._id, { status: "accepted" });
                 }
-            }
-        } else {
-            console.log(`[createOrUpdateMembership] No email provided in webhook`);
-        }
-
-        // If we have customers that need activation, activate them
-        if (needsActivation && args.userEmail) {
-            try {
-                const result = await ctx.runMutation(internal.customers.activatePendingCustomer, {
-                    email: args.userEmail,
-                    clerkUserId: args.clerkUserId
-                });
-                console.log(`Activated ${result.activated} customers for ${args.userEmail}`);
-            } catch (error) {
-                console.error(`Failed to activate customers for ${args.userEmail}:`, error);
-            }
-        }
-
-        // Wywołaj cleanup starych zaproszeń w tle (okazjonalnie)
-        if (Math.random() < 0.1) { // 10% szansy na cleanup
-            try {
-                await ctx.runMutation(internal.teams.cleanupExpiredInvitations, {});
-            } catch (error) {
-                console.warn("Failed to cleanup expired invitations:", error);
             }
         }
 
@@ -405,7 +348,7 @@ export const createOrUpdateMembership = internalMutation({
         
         // Określ rolę użytkownika w zespole
         let role: "admin" | "member" | "customer" = "member"; // domyślna rola
-        let projectIds: Id<"projects">[] | undefined = undefined;
+        let projectIds: Id<"projects">[] | undefined;
 
         // 1. Sprawdź rolę z Clerk
         if (args.role === "admin" || args.role === "org:admin") {
@@ -417,7 +360,7 @@ export const createOrUpdateMembership = internalMutation({
         }
 
         // 1.5. Sprawdź czy to pierwszy członek organizacji (powinien być adminem)
-        if (!membership && !customerRecord) {
+        if (!membership && invitedProjectIds.length === 0) {
             const existingMembers = await ctx.db
                 .query("teamMembers")
                 .withIndex("by_team", q => q.eq("teamId", team._id))
@@ -429,28 +372,18 @@ export const createOrUpdateMembership = internalMutation({
             }
         }
 
-        // 2. Jeśli znaleziono zaproszenie do konkretnego projektu, ustaw rolę "customer"
-        if (customerRecord) {
+        if (invitedProjectIds.length > 0) {
             role = "customer";
-            projectIds = [customerRecord.projectId];
-            
-            // Oznacz customera jako aktywnego i zapisz clerkUserId
-            await ctx.db.patch(customerRecord._id, { 
-                status: "active",
-                clerkUserId: args.clerkUserId,
-                joinedAt: Date.now()
-            });
+            projectIds = invitedProjectIds;
         }
 
         if(membership){
-            // Jeśli już jest członkiem, zaktualizuj rolę i projekty
-            const updateData: any = { role };
-            if (projectIds) {
-                // Dla klientów dodaj nowy projekt do listy
+            const patch: Record<string, unknown> = { role };
+            if (projectIds && projectIds.length > 0) {
                 const currentProjectIds = membership.projectIds || [];
-                updateData.projectIds = [...new Set([...currentProjectIds, ...projectIds])];
+                patch.projectIds = Array.from(new Set([...currentProjectIds, ...projectIds]));
             }
-            await ctx.db.patch(membership._id, updateData);
+            await ctx.db.patch(membership._id, patch);
         } else {
             // Stwórz nowego członka
             await ctx.db.insert("teamMembers", {
@@ -490,19 +423,6 @@ export const deleteMembership = internalMutation({
             await ctx.db.delete(membership._id);
         }
 
-        // Also remove all customer records for this user in this organization
-        const customerRecords = await ctx.db
-            .query("customers")
-            .filter(q => q.and(
-                q.eq(q.field("clerkOrgId"), args.clerkOrgId),
-                q.eq(q.field("clerkUserId"), args.clerkUserId)
-            ))
-            .collect();
-
-        for (const customer of customerRecords) {
-            await ctx.db.delete(customer._id);
-        }
-
         // Also clean up any pending invitations for this user's email
         const user = await ctx.db
             .query("users")
@@ -525,17 +445,7 @@ export const deleteMembership = internalMutation({
             }
         }
 
-        console.log(`Cleaned up membership, ${customerRecords.length} customer records, and pending invitations for user ${args.clerkUserId} from org ${args.clerkOrgId}`);
-    }
-});
-
-export const deleteTeam = internalMutation({
-    args: { clerkOrgId: v.string() },
-    async handler(ctx, args): Promise<void> {
-        // Use the same complete deletion logic as deleteTeamInternal
-        await ctx.runMutation(internal.myFunctions.deleteTeamInternal, {
-            clerkOrgId: args.clerkOrgId
-        });
+        console.log(`Cleaned up membership and pending invitations for user ${args.clerkUserId} from org ${args.clerkOrgId}`);
     }
 });
 

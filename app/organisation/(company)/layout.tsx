@@ -3,10 +3,12 @@
 import { useRouter, usePathname } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useMemo } from "react";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { CompanySidebar } from "@/components/company/CompanySidebar";
 import { useOrganization } from "@clerk/nextjs";
+import { ChevronRight } from "lucide-react";
+import Link from "next/link";
 
 export default function CompanyLayout({
   children,
@@ -70,6 +72,43 @@ export default function CompanyLayout({
     }
   }, [userRole, pathname, router]);
 
+  const breadcrumbs = useMemo(() => {
+    const routeLabels: Record<string, string> = {
+      "/organisation": "Projects",
+      "/organisation/projects/new": "New Project",
+      "/organisation/contacts": "Contacts",
+      "/organisation/settings": "Settings",
+      "/organisation/team": "Team",
+      "/organisation/reports": "Reports",
+      "/organisation/product-library": "Product Library",
+      "/organisation/visualizations": "Visualizations",
+    };
+
+    const crumbs: { label: string; href: string }[] = [];
+
+    // Always start with Projects as home
+    crumbs.push({ label: "Projects", href: "/organisation" });
+
+    if (pathname !== "/organisation") {
+      // Check for exact match first
+      const label = routeLabels[pathname];
+      if (label) {
+        crumbs.push({ label, href: pathname });
+      } else {
+        // Build from path segments
+        const segments = pathname.replace("/organisation/", "").split("/");
+        let currentPath = "/organisation";
+        for (const segment of segments) {
+          currentPath += `/${segment}`;
+          const segLabel = routeLabels[currentPath] || segment.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+          crumbs.push({ label: segLabel, href: currentPath });
+        }
+      }
+    }
+
+    return crumbs;
+  }, [pathname]);
+
   if (
     onboardingStatus === undefined ||
     !onboardingStatus.authenticated ||
@@ -96,8 +135,26 @@ export default function CompanyLayout({
           <span className="clean-title text-lg font-medium">Workspace</span>
         </header>
         <main className="flex-1 min-h-0 overflow-auto">
-          <div className="mx-auto flex w-full max-w-[1540px] flex-col gap-6 px-4 pb-8 pt-4 md:px-6 xl:px-8 xl:pt-8">
-            {children}
+          <div className="mx-auto flex w-full max-w-[1540px] flex-col px-4 pb-8 pt-4 md:px-6 xl:px-8 xl:pt-8">
+            {breadcrumbs.length > 1 && (
+              <nav className="mb-4 flex items-center gap-1 text-sm text-muted-foreground">
+                {breadcrumbs.map((crumb, i) => (
+                  <span key={crumb.href} className="flex items-center gap-1">
+                    {i > 0 && <ChevronRight className="h-3.5 w-3.5" />}
+                    {i < breadcrumbs.length - 1 ? (
+                      <Link href={crumb.href} className="hover:text-foreground transition-colors">
+                        {crumb.label}
+                      </Link>
+                    ) : (
+                      <span className="text-foreground font-medium">{crumb.label}</span>
+                    )}
+                  </span>
+                ))}
+              </nav>
+            )}
+            <div className="flex flex-col gap-6">
+              {children}
+            </div>
           </div>
         </main>
       </SidebarInset>

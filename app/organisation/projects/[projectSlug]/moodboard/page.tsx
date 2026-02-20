@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Edit3, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 
 // Mock data for demonstration - organized by rows
 const mockMoodboardRows = [
@@ -20,12 +21,12 @@ const mockMoodboardRows = [
         url: "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&h=600&fit=crop",
       },
       {
-        id: "2", 
+        id: "2",
         url: "https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?w=600&h=400&fit=crop",
       },
       {
         id: "3",
-        url: "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=400&h=500&fit=crop", 
+        url: "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=400&h=500&fit=crop",
       },
       {
         id: "4",
@@ -127,8 +128,8 @@ function MoodboardRowTitle({ title, isEditing, onEdit, onSave, onUpload, isUploa
   );
 }
 
-function MoodboardRow({ row, onUpdateTitle }: { 
-  row: MoodboardRow; 
+function MoodboardRow({ row, onUpdateTitle }: {
+  row: MoodboardRow;
   onUpdateTitle: (rowId: string, newTitle: string) => void;
 }) {
   const { project } = useProject();
@@ -153,7 +154,7 @@ function MoodboardRow({ row, onUpdateTitle }: {
 
   const handleUploadClick = () => {
     if (isUploading) return;
-    
+
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
@@ -170,7 +171,7 @@ function MoodboardRow({ row, onUpdateTitle }: {
   const handleImageUpload = async (files: FileList) => {
     const fileArray = Array.from(files);
     if (!fileArray.length) return;
-    
+
     setIsUploading(true);
 
     try {
@@ -202,7 +203,7 @@ function MoodboardRow({ row, onUpdateTitle }: {
 
         // 3. Extract the file key from the URL 
         const fileKey = uploadData.key;
-        
+
         // 4. Attach file to project with moodboard section
         await addFile({
           projectId: project._id,
@@ -260,18 +261,18 @@ function MoodboardRow({ row, onUpdateTitle }: {
       <div className="columns-1 sm:columns-2 md:columns-2 lg:columns-3 xl:columns-3 gap-6 space-y-6">
         {/* Images with natural aspect ratios - larger and more prominent */}
         {(sectionImages || []).map((image) => (
-          <div 
-            key={image.id} 
+          <div
+            key={image.id}
             className="break-inside-avoid mb-4 rounded-xl overflow-hidden hover:shadow-xl transition-all duration-300 group relative"
           >
-            <img 
-              src={image.url} 
+            <img
+              src={image.url}
               alt=""
               className="w-full h-auto object-contain cursor-pointer group-hover:scale-[1.02] transition-transform duration-300 bg-white rounded-xl"
               loading="lazy"
               onClick={() => setSelectedImage(image)}
             />
-            
+
             {/* Delete button - larger and more visible */}
             <button
               onClick={(e) => {
@@ -289,13 +290,13 @@ function MoodboardRow({ row, onUpdateTitle }: {
 
       {/* Image Preview Modal */}
       {selectedImage && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
           onClick={() => setSelectedImage(null)}
         >
           <div className="max-w-6xl max-h-full">
-            <img 
-              src={selectedImage.url} 
+            <img
+              src={selectedImage.url}
               alt=""
               className="max-w-full max-h-full object-contain"
             />
@@ -311,7 +312,7 @@ export default function MoodboardPage() {
   const [rows, setRows] = useState<MoodboardRow[]>(mockMoodboardRows);
 
   const handleUpdateTitle = (rowId: string, newTitle: string) => {
-    setRows(rows.map(row => 
+    setRows(rows.map(row =>
       row.id === rowId ? { ...row, title: newTitle } : row
     ));
   };
@@ -328,21 +329,21 @@ export default function MoodboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50/30">
+    <ProjectPageLayout>
       {/* Header - cleaner, more minimal */}
-      <div className="text-center py-12 bg-white border-b">
+      <div className="text-center py-12 bg-white border-b rounded-3xl mb-8">
         <h1 className="text-5xl font-light tracking-[0.2em] mb-3 text-gray-900">
           {project.name.toUpperCase()}
         </h1>
       </div>
 
       {/* Moodboard Content */}
-      <div className="max-w-7xl mx-auto px-8 py-12">
+      <div className="w-full">
         <div className="space-y-16">
           {rows.map((row) => (
-            <MoodboardRow 
-              key={row.id} 
-              row={row} 
+            <MoodboardRow
+              key={row.id}
+              row={row}
               onUpdateTitle={handleUpdateTitle}
             />
           ))}
@@ -350,7 +351,7 @@ export default function MoodboardPage() {
 
         {/* Add New Row */}
         <div className="flex justify-center pt-16">
-          <button 
+          <button
             onClick={handleAddRow}
             className="text-gray-600 hover:text-gray-800 text-sm tracking-wider transition-colors"
           >
@@ -358,6 +359,6 @@ export default function MoodboardPage() {
           </button>
         </div>
       </div>
-    </div>
+    </ProjectPageLayout>
   );
 }

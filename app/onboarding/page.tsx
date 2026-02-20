@@ -14,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { TimezonePicker } from "@/components/ui/timezone-picker";
 
 type CurrencyCode =
   | "USD"
@@ -351,7 +352,7 @@ export default function OnboardingPage() {
                   value={organizationCurrency}
                   onValueChange={(value) => setOrganizationCurrency(value as CurrencyCode)}
                 >
-                  <SelectTrigger id="currency">
+                  <SelectTrigger id="currency" className="w-[360px] max-w-full">
                     <SelectValue placeholder="Select currency" />
                   </SelectTrigger>
                   <SelectContent>
@@ -366,29 +367,16 @@ export default function OnboardingPage() {
             )}
 
             {activeOrganization && canUpdateOrganization && (
-              <div className="space-y-3">
-                <Label htmlFor="timezone" className="text-sm font-medium">
+              <div className="space-y-3 max-w-md">
+                <Label className="text-sm font-medium">
                   <Clock3 className="h-4 w-4 inline mr-2" />
                   Organization timezone
                 </Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="timezone"
-                    placeholder="Europe/Warsaw"
-                    value={organizationTimezone}
-                    onChange={(event) => setOrganizationTimezone(event.target.value)}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setOrganizationTimezone(detectTimezone())}
-                  >
-                    Detect
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Use IANA timezone format, for example `America/New_York`.
-                </p>
+                <TimezonePicker
+                  value={organizationTimezone}
+                  onValueChange={setOrganizationTimezone}
+                  className="w-[360px] max-w-full"
+                />
               </div>
             )}
 

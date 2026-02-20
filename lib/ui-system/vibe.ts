@@ -128,39 +128,39 @@ export const UI_VIBES: Record<UiVibeId, UiVibeDefinition> = {
   linen: {
     id: "linen",
     label: "Linen Atelier",
-    radius: "0.875rem",
+    radius: "1rem", // changed from 0.5rem to match radii.lg
     light: {
-      background: "#F6F5F1",
-      foreground: "#161616",
-      card: "#FCFCFA",
-      cardForeground: "#161616",
+      background: "#FAF7F2", // colors.base.background
+      foreground: "#1A1A1A", // colors.base.text
+      card: "#FFFFFF", // colors.base.surface
+      cardForeground: "#1A1A1A",
       popover: "#FFFFFF",
-      popoverForeground: "#161616",
-      primary: "#171717",
-      primaryForeground: "#F9F8F5",
-      secondary: "#ECEAE3",
-      secondaryForeground: "#262523",
-      muted: "#EFEEE8",
-      mutedForeground: "#6E6B65",
-      accent: "#E8E6DE",
-      accentForeground: "#262523",
-      destructive: "#dc322f",
-      border: "#E2E0D8",
-      input: "#DAD7CF",
-      ring: "#4C4A44",
+      popoverForeground: "#1A1A1A",
+      primary: "#0E0E0E", // colors.brand.primary
+      primaryForeground: "#FFFFFF",
+      secondary: "#FFFFFF", // colors.secondaryBtn.bg
+      secondaryForeground: "#1A1A1A", // colors.base.text
+      muted: "#F2EEE6", // colors.notice.muted
+      mutedForeground: "#5A5752", // colors.notice.mutedText
+      accent: "#E7E2D9", // colors.base.border
+      accentForeground: "#1A1A1A",
+      destructive: "#FF7A6E", // colors.decorative.sprinkleCoral
+      border: "#E7E2D9", // colors.base.border
+      input: "#FFFFFF", // colors.inputs.bg
+      ring: "#0A84FF", // colors.base.focus
       chart1: "oklch(0.646 0.222 41.116)",
       chart2: "oklch(0.6 0.118 184.704)",
       chart3: "oklch(0.398 0.07 227.392)",
       chart4: "oklch(0.828 0.189 84.429)",
       chart5: "oklch(0.769 0.188 70.08)",
-      sidebar: "#F2F1EC",
-      sidebarForeground: "#161616",
-      sidebarPrimary: "#171717",
-      sidebarPrimaryForeground: "#F9F8F5",
-      sidebarAccent: "#E7E5DD",
-      sidebarAccentForeground: "#262523",
-      sidebarBorder: "#DEDBD3",
-      sidebarRing: "#4C4A44",
+      sidebar: "#FAF7F2",
+      sidebarForeground: "#1A1A1A",
+      sidebarPrimary: "#0E0E0E",
+      sidebarPrimaryForeground: "#FFFFFF",
+      sidebarAccent: "#E7E2D9",
+      sidebarAccentForeground: "#1A1A1A",
+      sidebarBorder: "#E7E2D9",
+      sidebarRing: "#0A84FF",
       uiTextStrong: "#1A1A1A",
       uiTextMain: "#3C3A37",
       uiTextMuted: "#8C8880",
@@ -168,21 +168,21 @@ export const UI_VIBES: Record<UiVibeId, UiVibeDefinition> = {
       uiBorderSoft: "#E7E2D9",
       uiSurfaceSoft: "#FAF7F2",
       uiSurfaceBase: "#FFFFFF",
-      uiAccentBrand: "#6D8B73",
+      uiAccentBrand: "#6D8B73", // colors.brand.accentSage
       uiActionBg: "#0E0E0E",
       uiActionHover: "#1F1F1F",
-      uiAccentCopper: "#C06A3D",
-      uiAccentIndigo: "#7C5CE0",
-      uiPriorityUrgent: "#ef4444",
-      uiPriorityHigh: "#f97316",
+      uiAccentCopper: "#C06A3D", // colors.brand.terracottaHero
+      uiAccentIndigo: "#7C5CE0", // colors.decorative.sprinklePurple
+      uiPriorityUrgent: "#FF7A6E",
+      uiPriorityHigh: "#C06A3D",
       uiPriorityMedium: "#eab308",
-      uiPriorityLow: "#22c55e",
-      uiPriorityDefault: "#6b7280",
-      uiGradientStart: "#2c2a25",
-      uiGradientWarm: "#c06a3d",
-      uiGradientBrand: "#6d8b73",
-      uiGradientViolet: "#7c5ce0",
-      uiGradientEnd: "#2c2a25",
+      uiPriorityLow: "#7EC272", // colors.decorative.sprinkleGreen
+      uiPriorityDefault: "#8C8880",
+      uiGradientStart: "#0E0E0E",
+      uiGradientWarm: "#C06A3D",
+      uiGradientBrand: "#6D8B73",
+      uiGradientViolet: "#7C5CE0",
+      uiGradientEnd: "#16A6A4", // colors.decorative.sprinkleTeal
     },
     dark: {
       background: "#131313",
@@ -243,7 +243,7 @@ export const UI_VIBES: Record<UiVibeId, UiVibeDefinition> = {
   graphite: {
     id: "graphite",
     label: "Graphite Studio",
-    radius: "0.75rem",
+    radius: "0.375rem",
     light: {
       background: "#F3F5FA",
       foreground: "#111827",

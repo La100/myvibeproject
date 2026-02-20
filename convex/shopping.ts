@@ -1,7 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { internal } from "./_generated/api";
-const internalAny = internal as any;
+const internalAny = require("./_generated/api").internal as any;
 
 // ====== SHOPPING LIST SECTIONS ======
 
@@ -106,6 +105,147 @@ export const listShoppingListItems = query({
       .query("shoppingListItems")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
+  },
+});
+
+export const getPublicShoppingListByAccessToken = query({
+  args: { accessToken: v.string() },
+  handler: async (ctx, args) => {
+    const token = args.accessToken.trim();
+    if (!token) {
+      return null;
+    }
+
+    const project = await ctx.db
+      .query("projects")
+      .withIndex("by_client_panel_access_token", (q) =>
+        q.eq("clientPanelAccessToken", token)
+      )
+      .unique();
+
+    if (!project) {
+      return null;
+    }
+
+    const sections = await ctx.db
+      .query("clientPanelSections")
+      .withIndex("by_project", (q) => q.eq("projectId", project._id))
+      .order("asc")
+      .collect();
+
+    const items = await ctx.db
+      .query("clientPanelItems")
+      .withIndex("by_project", (q) => q.eq("projectId", project._id))
+      .collect();
+
+    const settings = {
+      showNotes: project.clientPanelPublishedSettings?.showNotes ?? true,
+      showSupplier: project.clientPanelPublishedSettings?.showSupplier ?? true,
+      showPrice: project.clientPanelPublishedSettings?.showPrice ?? true,
+    };
+
+    return {
+      project: {
+        _id: project._id,
+        name: project.name,
+        currency: project.currency || "PLN",
+      },
+      settings,
+      version: project.clientPanelDataVersion || 0,
+      updatedAt: project.clientPanelDataUpdatedAt || null,
+      sections,
+      items,
+    };
+  },
+});
+
+export const selectShoppingAlternativeByAccessToken = mutation({
+  args: {
+    accessToken: v.string(),
+    itemId: v.id("shoppingListItems"),
+    selectedItemId: v.union(v.id("shoppingListItems"), v.null()),
+  },
+  handler: async (ctx, args) => {
+    const token = args.accessToken.trim();
+    if (!token) {
+      throw new Error("Invalid panel link");
+    }
+
+    const project = await ctx.db
+      .query("projects")
+      .withIndex("by_client_panel_access_token", (q) =>
+        q.eq("clientPanelAccessToken", token)
+      )
+      .unique();
+
+    if (!project) {
+      throw new Error("Invalid panel link");
+    }
+
+    const item = await ctx.db
+      .query("clientPanelItems")
+      .withIndex("by_project_and_source", (q) =>
+        q.eq("projectId", project._id).eq("sourceItemId", args.itemId)
+      )
+      .unique();
+    if (!item) {
+      throw new Error("Item not found in this published panel");
+    }
+
+    const baseItemId = item.alternativeToSourceItemId || item.sourceItemId;
+
+    const projectItems = await ctx.db
+      .query("clientPanelItems")
+      .withIndex("by_project", (q) => q.eq("projectId", project._id))
+      .collect();
+
+    const allowedOptionIds = new Set(
+      projectItems
+        .filter(
+          (projectItem) =>
+            projectItem.sourceItemId === baseItemId ||
+            projectItem.alternativeToSourceItemId === baseItemId
+        )
+        .map((projectItem) => projectItem.sourceItemId)
+    );
+
+    if (allowedOptionIds.size === 0) {
+      throw new Error("Alternative options not found");
+    }
+
+    if (args.selectedItemId && !allowedOptionIds.has(args.selectedItemId)) {
+      throw new Error("Selected option does not belong to this alternative group");
+    }
+
+    const selectedAlternativeSourceItemId =
+      args.selectedItemId && args.selectedItemId !== baseItemId
+        ? args.selectedItemId
+        : null;
+
+    const basePanelItem = await ctx.db
+      .query("clientPanelItems")
+      .withIndex("by_project_and_source", (q) =>
+        q.eq("projectId", project._id).eq("sourceItemId", baseItemId)
+      )
+      .unique();
+    if (!basePanelItem) {
+      throw new Error("Base item not found in published panel");
+    }
+
+    await ctx.db.patch(basePanelItem._id, {
+      selectedAlternativeSourceItemId,
+    });
+
+    await ctx.db.patch(baseItemId, {
+      selectedAlternativeItemId: selectedAlternativeSourceItemId,
+      updatedAt: Date.now(),
+    });
+
+    return {
+      success: true,
+      baseItemId,
+      selectedItemId: selectedAlternativeSourceItemId || baseItemId,
+    };
   },
 });
 

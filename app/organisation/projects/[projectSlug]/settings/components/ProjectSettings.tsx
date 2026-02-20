@@ -15,10 +15,10 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { useState, Suspense } from "react";
+import { useRef, useState, Suspense } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-import { Users, Settings, Shield, AlertTriangle, Eye, Sparkles } from "lucide-react";
+import { Users, Settings, Shield, AlertTriangle, Eye, Sparkles, ImagePlus } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -30,13 +30,14 @@ import TaskStatusSettings from "./TaskStatusSettings";
 import ProjectMembers from "./ProjectMembers";
 import SidebarPermissions from "./SidebarPermissions";
 import AISettings from "./AISettings";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { useOrganization } from "@clerk/nextjs";
 
 
 const settingsFormSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   description: z.string().optional(),
+  coverImageUrl: z.string().optional().or(z.literal("")),
   customer: z.string().optional(),
   budget: z.coerce.number().positive("Budget must be positive").optional().or(z.literal("")),
   location: z.string().optional(),
@@ -58,41 +59,7 @@ const deleteFormSchema = z.object({
 });
 
 function ProjectSettingsSkeleton() {
-  return (
-    <div className="mt-4 lg:mt-8 px-4 lg:px-0 pb-8 animate-pulse">
-      <div className="mb-6">
-        <Skeleton className="h-9 w-1/2" />
-        <Skeleton className="h-5 w-3/4 mt-2" />
-      </div>
-
-      <div className="grid w-full grid-cols-6 h-auto p-1 mb-6 border rounded-md">
-        {[...Array(6)].map((_, i) => (
-          <div key={i} className="flex flex-col items-center gap-1 p-2">
-            <Skeleton className="h-5 w-5 rounded-full" />
-            <Skeleton className="h-4 w-12" />
-          </div>
-        ))}
-      </div>
-
-      <Card>
-        <CardHeader className="pb-4">
-          <Skeleton className="h-7 w-48" />
-          <Skeleton className="h-4 w-64 mt-2" />
-        </CardHeader>
-        <CardContent className="px-4 lg:px-6 space-y-6">
-          <div className="space-y-2">
-            <Skeleton className="h-5 w-24" />
-            <Skeleton className="h-10 w-full" />
-          </div>
-          <div className="space-y-2">
-            <Skeleton className="h-5 w-24" />
-            <Skeleton className="h-10 w-full" />
-          </div>
-          <Skeleton className="h-10 w-32" />
-        </CardContent>
-      </Card>
-    </div>
-  );
+  return <Spinner className="mt-4 px-4 pb-8 lg:mt-8 lg:px-0" />;
 }
 
 function ProjectSettingsContent() {
@@ -125,12 +92,13 @@ function ProjectSettingsContent() {
     values: project ? { 
       name: project.name,
       description: project.description || "",
+      coverImageUrl: project.coverImageUrl || "",
       customer: project.customer || "",
       budget: project.budget || "",
       location: project.location || "",
       status: project.status || "planning",
       currency: project.currency || "PLN",
-    } : { name: "", description: "", customer: "", budget: "", location: "", status: "planning", currency: "PLN" },
+    } : { name: "", description: "", coverImageUrl: "", customer: "", budget: "", location: "", status: "planning", currency: "PLN" },
   });
 
   const deleteForm = useForm<z.infer<typeof deleteFormSchema>>({
@@ -168,6 +136,7 @@ function ProjectSettingsContent() {
         projectId: project!._id, 
         name: values.name,
         description: values.description || undefined,
+        coverImageUrl: values.coverImageUrl?.trim() || "",
         customer: values.customer || undefined,
         budget: values.budget ? Number(values.budget) : undefined,
         location: values.location || undefined,
@@ -243,31 +212,32 @@ function ProjectSettingsContent() {
 
         <TabsContent value="general" className="mt-0">
           <GeneralTab 
+            projectId={project._id}
             settingsForm={settingsForm}
             onSettingsSubmit={onSettingsSubmit}
           />
         </TabsContent>
 
         <TabsContent value="members" className="mt-0">
-           <Suspense fallback={<Card><CardContent className="p-4"><Skeleton className="h-20 w-full" /></CardContent></Card>}>
+           <Suspense fallback={<Card><CardContent className="p-4"><Spinner fullHeight={false} /></CardContent></Card>}>
             <MembersTab project={project} />
           </Suspense>
         </TabsContent>
 
         <TabsContent value="permissions" className="mt-0">
-           <Suspense fallback={<Card><CardContent className="p-4"><Skeleton className="h-20 w-full" /></CardContent></Card>}>
+          <Suspense fallback={<Card><CardContent className="p-4"><Spinner fullHeight={false} /></CardContent></Card>}>
             <PermissionsTab project={project} />
           </Suspense>
         </TabsContent>
 
         <TabsContent value="taskstatus" className="mt-0">
-           <Suspense fallback={<Card><CardContent className="p-4"><Skeleton className="h-20 w-full" /></CardContent></Card>}>
+          <Suspense fallback={<Card><CardContent className="p-4"><Spinner fullHeight={false} /></CardContent></Card>}>
             <TaskStatusTab project={project} />
           </Suspense>
         </TabsContent>
 
         <TabsContent value="ai" className="mt-0">
-          <Suspense fallback={<Card><CardContent className="p-4"><Skeleton className="h-20 w-full" /></CardContent></Card>}>
+          <Suspense fallback={<Card><CardContent className="p-4"><Spinner fullHeight={false} /></CardContent></Card>}>
             <AISettings projectId={project._id} />
           </Suspense>
         </TabsContent>
@@ -296,12 +266,80 @@ export default function ProjectSettings() {
 
 // General Settings Tab
 function GeneralTab({ 
+  projectId,
   settingsForm, 
   onSettingsSubmit 
 }: {
+  projectId: Id<"projects">;
   settingsForm: UseFormReturn<z.infer<typeof settingsFormSchema>>;
   onSettingsSubmit: (values: z.infer<typeof settingsFormSchema>) => void;
 }) {
+  const generateUploadUrl = useMutation(apiAny.files.generateUploadUrlWithCustomKey);
+  const addFile = useMutation(apiAny.files.addFile);
+  const [uploadingCoverImage, setUploadingCoverImage] = useState(false);
+  const coverFileInputRef = useRef<HTMLInputElement>(null);
+  const coverPreviewUrl = settingsForm.watch("coverImageUrl");
+
+  const handleCoverImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file");
+      return;
+    }
+
+    setUploadingCoverImage(true);
+    try {
+      const uploadData = await generateUploadUrl({
+        projectId,
+        fileName: file.name,
+        fileSize: file.size,
+      });
+
+      const uploadResponse = await fetch(uploadData.url, {
+        method: "PUT",
+        body: file,
+        headers: {
+          "Content-Type": file.type,
+        },
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error(`Cover upload failed (${uploadResponse.status})`);
+      }
+
+      await addFile({
+        projectId,
+        folderId: undefined,
+        fileKey: uploadData.key,
+        fileName: file.name,
+        fileType: file.type,
+        fileSize: file.size,
+        origin: "general",
+      });
+
+      if (!uploadData.publicUrl) {
+        throw new Error("Missing public URL for uploaded cover image");
+      }
+
+      settingsForm.setValue("coverImageUrl", uploadData.publicUrl, {
+        shouldDirty: true,
+        shouldTouch: true,
+      });
+      toast.success("Cover image uploaded. Save changes to apply.");
+    } catch (error) {
+      toast.error("Failed to upload cover image", {
+        description: (error as Error).message,
+      });
+    } finally {
+      setUploadingCoverImage(false);
+      if (coverFileInputRef.current) {
+        coverFileInputRef.current.value = "";
+      }
+    }
+  };
+
   return (
     <Card>
       <CardHeader className="pb-4">
@@ -345,6 +383,50 @@ function GeneralTab({
                       rows={3}
                     />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={settingsForm.control}
+              name="coverImageUrl"
+              render={({ field }) => (
+                <FormItem className="space-y-2">
+                  <FormLabel className="text-sm font-medium">Cover Image URL</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="https://example.com/project-cover.jpg"
+                      {...field}
+                      className="w-full h-10 text-base"
+                    />
+                  </FormControl>
+                  <input
+                    ref={coverFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleCoverImageUpload}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => coverFileInputRef.current?.click()}
+                    disabled={uploadingCoverImage}
+                  >
+                    <ImagePlus className="mr-2 h-4 w-4" />
+                    {uploadingCoverImage ? "Uploading..." : "Upload image"}
+                  </Button>
+                  {coverPreviewUrl && /^https?:\/\//i.test(coverPreviewUrl) ? (
+                    <div className="overflow-hidden rounded-md border bg-muted/30">
+                      <img
+                        src={coverPreviewUrl}
+                        alt="Cover preview"
+                        className="h-40 w-full object-cover"
+                      />
+                    </div>
+                  ) : null}
                   <FormMessage />
                 </FormItem>
               )}

@@ -117,18 +117,50 @@ export const useAIChat = ({ projectId, userClerkId }: UseAIChatProps): UseAIChat
   const [sessionTokens, setSessionTokens] = useState<SessionTokens>({ total: 0, cost: 0 });
 
   // Anti-flicker: suppress messages briefly when switching threads to ensure 
-  // useUIMessages clears its cache/stale data
+  // useUIMessages doesn't render stale data from the previous thread.
   const [suppressMessages, setSuppressMessages] = useState(false);
+  const suppressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const setThreadIdWithSuppression = useCallback((id: string | undefined) => {
-    setThreadId(id);
-    // Only suppress if we are setting a valid ID (switching TO a thread)
-    // If setting to undefined (clearing), shouldSubscribe becomes false anyway.
-    if (id) {
-      setSuppressMessages(true);
-      // Short timeout to allow render cycle to clear/reset the hook
-      setTimeout(() => setSuppressMessages(false), 50);
+    const previousThreadId = threadId;
+
+    if (suppressTimeoutRef.current) {
+      clearTimeout(suppressTimeoutRef.current);
+      suppressTimeoutRef.current = null;
     }
+
+    setThreadId(id);
+
+    // Clearing thread means empty chat immediately.
+    if (!id) {
+      setSuppressMessages(false);
+      return;
+    }
+
+    // Suppress only when switching between two existing threads.
+    // For a brand-new thread created after first send (undefined -> id),
+    // suppression causes optimistic user message flicker.
+    const isExistingThreadSwitch = Boolean(previousThreadId && previousThreadId !== id);
+    if (!isExistingThreadSwitch) {
+      setSuppressMessages(false);
+      return;
+    }
+
+    // While switching to another concrete thread, hide message list briefly
+    // until the new thread has loaded at least its first page.
+    setSuppressMessages(true);
+    suppressTimeoutRef.current = setTimeout(() => {
+      setSuppressMessages(false);
+      suppressTimeoutRef.current = null;
+    }, 600);
+  }, [threadId]);
+
+  useEffect(() => {
+    return () => {
+      if (suppressTimeoutRef.current) {
+        clearTimeout(suppressTimeoutRef.current);
+      }
+    };
   }, []);
 
   // Refs
@@ -137,23 +169,11 @@ export const useAIChat = ({ projectId, userClerkId }: UseAIChatProps): UseAIChat
   const abortControllerRef = useRef<AbortController | null>(null);
   const isSendingRef = useRef(false);
 
-  // ===========================================
-  // Thread list query
-  // MUST be defined BEFORE being used in effects below
-  // ===========================================
-  const userThreads = useQuery(
-    apiAny.ai.threads.listThreadsForUser,
-    projectId && userClerkId
-      ? { projectId, userClerkId }
-      : "skip"
-  );
-
   // CRITICAL: Subscribe strategy based on thread type
   // - Skip if no threadId (empty/new chat state)
   // - For new threads: subscribe anyway (optimistic updates will work)
   // - For existing threads: always subscribe
-  // - Skip if explicitly suppressed (anti-flicker)
-  const shouldSubscribe = Boolean(threadId) && !suppressMessages;
+  const shouldSubscribe = Boolean(threadId);
 
   // List persistent function calls (pending + confirmed/rejected)
   const persistentFunctionCalls = useQuery(
@@ -179,6 +199,7 @@ export const useAIChat = ({ projectId, userClerkId }: UseAIChatProps): UseAIChat
 
   // Merge persistent status into UI messages
   const uiMessages = useMemo(() => {
+    if (suppressMessages) return [] as UIMessagesResult;
     if (!rawUiMessages) return undefined;
     if (!persistentFunctionCalls) return rawUiMessages;
 
@@ -327,10 +348,26 @@ export const useAIChat = ({ projectId, userClerkId }: UseAIChatProps): UseAIChat
       }
       return msg;
     });
-  }, [rawUiMessages, persistentFunctionCalls, stripThinking]);
+  }, [rawUiMessages, persistentFunctionCalls, stripThinking, suppressMessages]);
 
   const streamingStatus = shouldSubscribe ? streamingHookResult.status : "Exhausted";
   const loadMoreMessages = streamingHookResult.loadMore;
+
+  // Release suppression as soon as the current thread finishes first-page loading.
+  useEffect(() => {
+    if (!suppressMessages) return;
+    if (!threadId) {
+      setSuppressMessages(false);
+      return;
+    }
+    if (streamingStatus !== "LoadingFirstPage") {
+      if (suppressTimeoutRef.current) {
+        clearTimeout(suppressTimeoutRef.current);
+        suppressTimeoutRef.current = null;
+      }
+      setSuppressMessages(false);
+    }
+  }, [suppressMessages, threadId, streamingStatus]);
 
   // Streaming mutation
   const initiateStreamingMutation = useMutation(
@@ -344,12 +381,12 @@ export const useAIChat = ({ projectId, userClerkId }: UseAIChatProps): UseAIChat
   const clearThread = useMutation(apiAny.ai.threads.clearThreadForUser);
   const clearPreviousThreads = useMutation(apiAny.ai.threads.clearPreviousThreadsForUser);
 
-  // Computed values
-  const threadList = userThreads ?? [];
-  const isThreadListLoading = userThreads === undefined;
-  const hasThreads = threadList.length > 0;
-  const previousThreadsCount = threadList.filter(t => t.threadId !== threadId).length;
-  const mobileSelectValue = threadId ?? "";
+  // History UI was removed from assistant; keep stable defaults for compatibility.
+  const threadList: UseAIChatReturn["threadList"] = [];
+  const isThreadListLoading = false;
+  const hasThreads = false;
+  const previousThreadsCount = 0;
+  const mobileSelectValue = "";
 
   // Check if any message is currently streaming
   const isStreaming = useMemo(() => {

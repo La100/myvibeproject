@@ -18,6 +18,11 @@ interface LoginViewProps {
   showToast: (message: string, type?: "success" | "error" | "info") => void
 }
 
+type InitiateAuthResponse = {
+  success?: boolean
+  error?: string
+}
+
 const LoginView = ({ onLogin, showToast }: LoginViewProps) => {
   const [isLoading, setIsLoading] = useState(false)
 
@@ -49,10 +54,10 @@ const LoginView = ({ onLogin, showToast }: LoginViewProps) => {
         onLogin(data.user, data.teams)
         showToast("Signed in successfully.", "success")
         return true
-      } else {
-        showToast("Invalid server response.", "error")
-        return false
       }
+
+      showToast("Invalid server response.", "error")
+      return false
     } catch {
       showToast("Could not connect to the server.", "error")
       return false
@@ -100,6 +105,7 @@ const LoginView = ({ onLogin, showToast }: LoginViewProps) => {
     showToast("Sign-in timed out. Please click Sync session again.", "error")
   }
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: listeners must be registered once for this view lifecycle
   useEffect(() => {
     const storageListener = (
       changes: Record<string, chrome.storage.StorageChange>,
@@ -156,16 +162,25 @@ const LoginView = ({ onLogin, showToast }: LoginViewProps) => {
         ? baseline[STORAGE_KEYS.TOKEN_TIMESTAMP]
         : null
 
-    chrome.runtime.sendMessage({ action: ACTIONS.INITIATE_AUTH }, () => {
-      const runtimeError = chrome.runtime.lastError
-      if (runtimeError) {
-        showToast("Could not start sign-in.", "error")
-        setIsLoading(false)
-        return
-      }
+    chrome.runtime.sendMessage(
+      { action: ACTIONS.INITIATE_AUTH },
+      (response?: InitiateAuthResponse) => {
+        const runtimeError = chrome.runtime.lastError
+        if (runtimeError) {
+          showToast("Could not start sign-in.", "error")
+          setIsLoading(false)
+          return
+        }
 
-      void pollForSyncedToken(baselineToken, baselineTimestamp)
-    })
+        if (!response?.success) {
+          showToast(response?.error ?? "Could not start sign-in.", "error")
+          setIsLoading(false)
+          return
+        }
+
+        void pollForSyncedToken(baselineToken, baselineTimestamp)
+      },
+    )
   }
 
   const handleOpenMainApp = () => {

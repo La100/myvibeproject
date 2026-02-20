@@ -17,7 +17,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
-import { Skeleton } from "@/components/ui/skeleton"
+import { Spinner } from "@/components/ui/spinner"
 import {
   Tooltip,
   TooltipContent,
@@ -341,7 +341,7 @@ function SidebarHeader({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="sidebar-header"
       data-sidebar="header"
-      className={cn("flex flex-col gap-2 p-3", className)}
+      className={cn("flex flex-col gap-2 p-3 font-[var(--font-sans)]", className)}
       {...props}
     />
   )
@@ -378,7 +378,7 @@ function SidebarContent({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="sidebar-content"
       data-sidebar="content"
       className={cn(
-        "flex min-h-0 flex-1 flex-col gap-2.5 overflow-auto px-1 pb-2 group-data-[collapsible=icon]:overflow-hidden",
+        "flex min-h-0 flex-1 flex-col gap-2.5 overflow-auto px-1 pb-2 font-[var(--font-sans)] group-data-[collapsible=icon]:overflow-hidden",
         className
       )}
       {...props}
@@ -478,16 +478,17 @@ function SidebarMenuItem({ className, ...props }: React.ComponentProps<"li">) {
 }
 
 const sidebarMenuButtonVariants = cva(
-  "group/button flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left font-medium tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 transition-[background-color,color,box-shadow] duration-200",
+  "group/button flex w-full items-center gap-2 rounded-xl border border-transparent px-3 py-2.5 text-left font-medium tracking-[-0.01em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 transition-[background-color,color,box-shadow,border-color] duration-200",
   {
     variants: {
       variant: {
         default:
-          "text-sidebar-foreground hover:bg-sidebar-accent/65",
-        active: "bg-sidebar-accent text-sidebar-accent-foreground shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)]",
+          "bg-transparent text-sidebar-foreground hover:bg-transparent",
+        active:
+          "bg-transparent text-sidebar-foreground hover:bg-transparent",
       },
       size: {
-        default: "text-base",
+        default: "text-sm",
         sm: "text-xs",
         icon: "size-10",
       },
@@ -605,39 +606,19 @@ function SidebarMenuBadge({
 
 function SidebarMenuSkeleton({
   className,
-  showIcon = false,
   ...props
 }: React.ComponentProps<"div"> & {
   showIcon?: boolean
 }) {
-  // Random width between 50 to 90%.
-  const width = React.useMemo(() => {
-    return `${Math.floor(Math.random() * 40) + 50}%`
-  }, [])
-
   return (
-    <div
+    <Spinner
       data-slot="sidebar-menu-skeleton"
       data-sidebar="menu-skeleton"
-      className={cn("flex h-8 items-center gap-2 rounded-md px-2", className)}
+      fullHeight={false}
+      iconClassName="h-4 w-4"
+      className={cn("h-8 rounded-md px-2 py-0", className)}
       {...props}
-    >
-      {showIcon && (
-        <Skeleton
-          className="size-4 rounded-md"
-          data-sidebar="menu-skeleton-icon"
-        />
-      )}
-      <Skeleton
-        className="h-4 max-w-(--skeleton-width) flex-1"
-        data-sidebar="menu-skeleton-text"
-        style={
-          {
-            "--skeleton-width": width,
-          } as React.CSSProperties
-        }
-      />
-    </div>
+    />
   )
 }
 
@@ -691,7 +672,7 @@ function SidebarMenuSubButton({
       data-active={isActive}
       className={cn(
         "text-sidebar-foreground ring-sidebar-ring [&>svg]:text-sidebar-accent-foreground flex h-7 min-w-0 -translate-x-px items-center gap-2 overflow-hidden rounded-md px-2 outline-hidden focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
-        "data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground",
+        "data-[active=true]:bg-transparent data-[active=true]:text-sidebar-foreground",
         size === "sm" && "text-xs",
         size === "md" && "text-sm",
         "group-data-[collapsible=icon]:hidden",

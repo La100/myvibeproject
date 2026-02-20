@@ -31,7 +31,7 @@ export function Navbar() {
           "mx-auto flex h-14 items-center justify-between px-6 transition-all duration-300",
           scrolled
             ? "max-w-5xl rounded-full border border-border/50 bg-background/85 backdrop-blur-xl shadow-lg shadow-black/[0.06]"
-            : "max-w-[1440px] bg-background/80 backdrop-blur-md sm:px-10"
+            : "max-w-[1440px] sm:px-10"
         )}
       >
         <Logo />
@@ -67,13 +67,13 @@ export function Navbar() {
             <Button
               asChild
               variant="outline"
-              className="rounded-full border-border text-sm font-medium px-5 h-9"
+              className="rounded-lg border-border text-sm font-medium px-5 h-9"
             >
               <Link href="/sign-in">Log in</Link>
             </Button>
             <Button
               asChild
-              className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90 px-5 h-9 text-sm font-medium"
+              className="rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 px-5 h-9 text-sm font-medium"
             >
               <Link href="/sign-up">Get Started</Link>
             </Button>
@@ -102,7 +102,7 @@ export function Navbar() {
               <button
                 type="button"
                 aria-label="Open navigation"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/70 bg-card/85 text-foreground shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-card"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-border/70 bg-card/85 text-foreground shadow-soft-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-card"
               >
                 <Menu className="h-5 w-5" />
               </button>
@@ -126,7 +126,7 @@ export function Navbar() {
                 <SignedIn>
                   <div className="flex items-center gap-3">
                     <SheetClose asChild>
-                      <Button asChild className="h-11 flex-1 rounded-full">
+                      <Button asChild className="h-11 flex-1 rounded-lg">
                         <Link href="/organisation">Go to dashboard</Link>
                       </Button>
                     </SheetClose>
@@ -141,12 +141,12 @@ export function Navbar() {
                 <SignedOut>
                   <div className="flex flex-col gap-3">
                     <SheetClose asChild>
-                      <Button asChild className="h-11 rounded-full">
+                      <Button asChild className="h-11 rounded-lg">
                         <Link href="/sign-up">Get Started</Link>
                       </Button>
                     </SheetClose>
                     <SheetClose asChild>
-                      <Button asChild variant="outline" className="h-11 rounded-full">
+                      <Button asChild variant="outline" className="h-11 rounded-lg">
                         <Link href="/sign-in">Log in</Link>
                       </Button>
                     </SheetClose>

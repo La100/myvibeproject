@@ -1,9 +1,23 @@
 "use server";
 
 import type { WebhookEvent } from "@clerk/clerk-sdk-node";
-import { internal } from "./_generated/api";
+import type { FunctionReference } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { Webhook } from "svix";
+
+const mutationRef = (name: string): FunctionReference<"mutation"> =>
+  ({ _name: name } as unknown as FunctionReference<"mutation">);
+
+const internalRefs = {
+  createOrUpdateTeam: mutationRef("myFunctions:createOrUpdateTeam"),
+  deleteTeamInternal: mutationRef("myFunctions:deleteTeamInternal"),
+  createOrUpdateMembership: mutationRef("myFunctions:createOrUpdateMembership"),
+  deleteMembership: mutationRef("myFunctions:deleteMembership"),
+  createOrUpdateUser: mutationRef("myFunctions:createOrUpdateUser"),
+  deleteUser: mutationRef("myFunctions:deleteUser"),
+  createInvitation: mutationRef("myFunctions:createInvitation"),
+  updateInvitationStatus: mutationRef("myFunctions:updateInvitationStatus"),
+};
 
 const handleClerkWebhook = httpAction(async (ctx, request) => {
   const event = await validateRequest(request);
@@ -14,7 +28,7 @@ const handleClerkWebhook = httpAction(async (ctx, request) => {
   }
   switch (event.type) {
     case "organization.created":
-      await ctx.runMutation(internal.myFunctions.createOrUpdateTeam, {
+      await ctx.runMutation(internalRefs.createOrUpdateTeam, {
         clerkOrgId: event.data.id,
         name: event.data.name,
         slug: event.data.slug!,
@@ -22,7 +36,7 @@ const handleClerkWebhook = httpAction(async (ctx, request) => {
       });
       break;
     case "organization.updated":
-      await ctx.runMutation(internal.myFunctions.createOrUpdateTeam, {
+      await ctx.runMutation(internalRefs.createOrUpdateTeam, {
         clerkOrgId: event.data.id,
         name: event.data.name,
         slug: event.data.slug!,
@@ -31,13 +45,13 @@ const handleClerkWebhook = httpAction(async (ctx, request) => {
       break;
     case "organization.deleted":
       if (event.data.id) {
-        await ctx.runMutation(internal.myFunctions.deleteTeam, {
+        await ctx.runMutation(internalRefs.deleteTeamInternal, {
           clerkOrgId: event.data.id,
         });
       }
       break;
     case "organizationMembership.created":
-        await ctx.runMutation(internal.myFunctions.createOrUpdateMembership, {
+        await ctx.runMutation(internalRefs.createOrUpdateMembership, {
             clerkOrgId: event.data.organization.id,
             clerkUserId: event.data.public_user_data.user_id,
             role: event.data.role,
@@ -49,7 +63,7 @@ const handleClerkWebhook = httpAction(async (ctx, request) => {
         });
         break;
     case "organizationMembership.updated":
-        await ctx.runMutation(internal.myFunctions.createOrUpdateMembership, {
+        await ctx.runMutation(internalRefs.createOrUpdateMembership, {
             clerkOrgId: event.data.organization.id,
             clerkUserId: event.data.public_user_data.user_id,
             role: event.data.role,
@@ -61,13 +75,13 @@ const handleClerkWebhook = httpAction(async (ctx, request) => {
         });
         break;
     case "organizationMembership.deleted":
-        await ctx.runMutation(internal.myFunctions.deleteMembership, {
+        await ctx.runMutation(internalRefs.deleteMembership, {
             clerkOrgId: event.data.organization.id,
             clerkUserId: event.data.public_user_data.user_id,
         });
         break;
     case "user.created":
-        await ctx.runMutation(internal.myFunctions.createOrUpdateUser, {
+        await ctx.runMutation(internalRefs.createOrUpdateUser, {
             clerkUserId: event.data.id,
             email: event.data.email_addresses[0].email_address,
             name: event.data.first_name + " " + event.data.last_name,
@@ -75,7 +89,7 @@ const handleClerkWebhook = httpAction(async (ctx, request) => {
         });
         break;
     case "user.updated":
-        await ctx.runMutation(internal.myFunctions.createOrUpdateUser, {
+        await ctx.runMutation(internalRefs.createOrUpdateUser, {
             clerkUserId: event.data.id,
             email: event.data.email_addresses[0].email_address,
             name: event.data.first_name + " " + event.data.last_name,
@@ -84,13 +98,13 @@ const handleClerkWebhook = httpAction(async (ctx, request) => {
         break;
     case "user.deleted":
       if (event.data.id) {
-        await ctx.runMutation(internal.myFunctions.deleteUser, {
+        await ctx.runMutation(internalRefs.deleteUser, {
           clerkUserId: event.data.id,
         });
       }
       break;
     case "organizationInvitation.created":
-      await ctx.runMutation(internal.myFunctions.createInvitation, {
+      await ctx.runMutation(internalRefs.createInvitation, {
         clerkInvitationId: event.data.id,
         email: event.data.email_address,
         role: event.data.role.replace('org:', ''),
@@ -98,13 +112,13 @@ const handleClerkWebhook = httpAction(async (ctx, request) => {
       });
       break;
     case "organizationInvitation.accepted":
-      await ctx.runMutation(internal.myFunctions.updateInvitationStatus, {
+      await ctx.runMutation(internalRefs.updateInvitationStatus, {
         clerkInvitationId: event.data.id,
         status: "accepted",
       });
       break;
     case "organizationInvitation.revoked":
-      await ctx.runMutation(internal.myFunctions.updateInvitationStatus, {
+      await ctx.runMutation(internalRefs.updateInvitationStatus, {
         clerkInvitationId: event.data.id,
         status: "revoked",
       });

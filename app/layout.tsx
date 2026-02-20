@@ -60,10 +60,10 @@ const clerkAppearance: ClerkProviderProps["appearance"] = {
 
 const rootFontVariables = {
   "--font-sans":
-    '"Manrope", "Avenir Next", "Segoe UI", "Inter", -apple-system, BlinkMacSystemFont, sans-serif',
+    '"Inter", "Söhne", "SF Pro Text", "Segoe UI", system-ui, -apple-system, sans-serif',
   "--font-mono":
-    '"JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", monospace',
-  "--font-serif": '"Newsreader", Georgia, "Times New Roman", serif',
+    '"IBM Plex Mono", "SFMono-Regular", ui-monospace, monospace',
+  "--font-serif": '"Canela", "Noe Display", "Georgia", "Times New Roman", serif',
 } as CSSProperties;
 
 const rootThemeVariables = {
@@ -83,10 +83,10 @@ export default function RootLayout({
           appearance={clerkAppearance}
           signInUrl="/sign-in"
           signUpUrl="/sign-up"
-          signInForceRedirectUrl="/onboarding"
-          signUpForceRedirectUrl="/onboarding"
-          signInFallbackRedirectUrl="/onboarding"
-          signUpFallbackRedirectUrl="/onboarding"
+          signInForceRedirectUrl="/dashboard"
+          signUpForceRedirectUrl="/dashboard"
+          signInFallbackRedirectUrl="/dashboard"
+          signUpFallbackRedirectUrl="/dashboard"
           taskUrls={{
             "choose-organization": "/onboarding",
           }}

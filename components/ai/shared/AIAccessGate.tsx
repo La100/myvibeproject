@@ -38,7 +38,7 @@ export const renderAccessGate = ({ aiAccess, team }: AccessGateProps) => {
             <CardHeader className="space-y-4 pb-2">
               <Badge
                 variant="secondary"
-                className="w-fit bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400 border-0 px-3 py-1 rounded-full"
+                className="w-fit bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400 border-0 px-3 py-1 rounded-lg"
               >
                 Tokens exhausted
               </Badge>

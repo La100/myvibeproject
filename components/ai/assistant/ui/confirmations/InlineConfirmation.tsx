@@ -38,6 +38,9 @@ interface ConfirmationCardProps {
   onEdit?: (index: number) => void;
   onUpdate?: (index: number | string, updates: Partial<PendingContentItem>) => void;
   isProcessing?: boolean;
+  confirmationMode?: "always_ask" | "auto_confirm";
+  onConfirmationModeChange?: (mode: "always_ask" | "auto_confirm") => void | Promise<void>;
+  isModeUpdating?: boolean;
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -137,6 +140,9 @@ export const ConfirmationCard = memo(function ConfirmationCard({
   onEdit,
   onUpdate,
   isProcessing = false,
+  confirmationMode = "always_ask",
+  onConfirmationModeChange,
+  isModeUpdating = false,
 }: ConfirmationCardProps) {
   const [isConfirming, setIsConfirming] = React.useState(false);
   const [expanded, setExpanded] = React.useState(false);
@@ -156,6 +162,9 @@ export const ConfirmationCard = memo(function ConfirmationCard({
         onConfirm={onConfirm}
         onReject={onReject}
         onUpdate={onUpdate}
+        confirmationMode={confirmationMode}
+        onConfirmationModeChange={onConfirmationModeChange}
+        isModeUpdating={isModeUpdating}
       />
     );
   }
@@ -418,6 +427,9 @@ interface InlineConfirmationListProps {
   onRejectAll?: () => void | Promise<void>;
   onUpdateItem?: (index: number | string, updates: Partial<PendingContentItem>) => void;
   isProcessing?: boolean;
+  confirmationMode?: "always_ask" | "auto_confirm";
+  onConfirmationModeChange?: (mode: "always_ask" | "auto_confirm") => void | Promise<void>;
+  isModeUpdating?: boolean;
 }
 
 export function InlineConfirmationList({
@@ -429,6 +441,9 @@ export function InlineConfirmationList({
   onRejectAll,
   onUpdateItem,
   isProcessing = false,
+  confirmationMode = "always_ask",
+  onConfirmationModeChange,
+  isModeUpdating = false,
 }: InlineConfirmationListProps) {
   const [currentIndex, setCurrentIndex] = React.useState(0);
   const scrollRef = React.useRef<HTMLDivElement>(null);
@@ -458,6 +473,9 @@ export function InlineConfirmationList({
           onEdit={onEditItem}
           onUpdate={onUpdateItem}
           isProcessing={isProcessing}
+          confirmationMode={confirmationMode}
+          onConfirmationModeChange={onConfirmationModeChange}
+          isModeUpdating={isModeUpdating}
         />
       </div>
     );
@@ -601,6 +619,9 @@ export function InlineConfirmationList({
                 onEdit={onEditItem}
                 onUpdate={onUpdateItem}
                 isProcessing={isProcessing}
+                confirmationMode={confirmationMode}
+                onConfirmationModeChange={onConfirmationModeChange}
+                isModeUpdating={isModeUpdating}
               />
             </div>
           ))}

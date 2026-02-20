@@ -54,7 +54,7 @@ export function FaqSection() {
           viewport={{ once: true }}
           className="text-center mb-16"
         >
-          <span className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-card/80 backdrop-blur-sm px-5 py-2.5 text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
+          <span className="inline-flex items-center gap-2 rounded-lg border border-border/60 bg-card/80 backdrop-blur-sm px-5 py-2.5 text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
             Questions & Answers
           </span>
           <h2 className="mt-6 font-[var(--font-display-serif)] text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-normal tracking-tight text-foreground leading-tight">
@@ -79,7 +79,7 @@ export function FaqSection() {
             >
               <AccordionItem
                 value={`faq-${index}`}
-                className="rounded-2xl border border-border/50 bg-card/80 backdrop-blur-sm px-6 overflow-hidden transition-all duration-300 hover:border-border hover:shadow-[0_8px_25px_rgba(0,0,0,0.04)] data-[state=open]:shadow-[0_12px_30px_rgba(0,0,0,0.06)] data-[state=open]:border-border"
+                className="rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm px-6 overflow-hidden transition-all duration-300 hover:border-border hover:shadow-soft-md data-[state=open]:shadow-soft-lg data-[state=open]:border-border"
               >
                 <AccordionTrigger className="text-left text-base font-semibold text-foreground hover:no-underline py-5">
                   {faq.question}

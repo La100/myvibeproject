@@ -28,7 +28,7 @@ export function HeroSection() {
             <Button
               asChild
               size="lg"
-              className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90 px-8 h-14 text-base font-medium"
+              className="rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 px-8 h-14 text-base font-medium"
             >
               <Link href="/sign-up">
                 Start Planning Free
@@ -40,7 +40,7 @@ export function HeroSection() {
             <Button
               asChild
               size="lg"
-              className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90 px-8 h-14 text-base font-medium"
+              className="rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 px-8 h-14 text-base font-medium"
             >
               <Link href="/organisation">
                 Go to Dashboard

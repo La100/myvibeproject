@@ -11,11 +11,11 @@ interface SectionManagerProps {
   isPending: boolean;
 }
 
-export function SectionManager({ 
-  sections, 
-  onCreateSection, 
-  onDeleteSection, 
-  isPending 
+export function SectionManager({
+  sections,
+  onCreateSection,
+  onDeleteSection,
+  isPending
 }: SectionManagerProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [newSectionName, setNewSectionName] = useState('');
@@ -78,7 +78,7 @@ export function SectionManager({
             <Button
               onClick={handleCreateSection}
               disabled={isPending || !newSectionName.trim()}
-              className="rounded-full bg-[var(--ui-action-bg)] px-5 h-11 text-[var(--primary-foreground)] shadow-sm hover:bg-[var(--ui-action-hover)]"
+              className="rounded-lg bg-[var(--ui-action-bg)] px-5 h-11 text-[var(--primary-foreground)] shadow-sm hover:bg-[var(--ui-action-hover)]"
             >
               <PlusIcon className="h-4 w-4 mr-2" />
               Add
@@ -94,7 +94,7 @@ export function SectionManager({
                     key={name}
                     onClick={() => onCreateSection(name)}
                     disabled={isPending}
-                    className="px-3 py-1.5 text-xs font-medium rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] text-[var(--ui-text-main)] hover:bg-[var(--ui-surface-soft)] transition-colors disabled:opacity-50"
+                    className="px-3 py-1.5 text-xs font-medium rounded-lg border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] text-[var(--ui-text-main)] hover:bg-[var(--ui-surface-soft)] transition-colors disabled:opacity-50"
                   >
                     + {name}
                   </button>

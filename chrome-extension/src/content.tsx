@@ -5,8 +5,10 @@ const ACTIONS = {
   CAN_OPEN_CLIPPER: "canOpenClipper",
   DETECT_PRODUCT: "detectProduct",
   ENABLE_IMAGE_PICKER: "enableImagePicker",
+  ENABLE_SCREENSHOT_PICKER: "enableScreenshotPicker",
   OPEN_IFRAME_POPUP: "openIframePopup",
   CLOSE_IFRAME_POPUP: "closeIframePopup",
+  CAPTURE_VISIBLE_TAB: "captureVisibleTab",
   IMAGE_SELECTED: "imageSelected",
 } as const
 
@@ -111,6 +113,14 @@ let escapeListener: ((event: KeyboardEvent) => void) | null = null
 let imagePickerActive = false
 const imagePickerElements = new Set<HTMLImageElement>()
 const imageOriginalStyles = new Map<HTMLImageElement, string>()
+
+let screenshotPickerActive = false
+let screenshotOverlayElement: HTMLDivElement | null = null
+let screenshotSelectionElement: HTMLDivElement | null = null
+let screenshotStartPoint: { x: number; y: number } | null = null
+let screenshotEscapeListener: ((event: KeyboardEvent) => void) | null = null
+let previousIframeVisibility: string | null = null
+let previousOverlayVisibility: string | null = null
 
 function setOverlayInteractivity(enabled: boolean): void {
   if (!overlayElement) {
@@ -233,7 +243,329 @@ function disableImagePicker(): void {
   setOverlayInteractivity(true)
 }
 
+function hideClipperForScreenshotPicker(): void {
+  if (iframePopup) {
+    previousIframeVisibility = iframePopup.style.visibility
+    iframePopup.style.visibility = "hidden"
+  }
+
+  if (overlayElement) {
+    previousOverlayVisibility = overlayElement.style.visibility
+    overlayElement.style.visibility = "hidden"
+  }
+}
+
+function restoreClipperAfterScreenshotPicker(): void {
+  if (iframePopup && previousIframeVisibility !== null) {
+    iframePopup.style.visibility = previousIframeVisibility
+  }
+  if (overlayElement && previousOverlayVisibility !== null) {
+    overlayElement.style.visibility = previousOverlayVisibility
+  }
+  previousIframeVisibility = null
+  previousOverlayVisibility = null
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value))
+}
+
+function createSelectionRect(
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+): { x: number; y: number; width: number; height: number } {
+  const viewportWidth = window.innerWidth
+  const viewportHeight = window.innerHeight
+
+  const x1 = clamp(Math.min(start.x, end.x), 0, viewportWidth)
+  const y1 = clamp(Math.min(start.y, end.y), 0, viewportHeight)
+  const x2 = clamp(Math.max(start.x, end.x), 0, viewportWidth)
+  const y2 = clamp(Math.max(start.y, end.y), 0, viewportHeight)
+
+  return {
+    x: x1,
+    y: y1,
+    width: Math.max(0, x2 - x1),
+    height: Math.max(0, y2 - y1),
+  }
+}
+
+function updateSelectionElement(rect: {
+  x: number
+  y: number
+  width: number
+  height: number
+}): void {
+  if (!screenshotSelectionElement) {
+    return
+  }
+
+  screenshotSelectionElement.style.left = `${rect.x}px`
+  screenshotSelectionElement.style.top = `${rect.y}px`
+  screenshotSelectionElement.style.width = `${rect.width}px`
+  screenshotSelectionElement.style.height = `${rect.height}px`
+}
+
+function requestVisibleTabCapture(): Promise<string> {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(
+      { action: ACTIONS.CAPTURE_VISIBLE_TAB },
+      (response: { success?: boolean; dataUrl?: string; error?: string }) => {
+        const runtimeError = chrome.runtime.lastError
+        if (runtimeError) {
+          reject(new Error(runtimeError.message))
+          return
+        }
+
+        if (!response?.success || typeof response.dataUrl !== "string") {
+          reject(new Error(response?.error ?? "Failed to capture screenshot"))
+          return
+        }
+
+        resolve(response.dataUrl)
+      },
+    )
+  })
+}
+
+function loadImageFromDataUrl(dataUrl: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => resolve(image)
+    image.onerror = () => reject(new Error("Failed to decode captured screenshot"))
+    image.src = dataUrl
+  })
+}
+
+async function cropCapturedScreenshot(
+  dataUrl: string,
+  rect: { x: number; y: number; width: number; height: number },
+  viewportWidth: number,
+  viewportHeight: number,
+): Promise<string> {
+  const image = await loadImageFromDataUrl(dataUrl)
+  const scaleX = image.naturalWidth / Math.max(1, viewportWidth)
+  const scaleY = image.naturalHeight / Math.max(1, viewportHeight)
+
+  const sourceX = clamp(Math.floor(rect.x * scaleX), 0, image.naturalWidth - 1)
+  const sourceY = clamp(Math.floor(rect.y * scaleY), 0, image.naturalHeight - 1)
+  const sourceWidth = clamp(
+    Math.max(1, Math.floor(rect.width * scaleX)),
+    1,
+    image.naturalWidth - sourceX,
+  )
+  const sourceHeight = clamp(
+    Math.max(1, Math.floor(rect.height * scaleY)),
+    1,
+    image.naturalHeight - sourceY,
+  )
+
+  const canvas = document.createElement("canvas")
+  canvas.width = sourceWidth
+  canvas.height = sourceHeight
+
+  const context = canvas.getContext("2d")
+  if (!context) {
+    throw new Error("Could not initialize screenshot canvas context")
+  }
+
+  context.drawImage(
+    image,
+    sourceX,
+    sourceY,
+    sourceWidth,
+    sourceHeight,
+    0,
+    0,
+    sourceWidth,
+    sourceHeight,
+  )
+
+  return canvas.toDataURL("image/png")
+}
+
+function disableScreenshotPicker(options?: { restoreClipper?: boolean }): void {
+  const restoreClipper = options?.restoreClipper !== false
+
+  if (screenshotEscapeListener) {
+    window.removeEventListener("keydown", screenshotEscapeListener)
+    screenshotEscapeListener = null
+  }
+
+  if (screenshotOverlayElement) {
+    screenshotOverlayElement.remove()
+    screenshotOverlayElement = null
+  }
+
+  screenshotSelectionElement = null
+  screenshotStartPoint = null
+  screenshotPickerActive = false
+  setOverlayInteractivity(true)
+
+  if (restoreClipper) {
+    restoreClipperAfterScreenshotPicker()
+  }
+}
+
+async function finalizeScreenshotSelection(rect: {
+  x: number
+  y: number
+  width: number
+  height: number
+}): Promise<void> {
+  const viewportWidth = window.innerWidth
+  const viewportHeight = window.innerHeight
+
+  disableScreenshotPicker({ restoreClipper: false })
+
+  // Let the browser repaint without the picker overlay before capture.
+  await new Promise<void>((resolve) => {
+    requestAnimationFrame(() => resolve())
+  })
+
+  try {
+    const screenshot = await requestVisibleTabCapture()
+    const croppedImage = await cropCapturedScreenshot(
+      screenshot,
+      rect,
+      viewportWidth,
+      viewportHeight,
+    )
+
+    await chrome.runtime.sendMessage({
+      action: ACTIONS.IMAGE_SELECTED,
+      imageUrl: croppedImage,
+    })
+  } catch (error) {
+    console.warn("[MyVibeProject Content] Failed to capture selected area", error)
+  } finally {
+    restoreClipperAfterScreenshotPicker()
+  }
+}
+
+function enableScreenshotPicker(): boolean {
+  if (screenshotPickerActive) {
+    return true
+  }
+
+  if (!document.body) {
+    return false
+  }
+
+  disableImagePicker()
+  hideClipperForScreenshotPicker()
+
+  const pickerOverlay = document.createElement("div")
+  pickerOverlay.style.cssText = `
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 2147483647 !important;
+    cursor: crosshair !important;
+    background: rgba(2, 6, 23, 0.24) !important;
+    user-select: none !important;
+  `
+
+  const hint = document.createElement("div")
+  hint.style.cssText = `
+    position: fixed !important;
+    top: 16px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    background: rgba(15, 23, 42, 0.88) !important;
+    color: #ffffff !important;
+    padding: 8px 12px !important;
+    border-radius: 999px !important;
+    font-size: 12px !important;
+    line-height: 1 !important;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif !important;
+    pointer-events: none !important;
+  `
+  hint.textContent = "Drag to select area. Press Esc to cancel."
+  pickerOverlay.appendChild(hint)
+
+  const selection = document.createElement("div")
+  selection.style.cssText = `
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
+    border: 2px solid #3b82f6 !important;
+    background: rgba(59, 130, 246, 0.18) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.8) inset !important;
+    pointer-events: none !important;
+  `
+  pickerOverlay.appendChild(selection)
+
+  pickerOverlay.addEventListener("contextmenu", (event) => {
+    event.preventDefault()
+  })
+
+  pickerOverlay.addEventListener("mousedown", (event) => {
+    if (event.button !== 0) {
+      return
+    }
+    event.preventDefault()
+    const point = { x: event.clientX, y: event.clientY }
+    screenshotStartPoint = point
+    updateSelectionElement({
+      x: point.x,
+      y: point.y,
+      width: 0,
+      height: 0,
+    })
+  })
+
+  pickerOverlay.addEventListener("mousemove", (event) => {
+    if (!screenshotStartPoint) {
+      return
+    }
+    event.preventDefault()
+    const rect = createSelectionRect(screenshotStartPoint, {
+      x: event.clientX,
+      y: event.clientY,
+    })
+    updateSelectionElement(rect)
+  })
+
+  pickerOverlay.addEventListener("mouseup", (event) => {
+    if (event.button !== 0 || !screenshotStartPoint) {
+      return
+    }
+    event.preventDefault()
+    const rect = createSelectionRect(screenshotStartPoint, {
+      x: event.clientX,
+      y: event.clientY,
+    })
+    screenshotStartPoint = null
+
+    if (rect.width < 8 || rect.height < 8) {
+      disableScreenshotPicker()
+      return
+    }
+
+    void finalizeScreenshotSelection(rect)
+  })
+
+  screenshotEscapeListener = (event: KeyboardEvent) => {
+    if (event.key === "Escape") {
+      disableScreenshotPicker()
+    }
+  }
+  window.addEventListener("keydown", screenshotEscapeListener)
+
+  document.body.appendChild(pickerOverlay)
+  screenshotPickerActive = true
+  screenshotOverlayElement = pickerOverlay
+  screenshotSelectionElement = selection
+  setOverlayInteractivity(false)
+  return true
+}
+
 function removeIframePopup(): void {
+  disableScreenshotPicker()
+
   if (escapeListener) {
     window.removeEventListener("keydown", escapeListener)
     escapeListener = null
@@ -328,6 +660,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === ACTIONS.ENABLE_IMAGE_PICKER) {
     const selectableCount = enableImagePicker()
     sendResponse({ success: selectableCount > 0, count: selectableCount })
+    return false
+  }
+
+  if (request.action === ACTIONS.ENABLE_SCREENSHOT_PICKER) {
+    const success = enableScreenshotPicker()
+    sendResponse({
+      success,
+      error: success ? undefined : "Could not start screenshot picker on this page.",
+    })
     return false
   }
 

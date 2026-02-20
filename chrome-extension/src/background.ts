@@ -256,7 +256,7 @@ async function waitForFreshTokenFromAuthTab(
   return null
 }
 
-chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (!isObjectMessage(request)) {
     return false
   }
@@ -268,6 +268,26 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
         const message = error instanceof Error ? error.message : "Unknown error"
         sendResponse({ success: false, error: message })
       })
+    return true
+  }
+
+  if (request.action === ACTIONS.CAPTURE_VISIBLE_TAB) {
+    void (async () => {
+      try {
+        const windowId = sender.tab?.windowId
+        if (typeof windowId !== "number") {
+          throw new Error("Active browser window is unavailable")
+        }
+
+        const dataUrl = await chrome.tabs.captureVisibleTab(windowId, {
+          format: "png",
+        })
+        sendResponse({ success: true, dataUrl })
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Failed to capture screenshot"
+        sendResponse({ success: false, error: message })
+      }
+    })()
     return true
   }
 

@@ -7,7 +7,6 @@ import { Suspense } from "react";
 import { useQuery } from "convex/react";
 import { useClerk, useOrganization, useUser } from "@clerk/nextjs";
 import { apiAny } from "@/lib/convexApiAny";
-import { cn } from "@/lib/utils";
 import {
   Sidebar,
   SidebarContent,
@@ -78,6 +77,7 @@ function CompanySidebarContent() {
     user?.firstName?.charAt(0) ||
     user?.primaryEmailAddress?.emailAddress?.charAt(0) ||
     "U";
+  const organizationImageUrl = team?.imageUrl || organization?.imageUrl;
 
   // Filter navigation items based on user role
   const navItems = allNavItems.filter(
@@ -94,39 +94,38 @@ function CompanySidebarContent() {
 
   return (
     <Sidebar variant="inset">
-      <SidebarHeader className="border-b border-sidebar-border/70">
-        <div className="flex items-center gap-3 px-4 py-4">
+      <SidebarHeader className="border-b border-sidebar-border/70 px-4 pt-5 pb-3">
+        <div className="flex items-center gap-3 px-1 py-1">
           <div className="flex-shrink-0">
-            {organization?.imageUrl || team?.imageUrl ? (
-              <div className="relative h-11 w-11 overflow-hidden rounded-xl border border-sidebar-border/70 bg-card">
-                <Image
-                  src={organization?.imageUrl || team?.imageUrl || ""}
+            {organizationImageUrl ? (
+              <div className="relative h-9 w-9 overflow-hidden rounded-xl border border-sidebar-border/70 bg-card">
+                <img
+                  src={organizationImageUrl}
                   alt={organization?.name || team?.name || "Organization"}
-                  fill
-                  className="object-cover"
+                  className="h-full w-full object-cover"
                 />
               </div>
             ) : (
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary font-semibold">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary text-sm font-semibold">
                 {(organization?.name || team?.name || "O").charAt(0).toUpperCase()}
               </div>
             )}
           </div>
           <div className="flex flex-col min-w-0">
-            <h2 className="clean-title mb-1 truncate text-base font-medium leading-none text-sidebar-foreground">
+            <h2 className="truncate text-[17px] font-semibold tracking-tight leading-none text-sidebar-foreground">
               {organization?.name || team?.name || "Loading..."}
             </h2>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sidebar-foreground/55 leading-none">
+            <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-sidebar-foreground/72 leading-none">
               Company Space
             </p>
           </div>
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="flex flex-col">
-        <SidebarGroup>
+      <SidebarContent className="flex flex-col gap-0 px-2 pb-2">
+        <SidebarGroup className="flex-1 px-3 pt-7 pb-2">
           <SidebarGroupContent>
-            <SidebarMenu className="space-y-1">
+            <SidebarMenu className="gap-1">
               {navItems.map((item) => {
                 const isProjectsRoot = item.href === "/organisation";
                 const isActive = isProjectsRoot
@@ -136,12 +135,12 @@ function CompanySidebarContent() {
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
                       asChild
-                      variant={isActive ? "active" : "default"}
                       isActive={isActive}
-                      className={cn(
-                        "relative h-10 justify-start gap-3 text-sm",
-                        isActive && "before:absolute before:bottom-2 before:left-2.5 before:top-2 before:w-0.5 before:rounded-full before:bg-sidebar-primary"
-                      )}
+                      className={`h-9 justify-start gap-2.5 rounded-xl border px-3 text-[13px] font-medium ${
+                        isActive
+                          ? "border-sidebar-border/80 bg-sidebar-accent/45 text-sidebar-foreground"
+                          : "border-transparent bg-transparent text-sidebar-foreground/82 hover:bg-transparent hover:text-sidebar-foreground"
+                      }`}
                     >
                       <Link
                         href={item.href}
@@ -150,10 +149,7 @@ function CompanySidebarContent() {
                         className="flex flex-1 items-center gap-3"
                       >
                         <item.icon
-                          className={cn(
-                            "h-4 w-4 transition-all duration-200",
-                            isActive ? "text-sidebar-accent-foreground" : "text-sidebar-foreground/65"
-                          )}
+                          className={`h-4 w-4 ${isActive ? "text-sidebar-foreground/88" : "text-sidebar-foreground/72"}`}
                         />
                         <span className="truncate">{item.label}</span>
                       </Link>
@@ -165,18 +161,21 @@ function CompanySidebarContent() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup className="mt-auto border-t border-sidebar-border/70 pt-2">
+        <SidebarGroup className="mt-auto border-t border-sidebar-border/70 px-2 pb-1 pt-2.5">
           <SidebarGroupContent className="pt-2">
-            <SidebarMenu>
+            <SidebarMenu className="gap-1">
               {footerItems.map((item) => {
                 const isActive = pathname.startsWith(item.href);
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
                       asChild
-                      variant={isActive ? "active" : "default"}
                       isActive={isActive}
-                      className="h-10 justify-start gap-3 text-sm text-sidebar-foreground"
+                      className={`h-9 justify-start gap-2.5 rounded-xl border px-3 text-[13px] font-medium ${
+                        isActive
+                          ? "border-sidebar-border/80 bg-sidebar-accent/45 text-sidebar-foreground"
+                          : "border-transparent text-sidebar-foreground/82 hover:bg-transparent hover:text-sidebar-foreground"
+                      }`}
                     >
                       <Link
                         href={item.href}
@@ -184,7 +183,7 @@ function CompanySidebarContent() {
                         onMouseEnter={() => handleLinkHover(item.href)}
                         className="flex flex-1 items-center gap-3"
                       >
-                        <item.icon className={cn("h-4 w-4", isActive ? "text-sidebar-foreground" : "text-sidebar-foreground/65")} />
+                        <item.icon className={`h-4 w-4 ${isActive ? "text-sidebar-foreground/88" : "text-sidebar-foreground/72"}`} />
                         <span className="truncate">{item.label}</span>
                       </Link>
                     </SidebarMenuButton>
@@ -198,10 +197,10 @@ function CompanySidebarContent() {
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2 text-left transition hover:border-sidebar-border/70 hover:bg-sidebar-accent/50"
+                  className="flex w-full items-center gap-2.5 rounded-xl border border-transparent bg-transparent px-2.5 py-1.5 text-left transition hover:bg-sidebar-accent/30"
                 >
                   {user?.imageUrl ? (
-                    <div className="relative h-9 w-9 overflow-hidden rounded-full border border-sidebar-border/70">
+                    <div className="relative h-8 w-8 overflow-hidden rounded-full border border-sidebar-border/70">
                       <Image
                         src={user.imageUrl}
                         alt={user.fullName || user.firstName || "User"}
@@ -210,19 +209,19 @@ function CompanySidebarContent() {
                       />
                     </div>
                   ) : (
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold">
                       {userInitial.toUpperCase()}
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-sidebar-foreground truncate">
+                    <p className="truncate text-[13px] font-semibold text-sidebar-foreground">
                       {user?.fullName || user?.firstName || "Account"}
                     </p>
-                    <p className="text-xs text-sidebar-foreground/60 truncate">
+                    <p className="truncate text-[11px] text-sidebar-foreground/60">
                       {user?.primaryEmailAddress?.emailAddress || ""}
                     </p>
                   </div>
-                  <ChevronDown className="h-4 w-4 text-sidebar-foreground/60" />
+                  <ChevronDown className="h-3.5 w-3.5 text-sidebar-foreground/60" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-64 rounded-xl border-border/70">

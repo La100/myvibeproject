@@ -10,13 +10,13 @@ const plans = [
     name: "Free",
     price: "$0",
     cadence: "forever",
-    description: "Best for trying the workspace with a single-seat setup.",
+    description: "Best for trying the workspace with a single-seat setup and small AI trial.",
     features: [
       "Up to 3 projects",
       "1 team member",
       "1 GB file storage",
       "Core project workspace",
-      "No AI features",
+      "$1 AI usage budget included",
     ],
     cta: "Start Free",
     href: "/sign-up",
@@ -101,11 +101,10 @@ export function PricingSection() {
                 delay: index * 0.1,
                 ease: [0.16, 1, 0.3, 1],
               }}
-              className={`group relative flex flex-col rounded-[24px] p-8 transition-all duration-500 hover:-translate-y-2 ${
-                plan.highlighted
+              className={`group relative flex flex-col rounded-2xl p-8 transition-all duration-500 hover:-translate-y-2 ${plan.highlighted
                   ? "bg-primary-foreground text-primary shadow-[0_40px_100px_rgba(255,253,248,0.15)] hover:shadow-[0_50px_120px_rgba(255,253,248,0.2)]"
                   : "bg-primary-foreground/5 border border-primary-foreground/10 text-primary-foreground backdrop-blur-sm hover:bg-primary-foreground/8 hover:border-primary-foreground/15"
-              }`}
+                }`}
             >
               {plan.highlighted && (
                 <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[var(--ui-accent-copper)] px-4 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-white shadow-[0_8px_20px_rgba(192,106,61,0.3)]">
@@ -115,38 +114,34 @@ export function PricingSection() {
 
               <div className="space-y-3">
                 <h3
-                  className={`font-[var(--font-display-serif)] text-xl font-medium ${
-                    plan.highlighted ? "text-primary" : "text-primary-foreground"
-                  }`}
+                  className={`font-[var(--font-display-serif)] text-xl font-medium ${plan.highlighted ? "text-primary" : "text-primary-foreground"
+                    }`}
                 >
                   {plan.name}
                 </h3>
                 <div className="flex items-baseline gap-1">
                   <span
-                    className={`text-5xl font-[var(--font-display-serif)] font-normal ${
-                      plan.highlighted
+                    className={`text-5xl font-[var(--font-display-serif)] font-normal ${plan.highlighted
                         ? "text-primary"
                         : "text-primary-foreground"
-                    }`}
+                      }`}
                   >
                     {plan.price}
                   </span>
                   <span
-                    className={`text-sm ${
-                      plan.highlighted
+                    className={`text-sm ${plan.highlighted
                         ? "text-primary/50"
                         : "text-primary-foreground/40"
-                    }`}
+                      }`}
                   >
                     {plan.cadence}
                   </span>
                 </div>
                 <p
-                  className={`text-sm leading-relaxed ${
-                    plan.highlighted
+                  className={`text-sm leading-relaxed ${plan.highlighted
                       ? "text-primary/70"
                       : "text-primary-foreground/50"
-                  }`}
+                    }`}
                 >
                   {plan.description}
                 </p>
@@ -156,20 +151,18 @@ export function PricingSection() {
                 {plan.features.map((feature) => (
                   <li key={feature} className="flex items-start gap-3">
                     <span
-                      className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
-                        plan.highlighted
+                      className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${plan.highlighted
                           ? "bg-[var(--ui-accent-brand)]/15 text-[var(--ui-accent-brand)]"
                           : "bg-primary-foreground/10 text-[var(--ui-accent-brand)]"
-                      }`}
+                        }`}
                     >
                       <Check className="h-3 w-3" strokeWidth={2.5} />
                     </span>
                     <span
-                      className={`text-sm ${
-                        plan.highlighted
+                      className={`text-sm ${plan.highlighted
                           ? "text-primary/80"
                           : "text-primary-foreground/70"
-                      }`}
+                        }`}
                     >
                       {feature}
                     </span>
@@ -180,11 +173,10 @@ export function PricingSection() {
               <div className="mt-8">
                 <Button
                   asChild
-                  className={`w-full rounded-full h-12 text-sm font-medium transition-all duration-300 ${
-                    plan.highlighted
+                  className={`w-full rounded-lg h-12 text-sm font-medium transition-all duration-300 ${plan.highlighted
                       ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_8px_30px_rgba(44,42,37,0.2)]"
                       : "bg-primary-foreground/10 text-primary-foreground border border-primary-foreground/20 hover:bg-primary-foreground/15"
-                  }`}
+                    }`}
                 >
                   <Link href={plan.href}>{plan.cta}</Link>
                 </Button>

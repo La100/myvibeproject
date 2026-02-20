@@ -49,6 +49,18 @@ const config: Config = {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      fontFamily: {
+        sans: ["var(--font-sans)"],
+        serif: ["var(--font-serif)"],
+        display: ["var(--font-display-serif)"],
+        mono: ["var(--font-mono)"],
+      },
+      boxShadow: {
+        "soft-sm": "0 1px 0 rgba(0,0,0,0.04), 0 2px 10px rgba(0,0,0,0.05)",
+        "soft-md": "0 1px 0 rgba(0,0,0,0.04), 0 6px 20px rgba(0,0,0,0.06)",
+        "soft-lg": "0 1px 0 rgba(0,0,0,0.04), 0 10px 30px rgba(0,0,0,0.07)",
+        "soft-xl": "0 1px 0 rgba(0,0,0,0.04), 0 14px 44px rgba(0,0,0,0.08)",
+      },
     },
   },
   plugins: [],

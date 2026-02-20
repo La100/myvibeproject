@@ -5,11 +5,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, Loader2, WandSparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Doc, Id } from '@/convex/_generated/dataModel';
 import type { TeamMember } from '@/lib/teamMember';
+import { toast } from 'sonner';
 
 interface AddItemFormProps {
   sections: Doc<"shoppingListSections">[];
@@ -55,9 +56,86 @@ export function AddItemForm({
   const [newItemImageUrl, setNewItemImageUrl] = useState('');
   const [newItemAssignedTo, setNewItemAssignedTo] = useState<string>('none');
   const [newItemBuyBefore, setNewItemBuyBefore] = useState<Date | undefined>(undefined);
+  const [isScraping, setIsScraping] = useState(false);
+
+  const normalizeProductUrl = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return '';
+
+    const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    const parsed = new URL(candidate);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      throw new Error('Invalid URL protocol');
+    }
+    return parsed.toString();
+  };
+
+  const handleScrapeByUrl = async () => {
+    const rawUrl = newItemProductLink.trim();
+    if (!rawUrl || isScraping) {
+      return;
+    }
+
+    let normalizedUrl = '';
+    try {
+      normalizedUrl = normalizeProductUrl(rawUrl);
+    } catch {
+      toast.error('Invalid product URL');
+      return;
+    }
+
+    setIsScraping(true);
+    setNewItemProductLink(normalizedUrl);
+
+    try {
+      const response = await fetch(`/api/shopping/scrape?url=${encodeURIComponent(normalizedUrl)}`);
+      const payload = (await response.json()) as {
+        message?: string;
+        name?: string;
+        supplier?: string;
+        category?: string;
+        catalogNumber?: string;
+        dimensions?: string;
+        unitPrice?: number;
+        productLink?: string;
+        imageUrl?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.message || 'Failed to scrape product details');
+      }
+
+      if (payload.name) setNewItemName(payload.name);
+      if (payload.supplier) setNewItemSupplier(payload.supplier);
+      if (payload.category) setNewItemCategory(payload.category);
+      if (payload.catalogNumber) setNewItemCatalogNumber(payload.catalogNumber);
+      if (payload.dimensions) setNewItemDimensions(payload.dimensions);
+      if (typeof payload.unitPrice === 'number' && Number.isFinite(payload.unitPrice)) {
+        setNewItemUnitPrice(String(payload.unitPrice));
+      }
+      if (payload.imageUrl) setNewItemImageUrl(payload.imageUrl);
+      if (payload.productLink) setNewItemProductLink(payload.productLink);
+
+      toast.success('Product details imported from URL');
+    } catch (error) {
+      toast.error((error as Error).message || 'Could not import product details');
+    } finally {
+      setIsScraping(false);
+    }
+  };
 
   const handleAddItem = async () => {
     if (!newItemName.trim()) return;
+
+    let normalizedProductLink: string | undefined;
+    if (newItemProductLink.trim()) {
+      try {
+        normalizedProductLink = normalizeProductUrl(newItemProductLink);
+      } catch {
+        toast.error('Invalid product URL');
+        return;
+      }
+    }
 
     const unitPrice = parseFloat(newItemUnitPrice) || undefined;
 
@@ -71,7 +149,7 @@ export function AddItemForm({
         dimensions: newItemDimensions.trim() || undefined,
         quantity: newItemQuantity,
         unitPrice,
-        productLink: newItemProductLink.trim() || undefined,
+        productLink: normalizedProductLink,
         imageUrl: newItemImageUrl.trim() || undefined,
         priority: "medium",
         realizationStatus: "PLANNED",
@@ -188,12 +266,24 @@ export function AddItemForm({
         </div>
         <div>
           <label className="text-sm font-medium text-[var(--ui-text-main)] mb-1.5 block">Product Link</label>
-          <Input
-            value={newItemProductLink}
-            onChange={(e) => setNewItemProductLink(e.target.value)}
-            placeholder="https://..."
-            className="h-12 rounded-[18px] border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-sm focus-visible:ring-[var(--ui-accent-brand)]"
-          />
+          <div className="flex items-center gap-2">
+            <Input
+              value={newItemProductLink}
+              onChange={(e) => setNewItemProductLink(e.target.value)}
+              placeholder="https://..."
+              className="h-12 rounded-[18px] border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-sm focus-visible:ring-[var(--ui-accent-brand)]"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isPending || isScraping || !newItemProductLink.trim()}
+              onClick={handleScrapeByUrl}
+              className="h-12 shrink-0 rounded-[18px] border-[var(--ui-border-soft)] px-4"
+            >
+              {isScraping ? <Loader2 className="h-4 w-4 animate-spin" /> : <WandSparkles className="h-4 w-4" />}
+              <span className="ml-2 hidden xl:inline">{isScraping ? 'Scraping...' : 'Auto-fill'}</span>
+            </Button>
+          </div>
         </div>
         <div className="md:col-span-2 lg:col-span-3">
           <label className="text-sm font-medium text-[var(--ui-text-main)] mb-1.5 block">Image URL</label>
@@ -268,8 +358,8 @@ export function AddItemForm({
       <div className="flex justify-end gap-3">
         <Button
           onClick={handleAddItem}
-          disabled={isPending || !newItemName.trim()}
-          className="rounded-full bg-[var(--ui-action-bg)] px-6 h-11 text-[var(--primary-foreground)] shadow-[0_14px_36px_rgba(14,14,14,0.18)] hover:bg-[var(--ui-action-hover)]"
+          disabled={isPending || isScraping || !newItemName.trim()}
+          className="rounded-lg bg-[var(--ui-action-bg)] px-6 h-11 text-[var(--primary-foreground)] shadow-[0_14px_36px_rgba(14,14,14,0.18)] hover:bg-[var(--ui-action-hover)]"
         >
           {isPending ? 'Adding...' : 'Add Product'}
         </Button>

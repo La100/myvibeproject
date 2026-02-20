@@ -7,18 +7,21 @@ import { Doc, Id } from '@/convex/_generated/dataModel';
 import type { TeamMember } from '@/lib/teamMember';
 import { useProject } from '@/components/providers/ProjectProvider';
 import { toast } from 'sonner';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Spinner } from '@/components/ui/spinner';
 import { format } from 'date-fns';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { addBrandHeader, addDocumentMeta, addPageNumbers, formatMoney, pdfTableTheme, resolvePageBreak, sanitizeFileName } from '@/lib/pdfExport';
 import { calculateShoppingTotal } from '@/lib/shoppingAlternatives';
 
 // Import new components
-import { ShoppingListHeader } from './ShoppingListHeader';
 import { SectionManager } from './SectionManager';
 import { AddItemForm } from './AddItemForm';
 import { ShoppingListSection } from './ShoppingListSection';
 import { ExportModal } from './ExportModal';
+import { ProjectPageLayout } from '@/components/project/ProjectPageLayout';
+import { ProjectPageHeader } from '@/components/project/ProjectPageHeader';
+import { ShoppingCart, PlusIcon, DownloadIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 type ShoppingListItem = Doc<"shoppingListItems"> & {
   alternativeToItemId?: Id<"shoppingListItems"> | null;
@@ -44,54 +47,7 @@ const getStatusLabel = (status: ShoppingListItem["realizationStatus"]) => STATUS
 
 
 export function ShoppingListViewSkeleton() {
-  return (
-    <div className="p-4 sm:p-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
-        <div className="mb-4 sm:mb-0">
-          <Skeleton className="h-9 w-64 mb-2" />
-          <Skeleton className="h-5 w-80" />
-        </div>
-        <div className="flex gap-2">
-          <Skeleton className="h-10 w-36" />
-          <Skeleton className="h-10 w-36" />
-        </div>
-      </div>
-
-      {/* Add Item Form Skeleton */}
-      <div className="mb-6 border rounded-lg p-4">
-        <Skeleton className="h-7 w-48 mb-4" />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-        </div>
-      </div>
-
-      {/* Items List Skeleton */}
-      <div className="space-y-4">
-        {[...Array(3)].map((_, i) => (
-          <div key={i} className="border rounded-lg p-4">
-            <Skeleton className="h-6 w-1/3 mb-4" />
-            <div className="space-y-3">
-              {[...Array(2)].map((_, j) => (
-                <div key={j} className="flex items-center gap-4 p-2 border rounded-md">
-                  <Skeleton className="h-12 w-12 rounded" />
-                  <div className="flex-1 space-y-2">
-                    <Skeleton className="h-5 w-3/4" />
-                    <Skeleton className="h-4 w-1/2" />
-                  </div>
-                  <Skeleton className="h-8 w-24" />
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+  return <Spinner className="p-4 sm:p-6" />;
 }
 
 export default function ShoppingListView() {
@@ -125,7 +81,7 @@ export default function ShoppingListView() {
   if (items === undefined || sections === undefined || team === undefined) {
     return null;
   }
-  
+
   if (project === null) {
     return <div>Project not found</div>
   }
@@ -146,7 +102,7 @@ export default function ShoppingListView() {
       itemsBySection[section.name] = [];
     }
   });
-  
+
   const hasItemsWithoutSection = items.some(item => !item.sectionId);
   if (!hasItemsWithoutSection && itemsBySection['No Category']) {
     delete itemsBySection['No Category'];
@@ -174,7 +130,7 @@ export default function ShoppingListView() {
         return;
       }
     }
-    
+
     await deleteSection({ sectionId });
   };
 
@@ -217,7 +173,7 @@ export default function ShoppingListView() {
     try {
       await deleteItem({ itemId: id });
       toast.success("Item deleted");
-    } catch(error) {
+    } catch (error) {
       console.error('Error deleting item:', error);
       toast.error("Error deleting item");
     }
@@ -255,7 +211,7 @@ export default function ShoppingListView() {
 
     const csvHeaders = [
       'Section',
-      'Product Name', 
+      'Product Name',
       'Supplier',
       'Category',
       'Catalog Number',
@@ -273,7 +229,7 @@ export default function ShoppingListView() {
     const csvData = filteredItemsForExport.map(item => {
       const sectionName = item.sectionId ? sectionMap.get(item.sectionId) || 'No Category' : 'No Category';
       const assignedMember = item.assignedTo ? teamMembers?.find(m => m.clerkUserId === item.assignedTo)?.name : '';
-      
+
       return [
         sectionName,
         item.name,
@@ -315,7 +271,7 @@ export default function ShoppingListView() {
       link.click();
       document.body.removeChild(link);
     }
-    
+
     setIsExportModalOpen(false);
     toast.success('CSV exported with UTF-8 encoding');
   };
@@ -329,13 +285,13 @@ export default function ShoppingListView() {
 
       const jsPDF = (await import('jspdf')).default;
       await import('jspdf-autotable');
-      
+
       const doc = new jsPDF({
         putOnlyUsedFonts: true,
         format: 'a4',
         unit: 'mm'
       });
-      
+
       doc.setFont('helvetica', 'normal');
       const pageWidth = doc.internal.pageSize.getWidth();
       const filteredTotal = calculateShoppingTotal(filteredItemsForExport);
@@ -461,7 +417,7 @@ export default function ShoppingListView() {
 
       addPageNumbers(doc);
       doc.save(`shopping-list-${sanitizeFileName(project.name)}-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
-      
+
       setIsExportModalOpen(false);
       toast.success('PDF exported successfully!');
     } catch (error) {
@@ -480,7 +436,7 @@ export default function ShoppingListView() {
 
   return (
     <TooltipProvider>
-      <div className="w-full max-w-6xl mx-auto px-6 pb-24 pt-8 sm:px-8">
+      <ProjectPageLayout>
         {/* Export Modal */}
         <ExportModal
           isOpen={isExportModalOpen}
@@ -492,12 +448,38 @@ export default function ShoppingListView() {
         />
 
         {/* Header */}
-        <ShoppingListHeader
-          projectName={project.name}
-          grandTotal={grandTotal}
-          currencySymbol={currencySymbol}
-          onExportClick={() => setIsExportModalOpen(true)}
-          onAddProductClick={() => setShowMainAddForm(!showMainAddForm)}
+        <ProjectPageHeader
+          title="Shopping List"
+          icon={<ShoppingCart className="h-8 w-8" />}
+          tags={
+            <>
+              <span className="inline-flex items-center gap-2 rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-4 py-2 text-sm font-medium text-[var(--ui-accent-brand)]">
+                {project.name}
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-4 py-2 text-sm font-medium text-[var(--ui-text-main)]">
+                Total: {grandTotal.toFixed(2)} {currencySymbol}
+              </span>
+            </>
+          }
+          actions={
+            <>
+              <Button
+                onClick={() => setShowMainAddForm(!showMainAddForm)}
+                className="rounded-lg bg-[var(--ui-action-bg)] px-6 text-[var(--primary-foreground)] shadow-[0_14px_36px_rgba(14,14,14,0.18)] hover:bg-[var(--ui-action-hover)] transition-transform hover:-translate-y-0.5"
+              >
+                <PlusIcon className="h-4 w-4 mr-2" />
+                Add Product
+              </Button>
+              <Button
+                onClick={() => setIsExportModalOpen(true)}
+                variant="outline"
+                className="rounded-lg border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-6 text-[var(--ui-text-strong)] shadow-sm hover:bg-[var(--ui-surface-base)]/90 hover:-translate-y-0.5 transition-all"
+              >
+                <DownloadIcon className="h-4 w-4 mr-2" />
+                Export
+              </Button>
+            </>
+          }
         />
 
         {/* Main Add Product Form */}
@@ -536,7 +518,7 @@ export default function ShoppingListView() {
             // Find the section ID for this section name
             const section = sections.find(s => s.name === sectionName);
             const sectionId = section?._id;
-            
+
             return (
               <ShoppingListSection
                 key={sectionName}
@@ -569,7 +551,7 @@ export default function ShoppingListView() {
             </div>
           </div>
         </div>
-      </div>
+      </ProjectPageLayout>
     </TooltipProvider>
   );
 }

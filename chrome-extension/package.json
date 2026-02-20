@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "node scripts/build.js",
     "preview": "vite preview",
-    "lint": "biome check . --apply",
+    "lint": "biome lint src/lib/auth.ts src/lib/messages.ts src/background.ts src/content.tsx src/components/views/LoginView.tsx src/components/views/ClipperView.tsx src/components/App.tsx",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
@@ -30,6 +30,7 @@
     "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
     "@types/chrome": "^0.0.254",
     "@types/node": "^24.0.7",
     "@vitejs/plugin-react": "^4.2.1",
@@ -38,5 +39,11 @@
     "tailwindcss": "^3.4.1",
     "typescript": "^5.3.3",
     "vite": "^5.0.10"
+  },
+  "pnpm": {
+    "overrides": {
+      "glob": "10.5.0",
+      "minimatch": "10.2.1"
+    }
   }
 }

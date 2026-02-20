@@ -164,11 +164,11 @@ export default function VisualizationsPage() {
         text: baseText,
         parts: baseText
           ? [
-              {
-                type: "text",
-                text: baseText,
-              },
-            ]
+            {
+              type: "text",
+              text: baseText,
+            },
+          ]
           : [],
         order: msg.messageIndex,
         stepOrder: msg.messageIndex,
@@ -379,7 +379,7 @@ export default function VisualizationsPage() {
             <CardHeader className="space-y-4 pb-2">
               <Badge
                 variant="secondary"
-                className="w-fit bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400 border-0 px-3 py-1 rounded-full"
+                className="w-fit bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400 border-0 px-3 py-1 rounded-lg"
               >
                 Tokens exhausted
               </Badge>
@@ -476,10 +476,10 @@ export default function VisualizationsPage() {
                       localAttachments={
                         raw.role === "user"
                           ? raw.referenceImages?.map((image) => ({
-                              name: image.name,
-                              size: 0,
-                              type: image.mimeType,
-                            }))
+                            name: image.name,
+                            size: 0,
+                            type: image.mimeType,
+                          }))
                           : undefined
                       }
                       mediaImageUrl={raw.role === "model" ? raw.imageUrl : undefined}
@@ -570,7 +570,7 @@ export default function VisualizationsPage() {
               >
                 <Button
                   variant="ghost"
-                  className="rounded-full text-white hover:bg-white/20 hover:text-white px-6 h-10"
+                  className="rounded-lg text-white hover:bg-white/20 hover:text-white px-6 h-10"
                   onClick={() => handleDownload(selectedLightbox.url)}
                 >
                   <Download className="h-4 w-4 mr-2" />

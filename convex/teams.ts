@@ -2,6 +2,21 @@ import { v } from "convex/values";
 import type { FunctionReference } from "convex/server";
 import { query, mutation, internalMutation, internalQuery, internalAction } from "./_generated/server";
 import { Doc } from "./_generated/dataModel";
+import { r2 } from "./files";
+
+const buildPublicR2FileUrl = (key: string) => {
+  const publicBaseUrl = (process.env.NEXT_PUBLIC_R2_PUBLIC_URL || process.env.R2_PUBLIC_URL || "")
+    .trim()
+    .replace(/\/+$/, "");
+  if (!publicBaseUrl) {
+    return "";
+  }
+  return `${publicBaseUrl}/${key}`;
+};
+
+const createPendingCustomerInvitationRef = {
+  _name: "teams:createPendingCustomerInvitation",
+} as const;
 
 export const listUserTeams = query({
   args: {},
@@ -266,6 +281,7 @@ export const getTeamSettingsByClerkOrg = query({
       teamId: team._id,
       name: team.name,
       description: team.description,
+      imageUrl: team.imageUrl,
       currency: team.currency || "PLN",
       timezone: team.timezone,
       userRole: teamMember.role,
@@ -327,37 +343,6 @@ export const inviteCustomerToProject = mutation({
       expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
     });
 
-    const existingCustomer = await ctx.db
-      .query("customers")
-      .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
-      .filter((q) => q.eq(q.field("projectId"), args.projectId))
-      .unique();
-
-    let customerId;
-    if (existingCustomer) {
-      if (existingCustomer.status !== "active") {
-        await ctx.db.patch(existingCustomer._id, { status: "active" });
-      }
-      customerId = existingCustomer._id;
-    } else {
-      const existingUser = await ctx.db
-        .query("users")
-        .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
-        .unique();
-
-      customerId = await ctx.db.insert("customers", {
-        email: normalizedEmail,
-        clerkUserId: existingUser?.clerkUserId,
-        clerkOrgId: team.clerkOrgId,
-        projectId: args.projectId,
-        teamId: project.teamId,
-        invitedBy: identity.subject,
-        status: existingUser ? "active" : "invited",
-        invitedAt: Date.now(),
-        joinedAt: existingUser ? Date.now() : undefined,
-      });
-    }
-
     // Wyślij email przez Clerk
     const sendCustomerInvitationRef = {
       _name: "teams:sendCustomerClerkInvitation",
@@ -385,7 +370,7 @@ export const inviteCustomerToProject = mutation({
       invitedBy: identity.subject,
     });
 
-    return { invitationId, customerId };
+    return { invitationId };
   }
 });
 
@@ -502,49 +487,17 @@ export const addCustomerToProject = internalMutation({
       throw new Error("Insufficient permissions");
     }
 
-    // Sprawdź czy customer już istnieje dla tego projektu
-    const existingCustomer = await ctx.db
-      .query("customers")
-      .withIndex("by_email", q => q.eq("email", args.email))
-      .filter(q => q.eq(q.field("projectId"), args.projectId))
-      .unique();
+    const normalizedEmail = args.email.trim().toLowerCase();
 
-    if (existingCustomer) {
-      // Jeśli już istnieje, upewnij się że jest aktywny
-      if (existingCustomer.status !== "active") {
-        await ctx.db.patch(existingCustomer._id, { status: "active" });
-      }
-      return existingCustomer._id;
-    }
-
-    let status: "invited" | "active" = "invited";
-    let clerkUserId: string | undefined = undefined;
-    let joinedAt: number | undefined = undefined;
-
-    // Sprawdź czy użytkownik już istnieje w systemie (ma konto) i czy jest w naszej tabeli users
-    const userWithEmail = await ctx.db
-      .query("users")
-      .filter(q => q.eq(q.field("email"), args.email.toLowerCase()))
-      .first();
-
-    if (userWithEmail) {
-      clerkUserId = userWithEmail.clerkUserId;
-      joinedAt = Date.now();
-      status = "active";
-    }
-
-    // Dodaj customera
-    return await ctx.db.insert("customers", {
-      email: args.email,
-      clerkUserId: clerkUserId,
-      clerkOrgId: args.clerkOrgId,
+    // Customer records table was removed; keep only pending invitations.
+    await ctx.runMutation(createPendingCustomerInvitationRef as any, {
+      email: normalizedEmail,
       projectId: args.projectId,
-      teamId: project.teamId,
+      clerkOrgId: args.clerkOrgId,
       invitedBy: identity.subject,
-      status: status,
-      invitedAt: Date.now(),
-      joinedAt: joinedAt,
     });
+
+    return { success: true };
   }
 });
 
@@ -710,7 +663,6 @@ export const getProjectMembers = query({
       .collect();
 
     const result: Array<Record<string, unknown>> = [];
-    const processedUserIds = new Set();
 
     // Process team members
     for (const member of teamMembers) {
@@ -727,51 +679,6 @@ export const getProjectMembers = query({
         source: "teamMember"
       });
 
-      processedUserIds.add(member.clerkUserId);
-    }
-
-    // If projectId is provided, add customers from the customers table
-    if (args.projectId) {
-      const projectCustomers = await ctx.db
-        .query("customers")
-        .filter(q => q.and(
-          q.eq(q.field("projectId"), args.projectId),
-          q.eq(q.field("status"), "active")
-        ))
-        .collect();
-
-      for (const customer of projectCustomers) {
-        const customerUserId = customer.clerkUserId ?? "";
-
-        // Sprawdź czy customer nie jest już w wynikach (z teamMembers)
-        if (!customer.clerkUserId || !processedUserIds.has(customer.clerkUserId)) {
-          let user: Doc<"users"> | null = null;
-
-          if (customer.clerkUserId) {
-            user = await ctx.db
-              .query("users")
-              .withIndex("by_clerk_user_id", q => q.eq("clerkUserId", customer.clerkUserId!))
-              .unique();
-          }
-
-          result.push({
-            _id: customer._id,
-            _creationTime: customer._creationTime,
-            teamId: customer.teamId,
-            clerkUserId: customerUserId,
-            clerkOrgId: customer.clerkOrgId,
-            role: "customer" as const,
-            permissions: [],
-            projectIds: args.projectId ? [args.projectId] : undefined,
-            joinedAt: customer.joinedAt || customer.invitedAt,
-            isActive: true,
-            name: user?.name ?? customer.email.split('@')[0],
-            email: user?.email ?? customer.email,
-            imageUrl: user?.imageUrl,
-            source: "customerOnly"
-          });
-        }
-      }
     }
 
     return result;
@@ -818,19 +725,6 @@ export const removeTeamMember = mutation({
 
     // Remove member
     await ctx.db.delete(targetMember._id);
-
-    // If this was a customer, also remove entries from the customers table
-    if (targetMember.role === "customer") {
-      const customerRecords = await ctx.db
-        .query("customers")
-        .withIndex("by_clerk_user", q => q.eq("clerkUserId", args.clerkUserId))
-        .filter(q => q.eq(q.field("teamId"), args.teamId))
-        .collect();
-
-      for (const customerRecord of customerRecords) {
-        await ctx.db.delete(customerRecord._id);
-      }
-    }
 
     return { success: true };
   }
@@ -1084,54 +978,19 @@ export const addExistingMemberToProject = mutation({
       throw new Error("User is not a member of this organization");
     }
 
-    // Sprawdź czy już ma dostęp do tego projektu
-    const existingCustomer = await ctx.db
-      .query("customers")
-      .withIndex("by_clerk_user", q => q.eq("clerkUserId", args.clerkUserId))
-      .filter(q => q.eq(q.field("projectId"), args.projectId))
-      .unique();
+    // Only customer members can have project-scoped access.
+    if (targetMember.role !== "customer") {
+      return { success: true, message: "Internal members already have project access." };
+    }
 
-    if (existingCustomer) {
-      // Jeśli już ma dostęp, upewnij się że jest aktywny
-      if (existingCustomer.status !== "active") {
-        await ctx.db.patch(existingCustomer._id, { status: "active" });
-      }
+    const currentProjectIds = targetMember.projectIds || [];
+    if (currentProjectIds.includes(args.projectId)) {
       return { success: true, message: "User already has access to this project" };
     }
 
-    // Pobierz dane użytkownika
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_user_id", q => q.eq("clerkUserId", args.clerkUserId))
-      .unique();
-
-    if (!user) {
-      throw new Error("User data not found");
-    }
-
-    // Dodaj do tabeli customers
-    await ctx.db.insert("customers", {
-      email: user.email,
-      clerkUserId: args.clerkUserId,
-      clerkOrgId: targetMember.clerkOrgId,
-      projectId: args.projectId,
-      teamId: project.teamId,
-      invitedBy: identity.subject,
-      status: "active", // Natychmiast aktywny
-      invitedAt: Date.now(),
-      joinedAt: Date.now(),
+    await ctx.db.patch(targetMember._id, {
+      projectIds: [...currentProjectIds, args.projectId],
     });
-
-    // Aktualizuj członkostwo TYLKO jeśli to customer organizacyjny
-    if (targetMember.role === "customer") {
-      const currentProjectIds = targetMember.projectIds || [];
-      if (!currentProjectIds.includes(args.projectId)) {
-        await ctx.db.patch(targetMember._id, {
-          projectIds: [...currentProjectIds, args.projectId],
-        });
-      }
-    }
-    // Dla admin/member - nie zmieniamy roli organizacyjnej, tylko dodajemy do project customers
 
     return { success: true, message: "User added to project successfully" };
   }
@@ -1167,27 +1026,7 @@ export const getAvailableOrgMembersForProject = query({
       .filter(q => q.eq(q.field("isActive"), true))
       .collect();
 
-    // Pobierz już istniejących project customers (wszystkich - active i invited)
-    const existingProjectCustomers = await ctx.db
-      .query("customers")
-      .filter(q => q.and(
-        q.eq(q.field("projectId"), args.projectId),
-        q.or(
-          q.eq(q.field("status"), "active"),
-          q.eq(q.field("status"), "invited")
-        )
-      ))
-      .collect();
-
-    const existingProjectCustomerUserIds = new Set(
-      existingProjectCustomers.map(customer => customer.clerkUserId).filter(Boolean)
-    );
-
-    const existingProjectCustomerEmails = new Set(
-      existingProjectCustomers.map(customer => customer.email)
-    );
-
-    // Fetch all team users to check emails
+    // Fetch all team users
     const allMembersWithUsers = await Promise.all(
       allMembers.map(async (member) => {
         const user = await ctx.db
@@ -1208,16 +1047,6 @@ export const getAvailableOrgMembersForProject = query({
 
       // Admin and Member already have full access to all projects - no need to add them as project customers
       if (member.role === "admin" || member.role === "member") {
-        return false;
-      }
-
-      // Skip those who are already project customers for this project
-      if (existingProjectCustomerUserIds.has(member.clerkUserId)) {
-        return false;
-      }
-
-      // Also check by email (when the client doesn't have a clerkUserId yet)
-      if (user && existingProjectCustomerEmails.has(user.email)) {
         return false;
       }
 
@@ -1357,6 +1186,7 @@ export const revokeInvitation = mutation({
 export const updateTeamSettings = mutation({
   args: {
     teamId: v.id("teams"),
+    imageUrl: v.optional(v.string()),
     currency: v.optional(v.union(
       v.literal("USD"), v.literal("EUR"), v.literal("PLN"), v.literal("GBP"),
       v.literal("CAD"), v.literal("AUD"), v.literal("JPY"), v.literal("CHF"),
@@ -1384,22 +1214,83 @@ export const updateTeamSettings = mutation({
       throw new Error("Only admins can update team settings");
     }
 
-    if (args.currency !== undefined && args.timezone !== undefined) {
-      await ctx.db.patch(args.teamId, {
-        currency: args.currency,
-        timezone: args.timezone.trim(),
-      });
-    } else if (args.currency !== undefined) {
-      await ctx.db.patch(args.teamId, {
-        currency: args.currency,
-      });
-    } else if (args.timezone !== undefined) {
-      await ctx.db.patch(args.teamId, {
-        timezone: args.timezone.trim(),
-      });
+    const patch: {
+      currency?: typeof args.currency;
+      timezone?: string;
+      imageUrl?: string | undefined;
+    } = {};
+
+    if (args.currency !== undefined) {
+      patch.currency = args.currency;
+    }
+
+    if (args.timezone !== undefined) {
+      patch.timezone = args.timezone.trim();
+    }
+
+    if (Object.prototype.hasOwnProperty.call(args, "imageUrl")) {
+      const normalizedImageUrl = args.imageUrl?.trim();
+      patch.imageUrl = normalizedImageUrl || undefined;
+    }
+
+    if (Object.keys(patch).length > 0) {
+      await ctx.db.patch(args.teamId, patch);
     }
 
     return { success: true };
+  },
+});
+
+export const generateTeamImageUploadUrl = mutation({
+  args: {
+    teamId: v.id("teams"),
+    fileName: v.string(),
+  },
+  returns: v.object({
+    url: v.string(),
+    key: v.string(),
+    publicUrl: v.string(),
+  }),
+  async handler(ctx, args) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const team = await ctx.db.get(args.teamId);
+    if (!team) {
+      throw new Error("Team not found");
+    }
+
+    const teamMember = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", args.teamId).eq("clerkUserId", identity.subject)
+      )
+      .unique();
+
+    if (!teamMember || teamMember.role !== "admin") {
+      throw new Error("Only admins can update team settings");
+    }
+
+    const fileExtension = args.fileName.includes(".")
+      ? args.fileName.split(".").pop()
+      : "";
+    const baseName = args.fileName.replace(/\.[^/.]+$/, "");
+    const safeBaseName = baseName.replace(/[^a-zA-Z0-9-_]/g, "-").replace(/-+/g, "-").slice(0, 80) || "logo";
+    const key = `${team.slug}/organization/logo/${crypto.randomUUID()}-${safeBaseName}${fileExtension ? `.${fileExtension}` : ""}`;
+    const uploadData = await r2.generateUploadUrl(key);
+    const publicUrl = buildPublicR2FileUrl(key);
+
+    if (!publicUrl) {
+      throw new Error("Public R2 URL is not configured");
+    }
+
+    return {
+      url: uploadData.url,
+      key,
+      publicUrl,
+    };
   },
 });
 

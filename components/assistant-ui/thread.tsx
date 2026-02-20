@@ -7,6 +7,8 @@ import { MarkdownText } from "@/components/assistant-ui/markdown-text";
 import { ToolFallback } from "@/components/assistant-ui/tool-fallback";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import type { PendingContentItem } from "@/components/ai/assistant/data/types";
 import {
   AuiIf,
   ComposerPrimitive,
@@ -20,8 +22,16 @@ import {
   ArrowUpIcon,
   Sparkles,
   SquareIcon,
+  Zap,
 } from "lucide-react";
-import { useMemo, type FC } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  type FC,
+  type ComponentProps,
+} from "react";
 
 type ThreadProps = {
   showWelcome?: boolean;
@@ -29,6 +39,35 @@ type ThreadProps = {
   assistantFallback?: string;
   userImageUrl?: string;
   userFallback?: string;
+  pendingItems?: PendingContentItem[];
+  onConfirmItem?: (index: number | string) => Promise<void>;
+  onRejectItem?: (index: number | string) => void | Promise<void>;
+  onEditItem?: (index: number) => void;
+  onConfirmAll?: () => Promise<void>;
+  onRejectAll?: () => void | Promise<void>;
+  onUpdateItem?: (index: number | string, updates: Partial<PendingContentItem>) => void;
+  isProcessing?: boolean;
+  confirmationMode?: "always_ask" | "auto_confirm";
+  onConfirmationModeChange?: (mode: "always_ask" | "auto_confirm") => void | Promise<void>;
+  isModeUpdating?: boolean;
+};
+
+type ThreadMessageState = {
+  assistantImageUrl?: string;
+  assistantFallback?: string;
+  userImageUrl?: string;
+  userFallback?: string;
+  pendingItems: PendingContentItem[];
+  onConfirmItem?: (index: number | string) => Promise<void>;
+  onRejectItem?: (index: number | string) => void | Promise<void>;
+  onEditItem?: (index: number) => void;
+  onConfirmAll?: () => Promise<void>;
+  onRejectAll?: () => void | Promise<void>;
+  onUpdateItem?: (index: number | string, updates: Partial<PendingContentItem>) => void;
+  isProcessing: boolean;
+  confirmationMode: "always_ask" | "auto_confirm";
+  onConfirmationModeChange?: (mode: "always_ask" | "auto_confirm") => void | Promise<void>;
+  isModeUpdating: boolean;
 };
 
 export const Thread: FC<ThreadProps> = ({
@@ -37,21 +76,105 @@ export const Thread: FC<ThreadProps> = ({
   assistantFallback,
   userImageUrl,
   userFallback,
+  pendingItems = [],
+  onConfirmItem,
+  onRejectItem,
+  onEditItem,
+  onConfirmAll,
+  onRejectAll,
+  onUpdateItem,
+  isProcessing = false,
+  confirmationMode = "always_ask",
+  onConfirmationModeChange,
+  isModeUpdating = false,
 }) => {
+  const messageStateRef = useRef<ThreadMessageState>({
+    assistantImageUrl,
+    assistantFallback,
+    userImageUrl,
+    userFallback,
+    pendingItems,
+    onConfirmItem,
+    onRejectItem,
+    onEditItem,
+    onConfirmAll,
+    onRejectAll,
+    onUpdateItem,
+    isProcessing,
+    confirmationMode,
+    onConfirmationModeChange,
+    isModeUpdating,
+  });
+
+  useEffect(() => {
+    messageStateRef.current = {
+      assistantImageUrl,
+      assistantFallback,
+      userImageUrl,
+      userFallback,
+      pendingItems,
+      onConfirmItem,
+      onRejectItem,
+      onEditItem,
+      onConfirmAll,
+      onRejectAll,
+      onUpdateItem,
+      isProcessing,
+      confirmationMode,
+      onConfirmationModeChange,
+      isModeUpdating,
+    };
+  }, [
+    assistantImageUrl,
+    assistantFallback,
+    userImageUrl,
+    userFallback,
+    pendingItems,
+    onConfirmItem,
+    onRejectItem,
+    onEditItem,
+    onConfirmAll,
+    onRejectAll,
+    onUpdateItem,
+    isProcessing,
+    confirmationMode,
+    onConfirmationModeChange,
+    isModeUpdating,
+  ]);
+
+  const StableUserMessage = useCallback(() => {
+    const state = messageStateRef.current;
+    return <UserMessage imageUrl={state.userImageUrl} fallback={state.userFallback} />;
+  }, []);
+
+  const StableAssistantMessage = useCallback(() => {
+    const state = messageStateRef.current;
+    return (
+      <AssistantMessage
+        imageUrl={state.assistantImageUrl}
+        fallback={state.assistantFallback}
+        pendingItems={state.pendingItems}
+        onConfirmItem={state.onConfirmItem}
+        onRejectItem={state.onRejectItem}
+        onEditItem={state.onEditItem}
+        onConfirmAll={state.onConfirmAll}
+        onRejectAll={state.onRejectAll}
+        onUpdateItem={state.onUpdateItem}
+        isProcessing={state.isProcessing}
+        confirmationMode={state.confirmationMode}
+        onConfirmationModeChange={state.onConfirmationModeChange}
+        isModeUpdating={state.isModeUpdating}
+      />
+    );
+  }, []);
+
   const messageComponents = useMemo(
     () => ({
-      UserMessage: () => (
-        <UserMessage imageUrl={userImageUrl} fallback={userFallback} />
-      ),
+      UserMessage: StableUserMessage,
       EditComposer,
-      AssistantMessage: () => (
-        <AssistantMessage
-          imageUrl={assistantImageUrl}
-          fallback={assistantFallback}
-        />
-      ),
+      AssistantMessage: StableAssistantMessage,
     }),
-    [assistantFallback, assistantImageUrl, userFallback, userImageUrl],
+    [StableUserMessage, StableAssistantMessage],
   );
 
   return (
@@ -76,7 +199,11 @@ export const Thread: FC<ThreadProps> = ({
       <div className="aui-thread-composer-footer w-full shrink-0 border-t border-border/50 bg-transparent px-4 pt-4 pb-4">
         <div className="relative mx-auto flex w-full max-w-(--thread-max-width) flex-col gap-4">
           <ThreadScrollToBottom />
-          <Composer />
+          <Composer
+            confirmationMode={confirmationMode}
+            onConfirmationModeChange={onConfirmationModeChange}
+            isModeUpdating={isModeUpdating}
+          />
         </div>
       </div>
     </ThreadPrimitive.Root>
@@ -165,7 +292,15 @@ const ThreadSuggestionItem: FC = () => {
   );
 };
 
-const Composer: FC = () => {
+const Composer: FC<{
+  confirmationMode?: "always_ask" | "auto_confirm";
+  onConfirmationModeChange?: (mode: "always_ask" | "auto_confirm") => void | Promise<void>;
+  isModeUpdating?: boolean;
+}> = ({
+  confirmationMode = "always_ask",
+  onConfirmationModeChange,
+  isModeUpdating = false,
+}) => {
   return (
     <ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
       <ComposerPrimitive.AttachmentDropzone className="aui-composer-attachment-dropzone flex w-full flex-col rounded-2xl border border-input bg-background px-1 pt-2 outline-none transition-shadow has-[textarea:focus-visible]:border-ring has-[textarea:focus-visible]:ring-2 has-[textarea:focus-visible]:ring-ring/20 data-[dragging=true]:border-ring data-[dragging=true]:border-dashed data-[dragging=true]:bg-accent/50">
@@ -177,16 +312,43 @@ const Composer: FC = () => {
           autoFocus
           aria-label="Message input"
         />
-        <ComposerAction />
+        <ComposerAction
+          confirmationMode={confirmationMode}
+          onConfirmationModeChange={onConfirmationModeChange}
+          isModeUpdating={isModeUpdating}
+        />
       </ComposerPrimitive.AttachmentDropzone>
     </ComposerPrimitive.Root>
   );
 };
 
-const ComposerAction: FC = () => {
+const ComposerAction: FC<{
+  confirmationMode?: "always_ask" | "auto_confirm";
+  onConfirmationModeChange?: (mode: "always_ask" | "auto_confirm") => void | Promise<void>;
+  isModeUpdating?: boolean;
+}> = ({
+  confirmationMode = "always_ask",
+  onConfirmationModeChange,
+  isModeUpdating = false,
+}) => {
   return (
     <div className="aui-composer-action-wrapper relative mx-2 mb-2 flex items-center justify-between">
-      <ComposerAddAttachment />
+      <div className="flex items-center gap-2">
+        <ComposerAddAttachment />
+        {onConfirmationModeChange && (
+          <div className="flex items-center gap-2 rounded-full border border-border/60 bg-muted/30 px-2 py-1">
+            <Switch
+              checked={confirmationMode === "auto_confirm"}
+              onCheckedChange={(checked) =>
+                onConfirmationModeChange(checked ? "auto_confirm" : "always_ask")
+              }
+              disabled={isModeUpdating}
+              aria-label="Auto accept CRUD actions"
+            />
+            <Zap className="h-3.5 w-3.5 text-muted-foreground" />
+          </div>
+        )}
+      </div>
       <AuiIf condition={({ thread }) => !thread.isRunning}>
         <ComposerPrimitive.Send asChild>
           <TooltipIconButton
@@ -232,9 +394,115 @@ const MessageError: FC = () => {
 type AssistantMessageProps = {
   imageUrl?: string;
   fallback?: string;
+  pendingItems?: PendingContentItem[];
+  onConfirmItem?: (index: number | string) => Promise<void>;
+  onRejectItem?: (index: number | string) => void | Promise<void>;
+  onEditItem?: (index: number) => void;
+  onConfirmAll?: () => Promise<void>;
+  onRejectAll?: () => void | Promise<void>;
+  onUpdateItem?: (index: number | string, updates: Partial<PendingContentItem>) => void;
+  isProcessing?: boolean;
+  confirmationMode?: "always_ask" | "auto_confirm";
+  onConfirmationModeChange?: (mode: "always_ask" | "auto_confirm") => void | Promise<void>;
+  isModeUpdating?: boolean;
 };
 
-const AssistantMessage: FC<AssistantMessageProps> = ({ imageUrl, fallback }) => {
+type ToolFallbackWithPendingProps = ComponentProps<typeof ToolFallback> & {
+  pendingItems?: PendingContentItem[];
+  onConfirmItem?: (index: number | string) => Promise<void>;
+  onRejectItem?: (index: number | string) => void | Promise<void>;
+  onEditItem?: (index: number) => void;
+  onConfirmAll?: () => Promise<void>;
+  onRejectAll?: () => void | Promise<void>;
+  onUpdateItem?: (index: number | string, updates: Partial<PendingContentItem>) => void;
+  isProcessing?: boolean;
+  confirmationMode?: "always_ask" | "auto_confirm";
+  onConfirmationModeChange?: (mode: "always_ask" | "auto_confirm") => void | Promise<void>;
+  isModeUpdating?: boolean;
+};
+
+const AssistantMessage: FC<AssistantMessageProps> = ({
+  imageUrl,
+  fallback,
+  pendingItems = [],
+  onConfirmItem,
+  onRejectItem,
+  onEditItem,
+  onConfirmAll,
+  onRejectAll,
+  onUpdateItem,
+  isProcessing = false,
+  confirmationMode = "always_ask",
+  onConfirmationModeChange,
+  isModeUpdating = false,
+}) => {
+  const ToolFallbackWithPending = ToolFallback as unknown as FC<ToolFallbackWithPendingProps>;
+
+  const fallbackStateRef = useRef({
+    pendingItems,
+    onConfirmItem,
+    onRejectItem,
+    onEditItem,
+    onConfirmAll,
+    onRejectAll,
+    onUpdateItem,
+    isProcessing,
+    confirmationMode,
+    onConfirmationModeChange,
+    isModeUpdating,
+  });
+
+  useEffect(() => {
+    fallbackStateRef.current = {
+      pendingItems,
+      onConfirmItem,
+      onRejectItem,
+      onEditItem,
+      onConfirmAll,
+      onRejectAll,
+      onUpdateItem,
+      isProcessing,
+      confirmationMode,
+      onConfirmationModeChange,
+      isModeUpdating,
+    };
+  }, [
+    pendingItems,
+    onConfirmItem,
+    onRejectItem,
+    onEditItem,
+    onConfirmAll,
+    onRejectAll,
+    onUpdateItem,
+    isProcessing,
+    confirmationMode,
+    onConfirmationModeChange,
+    isModeUpdating,
+  ]);
+
+  const PendingAwareToolFallback = useCallback(
+    (props: ComponentProps<typeof ToolFallback>) => {
+      const state = fallbackStateRef.current;
+      return (
+        <ToolFallbackWithPending
+          {...props}
+          pendingItems={state.pendingItems}
+          onConfirmItem={state.onConfirmItem}
+          onRejectItem={state.onRejectItem}
+          onEditItem={state.onEditItem}
+          onConfirmAll={state.onConfirmAll}
+          onRejectAll={state.onRejectAll}
+          onUpdateItem={state.onUpdateItem}
+          isProcessing={state.isProcessing}
+          confirmationMode={state.confirmationMode}
+          onConfirmationModeChange={state.onConfirmationModeChange}
+          isModeUpdating={state.isModeUpdating}
+        />
+      );
+    },
+    [ToolFallbackWithPending],
+  );
+
   return (
     <MessagePrimitive.Root
       className="aui-assistant-message-root fade-in slide-in-from-bottom-1 relative mx-auto w-full max-w-(--thread-max-width) animate-in py-3 duration-150"
@@ -252,7 +520,7 @@ const AssistantMessage: FC<AssistantMessageProps> = ({ imageUrl, fallback }) => 
           <MessagePrimitive.Parts
             components={{
               Text: MarkdownText,
-              tools: { Fallback: ToolFallback },
+              tools: { Fallback: PendingAwareToolFallback },
             }}
           />
           <MessageError />

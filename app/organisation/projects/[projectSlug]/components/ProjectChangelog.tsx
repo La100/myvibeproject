@@ -6,7 +6,7 @@ import { useProject } from "@/components/providers/ProjectProvider";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { formatDistanceToNow } from "date-fns";
 import {
   FileText,
@@ -47,22 +47,7 @@ type ProjectChangelogProps = {
 const PAGE_SIZE = 50;
 
 export function ProjectChangelogSkeleton({ className }: { className?: string }) {
-  return (
-    <div className={cn("px-4 lg:px-0 space-y-4", className)}>
-      <Skeleton className="h-9 w-1/3 mb-2" />
-      <Skeleton className="h-5 w-1/2 mb-6" />
-      {[...Array(5)].map((_, i) => (
-        <div key={i} className="flex items-start space-x-3 p-4 animate-pulse">
-          <Skeleton className="w-8 h-8 rounded-full" />
-          <Skeleton className="w-8 h-8 rounded-full" />
-          <div className="flex-1 space-y-2">
-            <Skeleton className="h-4 w-3/4" />
-            <Skeleton className="h-3 w-1/2" />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
+  return <Spinner className={cn("px-4 lg:px-0", className)} />;
 }
 
 const getActivityIcon = (actionType: string) => {

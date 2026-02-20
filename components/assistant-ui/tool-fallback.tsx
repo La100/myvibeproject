@@ -12,6 +12,7 @@ import {
   useScrollLock,
   type ToolCallMessagePartStatus,
   type ToolCallMessagePartComponent,
+  type ToolCallMessagePartProps,
 } from "@assistant-ui/react";
 import {
   Collapsible,
@@ -19,6 +20,8 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+import { InlineConfirmationList } from "@/components/ai/assistant/ui/confirmations/InlineConfirmation";
+import type { PendingContentItem } from "@/components/ai/assistant/data/types";
 
 const ANIMATION_DURATION = 200;
 
@@ -231,6 +234,70 @@ function ToolFallbackResult({
   );
 }
 
+function toPendingItemFromResult(
+  toolCallId: string,
+  result: unknown,
+): PendingContentItem | null {
+  if (!result || typeof result !== "object") return null;
+
+  const parsed = result as Record<string, unknown>;
+  const type = parsed.type;
+  const operation = parsed.operation;
+  const data = parsed.data;
+  const status = parsed.status;
+
+  if (
+    typeof type !== "string" ||
+    !["create", "edit", "delete", "bulk_create", "bulk_edit"].includes(String(operation)) ||
+    !data ||
+    typeof data !== "object"
+  ) {
+    return null;
+  }
+
+  const normalizedStatus =
+    status === "confirmed" || status === "rejected" ? status : undefined;
+
+  return {
+    type: type as PendingContentItem["type"],
+    operation: operation as PendingContentItem["operation"],
+    data: data as Record<string, unknown>,
+    status: normalizedStatus,
+    updates:
+      parsed.updates && typeof parsed.updates === "object"
+        ? (parsed.updates as Record<string, unknown>)
+        : undefined,
+    originalItem:
+      parsed.originalItem && typeof parsed.originalItem === "object"
+        ? (parsed.originalItem as Record<string, unknown>)
+        : undefined,
+    functionCall: {
+      callId: toolCallId,
+      functionName: "",
+      arguments: "",
+    },
+  };
+}
+
+interface ToolFallbackProps extends ToolCallMessagePartProps {
+  pendingItems?: PendingContentItem[];
+  onConfirmItem?: (index: number | string) => Promise<void>;
+  onRejectItem?: (index: number | string) => void | Promise<void>;
+  onEditItem?: (index: number) => void;
+  onConfirmAll?: () => Promise<void>;
+  onRejectAll?: () => void | Promise<void>;
+  onUpdateItem?: (
+    index: number | string,
+    updates: Partial<PendingContentItem>,
+  ) => void;
+  isProcessing?: boolean;
+  confirmationMode?: "always_ask" | "auto_confirm";
+  onConfirmationModeChange?: (
+    mode: "always_ask" | "auto_confirm",
+  ) => void | Promise<void>;
+  isModeUpdating?: boolean;
+}
+
 function ToolFallbackError({
   status,
   className,
@@ -268,27 +335,84 @@ function ToolFallbackError({
   );
 }
 
-const ToolFallbackImpl: ToolCallMessagePartComponent = ({
+const ToolFallbackImpl = ({
   toolName,
+  toolCallId,
   argsText,
   result,
   status,
-}) => {
+  pendingItems,
+  onConfirmItem,
+  onRejectItem,
+  onEditItem,
+  onConfirmAll,
+  onRejectAll,
+  onUpdateItem,
+  isProcessing = false,
+  confirmationMode = "always_ask",
+  onConfirmationModeChange,
+  isModeUpdating = false,
+}: ToolFallbackProps) => {
   const isCancelled =
     status?.type === "incomplete" && status.reason === "cancelled";
+
+  const matchedPendingItem = pendingItems?.find(
+    (item) => item.functionCall?.callId === toolCallId,
+  );
+  const unresolvedPendingItems = (pendingItems ?? []).filter(
+    (item) => item.status !== "confirmed" && item.status !== "rejected",
+  );
+  const firstUnresolvedCallId = unresolvedPendingItems[0]?.functionCall?.callId;
+  const shouldRenderBatchForThisTool =
+    unresolvedPendingItems.length > 0 &&
+    !!toolCallId &&
+    toolCallId === firstUnresolvedCallId;
+
+  const fallbackPendingItem = toolCallId
+    ? toPendingItemFromResult(toolCallId, result)
+    : null;
+  const confirmationItem = matchedPendingItem ?? fallbackPendingItem;
+  const itemsForInlineConfirmation = shouldRenderBatchForThisTool
+    ? unresolvedPendingItems
+    : unresolvedPendingItems.length === 0 && confirmationItem
+      ? [confirmationItem]
+      : [];
+
+  const showInlineConfirmation =
+    itemsForInlineConfirmation.length > 0 &&
+    !!onConfirmItem &&
+    !!onRejectItem;
 
   return (
     <ToolFallbackRoot
       className={cn(isCancelled && "border-muted-foreground/30 bg-muted/30")}
+      defaultOpen={showInlineConfirmation}
     >
       <ToolFallbackTrigger toolName={toolName} status={status} />
       <ToolFallbackContent>
         <ToolFallbackError status={status} />
+        {showInlineConfirmation && confirmationItem && (
+          <div className="px-4 pt-2">
+            <InlineConfirmationList
+              items={itemsForInlineConfirmation}
+              onConfirmItem={onConfirmItem}
+              onRejectItem={onRejectItem}
+              onEditItem={onEditItem}
+              onConfirmAll={onConfirmAll}
+              onRejectAll={onRejectAll}
+              onUpdateItem={onUpdateItem}
+              isProcessing={isProcessing}
+              confirmationMode={confirmationMode}
+              onConfirmationModeChange={onConfirmationModeChange}
+              isModeUpdating={isModeUpdating}
+            />
+          </div>
+        )}
         <ToolFallbackArgs
           argsText={argsText}
           className={cn(isCancelled && "opacity-60")}
         />
-        {!isCancelled && <ToolFallbackResult result={result} />}
+        {!isCancelled && !showInlineConfirmation && <ToolFallbackResult result={result} />}
       </ToolFallbackContent>
     </ToolFallbackRoot>
   );

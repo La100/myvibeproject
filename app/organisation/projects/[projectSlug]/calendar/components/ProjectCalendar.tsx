@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { useQuery } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import { useProject } from "@/components/providers/ProjectProvider";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -209,32 +209,7 @@ function toMoney(value: number | undefined) {
 // --- Skeleton ---
 
 export function ProjectCalendarSkeleton() {
-  return (
-    <div className="flex h-full flex-col overflow-hidden rounded-xl border bg-card">
-      <div className="flex items-center justify-between px-4 py-3 border-b">
-        <div className="flex items-center gap-3">
-          <Skeleton className="h-8 w-8" />
-          <Skeleton className="h-6 w-40" />
-          <Skeleton className="h-8 w-8" />
-        </div>
-        <div className="flex items-center gap-2">
-          <Skeleton className="h-8 w-20" />
-          <Skeleton className="h-8 w-20" />
-          <Skeleton className="h-8 w-20" />
-        </div>
-      </div>
-      <div className="p-4">
-        <div className="grid grid-cols-7 gap-px">
-          {Array.from({ length: 7 }).map((_, i) => (
-            <Skeleton key={`h-${i}`} className="h-8" />
-          ))}
-          {Array.from({ length: 35 }).map((_, i) => (
-            <Skeleton key={`c-${i}`} className="h-20" />
-          ))}
-        </div>
-      </div>
-    </div>
-  );
+  return <Spinner className="h-full rounded-xl border bg-card" />;
 }
 
 // --- Main Component ---

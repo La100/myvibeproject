@@ -107,7 +107,7 @@ export function FeaturesGrid() {
                 delay: index * 0.08,
                 ease: [0.16, 1, 0.3, 1],
               }}
-              className={`group relative rounded-[20px] border border-border/50 bg-card p-7 transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_30px_60px_rgba(0,0,0,0.08)] overflow-hidden ${feature.span}`}
+              className={`group relative rounded-2xl border border-border/50 bg-card p-7 transition-all duration-500 hover:-translate-y-1 hover:shadow-soft-lg overflow-hidden ${feature.span}`}
             >
               {/* Hover gradient accent */}
               <div
@@ -121,7 +121,7 @@ export function FeaturesGrid() {
                 <motion.div
                   whileHover={{ scale: 1.1, rotate: -5 }}
                   transition={{ type: "spring", stiffness: 400, damping: 15 }}
-                  className="flex h-12 w-12 items-center justify-center rounded-2xl border border-border/50 shadow-sm"
+                  className="flex h-12 w-12 items-center justify-center rounded-xl border border-border/50 shadow-soft-sm"
                   style={{
                     backgroundColor: `color-mix(in oklab, ${feature.color} 12%, transparent)`,
                   }}

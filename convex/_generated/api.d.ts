@@ -52,7 +52,6 @@ import type * as clipper from "../clipper.js";
 import type * as comments from "../comments.js";
 import type * as contacts from "../contacts.js";
 import type * as costEstimations from "../costEstimations.js";
-import type * as customers from "../customers.js";
 import type * as files from "../files.js";
 import type * as http from "../http.js";
 import type * as labor from "../labor.js";
@@ -128,7 +127,6 @@ declare const fullApi: ApiFromModules<{
   comments: typeof comments;
   contacts: typeof contacts;
   costEstimations: typeof costEstimations;
-  customers: typeof customers;
   files: typeof files;
   http: typeof http;
   labor: typeof labor;

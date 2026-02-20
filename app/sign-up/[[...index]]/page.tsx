@@ -28,7 +28,7 @@ export default function SignUpPage() {
       await signUp?.authenticateWithRedirect({
         strategy: "oauth_google",
         redirectUrl: "/sso-callback",
-        redirectUrlComplete: "/onboarding",
+        redirectUrlComplete: "/dashboard",
 
       });
     } catch (error) {
@@ -51,7 +51,7 @@ export default function SignUpPage() {
       await signIn?.authenticateWithRedirect({
         strategy: "oauth_google",
         redirectUrl: "/sso-callback",
-        redirectUrlComplete: "/onboarding",
+        redirectUrlComplete: "/dashboard",
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

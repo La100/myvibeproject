@@ -1,26 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
-import { formatDistanceToNow } from "date-fns";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import type { Id } from "@/convex/_generated/dataModel";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/utils";
 import { useUser } from "@clerk/nextjs";
 import { useProject } from "@/components/providers/ProjectProvider";
-import { Loader2, Menu, MessageSquare, Plus } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
 import {
   Card,
   CardContent,
@@ -31,23 +18,14 @@ import {
 
 import { useChat } from "./data/hooks";
 import { usePendingItems } from "./data/hooks";
-import { type ThreadListItem } from "./data/types";
-import { Sidebar } from "./ui";
 import { AISubscriptionWall } from "@/components/ai/shared";
 import AssistantConversation from "@/components/assistant-ui/assistant-conversation";
 import type { UIMessage } from "@convex-dev/agent/react";
+import { toast } from "sonner";
 
 const AIAssistant = () => {
   const { user } = useUser();
   const { project, team } = useProject();
-
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const pathname = usePathname();
-  const sessionParam = searchParams.get("session");
-  const lastSessionParamRef = useRef<string | null>(null);
-  const suppressSessionSyncRef = useRef(false);
-  const suppressedSessionParamRef = useRef<string | null>(null);
 
   const aiAccess = useQuery(
     apiAny.stripe.checkTeamAIAccess,
@@ -56,21 +34,24 @@ const AIAssistant = () => {
 
   const generateUploadUrl = useMutation(apiAny.files.generateUploadUrlWithCustomKey);
   const addFile = useMutation(apiAny.files.addFile);
+  const updateProject = useMutation(apiAny.projects.updateProject);
+
+  const projectAutoConfirmCrud = Boolean((project as { aiAutoConfirmCrud?: boolean } | null)?.aiAutoConfirmCrud);
+  const [autoConfirmCrud, setAutoConfirmCrud] = useState(projectAutoConfirmCrud);
+  const [isSavingAutoConfirmCrud, setIsSavingAutoConfirmCrud] = useState(false);
+
+  useEffect(() => {
+    setAutoConfirmCrud(projectAutoConfirmCrud);
+  }, [projectAutoConfirmCrud]);
 
   const {
     setChatHistory,
     isLoading,
     threadId,
-    showHistory,
-    setShowHistory,
-    threadList,
-    isThreadListLoading,
-    hasThreads,
     chatIsLoading,
     handleSendMessage: sendMessageWithFile,
     handleStopResponse,
     handleNewChat,
-    handleThreadSelect: selectThread,
     uiMessages,
     isStreaming,
   } = useChat({
@@ -81,71 +62,26 @@ const AIAssistant = () => {
   const {
     pendingItems,
     handleAutoRejectPendingItems,
+    handleConfirmItem,
+    handleRejectItem,
+    handleEditItem,
+    handleConfirmAll,
+    handleRejectAll,
+    handleUpdatePendingItem,
+    isBulkProcessing,
     resetPendingState,
   } = usePendingItems({
     projectId: project?._id,
     teamSlug: team?.slug,
     threadId,
+    autoConfirmCrud,
     setChatHistory,
   });
 
-  const updateSessionParam = useCallback(
-    (nextThreadId?: string) => {
-      const params = new URLSearchParams(searchParams.toString());
-      if (nextThreadId) {
-        params.set("session", nextThreadId);
-      } else {
-        params.delete("session");
-      }
-      const query = params.toString();
-      router.replace(`${pathname}${query ? `?${query}` : ""}`, { scroll: false });
-    },
-    [searchParams, router, pathname],
-  );
-
-  useEffect(() => {
-    if (suppressSessionSyncRef.current) {
-      if (sessionParam !== suppressedSessionParamRef.current) {
-        suppressSessionSyncRef.current = false;
-        suppressedSessionParamRef.current = null;
-        lastSessionParamRef.current = null;
-      }
-      return;
-    }
-    if (!sessionParam || sessionParam === threadId) return;
-    if (lastSessionParamRef.current === sessionParam) return;
-
-    lastSessionParamRef.current = sessionParam;
-    selectThread(sessionParam);
-    resetPendingState();
-  }, [sessionParam, threadId, selectThread, resetPendingState]);
-
-  useEffect(() => {
-    if (!threadId) return;
-    if (sessionParam === threadId) {
-      lastSessionParamRef.current = threadId;
-      return;
-    }
-    lastSessionParamRef.current = threadId;
-    updateSessionParam(threadId);
-  }, [threadId, sessionParam, updateSessionParam]);
-
-  const handleThreadSelect = useCallback(
-    (selectedThreadId: string) => {
-      selectThread(selectedThreadId);
-      resetPendingState();
-    },
-    [selectThread, resetPendingState],
-  );
-
-  const handleNewChatClick = useCallback(() => {
-    suppressSessionSyncRef.current = true;
-    suppressedSessionParamRef.current = sessionParam;
+  const handleResetChat = useCallback(async () => {
     handleNewChat();
     resetPendingState();
-    lastSessionParamRef.current = sessionParam;
-    updateSessionParam(undefined);
-  }, [handleNewChat, resetPendingState, sessionParam, updateSessionParam]);
+  }, [handleNewChat, resetPendingState]);
 
   const handleConversationSend = useCallback(
     async (payload: { text: string; files: File[] }) => {
@@ -165,8 +101,8 @@ const AIAssistant = () => {
       await sendMessageWithFile(
         payload.files,
         [],
-        () => {},
-        () => {},
+        () => { },
+        () => { },
         async (args) => {
           const result = await generateUploadUrl({
             projectId: args.projectId,
@@ -212,7 +148,7 @@ const AIAssistant = () => {
             <CardHeader className="space-y-4 pb-2">
               <Badge
                 variant="secondary"
-                className="w-fit rounded-full border-0 bg-red-100 px-3 py-1 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400"
+                className="w-fit rounded-lg border-0 bg-red-100 px-3 py-1 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400"
               >
                 Tokens exhausted
               </Badge>
@@ -269,133 +205,59 @@ const AIAssistant = () => {
     user?.primaryEmailAddress?.emailAddress?.charAt(0) ||
     "U";
 
+  const handleToggleAutoConfirmCrud = async (checked: boolean) => {
+    if (!project?._id) return;
+
+    const previous = autoConfirmCrud;
+    setAutoConfirmCrud(checked);
+    setIsSavingAutoConfirmCrud(true);
+    try {
+      await updateProject({
+        projectId: project._id,
+        aiAutoConfirmCrud: checked,
+      });
+      toast.success(
+        checked
+          ? "Włączono auto-confirm CRUD"
+          : "Włączono ręczne potwierdzanie CRUD",
+      );
+    } catch (error) {
+      setAutoConfirmCrud(previous);
+      console.error("Failed to update aiAutoConfirmCrud:", error);
+      toast.error("Nie udało się zapisać trybu potwierdzeń");
+    } finally {
+      setIsSavingAutoConfirmCrud(false);
+    }
+  };
+
   return (
-    <div className="relative flex h-[calc(100vh-4rem)] w-full min-w-0 flex-col overflow-hidden text-foreground md:flex-row-reverse">
-      <Sidebar
-        showHistory={showHistory}
-        setShowHistory={setShowHistory}
-        isThreadListLoading={isThreadListLoading}
-        hasThreads={hasThreads}
-        threadList={threadList as ThreadListItem[]}
-        currentThreadId={threadId}
-        onThreadSelect={handleThreadSelect}
-        onNewChat={handleNewChatClick}
+    <div className="relative flex h-[calc(100vh-4rem)] w-full min-w-0 flex-col overflow-hidden text-foreground">
+      <AssistantConversation
+        className="flex-1 min-h-0"
+        showHeader
+        title={project?.name || "AI Assistant"}
+        assistantFallback={(project?.name || "A").charAt(0)}
+        uiMessages={uiMessages as UIMessage[]}
+        isLoading={isLoading}
+        isStreaming={isStreaming}
+        chatIsLoading={chatIsLoading}
+        onSend={handleConversationSend}
+        onStop={handleStopResponse}
+        onReset={handleResetChat}
+        userImageUrl={user?.imageUrl || undefined}
+        userFallback={userFallback}
+        pendingItems={pendingItems}
+        onConfirmItem={handleConfirmItem}
+        onRejectItem={handleRejectItem}
+        onEditItem={(index) => handleEditItem(index)}
+        onConfirmAll={handleConfirmAll}
+        onRejectAll={handleRejectAll}
+        onUpdateItem={handleUpdatePendingItem}
+        isProcessing={isBulkProcessing}
+        confirmationMode={autoConfirmCrud ? "auto_confirm" : "always_ask"}
+        onConfirmationModeChange={(mode) => handleToggleAutoConfirmCrud(mode === "auto_confirm")}
+        isModeUpdating={isSavingAutoConfirmCrud}
       />
-
-      <div className="relative flex min-h-0 flex-1 flex-col">
-        <div className="absolute right-6 top-6 z-20 hidden items-center gap-3 md:flex">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setShowHistory(!showHistory)}
-            className="h-8 w-8"
-            title={showHistory ? "Zamknij historię czatów" : "Otwórz historię czatów"}
-          >
-            <span className="sr-only">Toggle chat history</span>
-            <MessageSquare className="h-5 w-5" />
-          </Button>
-        </div>
-
-        <div className="absolute right-4 top-4 z-20 md:hidden">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full">
-                <Menu className="h-5 w-5" />
-                <span className="sr-only">Toggle history</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="right" className="w-[300px] p-0 sm:w-[350px]">
-              <SheetHeader className="border-b border-border/50 p-4 text-left">
-                <SheetTitle className="flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4 text-primary" />
-                  Project chats
-                </SheetTitle>
-              </SheetHeader>
-              <div className="flex h-full flex-col overflow-hidden">
-                <div className="p-4">
-                  <Button
-                    onClick={handleNewChatClick}
-                    className="w-full justify-start pl-3"
-                    variant="outline"
-                    size="sm"
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    New Chat
-                  </Button>
-                </div>
-                <Separator className="opacity-50" />
-                <ScrollArea className="flex-1">
-                  {isThreadListLoading ? (
-                    <div className="flex flex-col items-center justify-center p-8 text-muted-foreground">
-                      <Loader2 className="mb-2 h-6 w-6 animate-spin" />
-                      <span className="text-xs">Loading history...</span>
-                    </div>
-                  ) : hasThreads ? (
-                    <div className="flex flex-col gap-1 p-2">
-                      {threadList.map((thread) => {
-                        const isActive = thread.threadId === threadId;
-                        const relativeTime = formatDistanceToNow(
-                          new Date(thread.lastMessageAt ?? Date.now()),
-                          { addSuffix: true },
-                        );
-
-                        return (
-                          <Button
-                            key={thread.threadId}
-                            variant={isActive ? "secondary" : "ghost"}
-                            className={cn(
-                              "h-auto w-full flex-col items-start justify-start gap-1 px-3 py-3",
-                              isActive
-                                ? "bg-secondary"
-                                : "text-muted-foreground hover:text-foreground",
-                            )}
-                            onClick={() => handleThreadSelect(thread.threadId)}
-                          >
-                            <div className="flex w-full items-baseline justify-between gap-2">
-                              <span className="truncate text-sm font-medium">{thread.title}</span>
-                              <span className="shrink-0 whitespace-nowrap text-[10px] text-muted-foreground">
-                                {relativeTime}
-                              </span>
-                            </div>
-                            <span className="w-full line-clamp-1 text-left text-xs font-normal text-muted-foreground opacity-90">
-                              {thread.lastMessagePreview || "No messages yet."}
-                            </span>
-                          </Button>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="p-8 text-center">
-                      <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted/50">
-                        <MessageSquare className="h-5 w-5 text-muted-foreground" />
-                      </div>
-                      <p className="text-sm font-medium">No chats yet</p>
-                    </div>
-                  )}
-                </ScrollArea>
-              </div>
-            </SheetContent>
-          </Sheet>
-        </div>
-
-        <AssistantConversation
-          className="flex-1 min-h-0"
-          showHeader={false}
-          title={project?.name || "AI Assistant"}
-          assistantFallback={(project?.name || "A").charAt(0)}
-          uiMessages={uiMessages as UIMessage[]}
-          isLoading={isLoading}
-          isStreaming={isStreaming}
-          chatIsLoading={chatIsLoading}
-          onSend={handleConversationSend}
-          onStop={handleStopResponse}
-          onReset={async () => {
-            handleNewChatClick();
-          }}
-          userImageUrl={user?.imageUrl || undefined}
-          userFallback={userFallback}
-        />
-      </div>
     </div>
   );
 };

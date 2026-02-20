@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useOrganization } from "@clerk/nextjs";
 import { useQuery, useMutation, useAction } from "convex/react";
@@ -22,7 +22,9 @@ import {
   Coins,
   Clock3,
   HardDrive,
-  FolderOpen
+  FolderOpen,
+  ImageIcon,
+  Upload,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,6 +34,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import { TimezonePicker } from "@/components/ui/timezone-picker";
 import { GEMINI_4K_IMAGE_TOKENS, formatTokens } from "@/lib/aiPricing";
 
 export default function CompanySettings() {
@@ -40,27 +43,28 @@ export default function CompanySettings() {
   const ensureCurrentUserTeamMembership = useMutation(apiAny.teamMembership.ensureCurrentUserTeamMembership);
   const [repairingTeamState, setRepairingTeamState] = useState(false);
   const attemptedRepairRef = useRef<string | null>(null);
-  
+
   // Loading actual data from backend
   const teamData = useQuery(
-    apiAny.teams.getTeamSettingsByClerkOrg, 
+    apiAny.teams.getTeamSettingsByClerkOrg,
     organization?.id ? { clerkOrgId: organization.id } : "skip"
   );
-  
+
   const teamId = teamData?.teamId;
-  
+
   const aiAccess = useQuery(apiAny.stripe.checkTeamAIAccess, teamId ? { teamId } : "skip");
   const subscription = useQuery(apiAny.stripe.getTeamSubscription, teamId ? { teamId } : "skip");
   const usageBreakdown = useQuery(apiAny.ai.usage.getTeamUsageBreakdown, teamId ? { teamId } : "skip");
   const storageUsage = useQuery(apiAny.files.getTeamStorageUsage, teamId ? { teamId } : "skip");
   const resourceUsage = useQuery(apiAny.teams.getTeamResourceUsage, teamId ? { teamId } : "skip");
-  
+
   const updateTeamSettings = useMutation(apiAny.teams.updateTeamSettings);
+  const generateTeamImageUploadUrl = useMutation(apiAny.teams.generateTeamImageUploadUrl);
   const ensureBillingWindow = useMutation(apiAny.stripe.ensureBillingWindow);
   const createBillingPortalSession = useAction(apiAny.stripeActions.createBillingPortalSession);
   const ensureSubscriptionSynced = useAction(apiAny.stripeActions.ensureSubscriptionSynced);
   const teamPayments = useQuery(apiAny.stripe.getTeamPayments, teamId ? { teamId } : "skip");
-  
+
   // Local state for team settings
   const [teamSettings, setTeamSettings] = useState<{
     currency: "USD" | "EUR" | "PLN" | "GBP" | "CAD" | "AUD" | "JPY" | "CHF" | "SEK" | "NOK" | "DKK" | "CZK" | "HUF" | "CNY" | "INR" | "BRL" | "MXN" | "KRW" | "SGD" | "HKD";
@@ -69,10 +73,15 @@ export default function CompanySettings() {
     currency: "PLN",
     timezone: "UTC",
   });
+  const [organizationImagePreviewUrl, setOrganizationImagePreviewUrl] = useState("");
+  const [organizationImageFile, setOrganizationImageFile] = useState<File | null>(null);
+  const [savingOrganizationProfile, setSavingOrganizationProfile] = useState(false);
   const [savingPreferences, setSavingPreferences] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
   const billingWindowEnsuredRef = useRef(false);
-  
+  const organizationImageInputRef = useRef<HTMLInputElement | null>(null);
+  const organizationImageObjectUrlRef = useRef<string | null>(null);
+
   const repairTeamMembership = useCallback(async () => {
     if (!organization?.id) return;
     setRepairingTeamState(true);
@@ -111,8 +120,19 @@ export default function CompanySettings() {
         currency: (teamData.currency as "USD" | "EUR" | "PLN" | "GBP" | "CAD" | "AUD" | "JPY" | "CHF" | "SEK" | "NOK" | "DKK" | "CZK" | "HUF" | "CNY" | "INR" | "BRL" | "MXN" | "KRW" | "SGD" | "HKD") || "PLN",
         timezone: teamData.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
       });
+      if (!organizationImageFile) {
+        setOrganizationImagePreviewUrl(teamData.imageUrl || organization?.imageUrl || "");
+      }
     }
-  }, [teamData]);
+  }, [teamData, organization?.imageUrl, organizationImageFile]);
+
+  useEffect(() => {
+    return () => {
+      if (organizationImageObjectUrlRef.current) {
+        URL.revokeObjectURL(organizationImageObjectUrlRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (subscription && subscription.stripeCustomerId && subscription.subscriptionPlan === "free") {
@@ -151,7 +171,7 @@ export default function CompanySettings() {
           <p className="text-sm text-muted-foreground">
             You need an active organization to access organization settings.
           </p>
-          <Button type="button" onClick={() => router.replace("/onboarding")} className="rounded-full px-6">
+          <Button type="button" onClick={() => router.replace("/onboarding")} className="rounded-lg px-6">
             Go to onboarding
           </Button>
         </div>
@@ -219,6 +239,83 @@ export default function CompanySettings() {
     }
   };
 
+  const handleSelectOrganizationImage = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please choose an image file");
+      event.target.value = "";
+      return;
+    }
+
+    const maxSizeInBytes = 5 * 1024 * 1024;
+    if (file.size > maxSizeInBytes) {
+      toast.error("Image must be smaller than 5 MB");
+      event.target.value = "";
+      return;
+    }
+
+    if (organizationImageObjectUrlRef.current) {
+      URL.revokeObjectURL(organizationImageObjectUrlRef.current);
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    organizationImageObjectUrlRef.current = objectUrl;
+    setOrganizationImagePreviewUrl(objectUrl);
+    setOrganizationImageFile(file);
+    event.target.value = "";
+  };
+
+  const handleSaveOrganizationProfile = async () => {
+    if (!organizationImageFile) {
+      toast.error("Choose an image first");
+      return;
+    }
+
+    setSavingOrganizationProfile(true);
+    try {
+      const uploadData = await generateTeamImageUploadUrl({
+        teamId: teamData.teamId,
+        fileName: organizationImageFile.name,
+      });
+
+      const uploadResponse = await fetch(uploadData.url, {
+        method: "PUT",
+        body: organizationImageFile,
+        headers: {
+          "Content-Type": organizationImageFile.type || "application/octet-stream",
+        },
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error(`Upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`);
+      }
+
+      if (!uploadData.publicUrl) {
+        throw new Error("Missing public URL for uploaded organization image");
+      }
+
+      await updateTeamSettings({
+        teamId: teamData.teamId,
+        imageUrl: uploadData.publicUrl,
+      });
+
+      if (organizationImageObjectUrlRef.current) {
+        URL.revokeObjectURL(organizationImageObjectUrlRef.current);
+        organizationImageObjectUrlRef.current = null;
+      }
+      setOrganizationImagePreviewUrl(uploadData.publicUrl);
+      setOrganizationImageFile(null);
+      toast.success("Organization image updated");
+    } catch (error) {
+      toast.error("Failed to update organization image");
+      console.error(error);
+    } finally {
+      setSavingOrganizationProfile(false);
+    }
+  };
+
   const handleManageSubscription = async () => {
     if (!teamData?.teamId) return;
 
@@ -259,9 +356,9 @@ export default function CompanySettings() {
       : "No active subscription";
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="min-h-screen pb-20">
       <div className="max-w-5xl mx-auto px-6 py-10 space-y-8">
-        
+
         {/* Header */}
         <div className="flex flex-col gap-2 border-b border-border/40 pb-6">
           <div className="flex items-center gap-3">
@@ -275,24 +372,17 @@ export default function CompanySettings() {
           </div>
         </div>
 
-        <Tabs defaultValue="organization" className="w-full">
+        <Tabs defaultValue="settings" className="w-full">
           <TabsList className="w-full justify-start h-auto p-1 bg-muted/30 rounded-lg border border-border/40 mb-8 overflow-x-auto flex-nowrap">
-            <TabsTrigger 
-              value="organization" 
-              className="flex-1 min-w-[120px] py-2.5 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all rounded-md flex items-center gap-2 justify-center"
-            >
-              <Users className="h-4 w-4" />
-              Organization
-            </TabsTrigger>
-            <TabsTrigger 
-              value="preferences" 
+            <TabsTrigger
+              value="settings"
               className="flex-1 min-w-[120px] py-2.5 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all rounded-md flex items-center gap-2 justify-center"
             >
               <Settings className="h-4 w-4" />
-              Preferences
+              Settings
             </TabsTrigger>
-            <TabsTrigger 
-              value="billing" 
+            <TabsTrigger
+              value="billing"
               className="flex-1 min-w-[120px] py-2.5 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all rounded-md flex items-center gap-2 justify-center"
             >
               <CreditCard className="h-4 w-4" />
@@ -300,9 +390,9 @@ export default function CompanySettings() {
             </TabsTrigger>
           </TabsList>
 
-          {/* Organization Tab */}
-          <TabsContent value="organization">
-            <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
+          {/* Settings Tab */}
+          <TabsContent value="settings">
+            <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-8">
               <div className="grid gap-6">
                 <div className="flex flex-col gap-1">
                   <h2 className="text-lg font-medium">Organization Profile</h2>
@@ -310,32 +400,70 @@ export default function CompanySettings() {
                     Basic organization identity from your current workspace context.
                   </p>
                 </div>
-                
+
                 <Card className="border-border/40 shadow-sm overflow-hidden">
                   <CardContent className="space-y-4 p-6">
+                    <div className="flex items-center gap-4 rounded-lg border border-border/40 bg-muted/20 p-4">
+                      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-border/40 bg-background">
+                        {organizationImagePreviewUrl.trim() ? (
+                          <img
+                            src={organizationImagePreviewUrl}
+                            alt={organization?.name || "Organization"}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-primary">
+                            <ImageIcon className="h-5 w-5" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1 space-y-3">
+                        <Label htmlFor="organization-image-upload">Organization image</Label>
+                        <input
+                          ref={organizationImageInputRef}
+                          id="organization-image-upload"
+                          type="file"
+                          accept="image/*"
+                          onChange={handleSelectOrganizationImage}
+                          className="hidden"
+                        />
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => organizationImageInputRef.current?.click()}
+                          >
+                            <Upload className="h-4 w-4 mr-2" />
+                            Add image
+                          </Button>
+                          <Button
+                            type="button"
+                            onClick={handleSaveOrganizationProfile}
+                            disabled={savingOrganizationProfile || !organizationImageFile}
+                            className="min-w-[180px]"
+                          >
+                            {savingOrganizationProfile ? "Saving..." : "Save Organization Image"}
+                          </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {organizationImageFile
+                            ? `Selected file: ${organizationImageFile.name}`
+                            : "Upload a logo shown in the app sidebar."}
+                        </p>
+                      </div>
+                    </div>
                     <div className="grid gap-2">
                       <Label>Organization name</Label>
                       <Input value={organization?.name || "No active organization"} readOnly />
                     </div>
-                    <div className="grid gap-2">
-                      <Label>Organization ID</Label>
-                      <Input value={organization?.id || "No active organization"} readOnly />
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" variant="outline" onClick={() => router.replace("/onboarding")}>
+                        Re-run organization onboarding
+                      </Button>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      This section uses your custom app UI only. Clerk organization profile is disabled.
-                    </p>
-                    <Button type="button" variant="outline" onClick={() => router.replace("/onboarding")}>
-                      Re-run organization onboarding
-                    </Button>
                   </CardContent>
                 </Card>
               </div>
-            </motion.div>
-          </TabsContent>
-
-          {/* Preferences Tab */}
-          <TabsContent value="preferences">
-            <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-8">
               <div className="grid gap-6 max-w-2xl">
                 <div className="flex flex-col gap-1">
                   <h2 className="text-lg font-medium">Regional Settings</h2>
@@ -343,7 +471,7 @@ export default function CompanySettings() {
                     Configure your currency and timezone preferences.
                   </p>
                 </div>
-                
+
                 <Card className="border-border/40 shadow-sm">
                   <CardHeader>
                     <CardTitle className="text-base font-medium flex items-center gap-2">
@@ -375,52 +503,28 @@ export default function CompanySettings() {
                             { value: "JPY", label: "Japanese Yen (¥)" },
                           ].map(curr => (
                             <SelectItem key={curr.value} value={curr.value}>
-                              <span className="font-medium">{curr.value}</span> 
+                              <span className="font-medium">{curr.value}</span>
                               <span className="text-muted-foreground ml-2 text-xs">({curr.label})</span>
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="timezone">Timezone</Label>
-                      <div className="flex gap-2">
-                        <Input
-                          id="timezone"
-                          value={teamSettings.timezone}
-                          onChange={(event) =>
-                            setTeamSettings({
-                              ...teamSettings,
-                              timezone: event.target.value,
-                            })
-                          }
-                          placeholder="Europe/Warsaw"
-                          className="bg-background/50"
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() =>
-                            setTeamSettings({
-                              ...teamSettings,
-                              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-                            })
-                          }
-                        >
-                          Auto
-                        </Button>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Use IANA timezone format, for example `Europe/Warsaw` or `America/New_York`.
-                      </p>
+                    <div className="grid gap-2 max-w-md">
+                      <Label>Organization timezone</Label>
+                      <TimezonePicker
+                        value={teamSettings.timezone}
+                        onValueChange={(timezone) => setTeamSettings({ ...teamSettings, timezone })}
+                        className="w-[360px] max-w-full"
+                      />
                     </div>
                   </CardContent>
                   <CardFooter className="bg-muted/30 border-t border-border/40 px-6 py-4 flex justify-between items-center">
                     <p className="text-xs text-muted-foreground">
                       Changes apply to all new projects and AI date handling.
                     </p>
-                    <Button 
-                      onClick={handleSaveTeamSettings} 
+                    <Button
+                      onClick={handleSaveTeamSettings}
                       disabled={savingPreferences}
                       className="min-w-[100px]"
                     >

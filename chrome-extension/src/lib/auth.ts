@@ -91,7 +91,7 @@ function waitForTokenSync(
       resolve(token)
     }
 
-    const readAndResolve = (allowUnchangedToken: boolean = false) => {
+    const readAndResolve = (allowUnchangedToken = false) => {
       void chrome.storage.local
         .get([STORAGE_KEYS.TOKEN, STORAGE_KEYS.TOKEN_TIMESTAMP])
         .then((token) => {
@@ -206,7 +206,9 @@ export async function ensureUsableToken(options?: {
   // Prevent opening /auth/extension implicitly during normal background calls.
   // Interactive auth should happen only after explicit user intent.
   if (!allowInteractiveAuth) {
-    return token ?? null
+    // During forced refresh, returning a stale token causes ineffective auth retries.
+    // Return null so callers can handle re-auth explicitly.
+    return forceSync ? null : token ?? null
   }
 
   if (!forceSync && token) {
