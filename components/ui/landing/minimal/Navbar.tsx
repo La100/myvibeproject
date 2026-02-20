@@ -25,7 +25,12 @@ export function Navbar() {
   }, []);
 
   return (
-    <header className={cn("sticky top-0 z-50 transition-all duration-300", scrolled ? "px-4 py-2 sm:px-8" : "")}>
+    <header
+      className={cn(
+        "sticky top-0 z-50 bg-transparent transition-all duration-300",
+        scrolled ? "px-4 py-2 sm:px-8" : ""
+      )}
+    >
       <div
         className={cn(
           "mx-auto flex h-14 items-center justify-between px-6 transition-all duration-300",

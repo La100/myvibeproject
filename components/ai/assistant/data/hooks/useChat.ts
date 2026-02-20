@@ -120,6 +120,13 @@ export const useAIChat = ({ projectId, userClerkId }: UseAIChatProps): UseAIChat
   // useUIMessages doesn't render stale data from the previous thread.
   const [suppressMessages, setSuppressMessages] = useState(false);
   const suppressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const conversationContextRef = useRef<string | null>(null);
+  const prunedThreadRef = useRef<string | null>(null);
+
+  const threadStorageKey = useMemo(() => {
+    if (!projectId || !userClerkId) return null;
+    return `ai-assistant:last-thread:${projectId}:${userClerkId}`;
+  }, [projectId, userClerkId]);
 
   const setThreadIdWithSuppression = useCallback((id: string | undefined) => {
     const previousThreadId = threadId;
@@ -154,6 +161,22 @@ export const useAIChat = ({ projectId, userClerkId }: UseAIChatProps): UseAIChat
       suppressTimeoutRef.current = null;
     }, 600);
   }, [threadId]);
+
+  // Reset local chat state when project/user context changes.
+  useEffect(() => {
+    const nextContext = projectId && userClerkId ? `${projectId}:${userClerkId}` : null;
+    if (conversationContextRef.current === nextContext) {
+      return;
+    }
+
+    conversationContextRef.current = nextContext;
+    setInitialThreadSelectionDone(false);
+    setThreadIdWithSuppression(undefined);
+    setChatHistory([]);
+    setMessage("");
+    setSessionTokens({ total: 0, cost: 0 });
+    setCurrentMode(null);
+  }, [projectId, userClerkId, setThreadIdWithSuppression]);
 
   useEffect(() => {
     return () => {
@@ -381,7 +404,7 @@ export const useAIChat = ({ projectId, userClerkId }: UseAIChatProps): UseAIChat
   const clearThread = useMutation(apiAny.ai.threads.clearThreadForUser);
   const clearPreviousThreads = useMutation(apiAny.ai.threads.clearPreviousThreadsForUser);
 
-  // History UI was removed from assistant; keep stable defaults for compatibility.
+  // History UI is intentionally disabled; we keep only the active thread.
   const threadList: UseAIChatReturn["threadList"] = [];
   const isThreadListLoading = false;
   const hasThreads = false;
@@ -408,12 +431,51 @@ export const useAIChat = ({ projectId, userClerkId }: UseAIChatProps): UseAIChat
     mode?: string;
   }>(), []);
 
-  // Initial thread selection
+  // Restore only the active thread from localStorage after refresh.
   useEffect(() => {
-    if (!initialThreadSelectionDone) {
+    if (initialThreadSelectionDone) return;
+    if (!projectId || !userClerkId) return;
+    if (!threadStorageKey || typeof window === "undefined") {
       setInitialThreadSelectionDone(true);
+      return;
     }
-  }, [initialThreadSelectionDone]);
+
+    const nextThreadId = window.localStorage.getItem(threadStorageKey)?.trim();
+    if (nextThreadId) {
+      setThreadIdWithSuppression(nextThreadId);
+    }
+
+    setInitialThreadSelectionDone(true);
+  }, [
+    initialThreadSelectionDone,
+    projectId,
+    setThreadIdWithSuppression,
+    threadStorageKey,
+    userClerkId,
+  ]);
+
+  useEffect(() => {
+    if (!threadStorageKey || typeof window === "undefined") return;
+    if (!threadId) return;
+    window.localStorage.setItem(threadStorageKey, threadId);
+  }, [threadId, threadStorageKey]);
+
+  // Keep only the current thread; delete older ones for this project/user.
+  useEffect(() => {
+    if (!threadId || !projectId || !userClerkId) return;
+    const pruneKey = `${projectId}:${userClerkId}:${threadId}`;
+    if (prunedThreadRef.current === pruneKey) return;
+
+    prunedThreadRef.current = pruneKey;
+    void clearPreviousThreads({
+      projectId,
+      userClerkId,
+      keepThreadId: threadId,
+    }).catch((error) => {
+      prunedThreadRef.current = null;
+      console.error("Failed to prune previous threads:", error);
+    });
+  }, [threadId, projectId, userClerkId, clearPreviousThreads]);
 
   // Auto-resize textarea
   useEffect(() => {

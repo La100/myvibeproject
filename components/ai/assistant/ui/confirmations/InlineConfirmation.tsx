@@ -132,6 +132,23 @@ function getApprovalLabel(state: PendingApprovalState): string | null {
   }
 }
 
+function extractBulkCreateEntries(item: PendingContentItem): Record<string, unknown>[] {
+  if (item.operation !== "bulk_create") return [];
+
+  const data = item.data as Record<string, unknown> | undefined;
+  if (!data) return [];
+
+  const bulkKeys = ["items", "tasks", "notes", "surveys", "contacts", "laborItems"];
+  for (const key of bulkKeys) {
+    const value = data[key];
+    if (Array.isArray(value)) {
+      return value.filter((entry): entry is Record<string, unknown> => !!entry && typeof entry === "object");
+    }
+  }
+
+  return [];
+}
+
 export const ConfirmationCard = memo(function ConfirmationCard({
   item,
   index,
@@ -448,14 +465,33 @@ export function InlineConfirmationList({
   const [currentIndex, setCurrentIndex] = React.useState(0);
   const scrollRef = React.useRef<HTMLDivElement>(null);
 
-  const visibleItems = items
-    .map((item, index) => ({ item, index }))
+  const displayItems = items.flatMap((item, index) => {
+    const bulkEntries = extractBulkCreateEntries(item);
+    if (bulkEntries.length <= 1) {
+      return [{ item, index, key: `${index}`, fromBulk: false }];
+    }
+
+    return bulkEntries.map((entry, entryIndex) => ({
+      item: {
+        ...item,
+        operation: "create" as const,
+        data: entry,
+        clientId: item.clientId ? `${item.clientId}::${entryIndex}` : undefined,
+      },
+      index,
+      key: `${index}-${entryIndex}`,
+      fromBulk: true,
+    }));
+  });
+
+  const visibleItems = displayItems
     .filter(({ item }) => shouldRenderByState(getApprovalState(item)));
 
   if (visibleItems.length === 0) return null;
 
   const isInlineFormOnly =
     visibleItems.length === 1 &&
+    !visibleItems[0].fromBulk &&
     Boolean(onUpdateItem) &&
     (!visibleItems[0].item.status || visibleItems[0].item.status === "rejected") &&
     ["task", "note", "shopping", "contact"].includes(
@@ -488,7 +524,7 @@ export function InlineConfirmationList({
   const goToIndex = (index: number) => {
     setCurrentIndex(index);
     if (scrollRef.current) {
-      const cardWidth = scrollRef.current.scrollWidth / visibleItems.length;
+      const cardWidth = scrollRef.current.clientWidth;
       scrollRef.current.scrollTo({
         left: cardWidth * index,
         behavior: "smooth",
@@ -596,16 +632,16 @@ export function InlineConfirmationList({
           )}
           onScroll={(e) => {
             const container = e.currentTarget;
-            const cardWidth = container.scrollWidth / visibleItems.length;
+            const cardWidth = container.clientWidth;
             const newIndex = Math.round(container.scrollLeft / cardWidth);
             if (newIndex !== currentIndex) {
               setCurrentIndex(newIndex);
             }
           }}
         >
-          {visibleItems.map(({ item, index: originalIndex }) => (
+          {visibleItems.map(({ item, index: originalIndex, key, fromBulk }) => (
             <div
-              key={originalIndex}
+              key={key}
               className={cn(
                 "flex-shrink-0 snap-center",
                 showSlider ? "w-[calc(100%-16px)]" : "w-full"
@@ -616,8 +652,8 @@ export function InlineConfirmationList({
                 index={originalIndex}
                 onConfirm={onConfirmItem}
                 onReject={onRejectItem}
-                onEdit={onEditItem}
-                onUpdate={onUpdateItem}
+                onEdit={fromBulk ? undefined : onEditItem}
+                onUpdate={fromBulk ? undefined : onUpdateItem}
                 isProcessing={isProcessing}
                 confirmationMode={confirmationMode}
                 onConfirmationModeChange={onConfirmationModeChange}

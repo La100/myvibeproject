@@ -341,7 +341,7 @@ export default function AssistantConversation({
   const store = useMemo(
     () => ({
       isRunning: isStreaming || isLoading,
-      isLoading: isBooting,
+      isLoading: false,
       messages: storeMessages,
       convertMessage,
       onNew,
@@ -355,7 +355,6 @@ export default function AssistantConversation({
     [
       attachmentAdapter,
       convertMessage,
-      isBooting,
       isLoading,
       isStreaming,
       onNew,
@@ -395,7 +394,7 @@ export default function AssistantConversation({
         )}
         <div className="relative flex-1 min-h-0">
           <div
-            className={`flex h-full min-h-0 flex-1 transition-opacity duration-300 ${isBooting ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+            className={`flex h-full min-h-0 flex-1 transition-opacity duration-300 ${isBooting ? "opacity-70" : "opacity-100"}`}
           >
             <Thread
               showWelcome={!isBooting && uiMessages.length === 0}
