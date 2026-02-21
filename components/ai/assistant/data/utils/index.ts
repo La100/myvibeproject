@@ -532,12 +532,23 @@ export const expandBulkEditItems = (items: PendingItem[]): PendingItem[] => {
         : Array.isArray(item.data?.items) && item.type === 'note'
           ? (item.data.items as NoteInput[])
           : [];
-      const shoppingItems = item.type === 'shopping' && Array.isArray(item.data?.items) ? (item.data.items as ShoppingItemInput[]) : [];
+      const shoppingItems = Array.isArray((item.data as { shoppingItems?: unknown })?.shoppingItems)
+        ? ((item.data as { shoppingItems: ShoppingItemInput[] }).shoppingItems)
+        : item.type === 'shopping' && Array.isArray(item.data?.items)
+          ? (item.data.items as ShoppingItemInput[])
+          : Array.isArray(item.data?.tasks) && Array.isArray(item.data?.items)
+            ? (item.data.items as ShoppingItemInput[])
+            : [];
       const laborItems = item.type === 'labor' && Array.isArray(item.data?.items) ? (item.data.items as LaborItemInput[]) : [];
+      const contacts = Array.isArray((item.data as { contacts?: unknown })?.contacts)
+        ? ((item.data as { contacts: ContactInput[] }).contacts)
+        : [];
       const surveys = Array.isArray(item.data?.surveys) ? (item.data.surveys as Array<Record<string, unknown>>) : [];
 
+      const expandedItems: PendingItem[] = [];
+
       if (tasks.length > 0) {
-        return tasks.map((task) => ({
+        expandedItems.push(...tasks.map((task) => ({
           type: 'task' as const,
           operation: 'create' as const,
           data: task,
@@ -547,11 +558,11 @@ export const expandBulkEditItems = (items: PendingItem[]): PendingItem[] => {
           },
           functionCall: item.functionCall,
           responseId: item.responseId,
-        } satisfies PendingItem));
+        } satisfies PendingItem)));
       }
 
       if (notes.length > 0) {
-        return notes.map((note) => ({
+        expandedItems.push(...notes.map((note) => ({
           type: 'note' as const,
           operation: 'create' as const,
           data: note,
@@ -561,11 +572,11 @@ export const expandBulkEditItems = (items: PendingItem[]): PendingItem[] => {
           },
           functionCall: item.functionCall,
           responseId: item.responseId,
-        } satisfies PendingItem));
+        } satisfies PendingItem)));
       }
 
       if (shoppingItems.length > 0) {
-        return shoppingItems.map((shoppingItem) => ({
+        expandedItems.push(...shoppingItems.map((shoppingItem) => ({
           type: 'shopping' as const,
           operation: 'create' as const,
           data: shoppingItem,
@@ -580,11 +591,11 @@ export const expandBulkEditItems = (items: PendingItem[]): PendingItem[] => {
           },
           functionCall: item.functionCall,
           responseId: item.responseId,
-        } satisfies PendingItem));
+        } satisfies PendingItem)));
       }
 
       if (laborItems.length > 0) {
-        return laborItems.map((laborItem) => ({
+        expandedItems.push(...laborItems.map((laborItem) => ({
           type: 'labor' as const,
           operation: 'create' as const,
           data: laborItem,
@@ -599,11 +610,25 @@ export const expandBulkEditItems = (items: PendingItem[]): PendingItem[] => {
           },
           functionCall: item.functionCall,
           responseId: item.responseId,
-        } satisfies PendingItem));
+        } satisfies PendingItem)));
+      }
+
+      if (contacts.length > 0) {
+        expandedItems.push(...contacts.map((contact) => ({
+          type: 'contact' as const,
+          operation: 'create' as const,
+          data: contact as unknown as Record<string, unknown>,
+          display: {
+            title: contact.name || 'Untitled Contact',
+            description: contact.companyName || contact.email || 'New contact',
+          },
+          functionCall: item.functionCall,
+          responseId: item.responseId,
+        } satisfies PendingItem)));
       }
 
       if (surveys.length > 0) {
-        return surveys.map((survey) => ({
+        expandedItems.push(...surveys.map((survey) => ({
           type: 'survey' as const,
           operation: 'create' as const,
           data: survey,
@@ -613,7 +638,11 @@ export const expandBulkEditItems = (items: PendingItem[]): PendingItem[] => {
           },
           functionCall: item.functionCall,
           responseId: item.responseId,
-        } satisfies PendingItem));
+        } satisfies PendingItem)));
+      }
+
+      if (expandedItems.length > 0) {
+        return expandedItems;
       }
 
       return item;
@@ -746,7 +775,6 @@ export const resolveSectionName = (rawSectionName?: unknown, rawCategory?: unkno
   const normalizedCategory = typeof rawCategory === "string" ? rawCategory.trim() : "";
   return normalizedCategory.length > 0 ? normalizedCategory : undefined;
 };
-
 
 
 

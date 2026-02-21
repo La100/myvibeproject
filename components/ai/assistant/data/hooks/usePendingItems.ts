@@ -22,9 +22,6 @@ import type {
   BulkSurveyData,
 } from "../types";
 import {
-  isPendingItemType,
-  normalizePendingItems,
-  expandBulkEditItems,
   sanitizeShoppingItemData,
   sanitizeContactData,
   extractSurveyData,
@@ -32,6 +29,12 @@ import {
   extractBulkUpdates,
   resolveSectionName,
 } from "../utils";
+import {
+  hydratePendingItems,
+  keepOnlyResolvedPendingItems,
+  mergePendingItems,
+  type PendingFunctionCall,
+} from "./pendingItemsHydration";
 
 interface UsePendingItemsProps {
   projectId: Id<"projects"> | undefined;
@@ -84,21 +87,6 @@ export const usePendingItems = ({
   const [isBulkProcessing, setIsBulkProcessing] = useState(false);
   const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
   const autoConfirmBatchKeyRef = useRef<string | null>(null);
-
-  const parseFunctionCallArguments = useCallback((raw: string): Record<string, unknown> | null => {
-    let parsed: unknown = raw;
-    for (let i = 0; i < 2 && typeof parsed === "string"; i += 1) {
-      try {
-        parsed = JSON.parse(parsed);
-      } catch {
-        return null;
-      }
-    }
-
-    return parsed && typeof parsed === "object"
-      ? (parsed as Record<string, unknown>)
-      : null;
-  }, []);
 
   // Queries
   const pendingFunctionCalls = useQuery(
@@ -159,70 +147,12 @@ export const usePendingItems = ({
     }
 
     if (pendingFunctionCalls && pendingFunctionCalls.length > 0) {
-      const pendingItemsFromDB = pendingFunctionCalls.map((call) => {
-        try {
-          const parsed = parseFunctionCallArguments(call.arguments);
-          if (!parsed) {
-            return null;
-          }
-          const parsedTypeValue = typeof parsed?.type === "string" ? parsed.type : undefined;
-          const parsedType = isPendingItemType(parsedTypeValue) ? parsedTypeValue : undefined;
-          const functionCallType = isPendingItemType(call.functionName) ? call.functionName : undefined;
+      const hydratedPendingItems = hydratePendingItems(
+        pendingFunctionCalls as PendingFunctionCall[],
+      );
 
-          return {
-            type: parsedType ?? functionCallType ?? "task",
-            operation: parsed.operation,
-            data: parsed.data || parsed,
-            updates: parsed.updates,
-            originalItem: parsed.originalItem,
-            selection: parsed.selection,
-            titleChanges: parsed.titleChanges,
-            functionCall: {
-              callId: call.callId,
-              functionName: call.functionName,
-              arguments: call.arguments,
-            },
-            responseId: call.responseId,
-            status: (call.status === "confirmed" || call.status === "rejected") ? call.status : undefined,
-          };
-        } catch (e) {
-          console.error("Failed to parse pending item:", e);
-          return null;
-        }
-      }) as Array<PendingItem | null>;
-
-      const normalizedPendingItems = pendingItemsFromDB.filter((i): i is PendingItem => i !== null);
-
-      if (normalizedPendingItems.length > 0) {
-        const expanded = expandBulkEditItems(normalizePendingItems(normalizedPendingItems));
-        const withClientIds = expanded.map((item, index) => ({
-          ...item,
-          clientId: item.clientId ?? `${item.functionCall?.callId ?? "pending"}-${index}`,
-        }));
-
-        setPendingItems(prev => {
-          const prevMap = new Map(prev.map(p => [p.clientId, p]));
-
-          // 1. Process new items from server (preserving local confirmation status if they exist in prev)
-          const newItems = withClientIds.map(newItem => {
-            const prevItem = prevMap.get(newItem.clientId!);
-            if (prevItem && (prevItem.status === 'confirmed' || prevItem.status === 'rejected')) {
-              return { ...newItem, status: prevItem.status };
-            }
-            return newItem;
-          });
-
-          // 2. Find resolved items in prev that are NOT in newItems (preserved items)
-          const newIds = new Set(newItems.map(i => i.clientId));
-          const preservedItems = prev.filter((p) => {
-            if (p.status !== "confirmed" && p.status !== "rejected") return false;
-            if (!p.clientId) return true;
-            return !newIds.has(p.clientId);
-          });
-
-          // 3. Combine
-          return [...newItems, ...preservedItems];
-        });
+      if (hydratedPendingItems.length > 0) {
+        setPendingItems((prev) => mergePendingItems(prev, hydratedPendingItems));
         setCurrentItemIndex(0);
 
         // Don't auto-open dialogs - let inline confirmations in StreamingMessage handle display
@@ -232,13 +162,13 @@ export const usePendingItems = ({
       }
     } else if (pendingFunctionCalls && pendingFunctionCalls.length === 0 && pendingItems.length > 0) {
       // If server returns empty, keep only resolved items (receipts), remove any stale pending ones
-      setPendingItems(prev => prev.filter(item => item.status === "confirmed" || item.status === "rejected"));
+      setPendingItems((prev) => keepOnlyResolvedPendingItems(prev));
 
       // Close dialogs if they were open (optional, but good UX if the item we were acting on is gone)
       setShowConfirmationGrid(false);
       setIsConfirmationDialogOpen(false);
     }
-  }, [threadId, pendingFunctionCalls, pendingItems.length, parseFunctionCallArguments]);
+  }, [threadId, pendingFunctionCalls, pendingItems.length]);
 
   const scheduleResolvedRemoval = useCallback((clientId?: string) => {
     // Intentionally left blank - keep resolved items visible in the UI.
@@ -1036,10 +966,20 @@ export const usePendingItems = ({
     }
 
     const item = pendingItems[index];
+    const callId = item.functionCall?.callId;
+    const siblingItems = callId
+      ? pendingItems.filter((entry) => entry.functionCall?.callId === callId)
+      : [item];
+    const allSiblingsResolvedAfterConfirm = siblingItems.every((entry) =>
+      entry.clientId === item.clientId ||
+      entry.status === "confirmed" ||
+      entry.status === "rejected"
+    );
+
     try {
       const result = await confirmSingleItem(item);
 
-      if (item.functionCall && item.responseId && threadId) {
+      if (item.functionCall && item.responseId && threadId && allSiblingsResolvedAfterConfirm) {
         try {
           await markFunctionCallsAsConfirmed({
             threadId,
@@ -1111,6 +1051,20 @@ export const usePendingItems = ({
     }
 
     const item = pendingItems[index];
+    const callId = item.functionCall?.callId;
+    const siblingItems = callId
+      ? pendingItems.filter((entry) => entry.functionCall?.callId === callId)
+      : [item];
+    const siblingStatusesAfterReject = siblingItems.map((entry) =>
+      entry.clientId === item.clientId ? "rejected" : entry.status
+    );
+    const allSiblingsResolvedAfterReject = siblingStatusesAfterReject.every(
+      (status) => status === "confirmed" || status === "rejected"
+    );
+    const allSiblingsRejected = siblingStatusesAfterReject.every(
+      (status) => status === "rejected"
+    );
+
     const resolvedId = item.clientId;
     setPendingItems((prev) =>
       prev.map((entry) =>
@@ -1124,15 +1078,17 @@ export const usePendingItems = ({
 
     toast.info(`${item.type} creation cancelled`);
 
-    if (item.functionCall && item.responseId && threadId) {
+    if (item.functionCall && item.responseId && threadId && allSiblingsResolvedAfterReject) {
       try {
         await markFunctionCallsAsConfirmed({
           threadId,
           responseId: item.responseId,
           results: [{
             callId: item.functionCall.callId,
-            status: 'rejected',
-            result: "User rejected this action."
+            status: allSiblingsRejected ? 'rejected' : undefined,
+            result: allSiblingsRejected
+              ? "User rejected this action."
+              : "User reviewed this action."
           }],
         });
       } catch (error) {

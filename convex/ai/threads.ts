@@ -232,6 +232,45 @@ export const updateThreadSummary = internalMutation({
   },
 });
 
+// Public helper used by web client: ensure a project thread exists for a user.
+export const getProjectThread = mutation({
+  args: {
+    projectId: v.id("projects"),
+    userClerkId: v.string(),
+    title: v.optional(v.string()),
+  },
+  returns: v.string(),
+  handler: async (ctx, args) => {
+    const existingThread = await ctx.db
+      .query("aiThreads")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .filter((q) => q.eq(q.field("userClerkId"), args.userClerkId))
+      .first();
+
+    if (existingThread) {
+      return existingThread.threadId;
+    }
+
+    const project = await ctx.db.get(args.projectId);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    const threadId = `thread-${args.projectId}-${args.userClerkId}-${Date.now()}`;
+    await ctx.db.insert("aiThreads", {
+      threadId,
+      projectId: args.projectId,
+      teamId: project.teamId,
+      userClerkId: args.userClerkId,
+      lastMessageAt: Date.now(),
+      messageCount: 0,
+      title: args.title ?? "Assistant Chat",
+    });
+
+    return threadId;
+  },
+});
+
 // Internal helper for bot/webhook flows: ensure a project thread exists for a user.
 export const getProjectThreadInternal = internalMutation({
   args: {
@@ -478,7 +517,7 @@ export const clearThreadForUser = mutation({
 
     const agentThreadId = resolveAgentThreadId(thread);
     if (agentThreadId) {
-      await ctx.runMutation(components.agent.threads.deleteAllForThreadIdAsync, {
+      await ctx.scheduler.runAfter(0, components.agent.threads.deleteAllForThreadIdAsync, {
         threadId: agentThreadId,
       });
     }

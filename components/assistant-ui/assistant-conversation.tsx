@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AppendMessage, Attachment, ThreadMessageLike } from "@assistant-ui/react";
 import { AssistantRuntimeProvider, useExternalStoreRuntime } from "@assistant-ui/react";
 import type { AttachmentAdapter } from "@assistant-ui/react";
 import type { UIMessage } from "@convex-dev/agent/react";
-import { MessageSquare, RotateCcw } from "lucide-react";
+import { Loader2, MessageSquare, RotateCcw } from "lucide-react";
 import type { PendingContentItem } from "@/components/ai/assistant/data/types";
 
 import { Thread } from "@/components/assistant-ui/thread";
@@ -53,13 +53,11 @@ type AssistantConversationProps = {
   isModeUpdating?: boolean;
 };
 
-type MessageConversionOptions = {
-  hideToolCalls?: boolean;
-};
-
 type StoreMessage =
   | { kind: "ui"; message: UIMessage }
   | { kind: "optimistic"; message: ThreadMessageLike };
+
+const ENABLE_OPTIMISTIC_USER_MESSAGE = true;
 
 const toText = (content: ThreadMessageLike["content"]) => {
   if (typeof content === "string") return content;
@@ -74,7 +72,6 @@ const normalizeText = (text: string) => text.trim().replace(/\s+/g, " ");
 const toThreadMessageLikeFromUI = (
   msg: UIMessage,
   status?: "running" | "complete",
-  options?: MessageConversionOptions,
 ): ThreadMessageLike => {
   const role = (msg.role ?? "assistant") as ThreadRole;
   const parts = Array.isArray(msg.parts) ? (msg.parts as Array<Record<string, unknown>>) : [];
@@ -93,9 +90,6 @@ const toThreadMessageLikeFromUI = (
     }
 
     if (type.startsWith("tool-result:")) {
-      if (options?.hideToolCalls) {
-        continue;
-      }
       const toolCallId = type.replace("tool-result:", "");
       const toolName =
         (typeof part.toolName === "string" && part.toolName) ||
@@ -214,8 +208,39 @@ export default function AssistantConversation({
   isModeUpdating = false,
 }: AssistantConversationProps) {
   const [optimisticMessages, setOptimisticMessages] = useState<ThreadMessageLike[]>([]);
+  const optimisticMetaRef = useRef<{
+    normalizedText: string;
+    serverUserCountAtSend: number;
+  } | null>(null);
+  const onSendRef = useRef(onSend);
+  const onStopRef = useRef(onStop);
+
+  useEffect(() => {
+    onSendRef.current = onSend;
+  }, [onSend]);
+
+  useEffect(() => {
+    onStopRef.current = onStop;
+  }, [onStop]);
 
   const isBooting = chatIsLoading;
+  const hasVisibleMessages = uiMessages.length > 0 || optimisticMessages.length > 0;
+  const shouldHideThread = isBooting && !hasVisibleMessages;
+  const showWelcomeForEmptyThread = !isBooting && !hasVisibleMessages;
+
+  useEffect(() => {
+    if (isBooting) return;
+    const focusInput = () => {
+      const input = document.getElementById("assistant-chat-input") as HTMLTextAreaElement | null;
+      input?.focus();
+    };
+    if (document.hasFocus()) {
+      focusInput();
+    } else {
+      window.addEventListener("focus", focusInput, { once: true });
+      return () => window.removeEventListener("focus", focusInput);
+    }
+  }, [isBooting]);
 
   const attachmentAdapter = useMemo<AttachmentAdapter>(() => {
     return {
@@ -248,27 +273,6 @@ export default function AssistantConversation({
     };
   }, []);
 
-  const onNew = useCallback(
-    async (message: AppendMessage) => {
-      const files =
-        message.attachments
-          ?.map((attachment) => attachment.file)
-          .filter((file): file is File => !!file) ?? [];
-
-      const promptText = toText(message.content) || "";
-
-      if (promptText || files.length > 0) {
-        setOptimisticMessages((prev) => [
-          ...prev,
-          makeLocalMessage("user", promptText, message.attachments),
-        ]);
-      }
-
-      await onSend({ text: promptText, files });
-    },
-    [onSend],
-  );
-
   const convertedMessages = useMemo<StoreMessage[]>(
     () => {
       return uiMessages
@@ -278,8 +282,58 @@ export default function AssistantConversation({
     [uiMessages],
   );
 
+  const serverUserCount = useMemo(
+    () =>
+      convertedMessages.filter(
+        (message) =>
+          message.kind === "ui" && (message.message.role ?? "assistant") === "user",
+      ).length,
+    [convertedMessages],
+  );
+
+  const getLastServerUserText = useCallback((messages: StoreMessage[]) => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const candidate = messages[i];
+      if (candidate.kind !== "ui") continue;
+      if ((candidate.message.role ?? "assistant") !== "user") continue;
+      return normalizeText(
+        toText(toThreadMessageLikeFromUI(candidate.message, "complete").content),
+      );
+    }
+    return "";
+  }, []);
+
+  const onNew = useCallback(
+    async (message: AppendMessage) => {
+      const files =
+        message.attachments
+          ?.map((attachment) => attachment.file)
+          .filter((file): file is File => !!file) ?? [];
+
+      const promptText = toText(message.content) || "";
+
+      if (ENABLE_OPTIMISTIC_USER_MESSAGE && (promptText || files.length > 0)) {
+        optimisticMetaRef.current = {
+          normalizedText: normalizeText(promptText),
+          serverUserCountAtSend: serverUserCount,
+        };
+        setOptimisticMessages((prev) => [
+          ...prev,
+          makeLocalMessage("user", promptText, message.attachments),
+        ]);
+      }
+
+      await onSendRef.current({ text: promptText, files });
+    },
+    [serverUserCount],
+  );
+
   const storeMessages = useMemo<StoreMessage[]>(() => {
     const converted = convertedMessages;
+
+    if (!ENABLE_OPTIMISTIC_USER_MESSAGE) {
+      return converted;
+    }
 
     if (optimisticMessages.length === 0) {
       return converted;
@@ -287,14 +341,12 @@ export default function AssistantConversation({
 
     const lastOptimistic = optimisticMessages[optimisticMessages.length - 1];
     const optimisticText = normalizeText(toText(lastOptimistic.content));
-    const hasUserMessage = converted.some((msg) => {
-      if (msg.kind !== "ui") return false;
-      if ((msg.message.role ?? "assistant") !== "user") return false;
-      const messageText = normalizeText(
-        toText(toThreadMessageLikeFromUI(msg.message, "complete").content),
-      );
-      return messageText === optimisticText;
-    });
+    const optimisticMeta = optimisticMetaRef.current;
+    const hasFreshUserMessage =
+      serverUserCount > (optimisticMeta?.serverUserCountAtSend ?? -1);
+    const hasUserMessage =
+      hasFreshUserMessage &&
+      getLastServerUserText(converted) === (optimisticMeta?.normalizedText ?? optimisticText);
 
     return hasUserMessage
       ? converted
@@ -304,49 +356,53 @@ export default function AssistantConversation({
             (message): StoreMessage => ({ kind: "optimistic", message }),
           ),
         ];
-  }, [convertedMessages, optimisticMessages]);
+  }, [convertedMessages, getLastServerUserText, optimisticMessages, serverUserCount]);
 
   useEffect(() => {
+    if (!ENABLE_OPTIMISTIC_USER_MESSAGE) return;
     if (optimisticMessages.length === 0) return;
     const lastOptimistic = optimisticMessages[optimisticMessages.length - 1];
     const optimisticText = normalizeText(toText(lastOptimistic.content));
-    const hasUserMessage = convertedMessages.some(
-      (msg) =>
-        msg.kind === "ui" &&
-        (msg.message.role ?? "assistant") === "user" &&
-        normalizeText(toText(toThreadMessageLikeFromUI(msg.message, "complete").content)) === optimisticText,
-    );
+    const optimisticMeta = optimisticMetaRef.current;
+    const hasFreshUserMessage =
+      serverUserCount > (optimisticMeta?.serverUserCountAtSend ?? -1);
+    const hasUserMessage =
+      hasFreshUserMessage &&
+      getLastServerUserText(convertedMessages) ===
+        (optimisticMeta?.normalizedText ?? optimisticText);
     if (hasUserMessage) {
+      optimisticMetaRef.current = null;
       setOptimisticMessages([]);
     }
-  }, [convertedMessages, optimisticMessages]);
+  }, [convertedMessages, getLastServerUserText, optimisticMessages, serverUserCount]);
 
   const convertMessage = useMemo(
     () =>
-      (message: StoreMessage, index: number): ThreadMessageLike => {
+      (message: StoreMessage): ThreadMessageLike => {
         if (message.kind === "optimistic") return message.message;
 
         const role = (message.message.role ?? "assistant") as ThreadRole;
-        const isLast = index === storeMessages.length - 1;
-        const isRunningAssistant = role === "assistant" && isStreaming && isLast;
+        const uiStatus = message.message.status;
+        const isRunningAssistant =
+          role === "assistant" && uiStatus === "streaming";
 
         return toThreadMessageLikeFromUI(
           message.message,
           isRunningAssistant ? "running" : "complete",
         );
       },
-    [isStreaming, storeMessages.length],
+    [],
   );
 
   const store = useMemo(
     () => ({
       isRunning: isStreaming || isLoading,
-      isLoading: false,
+      isLoading: isBooting && !hasVisibleMessages,
       messages: storeMessages,
       convertMessage,
       onNew,
       onCancel: async () => {
-        onStop();
+        onStopRef.current();
       },
       adapters: {
         attachments: attachmentAdapter,
@@ -357,8 +413,9 @@ export default function AssistantConversation({
       convertMessage,
       isLoading,
       isStreaming,
+      isBooting,
+      hasVisibleMessages,
       onNew,
-      onStop,
       storeMessages,
     ],
   );
@@ -366,6 +423,7 @@ export default function AssistantConversation({
   const runtime = useExternalStoreRuntime(store);
 
   const handleReset = useCallback(async () => {
+    optimisticMetaRef.current = null;
     setOptimisticMessages([]);
     await onReset();
   }, [onReset]);
@@ -394,10 +452,10 @@ export default function AssistantConversation({
         )}
         <div className="relative flex-1 min-h-0">
           <div
-            className={`flex h-full min-h-0 flex-1 transition-opacity duration-300 ${isBooting ? "opacity-70" : "opacity-100"}`}
+            className={`flex h-full min-h-0 flex-1 transition-opacity duration-300 ${shouldHideThread ? "opacity-0" : "opacity-100"}`}
           >
             <Thread
-              showWelcome={!isBooting && uiMessages.length === 0}
+              showWelcome={showWelcomeForEmptyThread}
               assistantImageUrl={assistantImageUrl}
               assistantFallback={resolvedAssistantFallback}
               userImageUrl={userImageUrl}
@@ -416,10 +474,10 @@ export default function AssistantConversation({
             />
           </div>
           <div
-            className={`pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-muted-foreground transition-opacity duration-300 ${isBooting ? "opacity-100" : "opacity-0"}`}
-            aria-hidden={!isBooting}
+            className={`pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-muted-foreground transition-opacity duration-300 ${shouldHideThread ? "opacity-100" : "opacity-0"}`}
+            aria-hidden={!shouldHideThread}
           >
-            Loading conversation…
+            <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="Loading" />
           </div>
         </div>
       </div>

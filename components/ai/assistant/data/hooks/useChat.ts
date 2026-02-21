@@ -13,28 +13,15 @@ import { toast } from "sonner";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { ChatHistoryEntry, SessionTokens } from "../types";
 import { useUIMessages } from "@convex-dev/agent/react";
-
-type UIMessagesResult = ReturnType<typeof useUIMessages>["results"];
-type UIMessageItem = NonNullable<UIMessagesResult>[number];
-type MessagePart = NonNullable<UIMessageItem["parts"]>[number];
-type ToolResultPart = MessagePart & { result?: string };
-type ToolCallishPart = MessagePart & {
-  toolCallId?: string;
-  callId?: string;
-  id?: string;
-  toolName?: string;
-  name?: string;
-};
-type PersistentCall = {
-  callId: string;
-  status?: string;
-  result?: string;
-  arguments: string;
-};
-
+import {
+  mergePersistentCallState,
+  type PersistentCall,
+  type UIMessagesResult,
+} from "./chatMessageTransform";
 interface UseAIChatProps {
   projectId: Id<"projects"> | undefined;
   userClerkId: string | undefined;
+  initialThreadId?: string;
 }
 
 interface UseAIChatReturn {
@@ -105,92 +92,123 @@ interface UseAIChatReturn {
   scrollToBottom: () => void;
 }
 
-export const useAIChat = ({ projectId, userClerkId }: UseAIChatProps): UseAIChatReturn => {
+export const useAIChat = ({
+  projectId,
+  userClerkId,
+  initialThreadId,
+}: UseAIChatProps): UseAIChatReturn => {
+  const normalizedInitialThreadId = initialThreadId?.trim() || undefined;
   // State
   const [message, setMessage] = useState("");
   const [chatHistory, setChatHistory] = useState<ChatHistoryEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [threadId, setThreadId] = useState<string | undefined>(undefined);
-  const [initialThreadSelectionDone, setInitialThreadSelectionDone] = useState(false);
+  const [threadId, setThreadId] = useState<string | undefined>(normalizedInitialThreadId);
+  const [isInitializingThread, setIsInitializingThread] = useState(
+    Boolean(projectId && userClerkId && !normalizedInitialThreadId),
+  );
+  const [autoInitThread, setAutoInitThread] = useState(true);
   const [showHistory, setShowHistory] = useState(false);
   const [currentMode, setCurrentMode] = useState<'full' | 'recent' | null>(null);
   const [sessionTokens, setSessionTokens] = useState<SessionTokens>({ total: 0, cost: 0 });
-
-  // Anti-flicker: suppress messages briefly when switching threads to ensure 
-  // useUIMessages doesn't render stale data from the previous thread.
-  const [suppressMessages, setSuppressMessages] = useState(false);
-  const suppressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const conversationContextRef = useRef<string | null>(null);
-  const prunedThreadRef = useRef<string | null>(null);
-
-  const threadStorageKey = useMemo(() => {
-    if (!projectId || !userClerkId) return null;
-    return `ai-assistant:last-thread:${projectId}:${userClerkId}`;
-  }, [projectId, userClerkId]);
-
-  const setThreadIdWithSuppression = useCallback((id: string | undefined) => {
-    const previousThreadId = threadId;
-
-    if (suppressTimeoutRef.current) {
-      clearTimeout(suppressTimeoutRef.current);
-      suppressTimeoutRef.current = null;
-    }
-
-    setThreadId(id);
-
-    // Clearing thread means empty chat immediately.
-    if (!id) {
-      setSuppressMessages(false);
-      return;
-    }
-
-    // Suppress only when switching between two existing threads.
-    // For a brand-new thread created after first send (undefined -> id),
-    // suppression causes optimistic user message flicker.
-    const isExistingThreadSwitch = Boolean(previousThreadId && previousThreadId !== id);
-    if (!isExistingThreadSwitch) {
-      setSuppressMessages(false);
-      return;
-    }
-
-    // While switching to another concrete thread, hide message list briefly
-    // until the new thread has loaded at least its first page.
-    setSuppressMessages(true);
-    suppressTimeoutRef.current = setTimeout(() => {
-      setSuppressMessages(false);
-      suppressTimeoutRef.current = null;
-    }, 600);
-  }, [threadId]);
-
-  // Reset local chat state when project/user context changes.
-  useEffect(() => {
-    const nextContext = projectId && userClerkId ? `${projectId}:${userClerkId}` : null;
-    if (conversationContextRef.current === nextContext) {
-      return;
-    }
-
-    conversationContextRef.current = nextContext;
-    setInitialThreadSelectionDone(false);
-    setThreadIdWithSuppression(undefined);
+  const contextRef = useRef<string | null>(null);
+  const resetConversationState = useCallback(() => {
     setChatHistory([]);
     setMessage("");
     setSessionTokens({ total: 0, cost: 0 });
     setCurrentMode(null);
-  }, [projectId, userClerkId, setThreadIdWithSuppression]);
+  }, []);
 
+  const getThreadMutation = useMutation(apiAny.ai.threads.getProjectThread);
+
+  // Reset local chat state when project/user context changes.
   useEffect(() => {
-    return () => {
-      if (suppressTimeoutRef.current) {
-        clearTimeout(suppressTimeoutRef.current);
+    const nextContext = projectId && userClerkId
+      ? `${projectId}:${userClerkId}`
+      : null;
+    if (contextRef.current === nextContext) return;
+    contextRef.current = nextContext;
+
+    setThreadId(normalizedInitialThreadId);
+    setIsInitializingThread(Boolean(nextContext && !normalizedInitialThreadId));
+    setAutoInitThread(!normalizedInitialThreadId);
+    resetConversationState();
+  }, [projectId, userClerkId, normalizedInitialThreadId, resetConversationState]);
+
+  // Initialize the project thread in a simple, deterministic way.
+  useEffect(() => {
+    let cancelled = false;
+
+    const initThread = async () => {
+      if (!autoInitThread) {
+        setIsInitializingThread(false);
+        return;
+      }
+      if (!projectId || !userClerkId) {
+        setIsInitializingThread(false);
+        return;
+      }
+      if (threadId) return;
+      try {
+        const id = await getThreadMutation({ projectId, userClerkId });
+        if (!cancelled) {
+          setThreadId(id);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setIsInitializingThread(false);
+          console.error("Failed to init thread", error);
+        }
       }
     };
-  }, []);
+
+    void initThread();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [autoInitThread, projectId, userClerkId, threadId, getThreadMutation]);
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const isSendingRef = useRef(false);
+  const prevInitialThreadIdRef = useRef<string | undefined>(normalizedInitialThreadId);
+  const hasStreamedRef = useRef(false);
+  const awaitingStreamRef = useRef(false);
+  const pendingResponseBaselineRef = useRef<number | null>(null);
+
+  const resetPendingRequestState = useCallback((resetLoading = false) => {
+    awaitingStreamRef.current = false;
+    hasStreamedRef.current = false;
+    pendingResponseBaselineRef.current = null;
+    if (resetLoading) {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Sync thread from URL only when it explicitly points to a thread.
+  // This avoids re-initializing a new thread when we intentionally clear session param.
+  useEffect(() => {
+    const previousInitialThreadId = prevInitialThreadIdRef.current;
+    const hasInitialThreadChanged = normalizedInitialThreadId !== previousInitialThreadId;
+    prevInitialThreadIdRef.current = normalizedInitialThreadId;
+
+    if (!projectId || !userClerkId) return;
+    if (!hasInitialThreadChanged) return;
+    if (!normalizedInitialThreadId) return;
+    if (normalizedInitialThreadId === threadId) return;
+    setAutoInitThread(false);
+    setIsInitializingThread(false);
+    setThreadId(normalizedInitialThreadId);
+    resetConversationState();
+  }, [
+    projectId,
+    userClerkId,
+    normalizedInitialThreadId,
+    threadId,
+    resetConversationState,
+  ]);
 
   // CRITICAL: Subscribe strategy based on thread type
   // - Skip if no threadId (empty/new chat state)
@@ -212,185 +230,37 @@ export const useAIChat = ({ projectId, userClerkId }: UseAIChatProps): UseAIChat
 
   // Extract results - always from hook when subscribed
   const rawUiMessages = shouldSubscribe ? streamingHookResult.results : undefined;
-
-  const stripThinking = useCallback((text: string) => {
-    if (!text.includes("<thinking>")) return text;
-    const withoutBlocks = text.replace(/<thinking>[\s\S]*?<\/thinking>/g, "");
-    const withoutOpen = withoutBlocks.replace(/<thinking>[\s\S]*$/g, "");
-    return withoutOpen.replace(/<\/thinking>/g, "");
-  }, []);
-
-  // Merge persistent status into UI messages
-  const uiMessages = useMemo(() => {
-    if (suppressMessages) return [] as UIMessagesResult;
-    if (!rawUiMessages) return undefined;
-    if (!persistentFunctionCalls) return rawUiMessages;
-
-    const callMap = new Map<string, PersistentCall>(
-      persistentFunctionCalls.map((c) => {
-        const call = c as PersistentCall;
-        return [call.callId, call];
-      })
-    );
-
-    return rawUiMessages.map(msg => {
-      if (!msg.parts) return msg;
-
-      let parts = [...msg.parts];
-      let hasUpdates = false;
-
-      // 1. Update existing tool-results with persisted status
-      parts = parts.map(part => {
-        if (part.type.startsWith("tool-result")) {
-          const callId = part.type.replace("tool-result:", "");
-          const persistentCall = callMap.get(callId);
-
-          const partWithResult = part as ToolResultPart;
-          if (persistentCall?.status && partWithResult.result) {
-            try {
-              const currentResult = JSON.parse(partWithResult.result);
-              if (currentResult.status !== persistentCall.status) {
-                hasUpdates = true;
-                const enrichedResult = {
-                  ...currentResult,
-                  status: persistentCall.status,
-                  outcome: persistentCall.result ? JSON.parse(persistentCall.result) : undefined
-                };
-                return {
-                  ...part,
-                  result: JSON.stringify(enrichedResult)
-                };
-              }
-            } catch {
-              return part;
-            }
-          }
-        }
-        return part;
-      });
-
-      // 2. Inject missing tool-results for pending items
-      const toolCallParts = parts.filter((p) => {
-        const part = p as ToolCallishPart;
-        const hasCallId = "toolCallId" in part || "callId" in part || "id" in part;
-        const isToolCallType = typeof part.type === "string" && part.type.startsWith("tool-");
-        return (isToolCallType || hasCallId) && !part.type.startsWith("tool-result");
-      });
-
-      for (const tc of toolCallParts) {
-        const toolCallish = tc as ToolCallishPart;
-        const callId = toolCallish.toolCallId || toolCallish.callId || toolCallish.id;
-
-        if (callId) {
-          const persistentCall = callMap.get(callId);
-          const hasResult = parts.some(p => p.type === `tool-result:${callId}`);
-
-          if (persistentCall && !hasResult && persistentCall.arguments) {
-            hasUpdates = true;
-            parts.push({
-              type: `tool-result:${callId}`,
-              toolCallId: callId,
-              toolName: toolCallish.toolName || toolCallish.name,
-              result: JSON.stringify({
-                ...JSON.parse(persistentCall.arguments),
-                status: persistentCall.status
-              })
-            } as MessagePart);
-          }
-        }
-      }
-
-      // 3. Strip any <thinking> tags or reasoning parts from text
-      let partsChanged = false;
-      const processedParts: MessagePart[] = [];
-
-      for (const part of parts) {
-        if (part.type === "reasoning") {
-          partsChanged = true;
-          hasUpdates = true;
-          continue;
-        }
-
-        if (part.type === "text" && typeof (part as unknown as { text: string }).text === "string") {
-          const rawText = (part as unknown as { text: string }).text as string;
-          const cleaned = stripThinking(rawText).trimEnd();
-          if (cleaned !== rawText) {
-            partsChanged = true;
-            hasUpdates = true;
-          }
-          if (cleaned.length > 0) {
-            processedParts.push({
-              ...part,
-              text: cleaned,
-            } as MessagePart);
-          } else {
-            partsChanged = true;
-            hasUpdates = true;
-          }
-          continue;
-        }
-
-        processedParts.push(part);
-      }
-
-      if (partsChanged) {
-        parts = processedParts;
-      }
-
-      if (!hasUpdates) return msg;
-
-      // If we modified parts (either via tools/status or stripping thinking tags),
-      // update both parts and the flattened text field to avoid rendering raw tags.
-      if (partsChanged) {
-        const newText = parts
-          .filter(p => p.type === "text" && typeof (p as unknown as { text: string }).text === "string")
-          .map(p => (p as unknown as { text: string }).text)
-          .join("");
-
-        return {
-          ...msg,
-          parts,
-          text: newText
-        };
-      }
-
-      return {
-        ...msg,
-        parts
-      };
-    }).map((msg) => {
-      if (!msg.parts && typeof (msg as { text?: unknown }).text === "string") {
-        const rawText = (msg as { text: string }).text;
-        const cleaned = stripThinking(rawText).trimEnd();
-        if (cleaned !== rawText) {
-          return {
-            ...msg,
-            text: cleaned,
-          };
-        }
-      }
-      return msg;
-    });
-  }, [rawUiMessages, persistentFunctionCalls, stripThinking, suppressMessages]);
+  const uiMessages = useMemo(
+    () =>
+      mergePersistentCallState(
+        rawUiMessages,
+        persistentFunctionCalls as PersistentCall[] | undefined,
+      ),
+    [rawUiMessages, persistentFunctionCalls],
+  );
 
   const streamingStatus = shouldSubscribe ? streamingHookResult.status : "Exhausted";
   const loadMoreMessages = streamingHookResult.loadMore;
+  const hasHydratedMessages = (uiMessages?.length ?? 0) > 0;
 
-  // Release suppression as soon as the current thread finishes first-page loading.
   useEffect(() => {
-    if (!suppressMessages) return;
-    if (!threadId) {
-      setSuppressMessages(false);
+    if (!isInitializingThread) return;
+    if (!projectId || !userClerkId) {
+      setIsInitializingThread(false);
       return;
     }
-    if (streamingStatus !== "LoadingFirstPage") {
-      if (suppressTimeoutRef.current) {
-        clearTimeout(suppressTimeoutRef.current);
-        suppressTimeoutRef.current = null;
-      }
-      setSuppressMessages(false);
+    if (!threadId) return;
+    if (streamingStatus !== "LoadingFirstPage" || hasHydratedMessages) {
+      setIsInitializingThread(false);
     }
-  }, [suppressMessages, threadId, streamingStatus]);
+  }, [
+    hasHydratedMessages,
+    isInitializingThread,
+    projectId,
+    streamingStatus,
+    threadId,
+    userClerkId,
+  ]);
 
   // Streaming mutation
   const initiateStreamingMutation = useMutation(
@@ -422,7 +292,8 @@ export const useAIChat = ({ projectId, userClerkId }: UseAIChatProps): UseAIChat
     return !hasUIMessages && !isLoading && !isStreaming;
   }, [uiMessages, isLoading, isStreaming]);
 
-  const chatIsLoading = shouldSubscribe && streamingStatus === "LoadingFirstPage";
+  const chatIsLoading =
+    isInitializingThread || (shouldSubscribe && streamingStatus === "LoadingFirstPage");
   const messageMetadataByIndex = useMemo(() => new Map<number, {
     fileId?: string;
     fileName?: string;
@@ -430,57 +301,6 @@ export const useAIChat = ({ projectId, userClerkId }: UseAIChatProps): UseAIChat
     fileSize?: number;
     mode?: string;
   }>(), []);
-
-  // Restore only the active thread from localStorage after refresh.
-  useEffect(() => {
-    if (initialThreadSelectionDone) return;
-    if (!projectId || !userClerkId) return;
-    if (!threadStorageKey || typeof window === "undefined") {
-      setInitialThreadSelectionDone(true);
-      return;
-    }
-
-    const nextThreadId = window.localStorage.getItem(threadStorageKey)?.trim();
-    if (nextThreadId) {
-      setThreadIdWithSuppression(nextThreadId);
-    }
-
-    setInitialThreadSelectionDone(true);
-  }, [
-    initialThreadSelectionDone,
-    projectId,
-    setThreadIdWithSuppression,
-    threadStorageKey,
-    userClerkId,
-  ]);
-
-  useEffect(() => {
-    if (!threadStorageKey || typeof window === "undefined") return;
-
-    if (!threadId) {
-      window.localStorage.removeItem(threadStorageKey);
-      return;
-    }
-
-    window.localStorage.setItem(threadStorageKey, threadId);
-  }, [threadId, threadStorageKey]);
-
-  // Keep only the current thread; delete older ones for this project/user.
-  useEffect(() => {
-    if (!threadId || !projectId || !userClerkId) return;
-    const pruneKey = `${projectId}:${userClerkId}:${threadId}`;
-    if (prunedThreadRef.current === pruneKey) return;
-
-    prunedThreadRef.current = pruneKey;
-    void clearPreviousThreads({
-      projectId,
-      userClerkId,
-      keepThreadId: threadId,
-    }).catch((error) => {
-      prunedThreadRef.current = null;
-      console.error("Failed to prune previous threads:", error);
-    });
-  }, [threadId, projectId, userClerkId, clearPreviousThreads]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -510,13 +330,12 @@ export const useAIChat = ({ projectId, userClerkId }: UseAIChatProps): UseAIChat
     }
   }, [uiMessagesLength]);
 
-  // Track whether streaming ever started or any UI message arrived for current send
-  const hasStreamedRef = useRef(false);
+  // Track request lifecycle per-send to avoid loading flicker before stream starts.
   useEffect(() => {
-    if (isStreaming || uiMessagesLength > 0) {
+    if (awaitingStreamRef.current && isStreaming) {
       hasStreamedRef.current = true;
     }
-  }, [isStreaming, uiMessagesLength]);
+  }, [isStreaming, threadId]);
 
   // Handle escape key to stop response
   useEffect(() => {
@@ -549,46 +368,54 @@ export const useAIChat = ({ projectId, userClerkId }: UseAIChatProps): UseAIChat
         toast.error("Failed to stop response");
       }
     }
-    setIsLoading(false);
-  }, [threadId, abortStreamMutation]);
+    resetPendingRequestState(true);
+  }, [threadId, abortStreamMutation, resetPendingRequestState]);
 
   const handleThreadSelect = useCallback((selectedThreadId: string) => {
     if (selectedThreadId === threadId) {
       return;
     }
-    setInitialThreadSelectionDone(true);
-    setThreadIdWithSuppression(selectedThreadId);
-    setChatHistory([]);
-    setMessage("");
-    setSessionTokens({ total: 0, cost: 0 });
-    setCurrentMode(null);
-  }, [threadId, setThreadIdWithSuppression]);
+    setThreadId(selectedThreadId);
+    resetConversationState();
+  }, [threadId, resetConversationState]);
 
   const handleNewChat = useCallback(() => {
-    setThreadIdWithSuppression(undefined);
-    setChatHistory([]);
-    setMessage("");
-    setSessionTokens({ total: 0, cost: 0 });
-    setCurrentMode(null);
-  }, [setThreadIdWithSuppression]);
+    resetPendingRequestState();
+    setAutoInitThread(false);
+    setThreadId(undefined);
+    resetConversationState();
+  }, [resetConversationState, resetPendingRequestState]);
 
   const handleClearChat = useCallback(async () => {
     if (!threadId || !projectId || !userClerkId) return;
 
+    const clearingThreadId = threadId;
+
     try {
-      await clearThread({ threadId, projectId, userClerkId });
-      setChatHistory([]);
-      setSessionTokens({ total: 0, cost: 0 });
-      setCurrentMode(null);
-      // Reset threadId to start fresh - this forces useUIMessages to skip
-      // and clears any cached/stale streaming data from the agent SDK
-      setThreadIdWithSuppression(undefined);
+
+      // Optimistic clear: immediately detach from the current thread so stale
+      // messages do not flash while backend mutation is in flight.
+      resetPendingRequestState();
+      setAutoInitThread(false);
+      resetConversationState();
+      setThreadId(undefined);
+
+      await clearThread({ threadId: clearingThreadId, projectId, userClerkId });
       toast.success("Chat cleared");
     } catch (error) {
+      // Restore thread on failure so user does not lose context.
+      setThreadId(clearingThreadId);
       console.error("Failed to clear chat:", error);
       toast.error("Failed to clear chat");
     }
-  }, [threadId, projectId, userClerkId, clearThread, setThreadIdWithSuppression]);
+  }, [
+    threadId,
+    projectId,
+    userClerkId,
+    clearThread,
+    resetConversationState,
+    resetPendingRequestState,
+  ]);
 
   const handleClearPreviousThreads = useCallback(async () => {
     if (!projectId || !userClerkId) return;
@@ -623,6 +450,19 @@ export const useAIChat = ({ projectId, userClerkId }: UseAIChatProps): UseAIChat
     addFile: (args: { projectId: Id<"projects">; fileKey: string; fileName: string; fileType: string; fileSize: number; origin: string }) => Promise<string>,
     promptOverride?: string
   ) => {
+    let currentThreadId = threadId;
+    if (!currentThreadId && projectId && userClerkId) {
+      try {
+        currentThreadId = await getThreadMutation({ projectId, userClerkId });
+        setAutoInitThread(true);
+        setThreadId(currentThreadId);
+      } catch (error) {
+        console.error("Failed to get thread ID", error);
+        toast.error("Failed to start conversation");
+        return;
+      }
+    }
+
     const promptText = (promptOverride ?? message).trim();
     if (
       !projectId ||
@@ -636,6 +476,9 @@ export const useAIChat = ({ projectId, userClerkId }: UseAIChatProps): UseAIChat
     }
 
     isSendingRef.current = true;
+    awaitingStreamRef.current = true;
+    hasStreamedRef.current = false;
+    pendingResponseBaselineRef.current = uiMessagesLength;
 
     const userMessage = promptText;
     const hasFiles = selectedFiles.length > 0;
@@ -645,8 +488,6 @@ export const useAIChat = ({ projectId, userClerkId }: UseAIChatProps): UseAIChat
     try {
 
       const currentFileIds: string[] = [...uploadedFileIds];
-      const uploadedFilesInfo: Array<{ name: string; size: number; type: string; id: string }> = [];
-
       // Handle file uploads
       if (selectedFiles.length > 0) {
         onUploadStart();
@@ -678,12 +519,6 @@ export const useAIChat = ({ projectId, userClerkId }: UseAIChatProps): UseAIChat
           });
 
           currentFileIds.push(fileId);
-          uploadedFilesInfo.push({
-            name: file.name,
-            size: file.size,
-            type: file.type,
-            id: fileId,
-          });
         }
 
         onUploadComplete(currentFileIds);
@@ -700,20 +535,21 @@ export const useAIChat = ({ projectId, userClerkId }: UseAIChatProps): UseAIChat
       // Use the streaming mutation - this will trigger optimistic update
       // and the useUIMessages hook will receive real-time updates
       const result = await initiateStreamingMutation({
-        threadId: threadId,
+        threadId: currentThreadId,
         projectId,
         prompt,
         fileIds: hasFiles ? (currentFileIds as Id<"files">[]) : undefined,
       });
 
-      if (!threadId && result?.threadId) {
-        setThreadIdWithSuppression(result.threadId);
+      if (!currentThreadId && result?.threadId) {
+        setThreadId(result.threadId);
       }
 
       // isLoading will be turned off when streaming completes
       // The streaming status is tracked via isStreaming computed value
 
     } catch (error) {
+      resetPendingRequestState();
       console.error("❌ [CLIENT] Error sending message:", {
         error: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
@@ -725,19 +561,50 @@ export const useAIChat = ({ projectId, userClerkId }: UseAIChatProps): UseAIChat
     } finally {
       isSendingRef.current = false;
     }
-  }, [projectId, userClerkId, message, threadId, initiateStreamingMutation, isLoading, isStreaming, setThreadIdWithSuppression]);
+  }, [
+    projectId,
+    userClerkId,
+    message,
+    threadId,
+    initiateStreamingMutation,
+    isLoading,
+    isStreaming,
+    getThreadMutation,
+    uiMessagesLength,
+    resetPendingRequestState,
+  ]);
 
   // Turn off isLoading when streaming finishes
   useEffect(() => {
+    if (!awaitingStreamRef.current) return;
     if (!isStreaming && isLoading && hasStreamedRef.current) {
       // Small delay to ensure final content is rendered
       const timeout = setTimeout(() => {
-        setIsLoading(false);
-        hasStreamedRef.current = false;
+        resetPendingRequestState(true);
       }, 100);
       return () => clearTimeout(timeout);
     }
-  }, [isStreaming, isLoading]);
+  }, [isStreaming, isLoading, resetPendingRequestState]);
+
+  // Fallback: if stream status is not emitted but new messages arrived, clear loading.
+  useEffect(() => {
+    if (!awaitingStreamRef.current) return;
+    if (!isLoading || isStreaming) return;
+    const baseline = pendingResponseBaselineRef.current;
+    if (baseline === null) return;
+    if (uiMessagesLength <= baseline) return;
+    const hasAssistantSinceBaseline = (uiMessages ?? [])
+      .slice(baseline)
+      .some((message) => (message.role ?? "assistant") === "assistant");
+    if (!hasAssistantSinceBaseline) return;
+    resetPendingRequestState(true);
+  }, [
+    isLoading,
+    isStreaming,
+    uiMessages,
+    uiMessagesLength,
+    resetPendingRequestState,
+  ]);
 
   return {
     // State
@@ -750,7 +617,7 @@ export const useAIChat = ({ projectId, userClerkId }: UseAIChatProps): UseAIChat
     currentMode,
     sessionTokens,
     threadId,
-    setThreadId: setThreadIdWithSuppression,
+    setThreadId,
     showHistory,
     setShowHistory,
     isStreaming,

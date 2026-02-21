@@ -24,9 +24,6 @@ interface InlineCreationFormProps {
     onConfirm: (index: number | string) => Promise<void>;
     onReject: (index: number | string) => void | Promise<void>;
     onUpdate: (index: number | string, updates: Partial<PendingContentItem>) => void;
-    confirmationMode?: "always_ask" | "auto_confirm";
-    onConfirmationModeChange?: (mode: "always_ask" | "auto_confirm") => void | Promise<void>;
-    isModeUpdating?: boolean;
 }
 
 export function InlineCreationForm({
@@ -35,9 +32,6 @@ export function InlineCreationForm({
     onConfirm,
     onReject,
     onUpdate,
-    confirmationMode = "always_ask",
-    onConfirmationModeChange,
-    isModeUpdating = false,
 }: InlineCreationFormProps) {
     // Determine operation from item
     const operation = item.operation || 'create';
@@ -85,8 +79,8 @@ export function InlineCreationForm({
     };
 
     return (
-        <div className="w-full max-w-2xl mx-auto bg-card rounded-xl border border-border shadow-md overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[60vh] ring-1 ring-border/40">
-            <div className="px-5 py-3 border-b border-border bg-muted/20 flex items-center justify-between">
+        <div className="w-full max-w-xl mx-auto bg-white rounded-xl border border-border/70 shadow-sm overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[48vh]">
+            <div className="px-4 py-2.5 border-b border-border/70 bg-white flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                     <div className={cn("w-2 h-2 rounded-full", getDotColor(type))} />
                     <span>{operationVerb} {getLabel(type)}</span>
@@ -96,7 +90,7 @@ export function InlineCreationForm({
                 )}
             </div>
 
-            <div className="p-5 space-y-5 flex-1 min-h-0 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            <div className="p-4 space-y-3 flex-1 min-h-0 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
 
                 {/* Content Forms - only show for create/edit */}
                 {operation === 'delete' ? (
@@ -112,6 +106,15 @@ export function InlineCreationForm({
                     </div>
                 ) : (
                     <>
+                        <div className="space-y-2 border-b border-border/60 pb-3">
+                            <div className="text-base font-medium">{displayTitle}</div>
+                            {displayDescription && (
+                                <div className="text-sm text-muted-foreground line-clamp-2">
+                                    {displayDescription}
+                                </div>
+                            )}
+                        </div>
+
                         {type === "task" && (
                             <TaskForm
                                 data={data}
@@ -132,36 +135,20 @@ export function InlineCreationForm({
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-between p-4 bg-muted/20 border-t border-border">
-                <div className="flex items-center gap-2">
-                    <Select
-                        value={confirmationMode}
-                        onValueChange={(value) => onConfirmationModeChange?.(value as "always_ask" | "auto_confirm")}
-                        disabled={isModeUpdating}
-                    >
-                        <SelectTrigger className="h-8 w-[130px] border-border/50 bg-background text-xs">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="always_ask">Always ask</SelectItem>
-                            <SelectItem value="auto_confirm">Auto-confirm CRUD</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-
-                <div className="flex items-center gap-3">
+            <div className="flex items-center justify-end px-4 py-2.5 bg-white border-t border-border/70">
+                <div className="flex items-center gap-2.5">
                     <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => onReject(item.functionCall?.callId ?? index)}
-                        className="text-muted-foreground hover:text-foreground h-9 px-3 hover:bg-muted/50"
+                        className="text-muted-foreground hover:text-foreground h-8 px-3 hover:bg-muted/30"
                     >
                         Cancel
                     </Button>
                     <Button
                         size="sm"
                         onClick={handleConfirm}
-                        className="bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 shadow-sm font-medium"
+                        className="bg-foreground text-background hover:bg-foreground/90 h-8 px-4 shadow-sm font-medium"
                     >
                         {operationVerb} {getLabel(type)}
                     </Button>
@@ -222,35 +209,35 @@ function TaskForm({
     }, [endDate, endTime]); // eslint-disable-line react-hooks/exhaustive-deps
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-3">
             <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-muted-foreground/80">Title</Label>
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Title</Label>
                 <Input
                     value={String(data.title || data.name || "")}
                     onChange={(e) => onUpdate({ title: e.target.value })}
-                    className="bg-transparent border-border/60 focus:bg-background transition-colors"
+                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30 text-base font-medium"
                     placeholder="Enter title"
                 />
             </div>
 
             <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-muted-foreground/80">Description</Label>
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Description</Label>
                 <Input
                     value={String(data.description || "")}
                     onChange={(e) => onUpdate({ description: e.target.value })}
-                    className="bg-transparent border-border/60 focus:bg-background transition-colors"
+                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                     placeholder="Add description"
                 />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-muted-foreground/80">Status</Label>
+                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</Label>
                     <Select
                         value={statusValue}
                         onValueChange={(value) => onUpdate({ status: value })}
                     >
-                        <SelectTrigger className="bg-transparent border-border/60 hover:bg-muted/20">
+                        <SelectTrigger className="h-9 rounded-md border border-border/60 bg-white px-3 shadow-none">
                             <SelectValue placeholder="Select status" />
                         </SelectTrigger>
                         <SelectContent>
@@ -262,12 +249,12 @@ function TaskForm({
                     </Select>
                 </div>
                 <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-muted-foreground/80">Priority</Label>
+                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Priority</Label>
                     <Select
                         value={priorityValue}
                         onValueChange={(value) => onUpdate({ priority: value === "none" ? undefined : value })}
                     >
-                        <SelectTrigger className="bg-transparent border-border/60 hover:bg-muted/20">
+                        <SelectTrigger className="h-9 rounded-md border border-border/60 bg-white px-3 shadow-none">
                             <SelectValue placeholder="Select priority" />
                         </SelectTrigger>
                         <SelectContent>
@@ -282,7 +269,7 @@ function TaskForm({
             </div>
 
             <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-muted-foreground/80">Assigned To</Label>
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Assigned To</Label>
                 <Select
                     value={assignedToValue}
                     onValueChange={(value) => {
@@ -297,7 +284,7 @@ function TaskForm({
                         });
                     }}
                 >
-                    <SelectTrigger className="bg-transparent border-border/60 hover:bg-muted/20">
+                    <SelectTrigger className="h-9 rounded-md border border-border/60 bg-white px-3 shadow-none">
                         <SelectValue placeholder="Select a person" />
                     </SelectTrigger>
                     <SelectContent>
@@ -312,7 +299,7 @@ function TaskForm({
             </div>
 
             <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-muted-foreground/80">Tags</Label>
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Tags</Label>
                 <Input
                     value={tagsValue}
                     onChange={(e) => {
@@ -322,18 +309,24 @@ function TaskForm({
                             .filter(Boolean);
                         onUpdate({ tags: nextTags.length > 0 ? nextTags : undefined });
                     }}
-                    className="bg-transparent border-border/60 focus:bg-background transition-colors"
+                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                     placeholder="e.g. meeting, painter"
                 />
             </div>
 
-            <div className="grid grid-cols-2 gap-4 pt-1">
+            <div className="grid grid-cols-2 gap-3 pt-1">
                 <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-muted-foreground/80">Start Time</Label>
+                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Start Time</Label>
                     <div className="flex gap-2">
                         <Popover>
                             <PopoverTrigger asChild>
-                                <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal h-9 px-2.5 truncate border-border/60", !startDate && "text-muted-foreground")}>
+                                <Button
+                                    variant={"outline"}
+                                    className={cn(
+                                        "w-full justify-start text-left font-normal h-9 rounded-md border border-border/60 bg-white px-3 shadow-none",
+                                        !startDate && "text-muted-foreground"
+                                    )}
+                                >
                                     <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
                                     <span className="truncate">{startDate ? format(startDate, "MMM d, yyyy") : "Pick date"}</span>
                                 </Button>
@@ -342,16 +335,27 @@ function TaskForm({
                                 <Calendar mode="single" selected={startDate} onSelect={setStartDate} initialFocus />
                             </PopoverContent>
                         </Popover>
-                        <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="w-[88px] border-border/60" />
+                        <Input
+                            type="time"
+                            value={startTime}
+                            onChange={(e) => setStartTime(e.target.value)}
+                            className="h-9 w-[108px] rounded-md border border-border/60 bg-white px-2 shadow-none"
+                        />
                     </div>
                 </div>
 
                 <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-muted-foreground/80">End Time</Label>
+                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">End Time</Label>
                     <div className="flex gap-2">
                         <Popover>
                             <PopoverTrigger asChild>
-                                <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal h-9 px-2.5 truncate border-border/60", !endDate && "text-muted-foreground")}>
+                                <Button
+                                    variant={"outline"}
+                                    className={cn(
+                                        "w-full justify-start text-left font-normal h-9 rounded-md border border-border/60 bg-white px-3 shadow-none",
+                                        !endDate && "text-muted-foreground"
+                                    )}
+                                >
                                     <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
                                     <span className="truncate">{endDate ? format(endDate, "MMM d, yyyy") : "Pick date"}</span>
                                 </Button>
@@ -360,7 +364,12 @@ function TaskForm({
                                 <Calendar mode="single" selected={endDate} onSelect={setEndDate} initialFocus />
                             </PopoverContent>
                         </Popover>
-                        <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="w-[88px] border-border/60" />
+                        <Input
+                            type="time"
+                            value={endTime}
+                            onChange={(e) => setEndTime(e.target.value)}
+                            className="h-9 w-[108px] rounded-md border border-border/60 bg-white px-2 shadow-none"
+                        />
                     </div>
                 </div>
             </div>
@@ -370,13 +379,13 @@ function TaskForm({
 
 function NoteForm({ data, onUpdate }: { data: Record<string, unknown>; onUpdate: (u: Record<string, unknown>) => void }) {
     return (
-        <div className="space-y-4">
+        <div className="space-y-3">
             <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Title</Label>
                 <Input
                     value={String(data.title || "")}
                     onChange={(e) => onUpdate({ title: e.target.value })}
-                    className="border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none text-base font-medium"
+                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30 text-base font-medium"
                     placeholder="Note title"
                 />
             </div>
@@ -385,7 +394,7 @@ function NoteForm({ data, onUpdate }: { data: Record<string, unknown>; onUpdate:
                 <Textarea
                     value={String(data.content || "")}
                     onChange={(e) => onUpdate({ content: e.target.value })}
-                    className="min-h-[120px] resize-none border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none"
+                    className="min-h-[96px] resize-none rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                     placeholder="Type your note here..."
                 />
             </div>
@@ -396,25 +405,25 @@ function NoteForm({ data, onUpdate }: { data: Record<string, unknown>; onUpdate:
 function ShoppingForm({ data, onUpdate }: { data: Record<string, unknown>; onUpdate: (u: Record<string, unknown>) => void }) {
     const priorityValue = typeof data.priority === "string" ? data.priority : "none";
     return (
-        <div className="space-y-4">
+        <div className="space-y-3">
             <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Item Name</Label>
                 <Input
                     value={String(data.name || "")}
                     onChange={(e) => onUpdate({ name: e.target.value })}
-                    className="border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none text-base font-medium"
+                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30 text-base font-medium"
                     placeholder="e.g. Milk"
                 />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                     <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Quantity</Label>
                     <Input
                         type="number"
                         value={Number(data.quantity || 1)}
                         onChange={(e) => onUpdate({ quantity: Number(e.target.value) })}
-                        className="border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none"
+                        className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                     />
                 </div>
                 <div className="space-y-1.5">
@@ -424,19 +433,19 @@ function ShoppingForm({ data, onUpdate }: { data: Record<string, unknown>; onUpd
                         value={Number(data.unitPrice || "")}
                         onChange={(e) => onUpdate({ unitPrice: e.target.value ? Number(e.target.value) : undefined })}
                         placeholder="0.00"
-                        className="border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none"
+                        className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                     />
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                     <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Priority</Label>
                     <Select
                         value={priorityValue}
                         onValueChange={(value) => onUpdate({ priority: value === "none" ? undefined : value })}
                     >
-                        <SelectTrigger className="h-9 border-0 border-b border-border/50 rounded-none px-0 focus:ring-0 shadow-none">
+                        <SelectTrigger className="h-9 rounded-md border border-border/60 bg-white px-3 shadow-none">
                             <SelectValue placeholder="Select priority" />
                         </SelectTrigger>
                         <SelectContent>
@@ -454,7 +463,7 @@ function ShoppingForm({ data, onUpdate }: { data: Record<string, unknown>; onUpd
                         type="date"
                         value={String(data.buyBefore || "")}
                         onChange={(e) => onUpdate({ buyBefore: e.target.value || undefined })}
-                        className="border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none"
+                        className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                     />
                 </div>
             </div>
@@ -464,18 +473,18 @@ function ShoppingForm({ data, onUpdate }: { data: Record<string, unknown>; onUpd
                 <Input
                     value={String(data.category || "")}
                     onChange={(e) => onUpdate({ category: e.target.value })}
-                    className="border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none"
+                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                     placeholder="e.g. Dairy"
                 />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                     <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Supplier</Label>
                     <Input
                         value={String(data.supplier || "")}
                         onChange={(e) => onUpdate({ supplier: e.target.value })}
-                        className="border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none"
+                        className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                         placeholder="Supplier name"
                     />
                 </div>
@@ -484,19 +493,19 @@ function ShoppingForm({ data, onUpdate }: { data: Record<string, unknown>; onUpd
                     <Input
                         value={String(data.sectionName || "")}
                         onChange={(e) => onUpdate({ sectionName: e.target.value })}
-                        className="border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none"
+                        className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                         placeholder="e.g. Bathroom"
                     />
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                     <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Dimensions</Label>
                     <Input
                         value={String(data.dimensions || "")}
                         onChange={(e) => onUpdate({ dimensions: e.target.value })}
-                        className="border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none"
+                        className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                         placeholder="e.g. 120x60 cm"
                     />
                 </div>
@@ -505,7 +514,7 @@ function ShoppingForm({ data, onUpdate }: { data: Record<string, unknown>; onUpd
                     <Input
                         value={String(data.catalogNumber || "")}
                         onChange={(e) => onUpdate({ catalogNumber: e.target.value })}
-                        className="border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none"
+                        className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                         placeholder="Model / SKU"
                     />
                 </div>
@@ -516,7 +525,7 @@ function ShoppingForm({ data, onUpdate }: { data: Record<string, unknown>; onUpd
                 <Input
                     value={String(data.productLink || "")}
                     onChange={(e) => onUpdate({ productLink: e.target.value })}
-                    className="border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none"
+                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                     placeholder="https://"
                 />
             </div>
@@ -526,7 +535,7 @@ function ShoppingForm({ data, onUpdate }: { data: Record<string, unknown>; onUpd
                 <Input
                     value={String(data.notes || "")}
                     onChange={(e) => onUpdate({ notes: e.target.value })}
-                    className="border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none"
+                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                     placeholder="Add details..."
                 />
             </div>
@@ -537,13 +546,13 @@ function ShoppingForm({ data, onUpdate }: { data: Record<string, unknown>; onUpd
 function ContactForm({ data, onUpdate }: { data: Record<string, unknown>; onUpdate: (u: Record<string, unknown>) => void }) {
     const contactTypeValue = typeof data.type === "string" ? data.type : "contractor";
     return (
-        <div className="space-y-4">
+        <div className="space-y-3">
             <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Full Name</Label>
                 <Input
                     value={String(data.name || "")}
                     onChange={(e) => onUpdate({ name: e.target.value })}
-                    className="border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none text-base font-medium"
+                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30 text-base font-medium"
                     placeholder="e.g. John Doe"
                 />
             </div>
@@ -552,7 +561,7 @@ function ContactForm({ data, onUpdate }: { data: Record<string, unknown>; onUpda
                 <Input
                     value={String(data.companyName || "")}
                     onChange={(e) => onUpdate({ companyName: e.target.value })}
-                    className="border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none"
+                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                     placeholder="Company name"
                 />
             </div>
@@ -561,7 +570,7 @@ function ContactForm({ data, onUpdate }: { data: Record<string, unknown>; onUpda
                 <Input
                     value={String(data.email || "")}
                     onChange={(e) => onUpdate({ email: e.target.value })}
-                    className="border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none"
+                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                     placeholder="john@example.com"
                 />
             </div>
@@ -570,7 +579,7 @@ function ContactForm({ data, onUpdate }: { data: Record<string, unknown>; onUpda
                 <Input
                     value={String(data.phone || "")}
                     onChange={(e) => onUpdate({ phone: e.target.value })}
-                    className="border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none"
+                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                     placeholder="+1 234 567 890"
                 />
             </div>
@@ -580,7 +589,7 @@ function ContactForm({ data, onUpdate }: { data: Record<string, unknown>; onUpda
                     value={contactTypeValue}
                     onValueChange={(value) => onUpdate({ type: value })}
                 >
-                    <SelectTrigger className="h-9 border-0 border-b border-border/50 rounded-none px-0 focus:ring-0 shadow-none">
+                    <SelectTrigger className="h-9 rounded-md border border-border/60 bg-white px-3 shadow-none">
                         <SelectValue placeholder="Select type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -596,17 +605,17 @@ function ContactForm({ data, onUpdate }: { data: Record<string, unknown>; onUpda
                 <Input
                     value={String(data.address || "")}
                     onChange={(e) => onUpdate({ address: e.target.value })}
-                    className="border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none"
+                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                     placeholder="Street address"
                 />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                     <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">City</Label>
                     <Input
                         value={String(data.city || "")}
                         onChange={(e) => onUpdate({ city: e.target.value })}
-                        className="border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none"
+                        className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                         placeholder="City"
                     />
                 </div>
@@ -615,18 +624,18 @@ function ContactForm({ data, onUpdate }: { data: Record<string, unknown>; onUpda
                     <Input
                         value={String(data.postalCode || "")}
                         onChange={(e) => onUpdate({ postalCode: e.target.value })}
-                        className="border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none"
+                        className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                         placeholder="Postal code"
                     />
                 </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                     <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Country</Label>
                     <Input
                         value={String(data.country || "")}
                         onChange={(e) => onUpdate({ country: e.target.value })}
-                        className="border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none"
+                        className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                         placeholder="Country"
                     />
                 </div>
@@ -635,7 +644,7 @@ function ContactForm({ data, onUpdate }: { data: Record<string, unknown>; onUpda
                     <Input
                         value={String(data.website || "")}
                         onChange={(e) => onUpdate({ website: e.target.value })}
-                        className="border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none"
+                        className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                         placeholder="https://"
                     />
                 </div>
@@ -645,7 +654,7 @@ function ContactForm({ data, onUpdate }: { data: Record<string, unknown>; onUpda
                 <Input
                     value={String(data.taxId || "")}
                     onChange={(e) => onUpdate({ taxId: e.target.value })}
-                    className="border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none"
+                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                     placeholder="Tax ID"
                 />
             </div>
@@ -654,7 +663,7 @@ function ContactForm({ data, onUpdate }: { data: Record<string, unknown>; onUpda
                 <Textarea
                     value={String(data.notes || "")}
                     onChange={(e) => onUpdate({ notes: e.target.value })}
-                    className="min-h-[100px] resize-none border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none"
+                    className="min-h-[64px] resize-none rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                     placeholder="Notes"
                 />
             </div>
@@ -679,15 +688,15 @@ function normalizeType(type: string): string {
 
 function getDotColor(type: string) {
     switch (type) {
-        case "task": return "bg-purple-500";
-        case "note": return "bg-yellow-500";
-        case "shopping": return "bg-green-500";
-        case "labor": return "bg-orange-500";
-        case "contact": return "bg-blue-500";
-        case "survey": return "bg-violet-500";
+        case "task": return "bg-emerald-500";
+        case "note": return "bg-emerald-500";
+        case "shopping": return "bg-emerald-500";
+        case "labor": return "bg-emerald-500";
+        case "contact": return "bg-emerald-500";
+        case "survey": return "bg-emerald-500";
         case "shoppingSection": return "bg-emerald-500";
-        case "laborSection": return "bg-amber-500";
-        default: return "bg-gray-500";
+        case "laborSection": return "bg-emerald-500";
+        default: return "bg-emerald-500";
     }
 }
 
@@ -711,7 +720,7 @@ function LaborForm({ data, onUpdate }: { data: Record<string, unknown>; onUpdate
     }, [name, notes, quantity, unit, unitPrice, sectionName, onUpdate]);
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-3">
             <div className="space-y-1.5">
                 <Label htmlFor="name" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     Work Description
@@ -720,12 +729,12 @@ function LaborForm({ data, onUpdate }: { data: Record<string, unknown>; onUpdate
                     id="name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none text-base font-medium"
+                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30 text-base font-medium"
                     placeholder="Enter work description"
                 />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                     <Label htmlFor="quantity" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                         Quantity
@@ -736,7 +745,7 @@ function LaborForm({ data, onUpdate }: { data: Record<string, unknown>; onUpdate
                         step="0.01"
                         value={quantity}
                         onChange={(e) => setQuantity(e.target.value)}
-                        className="border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none"
+                        className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                         placeholder="0"
                     />
                 </div>
@@ -749,7 +758,7 @@ function LaborForm({ data, onUpdate }: { data: Record<string, unknown>; onUpdate
                         id="unit"
                         value={unit}
                         onChange={(e) => setUnit(e.target.value)}
-                        className="border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none"
+                        className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                         placeholder="m², m, hours, pcs"
                     />
                 </div>
@@ -765,7 +774,7 @@ function LaborForm({ data, onUpdate }: { data: Record<string, unknown>; onUpdate
                     step="0.01"
                     value={unitPrice}
                     onChange={(e) => setUnitPrice(e.target.value)}
-                    className="border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none"
+                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                     placeholder="0.00"
                 />
             </div>
@@ -778,7 +787,7 @@ function LaborForm({ data, onUpdate }: { data: Record<string, unknown>; onUpdate
                     id="sectionName"
                     value={sectionName}
                     onChange={(e) => setSectionName(e.target.value)}
-                    className="border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none"
+                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                     placeholder="Optional section name"
                 />
             </div>
@@ -791,7 +800,7 @@ function LaborForm({ data, onUpdate }: { data: Record<string, unknown>; onUpdate
                     id="notes"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    className="border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none min-h-[60px]"
+                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30 min-h-[60px]"
                     placeholder="Additional notes"
                 />
             </div>
@@ -811,7 +820,7 @@ function SurveyForm({ data, onUpdate }: { data: Record<string, unknown>; onUpdat
     }, [title, description, onUpdate]);
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-3">
             <div className="space-y-1.5">
                 <Label htmlFor="title" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     Survey Title
@@ -820,7 +829,7 @@ function SurveyForm({ data, onUpdate }: { data: Record<string, unknown>; onUpdat
                     id="title"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    className="border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none text-base font-medium"
+                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30 text-base font-medium"
                     placeholder="Enter survey title"
                 />
             </div>
@@ -833,7 +842,7 @@ function SurveyForm({ data, onUpdate }: { data: Record<string, unknown>; onUpdat
                     id="description"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    className="border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none min-h-[80px]"
+                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30 min-h-[64px]"
                     placeholder="Survey description"
                 />
             </div>
@@ -849,7 +858,7 @@ function SectionForm({ data, onUpdate, type }: { data: Record<string, unknown>; 
     }, [name, onUpdate]);
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-3">
             <div className="space-y-1.5">
                 <Label htmlFor="name" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     {type === "shoppingSection" ? "Shopping List" : "Labor"} Section Name
@@ -858,7 +867,7 @@ function SectionForm({ data, onUpdate, type }: { data: Record<string, unknown>; 
                     id="name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="border-0 border-b border-border/50 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary shadow-none text-base font-medium"
+                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30 text-base font-medium"
                     placeholder="Enter section name"
                 />
             </div>

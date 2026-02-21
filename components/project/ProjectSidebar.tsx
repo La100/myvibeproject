@@ -237,6 +237,7 @@ function ProjectSidebarContent() {
                         src={user.imageUrl}
                         alt={user.fullName || user.firstName || "User"}
                         fill
+                        sizes="32px"
                         className="object-cover"
                       />
                     </div>

@@ -22,13 +22,13 @@ export function buildWorkflowSystemPrompt(
   const parts: string[] = [];
 
   // Workflow header
-  parts.push(`## 🔧 AKTYWNY WORKFLOW: ${workflow.name}`);
+  parts.push(`## 🔧 ACTIVE WORKFLOW: ${workflow.name}`);
   parts.push("");
-  parts.push(`**Opis**: ${workflow.description}`);
+  parts.push(`**Description**: ${workflow.description}`);
   parts.push("");
 
   // Current step info
-  parts.push(`### Aktualny krok: ${currentStep.name}`);
+  parts.push(`### Current step: ${currentStep.name}`);
   if (currentStep.description) {
     parts.push(`*${currentStep.description}*`);
   }
@@ -36,7 +36,7 @@ export function buildWorkflowSystemPrompt(
 
   // Previous responses context (if any)
   if (Object.keys(previousResponses).length > 0) {
-    parts.push("### Poprzednie kroki:");
+    parts.push("### Previous steps:");
     for (const [stepId, response] of Object.entries(previousResponses)) {
       const step = workflow.steps.find((s) => s.id === stepId);
       if (step) {
@@ -53,23 +53,23 @@ export function buildWorkflowSystemPrompt(
 
   // Step-specific instructions
   if (currentStep.prompt) {
-    parts.push("### Instrukcje dla tego kroku:");
+    parts.push("### Instructions for this step:");
     parts.push(currentStep.prompt);
     parts.push("");
   }
 
   // Enabled tools guidance
   if (currentStep.enabledTools && currentStep.enabledTools.length > 0) {
-    parts.push("### Dostępne narzędzia dla tego kroku:");
+    parts.push("### Available tools for this step:");
     parts.push(currentStep.enabledTools.map((t) => `- \`${t}\``).join("\n"));
     parts.push("");
-    parts.push("*Użyj powyższych narzędzi aby wykonać zadania w tym kroku.*");
+    parts.push("*Use the tools above to complete this workflow step.*");
   }
 
   // Workflow help content
   if (workflow.content) {
     parts.push("");
-    parts.push("### Dodatkowe informacje o workflow:");
+    parts.push("### Additional workflow information:");
     parts.push(workflow.content);
   }
 
@@ -117,7 +117,7 @@ export function createWorkflowContextSection(
 
   // Workflow mode indicator
   parts.push("=".repeat(60));
-  parts.push("TRYB WORKFLOW - KREATOR PROWADZONY");
+  parts.push("WORKFLOW MODE - GUIDED FLOW");
   parts.push("=".repeat(60));
   parts.push("");
 
@@ -127,23 +127,23 @@ export function createWorkflowContextSection(
   // File upload reminder
   if (hasUploadedFile) {
     parts.push("");
-    parts.push("📎 **PLIK WGRANY**: Użytkownik wgrał plik. Przeanalizuj go w kontekście tego kroku workflow.");
+    parts.push("📎 **FILE UPLOADED**: The user uploaded a file. Analyze it in the context of this workflow step.");
   } else if (currentStep.requiresUpload) {
     parts.push("");
-    parts.push("⚠️ **OCZEKIWANIE NA PLIK**: Ten krok wymaga wgrania pliku. Poproś użytkownika o wgranie odpowiedniego pliku.");
+    parts.push("⚠️ **WAITING FOR FILE**: This step requires a file upload. Ask the user to upload the required file.");
   }
 
   // Step navigation info
   const stepIndex = workflow.steps.findIndex((s) => s.id === stepId);
   const totalSteps = workflow.steps.length;
   parts.push("");
-  parts.push(`📍 Krok ${stepIndex + 1} z ${totalSteps}`);
+  parts.push(`📍 Step ${stepIndex + 1} of ${totalSteps}`);
 
   if (stepIndex < totalSteps - 1) {
     const nextStep = workflow.steps[stepIndex + 1];
-    parts.push(`➡️ Następny krok: ${nextStep.name}`);
+    parts.push(`➡️ Next step: ${nextStep.name}`);
   } else {
-    parts.push("✅ To jest ostatni krok workflow.");
+    parts.push("✅ This is the final workflow step.");
   }
 
   parts.push("");
@@ -160,11 +160,11 @@ export function getStepInitialMessage(workflowId: string, stepId: string): strin
   const step = getWorkflowStep(workflowId, stepId);
 
   if (!workflow || !step) {
-    return "Rozpoczynamy workflow...";
+    return "Starting workflow...";
   }
 
   if (step.requiresUpload && !step.prompt) {
-    return `**${step.name}**\n\n${step.description || "Wgraj plik aby kontynuować."}\n\nKliknij przycisk załącznika aby dodać plik.`;
+    return `**${step.name}**\n\n${step.description || "Upload a file to continue."}\n\nClick the attachment button to add a file.`;
   }
 
   return `**${step.name}**\n\n${step.description || ""}`;
@@ -181,15 +181,15 @@ export function canExecuteStep(
   const step = getWorkflowStep(workflowId, stepId);
 
   if (!step) {
-    return { canExecute: false, reason: "Nie znaleziono kroku workflow." };
+    return { canExecute: false, reason: "Workflow step not found." };
   }
 
   if (step.requiresUpload && !hasUploadedFile) {
-    return { canExecute: false, reason: "Ten krok wymaga wgrania pliku." };
+    return { canExecute: false, reason: "This step requires a file upload." };
   }
 
   if (!step.prompt && !step.requiresUpload) {
-    return { canExecute: false, reason: "Ten krok nie ma zdefiniowanego zadania." };
+    return { canExecute: false, reason: "This step does not have a defined task." };
   }
 
   return { canExecute: true };
@@ -218,6 +218,5 @@ export function isWorkflowComplete(workflowId: string, completedStepIds: string[
 
   return workflow.steps.every((step) => completedStepIds.includes(step.id));
 }
-
 
 

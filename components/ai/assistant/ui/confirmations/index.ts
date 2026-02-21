@@ -5,6 +5,4 @@
  */
 
 export { InlineConfirmationList, ConfirmationCard } from './InlineConfirmation';
-export { InlineCreationForm } from './InlineCreationForm';
-
 

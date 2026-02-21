@@ -18,18 +18,19 @@ import {
   ThreadPrimitive,
 } from "@assistant-ui/react";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   ArrowDownIcon,
   ArrowUpIcon,
   Sparkles,
   SquareIcon,
   Zap,
 } from "lucide-react";
-import {
-  useCallback,
-  useMemo,
-  type FC,
-  type ComponentProps,
-} from "react";
+import NextImage from "next/image";
+import { useMemo, type FC, type ComponentProps } from "react";
 
 type ThreadProps = {
   showWelcome?: boolean;
@@ -68,51 +69,47 @@ export const Thread: FC<ThreadProps> = ({
   onConfirmationModeChange,
   isModeUpdating = false,
 }) => {
-  const StableUserMessage = useCallback(() => {
-    return <UserMessage imageUrl={userImageUrl} fallback={userFallback} />;
-  }, [userImageUrl, userFallback]);
-
-  const StableAssistantMessage = useCallback(() => {
-    return (
-      <AssistantMessage
-        imageUrl={assistantImageUrl}
-        fallback={assistantFallback}
-        pendingItems={pendingItems}
-        onConfirmItem={onConfirmItem}
-        onRejectItem={onRejectItem}
-        onEditItem={onEditItem}
-        onConfirmAll={onConfirmAll}
-        onRejectAll={onRejectAll}
-        onUpdateItem={onUpdateItem}
-        isProcessing={isProcessing}
-        confirmationMode={confirmationMode}
-        onConfirmationModeChange={onConfirmationModeChange}
-        isModeUpdating={isModeUpdating}
-      />
-    );
-  }, [
-    assistantImageUrl,
-    assistantFallback,
-    pendingItems,
-    onConfirmItem,
-    onRejectItem,
-    onEditItem,
-    onConfirmAll,
-    onRejectAll,
-    onUpdateItem,
-    isProcessing,
-    confirmationMode,
-    onConfirmationModeChange,
-    isModeUpdating,
-  ]);
-
   const messageComponents = useMemo(
     () => ({
-      UserMessage: StableUserMessage,
+      UserMessage: () => (
+        <UserMessage imageUrl={userImageUrl} fallback={userFallback} />
+      ),
       EditComposer,
-      AssistantMessage: StableAssistantMessage,
+      AssistantMessage: () => (
+        <AssistantMessage
+          imageUrl={assistantImageUrl}
+          fallback={assistantFallback}
+          pendingItems={pendingItems}
+          onConfirmItem={onConfirmItem}
+          onRejectItem={onRejectItem}
+          onEditItem={onEditItem}
+          onConfirmAll={onConfirmAll}
+          onRejectAll={onRejectAll}
+          onUpdateItem={onUpdateItem}
+          isProcessing={isProcessing}
+          confirmationMode={confirmationMode}
+          onConfirmationModeChange={onConfirmationModeChange}
+          isModeUpdating={isModeUpdating}
+        />
+      ),
     }),
-    [StableUserMessage, StableAssistantMessage],
+    [
+      assistantFallback,
+      assistantImageUrl,
+      confirmationMode,
+      isModeUpdating,
+      isProcessing,
+      onConfirmAll,
+      onConfirmItem,
+      onConfirmationModeChange,
+      onEditItem,
+      onRejectAll,
+      onRejectItem,
+      onUpdateItem,
+      pendingItems,
+      userFallback,
+      userImageUrl,
+    ],
   );
 
   return (
@@ -158,7 +155,14 @@ const MessageAvatar: FC<MessageAvatarProps> = ({ imageUrl, fallback }) => {
   return (
     <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/60 bg-muted text-xs font-semibold text-muted-foreground">
       {imageUrl ? (
-        <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+        <NextImage
+          src={imageUrl}
+          alt=""
+          width={36}
+          height={36}
+          sizes="36px"
+          className="h-full w-full object-cover"
+        />
       ) : (
         <span>{initials}</span>
       )}
@@ -244,8 +248,9 @@ const Composer: FC<{
       <ComposerPrimitive.AttachmentDropzone className="aui-composer-attachment-dropzone flex w-full flex-col rounded-2xl border border-input bg-background px-1 pt-2 outline-none transition-shadow has-[textarea:focus-visible]:border-ring has-[textarea:focus-visible]:ring-2 has-[textarea:focus-visible]:ring-ring/20 data-[dragging=true]:border-ring data-[dragging=true]:border-dashed data-[dragging=true]:bg-accent/50">
         <ComposerAttachments />
         <ComposerPrimitive.Input
+          id="assistant-chat-input"
           placeholder="Send a message..."
-          className="aui-composer-input mb-1 max-h-32 min-h-14 w-full resize-none bg-transparent px-4 pt-2 pb-3 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-0"
+          className="aui-composer-input mb-1 max-h-32 min-h-14 w-full resize-none bg-transparent px-4 pt-2 pb-3 text-sm text-foreground caret-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-0"
           rows={1}
           autoFocus
           aria-label="Message input"
@@ -269,55 +274,65 @@ const ComposerAction: FC<{
   onConfirmationModeChange,
   isModeUpdating = false,
 }) => {
-  return (
-    <div className="aui-composer-action-wrapper relative mx-2 mb-2 flex items-center justify-between">
-      <div className="flex items-center gap-2">
-        <ComposerAddAttachment />
-        {onConfirmationModeChange && (
-          <div className="flex items-center gap-2 rounded-full border border-border/60 bg-muted/30 px-2 py-1">
-            <Switch
-              checked={confirmationMode === "auto_confirm"}
-              onCheckedChange={(checked) =>
-                onConfirmationModeChange(checked ? "auto_confirm" : "always_ask")
-              }
-              disabled={isModeUpdating}
-              aria-label="Auto accept CRUD actions"
-            />
-            <Zap className="h-3.5 w-3.5 text-muted-foreground" />
-          </div>
-        )}
+    return (
+      <div className="aui-composer-action-wrapper relative mx-2 mb-2 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <ComposerAddAttachment />
+          {onConfirmationModeChange && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-2 rounded-full border border-border/60 bg-muted/30 px-2 py-1 cursor-pointer">
+                  <Switch
+                    checked={confirmationMode === "auto_confirm"}
+                    onCheckedChange={(checked) =>
+                      onConfirmationModeChange(checked ? "auto_confirm" : "always_ask")
+                    }
+                    disabled={isModeUpdating}
+                    aria-label="Auto accept CRUD actions"
+                  />
+                  <Zap className="h-3.5 w-3.5 text-muted-foreground" />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-56 text-center">
+                {confirmationMode === "auto_confirm"
+                  ? <><span className="font-medium">Auto-confirm ON</span><br />AI actions are applied automatically</>
+                  : <><span className="font-medium">Auto-confirm OFF</span><br />AI actions require your approval</>
+                }
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </div>
+        <AuiIf condition={({ thread }) => !thread.isRunning}>
+          <ComposerPrimitive.Send asChild>
+            <TooltipIconButton
+              tooltip="Send message"
+              side="bottom"
+              type="submit"
+              variant="default"
+              size="icon"
+              className="aui-composer-send size-8 rounded-full"
+              aria-label="Send message"
+            >
+              <ArrowUpIcon className="aui-composer-send-icon size-4" />
+            </TooltipIconButton>
+          </ComposerPrimitive.Send>
+        </AuiIf>
+        <AuiIf condition={({ thread }) => thread.isRunning}>
+          <ComposerPrimitive.Cancel asChild>
+            <Button
+              type="button"
+              variant="default"
+              size="icon"
+              className="aui-composer-cancel size-8 rounded-full"
+              aria-label="Stop generating"
+            >
+              <SquareIcon className="aui-composer-cancel-icon size-3 fill-current" />
+            </Button>
+          </ComposerPrimitive.Cancel>
+        </AuiIf>
       </div>
-      <AuiIf condition={({ thread }) => !thread.isRunning}>
-        <ComposerPrimitive.Send asChild>
-          <TooltipIconButton
-            tooltip="Send message"
-            side="bottom"
-            type="submit"
-            variant="default"
-            size="icon"
-            className="aui-composer-send size-8 rounded-full"
-            aria-label="Send message"
-          >
-            <ArrowUpIcon className="aui-composer-send-icon size-4" />
-          </TooltipIconButton>
-        </ComposerPrimitive.Send>
-      </AuiIf>
-      <AuiIf condition={({ thread }) => thread.isRunning}>
-        <ComposerPrimitive.Cancel asChild>
-          <Button
-            type="button"
-            variant="default"
-            size="icon"
-            className="aui-composer-cancel size-8 rounded-full"
-            aria-label="Stop generating"
-          >
-            <SquareIcon className="aui-composer-cancel-icon size-3 fill-current" />
-          </Button>
-        </ComposerPrimitive.Cancel>
-      </AuiIf>
-    </div>
-  );
-};
+    );
+  };
 
 const MessageError: FC = () => {
   return (
@@ -359,6 +374,8 @@ type ToolFallbackWithPendingProps = ComponentProps<typeof ToolFallback> & {
   isModeUpdating?: boolean;
 };
 
+const ToolFallbackWithPending = ToolFallback as unknown as FC<ToolFallbackWithPendingProps>;
+
 const AssistantMessage: FC<AssistantMessageProps> = ({
   imageUrl,
   fallback,
@@ -374,46 +391,26 @@ const AssistantMessage: FC<AssistantMessageProps> = ({
   onConfirmationModeChange,
   isModeUpdating = false,
 }) => {
-  const ToolFallbackWithPending = ToolFallback as unknown as FC<ToolFallbackWithPendingProps>;
-
-  const PendingAwareToolFallback = useCallback(
-    (props: ComponentProps<typeof ToolFallback>) => {
-      return (
-        <ToolFallbackWithPending
-          {...props}
-          pendingItems={pendingItems}
-          onConfirmItem={onConfirmItem}
-          onRejectItem={onRejectItem}
-          onEditItem={onEditItem}
-          onConfirmAll={onConfirmAll}
-          onRejectAll={onRejectAll}
-          onUpdateItem={onUpdateItem}
-          isProcessing={isProcessing}
-          confirmationMode={confirmationMode}
-          onConfirmationModeChange={onConfirmationModeChange}
-          isModeUpdating={isModeUpdating}
-        />
-      );
-    },
-    [
-      ToolFallbackWithPending,
-      pendingItems,
-      onConfirmItem,
-      onRejectItem,
-      onEditItem,
-      onConfirmAll,
-      onRejectAll,
-      onUpdateItem,
-      isProcessing,
-      confirmationMode,
-      onConfirmationModeChange,
-      isModeUpdating,
-    ],
+  const PendingAwareToolFallback = (props: ComponentProps<typeof ToolFallback>) => (
+    <ToolFallbackWithPending
+      {...props}
+      pendingItems={pendingItems}
+      onConfirmItem={onConfirmItem}
+      onRejectItem={onRejectItem}
+      onEditItem={onEditItem}
+      onConfirmAll={onConfirmAll}
+      onRejectAll={onRejectAll}
+      onUpdateItem={onUpdateItem}
+      isProcessing={isProcessing}
+      confirmationMode={confirmationMode}
+      onConfirmationModeChange={onConfirmationModeChange}
+      isModeUpdating={isModeUpdating}
+    />
   );
 
   return (
     <MessagePrimitive.Root
-      className="aui-assistant-message-root fade-in slide-in-from-bottom-1 relative mx-auto w-full max-w-(--thread-max-width) animate-in py-3 duration-150"
+      className="aui-assistant-message-root relative mx-auto w-full max-w-(--thread-max-width) py-3"
       data-role="assistant"
     >
       <div className="flex items-start gap-3 px-2">
@@ -446,7 +443,7 @@ type UserMessageProps = {
 const UserMessage: FC<UserMessageProps> = ({ imageUrl, fallback }) => {
   return (
     <MessagePrimitive.Root
-      className="aui-user-message-root fade-in slide-in-from-bottom-1 mx-auto grid w-full max-w-(--thread-max-width) animate-in auto-rows-auto grid-cols-[minmax(72px,1fr)_auto] content-start gap-y-2 px-2 py-3 duration-150"
+      className="aui-user-message-root mx-auto grid w-full max-w-(--thread-max-width) auto-rows-auto grid-cols-[minmax(72px,1fr)_auto] content-start gap-y-2 px-2 py-3"
       data-role="user"
     >
       <div className="col-start-1 flex justify-end pr-2">

@@ -48,12 +48,12 @@ export const summarizeTasksFromSearch = (data: any): string | null => {
     return null;
   }
 
-  const parts: string[] = [`Znalazłem ${total} zadań w projekcie.`];
+  const parts: string[] = [`I found ${total} tasks in this project.`];
 
   if (Array.isArray(data.tasks) && data.tasks.length > 0) {
     const statusCounts = data.tasks.reduce(
       (acc: Record<string, number>, task: any) => {
-        const status = typeof task.status === "string" ? task.status : "nieznany";
+        const status = typeof task.status === "string" ? task.status : "unknown";
         acc[status] = (acc[status] || 0) + 1;
         return acc;
       },
@@ -65,19 +65,19 @@ export const summarizeTasksFromSearch = (data: any): string | null => {
       .join(", ");
 
     if (statusSummary.length > 0) {
-      parts.push(`Statusy → ${statusSummary}.`);
+      parts.push(`Status breakdown: ${statusSummary}.`);
     }
 
     const examples = data.tasks.slice(0, 3);
     if (examples.length > 0) {
       const exampleLines = examples
         .map((task: any) => {
-          const title = typeof task.title === "string" ? task.title : "bez tytułu";
-          const status = typeof task.status === "string" ? task.status : "nieznany";
+          const title = typeof task.title === "string" ? task.title : "Untitled";
+          const status = typeof task.status === "string" ? task.status : "unknown";
           return `• ${title} (${status})`;
         })
         .join("\n");
-      parts.push(`Przykłady:\n${exampleLines}`);
+      parts.push(`Examples:\n${exampleLines}`);
     }
   }
 
@@ -91,13 +91,13 @@ export const summarizeProjectCounts = (data: any): string | null => {
   const counts = data.counts;
   if (typeof counts.tasks !== "number") return null;
 
-  const parts: string[] = [`Masz ${counts.tasks} zadań w tym projekcie.`];
+  const parts: string[] = [`You have ${counts.tasks} tasks in this project.`];
 
   const otherSections: Array<{ label: string; value?: number }> = [
-    { label: "notatek", value: counts.notes },
-    { label: "pozycji zakupowych", value: counts.shoppingItems },
-    { label: "kontaktów", value: counts.contacts },
-    { label: "ankiet", value: counts.surveys },
+    { label: "notes", value: counts.notes },
+    { label: "shopping items", value: counts.shoppingItems },
+    { label: "contacts", value: counts.contacts },
+    { label: "surveys", value: counts.surveys },
   ];
 
   const extras = otherSections
@@ -105,7 +105,7 @@ export const summarizeProjectCounts = (data: any): string | null => {
     .map((entry) => `${entry.value} ${entry.label}`);
 
   if (extras.length > 0) {
-    parts.push(`Dodatkowo: ${extras.join(", ")}.`);
+    parts.push(`Also: ${extras.join(", ")}.`);
   }
 
   return parts.join(" ");
@@ -118,23 +118,23 @@ export const summarizeShoppingSearch = (data: any): string | null => {
   const total = typeof data.total === "number" ? data.total : data.items?.length;
   if (typeof total !== "number") return null;
 
-  const parts: string[] = [`Znalazłem ${total} pozycji na liście zakupów.`];
+  const parts: string[] = [`I found ${total} shopping list items.`];
 
   if (Array.isArray(data.items) && data.items.length > 0) {
     const examples = data.items.slice(0, 3);
     const exampleLines = examples
       .map((item: any) => {
-        const name = typeof item.name === "string" ? item.name : "(bez nazwy)";
+        const name = typeof item.name === "string" ? item.name : "(unnamed)";
         const section =
           typeof item.sectionName === "string"
             ? item.sectionName
             : typeof item.sectionId === "string"
-            ? `sekcja ${item.sectionId}`
-            : "brak sekcji";
+            ? `section ${item.sectionId}`
+            : "no section";
         return `• ${name} (${section})`;
       })
       .join("\n");
-    parts.push(`Przykłady:\n${exampleLines}`);
+    parts.push(`Examples:\n${exampleLines}`);
   }
 
   return parts.join(" ");
@@ -178,7 +178,6 @@ export const buildFallbackResponseFromTools = (
 
   return null;
 };
-
 
 
 

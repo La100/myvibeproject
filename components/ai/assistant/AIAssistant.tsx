@@ -6,6 +6,7 @@ import { apiAny } from "@/lib/convexApiAny";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useUser } from "@clerk/nextjs";
 import { useProject } from "@/components/providers/ProjectProvider";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -25,7 +26,15 @@ import { toast } from "sonner";
 
 const AIAssistant = () => {
   const { user } = useUser();
-  const { project, team } = useProject();
+  const { project, team, isLoading: isProjectContextLoading } = useProject();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const sessionParam = searchParams.get("session");
+  const initialThreadIdFromUrl =
+    typeof sessionParam === "string" && sessionParam.startsWith("thread-")
+      ? sessionParam
+      : undefined;
 
   const aiAccess = useQuery(
     apiAny.stripe.checkTeamAIAccess,
@@ -58,7 +67,30 @@ const AIAssistant = () => {
   } = useChat({
     projectId: project?._id,
     userClerkId: user?.id,
+    initialThreadId: initialThreadIdFromUrl,
   });
+
+  useEffect(() => {
+    if (!pathname) return;
+    const params = new URLSearchParams(searchParams.toString());
+    const currentSession = params.get("session");
+    const nextSession = threadId ?? null;
+    const shouldUpdate =
+      (nextSession && currentSession !== nextSession) ||
+      (!nextSession && currentSession !== null);
+
+    if (!shouldUpdate) return;
+
+    if (nextSession) {
+      params.set("session", nextSession);
+    } else {
+      params.delete("session");
+    }
+
+    const nextQuery = params.toString();
+    const nextUrl = nextQuery ? `${pathname}?${nextQuery}` : pathname;
+    router.replace(nextUrl, { scroll: false });
+  }, [pathname, router, searchParams, threadId]);
 
   const {
     pendingItems,
@@ -143,6 +175,44 @@ const AIAssistant = () => {
       (aiAccess.message || "").toLowerCase().includes("exhaust"))
   );
 
+  const handleToggleAutoConfirmCrud = useCallback(async (checked: boolean) => {
+    if (!project?._id) return;
+
+    const previous = autoConfirmCrud;
+    setAutoConfirmCrud(checked);
+    setIsSavingAutoConfirmCrud(true);
+    try {
+      await updateProject({
+        projectId: project._id,
+        aiAutoConfirmCrud: checked,
+      });
+      toast.success(
+        checked
+          ? "Auto-confirm ON — AI actions are applied automatically"
+          : "Auto-confirm OFF — AI actions require your approval",
+      );
+    } catch (error) {
+      setAutoConfirmCrud(previous);
+      console.error("Failed to update aiAutoConfirmCrud:", error);
+      toast.error("Failed to save confirmation mode");
+    } finally {
+      setIsSavingAutoConfirmCrud(false);
+    }
+  }, [autoConfirmCrud, project?._id, updateProject]);
+
+  const handleConversationModeChange = useCallback(
+    (mode: "always_ask" | "auto_confirm") => {
+      void handleToggleAutoConfirmCrud(mode === "auto_confirm");
+    },
+    [handleToggleAutoConfirmCrud],
+  );
+
+  const userFallback =
+    user?.fullName?.charAt(0) ||
+    user?.firstName?.charAt(0) ||
+    user?.primaryEmailAddress?.emailAddress?.charAt(0) ||
+    "U";
+
   if (aiAccess !== undefined && !aiAccess.hasAccess && team?._id) {
     if (isQuotaBlocked) {
       const remainingTokens = aiAccess.remainingTokens ?? 0;
@@ -193,47 +263,19 @@ const AIAssistant = () => {
     return <AISubscriptionWall teamId={team._id} teamSlug={team.slug} />;
   }
 
-  if (aiAccess === undefined && team?._id) {
+  const showUnifiedLoading =
+    isProjectContextLoading ||
+    !team?._id ||
+    aiAccess === undefined ||
+    (chatIsLoading && uiMessages.length === 0);
+
+  if (showUnifiedLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Checking access...</p>
-        </div>
+        <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="Loading" />
       </div>
     );
   }
-
-  const userFallback =
-    user?.fullName?.charAt(0) ||
-    user?.firstName?.charAt(0) ||
-    user?.primaryEmailAddress?.emailAddress?.charAt(0) ||
-    "U";
-
-  const handleToggleAutoConfirmCrud = async (checked: boolean) => {
-    if (!project?._id) return;
-
-    const previous = autoConfirmCrud;
-    setAutoConfirmCrud(checked);
-    setIsSavingAutoConfirmCrud(true);
-    try {
-      await updateProject({
-        projectId: project._id,
-        aiAutoConfirmCrud: checked,
-      });
-      toast.success(
-        checked
-          ? "Włączono auto-confirm CRUD"
-          : "Włączono ręczne potwierdzanie CRUD",
-      );
-    } catch (error) {
-      setAutoConfirmCrud(previous);
-      console.error("Failed to update aiAutoConfirmCrud:", error);
-      toast.error("Nie udało się zapisać trybu potwierdzeń");
-    } finally {
-      setIsSavingAutoConfirmCrud(false);
-    }
-  };
 
   return (
     <div className="relative flex h-[calc(100vh-4rem)] w-full min-w-0 flex-col overflow-hidden text-foreground">
@@ -254,13 +296,13 @@ const AIAssistant = () => {
         pendingItems={pendingItems}
         onConfirmItem={handleConfirmItem}
         onRejectItem={handleRejectItem}
-        onEditItem={(index) => handleEditItem(index)}
+        onEditItem={handleEditItem}
         onConfirmAll={handleConfirmAll}
         onRejectAll={handleRejectAll}
         onUpdateItem={handleUpdatePendingItem}
         isProcessing={isBulkProcessing}
         confirmationMode={autoConfirmCrud ? "auto_confirm" : "always_ask"}
-        onConfirmationModeChange={(mode) => handleToggleAutoConfirmCrud(mode === "auto_confirm")}
+        onConfirmationModeChange={handleConversationModeChange}
         isModeUpdating={isSavingAutoConfirmCrud}
       />
     </div>

@@ -13,6 +13,13 @@ import { Spinner } from "@/components/ui/spinner";
 
 type ClientPanelItem = Doc<"clientPanelItems">;
 type ClientPanelSection = Doc<"clientPanelSections">;
+const EMPTY_SECTIONS: ClientPanelSection[] = [];
+const EMPTY_ITEMS: ClientPanelItem[] = [];
+const DEFAULT_CLIENT_PANEL_SETTINGS = {
+  showNotes: true,
+  showSupplier: true,
+  showPrice: true,
+};
 
 const CURRENCY_SYMBOL_BY_CODE: Record<string, string> = {
   USD: "$",
@@ -111,13 +118,9 @@ export default function PublicClientPanelPage() {
   const [savingItemId, setSavingItemId] = useState<string | null>(null);
 
   const project = panelData?.project;
-  const sections = (panelData?.sections || []) as ClientPanelSection[];
-  const items = (panelData?.items || []) as ClientPanelItem[];
-  const settings = panelData?.settings || {
-    showNotes: true,
-    showSupplier: true,
-    showPrice: true,
-  };
+  const sections = (panelData?.sections as ClientPanelSection[] | undefined) ?? EMPTY_SECTIONS;
+  const items = (panelData?.items as ClientPanelItem[] | undefined) ?? EMPTY_ITEMS;
+  const settings = panelData?.settings ?? DEFAULT_CLIENT_PANEL_SETTINGS;
 
   const currencySymbol = getCurrencySymbol(project?.currency);
 

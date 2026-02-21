@@ -19,11 +19,19 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
-import type {
-  PendingApprovalState,
-  PendingContentItem,
-  PendingContentType,
-} from "../../data/types";
+import type { PendingContentItem } from "../../data/types";
+import {
+  extractBulkCreateEntries,
+  getApprovalLabel,
+  getApprovalState,
+  getCanonicalType,
+  getDescription,
+  getOperation,
+  getTitle,
+  OPERATION_LABELS,
+  shouldRenderByState,
+  TYPE_COLORS,
+} from "./helpers";
 import { InlineCreationForm } from "./InlineCreationForm";
 
 // ============================================
@@ -43,112 +51,6 @@ interface ConfirmationCardProps {
   isModeUpdating?: boolean;
 }
 
-const TYPE_COLORS: Record<string, string> = {
-  task: "bg-card border-border/50 shadow-sm",
-  note: "bg-card border-border/50 shadow-sm",
-  shopping: "bg-card border-border/50 shadow-sm",
-  survey: "bg-card border-border/50 shadow-sm",
-  contact: "bg-card border-border/50 shadow-sm",
-  shoppingSection: "bg-card border-border/50 shadow-sm",
-  labor: "bg-card border-border/50 shadow-sm",
-  laborSection: "bg-card border-border/50 shadow-sm",
-};
-
-const OPERATION_LABELS: Record<string, { label: string; color: string }> = {
-  create: { label: "Create", color: "bg-primary/10 text-primary hover:bg-primary/20" },
-  bulk_create: { label: "Create", color: "bg-primary/10 text-primary hover:bg-primary/20" },
-  edit: { label: "Edit", color: "bg-primary/10 text-primary hover:bg-primary/20" },
-  bulk_edit: { label: "Edit", color: "bg-primary/10 text-primary hover:bg-primary/20" },
-  delete: { label: "Delete", color: "bg-destructive/10 text-destructive hover:bg-destructive/20" },
-};
-
-function getCanonicalType(type: PendingContentType): string {
-  const typeStr = type as string;
-  if (typeStr.startsWith("create_multiple_")) {
-    return typeStr.replace("create_multiple_", "").replace("s", "");
-  }
-  if (typeStr.startsWith("create_")) {
-    return typeStr.replace("create_", "");
-  }
-  return type;
-}
-
-function getTitle(item: PendingContentItem): string {
-  const data = item.originalItem || item.data;
-  return (
-    (data?.title as string) ||
-    (data?.name as string) ||
-    (data?.questionText as string) ||
-    "Untitled"
-  );
-}
-
-function getDescription(item: PendingContentItem): string | undefined {
-  const data = item.originalItem || item.data;
-  return (
-    (data?.description as string) ||
-    (data?.content as string) ||
-    (data?.notes as string)
-  );
-}
-
-function getOperation(item: PendingContentItem): string {
-  if (item.operation) return item.operation;
-  const typeStr = item.type as string;
-  if (typeStr.startsWith("create_multiple_")) return "bulk_create";
-  if (typeStr.startsWith("create_")) return "create";
-  return "create";
-}
-
-function getApprovalState(item: PendingContentItem): PendingApprovalState {
-  if (item.approvalState) {
-    return item.approvalState;
-  }
-  if (item.status === "confirmed") return "output-available";
-  if (item.status === "rejected") return "output-denied";
-  return "approval-requested";
-}
-
-function shouldRenderByState(state: PendingApprovalState): boolean {
-  return state !== "input-streaming" && state !== "input-available";
-}
-
-function getApprovalLabel(state: PendingApprovalState): string | null {
-  switch (state) {
-    case "approval-requested":
-      return "Awaiting approval";
-    case "approval-responded":
-      return "Responded";
-    case "output-available":
-      return "Approved";
-    case "output-denied":
-      return "Rejected";
-    case "output-error":
-      return "Failed";
-    case "input-streaming":
-    case "input-available":
-    default:
-      return null;
-  }
-}
-
-function extractBulkCreateEntries(item: PendingContentItem): Record<string, unknown>[] {
-  if (item.operation !== "bulk_create") return [];
-
-  const data = item.data as Record<string, unknown> | undefined;
-  if (!data) return [];
-
-  const bulkKeys = ["items", "tasks", "notes", "surveys", "contacts", "laborItems"];
-  for (const key of bulkKeys) {
-    const value = data[key];
-    if (Array.isArray(value)) {
-      return value.filter((entry): entry is Record<string, unknown> => !!entry && typeof entry === "object");
-    }
-  }
-
-  return [];
-}
-
 export const ConfirmationCard = memo(function ConfirmationCard({
   item,
   index,
@@ -157,19 +59,30 @@ export const ConfirmationCard = memo(function ConfirmationCard({
   onEdit,
   onUpdate,
   isProcessing = false,
-  confirmationMode = "always_ask",
-  onConfirmationModeChange,
-  isModeUpdating = false,
 }: ConfirmationCardProps) {
   const [isConfirming, setIsConfirming] = React.useState(false);
   const [expanded, setExpanded] = React.useState(false);
 
   const operation = getOperation(item);
   const canonicalType = getCanonicalType(item.type);
-  const supportedTypes = ["task", "note", "shopping", "labor", "contact", "survey", "shoppingSection", "laborSection"];
-
+  const supportedTypes = [
+    "task",
+    "note",
+    "shopping",
+    "labor",
+    "contact",
+    "survey",
+    "shoppingSection",
+    "laborSection",
+  ];
   const isEditableState = !item.status;
-  const needsInlineForm = supportedTypes.includes(canonicalType) && isEditableState;
+  const canRenderInlineForm =
+    supportedTypes.includes(canonicalType) &&
+    isEditableState &&
+    !!onUpdate &&
+    !!onConfirm &&
+    !!onReject;
+  const needsInlineForm = canRenderInlineForm;
 
   if (needsInlineForm && onUpdate && onConfirm && onReject) {
     return (
@@ -179,15 +92,13 @@ export const ConfirmationCard = memo(function ConfirmationCard({
         onConfirm={onConfirm}
         onReject={onReject}
         onUpdate={onUpdate}
-        confirmationMode={confirmationMode}
-        onConfirmationModeChange={onConfirmationModeChange}
-        isModeUpdating={isModeUpdating}
       />
     );
   }
 
   const colorClass = TYPE_COLORS[canonicalType] || TYPE_COLORS.task;
   const operationInfo = OPERATION_LABELS[operation] || OPERATION_LABELS.create;
+  const isDeleteOperation = operation === "delete";
   const resolvedStatus = item.status;
   const approvalState = getApprovalState(item);
   const approvalLabel = getApprovalLabel(approvalState);
@@ -407,7 +318,11 @@ export const ConfirmationCard = memo(function ConfirmationCard({
 
             <Button
               size="sm"
-              className="text-xs h-8 bg-green-600 hover:bg-green-700 text-white"
+              variant={isDeleteOperation ? "destructive" : "default"}
+              className={cn(
+                "text-xs h-8",
+                !isDeleteOperation && "bg-green-600 hover:bg-green-700 text-white"
+              )}
               onClick={handleConfirm}
               disabled={isProcessing || isConfirming}
             >
@@ -416,7 +331,7 @@ export const ConfirmationCard = memo(function ConfirmationCard({
               ) : (
                 <Check className="h-3 w-3 mr-1" />
               )}
-              Confirm
+              {isDeleteOperation ? "Delete" : "Confirm"}
             </Button>
           </>
         ) : !onConfirm && !onReject ? (
@@ -464,6 +379,11 @@ export function InlineConfirmationList({
 }: InlineConfirmationListProps) {
   const [currentIndex, setCurrentIndex] = React.useState(0);
   const scrollRef = React.useRef<HTMLDivElement>(null);
+  const noopUpdate: NonNullable<InlineConfirmationListProps["onUpdateItem"]> =
+    React.useCallback(() => {
+      // Bulk-expanded preview cards can share one source call id.
+      // Keep the full inline form layout without mutating shared source payload.
+    }, []);
 
   const displayItems = items.flatMap((item, index) => {
     const bulkEntries = extractBulkCreateEntries(item);
@@ -494,8 +414,8 @@ export function InlineConfirmationList({
     !visibleItems[0].fromBulk &&
     Boolean(onUpdateItem) &&
     (!visibleItems[0].item.status || visibleItems[0].item.status === "rejected") &&
-    ["task", "note", "shopping", "contact"].includes(
-      getCanonicalType(visibleItems[0].item.type)
+    ["task", "note", "shopping", "contact", "labor", "survey"].includes(
+      getCanonicalType(visibleItems[0].item.type),
     );
 
   if (isInlineFormOnly) {
@@ -653,7 +573,7 @@ export function InlineConfirmationList({
                 onConfirm={onConfirmItem}
                 onReject={onRejectItem}
                 onEdit={fromBulk ? undefined : onEditItem}
-                onUpdate={fromBulk ? undefined : onUpdateItem}
+                onUpdate={fromBulk ? noopUpdate : onUpdateItem}
                 isProcessing={isProcessing}
                 confirmationMode={confirmationMode}
                 onConfirmationModeChange={onConfirmationModeChange}

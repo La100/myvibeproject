@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertCircleIcon,
   CheckIcon,
@@ -288,6 +288,64 @@ function toPendingItemFromResult(
   };
 }
 
+function getPendingComparableId(
+  item: PendingContentItem,
+): string | undefined {
+  const data = item.data as Record<string, unknown> | undefined;
+  const original = item.originalItem as Record<string, unknown> | undefined;
+  const rawId =
+    data?.itemId ??
+    data?.taskId ??
+    data?.noteId ??
+    data?.contactId ??
+    data?.surveyId ??
+    data?.sectionId ??
+    data?._id ??
+    original?._id;
+
+  if (typeof rawId !== "string") return undefined;
+  const normalized = rawId.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function getPendingComparableLabel(
+  item: PendingContentItem,
+): string | undefined {
+  const data = item.data as Record<string, unknown> | undefined;
+  const original = item.originalItem as Record<string, unknown> | undefined;
+  const rawLabel =
+    data?.title ??
+    data?.name ??
+    original?.title ??
+    original?.name;
+
+  if (typeof rawLabel !== "string") return undefined;
+  const normalized = rawLabel.trim().toLowerCase();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function matchesPendingByPayload(
+  pendingItem: PendingContentItem,
+  fallbackItem: PendingContentItem,
+): boolean {
+  if (pendingItem.type !== fallbackItem.type) return false;
+  if (pendingItem.operation !== fallbackItem.operation) return false;
+
+  const pendingId = getPendingComparableId(pendingItem);
+  const fallbackId = getPendingComparableId(fallbackItem);
+  if (pendingId && fallbackId) {
+    return pendingId === fallbackId;
+  }
+
+  const pendingLabel = getPendingComparableLabel(pendingItem);
+  const fallbackLabel = getPendingComparableLabel(fallbackItem);
+  if (pendingLabel && fallbackLabel) {
+    return pendingLabel === fallbackLabel;
+  }
+
+  return false;
+}
+
 interface ToolFallbackProps extends ToolCallMessagePartProps {
   pendingItems?: PendingContentItem[];
   onConfirmItem?: (index: number | string) => Promise<void>;
@@ -365,14 +423,15 @@ const ToolFallbackImpl = ({
   const isCancelled =
     status?.type === "incomplete" && status.reason === "cancelled";
 
-  const matchedPendingItem = pendingItems?.find(
-    (item) => item.functionCall?.callId === toolCallId,
-  );
+  const matchedPendingItemsByCallId = toolCallId
+    ? (pendingItems ?? []).filter((item) => item.functionCall?.callId === toolCallId)
+    : [];
+  const hasPendingItems = (pendingItems?.length ?? 0) > 0;
   const unresolvedPendingItems = (pendingItems ?? []).filter(
     (item) => item.status !== "confirmed" && item.status !== "rejected",
   );
   const firstUnresolvedCallId = unresolvedPendingItems[0]?.functionCall?.callId;
-  const shouldRenderBatchForThisTool =
+  const shouldRenderUnifiedBatch =
     unresolvedPendingItems.length > 0 &&
     !!toolCallId &&
     toolCallId === firstUnresolvedCallId;
@@ -380,48 +439,84 @@ const ToolFallbackImpl = ({
   const fallbackPendingItem = toolCallId
     ? toPendingItemFromResult(toolCallId, result)
     : null;
-  const isCrudLikeResult = !!matchedPendingItem || !!fallbackPendingItem;
+  const matchedPendingItemByPayload =
+    matchedPendingItemsByCallId.length === 0 && fallbackPendingItem
+      ? (pendingItems ?? []).find((item) =>
+          matchesPendingByPayload(item, fallbackPendingItem),
+        )
+      : undefined;
+  const isCrudLikeResult =
+    matchedPendingItemsByCallId.length > 0 ||
+    !!matchedPendingItemByPayload ||
+    !!fallbackPendingItem;
 
-  // Render a single, current confirmation block only.
-  // Older/sibling CRUD tool cards are hidden to avoid stale duplicated confirmations.
-  if (isCrudLikeResult && !shouldRenderBatchForThisTool) {
+  const itemsForInlineConfirmation = shouldRenderUnifiedBatch
+    ? unresolvedPendingItems
+    : matchedPendingItemsByCallId.length > 0
+      ? matchedPendingItemsByCallId
+      : matchedPendingItemByPayload
+        ? [matchedPendingItemByPayload]
+        : !hasPendingItems && fallbackPendingItem
+          ? [fallbackPendingItem]
+          : [];
+
+  const showInlineConfirmation = itemsForInlineConfirmation.length > 0;
+  const hasUnresolvedItemsInCard = itemsForInlineConfirmation.some(
+    (item) => item.status !== "confirmed" && item.status !== "rejected",
+  );
+  const [isOpen, setIsOpen] = useState(() => hasUnresolvedItemsInCard);
+  const prevHadUnresolvedRef = useRef(hasUnresolvedItemsInCard);
+
+  useEffect(() => {
+    if (hasUnresolvedItemsInCard) {
+      if (!prevHadUnresolvedRef.current) {
+        setIsOpen(true);
+      }
+      prevHadUnresolvedRef.current = true;
+      return;
+    }
+
+    if (prevHadUnresolvedRef.current && showInlineConfirmation) {
+      setIsOpen(false);
+    }
+    prevHadUnresolvedRef.current = false;
+  }, [hasUnresolvedItemsInCard, showInlineConfirmation]);
+
+  // While there are unresolved CRUD items, show exactly one unified slider:
+  // the card attached to the first unresolved call. Hide all sibling CRUD cards.
+  if (unresolvedPendingItems.length > 0 && !!toolCallId && !shouldRenderUnifiedBatch) {
     return null;
   }
 
-  const itemsForInlineConfirmation = shouldRenderBatchForThisTool
-    ? unresolvedPendingItems
-    : [];
-
-  const showInlineConfirmation =
-    itemsForInlineConfirmation.length > 0 &&
-    !!onConfirmItem &&
-    !!onRejectItem;
+  if (showInlineConfirmation) {
+    return (
+      <div className="px-0 pt-2">
+        <InlineConfirmationList
+          items={itemsForInlineConfirmation}
+          onConfirmItem={onConfirmItem}
+          onRejectItem={onRejectItem}
+          onEditItem={onEditItem}
+          onConfirmAll={onConfirmAll}
+          onRejectAll={onRejectAll}
+          onUpdateItem={onUpdateItem}
+          isProcessing={isProcessing}
+          confirmationMode={confirmationMode}
+          onConfirmationModeChange={onConfirmationModeChange}
+          isModeUpdating={isModeUpdating}
+        />
+      </div>
+    );
+  }
 
   return (
     <ToolFallbackRoot
       className={cn(isCancelled && "border-muted-foreground/30 bg-muted/30")}
-      defaultOpen={showInlineConfirmation}
+      open={isOpen}
+      onOpenChange={setIsOpen}
     >
       <ToolFallbackTrigger toolName={toolName} status={status} />
       <ToolFallbackContent>
         <ToolFallbackError status={status} />
-        {showInlineConfirmation && (
-          <div className="px-4 pt-2">
-            <InlineConfirmationList
-              items={itemsForInlineConfirmation}
-              onConfirmItem={onConfirmItem}
-              onRejectItem={onRejectItem}
-              onEditItem={onEditItem}
-              onConfirmAll={onConfirmAll}
-              onRejectAll={onRejectAll}
-              onUpdateItem={onUpdateItem}
-              isProcessing={isProcessing}
-              confirmationMode={confirmationMode}
-              onConfirmationModeChange={onConfirmationModeChange}
-              isModeUpdating={isModeUpdating}
-            />
-          </div>
-        )}
         {!isCrudLikeResult && (
           <ToolFallbackArgs
             argsText={argsText}
