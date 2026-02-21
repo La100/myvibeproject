@@ -11,7 +11,6 @@ import {
 import {
   useScrollLock,
   type ToolCallMessagePartStatus,
-  type ToolCallMessagePartComponent,
   type ToolCallMessagePartProps,
 } from "@assistant-ui/react";
 import {
@@ -346,7 +345,7 @@ function matchesPendingByPayload(
   return false;
 }
 
-interface ToolFallbackProps extends ToolCallMessagePartProps {
+export interface ToolFallbackProps extends ToolCallMessagePartProps {
   pendingItems?: PendingContentItem[];
   onConfirmItem?: (index: number | string) => Promise<void>;
   onRejectItem?: (index: number | string) => void | Promise<void>;
@@ -531,9 +530,7 @@ const ToolFallbackImpl = ({
   );
 };
 
-const ToolFallback = memo(
-  ToolFallbackImpl,
-) as unknown as ToolCallMessagePartComponent & {
+type ToolFallbackComponent = typeof ToolFallbackBase & {
   Root: typeof ToolFallbackRoot;
   Trigger: typeof ToolFallbackTrigger;
   Content: typeof ToolFallbackContent;
@@ -541,6 +538,9 @@ const ToolFallback = memo(
   Result: typeof ToolFallbackResult;
   Error: typeof ToolFallbackError;
 };
+
+const ToolFallbackBase = memo(ToolFallbackImpl);
+const ToolFallback = ToolFallbackBase as ToolFallbackComponent;
 
 ToolFallback.displayName = "ToolFallback";
 ToolFallback.Root = ToolFallbackRoot;

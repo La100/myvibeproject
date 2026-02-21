@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useQuery } from "convex/react";
 import { format, isValid } from "date-fns";
 import {
@@ -185,28 +185,49 @@ function TaskForm({
     const priorityValue = typeof data.priority === "string" ? data.priority : "none";
     const statusValue = typeof data.status === "string" ? data.status : "todo";
     const tagsValue = Array.isArray(data.tags) ? data.tags.join(", ") : String(data.tags || "");
+    const onUpdateRef = useRef(onUpdate);
+    const startDateIsoRef = useRef(
+        typeof data.startDate === "string" ? data.startDate : undefined
+    );
+    const endDateIsoRef = useRef(
+        typeof data.endDate === "string" ? data.endDate : undefined
+    );
+
+    useEffect(() => {
+        onUpdateRef.current = onUpdate;
+    }, [onUpdate]);
+
+    useEffect(() => {
+        startDateIsoRef.current =
+            typeof data.startDate === "string" ? data.startDate : undefined;
+    }, [data.startDate]);
+
+    useEffect(() => {
+        endDateIsoRef.current =
+            typeof data.endDate === "string" ? data.endDate : undefined;
+    }, [data.endDate]);
 
     useEffect(() => {
         if (startDate) {
             const [hours, minutes] = startTime.split(':').map(Number);
             const newDate = new Date(startDate);
             newDate.setHours(hours || 0, minutes || 0);
-            if (newDate.toISOString() !== data.startDate) {
-                onUpdate({ startDate: newDate.toISOString() });
+            if (newDate.toISOString() !== startDateIsoRef.current) {
+                onUpdateRef.current({ startDate: newDate.toISOString() });
             }
         }
-    }, [startDate, startTime]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [startDate, startTime]);
 
     useEffect(() => {
         if (endDate) {
             const [hours, minutes] = endTime.split(':').map(Number);
             const newDate = new Date(endDate);
             newDate.setHours(hours || 0, minutes || 0);
-            if (newDate.toISOString() !== data.endDate) {
-                onUpdate({ endDate: newDate.toISOString() });
+            if (newDate.toISOString() !== endDateIsoRef.current) {
+                onUpdateRef.current({ endDate: newDate.toISOString() });
             }
         }
-    }, [endDate, endTime]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [endDate, endTime]);
 
     return (
         <div className="space-y-3">

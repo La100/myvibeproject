@@ -337,20 +337,6 @@ export const useAIChat = ({
     }
   }, [isStreaming, threadId]);
 
-  // Handle escape key to stop response
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && isStreaming) {
-        event.preventDefault();
-        handleStopResponse();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isStreaming]);
-
   // Actions
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -370,6 +356,19 @@ export const useAIChat = ({
     }
     resetPendingRequestState(true);
   }, [threadId, abortStreamMutation, resetPendingRequestState]);
+
+  // Handle escape key to stop response
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && isStreaming) {
+        event.preventDefault();
+        void handleStopResponse();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isStreaming, handleStopResponse]);
 
   const handleThreadSelect = useCallback((selectedThreadId: string) => {
     if (selectedThreadId === threadId) {

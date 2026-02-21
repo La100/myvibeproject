@@ -360,22 +360,6 @@ type AssistantMessageProps = {
   isModeUpdating?: boolean;
 };
 
-type ToolFallbackWithPendingProps = ComponentProps<typeof ToolFallback> & {
-  pendingItems?: PendingContentItem[];
-  onConfirmItem?: (index: number | string) => Promise<void>;
-  onRejectItem?: (index: number | string) => void | Promise<void>;
-  onEditItem?: (index: number) => void;
-  onConfirmAll?: () => Promise<void>;
-  onRejectAll?: () => void | Promise<void>;
-  onUpdateItem?: (index: number | string, updates: Partial<PendingContentItem>) => void;
-  isProcessing?: boolean;
-  confirmationMode?: "always_ask" | "auto_confirm";
-  onConfirmationModeChange?: (mode: "always_ask" | "auto_confirm") => void | Promise<void>;
-  isModeUpdating?: boolean;
-};
-
-const ToolFallbackWithPending = ToolFallback as unknown as FC<ToolFallbackWithPendingProps>;
-
 const AssistantMessage: FC<AssistantMessageProps> = ({
   imageUrl,
   fallback,
@@ -392,7 +376,7 @@ const AssistantMessage: FC<AssistantMessageProps> = ({
   isModeUpdating = false,
 }) => {
   const PendingAwareToolFallback = (props: ComponentProps<typeof ToolFallback>) => (
-    <ToolFallbackWithPending
+    <ToolFallback
       {...props}
       pendingItems={pendingItems}
       onConfirmItem={onConfirmItem}
