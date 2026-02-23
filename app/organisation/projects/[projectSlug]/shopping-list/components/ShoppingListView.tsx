@@ -10,8 +10,8 @@ import { toast } from 'sonner';
 import { Spinner } from '@/components/ui/spinner';
 import { format } from 'date-fns';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { addBrandHeader, addDocumentMeta, addPageNumbers, formatMoney, pdfTableTheme, resolvePageBreak, sanitizeFileName } from '@/lib/pdfExport';
-import { calculateShoppingTotal } from '@/lib/shoppingAlternatives';
+import { addBrandHeader, addDocumentMeta, addPageNumbers, ensurePdfUnicodeFont, formatMoney, pdfTableTheme, resolvePageBreak, sanitizeFileName } from '@/lib/pdfExport';
+import { buildAlternativeSelection, calculateShoppingTotal, isItemCountedInShoppingTotal } from '@/lib/shoppingAlternatives';
 
 // Import new components
 import { SectionManager } from './SectionManager';
@@ -44,6 +44,30 @@ const STATUS_LABELS: Record<ShoppingListItem["realizationStatus"], string> = {
 };
 
 const getStatusLabel = (status: ShoppingListItem["realizationStatus"]) => STATUS_LABELS[status] ?? status;
+
+const PDF_BODY_NOTE_MAX_LENGTH = 180;
+
+const collapseSpacedCharacters = (value: string): string =>
+  value.replace(/(?:\b[\p{L}\p{N}]\s+){3,}[\p{L}\p{N}]\b/gu, (match) => match.replace(/\s+/g, ''));
+
+const normalizePdfText = (value: string | undefined | null, fallback = '-'): string => {
+  if (!value) {
+    return fallback;
+  }
+
+  const compact = collapseSpacedCharacters(value.replace(/\u00A0/g, ' ')).replace(/\s+/g, ' ').trim();
+  return compact || fallback;
+};
+
+const truncatePdfText = (value: string, maxLength: number): string => {
+  if (value.length <= maxLength) {
+    return value;
+  }
+  return `${value.slice(0, maxLength - 1).trimEnd()}…`;
+};
+
+const formatQuantity = (quantity: number): string =>
+  Number.isInteger(quantity) ? `${quantity}` : quantity.toFixed(2);
 
 
 export function ShoppingListViewSkeleton() {
@@ -180,28 +204,34 @@ export default function ShoppingListView() {
   };
 
   // Export handlers
-  const filteredItemsForExport = items.filter((item) => {
+  const statusFilteredItemsForExport = items.filter((item) => {
     if (exportOptions.statusFilter === 'all') {
       return true;
     }
     return item.realizationStatus === STATUS_FILTER_TO_VALUE[exportOptions.statusFilter];
   });
 
-  const groupedFilteredItems = Object.entries(itemsBySection)
+  const exportSelection = buildAlternativeSelection(statusFilteredItemsForExport);
+  const filteredItemsForExport = statusFilteredItemsForExport.filter((item) =>
+    isItemCountedInShoppingTotal(item, exportSelection),
+  );
+
+  const groupedFilteredItems = Object.entries(
+    filteredItemsForExport.reduce((acc, item) => {
+      const sectionName = item.sectionId ? sectionMap.get(item.sectionId) || 'No Category' : 'No Category';
+      if (!acc[sectionName]) {
+        acc[sectionName] = [];
+      }
+      acc[sectionName].push(item);
+      return acc;
+    }, {} as Record<string, ShoppingListItem[]>),
+  )
     .sort(([a], [b]) => {
       if (a === 'No Category') return 1;
       if (b === 'No Category') return -1;
       return a.localeCompare(b);
     })
-    .map(([sectionName, sectionItems]) => ({
-      sectionName,
-      sectionItems: sectionItems.filter((item) =>
-        exportOptions.statusFilter === 'all'
-          ? true
-          : item.realizationStatus === STATUS_FILTER_TO_VALUE[exportOptions.statusFilter],
-      ),
-    }))
-    .filter(({ sectionItems }) => sectionItems.length > 0);
+    .map(([sectionName, sectionItems]) => ({ sectionName, sectionItems }));
 
   const handleExportCSV = () => {
     if (filteredItemsForExport.length === 0) {
@@ -292,13 +322,153 @@ export default function ShoppingListView() {
         unit: 'mm'
       });
 
-      doc.setFont('helvetica', 'normal');
+      let pdfFontFamily = 'helvetica';
+      try {
+        pdfFontFamily = await ensurePdfUnicodeFont(doc);
+      } catch (fontError) {
+        console.warn('Could not load Unicode PDF font, falling back to Helvetica:', fontError);
+      }
+      doc.setFont(pdfFontFamily, 'normal');
       const pageWidth = doc.internal.pageSize.getWidth();
       const filteredTotal = calculateShoppingTotal(filteredItemsForExport);
+      const printableWidth = pageWidth - 36;
+      const hasAnyUnit = filteredItemsForExport.some((item) => !!item.unit?.trim());
+      const hasAnyPrice = filteredItemsForExport.some((item) => item.totalPrice !== undefined && item.totalPrice !== null);
+      const hasAnySupplier = filteredItemsForExport.some((item) => !!item.supplier?.trim());
+      const hasAnyAssigned = filteredItemsForExport.some((item) => !!item.assignedTo);
+      const hasAnyNonPlannedStatus = filteredItemsForExport.some((item) => item.realizationStatus !== 'PLANNED');
+
+      type PdfColumnKey = 'section' | 'product' | 'qty' | 'unit' | 'total' | 'status' | 'supplier' | 'assigned';
+
+      const columnLabels: Record<PdfColumnKey, string> = {
+        section: 'Section',
+        product: 'Product',
+        qty: 'Qty',
+        unit: 'Unit',
+        total: 'Total',
+        status: 'Status',
+        supplier: 'Supplier',
+        assigned: 'Assigned',
+      };
+
+      const baseColumnWidths: Record<Exclude<PdfColumnKey, 'product'>, number> = {
+        section: 28,
+        qty: 14,
+        unit: 14,
+        total: 22,
+        status: 22,
+        supplier: 26,
+        assigned: 26,
+      };
+
+      const visibleOptionalKeys: PdfColumnKey[] = [
+        ...(hasAnyPrice ? ['total' as const] : []),
+        ...(hasAnyUnit ? ['unit' as const] : []),
+        ...(hasAnyNonPlannedStatus ? ['status' as const] : []),
+        ...(hasAnySupplier ? ['supplier' as const] : []),
+        ...(hasAnyAssigned ? ['assigned' as const] : []),
+      ];
+
+      const getFixedWidth = (keys: PdfColumnKey[]) =>
+        keys.reduce((sum, key) => sum + (key === 'product' ? 0 : baseColumnWidths[key]), 0);
+
+      const getTableConfig = (grouped: boolean) => {
+        const minProductWidth = grouped ? 58 : 48;
+        const leadingKeys: PdfColumnKey[] = grouped ? [] : ['section'];
+        const selectedKeys: PdfColumnKey[] = [...leadingKeys, 'product', 'qty'];
+
+        for (const key of visibleOptionalKeys) {
+          const projectedKeys = [...selectedKeys, key];
+          if (printableWidth - getFixedWidth(projectedKeys) >= minProductWidth) {
+            selectedKeys.push(key);
+          }
+        }
+
+        const productWidth = Math.max(minProductWidth, printableWidth - getFixedWidth(selectedKeys));
+        const columnStyles = Object.fromEntries(
+          selectedKeys.map((key, index) => {
+            if (key === 'product') {
+              return [
+                index,
+                {
+                  cellWidth: productWidth,
+                },
+              ];
+            }
+            if (key === 'qty' || key === 'total') {
+              return [
+                index,
+                {
+                  cellWidth: baseColumnWidths[key],
+                  halign: 'right',
+                },
+              ];
+            }
+            return [
+              index,
+              {
+                cellWidth: baseColumnWidths[key],
+              },
+            ];
+          }),
+        );
+
+        return {
+          keys: selectedKeys,
+          head: [selectedKeys.map((key) => columnLabels[key])],
+          columnStyles,
+        };
+      };
+
+      const groupedTableConfig = getTableConfig(true);
+      const flatTableConfig = getTableConfig(false);
+
+      const buildRow = (item: ShoppingListItem, keys: PdfColumnKey[]) => {
+        const sectionName = item.sectionId ? sectionMap.get(item.sectionId) || 'No Category' : 'No Category';
+        const assignedMember = item.assignedTo
+          ? teamMembers?.find((member) => member.clerkUserId === item.assignedTo)?.name || item.assignedTo
+          : '-';
+        const notes = exportOptions.includeNotes ? normalizePdfText(item.notes, '') : '';
+        const productLabel = normalizePdfText(item.name, 'Untitled item');
+        const productCell = notes
+          ? `${productLabel}\nNote: ${truncatePdfText(notes, PDF_BODY_NOTE_MAX_LENGTH)}`
+          : productLabel;
+
+        const rowData: Record<PdfColumnKey, string> = {
+          section: normalizePdfText(sectionName, 'No Category'),
+          product: productCell,
+          qty: formatQuantity(item.quantity),
+          unit: normalizePdfText(item.unit, '-'),
+          total: formatMoney(item.totalPrice, currencySymbol),
+          status: getStatusLabel(item.realizationStatus),
+          supplier: normalizePdfText(item.supplier, '-'),
+          assigned: normalizePdfText(assignedMember, '-'),
+        };
+
+        return keys.map((key) => rowData[key]);
+      };
+
+      const tableThemeOverride = {
+        ...pdfTableTheme,
+        styles: {
+          ...pdfTableTheme.styles,
+          font: pdfFontFamily,
+          fontSize: 8.2,
+          cellPadding: 2,
+          valign: 'top' as const,
+        },
+        headStyles: {
+          ...pdfTableTheme.headStyles,
+          font: pdfFontFamily,
+          fontSize: 8.4,
+          lineWidth: 0.12,
+        },
+      };
 
       let yPosition = await addBrandHeader(doc, {
         teamName: team.name || 'Organization',
         teamImageUrl: team.imageUrl,
+        fontFamily: pdfFontFamily,
       });
 
       yPosition = addDocumentMeta(doc, {
@@ -306,6 +476,7 @@ export default function ShoppingListView() {
         subtitle: `Items: ${filteredItemsForExport.length} | Total: ${formatMoney(filteredTotal, currencySymbol)}`,
         generatedOn: format(new Date(), 'yyyy-MM-dd HH:mm'),
         startY: yPosition,
+        fontFamily: pdfFontFamily,
       });
 
       if (exportOptions.groupBySections) {
@@ -313,7 +484,7 @@ export default function ShoppingListView() {
           yPosition = resolvePageBreak(doc, yPosition, 18);
           const sectionTotal = calculateShoppingTotal(sectionItems);
 
-          doc.setFont('helvetica', 'bold');
+          doc.setFont(pdfFontFamily, 'bold');
           doc.setFontSize(12);
           doc.setTextColor(30, 30, 30);
           doc.text(sectionName, 18, yPosition);
@@ -325,87 +496,34 @@ export default function ShoppingListView() {
           );
           yPosition += 3;
 
-          const tableData = sectionItems.map((item) => {
-            const productCell =
-              exportOptions.includeNotes && item.notes
-                ? `${item.name}\nNote: ${item.notes}`
-                : item.name;
-            const assignedMember = item.assignedTo
-              ? teamMembers?.find((member) => member.clerkUserId === item.assignedTo)?.name || item.assignedTo
-              : '-';
-
-            return [
-              productCell,
-              item.quantity.toString(),
-              formatMoney(item.unitPrice, currencySymbol),
-              formatMoney(item.totalPrice, currencySymbol),
-              getStatusLabel(item.realizationStatus),
-              item.supplier || '-',
-              assignedMember,
-            ];
-          });
+          const tableData = sectionItems.map((item) => buildRow(item, groupedTableConfig.keys));
 
           doc.autoTable({
-            ...pdfTableTheme,
+            ...tableThemeOverride,
             startY: yPosition,
-            head: [['Product', 'Qty', 'Unit Price', 'Total', 'Status', 'Supplier', 'Assigned']],
+            head: groupedTableConfig.head,
             body: tableData,
-            columnStyles: {
-              0: { cellWidth: 56 },
-              1: { cellWidth: 13, halign: 'right' },
-              2: { cellWidth: 22, halign: 'right' },
-              3: { cellWidth: 22, halign: 'right' },
-              4: { cellWidth: 20 },
-              5: { cellWidth: 25 },
-              6: { cellWidth: 22 },
-            },
+            columnStyles: groupedTableConfig.columnStyles,
           });
 
           yPosition = doc.lastAutoTable.finalY + 6;
         });
       } else {
-        const tableData = filteredItemsForExport.map((item) => {
-          const sectionName = item.sectionId ? sectionMap.get(item.sectionId) || 'No Category' : 'No Category';
-          const productCell =
-            exportOptions.includeNotes && item.notes
-              ? `${item.name}\nNote: ${item.notes}`
-              : item.name;
-          const assignedMember = item.assignedTo
-            ? teamMembers?.find((member) => member.clerkUserId === item.assignedTo)?.name || item.assignedTo
-            : '-';
-
-          return [
-            sectionName,
-            productCell,
-            item.quantity.toString(),
-            formatMoney(item.unitPrice, currencySymbol),
-            formatMoney(item.totalPrice, currencySymbol),
-            getStatusLabel(item.realizationStatus),
-            assignedMember,
-          ];
-        });
+        const tableData = filteredItemsForExport.map((item) => buildRow(item, flatTableConfig.keys));
 
         doc.autoTable({
-          ...pdfTableTheme,
+          ...tableThemeOverride,
           startY: yPosition,
-          head: [['Section', 'Product', 'Qty', 'Unit Price', 'Total', 'Status', 'Assigned']],
+          head: flatTableConfig.head,
           body: tableData,
-          columnStyles: {
-            0: { cellWidth: 30 },
-            1: { cellWidth: 52 },
-            2: { cellWidth: 13, halign: 'right' },
-            3: { cellWidth: 22, halign: 'right' },
-            4: { cellWidth: 22, halign: 'right' },
-            5: { cellWidth: 20 },
-            6: { cellWidth: 25 },
-          },
+          columnStyles: flatTableConfig.columnStyles,
         });
 
         yPosition = doc.lastAutoTable.finalY + 6;
       }
 
       yPosition = resolvePageBreak(doc, yPosition, 14);
-      doc.setFont('helvetica', 'bold');
+      doc.setFont(pdfFontFamily, 'bold');
       doc.setFontSize(12);
       doc.setTextColor(20, 20, 20);
       doc.text(
@@ -415,7 +533,7 @@ export default function ShoppingListView() {
         { align: 'right' },
       );
 
-      addPageNumbers(doc);
+      addPageNumbers(doc, pdfFontFamily);
       doc.save(`shopping-list-${sanitizeFileName(project.name)}-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
 
       setIsExportModalOpen(false);

@@ -32,8 +32,8 @@ import type {
 export const WORKFLOWS: WorkflowDefinition[] = [
   {
     id: "floor-plan-analysis",
-    name: "Analiza Rzutu Mieszkania",
-    description: "Kompleksowa analiza rzutu z identyfikacją pomieszczeń, wymiarów i generowaniem listy zadań remontowych.",
+    name: "Apartment Floor Plan Analysis",
+    description: "Comprehensive floor plan analysis with room identification, dimensions, and a generated renovation task list.",
     icon: "floor-plan" as WorkflowIcon,
     category: "analysis",
     requiredFileTypes: ["image", "pdf"] as WorkflowFileType[],
@@ -42,90 +42,90 @@ export const WORKFLOWS: WorkflowDefinition[] = [
     steps: [
       {
         id: "upload",
-        name: "Wgraj Rzut",
+        name: "Upload Floor Plan",
         prompt: null,
         requiresUpload: true,
-        description: "Wgraj plik z rzutem mieszkania (zdjęcie, skan lub PDF).",
+        description: "Upload an apartment floor plan file (photo, scan, or PDF).",
       },
       {
         id: "room-analysis",
-        name: "Analiza Pomieszczeń",
-        prompt: `Przeanalizuj wgrany rzut mieszkania i zidentyfikuj:
+        name: "Room Analysis",
+        prompt: `Analyze the uploaded apartment floor plan and identify:
 
-1. **Pomieszczenia**: Wymień wszystkie widoczne pomieszczenia z ich przybliżonymi wymiarami (jeśli skala jest widoczna).
+1. **Rooms**: List all visible rooms with approximate dimensions (if scale is visible).
 
-2. **Układ funkcjonalny**: Oceń rozkład pomieszczeń pod kątem:
-   - Komunikacji między pomieszczeniami
-   - Dostępu do światła naturalnego
-   - Funkcjonalności dla rodziny
+2. **Functional Layout**: Evaluate the layout in terms of:
+   - Movement between rooms
+   - Access to natural light
+   - Family usability
 
-3. **Potencjalne problemy**: Zidentyfikuj ewentualne problemy jak:
-   - Ciasne przejścia
-   - Brak wentylacji
-   - Niewygodne połączenia funkcjonalne
+3. **Potential Issues**: Identify likely issues such as:
+   - Tight passageways
+   - Missing ventilation
+   - Awkward functional connections
 
-Przedstaw analizę w przejrzystej formie punktowej.`,
-        description: "AI przeanalizuje rzut i zidentyfikuje pomieszczenia.",
+Present your analysis in a clear bullet-point format.`,
+        description: "AI will analyze the plan and identify the rooms.",
         enabledTools: ["create_note"],
       },
       {
         id: "renovation-scope",
-        name: "Zakres Remontu",
-        prompt: `Na podstawie poprzedniej analizy rzutu, pomóż użytkownikowi określić zakres remontu:
+        name: "Renovation Scope",
+        prompt: `Based on the previous floor plan analysis, help the user define renovation scope:
 
-1. Zapytaj które pomieszczenia mają być remontowane
-2. Zaproponuj typowe prace dla każdego wybranego pomieszczenia:
-   - Ściany (malowanie, tapetowanie, panele)
-   - Podłogi (wymiana, cyklinowanie)
-   - Instalacje (elektryka, hydraulika)
-   - Stolarka (drzwi, okna)
+1. Ask which rooms should be renovated
+2. Suggest typical work for each selected room:
+   - Walls (painting, wallpaper, wall panels)
+   - Floors (replacement, refinishing)
+   - Installations (electrical, plumbing)
+   - Joinery (doors, windows)
 
-Stwórz wstępną listę zadań jako tasks w projekcie.`,
-        description: "Określ zakres prac remontowych dla wybranych pomieszczeń.",
+Create an initial task list in the project.`,
+        description: "Define renovation scope for selected rooms.",
         enabledTools: ["create_task", "create_multiple_tasks"],
       },
       {
         id: "material-list",
-        name: "Lista Materiałów",
-        prompt: `Na podstawie zdefiniowanego zakresu remontu, przygotuj wstępną listę materiałów:
+        name: "Material List",
+        prompt: `Based on the defined renovation scope, prepare an initial material list:
 
-1. Dla każdego pomieszczenia i rodzaju prac wypisz potrzebne materiały
-2. Oszacuj ilości na podstawie przybliżonych wymiarów z rzutu
-3. Podziel materiały na kategorie (budowlane, wykończeniowe, elektryczne, hydrauliczne)
+1. For each room and work type, list required materials
+2. Estimate quantities using approximate dimensions from the plan
+3. Group materials into categories (construction, finishing, electrical, plumbing)
 
-Dodaj materiały do listy zakupów projektu z odpowiednimi sekcjami.`,
-        description: "Wygeneruj listę materiałów budowlanych i wykończeniowych.",
+Add materials to the project shopping list with appropriate sections.`,
+        description: "Generate a list of construction and finishing materials.",
         enabledTools: ["create_shopping_item", "create_multiple_shopping_items", "create_shopping_section"],
       },
       {
         id: "schedule",
-        name: "Harmonogram",
-        prompt: `Stwórz proponowany harmonogram prac remontowych:
+        name: "Schedule",
+        prompt: `Create a proposed renovation schedule:
 
-1. Uporządkuj zadania w logicznej kolejności (np. najpierw instalacje, potem wykończenia)
-2. Oszacuj czas trwania każdego etapu
-3. Uwzględnij czas schnięcia, wietrzenia itp.
-4. Zaproponuj podział na etapy tygodniowe
+1. Order tasks in a logical sequence (for example: installations before finishes)
+2. Estimate the duration of each phase
+3. Include drying/curing and ventilation time where needed
+4. Propose weekly phase breakdowns
 
-Zaktualizuj daty w utworzonych wcześniej zadaniach aby odzwierciedlały harmonogram.`,
-        description: "Zaplanuj kolejność i terminy prac.",
+Update dates in previously created tasks to match this schedule.`,
+        description: "Plan task order and timelines.",
         enabledTools: ["edit_task", "edit_multiple_tasks"],
       },
     ],
-    content: `# Analiza Rzutu Mieszkania
+    content: `# Apartment Floor Plan Analysis
 
-Ten workflow pomoże Ci kompleksowo przeanalizować rzut mieszkania i zaplanować remont.
+This workflow helps you comprehensively analyze an apartment floor plan and plan a renovation.
 
-## Co otrzymasz?
-- Szczegółową analizę pomieszczeń i ich funkcjonalności
-- Listę zadań remontowych dopasowaną do Twojego rzutu
-- Listę materiałów z oszacowanymi ilościami
-- Proponowany harmonogram prac`,
+## What you get
+- Detailed analysis of rooms and functional layout
+- Renovation task list tailored to your floor plan
+- Material list with estimated quantities
+- Suggested work schedule`,
   },
   {
     id: "kitchen-renovation",
-    name: "Remont Kuchni",
-    description: "Kompletny przewodnik po remoncie kuchni - od planowania układu po listę zakupów.",
+    name: "Kitchen Renovation",
+    description: "Complete kitchen renovation guide, from layout planning to shopping list.",
     icon: "kitchen" as WorkflowIcon,
     category: "renovation",
     requiredFileTypes: ["image", "pdf"] as WorkflowFileType[],
@@ -134,136 +134,136 @@ Ten workflow pomoże Ci kompleksowo przeanalizować rzut mieszkania i zaplanowa�
     steps: [
       {
         id: "current-state",
-        name: "Stan Obecny",
-        prompt: `Pomóżmy zaplanować remont kuchni. Na początek zbierzmy informacje o obecnym stanie:
+        name: "Current State",
+        prompt: `Let's plan the kitchen renovation. Start by gathering current-state details:
 
-Zapytaj użytkownika o:
-1. Wymiary kuchni (długość × szerokość)
-2. Obecny układ (aneks, oddzielna kuchnia, z wyspą)
-3. Co najbardziej przeszkadza w obecnej kuchni?
-4. Czy są jakieś elementy do zachowania (np. okno, drzwi, instalacje)?
+Ask the user about:
+1. Kitchen dimensions (length x width)
+2. Current layout (open kitchen, separate room, with island)
+3. Main pain points in the current kitchen
+4. Elements that must stay (for example window, doors, installations)
 
-Jeśli użytkownik wgrał zdjęcie/rzut, przeanalizuj go i zadaj doprecyzowujące pytania.`,
-        description: "Opowiedz o obecnej kuchni i jej problemach.",
+If the user uploaded a photo/plan, analyze it and ask follow-up questions.`,
+        description: "Describe the current kitchen and key issues.",
         requiresUpload: false,
       },
       {
         id: "layout-planning",
-        name: "Planowanie Układu",
-        prompt: `Na podstawie zebranych informacji, zaproponuj optymalny układ kuchni:
+        name: "Layout Planning",
+        prompt: `Based on collected information, propose an optimal kitchen layout:
 
-1. **Trójkąt roboczy**: Zaproponuj rozmieszczenie lodówki, zlewu i kuchenki
-2. **Strefa przechowywania**: Gdzie umieścić szafki górne i dolne
-3. **Blat roboczy**: Ile powierzchni roboczej będzie dostępne
-4. **AGD**: Gdzie zmieszczą się duże sprzęty (zmywarka, piekarnik, mikrofalówka)
+1. **Work Triangle**: Place refrigerator, sink, and cooktop
+2. **Storage Zone**: Position upper and lower cabinets
+3. **Counter Space**: Estimate usable prep surface
+4. **Appliances**: Place large appliances (dishwasher, oven, microwave)
 
-Stwórz notatkę z proponowanym układem.`,
-        description: "Zaplanuj nowy układ kuchni.",
+Create a note with the proposed layout.`,
+        description: "Plan the new kitchen layout.",
         enabledTools: ["create_note"],
       },
       {
         id: "style-selection",
-        name: "Wybór Stylu",
-        prompt: `Pomóż użytkownikowi wybrać styl wykończenia kuchni:
+        name: "Style Selection",
+        prompt: `Help the user choose kitchen finishes and style:
 
-1. **Fronty szafek**: 
-   - Nowoczesne (gładkie, matowe/połysk)
-   - Klasyczne (ramkowe, frezowane)
-   - Skandynawskie (drewno, biel)
+1. **Cabinet Fronts**:
+   - Modern (flat, matte/gloss)
+   - Classic (framed, profiled)
+   - Scandinavian (wood, white)
 
-2. **Blat**:
-   - Laminat (ekonomiczny)
-   - Konglomerat kwarcowy (trwały)
-   - Drewno (naturalne, wymaga pielęgnacji)
-   - Kamień naturalny (premium)
+2. **Countertop**:
+   - Laminate (budget)
+   - Quartz composite (durable)
+   - Wood (natural, high maintenance)
+   - Natural stone (premium)
 
-3. **Płytki/ściana nad blatem**:
-   - Klasyczne kafelki
-   - Szkło hartowane
-   - Panel ścienny
+3. **Backsplash / Wall Above Counter**:
+   - Classic tiles
+   - Tempered glass
+   - Wall panel
 
-Zapisz wybory użytkownika jako notatkę ze specyfikacją.`,
-        description: "Wybierz styl i materiały wykończeniowe.",
+Save the selected options as a note/spec.`,
+        description: "Choose style and finishing materials.",
         enabledTools: ["create_note"],
       },
       {
         id: "appliances",
-        name: "Sprzęt AGD",
-        prompt: `Przygotuj listę sprzętów AGD do kuchni:
+        name: "Kitchen Appliances",
+        prompt: `Prepare a kitchen appliance list:
 
-1. **Niezbędne**:
-   - Płyta grzewcza (indukcja/gaz/elektryczna)
-   - Piekarnik (do zabudowy/wolnostojący)
-   - Okap (teleskopowy/wyspowy/do zabudowy)
-   - Lodówka (do zabudowy/wolnostojąca)
-   - Zmywarka
+1. **Essential**:
+   - Cooktop (induction/gas/electric)
+   - Oven (built-in/freestanding)
+   - Hood (telescopic/island/built-in)
+   - Refrigerator (built-in/freestanding)
+   - Dishwasher
 
-2. **Opcjonalne**:
-   - Mikrofalówka
-   - Ekspres do kawy
-   - Robot kuchenny
+2. **Optional**:
+   - Microwave
+   - Coffee machine
+   - Food processor
 
-Dodaj wybrane sprzęty do listy zakupów z orientacyjnymi cenami.`,
-        description: "Zaplanuj sprzęty AGD.",
+Add selected appliances to the shopping list with estimated prices.`,
+        description: "Plan kitchen appliance requirements.",
         enabledTools: ["create_shopping_item", "create_multiple_shopping_items", "create_shopping_section"],
       },
       {
         id: "materials-budget",
-        name: "Materiały i Budżet",
-        prompt: `Przygotuj kompletną listę materiałów i oszacuj budżet:
+        name: "Materials and Budget",
+        prompt: `Prepare a complete material list and estimate the budget:
 
-1. **Meble kuchenne** (szafki, fronty, uchwyty)
-2. **Blaty**
-3. **Zlew i bateria**
-4. **Oświetlenie** (główne + podszafkowe)
-5. **Płytki/panele ścienne**
-6. **Farba/tapeta** (jeśli dotyczy)
-7. **Materiały instalacyjne** (elektryka, hydraulika)
+1. **Kitchen furniture** (cabinets, fronts, handles)
+2. **Countertops**
+3. **Sink and faucet**
+4. **Lighting** (main + under-cabinet)
+5. **Tiles / wall panels**
+6. **Paint / wallpaper** (if applicable)
+7. **Installation materials** (electrical, plumbing)
 
-Dla każdej kategorii podaj szacunkowy koszt i dodaj do listy zakupów.
-Na koniec podsumuj całkowity budżet.`,
-        description: "Stwórz kompletną listę zakupów z budżetem.",
+For each category, provide an estimated cost and add it to the shopping list.
+Finish with a total budget summary.`,
+        description: "Create a full shopping list with budget estimates.",
         enabledTools: ["create_shopping_item", "create_multiple_shopping_items", "create_shopping_section"],
       },
       {
         id: "tasks-schedule",
-        name: "Zadania i Harmonogram",
-        prompt: `Stwórz listę zadań remontowych dla kuchni w odpowiedniej kolejności:
+        name: "Tasks and Schedule",
+        prompt: `Create a kitchen renovation task list in the correct sequence:
 
-1. **Przygotowanie** (1-2 dni):
-   - Demontaż starych mebli
-   - Zabezpieczenie podłóg i innych pomieszczeń
+1. **Preparation** (1-2 days):
+   - Remove old furniture
+   - Protect floors and neighboring rooms
 
-2. **Instalacje** (3-5 dni):
-   - Prace elektryczne (nowe punkty, oświetlenie)
-   - Prace hydrauliczne (przesunięcia, nowe przyłącza)
+2. **Installations** (3-5 days):
+   - Electrical work (new points, lighting)
+   - Plumbing work (relocations, new connections)
 
-3. **Wykończenie ścian** (2-3 dni):
-   - Gładzie/tynki
-   - Malowanie/kafelkowanie
+3. **Wall Finishes** (2-3 days):
+   - Surface prep/plastering
+   - Painting/tiling
 
-4. **Montaż mebli** (1-2 dni):
-   - Szafki dolne i górne
-   - Blaty
+4. **Furniture Installation** (1-2 days):
+   - Lower and upper cabinets
+   - Countertops
 
-5. **AGD i wykończenie** (1-2 dni):
-   - Podłączenie sprzętów
-   - Montaż oświetlenia
-   - Sprzątanie
+5. **Appliances and Finishing** (1-2 days):
+   - Appliance hookups
+   - Lighting installation
+   - Cleanup
 
-Utwórz zadania z przypisanymi datami.`,
-        description: "Zaplanuj prace i harmonogram.",
+Create tasks with assigned dates.`,
+        description: "Plan execution tasks and timeline.",
         enabledTools: ["create_task", "create_multiple_tasks"],
       },
     ],
-    content: `# Remont Kuchni
+    content: `# Kitchen Renovation
 
-Kompleksowy przewodnik który przeprowadzi Cię przez cały proces planowania remontu kuchni.`,
+A complete guide that walks you through the full kitchen renovation planning process.`,
   },
   {
     id: "bathroom-renovation",
-    name: "Remont Łazienki",
-    description: "Od demontażu do wykończenia - zaplanuj remont łazienki krok po kroku.",
+    name: "Bathroom Renovation",
+    description: "From demolition to finishing, plan a bathroom renovation step by step.",
     icon: "bathroom" as WorkflowIcon,
     category: "renovation",
     requiredFileTypes: ["image", "pdf"] as WorkflowFileType[],
@@ -272,169 +272,169 @@ Kompleksowy przewodnik który przeprowadzi Cię przez cały proces planowania re
     steps: [
       {
         id: "assessment",
-        name: "Ocena Stanu",
-        prompt: `Rozpocznijmy planowanie remontu łazienki. Zbierzmy informacje:
+        name: "Current Assessment",
+        prompt: `Let's start bathroom renovation planning. Gather the following details:
 
-1. **Wymiary**: Podaj wymiary łazienki (długość × szerokość × wysokość)
-2. **Obecne wyposażenie**: Co jest teraz? (wanna/prysznic, WC, umywalka, pralka?)
-3. **Instalacje**: Czy wiesz gdzie są piony kanalizacyjne i wodne?
-4. **Stan techniczny**: Czy są jakieś problemy (wilgoć, pleśń, przecieki)?
-5. **Co zostaje?**: Czy cokolwiek z obecnego wyposażenia zostaje?
+1. **Dimensions**: Bathroom size (length x width x height)
+2. **Current Fixtures**: What is there now? (bathtub/shower, toilet, sink, washer)
+3. **Installations**: Do you know where water and drain risers are?
+4. **Technical Condition**: Any issues (moisture, mold, leaks)?
+5. **What Stays**: Will any existing fixtures remain?
 
-Jeśli wgrałeś zdjęcie lub rzut, przeanalizuję je i zadam dodatkowe pytania.`,
-        description: "Opowiedz o obecnej łazience.",
+If a photo or floor plan is uploaded, analyze it and ask follow-up questions.`,
+        description: "Describe the current bathroom condition.",
         requiresUpload: false,
       },
       {
         id: "layout",
-        name: "Nowy Układ",
-        prompt: `Na podstawie informacji zaproponuję układ łazienki:
+        name: "New Layout",
+        prompt: `Based on the information, propose a bathroom layout:
 
-1. **Strefa kąpielowa**: 
-   - Wanna (klasyczna, narożna, wolnostojąca)
-   - Kabina prysznicowa (walk-in, z brodzikiem, bez brodzika)
-   - Kombinacja wanna + prysznic
+1. **Bathing Zone**:
+   - Bathtub (classic, corner, freestanding)
+   - Shower cabin (walk-in, tray, no tray)
+   - Bathtub + shower combo
 
-2. **Strefa WC**:
-   - WC kompakt czy podwieszane?
-   - Czy potrzebny bidet lub deska myjąca?
+2. **Toilet Zone**:
+   - Floor-mounted or wall-hung toilet?
+   - Is a bidet or bidet seat needed?
 
-3. **Strefa umywalkowa**:
-   - Jedna czy dwie umywalki?
-   - Szafka pod umywalkę
-   - Lustro (zwykłe czy z oświetleniem?)
+3. **Sink Zone**:
+   - One sink or two?
+   - Vanity cabinet
+   - Mirror (regular or illuminated)
 
-4. **Dodatkowe**:
-   - Pralka (w łazience czy osobno?)
-   - Grzejnik (drabinkowy?)
-   - Przechowywanie
+4. **Additional Elements**:
+   - Washing machine (inside bathroom or separate)
+   - Radiator (ladder type?)
+   - Storage
 
-Stworzę notatkę z proponowanym układem.`,
-        description: "Zaplanuj nowy układ łazienki.",
+Create a note with the proposed layout.`,
+        description: "Plan the new bathroom layout.",
         enabledTools: ["create_note"],
       },
       {
         id: "finishes",
-        name: "Wykończenia",
-        prompt: `Wybierzmy materiały wykończeniowe:
+        name: "Finishes",
+        prompt: `Select finishing materials:
 
-1. **Płytki podłogowe**:
-   - Rozmiar (30x30, 60x60, inne)
-   - Typ (gres, terakota)
-   - Styl (imitacja drewna, kamienia, jednolite)
+1. **Floor Tiles**:
+   - Size (30x30, 60x60, other)
+   - Type (porcelain, terracotta)
+   - Style (wood-look, stone-look, solid color)
 
-2. **Płytki ścienne**:
-   - Do jakiej wysokości kafelki? (do sufitu, 2m, półścianka)
-   - Mozaika jako akcent?
+2. **Wall Tiles**:
+   - Tile height (full-height, 2m, half wall)
+   - Accent mosaic?
 
-3. **Sufit**:
-   - Malowanie
-   - Panele PCV
-   - Sufit podwieszany
+3. **Ceiling**:
+   - Paint
+   - PVC panels
+   - Suspended ceiling
 
-4. **Kolorystyka**:
-   - Jasna/minimalistyczna
-   - Ciemna/dramatyczna  
-   - Ciepła/naturalna
+4. **Color Palette**:
+   - Bright/minimal
+   - Dark/dramatic
+   - Warm/natural
 
-Zapiszę specyfikację wykończeń.`,
-        description: "Wybierz płytki i wykończenia.",
+Save the finishing specification as a note.`,
+        description: "Choose tiles and finishing details.",
         enabledTools: ["create_note"],
       },
       {
         id: "fixtures",
-        name: "Armatura i Ceramika",
-        prompt: `Przygotujmy listę armatury i ceramiki:
+        name: "Fixtures and Ceramics",
+        prompt: `Prepare a fixtures and ceramics list:
 
-**Ceramika**:
-- WC (marka, model, cena orientacyjna)
-- Umywalka/umywalki
-- Wanna lub brodzik
+**Ceramics**:
+- Toilet (brand, model, estimated price)
+- Sink/sinks
+- Bathtub or shower base
 
-**Armatura**:
-- Bateria umywalkowa
-- Bateria wannowa/prysznicowa
-- Deszczownica / słuchawka
-- Odpływy
+**Fixtures**:
+- Sink faucet
+- Bathtub/shower faucet
+- Rain shower / hand shower
+- Drains
 
-**Dodatki**:
-- Lustro
-- Szafka łazienkowa
-- Akcesoria (wieszaki, mydelniczki, uchwyt na papier)
+**Accessories**:
+- Mirror
+- Bathroom cabinet
+- Accessories (hooks, soap dish, toilet paper holder)
 
-Dodam wszystko do listy zakupów z podziałem na kategorie.`,
-        description: "Wybierz armaturę i ceramikę sanitarną.",
+Add everything to the shopping list by category.`,
+        description: "Select fixtures and sanitary ceramics.",
         enabledTools: ["create_shopping_item", "create_multiple_shopping_items", "create_shopping_section"],
       },
       {
         id: "materials",
-        name: "Materiały Budowlane",
-        prompt: `Lista materiałów budowlanych potrzebnych do remontu:
+        name: "Construction Materials",
+        prompt: `List the construction materials needed for the renovation:
 
-**Przygotowanie podłoża**:
-- Klej do płytek (ile kg na m²)
-- Fuga (kolor, ilość)
-- Hydroizolacja (pod prysznic/wannę)
-- Zaprawa wyrównująca (jeśli potrzebna)
+**Substrate Preparation**:
+- Tile adhesive (kg per m2)
+- Grout (color, quantity)
+- Waterproofing (shower/bathtub zones)
+- Leveling compound (if needed)
 
-**Instalacje**:
-- Rury (PEX/PP do wody)
-- Kanalizacja (rury, kolanka, redukcje)
-- Stelaż WC (jeśli podwieszany)
-- Przewody elektryczne (przekrój)
+**Installations**:
+- Pipes (PEX/PP for water)
+- Drainage (pipes, elbows, reducers)
+- Toilet frame system (if wall-hung)
+- Electrical wires (gauge)
 
-**Wykończenie**:
-- Silikon sanitarny
-- Listwy/profile
-- Farba (jeśli sufit malowany)
+**Finishing**:
+- Sanitary silicone
+- Profiles/trims
+- Paint (if ceiling is painted)
 
-Obliczę ilości na podstawie wymiarów i dodam do listy zakupów.`,
-        description: "Lista materiałów budowlanych.",
+Estimate quantities from dimensions and add items to the shopping list.`,
+        description: "Construction material list.",
         enabledTools: ["create_shopping_item", "create_multiple_shopping_items"],
       },
       {
         id: "execution-plan",
-        name: "Plan Wykonania",
-        prompt: `Stwórzmy szczegółowy harmonogram prac:
+        name: "Execution Plan",
+        prompt: `Create a detailed execution schedule:
 
-**Etap 1: Demontaż** (1-2 dni)
-- Demontaż starej ceramiki
-- Skucie płytek
-- Wywóz gruzu
+**Phase 1: Demolition** (1-2 days)
+- Remove old ceramics
+- Remove old tiles
+- Debris disposal
 
-**Etap 2: Instalacje** (2-4 dni)
-- Hydraulika (nowe punkty wodne i kanalizacyjne)
-- Elektryka (oświetlenie, wentylator, gniazdka)
-- Montaż stelaża WC
+**Phase 2: Installations** (2-4 days)
+- Plumbing (new water and drain points)
+- Electrical (lighting, fan, sockets)
+- Install toilet frame system
 
-**Etap 3: Hydroizolacja i tynki** (2-3 dni)
-- Wyrównanie ścian
-- Hydroizolacja strefy mokrej
-- Schnięcie
+**Phase 3: Waterproofing and Plaster** (2-3 days)
+- Wall leveling
+- Waterproofing in wet zones
+- Drying time
 
-**Etap 4: Płytki** (3-5 dni)
-- Układanie płytek ściennych
-- Układanie płytek podłogowych
-- Fugowanie
+**Phase 4: Tiling** (3-5 days)
+- Wall tile installation
+- Floor tile installation
+- Grouting
 
-**Etap 5: Montaż i wykończenie** (2-3 dni)
-- Biały montaż (ceramika, armatura)
-- Montaż mebli i akcesoriów
-- Sprzątanie i odbiór
+**Phase 5: Installation and Finish** (2-3 days)
+- Final fixture installation (ceramics, fittings)
+- Furniture and accessories installation
+- Cleanup and handover
 
-Stworzę zadania z terminami.`,
-        description: "Harmonogram prac remontowych.",
+Create tasks with timeline dates.`,
+        description: "Bathroom renovation schedule.",
         enabledTools: ["create_task", "create_multiple_tasks"],
       },
     ],
-    content: `# Remont Łazienki
+    content: `# Bathroom Renovation
 
-Kompleksowy kreator który pomoże Ci zaplanować remont łazienki od A do Z.`,
+A complete assistant to plan your bathroom renovation from start to finish.`,
   },
   {
     id: "visualization-review",
-    name: "Przegląd Wizualizacji",
-    description: "Przeanalizuj wizualizację wnętrza, zbierz feedback i stwórz listę zakupów na podstawie projektu.",
+    name: "Visualization Review",
+    description: "Analyze an interior visualization, collect feedback, and build a shopping list from the design.",
     icon: "visualization" as WorkflowIcon,
     category: "design",
     requiredFileTypes: ["image", "pdf"] as WorkflowFileType[],
@@ -443,118 +443,118 @@ Kompleksowy kreator który pomoże Ci zaplanować remont łazienki od A do Z.`,
     steps: [
       {
         id: "upload",
-        name: "Wgraj Wizualizację",
+        name: "Upload Visualization",
         prompt: null,
         requiresUpload: true,
-        description: "Wgraj wizualizację 3D lub projekt wnętrza (obraz lub PDF).",
+        description: "Upload a 3D visualization or interior design file (image or PDF).",
       },
       {
         id: "analysis",
-        name: "Analiza Wizualizacji",
-        prompt: `Przeanalizuj wgraną wizualizację wnętrza:
+        name: "Visualization Analysis",
+        prompt: `Analyze the uploaded interior visualization:
 
-1. **Pomieszczenie**: Jakiego typu jest to wnętrze? (salon, sypialnia, kuchnia, etc.)
+1. **Room Type**: What kind of room is this? (living room, bedroom, kitchen, etc.)
 
-2. **Styl**: Określ styl wnętrza:
-   - Nowoczesny / Minimalistyczny
-   - Skandynawski
-   - Industrialny
-   - Klasyczny / Hampton
-   - Boho / Eklektyczny
-   - Inny
+2. **Style**: Identify the interior style:
+   - Modern / Minimalist
+   - Scandinavian
+   - Industrial
+   - Classic / Hampton
+   - Boho / Eclectic
+   - Other
 
-3. **Kolorystyka**: Opisz paletę kolorów:
-   - Kolory dominujące
-   - Akcenty kolorystyczne
-   - Materiały i tekstury
+3. **Color Palette**: Describe the colors:
+   - Dominant colors
+   - Accent colors
+   - Materials and textures
 
-4. **Główne elementy**: Wymień widoczne elementy wyposażenia:
-   - Meble
-   - Oświetlenie
-   - Dodatki dekoracyjne
-   - Rośliny
+4. **Main Elements**: List visible furnishing elements:
+   - Furniture
+   - Lighting
+   - Decorative accessories
+   - Plants
 
-Przedstaw analizę w czytelnej formie.`,
-        description: "AI przeanalizuje wizualizację i zidentyfikuje elementy.",
+Present the analysis clearly.`,
+        description: "AI will analyze the visualization and identify key elements.",
         enabledTools: ["create_note"],
       },
       {
         id: "feedback",
-        name: "Feedback i Uwagi",
-        prompt: `Pomóż zebrać feedback do wizualizacji:
+        name: "Feedback and Notes",
+        prompt: `Help gather feedback for the visualization:
 
-1. **Co się podoba?** - Zapytaj użytkownika jakie elementy projektu są trafione
+1. **What works well?** Ask which design elements are successful
 
-2. **Co zmienić?** - Jakie elementy wymagają poprawy lub zmiany:
-   - Układ mebli
-   - Kolorystyka
-   - Oświetlenie
-   - Konkretne meble/dodatki
+2. **What should change?** Identify what needs adjustment:
+   - Furniture layout
+   - Color palette
+   - Lighting
+   - Specific furniture/accessories
 
-3. **Pytania do projektanta**: Sformułuj pytania/uwagi do przekazania projektantowi
+3. **Questions for the designer**: Formulate notes/questions to pass on
 
-Stwórz notatkę z feedbackiem do projektu.`,
-        description: "Zbierz uwagi i sugestie zmian.",
+Create a project note with this feedback.`,
+        description: "Collect comments and improvement suggestions.",
         enabledTools: ["create_note"],
       },
       {
         id: "shopping-list",
-        name: "Lista Zakupów",
-        prompt: `Na podstawie analizy wizualizacji, stwórz listę elementów do zakupu:
+        name: "Shopping List",
+        prompt: `Based on the visualization analysis, create a shopping list of items to buy:
 
-**Dla każdego widocznego elementu podaj:**
-- Nazwa / opis produktu
-- Kategoria (meble, oświetlenie, tekstylia, dekoracje)
-- Przybliżony zakres cenowy
-- Gdzie szukać (typ sklepu: IKEA, premium, vintage, etc.)
+**For each visible item, include:**
+- Product name / description
+- Category (furniture, lighting, textiles, decor)
+- Approximate price range
+- Where to look (store type: IKEA, premium, vintage, etc.)
 
-**Kategoryzuj elementy:**
-1. Meble główne (sofa, stół, łóżko)
-2. Meble pomocnicze (stoliki, regały, komody)
-3. Oświetlenie
-4. Tekstylia (dywany, zasłony, poduszki)
-5. Dekoracje i dodatki
-6. Rośliny
+**Group items by category:**
+1. Main furniture (sofa, table, bed)
+2. Supporting furniture (side tables, shelves, dressers)
+3. Lighting
+4. Textiles (rugs, curtains, pillows)
+5. Decor and accessories
+6. Plants
 
-Dodaj wszystkie elementy do listy zakupów z odpowiednimi sekcjami.`,
-        description: "Stwórz listę elementów wyposażenia do zakupu.",
+Add all items to the shopping list with proper sections.`,
+        description: "Create a list of furnishing items to purchase.",
         enabledTools: ["create_shopping_item", "create_multiple_shopping_items", "create_shopping_section"],
       },
       {
         id: "tasks",
-        name: "Zadania Realizacyjne",
-        prompt: `Stwórz listę zadań potrzebnych do zrealizowania wizualizacji:
+        name: "Execution Tasks",
+        prompt: `Create a task list needed to implement the visualization:
 
-1. **Przygotowanie**:
-   - Wymiarowanie pomieszczenia
-   - Zamówienie próbek materiałów
-   - Wizyta w showroomach
+1. **Preparation**:
+   - Measure the room
+   - Order material samples
+   - Visit showrooms
 
-2. **Zamówienia**:
-   - Meble z długim czasem realizacji (pierwsze!)
-   - Oświetlenie
-   - Tekstylia
-   - Dekoracje
+2. **Orders**:
+   - Long lead-time furniture (order first)
+   - Lighting
+   - Textiles
+   - Decor
 
-3. **Realizacja**:
-   - Ewentualne prace remontowe
-   - Malowanie
-   - Dostawa i montaż mebli
-   - Aranżacja dodatków
+3. **Implementation**:
+   - Any renovation work needed
+   - Painting
+   - Furniture delivery and assembly
+   - Final styling/accessory placement
 
-Utwórz zadania z proponowanymi terminami i kolejnością.`,
-        description: "Zaplanuj realizację projektu.",
+Create tasks with suggested order and dates.`,
+        description: "Plan project execution.",
         enabledTools: ["create_task", "create_multiple_tasks"],
       },
     ],
-    content: `# Przegląd Wizualizacji
+    content: `# Visualization Review
 
-Workflow do analizy wizualizacji wnętrza i przekształcenia projektu w konkretną listę zakupów i zadań.`,
+A workflow for turning an interior visualization into a concrete shopping and execution plan.`,
   },
   {
     id: "interior-renovation-management",
-    name: "Zarzadzanie Projektem Remontu Wnetrz",
-    description: "Planowanie, budzet, harmonogram i koordynacja remontu w jednym workflow.",
+    name: "Interior Renovation Project Management",
+    description: "Plan scope, budget, schedule, and contractor coordination in one workflow.",
     icon: "checklist" as WorkflowIcon,
     category: "planning",
     requiredFileTypes: ["image", "pdf", "document"] as WorkflowFileType[],
@@ -563,103 +563,103 @@ Workflow do analizy wizualizacji wnętrza i przekształcenia projektu w konkretn
     steps: [
       {
         id: "project-brief",
-        name: "Brief Projektu",
-        prompt: `Zbierz podstawowe informacje o projekcie remontu:
+        name: "Project Brief",
+        prompt: `Gather core information about the renovation project:
 
-1. Typ wnetrza (mieszkanie/dom/lokal) i lista pomieszczen
-2. Glowne cele (funkcjonalnosc, estetyka, sprzedaz, wynajem)
-3. Ograniczenia (mieszkanie w trakcie remontu, dzieci/zwierzeta, halas, dostep)
-4. Zakres budzetu (min/max) oraz priorytety wydatkow
-5. Termin startu i oczekiwany termin zakonczenia
-6. Inspiracje stylu (kolory, materialy, przyklady)
+1. Property type (apartment/house/commercial) and room list
+2. Main goals (functionality, aesthetics, resale, rental)
+3. Constraints (living during renovation, children/pets, noise, access)
+4. Budget range (min/max) and spending priorities
+5. Planned start date and target completion date
+6. Style inspirations (colors, materials, examples)
 
-Zapisz brief jako notatke. Jesli uzytkownik ma rzut/zdjecia/umowy, popros o upload.`,
-        description: "Ustal cele, zakres i ograniczenia projektu.",
+Save the brief as a note. If the user has plans/photos/contracts, ask for upload.`,
+        description: "Define project goals, scope, and constraints.",
         enabledTools: ["create_note"],
       },
       {
         id: "scope-structure",
-        name: "Zakres i Struktura Prac",
-        prompt: `Na podstawie briefu zdefiniuj zakres prac:
+        name: "Scope and Work Breakdown",
+        prompt: `Based on the brief, define scope of work:
 
-1. Podziel remont na pomieszczenia i branze (budowlane, elektryka, hydraulika, wykonczenie)
-2. Dla kazdej czesci zaproponuj liste konkretnych zadan
-3. Wskaz zaleznosci (np. instalacje przed wykonczeniem)
+1. Split renovation by rooms and disciplines (construction, electrical, plumbing, finishes)
+2. For each part, propose a list of concrete tasks
+3. Mark dependencies (for example installations before finishes)
 
-Utworz zadania dla kluczowych prac w odpowiedniej kolejnosci.`,
-        description: "Rozbij projekt na zadania i zaleznosci.",
+Create key tasks in a logical sequence.`,
+        description: "Break down the project into tasks and dependencies.",
         enabledTools: ["create_task", "create_multiple_tasks"],
       },
       {
         id: "budget-procurement",
-        name: "Budzet i Zakupy",
-        prompt: `Zbuduj wstepny plan budzetowy i zakupowy:
+        name: "Budget and Procurement",
+        prompt: `Build an initial budget and procurement plan:
 
-1. Podziel budzet na kategorie (materialy, robocizna, meble, AGD, rezerwa)
-2. Wskaz pozycje z dlugim czasem dostawy
-3. Zaproponuj priorytety zakupowe
+1. Split budget into categories (materials, labor, furniture, appliances, contingency)
+2. Identify long lead-time items
+3. Propose purchasing priorities
 
-Dodaj sekcje zakupowe i wstepne pozycje z orientacyjnymi kosztami.`,
-        description: "Ustal budzet i wstepna liste zakupow.",
+Add shopping sections and initial items with estimated costs.`,
+        description: "Define budget and initial shopping plan.",
         enabledTools: ["create_shopping_section", "create_multiple_shopping_items", "create_note"],
       },
       {
         id: "schedule-milestones",
-        name: "Harmonogram i Kamienie Milowe",
-        prompt: `Zaproponuj harmonogram prac:
+        name: "Schedule and Milestones",
+        prompt: `Propose a work schedule:
 
-1. Uporzadkuj zadania etapami (demontaz, instalacje, wykonczenie, montaz)
-2. Okresl czas trwania etapow i przerwy technologiczne
-3. Zdefiniuj kamienie milowe (np. zakonczenie instalacji, gotowosc pod montaz mebli)
+1. Organize tasks into phases (demolition, installations, finishing, assembly)
+2. Estimate phase durations and technical waiting times
+3. Define milestones (for example installation complete, ready for furniture installation)
 
-Zaktualizuj daty zadan zgodnie z harmonogramem.`,
-        description: "Ustal realny harmonogram i kamienie milowe.",
+Update task dates according to the schedule.`,
+        description: "Set a realistic schedule and milestones.",
         enabledTools: ["edit_task", "edit_multiple_tasks"],
       },
       {
         id: "team-contracts",
-        name: "Ekipa i Umowy",
-        prompt: `Zaplanuj kwestie wykonawcze:
+        name: "Team and Contracts",
+        prompt: `Plan contractor-related execution topics:
 
-1. Ktore prace DIY, a ktore dla wykonawcow?
-2. Ile ofert/wycen trzeba zebrac i od kogo?
-3. Jakie dokumenty/umowy sa potrzebne (zakres, terminy, gwarancje)?
-4. Czy wymagane sa zgody administracyjne lub projekt?
+1. Which work is DIY vs contractor-delivered?
+2. How many quotes should be collected, and from whom?
+3. Which documents/contracts are needed (scope, dates, warranties)?
+4. Are administrative approvals or design documents required?
 
-Dodaj zadania zwiazane z wyborami wykonawcow i dokumentami.`,
-        description: "Przygotuj plan wspolpracy z wykonawcami.",
+Add tasks related to contractor selection and documentation.`,
+        description: "Prepare contractor collaboration plan.",
         enabledTools: ["create_task", "create_multiple_tasks", "create_note"],
       },
       {
         id: "risk-quality",
-        name: "Ryzyka i Kontrola Jakosci",
-        prompt: `Zidentyfikuj ryzyka i plan kontroli:
+        name: "Risks and Quality Control",
+        prompt: `Identify project risks and a quality-control plan:
 
-1. Najwieksze ryzyka (opoznienia, przekroczenie budzetu, brak dostepnosci materialow)
-2. Jak im przeciwdzialac (rezerwa czasowa i finansowa, plan B)
-3. Punkty kontroli jakosci (odbior instalacji, wilgotnosc, poziomy)
-4. Lista odbioru koncowego (tzw. punch list)
+1. Top risks (delays, budget overruns, material availability)
+2. Mitigations (time/financial contingency, backup options)
+3. Quality checkpoints (installation checks, moisture, leveling)
+4. Final handover checklist (punch list)
 
-Utworz zadania dla kontroli jakosci i odbiorow.`,
-        description: "Zabezpiecz projekt i zaplanuj odbiory.",
+Create tasks for quality control and acceptance checks.`,
+        description: "Secure the project and plan acceptance checks.",
         enabledTools: ["create_task", "create_multiple_tasks", "create_note"],
       },
     ],
-    content: `# Zarzadzanie Projektem Remontu Wnetrz
+    content: `# Interior Renovation Project Management
 
-Ten workflow pomaga przejsc od briefu do harmonogramu i zarzadzania realizacja.
+This workflow helps move from project brief to execution schedule and delivery management.
 
-## Co otrzymasz?
-- Uporzadkowany zakres prac i liste zadan
-- Wstepny budzet i liste zakupow
-- Harmonogram z kamieniami milowymi
-- Plan wspolpracy z wykonawcami
-- Liste ryzyk i kontroli jakosci`,
+## What you get
+- Structured scope and task list
+- Initial budget and shopping list
+- Milestone-based schedule
+- Contractor collaboration plan
+- Risk and quality-control checklist`,
   },
   {
     id: "material-estimation",
-    name: "Wycena Materiałów",
-    description: "Oblicz ilości i koszty materiałów budowlanych na podstawie wymiarów pomieszczenia.",
+    name: "Material Estimation",
+    description: "Estimate required quantities and costs of construction materials based on room dimensions.",
     icon: "materials" as WorkflowIcon,
     category: "planning",
     requiredFileTypes: ["image", "pdf"] as WorkflowFileType[],
@@ -668,105 +668,105 @@ Ten workflow pomaga przejsc od briefu do harmonogramu i zarzadzania realizacja.
     steps: [
       {
         id: "dimensions",
-        name: "Wymiary Pomieszczenia",
-        prompt: `Zbierzmy informacje o pomieszczeniu do wyceny materiałów:
+        name: "Room Dimensions",
+        prompt: `Collect room details for material estimation:
 
-**Wymiary podstawowe:**
-1. Długość pomieszczenia (w metrach)
-2. Szerokość pomieszczenia (w metrach)  
-3. Wysokość pomieszczenia (standardowo 2.5m lub 2.7m)
+**Basic dimensions:**
+1. Room length (meters)
+2. Room width (meters)
+3. Room height (typically 2.5m or 2.7m)
 
-**Otwory:**
-4. Ile okien i jakie wymiary? (np. 1.5m × 1.2m)
-5. Ile drzwi i jakie wymiary? (standardowe 0.9m × 2m)
+**Openings:**
+4. Number and size of windows (for example 1.5m x 1.2m)
+5. Number and size of doors (standard 0.9m x 2m)
 
-**Dodatkowe:**
-6. Czy są jakieś wnęki, skosy lub nietypowe elementy?
+**Additional details:**
+6. Any alcoves, sloped ceilings, or unusual elements?
 
-Jeśli wgrałeś rzut/zdjęcie, przeanalizuję je i dopytam o szczegóły.`,
-        description: "Podaj wymiary pomieszczenia.",
+If a plan/photo is uploaded, analyze it and ask follow-up details.`,
+        description: "Provide room dimensions.",
         requiresUpload: false,
       },
       {
         id: "scope",
-        name: "Zakres Prac",
-        prompt: `Jakie prace planujesz? Zaznacz wszystkie które dotyczą:
+        name: "Work Scope",
+        prompt: `What kind of work are you planning? Select all that apply:
 
-**Ściany:**
-- [ ] Malowanie
-- [ ] Gładź/szpachlowanie
-- [ ] Tapetowanie
-- [ ] Płytki ceramiczne
-- [ ] Panele ścienne
+**Walls:**
+- [ ] Painting
+- [ ] Skim coat / plastering
+- [ ] Wallpaper
+- [ ] Ceramic tiles
+- [ ] Wall panels
 
-**Podłoga:**
-- [ ] Panele laminowane
-- [ ] Deska/parkiet
-- [ ] Płytki
-- [ ] Wykładzina
-- [ ] Wylewka samopoziomująca
+**Floor:**
+- [ ] Laminate flooring
+- [ ] Wood / parquet
+- [ ] Tiles
+- [ ] Carpet
+- [ ] Self-leveling screed
 
-**Sufit:**
-- [ ] Malowanie
-- [ ] Sufit podwieszany (karton-gips)
-- [ ] Panele sufitowe
+**Ceiling:**
+- [ ] Painting
+- [ ] Suspended ceiling (drywall)
+- [ ] Ceiling panels
 
-**Instalacje:**
-- [ ] Elektryka (ile punktów?)
-- [ ] Oświetlenie (ile źródeł?)
+**Installations:**
+- [ ] Electrical work (how many points?)
+- [ ] Lighting (how many fixtures?)
 
-Zapisz zakres prac jako notatkę.`,
-        description: "Określ jakie prace będą wykonywane.",
+Save scope as a note.`,
+        description: "Define what work will be performed.",
         enabledTools: ["create_note"],
       },
       {
         id: "calculations",
-        name: "Obliczenia Ilości",
-        prompt: `Na podstawie wymiarów i zakresu prac obliczę potrzebne ilości:
+        name: "Quantity Calculations",
+        prompt: `Based on dimensions and scope, calculate required quantities:
 
-**Wzory używane:**
-- Powierzchnia ścian = (2 × długość + 2 × szerokość) × wysokość - okna - drzwi
-- Powierzchnia podłogi = długość × szerokość
-- Powierzchnia sufitu = długość × szerokość
+**Formulas used:**
+- Wall area = (2 x length + 2 x width) x height - windows - doors
+- Floor area = length x width
+- Ceiling area = length x width
 
-**Dla materiałów:**
-- Farba: ~0.15L/m² (2 warstwy = 0.3L/m²)
-- Gładź: ~1.2kg/m² (grubość 2mm)
-- Klej do płytek: ~4kg/m²
-- Fuga: ~0.5kg/m² (dla płytek 30×30)
-- Panele: +10% na rozkrój
-- Płytki: +15% na rozkrój i zapas
+**Material assumptions:**
+- Paint: ~0.15L/m2 (2 coats = 0.3L/m2)
+- Skim coat: ~1.2kg/m2 (2mm thickness)
+- Tile adhesive: ~4kg/m2
+- Grout: ~0.5kg/m2 (for 30x30 tiles)
+- Panels: +10% cutting waste
+- Tiles: +15% cutting waste and spare
 
-Przedstawię szczegółowe obliczenia z ilościami.`,
-        description: "AI obliczy potrzebne ilości materiałów.",
+Present detailed calculations with quantities.`,
+        description: "AI will calculate required material quantities.",
         enabledTools: ["create_note"],
       },
       {
         id: "shopping-list",
-        name: "Lista Zakupów z Cenami",
-        prompt: `Stwórzmy listę zakupów z orientacyjnymi cenami:
+        name: "Priced Shopping List",
+        prompt: `Create a shopping list with estimated pricing:
 
-Dla każdego materiału podam:
-- Ilość z zapasem
-- Cenę jednostkową (zakres ekonomiczny/średni/premium)
-- Szacowany koszt całkowity
+For each material include:
+- Quantity with contingency
+- Unit price (budget/mid/premium range)
+- Estimated total cost
 
-**Kategorie:**
-1. Materiały podstawowe (farby, gładzie, kleje)
-2. Wykończenia (panele, płytki, listwy)
-3. Narzędzia i akcesoria (wałki, szpachle, taśmy)
-4. Instalacje (jeśli dotyczy)
+**Categories:**
+1. Core materials (paint, skim coat, adhesives)
+2. Finishes (panels, tiles, trims)
+3. Tools and accessories (rollers, trowels, tapes)
+4. Installations (if applicable)
 
-Na koniec podsumowanie całkowitego kosztu materiałów.
+End with a full material cost summary.
 
-Dodam wszystko do listy zakupów z podziałem na sekcje.`,
-        description: "Lista materiałów z cenami i kosztorys.",
+Add all items to the shopping list in sections.`,
+        description: "Material list with prices and estimate.",
         enabledTools: ["create_shopping_item", "create_multiple_shopping_items", "create_shopping_section"],
       },
     ],
-    content: `# Wycena Materiałów
+    content: `# Material Estimation
 
-Szybki kalkulator ilości i kosztów materiałów budowlanych.`,
+A quick calculator for construction material quantities and costs.`,
   },
 ];
 
@@ -841,5 +841,3 @@ export function workflowRequiresFile(workflowId: string): boolean {
 export function getWorkflowIds(): string[] {
   return WORKFLOWS.map((w) => w.id);
 }
-
-

@@ -10,7 +10,7 @@
  * See: https://docs.convex.dev/agents/streaming
  */
 
-import { components, internal } from "../_generated/api";
+import { components } from "../_generated/api";
 import { query, mutation, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
@@ -45,9 +45,10 @@ export const listStreamingMessages = query({
     // Handle legacy/custom thread IDs (e.g. "thread-123" or "thread_123")
     // Lookup the corresponding agent thread ID
     if (isLegacyThreadId(args.threadId)) {
-      const mapping = await ctx.runQuery(internal.ai.threads.getThreadForResponses, {
-        threadId: args.threadId
-      });
+      const mapping = await ctx.db
+        .query("aiThreads")
+        .withIndex("by_thread_id", (q) => q.eq("threadId", args.threadId))
+        .first();
       
       if (mapping && mapping.agentThreadId) {
         agentThreadId = mapping.agentThreadId;
@@ -142,9 +143,10 @@ export const getStreamDeltas = query({
 
     // Handle legacy thread IDs
     if (isLegacyThreadId(args.threadId)) {
-      const mapping = await ctx.runQuery(internal.ai.threads.getThreadForResponses, {
-        threadId: args.threadId
-      });
+      const mapping = await ctx.db
+        .query("aiThreads")
+        .withIndex("by_thread_id", (q) => q.eq("threadId", args.threadId))
+        .first();
       
       if (mapping && mapping.agentThreadId) {
         agentThreadId = mapping.agentThreadId;
@@ -204,9 +206,10 @@ export const getThreadInfo = query({
       };
     }
 
-    const mapping = await ctx.runQuery(internal.ai.threads.getThreadForResponses, {
-      threadId: args.threadId
-    });
+    const mapping = await ctx.db
+      .query("aiThreads")
+      .withIndex("by_thread_id", (q) => q.eq("threadId", args.threadId))
+      .first();
 
     return {
       exists: !!mapping,
@@ -232,9 +235,10 @@ export const listMessagesForUI = query({
 
     // Handle legacy/custom thread IDs
     if (isLegacyThreadId(args.threadId)) {
-      const mapping = await ctx.runQuery(internal.ai.threads.getThreadForResponses, {
-        threadId: args.threadId
-      });
+      const mapping = await ctx.db
+        .query("aiThreads")
+        .withIndex("by_thread_id", (q) => q.eq("threadId", args.threadId))
+        .first();
       
       if (mapping && mapping.agentThreadId) {
         agentThreadId = mapping.agentThreadId;
@@ -355,11 +359,6 @@ export const listThreadMessages = query({
         // Keep emptyStreams on error
       }
     }
-
-    // Anti-flickering: If we have finished streams but empty page,
-    // keep the stream messages visible until persisted messages load
-    const hasFinishedStreams = streams && 'messages' in streams && streams.messages.length > 0;
-    const hasPersistedMessages = paginated.page && paginated.page.length > 0;
 
     return {
       ...paginated,
@@ -493,14 +492,23 @@ export const initiateStreaming = mutation({
             ? threadTitle
             : undefined;
 
-        await ctx.runMutation(internal.ai.threads.updateThreadSummary, {
-          threadId: assuredThreadId,
+        const threadUpdates: {
+          lastMessageAt: number;
+          lastMessagePreview: string;
+          lastMessageRole: "user";
+          messageCount: number;
+          title?: string;
+        } = {
           lastMessageAt: Date.now(),
           lastMessagePreview: args.prompt,
           lastMessageRole: "user",
-          messageCountDelta: 1,
-          title: titlePatch,
-        });
+          messageCount: Math.max(0, (existingThread.messageCount ?? 0) + 1),
+        };
+        if (titlePatch !== undefined) {
+          threadUpdates.title = titlePatch;
+        }
+
+        await ctx.db.patch(existingThread._id, threadUpdates);
       }
     }
 
@@ -514,8 +522,11 @@ export const initiateStreaming = mutation({
       promptLength: args.prompt.length,
     });
 
+    // Use string function reference to avoid deep TS instantiation on generated API types.
+    const internalDoStreaming = "ai/streaming:internalDoStreaming" as any;
+
     // Schedule the streaming action to run in the background
-    await ctx.scheduler.runAfter(0, internal.ai.streaming.internalDoStreaming, {
+    await ctx.scheduler.runAfter(0, internalDoStreaming, {
       message: args.prompt,
       projectId: args.projectId,
       userClerkId,
@@ -551,19 +562,42 @@ export const abortStreamByOrder = internalMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     console.log(`🛑 Abort requested for thread ${args.threadId}, order ${args.order}`);
-    
+
     // Mark the thread as having an abort request
     const thread = await ctx.db
       .query("aiThreads")
       .withIndex("by_thread_id", (q) => q.eq("threadId", args.threadId))
       .unique();
-    
+
+    const resolvedAgentThreadId = thread?.agentThreadId
+      ? thread.agentThreadId
+      : thread?.threadId && !isLegacyThreadId(thread.threadId)
+        ? thread.threadId
+        : undefined;
+
+    if (resolvedAgentThreadId) {
+      try {
+        await ctx.runMutation(components.agent.streams.abortByOrder, {
+          threadId: resolvedAgentThreadId,
+          order: args.order,
+          reason: "user_stop",
+        });
+      } catch (error) {
+        console.error("❌ Failed to abort stream by order:", {
+          threadId: args.threadId,
+          agentThreadId: resolvedAgentThreadId,
+          order: args.order,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
     if (thread) {
       await ctx.db.patch(thread._id, {
         abortedAt: Date.now(),
       });
     }
-    
+
     return null;
   },
 });
@@ -571,8 +605,8 @@ export const abortStreamByOrder = internalMutation({
 /**
  * Public mutation to abort a streaming response
  * 
- * Note: This doesn't actually stop the running action (not possible in Convex).
- * It marks the stream as aborted so the UI can stop displaying updates.
+ * This aborts active Convex Agent streams for the thread so the UI
+ * receives "aborted" status and stops rendering new deltas.
  */
 export const abortStream = mutation({
   args: {
@@ -600,16 +634,66 @@ export const abortStream = mutation({
     }
 
     console.log(`🛑 User requested abort for thread ${args.threadId}`);
-    
-    // Mark the thread as aborted
-    // The UI will see this and stop showing streaming updates
+
+    const resolvedAgentThreadId = thread.agentThreadId
+      ? thread.agentThreadId
+      : !isLegacyThreadId(thread.threadId)
+        ? thread.threadId
+        : undefined;
+
+    let abortedStreams = 0;
+
+    if (resolvedAgentThreadId) {
+      try {
+        const activeStreams = await ctx.runQuery(components.agent.streams.list, {
+          threadId: resolvedAgentThreadId,
+          statuses: ["streaming"],
+        });
+
+        const candidateOrders =
+          args.order !== undefined
+            ? [args.order]
+            : activeStreams.map((stream) => stream.order);
+
+        for (const order of candidateOrders) {
+          try {
+            const didAbort = await ctx.runMutation(components.agent.streams.abortByOrder, {
+              threadId: resolvedAgentThreadId,
+              order,
+              reason: "user_stop",
+            });
+            if (didAbort) {
+              abortedStreams += 1;
+            }
+          } catch (error) {
+            console.error("❌ Failed to abort active stream:", {
+              threadId: args.threadId,
+              agentThreadId: resolvedAgentThreadId,
+              order,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
+        }
+      } catch (error) {
+        console.error("❌ Failed to list active streams for abort:", {
+          threadId: args.threadId,
+          agentThreadId: resolvedAgentThreadId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    // Keep local metadata for troubleshooting/history.
     await ctx.db.patch(thread._id, {
       abortedAt: Date.now(),
     });
-    
-    return { 
-      success: true, 
-      message: "Response stopped. The AI may still complete in the background but results will be ignored." 
+
+    return {
+      success: true,
+      message:
+        abortedStreams > 0
+          ? `Response stopped (${abortedStreams} stream${abortedStreams === 1 ? "" : "s"} aborted).`
+          : "Stop requested. No active stream was found to abort.",
     };
   },
 });

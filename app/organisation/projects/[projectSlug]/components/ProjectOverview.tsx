@@ -1,18 +1,16 @@
 "use client";
 
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import { useProject } from "@/components/providers/ProjectProvider";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Calendar, TrendingUp, MapPin, DollarSign, Building2, User, Target, History, ChevronDown, Hammer } from "lucide-react";
 import { Suspense, useState } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ProjectChangelog } from "./ProjectChangelog";
 import { calculateShoppingTotal } from "@/lib/shoppingAlternatives";
-import { toast } from "sonner";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 
 function ProjectOverviewSkeleton() {
@@ -20,10 +18,8 @@ function ProjectOverviewSkeleton() {
 }
 
 function ProjectOverviewContent() {
-  const { project, permissions } = useProject();
+  const { project } = useProject();
   const [isChangelogOpen, setChangelogOpen] = useState(false);
-  const [isAcceptingPortal, setIsAcceptingPortal] = useState(false);
-  const acceptLatestClientPortal = useMutation(apiAny.projects.acceptLatestClientPortal);
 
   const hasAccess = useQuery(apiAny.projects.checkUserProjectAccess, {
     projectId: project._id,
@@ -68,25 +64,6 @@ function ProjectOverviewContent() {
     done: "border-indigo-200 bg-indigo-50 text-indigo-700",
     cancelled: "border-rose-200 bg-rose-50 text-rose-700",
   };
-  const portalState = permissions?.portal;
-  const isCustomerView = Boolean(permissions?.isCustomer);
-
-  const handleAcceptPortalUpdate = async () => {
-    setIsAcceptingPortal(true);
-    try {
-      const result = await acceptLatestClientPortal({ projectId: project._id });
-      toast.success("Portal update accepted", {
-        description: `Accepted portal version #${result.version}.`,
-      });
-    } catch (error) {
-      toast.error("Failed to accept portal update", {
-        description: (error as Error).message || "Try again.",
-      });
-    } finally {
-      setIsAcceptingPortal(false);
-    }
-  };
-
   return (
     <ProjectPageLayout>
       <div className="space-y-7">
@@ -166,39 +143,6 @@ function ProjectOverviewContent() {
               </Badge>
             </CardContent>
           </Card>
-
-          {/* Client Portal */}
-          {isCustomerView && (
-            <Card className="bg-card/90">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Client Portal</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {portalState?.version ? (
-                  <>
-                    <p className="text-sm text-muted-foreground">
-                      Latest version: <span className="font-semibold text-foreground">#{portalState.version}</span>
-                    </p>
-                    {portalState.hasPendingUpdate ? (
-                      <Button
-                        size="sm"
-                        onClick={handleAcceptPortalUpdate}
-                        disabled={isAcceptingPortal}
-                      >
-                        {isAcceptingPortal ? "Accepting..." : "Accept latest update"}
-                      </Button>
-                    ) : (
-                      <Badge variant="outline">Accepted</Badge>
-                    )}
-                  </>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No published portal updates yet.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          )}
 
           {/* Client */}
           {project.customer && (

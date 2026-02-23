@@ -11,32 +11,7 @@ import { useOrganization } from "@clerk/nextjs";
 interface ProjectContextType {
   project: Doc<"projects">;
   team: Doc<"teams"> | null;
-  permissions: {
-    permissions?: {
-      overview?: { visible: boolean };
-      tasks?: { visible: boolean };
-      moodboard?: { visible: boolean };
-      notes?: { visible: boolean };
-      contacts?: { visible: boolean };
-      surveys?: { visible: boolean };
-      calendar?: { visible: boolean };
-      gantt?: { visible: boolean };
-      files?: { visible: boolean };
-      shopping_list?: { visible: boolean };
-      labor?: { visible: boolean };
-      estimations?: { visible: boolean };
-      settings?: { visible: boolean };
-    };
-    userRole?: "admin" | "member" | "customer";
-    isCustomer?: boolean;
-    portal?: {
-      version: number;
-      publishedAt: number | null;
-      acceptedVersion: number;
-      acceptedAt: number | null;
-      hasPendingUpdate: boolean;
-    };
-  } | null;
+  teamMember: Doc<"teamMembers"> | null;
   isLoading: boolean;
 }
 
@@ -71,16 +46,16 @@ export function ProjectProvider({ children }: {
     project ? { teamId: project.teamId } : "skip"
   );
   
-  const permissions = useQuery(apiAny.projects.getProjectSidebarPermissions, 
-    project ? { projectId: project._id } : "skip"
+  const teamMember = useQuery(apiAny.teams.getCurrentUserTeamMember,
+    project ? { teamId: project.teamId } : "skip"
   );
 
-  const isLoading = !project || !team || !permissions;
+  const isLoading = !project || !team || teamMember === undefined;
 
   const value: ProjectContextType = {
     project: project!,
     team: team || null,
-    permissions: permissions || null,
+    teamMember: teamMember || null,
     isLoading,
   };
 

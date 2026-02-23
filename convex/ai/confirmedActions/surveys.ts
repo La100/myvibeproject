@@ -95,6 +95,7 @@ export const createConfirmedSurvey = action({
 
 export const editConfirmedSurvey = action({
   args: {
+    projectId: v.optional(v.id("projects")),
     surveyId: v.id("surveys"),
     updates: v.object({
       title: v.optional(v.string()),
@@ -138,7 +139,11 @@ export const editConfirmedSurvey = action({
         throw new Error("Survey not found");
       }
 
-      await ensureProjectAccess(ctx, survey.projectId, true);
+      if (args.projectId && survey.projectId !== args.projectId) {
+        throw new Error("Survey does not belong to the active project");
+      }
+
+      await ensureProjectAccess(ctx, args.projectId ?? survey.projectId, true);
 
       let startDateNumber: number | undefined;
       let endDateNumber: number | undefined;
@@ -270,8 +275,6 @@ export const deleteConfirmedSurvey = action({
     }
   },
 });
-
-
 
 
 

@@ -59,7 +59,6 @@ export default function CompanySettings() {
   const resourceUsage = useQuery(apiAny.teams.getTeamResourceUsage, teamId ? { teamId } : "skip");
 
   const updateTeamSettings = useMutation(apiAny.teams.updateTeamSettings);
-  const generateTeamImageUploadUrl = useMutation(apiAny.teams.generateTeamImageUploadUrl);
   const ensureBillingWindow = useMutation(apiAny.stripe.ensureBillingWindow);
   const createBillingPortalSession = useAction(apiAny.stripeActions.createBillingPortalSession);
   const ensureSubscriptionSynced = useAction(apiAny.stripeActions.ensureSubscriptionSynced);
@@ -265,52 +264,47 @@ export default function CompanySettings() {
     setOrganizationImagePreviewUrl(objectUrl);
     setOrganizationImageFile(file);
     event.target.value = "";
+    void handleSaveOrganizationProfile(file);
   };
 
-  const handleSaveOrganizationProfile = async () => {
-    if (!organizationImageFile) {
-      toast.error("Choose an image first");
+  const handleSaveOrganizationProfile = async (fileOverride?: File) => {
+    const imageToUpload = fileOverride ?? organizationImageFile;
+    if (!imageToUpload) {
       return;
     }
 
     setSavingOrganizationProfile(true);
     try {
-      const uploadData = await generateTeamImageUploadUrl({
-        teamId: teamData.teamId,
-        fileName: organizationImageFile.name,
+      const updatedOrganization = await organization.setLogo({
+        file: imageToUpload,
       });
+      const updatedImageUrl = updatedOrganization.imageUrl;
 
-      const uploadResponse = await fetch(uploadData.url, {
-        method: "PUT",
-        body: organizationImageFile,
-        headers: {
-          "Content-Type": organizationImageFile.type || "application/octet-stream",
-        },
-      });
-
-      if (!uploadResponse.ok) {
-        throw new Error(`Upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`);
+      try {
+        await updateTeamSettings({
+          teamId: teamData.teamId,
+          imageUrl: updatedImageUrl,
+        });
+      } catch (error) {
+        console.error("Failed to sync team image with Clerk logo", error);
       }
-
-      if (!uploadData.publicUrl) {
-        throw new Error("Missing public URL for uploaded organization image");
-      }
-
-      await updateTeamSettings({
-        teamId: teamData.teamId,
-        imageUrl: uploadData.publicUrl,
-      });
 
       if (organizationImageObjectUrlRef.current) {
         URL.revokeObjectURL(organizationImageObjectUrlRef.current);
         organizationImageObjectUrlRef.current = null;
       }
-      setOrganizationImagePreviewUrl(uploadData.publicUrl);
+      setOrganizationImagePreviewUrl(updatedImageUrl);
       setOrganizationImageFile(null);
       toast.success("Organization image updated");
     } catch (error) {
       toast.error("Failed to update organization image");
       console.error(error);
+      if (organizationImageObjectUrlRef.current) {
+        URL.revokeObjectURL(organizationImageObjectUrlRef.current);
+        organizationImageObjectUrlRef.current = null;
+      }
+      setOrganizationImagePreviewUrl(teamData.imageUrl || organization?.imageUrl || "");
+      setOrganizationImageFile(null);
     } finally {
       setSavingOrganizationProfile(false);
     }
@@ -432,22 +426,15 @@ export default function CompanySettings() {
                             type="button"
                             variant="outline"
                             onClick={() => organizationImageInputRef.current?.click()}
+                            disabled={savingOrganizationProfile}
                           >
                             <Upload className="h-4 w-4 mr-2" />
-                            Add image
-                          </Button>
-                          <Button
-                            type="button"
-                            onClick={handleSaveOrganizationProfile}
-                            disabled={savingOrganizationProfile || !organizationImageFile}
-                            className="min-w-[180px]"
-                          >
-                            {savingOrganizationProfile ? "Saving..." : "Save Organization Image"}
+                            {savingOrganizationProfile ? "Uploading..." : "Add image"}
                           </Button>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          {organizationImageFile
-                            ? `Selected file: ${organizationImageFile.name}`
+                          {savingOrganizationProfile
+                            ? "Uploading logo..."
                             : "Upload a logo shown in the app sidebar."}
                         </p>
                       </div>
@@ -496,7 +483,7 @@ export default function CompanySettings() {
                           {[
                             { value: "USD", label: "US Dollar ($)" },
                             { value: "EUR", label: "Euro (€)" },
-                            { value: "PLN", label: "Polish Złoty (zł)" },
+                            { value: "PLN", label: "Polish Zloty (zł)" },
                             { value: "GBP", label: "British Pound (£)" },
                             { value: "CAD", label: "Canadian Dollar (C$)" },
                             { value: "AUD", label: "Australian Dollar (A$)" },

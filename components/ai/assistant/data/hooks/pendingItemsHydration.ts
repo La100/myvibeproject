@@ -24,6 +24,41 @@ const parseFunctionCallArguments = (raw: string): Record<string, unknown> | null
     : null;
 };
 
+const inferOperation = (
+  parsed: Record<string, unknown>,
+  functionName: string,
+): PendingItem["operation"] => {
+  const parsedOperation = parsed.operation;
+  if (
+    parsedOperation === "create" ||
+    parsedOperation === "bulk_create" ||
+    parsedOperation === "edit" ||
+    parsedOperation === "bulk_edit" ||
+    parsedOperation === "delete"
+  ) {
+    return parsedOperation;
+  }
+
+  if (parsed.updates && typeof parsed.updates === "object") {
+    return "edit";
+  }
+
+  if (functionName === "update_item") return "edit";
+  if (functionName === "update_multiple_items") return "bulk_edit";
+  if (functionName === "create_item") return "create";
+  if (functionName === "create_multiple_items") return "bulk_create";
+  if (functionName === "delete_item") return "delete";
+
+  if (functionName.startsWith("edit_multiple_")) return "bulk_edit";
+  if (functionName.startsWith("edit_")) return "edit";
+  if (functionName.startsWith("delete_")) return "delete";
+  if (functionName.startsWith("create_multiple_")) return "bulk_create";
+  if (functionName.startsWith("create_")) return "create";
+
+  // Fail closed: prefer edit over accidental create when metadata is incomplete.
+  return "edit";
+};
+
 const toPendingItem = (call: PendingFunctionCall): PendingItem | null => {
   const parsed = parseFunctionCallArguments(call.arguments);
   if (!parsed) {
@@ -41,7 +76,7 @@ const toPendingItem = (call: PendingFunctionCall): PendingItem | null => {
 
   return {
     type: parsedType ?? functionCallType ?? "task",
-    operation: parsed.operation as PendingItem["operation"],
+    operation: inferOperation(parsed, call.functionName),
     data: (parsed.data as Record<string, unknown>) || parsed,
     updates: parsed.updates as Record<string, unknown> | undefined,
     originalItem: parsed.originalItem as Record<string, unknown> | undefined,
@@ -60,11 +95,33 @@ const toPendingItem = (call: PendingFunctionCall): PendingItem | null => {
   };
 };
 
-const ensureClientIds = (items: PendingItem[]) =>
-  items.map((item, index) => ({
-    ...item,
-    clientId: item.clientId ?? `${item.functionCall?.callId ?? "pending"}-${index}`,
-  }));
+const ensureClientIds = (items: PendingItem[]) => {
+  const perCallCounters = new Map<string, number>();
+  let fallbackCounter = 0;
+
+  return items.map((item) => {
+    if (item.clientId) {
+      return item;
+    }
+
+    const callId = item.functionCall?.callId;
+    if (callId) {
+      const current = perCallCounters.get(callId) ?? 0;
+      perCallCounters.set(callId, current + 1);
+      return {
+        ...item,
+        // Stable across re-ordering of different function calls.
+        clientId: `${callId}:${current}`,
+      };
+    }
+
+    fallbackCounter += 1;
+    return {
+      ...item,
+      clientId: `pending:${item.type}:${item.operation}:${fallbackCounter}`,
+    };
+  });
+};
 
 const isResolved = (item: PendingItem) =>
   item.status === "confirmed" || item.status === "rejected";
@@ -113,8 +170,29 @@ export const mergePendingItems = (
     return !incomingIds.has(item.clientId);
   });
 
-  return [...nextIncoming, ...preservedResolved];
+  const merged = [...nextIncoming, ...preservedResolved];
+
+  const isUnchanged =
+    merged.length === previousItems.length &&
+    merged.every((item, index) => {
+      const previous = previousItems[index];
+      if (!previous) return false;
+
+      return (
+        previous.clientId === item.clientId &&
+        previous.status === item.status &&
+        previous.type === item.type &&
+        previous.operation === item.operation &&
+        previous.responseId === item.responseId &&
+        previous.functionCall?.callId === item.functionCall?.callId &&
+        previous.functionCall?.arguments === item.functionCall?.arguments
+      );
+    });
+
+  return isUnchanged ? previousItems : merged;
 };
 
-export const keepOnlyResolvedPendingItems = (items: PendingItem[]) =>
-  items.filter((item) => isResolved(item));
+export const keepOnlyResolvedPendingItems = (items: PendingItem[]) => {
+  const resolved = items.filter((item) => isResolved(item));
+  return resolved.length === items.length ? items : resolved;
+};

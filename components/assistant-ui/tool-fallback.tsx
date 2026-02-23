@@ -429,11 +429,20 @@ const ToolFallbackImpl = ({
   const unresolvedPendingItems = (pendingItems ?? []).filter(
     (item) => item.status !== "confirmed" && item.status !== "rejected",
   );
+  const resolvedPendingItems = (pendingItems ?? []).filter(
+    (item) => item.status === "confirmed" || item.status === "rejected",
+  );
   const firstUnresolvedCallId = unresolvedPendingItems[0]?.functionCall?.callId;
+  const firstResolvedCallId = resolvedPendingItems[0]?.functionCall?.callId;
   const shouldRenderUnifiedBatch =
     unresolvedPendingItems.length > 0 &&
     !!toolCallId &&
     toolCallId === firstUnresolvedCallId;
+  const shouldRenderUnifiedResolvedBatch =
+    unresolvedPendingItems.length === 0 &&
+    resolvedPendingItems.length > 0 &&
+    !!toolCallId &&
+    toolCallId === firstResolvedCallId;
 
   const fallbackPendingItem = toolCallId
     ? toPendingItemFromResult(toolCallId, result)
@@ -451,6 +460,8 @@ const ToolFallbackImpl = ({
 
   const itemsForInlineConfirmation = shouldRenderUnifiedBatch
     ? unresolvedPendingItems
+    : shouldRenderUnifiedResolvedBatch
+      ? resolvedPendingItems
     : matchedPendingItemsByCallId.length > 0
       ? matchedPendingItemsByCallId
       : matchedPendingItemByPayload
@@ -484,6 +495,15 @@ const ToolFallbackImpl = ({
   // While there are unresolved CRUD items, show exactly one unified slider:
   // the card attached to the first unresolved call. Hide all sibling CRUD cards.
   if (unresolvedPendingItems.length > 0 && !!toolCallId && !shouldRenderUnifiedBatch) {
+    return null;
+  }
+  // After resolution, keep only a single consolidated receipt container.
+  if (
+    unresolvedPendingItems.length === 0 &&
+    resolvedPendingItems.length > 0 &&
+    !!toolCallId &&
+    !shouldRenderUnifiedResolvedBatch
+  ) {
     return null;
   }
 

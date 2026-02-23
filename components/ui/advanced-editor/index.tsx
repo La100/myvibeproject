@@ -55,7 +55,7 @@ interface AdvancedEditorProps {
 export default function AdvancedEditor({
   content = '',
   onSave,
-  placeholder = "Zacznij pisać...",
+  placeholder = "Start typing...",
   className,
   editable = true,
   autoSave = true,
@@ -162,7 +162,7 @@ export default function AdvancedEditor({
   const addImage = useCallback(() => {
     if (!editor) return;
     
-    const url = window.prompt('URL obrazu');
+    const url = window.prompt('Image URL');
     if (url) {
       editor.chain().focus().setImage({ src: url }).run();
     }

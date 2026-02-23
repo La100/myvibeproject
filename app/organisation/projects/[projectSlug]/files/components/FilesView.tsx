@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import Image from "next/image";
 import PDFThumbnail from "@/components/ui/PDFThumbnail";
 import PDFViewer from "@/components/ui/PDFViewer";
@@ -72,6 +73,7 @@ export default function FilesView() {
   const createFolder = useMutation(apiAny.files.createFolder);
   const deleteFile = useMutation(apiAny.files.deleteFile);
   const deleteFolder = useMutation(apiAny.files.deleteFolder);
+  const setFileCustomerPortalVisibility = useMutation(apiAny.files.setFileCustomerPortalVisibility);
 
   // Navigation functions
   const navigateToFolder = (folderId: Id<"folders"> | undefined, folderName: string) => {
@@ -218,6 +220,24 @@ export default function FilesView() {
     } catch (error) {
       toast.error("Failed to delete folder", {
         description: (error as Error).message
+      });
+    }
+  };
+
+  const handleSetCustomerPortalVisibility = async (
+    fileId: Id<"files">,
+    showInClientPortal: boolean
+  ) => {
+    try {
+      await setFileCustomerPortalVisibility({ fileId, showInClientPortal });
+      toast.success(
+        showInClientPortal
+          ? "File is now visible in customer portal"
+          : "File hidden from customer portal"
+      );
+    } catch (error) {
+      toast.error("Failed to update customer portal visibility", {
+        description: (error as Error).message,
       });
     }
   };
@@ -408,6 +428,16 @@ export default function FilesView() {
                         AI
                       </Badge>
                     )}
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-md border border-[var(--ui-border-soft)] px-2 py-1">
+                    <span className="text-xs text-muted-foreground">Customer portal</span>
+                    <Switch
+                      checked={file.showInClientPortal === true}
+                      onCheckedChange={(checked) =>
+                        void handleSetCustomerPortalVisibility(file._id, checked)
+                      }
+                    />
                   </div>
 
                   <div className="flex gap-1">

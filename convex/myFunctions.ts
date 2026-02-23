@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalMutation, query, mutation, action } from "./_generated/server";
+import { internalMutation } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 
 // Utility function to generate a slug from a string
@@ -9,18 +9,6 @@ const generateSlug = (name: string) => {
     .replace(/\s+/g, "-")
     .replace(/[^\w-]+/g, "");
 };
-
-
-
-// Utility function to generate next project ID
-const generateNextProjectId = async (ctx: any) => {
-  const projects = await ctx.db.query("projects").collect();
-  const maxProjectId = projects.reduce((max: number, project: any) => {
-    return (project.projectId || 0) > max ? (project.projectId || 0) : max;
-  }, 0);
-  return maxProjectId + 1;
-};
-
 // Create a new user or update an existing one from Clerk webhook
 export const createOrUpdateUser = internalMutation({
   args: {
@@ -447,105 +435,6 @@ export const deleteMembership = internalMutation({
 
         console.log(`Cleaned up membership and pending invitations for user ${args.clerkUserId} from org ${args.clerkOrgId}`);
     }
-});
-
-// AI-powered task parsing from a chat message
-export const parseTaskFromChat = action({
-  args: {
-    message: v.string(),
-    projectId: v.id("projects"),
-  },
-  async handler(ctx, args) {
-    // THIS FUNCTION HAS BEEN MOVED TO convex/tasks.ts
-    // THIS IS A PLACEHOLDER TO AVOID CACHING ISSUES
-    console.log("This function is deprecated. Please use api.tasks.parseTaskFromChat");
-    return { isTask: false };
-    /*
-    // Get OpenAI API key from environment variables
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new Error("OpenAI API key not configured");
-    }
-
-    try {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-5',
-          messages: [
-            {
-              role: 'system',
-              content: `You are a task parser. Parse the user's message to extract task information. 
-              Return ONLY a valid JSON object with the following structure:
-              {
-                "isTask": boolean,
-                "title": string,
-                "description": string,
-                "priority": "low" | "medium" | "high" | "urgent" | null,
-                "status": "todo" | "in_progress" | "review" | "done" | null,
-                "dueDate": ISO date string or null,
-                "tags": string[]
-              }
-              
-              IMPORTANT RULES:
-              - If the message is not about creating a task, set "isTask" to false
-              - For priority, default to "medium" unless specified
-              - For status, default to "todo" unless specified
-              - KEEP THE SAME LANGUAGE as the input message (don't translate Polish to English!)
-              - For dates, use current time context and return proper ISO date strings (YYYY-MM-DD)
-              - Polish date parsing:
-                * "jutro" = tomorrow's date
-                * "dziś" = today's date  
-                * "za tydzień" = date 7 days from now
-                * "za 2 dni" = date 2 days from now
-                * "w poniedziałek" = next Monday
-                * "o 10" = just note in description, not separate time field
-              - Current date context: ${new Date().toISOString().split('T')[0]}
-              - Current day of week: ${new Date().toLocaleDateString('pl-PL', { weekday: 'long' })}`
-            },
-            {
-              role: 'user',
-              content: args.message
-            }
-          ],
-          temperature: 0.1,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const content = data.choices[0]?.message?.content;
-      
-      if (!content) {
-        throw new Error("No response from OpenAI");
-      }
-
-      try {
-        const parsedTask = JSON.parse(content);
-        
-        // Validate the structure
-        if (!parsedTask.hasOwnProperty('isTask')) {
-          throw new Error("Invalid response structure");
-        }
-
-        return parsedTask;
-      } catch (parseError) {
-        console.error("Failed to parse OpenAI response:", content);
-        throw new Error("Failed to parse task information");
-      }
-    } catch (error) {
-      console.error("OpenAI API error:", error);
-      throw new Error("Failed to process message with AI");
-    }
-    */
-  }
 });
 
 // Create an invitation from a Clerk webhook

@@ -44,6 +44,7 @@ const AIAssistant = () => {
   const generateUploadUrl = useMutation(apiAny.files.generateUploadUrlWithCustomKey);
   const addFile = useMutation(apiAny.files.addFile);
   const updateProject = useMutation(apiAny.projects.updateProject);
+  const clearAllThreadsForUser = useMutation(apiAny.ai.threads.clearAllThreadsForUser);
 
   const projectAutoConfirmCrud = Boolean((project as { aiAutoConfirmCrud?: boolean } | null)?.aiAutoConfirmCrud);
   const [autoConfirmCrud, setAutoConfirmCrud] = useState(projectAutoConfirmCrud);
@@ -60,7 +61,6 @@ const AIAssistant = () => {
     chatIsLoading,
     handleSendMessage: sendMessageWithFile,
     handleStopResponse,
-    handleClearChat,
     handleNewChat,
     uiMessages,
     isStreaming,
@@ -94,7 +94,6 @@ const AIAssistant = () => {
 
   const {
     pendingItems,
-    handleAutoRejectPendingItems,
     handleConfirmItem,
     handleRejectItem,
     handleEditItem,
@@ -112,13 +111,22 @@ const AIAssistant = () => {
   });
 
   const handleResetChat = useCallback(async () => {
-    if (threadId) {
-      await handleClearChat();
-    } else {
-      handleNewChat();
+    if (project?._id && user?.id) {
+      try {
+        await clearAllThreadsForUser({
+          projectId: project._id,
+          userClerkId: user.id,
+        });
+      } catch (error) {
+        console.error("Failed to clear AI threads during reset:", error);
+        toast.error("Failed to reset conversation");
+        return;
+      }
     }
+
+    handleNewChat();
     resetPendingState();
-  }, [threadId, handleClearChat, handleNewChat, resetPendingState]);
+  }, [project?._id, user?.id, clearAllThreadsForUser, handleNewChat, resetPendingState]);
 
   const handleConversationSend = useCallback(
     async (payload: { text: string; files: File[] }) => {
@@ -127,8 +135,15 @@ const AIAssistant = () => {
         return;
       }
 
-      if (pendingItems.some((item) => !item.status)) {
-        await handleAutoRejectPendingItems();
+      const unresolvedPendingCount = pendingItems.filter(
+        (item) => item.status !== "confirmed" && item.status !== "rejected",
+      ).length;
+      if (unresolvedPendingCount > 0) {
+        toast.info(
+          unresolvedPendingCount === 1
+            ? "1 pending action detected. Your message will be treated as a refinement unless you explicitly cancel."
+            : `${unresolvedPendingCount} pending actions detected. Your message will be treated as a refinement unless you explicitly cancel.`,
+        );
       }
 
       const fileLabel = payload.files.length > 0
@@ -161,7 +176,6 @@ const AIAssistant = () => {
     },
     [
       pendingItems,
-      handleAutoRejectPendingItems,
       sendMessageWithFile,
       generateUploadUrl,
       addFile,

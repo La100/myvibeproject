@@ -1,4 +1,4 @@
-import AIAssistant from "@/components/ai/assistant";
+import AIAssistant from "@/components/ai/assistant/AIAssistant";
 
 const AIPage = () => {
   return (

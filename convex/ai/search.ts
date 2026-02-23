@@ -1,6 +1,6 @@
 import { internalAction, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
-import { api, internal } from "../_generated/api";
+import { internal } from "../_generated/api";
 
 /**
  * Search tools for AI Agent

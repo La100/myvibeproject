@@ -18,7 +18,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useRef, useState, Suspense } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-import { Users, Settings, Shield, AlertTriangle, Eye, Sparkles, ImagePlus } from "lucide-react";
+import { Users, Settings, Shield, AlertTriangle, Sparkles, ImagePlus } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -28,7 +28,6 @@ import {
 } from "@/components/ui/select";
 import TaskStatusSettings from "./TaskStatusSettings";
 import ProjectMembers from "./ProjectMembers";
-import SidebarPermissions from "./SidebarPermissions";
 import AISettings from "./AISettings";
 import { Spinner } from "@/components/ui/spinner";
 import { useOrganization } from "@clerk/nextjs";
@@ -67,7 +66,7 @@ function ProjectSettingsContent() {
   const router = useRouter();
   const { organization } = useOrganization();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"general" | "members" | "permissions" | "taskstatus" | "ai" | "advanced">("general");
+  const [activeTab, setActiveTab] = useState<"general" | "members" | "taskstatus" | "ai" | "advanced">("general");
   
   const project = useQuery(
     apiAny.projects.getProjectBySlugInClerkOrg,
@@ -183,7 +182,7 @@ function ProjectSettingsContent() {
       </div>
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)} className="w-full">
-        <TabsList className="grid w-full grid-cols-6 h-auto p-1 mb-6">
+        <TabsList className="grid w-full grid-cols-5 h-auto p-1 mb-6">
           <TabsTrigger value="general" className="flex flex-col items-center gap-1 p-2 text-xs data-[state=active]:bg-background">
             <Settings className="h-4 w-4" />
             <span className="text-xs">General</span>
@@ -191,10 +190,6 @@ function ProjectSettingsContent() {
           <TabsTrigger value="members" className="flex flex-col items-center gap-1 p-2 text-xs data-[state=active]:bg-background">
             <Users className="h-4 w-4" />
             <span className="text-xs">Members</span>
-          </TabsTrigger>
-          <TabsTrigger value="permissions" className="flex flex-col items-center gap-1 p-2 text-xs data-[state=active]:bg-background">
-            <Eye className="h-4 w-4" />
-            <span className="text-xs">Portal</span>
           </TabsTrigger>
           <TabsTrigger value="taskstatus" className="flex flex-col items-center gap-1 p-2 text-xs data-[state=active]:bg-background">
             <Shield className="h-4 w-4" />
@@ -221,12 +216,6 @@ function ProjectSettingsContent() {
         <TabsContent value="members" className="mt-0">
            <Suspense fallback={<Card><CardContent className="p-4"><Spinner fullHeight={false} /></CardContent></Card>}>
             <MembersTab project={project} />
-          </Suspense>
-        </TabsContent>
-
-        <TabsContent value="permissions" className="mt-0">
-          <Suspense fallback={<Card><CardContent className="p-4"><Spinner fullHeight={false} /></CardContent></Card>}>
-            <PermissionsTab project={project} />
           </Suspense>
         </TabsContent>
 
@@ -570,11 +559,6 @@ function GeneralTab({
 // Members Tab
 function MembersTab({ project }: { project: { _id: Id<"projects">; teamId: Id<"teams">; name: string } }) {
   return <ProjectMembers project={project} />;
-}
-
-// Permissions Tab
-function PermissionsTab({ project }: { project: { _id: Id<"projects">; teamId: Id<"teams">; name: string } }) {
-  return <SidebarPermissions projectId={project._id} />;
 }
 
 // Task Status Tab

@@ -1,8 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
-import { internal, components } from "./_generated/api";
+import { components } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
-import { AI_MODEL, calculateCost } from "./ai/config";
 
 const DEFAULT_BILLING_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 const FREE_TRIAL_AI_BUDGET_USD = 1;

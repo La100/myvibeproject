@@ -1,7 +1,6 @@
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
-import { Id } from "./_generated/dataModel";
 
 export const addComment = mutation({
     args: {

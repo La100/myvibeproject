@@ -13,8 +13,6 @@ import type { Id } from "@/convex/_generated/dataModel";
 import type {
   PendingItem,
   ChatHistoryEntry,
-  ShoppingItemInput,
-  LaborItemInput,
   BulkTaskData,
   BulkNoteData,
   BulkShoppingData,
@@ -35,6 +33,224 @@ import {
   mergePendingItems,
   type PendingFunctionCall,
 } from "./pendingItemsHydration";
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function areValuesEqual(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true;
+
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false;
+    return a.every((item, index) => areValuesEqual(item, b[index]));
+  }
+
+  if (isPlainObject(a) && isPlainObject(b)) {
+    const aKeys = Object.keys(a);
+    const bKeys = Object.keys(b);
+
+    if (aKeys.length !== bKeys.length) return false;
+
+    for (const key of aKeys) {
+      if (!(key in b)) return false;
+      if (!areValuesEqual(a[key], b[key])) return false;
+    }
+
+    return true;
+  }
+
+  return false;
+}
+
+function hasShoppingCoreFields(value: Record<string, unknown>): boolean {
+  if (typeof value.name === "string" && value.name.trim().length > 0) return true;
+  return (
+    value.quantity !== undefined ||
+    value.sectionId !== undefined ||
+    value.sectionName !== undefined ||
+    value.category !== undefined
+  );
+}
+
+function hasLaborCoreFields(value: Record<string, unknown>): boolean {
+  if (typeof value.name === "string" && value.name.trim().length > 0) return true;
+  return (
+    value.quantity !== undefined ||
+    value.sectionId !== undefined ||
+    value.sectionName !== undefined ||
+    value.unit !== undefined
+  );
+}
+
+function getFirstNonEmptyString(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (trimmed.length > 0) {
+        return trimmed;
+      }
+    }
+  }
+  return undefined;
+}
+
+function extractShoppingInput(value: unknown): Record<string, unknown> {
+  if (!isPlainObject(value)) return {};
+
+  const nestedCandidates = [
+    value.itemData,
+    value.data,
+    value.shoppingData,
+    value.item,
+  ].filter(isPlainObject);
+
+  const bestNested =
+    nestedCandidates.find((candidate) => typeof candidate.name === "string" && candidate.name.trim().length > 0) ??
+    nestedCandidates.find(hasShoppingCoreFields);
+
+  const base = hasShoppingCoreFields(value) ? value : (bestNested ?? value);
+  const extracted: Record<string, unknown> = { ...base };
+
+  for (const passthroughKey of ["sectionName", "sectionId", "category"] as const) {
+    if (value[passthroughKey] !== undefined && extracted[passthroughKey] === undefined) {
+      extracted[passthroughKey] = value[passthroughKey];
+    }
+  }
+
+  if (typeof extracted.name !== "string" || extracted.name.trim().length === 0) {
+    const fallbackName = getFirstNonEmptyString(
+      extracted.title,
+      extracted.itemName,
+      extracted.productName,
+      extracted.product,
+      extracted.label,
+      extracted.item,
+    );
+    if (fallbackName) {
+      extracted.name = fallbackName;
+    }
+  }
+
+  if (typeof extracted.notes !== "string" || extracted.notes.trim().length === 0) {
+    const fallbackNotes = getFirstNonEmptyString(
+      extracted.description,
+      extracted.content,
+      extracted.details,
+    );
+    if (fallbackNotes) {
+      extracted.notes = fallbackNotes;
+    }
+  }
+
+  if (extracted.quantity === undefined) {
+    const fallbackQuantity = toFiniteNumber(
+      extracted.qty ?? extracted.amount ?? extracted.count ?? extracted.units,
+    );
+    if (fallbackQuantity !== undefined) {
+      extracted.quantity = fallbackQuantity;
+    }
+  }
+
+  return extracted;
+}
+
+function extractLaborInput(value: unknown): Record<string, unknown> {
+  if (!isPlainObject(value)) return {};
+
+  const nestedCandidates = [
+    value.itemData,
+    value.data,
+    value.laborData,
+    value.item,
+  ].filter(isPlainObject);
+
+  const bestNested =
+    nestedCandidates.find((candidate) => typeof candidate.name === "string" && candidate.name.trim().length > 0) ??
+    nestedCandidates.find(hasLaborCoreFields);
+
+  const base = hasLaborCoreFields(value) ? value : (bestNested ?? value);
+  const extracted: Record<string, unknown> = { ...base };
+
+  for (const passthroughKey of ["sectionName", "sectionId", "assignedTo"] as const) {
+    if (value[passthroughKey] !== undefined && extracted[passthroughKey] === undefined) {
+      extracted[passthroughKey] = value[passthroughKey];
+    }
+  }
+
+  if (typeof extracted.name !== "string" || extracted.name.trim().length === 0) {
+    const fallbackName = getFirstNonEmptyString(
+      extracted.title,
+      extracted.itemName,
+      extracted.workName,
+      extracted.work,
+      extracted.label,
+      extracted.item,
+    );
+    if (fallbackName) {
+      extracted.name = fallbackName;
+    }
+  }
+
+  if (typeof extracted.notes !== "string" || extracted.notes.trim().length === 0) {
+    const fallbackNotes = getFirstNonEmptyString(
+      extracted.description,
+      extracted.content,
+      extracted.details,
+    );
+    if (fallbackNotes) {
+      extracted.notes = fallbackNotes;
+    }
+  }
+
+  if (extracted.quantity === undefined) {
+    const fallbackQuantity = toFiniteNumber(
+      extracted.qty ?? extracted.amount ?? extracted.count ?? extracted.hours ?? extracted.units,
+    );
+    if (fallbackQuantity !== undefined) {
+      extracted.quantity = fallbackQuantity;
+    }
+  }
+
+  const fallbackUnit = getFirstNonEmptyString(extracted.uom, extracted.measurementUnit);
+  if (fallbackUnit && extracted.unit === undefined) {
+    extracted.unit = fallbackUnit;
+  }
+
+  if (extracted.unitPrice === undefined) {
+    const fallbackUnitPrice = toFiniteNumber(extracted.rate ?? extracted.price);
+    if (fallbackUnitPrice !== undefined) {
+      extracted.unitPrice = fallbackUnitPrice;
+    }
+  }
+
+  const fallbackSectionName = getFirstNonEmptyString(extracted.section, extracted.category);
+  if (fallbackSectionName && extracted.sectionName === undefined) {
+    extracted.sectionName = fallbackSectionName;
+  }
+
+  if (extracted.assignedTo === undefined) {
+    const fallbackAssignedTo = getFirstNonEmptyString(extracted.assignee, extracted.worker);
+    if (fallbackAssignedTo) {
+      extracted.assignedTo = fallbackAssignedTo;
+    }
+  }
+
+  return extracted;
+}
+
+function toFiniteNumber(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim().length > 0) {
+    const parsed = Number(value.replace(",", "."));
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return undefined;
+}
 
 interface UsePendingItemsProps {
   projectId: Id<"projects"> | undefined;
@@ -65,7 +281,6 @@ interface UsePendingItemsReturn {
   handleConfirmItem: (index: number | string) => Promise<void>;
   handleRejectItem: (index: number | string) => Promise<void>;
   handleRejectAll: () => Promise<void>;
-  handleAutoRejectPendingItems: () => Promise<number>;
   handleEditItem: (index: number | string) => void;
   handleUpdatePendingItem: (index: number | string, updates: Partial<PendingItem>) => void;
   resetPendingState: () => void;
@@ -137,12 +352,10 @@ export const usePendingItems = ({
   useEffect(() => {
     // Hard reset local confirmation state when there is no active thread.
     if (!threadId) {
-      if (pendingItems.length > 0) {
-        setPendingItems([]);
-      }
-      setCurrentItemIndex(0);
-      setShowConfirmationGrid(false);
-      setIsConfirmationDialogOpen(false);
+      setPendingItems((prev) => (prev.length === 0 ? prev : []));
+      setCurrentItemIndex((prev) => (prev === 0 ? prev : 0));
+      setShowConfirmationGrid((prev) => (prev ? false : prev));
+      setIsConfirmationDialogOpen((prev) => (prev ? false : prev));
       return;
     }
 
@@ -153,22 +366,22 @@ export const usePendingItems = ({
 
       if (hydratedPendingItems.length > 0) {
         setPendingItems((prev) => mergePendingItems(prev, hydratedPendingItems));
-        setCurrentItemIndex(0);
+        setCurrentItemIndex((prev) => (prev === 0 ? prev : 0));
 
         // Don't auto-open dialogs - let inline confirmations in StreamingMessage handle display
         // Dialogs can still be opened manually if needed
-        setShowConfirmationGrid(false);
-        setIsConfirmationDialogOpen(false);
+        setShowConfirmationGrid((prev) => (prev ? false : prev));
+        setIsConfirmationDialogOpen((prev) => (prev ? false : prev));
       }
-    } else if (pendingFunctionCalls && pendingFunctionCalls.length === 0 && pendingItems.length > 0) {
+    } else if (pendingFunctionCalls && pendingFunctionCalls.length === 0) {
       // If server returns empty, keep only resolved items (receipts), remove any stale pending ones
       setPendingItems((prev) => keepOnlyResolvedPendingItems(prev));
 
       // Close dialogs if they were open (optional, but good UX if the item we were acting on is gone)
-      setShowConfirmationGrid(false);
-      setIsConfirmationDialogOpen(false);
+      setShowConfirmationGrid((prev) => (prev ? false : prev));
+      setIsConfirmationDialogOpen((prev) => (prev ? false : prev));
     }
-  }, [threadId, pendingFunctionCalls, pendingItems.length]);
+  }, [threadId, pendingFunctionCalls]);
 
   const scheduleResolvedRemoval = useCallback((clientId?: string) => {
     // Intentionally left blank - keep resolved items visible in the UI.
@@ -179,6 +392,32 @@ export const usePendingItems = ({
   const resolveTeamSlug = useCallback(() => {
     return teamSlug || undefined;
   }, [teamSlug]);
+
+  const resolvePendingTargetId = useCallback(
+    (item: PendingItem, keys: string[]): string | undefined => {
+      const originalItem = (item.originalItem ?? {}) as Record<string, unknown>;
+      const data = (item.data ?? {}) as Record<string, unknown>;
+
+      if (typeof originalItem._id === "string" && originalItem._id.trim().length > 0) {
+        return originalItem._id;
+      }
+
+      for (const key of keys) {
+        const dataValue = data[key];
+        if (typeof dataValue === "string" && dataValue.trim().length > 0) {
+          return dataValue;
+        }
+
+        const originalValue = originalItem[key];
+        if (typeof originalValue === "string" && originalValue.trim().length > 0) {
+          return originalValue;
+        }
+      }
+
+      return undefined;
+    },
+    [],
+  );
 
   const findOrCreateSection = useCallback(async (sectionName: string): Promise<Id<"shoppingListSections"> | undefined> => {
     if (!sectionName || !projectId) return undefined;
@@ -334,9 +573,12 @@ export const usePendingItems = ({
 
           // Pre-create sections
           const uniqueSectionNames = new Set<string>();
-          for (const shoppingData of items) {
-            const { sectionName } = shoppingData;
-            const targetSectionName = resolveSectionName(sectionName, shoppingData.category);
+          for (const rawShoppingData of items) {
+            const shoppingData = extractShoppingInput(rawShoppingData);
+            const targetSectionName = resolveSectionName(
+              shoppingData.sectionName,
+              shoppingData.category,
+            );
             if (targetSectionName && !shoppingData.sectionId) {
               uniqueSectionNames.add(targetSectionName);
             }
@@ -350,8 +592,9 @@ export const usePendingItems = ({
             }
           }
 
-          for (const shoppingData of items) {
+          for (const rawShoppingData of items) {
             try {
+              const shoppingData = extractShoppingInput(rawShoppingData);
               const { sectionName, ...shoppingItemData } = shoppingData;
               const targetSectionName = resolveSectionName(sectionName, shoppingData.category);
 
@@ -363,6 +606,26 @@ export const usePendingItems = ({
               }
 
               const sanitizedItemData = sanitizeShoppingItemData(shoppingItemData as Record<string, unknown>);
+              const normalizedName =
+                typeof sanitizedItemData.name === "string"
+                  ? sanitizedItemData.name.trim()
+                  : "";
+              if (normalizedName.length === 0) {
+                errors.push("Skipped shopping item without a name");
+                continue;
+              }
+
+              const normalizedQuantity = toFiniteNumber(sanitizedItemData.quantity);
+              const normalizedUnitPrice = toFiniteNumber(sanitizedItemData.unitPrice);
+              const normalizedTotalPrice = toFiniteNumber(sanitizedItemData.totalPrice);
+              sanitizedItemData.name = normalizedName;
+              sanitizedItemData.quantity = normalizedQuantity ?? 1;
+              if (normalizedUnitPrice !== undefined) {
+                sanitizedItemData.unitPrice = normalizedUnitPrice;
+              }
+              if (normalizedTotalPrice !== undefined) {
+                sanitizedItemData.totalPrice = normalizedTotalPrice;
+              }
 
               const shoppingResult = await createConfirmedShoppingItem({
                 projectId,
@@ -493,9 +756,11 @@ export const usePendingItems = ({
 
           // Pre-create sections
           const uniqueSectionNames = new Set<string>();
-          for (const laborData of items) {
-            if (laborData.sectionName && !laborData.sectionId) {
-              uniqueSectionNames.add(laborData.sectionName);
+          for (const rawLaborData of items) {
+            const laborData = extractLaborInput(rawLaborData);
+            const targetSectionName = getFirstNonEmptyString(laborData.sectionName);
+            if (targetSectionName && !laborData.sectionId) {
+              uniqueSectionNames.add(targetSectionName);
             }
           }
 
@@ -507,27 +772,40 @@ export const usePendingItems = ({
             }
           }
 
-          for (const laborData of items) {
+          for (const rawLaborData of items) {
             try {
+              const laborData = extractLaborInput(rawLaborData);
               const { sectionName, ...laborItemData } = laborData;
+              const targetSectionName = getFirstNonEmptyString(sectionName);
 
-              if (sectionName && !laborItemData.sectionId) {
-                const sectionId = sectionNameToId.get(sectionName);
+              if (targetSectionName && !laborItemData.sectionId) {
+                const sectionId = sectionNameToId.get(targetSectionName);
                 if (sectionId) {
                   laborItemData.sectionId = sectionId;
                 }
               }
 
+              const normalizedName = getFirstNonEmptyString(laborItemData.name);
+              if (!normalizedName) {
+                errors.push("Skipped labor item without a name");
+                continue;
+              }
+              const normalizedQuantity = toFiniteNumber(laborItemData.quantity) ?? 1;
+              const normalizedUnitPrice = toFiniteNumber(laborItemData.unitPrice);
+              const normalizedUnit = getFirstNonEmptyString(laborItemData.unit);
+              const normalizedNotes = getFirstNonEmptyString(laborItemData.notes);
+              const normalizedAssignedTo = getFirstNonEmptyString(laborItemData.assignedTo);
+
               const laborResult = await createConfirmedLaborItem({
                 projectId,
                 itemData: {
-                  name: laborItemData.name,
-                  quantity: laborItemData.quantity,
-                  unit: laborItemData.unit,
-                  notes: laborItemData.notes,
-                  unitPrice: laborItemData.unitPrice,
+                  name: normalizedName,
+                  quantity: normalizedQuantity,
+                  unit: normalizedUnit,
+                  notes: normalizedNotes,
+                  unitPrice: normalizedUnitPrice,
                   sectionId: laborItemData.sectionId,
-                  assignedTo: laborItemData.assignedTo,
+                  assignedTo: normalizedAssignedTo,
                 },
               });
 
@@ -545,6 +823,88 @@ export const usePendingItems = ({
           result = {
             success: errors.length === 0,
             message: `Created ${createdIds.length}/${items.length} labor items successfully${errors.length > 0 ? `. Errors: ${errors.slice(0, 3).join(', ')}` : ''
+              }`,
+          };
+          break;
+        }
+        case 'shoppingSection': {
+          const rawData = item.data as Record<string, unknown>;
+          const rawItems = Array.isArray(rawData.items)
+            ? (rawData.items as Array<Record<string, unknown>>)
+            : [];
+          const namesFromItems = rawItems
+            .map((entry) => (typeof entry.name === "string" ? entry.name.trim() : ""))
+            .filter((name) => name.length > 0);
+          const singleName = typeof rawData.name === "string" ? rawData.name.trim() : "";
+          const sectionNames = Array.from(new Set(
+            (namesFromItems.length > 0 ? namesFromItems : [singleName]).filter((name) => name.length > 0)
+          ));
+
+          if (sectionNames.length === 0) {
+            throw new Error("No shopping sections provided for bulk creation");
+          }
+
+          const resolvedIds: string[] = [];
+          const errors: string[] = [];
+
+          for (const sectionName of sectionNames) {
+            try {
+              const sectionId = await findOrCreateSection(sectionName);
+              if (sectionId) {
+                resolvedIds.push(sectionId);
+              } else {
+                errors.push(`Failed to create or resolve shopping section "${sectionName}"`);
+              }
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              errors.push(message);
+            }
+          }
+
+          result = {
+            success: errors.length === 0,
+            message: `Processed ${resolvedIds.length}/${sectionNames.length} shopping sections${errors.length > 0 ? `. Errors: ${errors.slice(0, 3).join(', ')}` : ''
+              }`,
+          };
+          break;
+        }
+        case 'laborSection': {
+          const rawData = item.data as Record<string, unknown>;
+          const rawItems = Array.isArray(rawData.items)
+            ? (rawData.items as Array<Record<string, unknown>>)
+            : [];
+          const namesFromItems = rawItems
+            .map((entry) => (typeof entry.name === "string" ? entry.name.trim() : ""))
+            .filter((name) => name.length > 0);
+          const singleName = typeof rawData.name === "string" ? rawData.name.trim() : "";
+          const sectionNames = Array.from(new Set(
+            (namesFromItems.length > 0 ? namesFromItems : [singleName]).filter((name) => name.length > 0)
+          ));
+
+          if (sectionNames.length === 0) {
+            throw new Error("No labor sections provided for bulk creation");
+          }
+
+          const resolvedIds: string[] = [];
+          const errors: string[] = [];
+
+          for (const sectionName of sectionNames) {
+            try {
+              const sectionId = await findOrCreateLaborSection(sectionName);
+              if (sectionId) {
+                resolvedIds.push(sectionId);
+              } else {
+                errors.push(`Failed to create or resolve labor section "${sectionName}"`);
+              }
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              errors.push(message);
+            }
+          }
+
+          result = {
+            success: errors.length === 0,
+            message: `Processed ${resolvedIds.length}/${sectionNames.length} labor sections${errors.length > 0 ? `. Errors: ${errors.slice(0, 3).join(', ')}` : ''
               }`,
           };
           break;
@@ -635,25 +995,261 @@ export const usePendingItems = ({
         default:
           throw new Error(`Unknown content type for deletion: ${item.type}`);
       }
-    } else if (item.operation === 'edit') {
+    } else if (item.operation === 'edit' || item.operation === 'bulk_edit') {
+      const isBulkEdit = item.operation === 'bulk_edit';
+      const bulkItems = Array.isArray((item.data as { items?: unknown })?.items)
+        ? ((item.data as { items: Array<Record<string, unknown>> }).items)
+        : [];
+
       switch (item.type) {
         case 'task': {
+          if (isBulkEdit) {
+            const selection = extractBulkSelection(item);
+            const updates = extractBulkUpdates(item);
+
+            if (Object.keys(updates).length > 0) {
+              result = await bulkEditConfirmedTasks({
+                projectId,
+                selection,
+                updates: updates as {
+                  title?: string;
+                  description?: string;
+                  status?: 'todo' | 'in_progress' | 'review' | 'done';
+                  priority?: 'low' | 'medium' | 'high' | 'urgent';
+                  assignedTo?: string | null;
+                  tags?: string[];
+                },
+                reason: selection.reason,
+              });
+              break;
+            }
+
+            const taskEdits = Array.isArray(item.data?.tasks)
+              ? (item.data.tasks as Array<Record<string, unknown>>)
+              : bulkItems;
+
+            if (taskEdits.length === 0) {
+              throw new Error("No tasks provided for bulk edit");
+            }
+
+            let updatedCount = 0;
+            const errors: string[] = [];
+
+            for (const taskUpdate of taskEdits) {
+              try {
+                const candidateItem: PendingItem = {
+                  ...item,
+                  data: taskUpdate,
+                  originalItem: isPlainObject(taskUpdate.originalItem)
+                    ? (taskUpdate.originalItem as Record<string, unknown>)
+                    : item.originalItem,
+                };
+                const taskId = resolvePendingTargetId(candidateItem, ["taskId", "itemId"]);
+                if (!taskId) {
+                  errors.push("Skipped task edit without taskId");
+                  continue;
+                }
+
+                const rawUpdates = isPlainObject(taskUpdate.updates)
+                  ? (taskUpdate.updates as Record<string, unknown>)
+                  : taskUpdate;
+                const cleanUpdates = { ...rawUpdates };
+                delete cleanUpdates.assignedToName;
+                delete cleanUpdates.taskId;
+                delete cleanUpdates.itemId;
+                delete cleanUpdates.originalItem;
+                delete cleanUpdates.updates;
+
+                const editResult = await editConfirmedTask({
+                  projectId,
+                  taskId: taskId as Id<"tasks">,
+                  updates: cleanUpdates as {
+                    title?: string;
+                    description?: string;
+                    content?: string;
+                    status?: 'todo' | 'in_progress' | 'review' | 'done';
+                    assignedTo?: string | null;
+                    priority?: 'low' | 'medium' | 'high' | 'urgent';
+                    startDate?: string;
+                    endDate?: string;
+                    tags?: string[];
+                  },
+                });
+
+                if (editResult.success) {
+                  updatedCount++;
+                } else {
+                  errors.push(editResult.message);
+                }
+              } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                errors.push(message);
+              }
+            }
+
+            result = {
+              success: errors.length === 0,
+              message: errors.length === 0
+                ? `Updated ${updatedCount}/${taskEdits.length} tasks successfully`
+                : `Updated ${updatedCount}/${taskEdits.length} tasks with errors: ${errors.slice(0, 3).join(', ')}`,
+            };
+            break;
+          }
+
           const cleanUpdates = { ...(item.updates as Record<string, unknown>) };
           delete cleanUpdates.assignedToName;
+          const taskId = resolvePendingTargetId(item, ["taskId", "itemId"]);
+          if (!taskId) {
+            throw new Error("Missing taskId for task edit");
+          }
 
           result = await editConfirmedTask({
-            taskId: item.originalItem?._id as Id<"tasks">,
+            projectId,
+            taskId: taskId as Id<"tasks">,
             updates: cleanUpdates
           });
           break;
         }
-        case 'note':
+        case 'note': {
+          if (isBulkEdit) {
+            if (bulkItems.length === 0) {
+              throw new Error("No notes provided for bulk edit");
+            }
+
+            let updatedCount = 0;
+            const errors: string[] = [];
+
+            for (const noteUpdate of bulkItems) {
+              try {
+                const candidateItem: PendingItem = {
+                  ...item,
+                  data: noteUpdate,
+                  originalItem: isPlainObject(noteUpdate.originalItem)
+                    ? (noteUpdate.originalItem as Record<string, unknown>)
+                    : item.originalItem,
+                };
+                const noteId = resolvePendingTargetId(candidateItem, ["noteId", "itemId"]);
+                if (!noteId) {
+                  errors.push("Skipped note edit without noteId");
+                  continue;
+                }
+                const rawUpdates = isPlainObject(noteUpdate.updates)
+                  ? (noteUpdate.updates as Record<string, unknown>)
+                  : noteUpdate;
+                const updates = {
+                  title: typeof rawUpdates.title === "string" ? rawUpdates.title : undefined,
+                  content: typeof rawUpdates.content === "string" ? rawUpdates.content : undefined,
+                };
+
+                const editResult = await editConfirmedNote({
+                  projectId,
+                  noteId: noteId as Id<"notes">,
+                  updates,
+                });
+
+                if (editResult.success) {
+                  updatedCount++;
+                } else {
+                  errors.push(editResult.message);
+                }
+              } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                errors.push(message);
+              }
+            }
+
+            result = {
+              success: errors.length === 0,
+              message: errors.length === 0
+                ? `Updated ${updatedCount}/${bulkItems.length} notes successfully`
+                : `Updated ${updatedCount}/${bulkItems.length} notes with errors: ${errors.slice(0, 3).join(', ')}`,
+            };
+            break;
+          }
+
+          const noteId = resolvePendingTargetId(item, ["noteId", "itemId"]);
+          if (!noteId) {
+            throw new Error("Missing noteId for note edit");
+          }
           result = await editConfirmedNote({
-            noteId: item.originalItem?._id as Id<"notes">,
+            projectId,
+            noteId: noteId as Id<"notes">,
             updates: item.updates as Record<string, unknown>
           });
           break;
+        }
         case 'shopping': {
+          if (isBulkEdit) {
+            if (bulkItems.length === 0) {
+              throw new Error("No shopping items provided for bulk edit");
+            }
+
+            let updatedCount = 0;
+            const errors: string[] = [];
+
+            for (const shoppingUpdate of bulkItems) {
+              try {
+                const candidateItem: PendingItem = {
+                  ...item,
+                  data: shoppingUpdate,
+                  originalItem: isPlainObject(shoppingUpdate.originalItem)
+                    ? (shoppingUpdate.originalItem as Record<string, unknown>)
+                    : item.originalItem,
+                };
+                const shoppingItemId = resolvePendingTargetId(candidateItem, ["itemId"]);
+                if (!shoppingItemId) {
+                  errors.push("Skipped shopping edit without itemId");
+                  continue;
+                }
+
+                const rawUpdates = isPlainObject(shoppingUpdate.updates)
+                  ? (shoppingUpdate.updates as Record<string, unknown>)
+                  : shoppingUpdate;
+                const updates = { ...rawUpdates };
+                delete updates.itemId;
+                delete updates.originalItem;
+                delete updates.updates;
+                const fallbackCategory =
+                  updates["category"] ??
+                  (candidateItem.data ? (candidateItem.data as Record<string, unknown>)["category"] : undefined);
+                const targetSectionName = resolveSectionName(updates["sectionName"], fallbackCategory);
+
+                if (targetSectionName && !updates["sectionId"]) {
+                  const sectionId = await findOrCreateSection(targetSectionName);
+                  if (sectionId) {
+                    updates["sectionId"] = sectionId;
+                  }
+                }
+
+                delete updates["sectionName"];
+                const sanitizedUpdates = sanitizeShoppingItemData(updates);
+
+                const editResult = await editConfirmedShoppingItem({
+                  projectId,
+                  itemId: shoppingItemId as Id<"shoppingListItems">,
+                  updates: sanitizedUpdates,
+                });
+
+                if (editResult.success) {
+                  updatedCount++;
+                } else {
+                  errors.push(editResult.message);
+                }
+              } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                errors.push(message);
+              }
+            }
+
+            result = {
+              success: errors.length === 0,
+              message: errors.length === 0
+                ? `Updated ${updatedCount}/${bulkItems.length} shopping items successfully`
+                : `Updated ${updatedCount}/${bulkItems.length} shopping items with errors: ${errors.slice(0, 3).join(', ')}`,
+            };
+            break;
+          }
+
           const updates = { ...(item.updates as Record<string, unknown>) };
           const fallbackCategory =
             updates["category"] ?? (item.data ? (item.data as Record<string, unknown>)["category"] : undefined);
@@ -668,9 +1264,14 @@ export const usePendingItems = ({
 
           delete updates["sectionName"];
           const sanitizedUpdates = sanitizeShoppingItemData(updates);
+          const shoppingItemId = resolvePendingTargetId(item, ["itemId"]);
+          if (!shoppingItemId) {
+            throw new Error("Missing itemId for shopping item edit");
+          }
 
           result = await editConfirmedShoppingItem({
-            itemId: item.originalItem?._id as Id<"shoppingListItems">,
+            projectId,
+            itemId: shoppingItemId as Id<"shoppingListItems">,
             updates: sanitizedUpdates,
           });
           break;
@@ -682,13 +1283,144 @@ export const usePendingItems = ({
           });
           result = { success: true, message: "Shopping section updated successfully" };
           break;
-        case 'survey':
+        case 'survey': {
+          if (isBulkEdit) {
+            if (bulkItems.length === 0) {
+              throw new Error("No surveys provided for bulk edit");
+            }
+
+            let updatedCount = 0;
+            const errors: string[] = [];
+
+            for (const surveyUpdate of bulkItems) {
+              try {
+                const candidateItem: PendingItem = {
+                  ...item,
+                  data: surveyUpdate,
+                  originalItem: isPlainObject(surveyUpdate.originalItem)
+                    ? (surveyUpdate.originalItem as Record<string, unknown>)
+                    : item.originalItem,
+                };
+                const surveyId = resolvePendingTargetId(candidateItem, ["surveyId", "itemId"]);
+                if (!surveyId) {
+                  errors.push("Skipped survey edit without surveyId");
+                  continue;
+                }
+
+                const rawUpdates = isPlainObject(surveyUpdate.updates)
+                  ? (surveyUpdate.updates as Record<string, unknown>)
+                  : surveyUpdate;
+                const updates = { ...rawUpdates };
+                delete updates.itemId;
+                delete updates.surveyId;
+                delete updates.originalItem;
+                delete updates.updates;
+
+                const editResult = await editConfirmedSurvey({
+                  projectId,
+                  surveyId: surveyId as Id<"surveys">,
+                  updates,
+                });
+
+                if (editResult.success) {
+                  updatedCount++;
+                } else {
+                  errors.push(editResult.message);
+                }
+              } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                errors.push(message);
+              }
+            }
+
+            result = {
+              success: errors.length === 0,
+              message: errors.length === 0
+                ? `Updated ${updatedCount}/${bulkItems.length} surveys successfully`
+                : `Updated ${updatedCount}/${bulkItems.length} surveys with errors: ${errors.slice(0, 3).join(', ')}`,
+            };
+            break;
+          }
+
+          const surveyId = resolvePendingTargetId(item, ["surveyId", "itemId"]);
+          if (!surveyId) {
+            throw new Error("Missing surveyId for survey edit");
+          }
           result = await editConfirmedSurvey({
-            surveyId: item.originalItem?._id as Id<"surveys">,
+            projectId,
+            surveyId: surveyId as Id<"surveys">,
             updates: item.updates as Record<string, unknown>
           });
           break;
+        }
         case 'labor': {
+          if (isBulkEdit) {
+            if (bulkItems.length === 0) {
+              throw new Error("No labor items provided for bulk edit");
+            }
+
+            let updatedCount = 0;
+            const errors: string[] = [];
+
+            for (const laborUpdate of bulkItems) {
+              try {
+                const candidateItem: PendingItem = {
+                  ...item,
+                  data: laborUpdate,
+                  originalItem: isPlainObject(laborUpdate.originalItem)
+                    ? (laborUpdate.originalItem as Record<string, unknown>)
+                    : item.originalItem,
+                };
+                const laborItemId = resolvePendingTargetId(candidateItem, ["itemId"]);
+                if (!laborItemId) {
+                  errors.push("Skipped labor edit without itemId");
+                  continue;
+                }
+
+                const rawUpdates = isPlainObject(laborUpdate.updates)
+                  ? (laborUpdate.updates as Record<string, unknown>)
+                  : laborUpdate;
+                const laborUpdates = { ...rawUpdates };
+                delete laborUpdates.itemId;
+                delete laborUpdates.originalItem;
+                delete laborUpdates.updates;
+                const targetSectionName = laborUpdates["sectionName"] as string | undefined;
+
+                if (targetSectionName && !laborUpdates["sectionId"]) {
+                  const sectionId = await findOrCreateLaborSection(targetSectionName);
+                  if (sectionId) {
+                    laborUpdates["sectionId"] = sectionId;
+                  }
+                }
+
+                delete laborUpdates["sectionName"];
+
+                const editResult = await editConfirmedLaborItem({
+                  projectId,
+                  itemId: laborItemId as Id<"laborItems">,
+                  updates: laborUpdates,
+                });
+
+                if (editResult.success) {
+                  updatedCount++;
+                } else {
+                  errors.push(editResult.message);
+                }
+              } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                errors.push(message);
+              }
+            }
+
+            result = {
+              success: errors.length === 0,
+              message: errors.length === 0
+                ? `Updated ${updatedCount}/${bulkItems.length} labor items successfully`
+                : `Updated ${updatedCount}/${bulkItems.length} labor items with errors: ${errors.slice(0, 3).join(', ')}`,
+            };
+            break;
+          }
+
           const laborUpdates = { ...(item.updates as Record<string, unknown>) };
           const targetSectionName = laborUpdates["sectionName"] as string | undefined;
 
@@ -700,9 +1432,14 @@ export const usePendingItems = ({
           }
 
           delete laborUpdates["sectionName"];
+          const laborItemId = resolvePendingTargetId(item, ["itemId"]);
+          if (!laborItemId) {
+            throw new Error("Missing itemId for labor item edit");
+          }
 
           result = await editConfirmedLaborItem({
-            itemId: item.originalItem?._id as Id<"laborItems">,
+            projectId,
+            itemId: laborItemId as Id<"laborItems">,
             updates: laborUpdates,
           });
           break;
@@ -722,96 +1459,21 @@ export const usePendingItems = ({
       switch (item.type) {
         case 'task':
         case 'create_task':
-          if (item.operation === 'bulk_edit') {
-            const selection = extractBulkSelection(item);
-            const updates = extractBulkUpdates(item);
-
-            if (Object.keys(updates).length > 0) {
-              result = await bulkEditConfirmedTasks({
-                projectId,
-                selection,
-                updates: updates as {
-                  title?: string;
-                  description?: string;
-                  status?: 'todo' | 'in_progress' | 'review' | 'done';
-                  priority?: 'low' | 'medium' | 'high' | 'urgent';
-                  assignedTo?: string | null;
-                  tags?: string[];
-                },
-                reason: selection.reason,
-              });
-            } else if (Array.isArray(item.data?.tasks)) {
-              const tasks = item.data.tasks as Array<Record<string, unknown>>;
-              if (tasks.length === 0) {
-                throw new Error("No tasks provided for bulk edit");
-              }
-
-              let updatedCount = 0;
-              const errors: string[] = [];
-
-              for (const taskUpdate of tasks) {
-                try {
-                  const { taskId, ...updatesForTask } = taskUpdate as {
-                    taskId?: string;
-                    [key: string]: unknown;
-                  };
-                  if (!taskId) continue;
-
-                  const cleanUpdates = { ...updatesForTask } as Record<string, unknown>;
-                  delete cleanUpdates.assignedToName;
-
-                  const editResult = await editConfirmedTask({
-                    taskId: taskId as Id<"tasks">,
-                    updates: cleanUpdates as {
-                      title?: string;
-                      description?: string;
-                      content?: string;
-                      status?: 'todo' | 'in_progress' | 'review' | 'done';
-                      assignedTo?: string | null;
-                      priority?: 'low' | 'medium' | 'high' | 'urgent';
-                      startDate?: string;
-                      endDate?: string;
-                      tags?: string[];
-                    },
-                  });
-
-                  if (editResult.success) {
-                    updatedCount++;
-                  } else {
-                    errors.push(editResult.message);
-                  }
-                } catch (error) {
-                  const message = error instanceof Error ? error.message : String(error);
-                  errors.push(message);
-                }
-              }
-
-              result = {
-                success: errors.length === 0,
-                message: errors.length === 0
-                  ? `Updated ${updatedCount}/${tasks.length} tasks successfully`
-                  : `Updated ${updatedCount}/${tasks.length} tasks with errors: ${errors.slice(0, 3).join(', ')}`,
-              };
-            } else {
-              throw new Error("No updates provided for bulk edit");
-            }
-          } else {
-            const cleanTaskData = { ...(item.data as Record<string, unknown>) };
-            delete cleanTaskData.assignedToName;
-            result = await createConfirmedTask({
-              projectId,
-              taskData: cleanTaskData as {
-                title: string;
-                status?: 'todo' | 'in_progress' | 'review' | 'done';
-                description?: string;
-                assignedTo?: string | null;
-                priority?: 'low' | 'medium' | 'high' | 'urgent';
-                startDate?: string;
-                endDate?: string;
-                tags?: string[];
-              },
-            });
-          }
+          const cleanTaskData = { ...(item.data as Record<string, unknown>) };
+          delete cleanTaskData.assignedToName;
+          result = await createConfirmedTask({
+            projectId,
+            taskData: cleanTaskData as {
+              title: string;
+              status?: 'todo' | 'in_progress' | 'review' | 'done';
+              description?: string;
+              assignedTo?: string | null;
+              priority?: 'low' | 'medium' | 'high' | 'urgent';
+              startDate?: string;
+              endDate?: string;
+              tags?: string[];
+            },
+          });
           break;
         case 'create_multiple_notes':
         case 'create_note':
@@ -824,7 +1486,7 @@ export const usePendingItems = ({
         case 'create_multiple_shopping_items':
         case 'create_shopping_item':
         case 'shopping': {
-          const rawShoppingData = item.data as ShoppingItemInput;
+          const rawShoppingData = extractShoppingInput(item.data);
           const { sectionName, ...shoppingItemData } = rawShoppingData;
           const targetSectionName = resolveSectionName(sectionName, rawShoppingData.category);
 
@@ -836,6 +1498,29 @@ export const usePendingItems = ({
           }
 
           const sanitizedItemData = sanitizeShoppingItemData(shoppingItemData);
+          const normalizedName =
+            typeof sanitizedItemData.name === "string"
+              ? sanitizedItemData.name.trim()
+              : "";
+          if (normalizedName.length === 0) {
+            result = {
+              success: false,
+              message: "Shopping item is missing name. Edit it and try again.",
+            };
+            break;
+          }
+
+          const normalizedQuantity = toFiniteNumber(sanitizedItemData.quantity);
+          const normalizedUnitPrice = toFiniteNumber(sanitizedItemData.unitPrice);
+          const normalizedTotalPrice = toFiniteNumber(sanitizedItemData.totalPrice);
+          sanitizedItemData.name = normalizedName;
+          sanitizedItemData.quantity = normalizedQuantity ?? 1;
+          if (normalizedUnitPrice !== undefined) {
+            sanitizedItemData.unitPrice = normalizedUnitPrice;
+          }
+          if (normalizedTotalPrice !== undefined) {
+            sanitizedItemData.totalPrice = normalizedTotalPrice;
+          }
 
           result = await createConfirmedShoppingItem({
             projectId,
@@ -881,26 +1566,41 @@ export const usePendingItems = ({
           break;
         }
         case 'labor': {
-          const rawLaborData = item.data as LaborItemInput;
+          const rawLaborData = extractLaborInput(item.data);
           const { sectionName, ...laborItemData } = rawLaborData;
+          const targetSectionName = getFirstNonEmptyString(sectionName);
 
-          if (sectionName && !laborItemData.sectionId) {
-            const sectionId = await findOrCreateLaborSection(sectionName);
+          if (targetSectionName && !laborItemData.sectionId) {
+            const sectionId = await findOrCreateLaborSection(targetSectionName);
             if (sectionId) {
               laborItemData.sectionId = sectionId;
             }
           }
 
+          const normalizedName = getFirstNonEmptyString(laborItemData.name);
+          if (!normalizedName) {
+            result = {
+              success: false,
+              message: "Labor item is missing name. Edit it and try again.",
+            };
+            break;
+          }
+          const normalizedQuantity = toFiniteNumber(laborItemData.quantity) ?? 1;
+          const normalizedUnitPrice = toFiniteNumber(laborItemData.unitPrice);
+          const normalizedUnit = getFirstNonEmptyString(laborItemData.unit);
+          const normalizedNotes = getFirstNonEmptyString(laborItemData.notes);
+          const normalizedAssignedTo = getFirstNonEmptyString(laborItemData.assignedTo);
+
           result = await createConfirmedLaborItem({
             projectId,
             itemData: {
-              name: laborItemData.name,
-              quantity: laborItemData.quantity,
-              unit: laborItemData.unit,
-              notes: laborItemData.notes,
-              unitPrice: laborItemData.unitPrice,
+              name: normalizedName,
+              quantity: normalizedQuantity,
+              unit: normalizedUnit,
+              notes: normalizedNotes,
+              unitPrice: normalizedUnitPrice,
               sectionId: laborItemData.sectionId,
-              assignedTo: laborItemData.assignedTo,
+              assignedTo: normalizedAssignedTo,
             },
           });
           break;
@@ -921,6 +1621,7 @@ export const usePendingItems = ({
   }, [
     projectId,
     resolveTeamSlug,
+    resolvePendingTargetId,
     findOrCreateSection,
     findOrCreateLaborSection,
     createConfirmedTask,
@@ -954,7 +1655,10 @@ export const usePendingItems = ({
     // Resolve index if callId is passed
     let index = typeof indexOrCallId === 'number' ? indexOrCallId : -1;
     if (typeof indexOrCallId === 'string') {
-      index = pendingItems.findIndex(i => i.functionCall?.callId === indexOrCallId);
+      index = pendingItems.findIndex(i => i.clientId === indexOrCallId);
+      if (index === -1) {
+        index = pendingItems.findIndex(i => i.functionCall?.callId === indexOrCallId);
+      }
     }
 
     // If not found in pending items, we might be clicking a "retry" on a historical item
@@ -1042,7 +1746,10 @@ export const usePendingItems = ({
     // Resolve index
     let index = typeof indexOrCallId === 'number' ? indexOrCallId : -1;
     if (typeof indexOrCallId === 'string') {
-      index = pendingItems.findIndex(i => i.functionCall?.callId === indexOrCallId);
+      index = pendingItems.findIndex(i => i.clientId === indexOrCallId);
+      if (index === -1) {
+        index = pendingItems.findIndex(i => i.functionCall?.callId === indexOrCallId);
+      }
     }
 
     if (index === -1) {
@@ -1156,58 +1863,6 @@ export const usePendingItems = ({
     resolvedIds.forEach((id) => scheduleResolvedRemoval(id));
   }, [pendingItems, threadId, markFunctionCallsAsConfirmed, setChatHistory, scheduleResolvedRemoval]);
 
-  const handleAutoRejectPendingItems = useCallback(async () => {
-    const itemsToReject = pendingItems.filter(
-      (item) => item.status !== "confirmed" && item.status !== "rejected"
-    );
-    if (itemsToReject.length === 0) return 0;
-
-    const resolvedIds = itemsToReject.map((item) => item.clientId).filter(Boolean) as string[];
-    setPendingItems((prev) =>
-      prev.map((item) =>
-        resolvedIds.includes(item.clientId ?? "") ? { ...item, status: "rejected" } : item
-      )
-    );
-    setShowConfirmationGrid(false);
-    setIsConfirmationDialogOpen(false);
-
-    if (threadId) {
-      const groupedResults = new Map<string, { callId: string; result: string | undefined; status?: "rejected" }[]>();
-      for (const item of itemsToReject) {
-        if (item.functionCall && item.responseId) {
-          if (!groupedResults.has(item.responseId)) {
-            groupedResults.set(item.responseId, []);
-          }
-          groupedResults.get(item.responseId)!.push({
-            callId: item.functionCall.callId,
-            result: "User rejected this action.",
-            status: 'rejected',
-          });
-        }
-      }
-
-      for (const [responseId, results] of groupedResults.entries()) {
-        try {
-          await markFunctionCallsAsConfirmed({
-            threadId,
-            responseId,
-            results,
-          });
-        } catch (error) {
-          console.error("Failed to auto-reject function calls", error);
-        }
-      }
-    }
-
-    resolvedIds.forEach((id) => scheduleResolvedRemoval(id));
-    return itemsToReject.length;
-  }, [
-    pendingItems,
-    threadId,
-    markFunctionCallsAsConfirmed,
-    scheduleResolvedRemoval,
-  ]);
-
   const handleContentConfirm = useCallback(async () => {
     if (!projectId || pendingItems.length === 0) return;
 
@@ -1256,6 +1911,8 @@ export const usePendingItems = ({
           setPendingItems([]);
           setCurrentItemIndex(0);
         }
+      } else {
+        toast.error(result.message);
       }
     } catch (error) {
       console.error(`Error creating ${currentItem.type}:`, error);
@@ -1304,7 +1961,7 @@ export const usePendingItems = ({
   const handleConfirmAll = useCallback(async () => {
     setIsBulkProcessing(true);
     try {
-      const resolvedIds = pendingItems.map((item) => item.clientId).filter(Boolean) as string[];
+      const confirmedClientIds = new Set<string>();
       let successCount = 0;
       let failureCount = 0;
       const resultsByResponseId = new Map<string, { callId: string; result: string }[]>();
@@ -1313,28 +1970,38 @@ export const usePendingItems = ({
       for (const item of pendingItems) {
         try {
           const result = await confirmSingleItem(item);
-          successCount++;
-
-          if (result.success) {
-            if ('taskId' in result && result.taskId) {
-              const title = (item.data as { title?: string }).title || 'Untitled';
-              createdItemsDetails.push(`Task "${title}"`);
-            } else if ('noteId' in result && result.noteId) {
-              const title = (item.data as { title?: string }).title || 'Untitled';
-              createdItemsDetails.push(`Note "${title}"`);
-            } else if ('itemId' in result && result.itemId) {
-              const name = (item.data as { name?: string }).name || 'Unnamed';
-              createdItemsDetails.push(`Shopping item "${name}"`);
-            } else if ('surveyId' in result && result.surveyId) {
-              const title = (item.data as { title?: string }).title || 'Untitled';
-              createdItemsDetails.push(`Survey "${title}"`);
-            } else if ('contactId' in result && result.contactId) {
-              const name = (item.data as { name?: string }).name || 'Unnamed';
-              createdItemsDetails.push(`Contact "${name}"`);
-            }
+          if (!result.success) {
+            failureCount++;
+            continue;
           }
 
-          if (item.functionCall && item.responseId && result) {
+          successCount++;
+
+          if (item.clientId) {
+            confirmedClientIds.add(item.clientId);
+          }
+
+          if ('taskId' in result && result.taskId) {
+            const title = (item.data as { title?: string }).title || 'Untitled';
+            createdItemsDetails.push(`Task "${title}"`);
+          } else if ('noteId' in result && result.noteId) {
+            const title = (item.data as { title?: string }).title || 'Untitled';
+            createdItemsDetails.push(`Note "${title}"`);
+          } else if ('itemId' in result && result.itemId) {
+            const name = (item.data as { name?: string; title?: string }).name
+              || (item.data as { name?: string; title?: string }).title
+              || 'Unnamed';
+            const label = item.type === "labor" ? "Labor item" : "Shopping item";
+            createdItemsDetails.push(`${label} "${name}"`);
+          } else if ('surveyId' in result && result.surveyId) {
+            const title = (item.data as { title?: string }).title || 'Untitled';
+            createdItemsDetails.push(`Survey "${title}"`);
+          } else if ('contactId' in result && result.contactId) {
+            const name = (item.data as { name?: string }).name || 'Unnamed';
+            createdItemsDetails.push(`Contact "${name}"`);
+          }
+
+          if (item.functionCall && item.responseId) {
             if (!resultsByResponseId.has(item.responseId)) {
               resultsByResponseId.set(item.responseId, []);
             }
@@ -1386,13 +2053,14 @@ export const usePendingItems = ({
       }
 
       setPendingItems((prev) =>
-        prev.map((item) => ({
-          ...item,
-          status: "confirmed",
-        }))
+        prev.map((item) =>
+          item.clientId && confirmedClientIds.has(item.clientId)
+            ? { ...item, status: "confirmed" }
+            : item
+        )
       );
       setShowConfirmationGrid(false);
-      resolvedIds.forEach((id) => scheduleResolvedRemoval(id));
+      Array.from(confirmedClientIds).forEach((id) => scheduleResolvedRemoval(id));
     } catch {
       toast.error("Failed to process items");
     } finally {
@@ -1419,9 +2087,14 @@ export const usePendingItems = ({
       return;
     }
 
-    const batchKey = unresolvedItems
-      .map((item) => item.clientId ?? item.functionCall?.callId ?? "")
-      .filter(Boolean)
+    const batchKey = Array.from(
+      new Set(
+        unresolvedItems
+          .map((item) => item.functionCall?.callId ?? item.clientId ?? "")
+          .filter(Boolean)
+      )
+    )
+      .sort()
       .join("|");
 
     if (!batchKey || autoConfirmBatchKeyRef.current === batchKey) {
@@ -1437,7 +2110,11 @@ export const usePendingItems = ({
   const handleEditItem = useCallback((indexOrCallId: number | string) => {
     const index = typeof indexOrCallId === "number"
       ? indexOrCallId
-      : pendingItems.findIndex((item) => item.functionCall?.callId === indexOrCallId);
+      : (() => {
+        const byClientId = pendingItems.findIndex((item) => item.clientId === indexOrCallId);
+        if (byClientId !== -1) return byClientId;
+        return pendingItems.findIndex((item) => item.functionCall?.callId === indexOrCallId);
+      })();
 
     if (index < 0) return;
     setEditingItemIndex(index);
@@ -1458,12 +2135,24 @@ export const usePendingItems = ({
     setPendingItems((prev) => {
       let index = typeof indexOrCallId === 'number' ? indexOrCallId : -1;
       if (typeof indexOrCallId === 'string') {
-        index = prev.findIndex(i => i.functionCall?.callId === indexOrCallId);
+        index = prev.findIndex(i => i.clientId === indexOrCallId);
+        if (index === -1) {
+          index = prev.findIndex(i => i.functionCall?.callId === indexOrCallId);
+        }
       }
 
       if (index >= 0 && index < prev.length) {
+        const currentItem = prev[index];
+        const hasActualChange = Object.entries(updates).some(([key, value]) => {
+          return !areValuesEqual(currentItem[key as keyof PendingItem], value);
+        });
+
+        if (!hasActualChange) {
+          return prev;
+        }
+
         const newItems = [...prev];
-        newItems[index] = { ...newItems[index], ...updates };
+        newItems[index] = { ...currentItem, ...updates };
         return newItems;
       }
       return prev;
@@ -1491,7 +2180,6 @@ export const usePendingItems = ({
     handleConfirmItem,
     handleRejectItem,
     handleRejectAll,
-    handleAutoRejectPendingItems,
     handleEditItem,
     handleUpdatePendingItem,
     resetPendingState,

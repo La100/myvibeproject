@@ -581,7 +581,6 @@ export const processFunctionCalls = async (
       case "edit_shopping_section":
         {
           const { sectionId: editSectionId, ...sectionUpdates } = functionArgs;
-          const snapshot = await getSnapshot();
           // Note: shopping sections are not in the standard snapshot, would need to be added
           pendingItems.push({
             type: "shoppingSection",

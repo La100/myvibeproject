@@ -188,8 +188,9 @@ export const normalizePendingItems = (items: PendingItem[]): PendingItem[] =>
         const hasBulkTasks = Array.isArray(data.tasks) || (Array.isArray(data.items) && finalType === "task");
         const hasBulkNotes = Array.isArray(data.notes) || (Array.isArray(data.items) && finalType === "note");
         const hasBulkShopping = Array.isArray(data.items) && finalType === "shopping";
+        const hasBulkLabor = Array.isArray(data.items) && finalType === "labor";
 
-        if (hasBulkTasks || hasBulkNotes || hasBulkShopping) {
+        if (hasBulkTasks || hasBulkNotes || hasBulkShopping || hasBulkLabor) {
           return {
             ...item,
             type: finalType,
@@ -775,7 +776,6 @@ export const resolveSectionName = (rawSectionName?: unknown, rawCategory?: unkno
   const normalizedCategory = typeof rawCategory === "string" ? rawCategory.trim() : "";
   return normalizedCategory.length > 0 ? normalizedCategory : undefined;
 };
-
 
 
 

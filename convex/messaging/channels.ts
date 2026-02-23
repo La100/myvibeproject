@@ -1,7 +1,5 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation, internalQuery } from "../_generated/server";
-import type { MessagingPlatform } from "./types";
-import type { Id } from "../_generated/dataModel";
 
 // Get or create a messaging channel for a platform user
 export const getOrCreateChannel = internalMutation({

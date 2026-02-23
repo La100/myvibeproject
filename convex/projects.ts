@@ -25,38 +25,6 @@ const generateNextProjectId = async (ctx: any) => {
   return (lastProject?.projectId || 0) + 1;
 };
 
-const clientPortalPermissionsValidator = {
-  overview: v.optional(v.object({ visible: v.boolean() })),
-  tasks: v.optional(v.object({ visible: v.boolean() })),
-  moodboard: v.optional(v.object({ visible: v.boolean() })),
-  notes: v.optional(v.object({ visible: v.boolean() })),
-  contacts: v.optional(v.object({ visible: v.boolean() })),
-  surveys: v.optional(v.object({ visible: v.boolean() })),
-  calendar: v.optional(v.object({ visible: v.boolean() })),
-  gantt: v.optional(v.object({ visible: v.boolean() })),
-  files: v.optional(v.object({ visible: v.boolean() })),
-  shopping_list: v.optional(v.object({ visible: v.boolean() })),
-  labor: v.optional(v.object({ visible: v.boolean() })),
-  estimations: v.optional(v.object({ visible: v.boolean() })),
-  settings: v.optional(v.object({ visible: v.boolean() })),
-};
-
-const defaultClientPortalPermissions = {
-  overview: { visible: true },
-  tasks: { visible: true },
-  moodboard: { visible: true },
-  notes: { visible: true },
-  contacts: { visible: true },
-  surveys: { visible: true },
-  calendar: { visible: true },
-  gantt: { visible: true },
-  files: { visible: true },
-  shopping_list: { visible: true },
-  labor: { visible: true },
-  estimations: { visible: true },
-  settings: { visible: false },
-};
-
 const clientPanelDisplaySettingsValidator = {
   showNotes: v.optional(v.boolean()),
   showSupplier: v.optional(v.boolean()),
@@ -69,29 +37,7 @@ const defaultClientPanelDisplaySettings = {
   showPrice: true,
 };
 
-type ClientPortalPermissionKey = keyof typeof defaultClientPortalPermissions;
-type ClientPortalPermissions = Record<ClientPortalPermissionKey, { visible: boolean }>;
 type ClientPanelDisplaySettings = typeof defaultClientPanelDisplaySettings;
-
-const getResolvedClientPortalPermissions = (
-  permissions?: Partial<ClientPortalPermissions> | null
-): ClientPortalPermissions => {
-  const resolved = { ...defaultClientPortalPermissions } as ClientPortalPermissions;
-  (Object.keys(defaultClientPortalPermissions) as ClientPortalPermissionKey[]).forEach((key) => {
-    resolved[key] = {
-      visible: permissions?.[key]?.visible ?? defaultClientPortalPermissions[key].visible,
-    };
-  });
-  return resolved;
-};
-
-const hasPermissionChanges = (
-  left: ClientPortalPermissions,
-  right: ClientPortalPermissions
-): boolean =>
-  (Object.keys(defaultClientPortalPermissions) as ClientPortalPermissionKey[]).some(
-    (key) => left[key].visible !== right[key].visible
-  );
 
 const getResolvedClientPanelDisplaySettings = (
   settings?: Partial<ClientPanelDisplaySettings> | null
@@ -812,27 +758,6 @@ export const checkUserProjectAccess = query({
   }
 });
 
-export const updateProjectSidebarPermissions = mutation({
-  args: {
-    projectId: v.id("projects"),
-    sidebarPermissions: v.object(clientPortalPermissionsValidator),
-  },
-  async handler(ctx, args) {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    await getProjectManagerMembership(ctx, args.projectId, identity.subject);
-
-    await ctx.db.patch(args.projectId, {
-      sidebarPermissions: args.sidebarPermissions,
-    });
-
-    return { success: true };
-  },
-});
-
 export const ensureClientPanelAccessToken = mutation({
   args: {
     projectId: v.id("projects"),
@@ -897,6 +822,12 @@ export const getClientPanelConfiguration = query({
         .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
         .collect()
     ).length;
+    const fileCount = (
+      await ctx.db
+        .query("clientPanelFiles")
+        .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+        .collect()
+    ).length;
 
     return {
       accessToken: project.clientPanelAccessToken || null,
@@ -906,6 +837,7 @@ export const getClientPanelConfiguration = query({
       version: project.clientPanelDataVersion || 0,
       updatedAt: project.clientPanelDataUpdatedAt || null,
       itemCount,
+      fileCount,
     };
   },
 });
@@ -950,6 +882,12 @@ export const publishClientPanelData = mutation({
       .collect();
     await Promise.all(existingSnapshotSections.map((section) => ctx.db.delete(section._id)));
 
+    const existingSnapshotFiles = await ctx.db
+      .query("clientPanelFiles")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+    await Promise.all(existingSnapshotFiles.map((file) => ctx.db.delete(file._id)));
+
     for (const section of sections) {
       await ctx.db.insert("clientPanelSections", {
         projectId: args.projectId,
@@ -987,6 +925,39 @@ export const publishClientPanelData = mutation({
       });
     }
 
+    const files = await ctx.db
+      .query("files")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+    const selectedFiles = files.filter((file) => file.showInClientPortal === true);
+    const folderNameById = new Map<string, string>();
+    const folderIds = [
+      ...new Set(
+        selectedFiles
+          .map((file) => file.folderId)
+          .filter((folderId): folderId is Id<"folders"> => !!folderId)
+      ),
+    ];
+    const folderRecords = await Promise.all(folderIds.map((folderId) => ctx.db.get(folderId)));
+    for (const folder of folderRecords) {
+      if (!folder) continue;
+      folderNameById.set(String(folder._id), folder.name);
+    }
+
+    for (const file of selectedFiles) {
+      await ctx.db.insert("clientPanelFiles", {
+        projectId: args.projectId,
+        sourceFileId: file._id,
+        name: file.name,
+        fileType: file.fileType,
+        storageId: file.storageId,
+        mimeType: file.mimeType,
+        size: file.size,
+        folderName: file.folderId ? folderNameById.get(String(file.folderId)) : undefined,
+        uploadedAt: file._creationTime,
+      });
+    }
+
     const resolvedSettings = getResolvedClientPanelDisplaySettings(args.settings);
     const version = (project.clientPanelDataVersion || 0) + 1;
     const updatedAt = Date.now();
@@ -1005,251 +976,8 @@ export const publishClientPanelData = mutation({
       version,
       updatedAt,
       itemCount: items.length,
+      fileCount: selectedFiles.length,
     };
-  },
-});
-
-export const publishClientPortal = mutation({
-  args: {
-    projectId: v.id("projects"),
-  },
-  async handler(ctx, args) {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const { project } = await getProjectManagerMembership(ctx, args.projectId, identity.subject);
-    const publishedAt = Date.now();
-    const nextVersion = (project.clientPortalVersion || 0) + 1;
-    const draftPermissions = getResolvedClientPortalPermissions(
-      project.sidebarPermissions as Partial<ClientPortalPermissions> | null
-    );
-
-    await ctx.db.patch(args.projectId, {
-      clientPortalPublishedPermissions: draftPermissions,
-      clientPortalVersion: nextVersion,
-      clientPortalPublishedAt: publishedAt,
-      clientPortalPublishedBy: identity.subject,
-    });
-
-    return {
-      success: true,
-      version: nextVersion,
-      publishedAt,
-      publishedBy: identity.subject,
-    };
-  },
-});
-
-export const getClientPortalConfiguration = query({
-  args: {
-    projectId: v.id("projects"),
-  },
-  async handler(ctx, args) {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return null;
-    }
-
-    const { project } = await getProjectManagerMembership(ctx, args.projectId, identity.subject);
-    const portalVersion = project.clientPortalVersion || 0;
-    const draftPermissions = getResolvedClientPortalPermissions(
-      project.sidebarPermissions as Partial<ClientPortalPermissions> | null
-    );
-    const publishedPermissions = getResolvedClientPortalPermissions(
-      (project.clientPortalPublishedPermissions ||
-        project.sidebarPermissions) as Partial<ClientPortalPermissions> | null
-    );
-    const hasUnpublishedChanges =
-      portalVersion === 0 || hasPermissionChanges(draftPermissions, publishedPermissions);
-
-    const customerInvitations = await ctx.db
-      .query("pendingCustomerInvitations")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .collect();
-
-    const pendingCustomers = customerInvitations.filter((invitation) => invitation.status === "pending").length;
-    let acceptedCustomers = customerInvitations.filter((invitation) => invitation.status === "accepted").length;
-    if (portalVersion > 0) {
-      const acceptances = await ctx.db
-        .query("clientPortalAcceptances")
-        .withIndex("by_project_and_version", (q) =>
-          q.eq("projectId", args.projectId).eq("version", portalVersion)
-        )
-        .collect();
-      acceptedCustomers = acceptances.length;
-    }
-
-    return {
-      draftPermissions,
-      publishedPermissions,
-      hasUnpublishedChanges,
-      version: portalVersion,
-      publishedAt: project.clientPortalPublishedAt || null,
-      publishedBy: project.clientPortalPublishedBy || null,
-      stats: {
-        totalCustomers: pendingCustomers + acceptedCustomers,
-        activeCustomers: acceptedCustomers,
-        pendingCustomers,
-        acceptedCustomers,
-      },
-    };
-  },
-});
-
-export const acceptLatestClientPortal = mutation({
-  args: {
-    projectId: v.id("projects"),
-  },
-  async handler(ctx, args) {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project) {
-      throw new Error("Project not found");
-    }
-
-    const teamMember = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
-      )
-      .filter((q) => q.eq(q.field("isActive"), true))
-      .unique();
-
-    const hasCustomerRoleInProject =
-      teamMember?.role === "customer" &&
-      (!teamMember.projectIds ||
-        teamMember.projectIds.length === 0 ||
-        teamMember.projectIds.includes(args.projectId));
-
-    if (!hasCustomerRoleInProject) {
-      throw new Error("Only project customers can accept portal updates.");
-    }
-
-    const latestVersion = project.clientPortalVersion || 0;
-    if (latestVersion === 0) {
-      throw new Error("No portal update has been published yet.");
-    }
-
-    const acceptedAt = Date.now();
-    const existingAcceptance = await ctx.db
-      .query("clientPortalAcceptances")
-      .withIndex("by_project_and_user", (q) =>
-        q.eq("projectId", args.projectId).eq("clerkUserId", identity.subject)
-      )
-      .unique();
-
-    if (existingAcceptance) {
-      await ctx.db.patch(existingAcceptance._id, {
-        version: latestVersion,
-        acceptedAt,
-      });
-    } else {
-      await ctx.db.insert("clientPortalAcceptances", {
-        teamId: project.teamId,
-        projectId: args.projectId,
-        clerkUserId: identity.subject,
-        version: latestVersion,
-        acceptedAt,
-      });
-    }
-
-    return {
-      success: true,
-      version: latestVersion,
-      acceptedAt,
-    };
-  },
-});
-
-export const getProjectSidebarPermissions = query({
-  args: { projectId: v.id("projects") },
-  async handler(ctx, args) {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return null;
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project) return null;
-
-    // Check user role
-    const teamMember = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", q => 
-        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
-      )
-      .unique();
-
-    const acceptance = await ctx.db
-      .query("clientPortalAcceptances")
-      .withIndex("by_project_and_user", (q) =>
-        q.eq("projectId", args.projectId).eq("clerkUserId", identity.subject)
-      )
-      .unique();
-
-    const portalVersion = project.clientPortalVersion || 0;
-    const acceptedVersion = acceptance?.version || 0;
-    const portalState = {
-      version: portalVersion,
-      publishedAt: project.clientPortalPublishedAt || null,
-      acceptedVersion,
-      acceptedAt: acceptance?.acceptedAt || null,
-      hasPendingUpdate: portalVersion > 0 && acceptedVersion < portalVersion,
-    };
-
-    const managerPermissions = getResolvedClientPortalPermissions(null);
-    managerPermissions.settings = { visible: true };
-
-    // Check if user has access to the project
-    if (teamMember && teamMember.role === "admin") {
-      // Admin always has full permissions
-      return {
-        permissions: managerPermissions,
-        userRole: teamMember.role,
-        isCustomer: false,
-        portal: portalState,
-      };
-    }
-
-    if (teamMember && teamMember.role === "member") {
-      // Check if member has access to this project
-      let hasAccess = true;
-      if (teamMember.projectIds && teamMember.projectIds.length > 0) {
-        hasAccess = teamMember.projectIds.includes(args.projectId);
-      }
-      
-      if (hasAccess) {
-        return {
-          permissions: managerPermissions,
-          userRole: teamMember.role,
-          isCustomer: false,
-          portal: portalState,
-        };
-      }
-      // If no access, treat as customer
-    }
-
-    // If user is a customer, apply restrictions
-    if (teamMember?.role === "customer") {
-      const publishedPermissions = getResolvedClientPortalPermissions(
-        (project.clientPortalPublishedPermissions ||
-          project.sidebarPermissions) as Partial<ClientPortalPermissions> | null
-      );
-      
-      return {
-        permissions: publishedPermissions,
-        userRole: teamMember.role,
-        isCustomer: true,
-        portal: portalState,
-      };
-    }
-
-    // If user has no access
-    return null;
   },
 });
 
@@ -1316,21 +1044,6 @@ export const deleteProject = mutation({
     const commentDeletionPromises = allComments.map(comment => ctx.db.delete(comment._id));
     await Promise.all(commentDeletionPromises);
 
-    // Delete all files related to the project or its tasks
-    const projectFiles = await ctx.db
-      .query("files")
-      .withIndex("by_project", q => q.eq("projectId", args.projectId))
-      .collect();
-
-    const taskFiles = await Promise.all(
-      tasks.map(task => 
-        ctx.db
-          .query("files")
-          .withIndex("by_task", q => q.eq("taskId", task._id))
-          .collect()
-      )
-    ).then(results => results.flat());
-
     // Handle team members with role "customer" - remove project or delete member entirely
     const customerTeamMembers = await ctx.db
       .query("teamMembers")
@@ -1356,13 +1069,6 @@ export const deleteProject = mutation({
       }
     });
     await Promise.all(memberOperationPromises);
-
-    // Delete all client portal acceptance records for this project
-    const portalAcceptances = await ctx.db
-      .query("clientPortalAcceptances")
-      .withIndex("by_project_and_version", (q) => q.eq("projectId", args.projectId))
-      .collect();
-    await Promise.all(portalAcceptances.map((acceptance) => ctx.db.delete(acceptance._id)));
 
     // Delete messaging channels and pairing artifacts.
     const messagingChannels = await ctx.db

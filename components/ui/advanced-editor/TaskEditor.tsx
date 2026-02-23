@@ -15,7 +15,7 @@ interface TaskEditorProps {
 export default function TaskEditor({ 
   taskId, 
   initialContent = '', 
-  placeholder = "Opisz szczegóły zadania..." 
+  placeholder = "Describe task details..." 
 }: TaskEditorProps) {
   const updateTask = useMutation(apiAny.tasks.updateTask);
 

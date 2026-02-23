@@ -5,7 +5,7 @@ import type { AppendMessage, Attachment, ThreadMessageLike } from "@assistant-ui
 import { AssistantRuntimeProvider, useExternalStoreRuntime } from "@assistant-ui/react";
 import type { AttachmentAdapter } from "@assistant-ui/react";
 import type { UIMessage } from "@convex-dev/agent/react";
-import { Loader2, MessageSquare, RotateCcw } from "lucide-react";
+import { Loader2, RotateCcw } from "lucide-react";
 import type { PendingContentItem } from "@/components/ai/assistant/data/types";
 
 import { Thread } from "@/components/assistant-ui/thread";
@@ -313,14 +313,12 @@ export default function AssistantConversation({
       const promptText = toText(message.content) || "";
 
       if (ENABLE_OPTIMISTIC_USER_MESSAGE && (promptText || files.length > 0)) {
+        const optimisticMessage = makeLocalMessage("user", promptText, message.attachments);
         optimisticMetaRef.current = {
           normalizedText: normalizeText(promptText),
           serverUserCountAtSend: serverUserCount,
         };
-        setOptimisticMessages((prev) => [
-          ...prev,
-          makeLocalMessage("user", promptText, message.attachments),
-        ]);
+        setOptimisticMessages((prev) => [...prev, optimisticMessage]);
       }
 
       await onSendRef.current({ text: promptText, files });
@@ -396,7 +394,7 @@ export default function AssistantConversation({
 
   const store = useMemo(
     () => ({
-      isRunning: isStreaming || isLoading,
+      isRunning: (isStreaming || isLoading) && hasVisibleMessages,
       isLoading: isBooting && !hasVisibleMessages,
       messages: storeMessages,
       convertMessage,
@@ -434,19 +432,15 @@ export default function AssistantConversation({
     <AssistantRuntimeProvider runtime={runtime}>
       <div className={cn("flex h-full min-h-0 w-full flex-col", className)}>
         {showHeader && (
-          <div className="flex items-center justify-between border-b border-border/60 bg-background/70 px-4 py-2 backdrop-blur">
-            <div className="flex items-center gap-2 text-sm font-semibold">
-              <MessageSquare className="h-4 w-4 text-primary" />
-              {title}
-            </div>
+          <div className="flex items-center justify-end px-4 py-2">
             <TooltipIconButton
               tooltip="Reset chat"
               variant="ghost"
-              className="h-8 w-8 rounded-full"
+              className="h-10 w-10 rounded-full"
               onClick={handleReset}
               disabled={isStreaming || isLoading}
             >
-              <RotateCcw className="h-4 w-4" />
+              <RotateCcw className="h-5 w-5" />
             </TooltipIconButton>
           </div>
         )}

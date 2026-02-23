@@ -7,7 +7,7 @@ import { useQuery, useMutation } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
-import { AlertTriangle, ImagePlus, Sparkles, X } from "lucide-react";
+import { AlertTriangle, Check, ImagePlus, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -518,36 +518,40 @@ export default function NewProjectPage() {
       <Dialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader className="text-center sm:text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/20">
-              <AlertTriangle className="h-7 w-7 text-orange-600" />
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--ui-accent-copper)]/10">
+              <AlertTriangle className="h-7 w-7 text-[var(--ui-accent-copper)]" />
             </div>
-            <DialogTitle className="text-xl">Project limit reached</DialogTitle>
+            <DialogTitle className="font-[var(--font-display-serif)] text-xl font-medium">Project limit reached</DialogTitle>
             <DialogDescription className="text-base">
               You&apos;ve reached the maximum number of projects ({checkLimits?.limit || 3}) for the Free plan.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="my-4 rounded-lg border bg-muted/50 p-4">
-            <div className="mb-3 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-purple-600">
-                <Sparkles className="h-5 w-5 text-white" />
+          <div className="my-4 rounded-xl border bg-muted/50 p-5">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary">
+                <Sparkles className="h-5 w-5 text-primary-foreground" />
               </div>
               <div>
-                <p className="font-semibold">AI Pro</p>
+                <p className="font-[var(--font-display-serif)] font-medium">AI Pro</p>
                 <p className="text-sm text-muted-foreground">$39/month</p>
               </div>
             </div>
-            <ul className="space-y-2 text-sm">
-              <li className="flex items-center gap-2"><span className="text-green-500">✓</span><span>20 projects</span></li>
-              <li className="flex items-center gap-2"><span className="text-green-500">✓</span><span>25 team members</span></li>
-              <li className="flex items-center gap-2"><span className="text-green-500">✓</span><span>AI Assistant & image generation</span></li>
-              <li className="flex items-center gap-2"><span className="text-green-500">✓</span><span>50 GB storage</span></li>
+            <ul className="space-y-2.5 text-sm">
+              {["20 projects", "25 team members", "AI Assistant & image generation", "50 GB storage"].map((feature) => (
+                <li key={feature} className="flex items-center gap-2.5">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--ui-accent-brand)]/15 text-[var(--ui-accent-brand)]">
+                    <Check className="h-3 w-3" strokeWidth={2.5} />
+                  </span>
+                  <span>{feature}</span>
+                </li>
+              ))}
             </ul>
           </div>
 
           <DialogFooter className="flex-col gap-2 sm:flex-col">
             <Button
-              className="w-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700"
+              className="w-full h-11 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_8px_30px_rgba(44,42,37,0.15)]"
               onClick={() => {
                 setShowUpgradeDialog(false);
                 router.push("/organisation/settings?tab=subscription");

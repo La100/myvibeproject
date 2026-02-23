@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
-import { ExternalLink, ShoppingCart } from "lucide-react";
+import { Download, ExternalLink, ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
 import { Doc, Id } from "@/convex/_generated/dataModel";
 import { apiAny } from "@/lib/convexApiAny";
@@ -13,8 +13,19 @@ import { Spinner } from "@/components/ui/spinner";
 
 type ClientPanelItem = Doc<"clientPanelItems">;
 type ClientPanelSection = Doc<"clientPanelSections">;
+type ClientPanelFile = {
+  _id: string;
+  name: string;
+  fileType: "image" | "video" | "document" | "drawing" | "model" | "other";
+  mimeType: string;
+  size: number;
+  folderName?: string;
+  uploadedAt: number;
+  url: string;
+};
 const EMPTY_SECTIONS: ClientPanelSection[] = [];
 const EMPTY_ITEMS: ClientPanelItem[] = [];
+const EMPTY_FILES: ClientPanelFile[] = [];
 const DEFAULT_CLIENT_PANEL_SETTINGS = {
   showNotes: true,
   showSupplier: true,
@@ -71,6 +82,19 @@ const getStatusLabel = (status?: string) => {
   return status.replace(/_/g, " ").toUpperCase();
 };
 
+const formatFileSize = (size: number) => {
+  if (size >= 1024 * 1024 * 1024) {
+    return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+  }
+  if (size >= 1024 * 1024) {
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  if (size >= 1024) {
+    return `${(size / 1024).toFixed(1)} KB`;
+  }
+  return `${size} B`;
+};
+
 function ItemImage({
   imageUrl,
   name,
@@ -120,6 +144,7 @@ export default function PublicClientPanelPage() {
   const project = panelData?.project;
   const sections = (panelData?.sections as ClientPanelSection[] | undefined) ?? EMPTY_SECTIONS;
   const items = (panelData?.items as ClientPanelItem[] | undefined) ?? EMPTY_ITEMS;
+  const files = (panelData?.files as ClientPanelFile[] | undefined) ?? EMPTY_FILES;
   const settings = panelData?.settings ?? DEFAULT_CLIENT_PANEL_SETTINGS;
 
   const currencySymbol = getCurrencySymbol(project?.currency);
@@ -238,7 +263,7 @@ export default function PublicClientPanelPage() {
         <div>
           <h1 className="mb-2 text-2xl font-semibold">Invalid link</h1>
           <p className="text-muted-foreground">
-            This customer panel link is invalid or no longer active.
+            This client portal link is invalid or no longer active.
           </p>
         </div>
       </div>
@@ -267,22 +292,72 @@ export default function PublicClientPanelPage() {
           </div>
           <p className="max-w-4xl text-sm text-muted-foreground">
             Select one option for each material. Your choices are saved automatically, and list
-            content changes only after the team clicks Update panel.
+            content changes only after the team clicks Update portal.
           </p>
         </div>
       </div>
 
       {panelData.version === 0 ? (
         <div className="mb-8 rounded-[20px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-5 py-4 text-sm text-[var(--ui-text-muted)]">
-          This panel has not been updated yet. Ask the project team to click Update in Customer
-          Panel settings.
+          This portal has not been updated yet. Ask the project team to click Update portal in
+          project settings.
+        </div>
+      ) : null}
+
+      {files.length > 0 ? (
+        <div className="mb-10 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-4 shadow-[0_24px_60px_rgba(20,20,20,0.08)] sm:rounded-[32px] sm:p-8">
+          <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
+            <h2 className="text-xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)] sm:text-2xl">
+              Files
+            </h2>
+            <span className="inline-flex items-center justify-center rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-muted)]">
+              {files.length} files
+            </span>
+          </div>
+          <div className="space-y-3">
+            {files.map((file) => (
+              <div
+                key={file._id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-[16px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-4"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-[var(--ui-text-strong)]">{file.name}</p>
+                  <p className="mt-1 text-xs text-[var(--ui-text-muted)]">
+                    {file.fileType} • {formatFileSize(file.size)}
+                    {file.folderName ? ` • ${file.folderName}` : ""}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <a
+                    href={file.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--ui-border-soft)] text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-soft)] hover:text-[var(--ui-text-main)]"
+                    aria-label={`Open ${file.name}`}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                  <a
+                    href={file.url}
+                    download={file.name}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--ui-border-soft)] text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-soft)] hover:text-[var(--ui-text-main)]"
+                    aria-label={`Download ${file.name}`}
+                  >
+                    <Download className="h-4 w-4" />
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       ) : null}
 
       {sectionSummaries.length === 0 ? (
-        <div className="rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-8 text-center text-sm text-[var(--ui-text-muted)]">
-          No shopping items available yet.
-        </div>
+        files.length === 0 ? (
+          <div className="rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-8 text-center text-sm text-[var(--ui-text-muted)]">
+            No shopping items available yet.
+          </div>
+        ) : null
       ) : (
         sectionSummaries.map(({ sectionName, itemCount, total }) => {
           const sectionItems = baseItemsBySection.get(sectionName) || [];

@@ -14,7 +14,7 @@ export default function EditSurveyPage() {
   const survey = useQuery(apiAny.surveys.getSurvey, { surveyId });
 
   if (!survey) {
-    return <div>Ładowanie...</div>;
+    return <div>Loading...</div>;
   }
 
   // Transform the survey data to match the expected format
@@ -29,7 +29,7 @@ export default function EditSurveyPage() {
   return (
     <ProjectPageLayout>
       <div className="p-6">
-        <h1 className="text-3xl font-bold mb-6">Edytuj ankietę</h1>
+        <h1 className="text-3xl font-bold mb-6">Edit Survey</h1>
         <EditSurveyForm survey={transformedSurvey} />
       </div>
     </ProjectPageLayout>

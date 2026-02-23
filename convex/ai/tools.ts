@@ -309,6 +309,19 @@ export function createStreamingTools(options?: StreamingToolOptions) {
           }
         }
 
+        if (
+          originalItem &&
+          options?.projectId &&
+          typeof (originalItem as Record<string, unknown>).projectId === "string" &&
+          (originalItem as Record<string, unknown>).projectId !== options.projectId
+        ) {
+          return JSON.stringify({
+            error: "Cannot edit item outside the active project",
+            itemId: args.itemId,
+            type: args.type,
+          });
+        }
+
         return JSON.stringify({
           type: getOperationType(args.type),
           operation: "edit",
@@ -324,12 +337,14 @@ export function createStreamingTools(options?: StreamingToolOptions) {
       inputSchema: updateMultipleItemsSchema,
       execute: async (args: z.infer<typeof updateMultipleItemsSchema>) => {
         // Fetch original items from database for bulk edit
+        let usedDbLookup = false;
         const originalItems: Array<{
           itemId: string;
           originalItem: Record<string, unknown>;
           updates: Record<string, unknown>;
         }> = [];
         if (options?.runAction) {
+          usedDbLookup = true;
           try {
             const typeToTable: Record<string, string> = {
               task: "tasks",
@@ -350,6 +365,13 @@ export function createStreamingTools(options?: StreamingToolOptions) {
                   itemId: update.itemId,
                 });
                 if (item && typeof item === "object") {
+                  if (
+                    options?.projectId &&
+                    typeof (item as Record<string, unknown>).projectId === "string" &&
+                    (item as Record<string, unknown>).projectId !== options.projectId
+                  ) {
+                    continue;
+                  }
                   originalItems.push({
                     itemId: update.itemId,
                     originalItem: item as Record<string, unknown>,
@@ -361,6 +383,13 @@ export function createStreamingTools(options?: StreamingToolOptions) {
           } catch (error) {
             console.error("Failed to fetch original items for bulk edit:", error);
           }
+        }
+
+        if (usedDbLookup && originalItems.length === 0) {
+          return JSON.stringify({
+            error: "No editable items found in the active project",
+            type: args.type,
+          });
         }
 
         return JSON.stringify({

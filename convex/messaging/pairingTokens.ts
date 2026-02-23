@@ -4,8 +4,6 @@
 
 import { v } from "convex/values";
 import { mutation, query, internalMutation, internalQuery } from "../_generated/server";
-import { internal } from "../_generated/api";
-import crypto from "crypto";
 
 const TOKEN_EXPIRY_MS = 15 * 60 * 1000; // 15 minutes
 

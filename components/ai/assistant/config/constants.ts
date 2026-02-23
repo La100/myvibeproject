@@ -60,24 +60,28 @@ export const LEGACY_TYPE_TO_CANONICAL: Record<string, PendingItemType> = {
 
 export const QUICK_PROMPTS: QuickPrompt[] = [
   {
-    label: "Plan",
-    prompt: "Sketch a focused architectural project plan for this week with key tasks and owners.",
+    label: "Project Kickoff",
+    prompt: "Based on this information, prepare an interior renovation brief: goals, scope, priorities, budget, and timeline.",
   },
   {
-    label: "Budget",
-    prompt: "Review our project budget and flag any cost overruns we should tackle.",
+    label: "Schedule",
+    prompt: "Create a week-by-week renovation schedule with work sequence, milestones, and dependencies between teams.",
   },
   {
-    label: "Supplies",
-    prompt: "Prepare a materials shopping list for the upcoming work sessions.",
+    label: "Cost Estimate",
+    prompt: "Prepare an initial renovation cost estimate: labor, materials, a 10-15% contingency, and the items most likely to exceed budget.",
   },
   {
-    label: "Update",
-    prompt: "Draft a client update summarizing today's architectural project progress.",
+    label: "Shopping List",
+    prompt: "Create a materials shopping list grouped by work phase, with quantities, estimated prices, and recommended purchase timing.",
   },
   {
-    label: "Risks",
-    prompt: "List potential blockers that might delay the architectural project timeline.",
+    label: "Team Coordination",
+    prompt: "Build a team coordination plan (electrician, plumber, tiler, carpenter): who starts when and what must be ready before each team begins.",
+  },
+  {
+    label: "Client Report",
+    prompt: "Write a short renovation progress report for the client: what was completed, what is in progress, current risks, decisions needed, and next steps.",
   },
 ];
 
@@ -157,25 +161,18 @@ export const RETRY_DELAYS = [1000, 2000, 4000]; // Retry delays in ms
 
 export const UPDATE_KEYWORDS = [
   "assign",
-  "przypisz",
-  "do mnie",
-  "ustaw",
-  "termin",
+  "set",
+  "set to me",
   "deadline",
   "due",
-  "priorytet",
   "priority",
   "tag",
 ];
 
 export const CREATE_KEYWORDS = [
-  "dodaj",
-  "utworz",
-  "stworz",
   "create",
   "add",
-  "nowy",
-  "kolejny",
+  "new",
   "another",
   "next",
 ];

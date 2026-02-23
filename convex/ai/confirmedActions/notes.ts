@@ -48,6 +48,7 @@ export const createConfirmedNote = action({
 
 export const editConfirmedNote = action({
   args: {
+    projectId: v.optional(v.id("projects")),
     noteId: v.id("notes"),
     updates: v.object({
       title: v.optional(v.string()),
@@ -68,7 +69,14 @@ export const editConfirmedNote = action({
         };
       }
 
-      await ensureProjectAccess(ctx, currentNote.projectId, true);
+      if (args.projectId && currentNote.projectId !== args.projectId) {
+        return {
+          success: false,
+          message: "Note does not belong to the active project",
+        };
+      }
+
+      await ensureProjectAccess(ctx, args.projectId ?? currentNote.projectId, true);
 
       await ctx.runMutation(api.notes.updateNote, {
         noteId: args.noteId,
@@ -122,8 +130,6 @@ export const deleteConfirmedNote = action({
     }
   },
 });
-
-
 
 
 

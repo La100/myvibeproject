@@ -4,7 +4,7 @@
  * Builds context strings from project snapshots for AI prompts
  */
 
-import type { ProjectContextSnapshot, TeamMember, ShoppingSectionContext } from "../types";
+import type { ProjectContextSnapshot, TeamMember } from "../types";
 
 export const buildContextFromSnapshot = (snapshot: ProjectContextSnapshot): string => {
   const parts: string[] = [];
@@ -86,7 +86,7 @@ export const buildSystemInstructions = (
   timezone?: string,
 ): string => {
   const currentUserSection = currentUserClerkId
-    ? `\n\nCURRENT USER (who sent this message): Clerk ID ${currentUserClerkId}\nWhen the user says "assign to me" or "przypisz do mnie", use this Clerk ID in the assignedTo field.`
+    ? `\n\nCURRENT USER (who sent this message): Clerk ID ${currentUserClerkId}\nWhen the user says "assign to me", use this Clerk ID in the assignedTo field.`
     : "";
 
   const timezoneInfo = timezone ? `\nTIMEZONE: ${timezone}` : "";
@@ -118,27 +118,27 @@ export const buildCreationSummary = (message: string): string | null => {
   }> = [
       {
         label: "tasks",
-        keywords: ["task", "tasks", "zadań", "zadania", "tasków"],
+        keywords: ["task", "tasks"],
       },
       {
         label: "notes",
-        keywords: ["note", "notes", "notatek", "notatki", "notatka"],
+        keywords: ["note", "notes"],
       },
       {
         label: "shopping items",
-        keywords: ["shopping item", "shopping items", "pozycji", "pozycje", "zakup", "zakupów"],
+        keywords: ["shopping item", "shopping items", "shopping", "purchase", "purchases"],
       },
       {
         label: "shopping sections",
-        keywords: ["shopping section", "shopping sections", "sekcja", "sekcje", "sekcji"],
+        keywords: ["shopping section", "shopping sections"],
       },
       {
         label: "surveys",
-        keywords: ["survey", "surveys", "ankieta", "ankiety"],
+        keywords: ["survey", "surveys"],
       },
       {
         label: "contacts",
-        keywords: ["contact", "contacts", "kontakt", "kontakty"],
+        keywords: ["contact", "contacts"],
       },
     ];
 

@@ -193,7 +193,7 @@ registerRoutes(http, components.stripe, {
       }
     },
   },
-  onEvent: async (ctx, event: Stripe.Event) => {
+  onEvent: async (_ctx, event: Stripe.Event) => {
     // Log all events for debugging
     console.log(`Stripe event received: ${event.type}`);
   },

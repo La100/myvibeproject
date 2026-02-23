@@ -68,7 +68,7 @@ export const generateR2UploadUrl = internalMutation({
   returns: v.object({
     url: v.string(),
   }),
-  handler: async (ctx, args) => {
+  handler: async (_ctx, args) => {
     const uploadData = await r2.generateUploadUrl(args.key);
     return { url: uploadData.url };
   },
@@ -134,6 +134,7 @@ export const createFileRecord = internalMutation({
       isLatest: true,
       origin: "general", // Keep as general so files appear in the list
       aiPrompt: args.aiPrompt, // Store the prompt for display
+      showInClientPortal: false,
     });
   },
 });
@@ -177,7 +178,7 @@ export const getFileUrl = internalQuery({
     fileKey: v.string(),
   },
   returns: v.union(v.string(), v.null()),
-  handler: async (ctx, args) => {
+  handler: async (_ctx, args) => {
     try {
       const url = await r2.getUrl(args.fileKey, {
         expiresIn: 60 * 60 * 24, // 24 hours

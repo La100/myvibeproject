@@ -1,6 +1,5 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation } from "../_generated/server";
-import { Id } from "../_generated/dataModel";
 
 // Create a new visualization session
 export const createSession = mutation({

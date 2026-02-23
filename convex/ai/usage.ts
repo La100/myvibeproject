@@ -1,6 +1,5 @@
 import { v } from "convex/values";
 import { internalMutation, query } from "../_generated/server";
-import { Id } from "../_generated/dataModel";
 import { getBillingWindow, SUBSCRIPTION_PLANS } from "../stripe";
 
 // ====== TOKEN USAGE TRACKING ======

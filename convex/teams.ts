@@ -796,7 +796,7 @@ export const sendClerkInvitation = internalAction({
     role: v.string(), // "admin" or "member"
     invitedBy: v.string(),
   },
-  async handler(ctx, args) {
+  async handler(_ctx, args) {
     const clerkApiKey = process.env.CLERK_SECRET_KEY;
     if (!clerkApiKey) {
       throw new Error("CLERK_SECRET_KEY environment variable not set");
@@ -847,7 +847,7 @@ export const sendCustomerClerkInvitation = internalAction({
     projectName: v.string(),
     invitedBy: v.string(),
   },
-  async handler(ctx, args) {
+  async handler(_ctx, args) {
     const clerkApiKey = process.env.CLERK_SECRET_KEY;
     if (!clerkApiKey) {
       throw new Error("CLERK_SECRET_KEY environment variable not set");

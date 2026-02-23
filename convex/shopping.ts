@@ -1,6 +1,9 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { R2 } from "@convex-dev/r2";
+import { components } from "./_generated/api";
 const internalAny = require("./_generated/api").internal as any;
+const r2 = new R2(components.r2);
 
 // ====== SHOPPING LIST SECTIONS ======
 
@@ -137,6 +140,23 @@ export const getPublicShoppingListByAccessToken = query({
       .query("clientPanelItems")
       .withIndex("by_project", (q) => q.eq("projectId", project._id))
       .collect();
+    const files = await ctx.db
+      .query("clientPanelFiles")
+      .withIndex("by_project", (q) => q.eq("projectId", project._id))
+      .collect();
+    const filesWithUrls = await Promise.all(
+      files.map(async (file) => {
+        try {
+          const url = await r2.getUrl(file.storageId as string, {
+            expiresIn: 60 * 60 * 24,
+          });
+          return { ...file, url };
+        } catch (error) {
+          console.error(`Error generating URL for client panel file ${file._id}:`, error);
+          return { ...file, url: null };
+        }
+      })
+    );
 
     const settings = {
       showNotes: project.clientPanelPublishedSettings?.showNotes ?? true,
@@ -155,6 +175,7 @@ export const getPublicShoppingListByAccessToken = query({
       updatedAt: project.clientPanelDataUpdatedAt || null,
       sections,
       items,
+      files: filesWithUrls.filter((file) => !!file.url),
     };
   },
 });

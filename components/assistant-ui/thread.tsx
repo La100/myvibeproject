@@ -3,10 +3,9 @@ import {
   ComposerAttachments,
   UserMessageAttachments,
 } from "@/components/assistant-ui/attachment";
+import { QUICK_PROMPTS } from "@/components/ai/assistant/config";
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
 import { ToolFallback } from "@/components/assistant-ui/tool-fallback";
-import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
-import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import type { PendingContentItem } from "@/components/ai/assistant/data/types";
 import {
@@ -14,14 +13,8 @@ import {
   ComposerPrimitive,
   ErrorPrimitive,
   MessagePrimitive,
-  SuggestionPrimitive,
   ThreadPrimitive,
 } from "@assistant-ui/react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import {
   ArrowDownIcon,
   ArrowUpIcon,
@@ -172,14 +165,13 @@ const MessageAvatar: FC<MessageAvatarProps> = ({ imageUrl, fallback }) => {
 
 const ThreadScrollToBottom: FC = () => {
   return (
-    <ThreadPrimitive.ScrollToBottom asChild>
-      <TooltipIconButton
-        tooltip="Scroll to bottom"
-        variant="outline"
-        className="aui-thread-scroll-to-bottom absolute -top-12 z-10 self-center rounded-full p-4 disabled:invisible dark:bg-background dark:hover:bg-accent"
-      >
-        <ArrowDownIcon />
-      </TooltipIconButton>
+    <ThreadPrimitive.ScrollToBottom
+      className="aui-thread-scroll-to-bottom absolute -top-12 z-10 inline-flex size-10 items-center justify-center self-center rounded-full border border-border bg-card p-4 text-foreground shadow-soft-md transition-colors hover:bg-accent disabled:invisible dark:bg-background dark:hover:bg-accent"
+      aria-label="Scroll to bottom"
+      title="Scroll to bottom"
+    >
+      <ArrowDownIcon className="size-4" />
+      <span className="sr-only">Scroll to bottom</span>
     </ThreadPrimitive.ScrollToBottom>
   );
 };
@@ -193,7 +185,7 @@ const ThreadWelcome: FC = () => {
             Hi, I'm VibePlanner.
           </h1>
           <p className="aui-thread-welcome-message-inner fade-in slide-in-from-bottom-1 animate-in text-muted-foreground text-xl delay-75 duration-200">
-            I'm here to help you get things done. What would you like to learn or work on?
+            I help run interior renovation projects from brief to handover. Where should we start?
           </p>
         </div>
       </div>
@@ -205,31 +197,25 @@ const ThreadWelcome: FC = () => {
 const ThreadSuggestions: FC = () => {
   return (
     <div className="aui-thread-welcome-suggestions grid w-full @md:grid-cols-2 gap-2 pb-4">
-      <ThreadPrimitive.Suggestions
-        components={{
-          Suggestion: ThreadSuggestionItem,
-        }}
-      />
-    </div>
-  );
-};
-
-const ThreadSuggestionItem: FC = () => {
-  return (
-    <div className="aui-thread-welcome-suggestion-display fade-in slide-in-from-bottom-2 @md:nth-[n+3]:block nth-[n+3]:hidden animate-in fill-mode-both duration-200">
-      <SuggestionPrimitive.Trigger send asChild>
-        <Button
-          variant="ghost"
-          className="aui-thread-welcome-suggestion h-auto w-full @md:flex-col flex-wrap items-start justify-start gap-1 rounded-2xl border px-4 py-3 text-left text-sm transition-colors hover:bg-muted"
+      {QUICK_PROMPTS.map((template, index) => (
+        <div
+          key={`${template.label}-${index}`}
+          className="aui-thread-welcome-suggestion-display fade-in slide-in-from-bottom-2 @md:nth-[n+3]:block nth-[n+3]:hidden animate-in fill-mode-both duration-200"
         >
-          <span className="aui-thread-welcome-suggestion-text-1 font-medium">
-            <SuggestionPrimitive.Title />
-          </span>
-          <span className="aui-thread-welcome-suggestion-text-2 text-muted-foreground">
-            <SuggestionPrimitive.Description />
-          </span>
-        </Button>
-      </SuggestionPrimitive.Trigger>
+          <ThreadPrimitive.Suggestion
+            prompt={template.prompt}
+            send
+            className="aui-thread-welcome-suggestion inline-flex h-auto w-full flex-wrap items-start justify-start gap-1 rounded-2xl border px-4 py-3 text-left text-sm transition-colors hover:bg-muted @md:flex-col"
+          >
+            <span className="aui-thread-welcome-suggestion-text-1 font-medium">
+              {template.label}
+            </span>
+            <span className="aui-thread-welcome-suggestion-text-2 text-muted-foreground">
+              {template.prompt}
+            </span>
+          </ThreadPrimitive.Suggestion>
+        </div>
+      ))}
     </div>
   );
 };
@@ -249,7 +235,7 @@ const Composer: FC<{
         <ComposerAttachments />
         <ComposerPrimitive.Input
           id="assistant-chat-input"
-          placeholder="Send a message..."
+          placeholder="Describe the renovation stage, problem, or question..."
           className="aui-composer-input mb-1 max-h-32 min-h-14 w-full resize-none bg-transparent px-4 pt-2 pb-3 text-sm text-foreground caret-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-0"
           rows={1}
           autoFocus
@@ -279,55 +265,46 @@ const ComposerAction: FC<{
         <div className="flex items-center gap-2">
           <ComposerAddAttachment />
           {onConfirmationModeChange && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center gap-2 rounded-full border border-border/60 bg-muted/30 px-2 py-1 cursor-pointer">
-                  <Switch
-                    checked={confirmationMode === "auto_confirm"}
-                    onCheckedChange={(checked) =>
-                      onConfirmationModeChange(checked ? "auto_confirm" : "always_ask")
-                    }
-                    disabled={isModeUpdating}
-                    aria-label="Auto accept CRUD actions"
-                  />
-                  <Zap className="h-3.5 w-3.5 text-muted-foreground" />
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-56 text-center">
-                {confirmationMode === "auto_confirm"
-                  ? <><span className="font-medium">Auto-confirm ON</span><br />AI actions are applied automatically</>
-                  : <><span className="font-medium">Auto-confirm OFF</span><br />AI actions require your approval</>
+            <div
+              className="flex items-center gap-2 rounded-full border border-border/60 bg-muted/30 px-2 py-1 cursor-pointer"
+              title={
+                confirmationMode === "auto_confirm"
+                  ? "Auto-confirm ON. AI actions are applied automatically"
+                  : "Auto-confirm OFF. AI actions require your approval"
+              }
+            >
+              <Switch
+                checked={confirmationMode === "auto_confirm"}
+                onCheckedChange={(checked) =>
+                  onConfirmationModeChange(checked ? "auto_confirm" : "always_ask")
                 }
-              </TooltipContent>
-            </Tooltip>
+                disabled={isModeUpdating}
+                aria-label="Auto accept CRUD actions"
+              />
+              <Zap className="h-3.5 w-3.5 text-muted-foreground" />
+            </div>
           )}
         </div>
         <AuiIf condition={({ thread }) => !thread.isRunning}>
-          <ComposerPrimitive.Send asChild>
-            <TooltipIconButton
-              tooltip="Send message"
-              side="bottom"
-              type="submit"
-              variant="default"
-              size="icon"
-              className="aui-composer-send size-8 rounded-full"
-              aria-label="Send message"
-            >
-              <ArrowUpIcon className="aui-composer-send-icon size-4" />
-            </TooltipIconButton>
+          <ComposerPrimitive.Send
+            type="submit"
+            className="aui-composer-send inline-flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-soft-md transition-colors hover:bg-primary/92 disabled:opacity-50"
+            aria-label="Send message"
+            title="Send message"
+          >
+            <ArrowUpIcon className="aui-composer-send-icon size-4" />
+            <span className="sr-only">Send message</span>
           </ComposerPrimitive.Send>
         </AuiIf>
         <AuiIf condition={({ thread }) => thread.isRunning}>
-          <ComposerPrimitive.Cancel asChild>
-            <Button
-              type="button"
-              variant="default"
-              size="icon"
-              className="aui-composer-cancel size-8 rounded-full"
-              aria-label="Stop generating"
-            >
-              <SquareIcon className="aui-composer-cancel-icon size-3 fill-current" />
-            </Button>
+          <ComposerPrimitive.Cancel
+            type="button"
+            className="aui-composer-cancel inline-flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-soft-md transition-colors hover:bg-primary/92 disabled:opacity-50"
+            aria-label="Stop generating"
+            title="Stop generating"
+          >
+            <SquareIcon className="aui-composer-cancel-icon size-3 fill-current" />
+            <span className="sr-only">Stop generating</span>
           </ComposerPrimitive.Cancel>
         </AuiIf>
       </div>
@@ -393,7 +370,7 @@ const AssistantMessage: FC<AssistantMessageProps> = ({
   );
 
   return (
-    <MessagePrimitive.Root
+    <div
       className="aui-assistant-message-root relative mx-auto w-full max-w-(--thread-max-width) py-3"
       data-role="assistant"
     >
@@ -415,7 +392,7 @@ const AssistantMessage: FC<AssistantMessageProps> = ({
           <MessageError />
         </div>
       </div>
-    </MessagePrimitive.Root>
+    </div>
   );
 };
 
@@ -426,7 +403,7 @@ type UserMessageProps = {
 
 const UserMessage: FC<UserMessageProps> = ({ imageUrl, fallback }) => {
   return (
-    <MessagePrimitive.Root
+    <div
       className="aui-user-message-root mx-auto grid w-full max-w-(--thread-max-width) auto-rows-auto grid-cols-[minmax(72px,1fr)_auto] content-start gap-y-2 px-2 py-3"
       data-role="user"
     >
@@ -440,29 +417,31 @@ const UserMessage: FC<UserMessageProps> = ({ imageUrl, fallback }) => {
           <MessagePrimitive.Parts />
         </div>
       </div>
-    </MessagePrimitive.Root>
+    </div>
   );
 };
 
 const EditComposer: FC = () => {
   return (
-    <MessagePrimitive.Root className="aui-edit-composer-wrapper mx-auto flex w-full max-w-(--thread-max-width) flex-col px-2 py-3">
+    <div className="aui-edit-composer-wrapper mx-auto flex w-full max-w-(--thread-max-width) flex-col px-2 py-3">
       <ComposerPrimitive.Root className="aui-edit-composer-root ml-auto flex w-full max-w-[85%] flex-col rounded-2xl bg-muted">
         <ComposerPrimitive.Input
           className="aui-edit-composer-input min-h-14 w-full resize-none bg-transparent p-4 text-foreground text-sm outline-none"
           autoFocus
         />
         <div className="aui-edit-composer-footer mx-3 mb-3 flex items-center gap-2 self-end">
-          <ComposerPrimitive.Cancel asChild>
-            <Button variant="ghost" size="sm">
-              Cancel
-            </Button>
+          <ComposerPrimitive.Cancel
+            className="inline-flex h-9 items-center justify-center rounded-lg px-3.5 text-sm font-medium transition-colors hover:bg-accent/70 disabled:opacity-50"
+          >
+            Cancel
           </ComposerPrimitive.Cancel>
-          <ComposerPrimitive.Send asChild>
-            <Button size="sm">Update</Button>
+          <ComposerPrimitive.Send
+            className="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground shadow-soft-md transition-colors hover:bg-primary/92 disabled:opacity-50"
+          >
+            Update
           </ComposerPrimitive.Send>
         </div>
       </ComposerPrimitive.Root>
-    </MessagePrimitive.Root>
+    </div>
   );
 };

@@ -93,6 +93,7 @@ export const createConfirmedLaborSection = action({
 
 export const editConfirmedLaborItem = action({
   args: {
+    projectId: v.optional(v.id("projects")),
     itemId: v.id("laborItems"),
     updates: v.object({
       name: v.optional(v.string()),
@@ -114,7 +115,10 @@ export const editConfirmedLaborItem = action({
       if (!item) {
         throw new Error("Labor item not found");
       }
-      await ensureProjectAccess(ctx, item.projectId, true);
+      if (args.projectId && item.projectId !== args.projectId) {
+        throw new Error("Labor item does not belong to the active project");
+      }
+      await ensureProjectAccess(ctx, args.projectId ?? item.projectId, true);
 
       await ctx.runMutation(api.labor.updateLaborItem, {
         itemId: args.itemId,
@@ -247,5 +251,3 @@ export const deleteConfirmedLaborSection = action({
     }
   },
 });
-
-

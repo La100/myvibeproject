@@ -60,11 +60,11 @@ export function InlineCreationForm({
     const type = normalizeType(item.type);
 
     const handleConfirm = async () => {
-        await onConfirm(item.functionCall?.callId ?? index);
+        await onConfirm(item.clientId ?? item.functionCall?.callId ?? index);
     };
 
     const updateData = (updates: Record<string, unknown>) => {
-        const id = item.functionCall?.callId ?? index;
+        const id = item.clientId ?? item.functionCall?.callId ?? index;
         // For edit operations, update the updates field
         // For create operations, update data field
         if (operation === 'edit') {
@@ -140,7 +140,7 @@ export function InlineCreationForm({
                     <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => onReject(item.functionCall?.callId ?? index)}
+                        onClick={() => onReject(item.clientId ?? item.functionCall?.callId ?? index)}
                         className="text-muted-foreground hover:text-foreground h-8 px-3 hover:bg-muted/30"
                     >
                         Cancel

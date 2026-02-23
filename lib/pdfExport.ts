@@ -3,6 +3,12 @@ import type { jsPDF } from "jspdf";
 const PAGE_MARGIN = 18;
 const HEADER_GAP = 12;
 const FOOTER_MARGIN = 8;
+const PDF_UNICODE_FONT_FAMILY = "ArialUnicode";
+const PDF_UNICODE_REGULAR_FILE = "Arial.ttf";
+const PDF_UNICODE_BOLD_FILE = "Arial-Bold.ttf";
+
+let regularFontBinaryPromise: Promise<string> | null = null;
+let boldFontBinaryPromise: Promise<string> | null = null;
 
 export function sanitizeFileName(value: string): string {
   const sanitized = value
@@ -30,12 +36,65 @@ export function resolvePageBreak(doc: jsPDF, y: number, reserveHeight = 20): num
   return PAGE_MARGIN + 4;
 }
 
-export async function addBrandHeader(doc: jsPDF, options: { teamName: string; teamImageUrl?: string }): Promise<number> {
-  const { teamName, teamImageUrl } = options;
+function arrayBufferToBinaryString(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let result = "";
+  const chunkSize = 0x8000;
+
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    const chunk = bytes.subarray(index, index + chunkSize);
+    result += String.fromCharCode(...chunk);
+  }
+
+  return result;
+}
+
+async function loadFontBinary(path: string): Promise<string> {
+  const response = await fetch(path);
+  if (!response.ok) {
+    throw new Error(`Failed to load font: ${path}`);
+  }
+  const buffer = await response.arrayBuffer();
+  return arrayBufferToBinaryString(buffer);
+}
+
+async function getUnicodeRegularFontBinary(): Promise<string> {
+  if (!regularFontBinaryPromise) {
+    regularFontBinaryPromise = loadFontBinary(`/fonts/${PDF_UNICODE_REGULAR_FILE}`);
+  }
+  return regularFontBinaryPromise;
+}
+
+async function getUnicodeBoldFontBinary(): Promise<string> {
+  if (!boldFontBinaryPromise) {
+    boldFontBinaryPromise = loadFontBinary(`/fonts/${PDF_UNICODE_BOLD_FILE}`);
+  }
+  return boldFontBinaryPromise;
+}
+
+export async function ensurePdfUnicodeFont(doc: jsPDF): Promise<string> {
+  const [regularFontBinary, boldFontBinary] = await Promise.all([
+    getUnicodeRegularFontBinary(),
+    getUnicodeBoldFontBinary(),
+  ]);
+
+  doc.addFileToVFS(PDF_UNICODE_REGULAR_FILE, regularFontBinary);
+  doc.addFont(PDF_UNICODE_REGULAR_FILE, PDF_UNICODE_FONT_FAMILY, "normal");
+  doc.addFileToVFS(PDF_UNICODE_BOLD_FILE, boldFontBinary);
+  doc.addFont(PDF_UNICODE_BOLD_FILE, PDF_UNICODE_FONT_FAMILY, "bold");
+
+  return PDF_UNICODE_FONT_FAMILY;
+}
+
+export async function addBrandHeader(
+  doc: jsPDF,
+  options: { teamName: string; teamImageUrl?: string; fontFamily?: string },
+): Promise<number> {
+  const { teamName, teamImageUrl, fontFamily = "helvetica" } = options;
   const pageWidth = doc.internal.pageSize.getWidth();
   let y = PAGE_MARGIN;
 
-  doc.setFont("helvetica", "bold");
+  doc.setFont(fontFamily, "bold");
   doc.setFontSize(20);
   doc.setTextColor(24, 24, 24);
   doc.text(teamName || "Organization", PAGE_MARGIN, y);
@@ -69,17 +128,18 @@ export async function addBrandHeader(doc: jsPDF, options: { teamName: string; te
 
 export function addDocumentMeta(
   doc: jsPDF,
-  options: { title: string; subtitle?: string; generatedOn: string; startY?: number },
+  options: { title: string; subtitle?: string; generatedOn: string; startY?: number; fontFamily?: string },
 ): number {
+  const fontFamily = options.fontFamily ?? "helvetica";
   let y = options.startY ?? PAGE_MARGIN + 20;
 
-  doc.setFont("helvetica", "bold");
+  doc.setFont(fontFamily, "bold");
   doc.setFontSize(17);
   doc.setTextColor(24, 24, 24);
   doc.text(options.title, PAGE_MARGIN, y);
 
   y += 7;
-  doc.setFont("helvetica", "normal");
+  doc.setFont(fontFamily, "normal");
   doc.setFontSize(10);
   doc.setTextColor(90, 90, 90);
 
@@ -92,14 +152,14 @@ export function addDocumentMeta(
   return y + 7;
 }
 
-export function addPageNumbers(doc: jsPDF): void {
+export function addPageNumbers(doc: jsPDF, fontFamily = "helvetica"): void {
   const pages = doc.getNumberOfPages();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
   for (let index = 1; index <= pages; index += 1) {
     doc.setPage(index);
-    doc.setFont("helvetica", "normal");
+    doc.setFont(fontFamily, "normal");
     doc.setFontSize(9);
     doc.setTextColor(120, 120, 120);
     doc.text(`Page ${index} / ${pages}`, pageWidth - PAGE_MARGIN, pageHeight - FOOTER_MARGIN, {

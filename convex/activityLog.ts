@@ -1,6 +1,5 @@
 import { internalMutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { internal } from "./_generated/api";
 
 /**
  * Log an activity in the project changelog.

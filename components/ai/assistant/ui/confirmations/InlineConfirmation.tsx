@@ -181,7 +181,7 @@ export const ConfirmationCard = memo(function ConfirmationCard({
     if (!onConfirm) return;
     setIsConfirming(true);
     try {
-      await onConfirm(item.functionCall?.callId ?? index);
+      await onConfirm(item.clientId ?? item.functionCall?.callId ?? index);
     } finally {
       setIsConfirming(false);
     }
@@ -296,7 +296,7 @@ export const ConfirmationCard = memo(function ConfirmationCard({
               size="sm"
               variant="ghost"
               className="text-xs h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={() => onReject?.(item.functionCall?.callId ?? index)}
+              onClick={() => onReject?.(item.clientId ?? item.functionCall?.callId ?? index)}
               disabled={isProcessing || isConfirming}
             >
               <X className="h-3 w-3 mr-1" />
@@ -378,6 +378,7 @@ export function InlineConfirmationList({
   isModeUpdating = false,
 }: InlineConfirmationListProps) {
   const [currentIndex, setCurrentIndex] = React.useState(0);
+  const [showResolvedDetails, setShowResolvedDetails] = React.useState(false);
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const noopUpdate: NonNullable<InlineConfirmationListProps["onUpdateItem"]> =
     React.useCallback(() => {
@@ -408,6 +409,130 @@ export function InlineConfirmationList({
     .filter(({ item }) => shouldRenderByState(getApprovalState(item)));
 
   if (visibleItems.length === 0) return null;
+  const allResolved = visibleItems.every(({ item }) => {
+    const approvalState = getApprovalState(item);
+    return (
+      item.status === "confirmed" ||
+      item.status === "rejected" ||
+      approvalState === "output-available" ||
+      approvalState === "output-denied" ||
+      approvalState === "output-error" ||
+      approvalState === "approval-responded"
+    );
+  });
+  if (allResolved) {
+    const confirmedCount = visibleItems.filter(({ item }) => {
+      const approvalState = getApprovalState(item);
+      return item.status === "confirmed" || approvalState === "output-available";
+    }).length;
+    const rejectedCount = visibleItems.length - confirmedCount;
+    const groupedByType = visibleItems.reduce((acc, { item }) => {
+      const key = getCanonicalType(item.type);
+      if (!acc[key]) {
+        acc[key] = { confirmed: 0, rejected: 0 };
+      }
+      const approvalState = getApprovalState(item);
+      const isConfirmed =
+        item.status === "confirmed" || approvalState === "output-available";
+      if (isConfirmed) {
+        acc[key].confirmed += 1;
+      } else {
+        acc[key].rejected += 1;
+      }
+      return acc;
+    }, {} as Record<string, { confirmed: number; rejected: number }>);
+    const typeSummaries = Object.entries(groupedByType);
+    const toTypeLabel = (type: string) => {
+      switch (type) {
+        case "task":
+          return "Tasks";
+        case "shopping":
+          return "Shopping";
+        case "labor":
+          return "Labor";
+        case "note":
+          return "Notes";
+        case "survey":
+          return "Surveys";
+        case "contact":
+          return "Contacts";
+        case "shoppingSection":
+          return "Shopping sections";
+        case "laborSection":
+          return "Labor sections";
+        default:
+          return type;
+      }
+    };
+
+    return (
+      <div
+        className={cn(
+          "rounded-xl border px-3 py-2.5",
+          rejectedCount > 0
+            ? "border-amber-200 bg-amber-50/70"
+            : "border-green-200 bg-green-50/70",
+        )}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <p
+              className={cn(
+                "text-sm font-semibold",
+                rejectedCount > 0 ? "text-amber-900" : "text-green-900",
+              )}
+            >
+              {visibleItems.length} item{visibleItems.length !== 1 ? "s" : ""} processed
+            </p>
+            <p
+              className={cn(
+                "text-xs",
+                rejectedCount > 0 ? "text-amber-800/90" : "text-green-800/90",
+              )}
+            >
+              {confirmedCount} confirmed
+              {rejectedCount > 0 ? `, ${rejectedCount} rejected` : ""}
+            </p>
+          </div>
+          {typeSummaries.length > 1 && (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-7 px-2 text-xs"
+              onClick={() => setShowResolvedDetails((prev) => !prev)}
+            >
+              {showResolvedDetails ? "Hide details" : "Details"}
+            </Button>
+          )}
+        </div>
+
+        {showResolvedDetails && (
+          <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+            {typeSummaries.map(([type, stats]) => (
+              <div
+                key={type}
+                className={cn(
+                  "rounded-md border px-2 py-1.5 text-xs",
+                  rejectedCount > 0
+                    ? "border-amber-200/70 bg-white/70 text-amber-900"
+                    : "border-green-200/70 bg-white/70 text-green-900",
+                )}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium">{toTypeLabel(type)}</span>
+                  <span>
+                    {stats.confirmed} c
+                    {stats.rejected > 0 ? ` / ${stats.rejected} r` : ""}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   const isInlineFormOnly =
     visibleItems.length === 1 &&

@@ -72,42 +72,6 @@ export const internalDoStreaming = internalAction({
         isLegacyThreadId,
       });
 
-      // AUTO-REJECT LOGIC:
-      // If there are any pending function calls from previous turns, reject them now.
-      // This allows the user to "cancel" a pending action simply by sending a new message.
-      const pendingCalls = await ctx.runQuery(apiAny.ai.threads.listPendingItems, {
-        threadId: providedThreadId,
-      }) as Array<{ status: string; callId: string; responseId: string }>;
-
-      if (pendingCalls.length > 0) {
-        // Filter to only actual pending items to avoid touching history
-        const actuallyPending = pendingCalls.filter(c => c.status === "pending");
-
-        if (actuallyPending.length > 0) {
-          console.log("🚫 [AUTO-REJECT] Found pending calls, rejecting them before new message", {
-            count: actuallyPending.length,
-            callIds: actuallyPending.map(c => c.callId),
-          });
-
-          // Group by responseId for efficient batch updates
-          const pendingByResponse = new Map<string, Array<{ callId: string; result?: string | null }>>();
-          for (const call of actuallyPending) {
-            const list = pendingByResponse.get(call.responseId) || [];
-            list.push({ callId: call.callId, result: null }); // null result = reject
-            pendingByResponse.set(call.responseId, list);
-          }
-
-          // Execute rejections
-          for (const [responseId, results] of pendingByResponse.entries()) {
-            await ctx.runMutation(apiAny.ai.threads.markFunctionCallsAsConfirmed, {
-              threadId: providedThreadId,
-              responseId,
-              results: results.map((r) => ({ ...r, status: "rejected" })) as any,
-            });
-          }
-        }
-      }
-
       // Streaming start
 
       // Resolve teamId from project
@@ -134,6 +98,61 @@ export const internalDoStreaming = internalAction({
       // Build system instructions
       // Use custom AI prompt from project if available, otherwise use default
       const systemPrompt = projectForTeam?.customAiPrompt || defaultPrompt;
+      const pendingCallsForContext = (await ctx.runQuery(apiAny.ai.threads.listPendingItems, {
+        threadId: providedThreadId,
+      })) as Array<{ status?: string; functionName: string }>;
+      const unresolvedPendingCalls = pendingCallsForContext.filter(
+        (call) => call.status === "pending",
+      );
+      const resolvedConfirmedCalls = pendingCallsForContext.filter(
+        (call) => call.status === "confirmed",
+      );
+      const resolvedRejectedCalls = pendingCallsForContext.filter(
+        (call) => call.status === "rejected",
+      );
+      const pendingActionSummary = unresolvedPendingCalls.reduce((acc, call) => {
+        acc[call.functionName] = (acc[call.functionName] ?? 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      const resolvedActionSummary = pendingCallsForContext.reduce((acc, call) => {
+        if (call.status !== "confirmed" && call.status !== "rejected") return acc;
+        acc[call.functionName] = acc[call.functionName] ?? { confirmed: 0, rejected: 0 };
+        if (call.status === "confirmed") {
+          acc[call.functionName].confirmed += 1;
+        } else {
+          acc[call.functionName].rejected += 1;
+        }
+        return acc;
+      }, {} as Record<string, { confirmed: number; rejected: number }>);
+      const pendingActionSection =
+        unresolvedPendingCalls.length > 0 ||
+        resolvedConfirmedCalls.length > 0 ||
+        resolvedRejectedCalls.length > 0
+          ? [
+            "## Pending Actions Context",
+            `Unresolved pending actions: ${unresolvedPendingCalls.length}.`,
+            `Resolved outcomes so far: ${resolvedConfirmedCalls.length} confirmed, ${resolvedRejectedCalls.length} rejected.`,
+            unresolvedPendingCalls.length > 0
+              ? "Treat the next user message as a possible refinement of pending actions unless the user explicitly asks to cancel/reject them."
+              : "",
+            "Do not describe pending actions as completed until confirmed. Rejected actions were not applied.",
+            Object.keys(pendingActionSummary).length > 0
+              ? `Pending by tool: ${Object.entries(pendingActionSummary)
+                .map(([name, count]) => `${name} (${count})`)
+                .join(", ")}`
+              : "",
+            Object.keys(resolvedActionSummary).length > 0
+              ? `Resolved by tool: ${Object.entries(resolvedActionSummary)
+                .map(([name, counts]) => `${name} (c:${counts.confirmed}, r:${counts.rejected})`)
+                .join(", ")}`
+              : "",
+          ]
+            .filter(Boolean)
+            .join("\n")
+          : "";
+      const effectiveSystemPrompt = pendingActionSection
+        ? `${systemPrompt}\n\n${pendingActionSection}`
+        : systemPrompt;
 
       const teamMembers = await ctx.runQuery(internalAny.teams.getTeamMembersWithUserDetails, {
         projectId: args.projectId,
@@ -144,7 +163,7 @@ export const internalDoStreaming = internalAction({
 
       const { currentDate, currentDateTime } = getCurrentDateTime(timezone);
       const systemInstructions = buildSystemInstructions(
-        systemPrompt,
+        effectiveSystemPrompt,
         currentDateTime,
         currentDate,
         teamMembersContext,
@@ -156,6 +175,9 @@ export const internalDoStreaming = internalAction({
         hasCustomPrompt: !!projectForTeam?.customAiPrompt,
         teamMembersCount: teamMembers.length,
         currentDate,
+        unresolvedPendingCalls: unresolvedPendingCalls.length,
+        resolvedConfirmedCalls: resolvedConfirmedCalls.length,
+        resolvedRejectedCalls: resolvedRejectedCalls.length,
       });
 
       // Prepare user message
@@ -584,14 +606,18 @@ export const internalDoStreaming = internalAction({
 
         const pendingCalls = await ctx.runQuery(apiAny.ai.threads.listPendingItems, {
           threadId: providedThreadId,
-        }) as Array<{ callId: string; status: string; responseId: string; arguments?: string }>;
+        }) as Array<{ callId: string; status?: string; responseId: string; arguments?: string }>;
+        const unresolvedPendingCalls = pendingCalls.filter(
+          (call) => call.status === "pending",
+        );
 
+        let replacedExistingPendingCall = false;
         const shouldReplacePending =
-          pendingCalls.length === 1 &&
+          unresolvedPendingCalls.length === 1 &&
           functionCalls.length === 1;
 
         if (shouldReplacePending) {
-          const pendingCall = pendingCalls[0];
+          const pendingCall = unresolvedPendingCalls[0];
           const safeParse = (value?: string) => {
             if (!value) return null;
             try {
@@ -625,19 +651,14 @@ export const internalDoStreaming = internalAction({
               arguments: JSON.stringify(mergedPayload),
             };
 
-            const groupedResults = new Map<string, { callId: string; result: string | undefined }[]>();
-            const responseId = pendingCall.responseId;
-            groupedResults.set(responseId, [
-              { callId: pendingCall.callId, result: undefined },
-            ]);
-
-            for (const [responseId, results] of groupedResults.entries()) {
-              await ctx.runMutation(apiAny.ai.threads.markFunctionCallsAsConfirmed, {
-                threadId: providedThreadId,
-                responseId,
-                results,
-              });
-            }
+            await ctx.runMutation(internalAny.ai.threads.replacePendingFunctionCall, {
+              threadId: providedThreadId,
+              responseId: pendingCall.responseId,
+              callId: pendingCall.callId,
+              functionName: "create_task",
+              arguments: functionCalls[0].arguments,
+            });
+            replacedExistingPendingCall = true;
           }
         }
 
@@ -658,7 +679,12 @@ export const internalDoStreaming = internalAction({
           (fc) => !READ_ONLY_TOOLS.has(fc.functionName)
         );
 
-        if (actionFunctionCalls.length > 0) {
+        if (replacedExistingPendingCall) {
+          console.log("♻️ [PENDING REFINED IN PLACE]", {
+            threadId: providedThreadId,
+            replacedCallCount: 1,
+          });
+        } else if (actionFunctionCalls.length > 0) {
           const responseId = `resp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
           console.log("💾 [SAVE FUNCTION CALLS]", {
@@ -682,7 +708,7 @@ export const internalDoStreaming = internalAction({
           });
 
           // Heuristic: if user asked to delete and search_shopping_items returned exactly one item, auto-stage delete
-          const userAskedToDelete = /\b(delete|remove|usun|usuń)\b/i.test(args.message);
+          const userAskedToDelete = /\b(delete|remove)\b/i.test(args.message);
           const onlyShoppingSearch =
             allToolCalls.length === 1 &&
             (allToolCalls[0]?.toolName || allToolCalls[0]?.name) === "search_shopping_items";

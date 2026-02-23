@@ -87,7 +87,7 @@ export const handleTelegramMessage = internalAction({
                 );
             } else if (param) {
                 // Parameter provided - create pairing request for this project
-                await createPairingRequest(ctx, args.chatId, args.projectId, project.name, args.metadata, project.telegramBotToken);
+                await createPairingRequest(ctx, args.chatId, args.projectId, args.metadata, project.telegramBotToken);
             } else {
                 // No parameter - send help message
                 await sendTelegramMessageDirect(
@@ -203,8 +203,7 @@ export const handleTelegramMessage = internalAction({
             args.text,
             args.projectId,
             project.createdBy,
-            project.telegramBotToken,
-            args.metadata
+            project.telegramBotToken
         );
     },
 });
@@ -332,7 +331,6 @@ async function createPairingRequest(
     ctx: any,
     chatId: string,
     projectId: string,
-    projectName: string,
     metadata?: any,
     botToken?: string
 ): Promise<void> {
@@ -430,8 +428,7 @@ async function processRegularMessage(
     text: string,
     projectId: string,
     projectOwnerClerkId: string,
-    botToken: string,
-    metadata?: any
+    botToken: string
 ): Promise<void> {
     // Find the channel for this chat
     const channel = await ctx.runQuery(internalAny.messaging.channels.getChannelByExternalIdForProject, {
@@ -611,7 +608,7 @@ export const deleteTelegramWebhook = internalAction({
     args: {
         botToken: v.string(),
     },
-    handler: async (ctx, args) => {
+    handler: async (_ctx, args) => {
         try {
             const response = await fetch(`${TELEGRAM_API_BASE}${args.botToken}/deleteWebhook`, {
                 method: "POST",

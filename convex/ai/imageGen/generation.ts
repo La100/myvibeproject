@@ -73,7 +73,6 @@ export const generateVisualization = action({
 
     // Determine access scope and ID
     let aiAccess;
-    let targetTeamId: Id<"teams"> | undefined;
 
     if (args.projectId) {
       aiAccess = await ctx.runQuery(internal.stripe.checkAIFeatureAccessByProject, {
@@ -84,7 +83,6 @@ export const generateVisualization = action({
       aiAccess = await ctx.runQuery(internal.stripe.checkAIFeatureAccess, {
         teamId: args.teamId,
       });
-      targetTeamId = args.teamId;
     } else {
       return {
         success: false,

@@ -614,6 +614,41 @@ export const saveFunctionCalls = internalMutation({
   },
 });
 
+// Refine an existing pending call in-place instead of rejecting/recreating it.
+export const replacePendingFunctionCall = internalMutation({
+  args: {
+    threadId: v.string(),
+    responseId: v.string(),
+    callId: v.string(),
+    functionName: v.string(),
+    arguments: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const calls = await ctx.db
+      .query("aiFunctionCalls")
+      .withIndex("by_response_id", (q) => q.eq("responseId", args.responseId))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("threadId"), args.threadId),
+          q.eq(q.field("callId"), args.callId),
+          q.eq(q.field("status"), "pending"),
+        )
+      )
+      .collect();
+
+    for (const call of calls) {
+      await ctx.db.patch(call._id, {
+        functionName: args.functionName,
+        arguments: args.arguments,
+        createdAt: Date.now(),
+      });
+    }
+
+    return null;
+  },
+});
+
 // Get pending function calls to replay in next message
 export const getPendingFunctionCalls = internalQuery({
   args: {

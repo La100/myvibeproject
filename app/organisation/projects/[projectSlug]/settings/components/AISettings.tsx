@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
-import { useUser } from "@clerk/nextjs";
 import { apiAny } from "@/lib/convexApiAny";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,27 +13,13 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import {
   Trash2,
-  MessageSquare,
   MessageCircle,
   Sparkles,
-  AlertTriangle,
   Loader2,
   FileText,
   RotateCcw,
   Copy
 } from "lucide-react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { defaultPrompt } from "@/convex/ai/prompt";
 
 interface AISettingsProps {
@@ -58,10 +43,7 @@ interface MessagingPairingRequest {
 }
 
 export default function AISettings({ projectId }: AISettingsProps) {
-  const { user } = useUser();
-  const [isClearing, setIsClearing] = useState(false);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [customPrompt, setCustomPrompt] = useState("");
+  const [customPrompt, setCustomPrompt] = useState(defaultPrompt);
   const [isSaving, setIsSaving] = useState(false);
   const [telegramBotUsername, setTelegramBotUsername] = useState("");
   const [telegramBotToken, setTelegramBotToken] = useState("");
@@ -71,17 +53,6 @@ export default function AISettings({ projectId }: AISettingsProps) {
 
   // Get project data
   const project = useQuery(apiAny.projects.getProject, projectId ? { projectId } : "skip");
-
-  // Get user threads for this project
-  const userThreads = useQuery(
-    apiAny.ai.threads.listThreadsForUser,
-    projectId && user?.id
-      ? { projectId, userClerkId: user.id }
-      : "skip"
-  );
-
-  // Mutation to clear all threads
-  const clearAllThreads = useMutation(apiAny.ai.threads.clearAllThreadsForUser);
 
   // Mutation to update project settings
   const updateProject = useMutation(apiAny.projects.updateProject);
@@ -100,11 +71,9 @@ export default function AISettings({ projectId }: AISettingsProps) {
 
   // Initialize custom prompt from project data
   useEffect(() => {
-    if (project?.customAiPrompt !== undefined) {
-      // If project has custom prompt, use it. Otherwise, use default prompt.
-      setCustomPrompt(project.customAiPrompt || defaultPrompt);
-    }
-  }, [project?.customAiPrompt]);
+    if (!project) return;
+    setCustomPrompt(project.customAiPrompt || defaultPrompt);
+  }, [project]);
 
   useEffect(() => {
     if (!project) return;
@@ -113,24 +82,25 @@ export default function AISettings({ projectId }: AISettingsProps) {
     setAiAutoConfirmCrud(Boolean((project as { aiAutoConfirmCrud?: boolean }).aiAutoConfirmCrud));
   }, [project]);
 
-  const threadCount = userThreads?.length ?? 0;
-  const hasThreads = threadCount > 0;
-
   const handleSaveCustomPrompt = async () => {
     if (!projectId) return;
 
     setIsSaving(true);
     try {
-      // Save as custom prompt only if different from default, otherwise save as undefined
-      const promptToSave = customPrompt.trim() === defaultPrompt ? undefined : customPrompt.trim();
+      // Save as custom prompt only when non-empty and different from default
+      const normalizedPrompt = customPrompt.trim();
+      const promptToSave =
+        normalizedPrompt === "" || normalizedPrompt === defaultPrompt.trim()
+          ? undefined
+          : normalizedPrompt;
       await updateProject({
         projectId,
         customAiPrompt: promptToSave,
       });
-      toast.success("Zapisano niestandardowy prompt AI");
+      toast.success("Custom AI prompt saved");
     } catch (error) {
       console.error("Failed to save custom AI prompt:", error);
-      toast.error("Nie udało się zapisać promptu");
+      toast.error("Failed to save prompt");
     } finally {
       setIsSaving(false);
     }
@@ -153,34 +123,15 @@ export default function AISettings({ projectId }: AISettingsProps) {
       });
       toast.success(
         checked
-          ? "Włączono auto-confirm dla akcji CRUD AI"
-          : "Włączono ręczne potwierdzanie akcji CRUD AI"
+          ? "Auto-confirm for AI CRUD actions enabled"
+          : "Manual confirmation for AI CRUD actions enabled"
       );
     } catch (error) {
       setAiAutoConfirmCrud(previousValue);
       console.error("Failed to update AI confirmation mode:", error);
-      toast.error("Nie udało się zapisać trybu potwierdzania AI");
+      toast.error("Failed to save AI confirmation mode");
     } finally {
       setIsSavingAiConfirmMode(false);
-    }
-  };
-
-  const handleClearAllHistory = async () => {
-    if (!projectId || !user?.id) return;
-
-    setIsClearing(true);
-    try {
-      const result = await clearAllThreads({
-        projectId,
-        userClerkId: user.id,
-      });
-      toast.success(`Usunięto ${result.removedThreads} konwersacji AI`);
-      setDialogOpen(false);
-    } catch (error) {
-      console.error("Failed to clear AI history:", error);
-      toast.error("Nie udało się usunąć historii AI");
-    } finally {
-      setIsClearing(false);
     }
   };
 
@@ -191,11 +142,11 @@ export default function AISettings({ projectId }: AISettingsProps) {
     const token = telegramBotToken.trim();
 
     if (!username) {
-      toast.error("Podaj nazwę użytkownika bota Telegram");
+      toast.error("Enter the Telegram bot username");
       return;
     }
     if (!token) {
-      toast.error("Podaj token bota Telegram");
+      toast.error("Enter the Telegram bot token");
       return;
     }
 
@@ -206,10 +157,10 @@ export default function AISettings({ projectId }: AISettingsProps) {
         telegramBotUsername: username,
         telegramBotToken: token,
       });
-      toast.success("Zapisano bota Telegram. Możesz teraz połączyć konto.");
+      toast.success("Telegram bot saved. You can now connect your account.");
     } catch (error) {
       console.error("Failed to save Telegram config:", error);
-      toast.error("Nie udało się zapisać konfiguracji Telegram");
+      toast.error("Failed to save Telegram configuration");
     } finally {
       setIsSavingTelegram(false);
     }
@@ -222,21 +173,21 @@ export default function AISettings({ projectId }: AISettingsProps) {
 
   const handleCopyTelegramLink = async () => {
     if (!telegramDeepLink) {
-      toast.error("Najpierw wpisz nazwę użytkownika bota");
+      toast.error("Enter the bot username first");
       return;
     }
 
     try {
       await navigator.clipboard.writeText(telegramDeepLink);
-      toast.success("Skopiowano link Telegram");
+      toast.success("Telegram link copied");
     } catch {
-      toast.error("Nie udało się skopiować linku");
+      toast.error("Failed to copy link");
     }
   };
 
   const handleOpenTelegram = () => {
     if (!telegramDeepLink) {
-      toast.error("Najpierw zapisz konfigurację bota");
+      toast.error("Save the bot configuration first");
       return;
     }
     window.open(telegramDeepLink, "_blank");
@@ -245,30 +196,30 @@ export default function AISettings({ projectId }: AISettingsProps) {
   const handleApproveRequest = async (requestId: string) => {
     try {
       await approvePairingRequest({ requestId });
-      toast.success("Połączenie zatwierdzone");
+      toast.success("Connection approved");
     } catch (error) {
       console.error("Failed to approve Telegram pairing:", error);
-      toast.error("Nie udało się zatwierdzić połączenia");
+      toast.error("Failed to approve connection");
     }
   };
 
   const handleRejectRequest = async (requestId: string) => {
     try {
       await rejectPairingRequest({ requestId });
-      toast.success("Połączenie odrzucone");
+      toast.success("Connection rejected");
     } catch (error) {
       console.error("Failed to reject Telegram pairing:", error);
-      toast.error("Nie udało się odrzucić połączenia");
+      toast.error("Failed to reject connection");
     }
   };
 
   const handleDisconnectChannel = async (platform: string, externalUserId: string) => {
     try {
       await disconnectChannel({ projectId, platform, externalUserId });
-      toast.success("Kanał został rozłączony");
+      toast.success("Channel disconnected");
     } catch (error) {
       console.error("Failed to disconnect channel:", error);
-      toast.error("Nie udało się rozłączyć kanału");
+      toast.error("Failed to disconnect channel");
     }
   };
 
@@ -286,58 +237,28 @@ export default function AISettings({ projectId }: AISettingsProps) {
             <CardTitle className="text-lg lg:text-xl">AI Assistant</CardTitle>
           </div>
           <CardDescription className="text-sm">
-            Zarządzaj ustawieniami asystenta AI dla tego projektu.
+            Manage AI assistant settings for this project.
           </CardDescription>
         </CardHeader>
         <CardContent className="px-4 lg:px-6">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-full bg-primary/10">
-                  <MessageSquare className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="font-medium">Historia konwersacji</p>
-                  <p className="text-sm text-muted-foreground">
-                    {userThreads === undefined ? (
-                      <span className="flex items-center gap-1">
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        Ładowanie...
-                      </span>
-                    ) : (
-                      <>
-                        {threadCount} {threadCount === 1 ? "konwersacja" : threadCount < 5 ? "konwersacje" : "konwersacji"}
-                      </>
-                    )}
-                  </p>
-                </div>
-              </div>
-              {hasThreads && (
-                <Badge variant="secondary" className="text-xs">
-                  Aktywne
-                </Badge>
-              )}
+          <div className="flex items-start justify-between gap-4 rounded-lg border bg-muted/30 p-4">
+            <div className="space-y-1">
+              <p className="font-medium">AI CRUD Action Confirmation</p>
+              <p className="text-sm text-muted-foreground">
+                When enabled, the assistant will automatically run create/edit/delete without manual approval.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Current mode: {aiAutoConfirmCrud ? "Auto-confirm CRUD" : "Manual confirmation"}
+              </p>
             </div>
-
-            <div className="flex items-start justify-between gap-4 p-4 rounded-lg border bg-muted/30">
-              <div className="space-y-1">
-                <p className="font-medium">Potwierdzanie akcji CRUD AI</p>
-                <p className="text-sm text-muted-foreground">
-                  Gdy włączone, asystent automatycznie wykona create/edit/delete bez ręcznego akceptowania.
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Aktualny tryb: {aiAutoConfirmCrud ? "Auto-confirm CRUD" : "Ręczne potwierdzanie"}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                {isSavingAiConfirmMode && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-                <Switch
-                  checked={aiAutoConfirmCrud}
-                  onCheckedChange={handleToggleAutoConfirmCrud}
-                  disabled={isSavingAiConfirmMode}
-                  aria-label="Przełącz auto-confirm CRUD"
-                />
-              </div>
+            <div className="flex items-center gap-2">
+              {isSavingAiConfirmMode && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+              <Switch
+                checked={aiAutoConfirmCrud}
+                onCheckedChange={handleToggleAutoConfirmCrud}
+                disabled={isSavingAiConfirmMode}
+                aria-label="Toggle CRUD auto-confirm"
+              />
             </div>
           </div>
         </CardContent>
@@ -348,10 +269,10 @@ export default function AISettings({ projectId }: AISettingsProps) {
         <CardHeader className="pb-4">
           <div className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-primary" />
-            <CardTitle className="text-lg lg:text-xl">Niestandardowy prompt AI</CardTitle>
+            <CardTitle className="text-lg lg:text-xl">Custom AI Prompt</CardTitle>
           </div>
           <CardDescription className="text-sm">
-            Dostosuj sposób, w jaki asystent AI odpowiada w tym projekcie. Pozostaw puste, aby użyć domyślnego promptu.
+            Customize how the AI assistant responds in this project. Leave empty to use the default prompt.
           </CardDescription>
         </CardHeader>
         <CardContent className="px-4 lg:px-6 space-y-4">
@@ -368,9 +289,9 @@ export default function AISettings({ projectId }: AISettingsProps) {
             />
             <p className="text-xs text-muted-foreground">
               {customPrompt.trim() === defaultPrompt ? (
-                <>Używasz domyślnego promptu systemu ({defaultPrompt.length} znaków)</>
+                <>Using the default system prompt ({defaultPrompt.length} characters)</>
               ) : (
-                <>Używasz niestandardowego promptu ({customPrompt.length} znaków)</>
+                <>Using a custom prompt ({customPrompt.length} characters)</>
               )}
             </p>
           </div>
@@ -384,12 +305,12 @@ export default function AISettings({ projectId }: AISettingsProps) {
               {isSaving ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Zapisywanie...
+                  Saving...
                 </>
               ) : (
                 <>
                   <Sparkles className="mr-2 h-4 w-4" />
-                  Zapisz prompt
+                  Save Prompt
                 </>
               )}
             </Button>
@@ -400,14 +321,14 @@ export default function AISettings({ projectId }: AISettingsProps) {
               className="flex-1 sm:flex-initial"
             >
               <RotateCcw className="mr-2 h-4 w-4" />
-              Przywróć domyślny
+              Restore Default
             </Button>
           </div>
 
           {customPrompt.trim() && customPrompt.trim() !== defaultPrompt && (
             <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900">
               <p className="text-sm text-blue-800 dark:text-blue-200">
-                <strong>Uwaga:</strong> Używasz niestandardowego promptu. Zmiana wpłynie tylko na nowe konwersacje. Istniejące konwersacje będą nadal używać poprzedniego promptu.
+                <strong>Note:</strong> You are using a custom prompt. The change will only affect new conversations. Existing conversations will keep using the previous prompt.
               </p>
             </div>
           )}
@@ -419,21 +340,21 @@ export default function AISettings({ projectId }: AISettingsProps) {
         <CardHeader className="pb-4">
           <div className="flex items-center gap-2">
             <MessageCircle className="h-5 w-5 text-primary" />
-            <CardTitle className="text-lg lg:text-xl">Integracja Telegram</CardTitle>
+            <CardTitle className="text-lg lg:text-xl">Telegram Integration</CardTitle>
           </div>
           <CardDescription className="text-sm">
-            Połącz asystenta z Telegramem tak jak w VibePlanner: bot, deep link i akceptacja pairing code.
+            Connect the assistant to Telegram like in VibePlanner: bot, deep link, and pairing code approval.
           </CardDescription>
         </CardHeader>
         <CardContent className="px-4 lg:px-6 space-y-4">
           <div className="rounded-md border border-blue-500/20 bg-blue-500/10 p-3">
-            <p className="text-xs font-medium mb-2">Szybka konfiguracja</p>
+            <p className="text-xs font-medium mb-2">Quick Setup</p>
             <ol className="text-xs text-muted-foreground list-decimal list-inside space-y-1">
-              <li>Otwórz Telegram i znajdź @BotFather</li>
-              <li>Wyślij komendę <code className="bg-muted px-1 rounded">/newbot</code></li>
-              <li>Skopiuj username i token bota</li>
-              <li>Zapisz je poniżej</li>
-              <li>Kliknij „Open Telegram”, naciśnij Start i zatwierdź kod parowania tutaj</li>
+              <li>Open Telegram and find @BotFather</li>
+              <li>Send the command <code className="bg-muted px-1 rounded">/newbot</code></li>
+              <li>Copy the bot username and token</li>
+              <li>Save them below</li>
+              <li>Click "Open Telegram", press Start, then approve the pairing code here</li>
             </ol>
           </div>
 
@@ -444,7 +365,7 @@ export default function AISettings({ projectId }: AISettingsProps) {
                 id="telegram-bot-username"
                 value={telegramBotUsername}
                 onChange={(e) => setTelegramBotUsername(e.target.value)}
-                placeholder="myassistant_bot (bez @)"
+                placeholder="myassistant_bot (without @)"
                 autoCapitalize="none"
                 autoComplete="off"
                 spellCheck={false}
@@ -468,10 +389,10 @@ export default function AISettings({ projectId }: AISettingsProps) {
               {isSavingTelegram ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Zapisywanie...
+                  Saving...
                 </>
               ) : (
-                "Zapisz bota Telegram"
+                "Save Telegram Bot"
               )}
             </Button>
             <Button variant="outline" onClick={handleOpenTelegram} disabled={!telegramDeepLink}>
@@ -479,21 +400,21 @@ export default function AISettings({ projectId }: AISettingsProps) {
             </Button>
             <Button variant="outline" onClick={handleCopyTelegramLink} disabled={!telegramDeepLink}>
               <Copy className="mr-2 h-4 w-4" />
-              Kopiuj link
+              Copy Link
             </Button>
           </div>
 
           {telegramDeepLink && (
             <div className="rounded-md border bg-muted/30 p-3">
-              <p className="text-xs font-medium mb-1">Link połączenia</p>
+              <p className="text-xs font-medium mb-1">Connection Link</p>
               <p className="text-xs text-muted-foreground break-all">{telegramDeepLink}</p>
             </div>
           )}
 
           <div className="space-y-2">
-            <p className="text-sm font-medium">Połączone kanały</p>
+            <p className="text-sm font-medium">Connected Channels</p>
             {connectedChannelsList.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Brak połączonych kanałów.</p>
+              <p className="text-xs text-muted-foreground">No connected channels.</p>
             ) : (
               <div className="space-y-2">
                 {connectedChannelsList.map((channel) => (
@@ -522,7 +443,7 @@ export default function AISettings({ projectId }: AISettingsProps) {
           {pendingRequestsList.length > 0 && (
             <div className="rounded-md border border-yellow-500/40 bg-yellow-500/10 p-3 space-y-2">
               <p className="text-sm font-medium">
-                Oczekujące prośby o połączenie ({pendingRequestsList.length})
+                Pending Connection Requests ({pendingRequestsList.length})
               </p>
               {pendingRequestsList.map((request) => (
                 <div
@@ -551,79 +472,6 @@ export default function AISettings({ projectId }: AISettingsProps) {
         </CardContent>
       </Card>
 
-      {/* Danger Zone Card */}
-      <Card className="border-destructive/30">
-        <CardHeader className="pb-4">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-destructive" />
-            <CardTitle className="text-destructive text-lg lg:text-xl">Strefa niebezpieczna</CardTitle>
-          </div>
-          <CardDescription className="text-sm">
-            Nieodwracalne akcje związane z AI.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="px-4 lg:px-6 space-y-4">
-          <div className="p-4 rounded-lg border border-destructive/20 bg-destructive/5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <h4 className="font-medium text-destructive">Usuń całą historię czatu AI</h4>
-                <p className="text-sm text-muted-foreground">
-                  Trwale usuwa wszystkie konwersacje z asystentem AI w tym projekcie.
-                  Ta operacja jest nieodwracalna.
-                </p>
-              </div>
-              <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <AlertDialogTrigger asChild>
-                  <Button 
-                    variant="destructive" 
-                    size="sm"
-                    disabled={!hasThreads || isClearing}
-                    className="shrink-0"
-                  >
-                    {isClearing ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Usuwanie...
-                      </>
-                    ) : (
-                      <>
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Usuń historię
-                      </>
-                    )}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Czy na pewno chcesz usunąć historię?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Ta akcja jest nieodwracalna. Wszystkie {threadCount} konwersacji z asystentem AI 
-                      w tym projekcie zostaną trwale usunięte.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel disabled={isClearing}>Anuluj</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={handleClearAllHistory}
-                      disabled={isClearing}
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    >
-                      {isClearing ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Usuwanie...
-                        </>
-                      ) : (
-                        "Tak, usuń wszystko"
-                      )}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

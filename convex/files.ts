@@ -141,7 +141,7 @@ export const { generateUploadUrl, syncMetadata } = r2.clientApi({
     console.log(`User ${identity.subject} is uploading to bucket ${bucket}`);
   },
   
-  onUpload: async (ctx, key) => {
+  onUpload: async (_ctx, key) => {
     // Logika wykonywana po upload - możemy utworzyć rekord w bazie
     console.log(`File uploaded with key: ${key}`);
   },
@@ -334,6 +334,7 @@ export const createFileRecordInternal = internalMutation({
       version: 1,
       isLatest: true,
       origin,
+      showInClientPortal: false,
     });
 
     return fileId;
@@ -490,6 +491,7 @@ export const addFile = mutation({
       isLatest: true,
       origin,
       moodboardSection: args.moodboardSection,
+      showInClientPortal: false,
     });
 
     // Log activity if file is attached to a task
@@ -743,6 +745,57 @@ export const deleteFile = mutation({
     await ctx.db.delete(args.fileId);
     
     return { success: true };
+  },
+});
+
+export const setFileCustomerPortalVisibility = mutation({
+  args: {
+    fileId: v.id("files"),
+    showInClientPortal: v.boolean(),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    fileId: v.id("files"),
+    showInClientPortal: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const file = await ctx.db.get(args.fileId);
+    if (!file || !file.projectId) throw new Error("File not found");
+
+    const project = await ctx.db.get(file.projectId);
+    if (!project) throw new Error("Project not found");
+
+    const member = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
+      )
+      .unique();
+
+    if (!member || !member.isActive) {
+      throw new Error("No access to this project");
+    }
+
+    if (member.role === "member" && member.projectIds && member.projectIds.length > 0) {
+      if (!member.projectIds.includes(project._id)) {
+        throw new Error("No access to this project");
+      }
+    } else if (member.role !== "admin" && member.role !== "member") {
+      throw new Error("No permission to manage customer portal files");
+    }
+
+    await ctx.db.patch(args.fileId, {
+      showInClientPortal: args.showInClientPortal,
+    });
+
+    return {
+      success: true,
+      fileId: args.fileId,
+      showInClientPortal: args.showInClientPortal,
+    };
   },
 });
 

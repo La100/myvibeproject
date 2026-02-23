@@ -32,7 +32,7 @@ export const createConfirmedShoppingItem = action({
   }),
   handler: async (ctx, args) => {
     try {
-      const { project } = await ensureProjectAccess(ctx, args.projectId, true);
+      await ensureProjectAccess(ctx, args.projectId, true);
 
       let buyBeforeNumber: number | undefined;
       if (args.itemData.buyBefore) {
@@ -104,6 +104,7 @@ export const createConfirmedShoppingSection = action({
 
 export const editConfirmedShoppingItem = action({
   args: {
+    projectId: v.optional(v.id("projects")),
     itemId: v.id("shoppingListItems"),
     updates: v.object({
       name: v.optional(v.string()),
@@ -133,7 +134,10 @@ export const editConfirmedShoppingItem = action({
       if (!item) {
         throw new Error("Shopping item not found");
       }
-      await ensureProjectAccess(ctx, item.projectId, true);
+      if (args.projectId && item.projectId !== args.projectId) {
+        throw new Error("Shopping item does not belong to the active project");
+      }
+      await ensureProjectAccess(ctx, args.projectId ?? item.projectId, true);
 
       let buyBeforeNumber: number | undefined;
       if (args.updates.buyBefore) {
@@ -279,9 +283,6 @@ export const deleteConfirmedShoppingSection = action({
     }
   },
 });
-
-
-
 
 
 

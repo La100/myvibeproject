@@ -21,7 +21,7 @@ Myvibe project is a comprehensive project management tool tailored for architect
 1.  **Teams (`teams`)**: The top-level hierarchy, mapped 1:1 to Clerk Organizations. Controls subscription status and global settings (currencies, timezone).
 2.  **Projects (`projects`)**: Belong to a Team. Contain most operational data (Tasks, Files, Shopping Lists).
     - Statuses: planning, active, on_hold, completed, cancelled.
-    - Has `sidebarPermissions` to toggle feature visibility per project.
+    - Includes customer portal publishing fields (`clientPanelAccessToken`, panel snapshot settings/version).
 3.  **Tasks (`tasks`)**: Work items within a Project.
     - Managed on a Kanban board (todo, in_progress, review, done).
     - Linked to `projects` and `teams`.

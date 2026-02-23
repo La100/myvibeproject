@@ -72,6 +72,7 @@ export const createConfirmedTask = action({
 
 export const editConfirmedTask = action({
   args: {
+    projectId: v.optional(v.id("projects")),
     taskId: v.id("tasks"),
     updates: v.object({
       title: v.optional(v.string()),
@@ -95,7 +96,10 @@ export const editConfirmedTask = action({
       if (!task) {
         throw new Error("Task not found");
       }
-      await ensureProjectAccess(ctx, task.projectId, true);
+      if (args.projectId && task.projectId !== args.projectId) {
+        throw new Error("Task does not belong to the active project");
+      }
+      await ensureProjectAccess(ctx, args.projectId ?? task.projectId, true);
 
       let startDateNumber: number | undefined;
       let endDateNumber: number | undefined;
@@ -165,8 +169,6 @@ export const deleteConfirmedTask = action({
     }
   },
 });
-
-
 
 
 

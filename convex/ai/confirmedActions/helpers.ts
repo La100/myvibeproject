@@ -3,9 +3,13 @@
  * 
  * Shared helpers for authentication and authorization in AI confirmed actions.
  */
-
-import { api } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const apiLoose = require("../../_generated/api").api as unknown as {
+  projects: { getProject: unknown };
+  teams: { getCurrentUserTeamMember: unknown };
+};
 
 // Basic access control helpers for confirmed AI actions
 export const requireIdentity = async (ctx: any) => {
@@ -22,12 +26,12 @@ export const ensureProjectAccess = async (
   requireWriteAccess = true,
 ) => {
   const identity = await requireIdentity(ctx);
-  const project = await ctx.runQuery(api.projects.getProject, { projectId });
+  const project = await ctx.runQuery(apiLoose.projects.getProject, { projectId });
   if (!project) {
     throw new Error("Project not found");
   }
 
-  const membership = await ctx.runQuery(api.teams.getCurrentUserTeamMember, {
+  const membership = await ctx.runQuery(apiLoose.teams.getCurrentUserTeamMember, {
     teamId: project.teamId,
   });
 
@@ -53,7 +57,7 @@ export const ensureProjectAccess = async (
 
 export const ensureTeamMembership = async (ctx: any, teamId: Id<"teams">) => {
   const identity = await requireIdentity(ctx);
-  const membership = await ctx.runQuery(api.teams.getCurrentUserTeamMember, {
+  const membership = await ctx.runQuery(apiLoose.teams.getCurrentUserTeamMember, {
     teamId,
   });
 
@@ -63,9 +67,6 @@ export const ensureTeamMembership = async (ctx: any, teamId: Id<"teams">) => {
 
   return { identity, membership };
 };
-
-
-
 
 
 

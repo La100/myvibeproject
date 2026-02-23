@@ -54,13 +54,13 @@ function ProjectSidebarContent() {
   const pathname = usePathname();
   const router = useRouter();
   const { setOpenMobile } = useSidebar();
-  const { project, permissions: sidebarPermissions } = useProject();
+  const { project, teamMember } = useProject();
   const { signOut, openUserProfile } = useClerk();
   const { user } = useUser();
 
   const allNavItems = [
     { href: `/organisation/projects/${params.projectSlug}`, label: "Overview", icon: LayoutDashboard, key: "overview", group: "project" },
-    { href: `/organisation/projects/${params.projectSlug}/customer-panel`, label: "Customer Panel", icon: Eye, key: "customer_panel", group: "project" },
+    { href: `/organisation/projects/${params.projectSlug}/customer-panel`, label: "Client Portal", icon: Eye, key: "customer_panel", group: "project" },
     { href: `/organisation/projects/${params.projectSlug}/tasks`, label: "Tasks", icon: CheckSquare, key: "tasks", group: "architecture" },
     { href: `/organisation/projects/${params.projectSlug}/moodboard`, label: "Moodboard", icon: Image, key: "moodboard", group: "project" },
     { href: `/organisation/projects/${params.projectSlug}/notes`, label: "Notes", icon: StickyNote, key: "notes", group: "project" },
@@ -76,18 +76,13 @@ function ProjectSidebarContent() {
   const aiItem = { href: `/organisation/projects/${params.projectSlug}/ai`, label: "AI Assistant", icon: Sparkles, key: "ai" };
   const settingsItem = { href: `/organisation/projects/${params.projectSlug}/settings`, label: "Settings", icon: Settings, key: "settings" };
 
-  const navItems = sidebarPermissions?.permissions
-    ? allNavItems.filter((item) => sidebarPermissions.permissions?.[item.key as keyof typeof sidebarPermissions.permissions]?.visible !== false)
-    : allNavItems;
-  const projectNavItems = navItems.filter(
-    (item) => item.group === "project" && !(item.key === "customer_panel" && sidebarPermissions?.isCustomer)
+  const isCustomer = teamMember?.role === "customer";
+  const projectNavItems = allNavItems.filter(
+    (item) => item.group === "project" && !(item.key === "customer_panel" && isCustomer)
   );
-  const architectureNavItems = navItems.filter((item) => item.group === "architecture");
-
-  const showSettings =
-    sidebarPermissions?.permissions?.settings?.visible !== false;
+  const architectureNavItems = allNavItems.filter((item) => item.group === "architecture");
   const footerItems = [
-    ...(showSettings ? [settingsItem] : []),
+    ...(!isCustomer ? [settingsItem] : []),
     { href: "/help", label: "Help", icon: LifeBuoy },
   ];
 
@@ -120,8 +115,8 @@ function ProjectSidebarContent() {
     return (
       <SidebarGroupContent className="pt-3 first:pt-0">
         <div className="mb-1.5 flex items-center gap-2.5 px-2">
-          <Icon className="h-3.5 w-3.5 text-sidebar-foreground/62" />
-          <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-sidebar-foreground/72">
+          <Icon className="h-3.5 w-3.5 text-sidebar-foreground/75" />
+          <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-sidebar-foreground/85">
             {title}
           </span>
         </div>
@@ -135,7 +130,7 @@ function ProjectSidebarContent() {
                   isActive={isActive}
                   className={`h-9 justify-start gap-2.5 rounded-xl border px-3 text-[13px] font-medium ${isActive
                       ? "border-sidebar-border/80 bg-sidebar-accent/45 text-sidebar-foreground"
-                      : "border-transparent bg-transparent text-sidebar-foreground/82 hover:bg-transparent hover:text-sidebar-foreground"
+                      : "border-transparent bg-transparent text-sidebar-foreground hover:bg-transparent hover:text-sidebar-foreground"
                     }`}
                 >
                   <Link
@@ -144,7 +139,7 @@ function ProjectSidebarContent() {
                     onMouseEnter={() => handleLinkHover(item.href)}
                     className="flex flex-1 items-center gap-3"
                   >
-                    <item.icon className={`h-4 w-4 ${isActive ? "text-sidebar-foreground/88" : "text-sidebar-foreground/72"}`} />
+                    <item.icon className={`h-4 w-4 ${isActive ? "text-sidebar-foreground" : "text-sidebar-foreground/85"}`} />
                     <span className="truncate">{item.label}</span>
                   </Link>
                 </SidebarMenuButton>
@@ -215,7 +210,7 @@ function ProjectSidebarContent() {
                         onMouseEnter={() => handleLinkHover(item.href)}
                         className="flex flex-1 items-center gap-3"
                       >
-                        <item.icon className={`h-4 w-4 ${isActive ? "text-sidebar-foreground/88" : "text-sidebar-foreground/72"}`} />
+                        <item.icon className={`h-4 w-4 ${isActive ? "text-sidebar-foreground" : "text-sidebar-foreground/85"}`} />
                         <span className="truncate">{item.label}</span>
                       </Link>
                     </SidebarMenuButton>

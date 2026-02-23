@@ -139,40 +139,6 @@ export default defineSchema({
       review: v.optional(v.object({ name: v.string(), color: v.string() })),
       done: v.object({ name: v.string(), color: v.string() }),
     })),
-    sidebarPermissions: v.optional(v.object({
-      overview: v.optional(v.object({ visible: v.boolean() })),
-      tasks: v.optional(v.object({ visible: v.boolean() })),
-      moodboard: v.optional(v.object({ visible: v.boolean() })),
-      notes: v.optional(v.object({ visible: v.boolean() })),
-      contacts: v.optional(v.object({ visible: v.boolean() })),
-      surveys: v.optional(v.object({ visible: v.boolean() })),
-      calendar: v.optional(v.object({ visible: v.boolean() })),
-      gantt: v.optional(v.object({ visible: v.boolean() })),
-      files: v.optional(v.object({ visible: v.boolean() })),
-      shopping_list: v.optional(v.object({ visible: v.boolean() })),
-      labor: v.optional(v.object({ visible: v.boolean() })),
-      estimations: v.optional(v.object({ visible: v.boolean() })),
-      settings: v.optional(v.object({ visible: v.boolean() })),
-    })),
-    // Published snapshot used by clients in the dedicated client portal.
-    clientPortalPublishedPermissions: v.optional(v.object({
-      overview: v.optional(v.object({ visible: v.boolean() })),
-      tasks: v.optional(v.object({ visible: v.boolean() })),
-      moodboard: v.optional(v.object({ visible: v.boolean() })),
-      notes: v.optional(v.object({ visible: v.boolean() })),
-      contacts: v.optional(v.object({ visible: v.boolean() })),
-      surveys: v.optional(v.object({ visible: v.boolean() })),
-      calendar: v.optional(v.object({ visible: v.boolean() })),
-      gantt: v.optional(v.object({ visible: v.boolean() })),
-      files: v.optional(v.object({ visible: v.boolean() })),
-      shopping_list: v.optional(v.object({ visible: v.boolean() })),
-      labor: v.optional(v.object({ visible: v.boolean() })),
-      estimations: v.optional(v.object({ visible: v.boolean() })),
-      settings: v.optional(v.object({ visible: v.boolean() })),
-    })),
-    clientPortalVersion: v.optional(v.number()),
-    clientPortalPublishedAt: v.optional(v.number()),
-    clientPortalPublishedBy: v.optional(v.string()),
     // Public, link-only customer panel token.
     clientPanelAccessToken: v.optional(v.string()),
     clientPanelPublishedSettings: v.optional(v.object({
@@ -289,6 +255,8 @@ export default defineSchema({
     moodboardSection: v.optional(v.string()),
     // AI generation prompt (for AI-generated files)
     aiPrompt: v.optional(v.string()),
+    // If true, file is included in the next published customer portal snapshot
+    showInClientPortal: v.optional(v.boolean()),
   })
     .index("by_team", ["teamId"])
     .index("by_project", ["projectId"])
@@ -362,17 +330,6 @@ export default defineSchema({
     .index("by_email", ["email"])
     .index("by_project", ["projectId"])
     .index("by_org", ["clerkOrgId"]),
-
-  clientPortalAcceptances: defineTable({
-    teamId: v.id("teams"),
-    projectId: v.id("projects"),
-    clerkUserId: v.string(),
-    version: v.number(),
-    acceptedAt: v.number(),
-  })
-    .index("by_project_and_user", ["projectId", "clerkUserId"])
-    .index("by_project_and_version", ["projectId", "version"])
-    .index("by_user", ["clerkUserId"]),
 
   // Users
   users: defineTable({
@@ -513,6 +470,28 @@ export default defineSchema({
   })
     .index("by_project", ["projectId"])
     .index("by_project_and_source", ["projectId", "sourceItemId"]),
+
+  // Published customer panel snapshot (files).
+  clientPanelFiles: defineTable({
+    projectId: v.id("projects"),
+    sourceFileId: v.id("files"),
+    name: v.string(),
+    fileType: v.union(
+      v.literal("image"),
+      v.literal("video"),
+      v.literal("document"),
+      v.literal("drawing"),
+      v.literal("model"),
+      v.literal("other")
+    ),
+    storageId: v.string(),
+    mimeType: v.string(),
+    size: v.number(),
+    folderName: v.optional(v.string()),
+    uploadedAt: v.number(),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_project_and_source", ["projectId", "sourceFileId"]),
 
   // Labor sections for grouping labor items
   laborSections: defineTable({

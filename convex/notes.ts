@@ -1,7 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation, internalQuery } from "./_generated/server";
-import { Doc, Id } from "./_generated/dataModel";
-import { internal } from "./_generated/api";
+import { Id } from "./_generated/dataModel";
 
 // Utility function to check project access
 const hasProjectAccess = async (ctx: any, projectId: Id<"projects">, requireWriteAccess = false): Promise<boolean> => {
