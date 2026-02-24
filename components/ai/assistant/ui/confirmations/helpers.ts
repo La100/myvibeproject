@@ -13,6 +13,7 @@ export const TYPE_COLORS: Record<string, string> = {
   shoppingSection: "bg-card border-border/50 shadow-sm",
   labor: "bg-card border-border/50 shadow-sm",
   laborSection: "bg-card border-border/50 shadow-sm",
+  projectSettings: "bg-card border-border/50 shadow-sm",
 };
 
 export const OPERATION_LABELS: Record<
@@ -44,7 +45,7 @@ export const OPERATION_LABELS: Record<
 export function getCanonicalType(type: PendingContentType): string {
   const typeStr = type as string;
   if (typeStr.startsWith("create_multiple_")) {
-    return typeStr.replace("create_multiple_", "").replace("s", "");
+    return typeStr.replace("create_multiple_", "").replace(/s$/, "");
   }
   if (typeStr.startsWith("create_")) {
     return typeStr.replace("create_", "");
@@ -53,6 +54,9 @@ export function getCanonicalType(type: PendingContentType): string {
 }
 
 export function getTitle(item: PendingContentItem): string {
+  if (item.display?.title) {
+    return item.display.title;
+  }
   const data = item.originalItem || item.data;
   return (
     (data?.title as string) ||
@@ -63,6 +67,9 @@ export function getTitle(item: PendingContentItem): string {
 }
 
 export function getDescription(item: PendingContentItem): string | undefined {
+  if (item.display?.description) {
+    return item.display.description;
+  }
   const data = item.originalItem || item.data;
   return (
     (data?.description as string) ||

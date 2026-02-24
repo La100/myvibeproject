@@ -54,8 +54,17 @@ export const getProjectContextSnapshot = internalQuery({
       ),
       startDate: v.optional(v.number()),
       endDate: v.optional(v.number()),
+      budget: v.optional(v.number()),
       customer: v.optional(v.string()),
       location: v.optional(v.string()),
+      coverImageUrl: v.optional(v.string()),
+      currency: v.optional(v.union(
+        v.literal("USD"), v.literal("EUR"), v.literal("PLN"), v.literal("GBP"),
+        v.literal("CAD"), v.literal("AUD"), v.literal("JPY"), v.literal("CHF"),
+        v.literal("SEK"), v.literal("NOK"), v.literal("DKK"), v.literal("CZK"),
+        v.literal("HUF"), v.literal("CNY"), v.literal("INR"), v.literal("BRL"),
+        v.literal("MXN"), v.literal("KRW"), v.literal("SGD"), v.literal("HKD"),
+      )),
       teamId: v.id("teams"),
     })),
     tasks: v.array(v.object({
@@ -255,6 +264,12 @@ export const getProjectContextSnapshot = internalQuery({
     summaryLines.push(`Shopping items: ${shopping.length}`);
     summaryLines.push(`Contacts: ${contactDocs.length}`);
     summaryLines.push(`Surveys: ${surveyDetails.length}`);
+    if (project) {
+      summaryLines.push(`Project budget: ${project.budget ?? "not set"}`);
+      summaryLines.push(`Project currency: ${project.currency ?? "not set"}`);
+      summaryLines.push(`Project customer: ${project.customer ?? "not set"}`);
+      summaryLines.push(`Project location: ${project.location ?? "not set"}`);
+    }
 
     return {
       project: project ? {
@@ -264,8 +279,11 @@ export const getProjectContextSnapshot = internalQuery({
         status: project.status,
         startDate: project.startDate,
         endDate: project.endDate,
+        budget: project.budget,
         customer: project.customer,
         location: project.location,
+        coverImageUrl: project.coverImageUrl,
+        currency: project.currency,
         teamId: project.teamId,
       } : null,
       tasks: tasks.map(t => ({

@@ -198,6 +198,24 @@ export const processFunctionCalls = async (
         }
         break;
 
+      case "update_project_settings":
+        {
+          const snapshot = await getSnapshot();
+
+          pendingItems.push({
+            type: "projectSettings",
+            operation: "edit",
+            data: functionArgs,
+            updates: functionArgs,
+            originalItem: snapshot.project || {},
+            functionCall: funcCallDataPayload,
+            responseId,
+          });
+
+          finalResponse = `I'll update project settings. ${aiResponse}`;
+        }
+        break;
+
       case "delete_item":
         {
           const { type, itemId, name, reason } = functionArgs;

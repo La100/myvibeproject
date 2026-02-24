@@ -96,8 +96,17 @@ export const internalDoStreaming = internalAction({
       };
 
       // Build system instructions
-      // Use custom AI prompt from project if available, otherwise use default
-      const systemPrompt = projectForTeam?.customAiPrompt || defaultPrompt;
+      // Custom prompt is additive so base guardrails/tool contract always remain active.
+      const customPrompt = projectForTeam?.customAiPrompt?.trim();
+      const hasCustomPrompt = Boolean(customPrompt && customPrompt !== defaultPrompt.trim());
+      const systemPrompt = hasCustomPrompt
+        ? `${defaultPrompt}
+
+## Additional Project Instructions
+${customPrompt}
+
+Apply these additional instructions when they do not conflict with the tool contract, safety, or confirmation rules above.`
+        : defaultPrompt;
       const pendingCallsForContext = (await ctx.runQuery(apiAny.ai.threads.listPendingItems, {
         threadId: providedThreadId,
       })) as Array<{ status?: string; functionName: string }>;
@@ -172,7 +181,7 @@ export const internalDoStreaming = internalAction({
       );
 
       console.log("📋 [SYSTEM INSTRUCTIONS]", {
-        hasCustomPrompt: !!projectForTeam?.customAiPrompt,
+        hasCustomPrompt,
         teamMembersCount: teamMembers.length,
         currentDate,
         unresolvedPendingCalls: unresolvedPendingCalls.length,
@@ -506,9 +515,11 @@ export const internalDoStreaming = internalAction({
 
         // Tools that should NOT create pending items (read-only/search tools)
         const readOnlyTools = new Set([
+          'search_items',
           'search_tasks',
           'search_shopping_items',
           'search_notes',
+          'search_labor_items',
           'search_surveys',
           'search_contacts',
           'load_full_project_context',
@@ -538,6 +549,7 @@ export const internalDoStreaming = internalAction({
           create_multiple_notes: { type: 'note', operation: 'bulk_create' },
           create_multiple_shopping_items: { type: 'shopping', operation: 'bulk_create' },
           create_multiple_surveys: { type: 'survey', operation: 'bulk_create' },
+          update_project_settings: { type: 'projectSettings', operation: 'edit' },
         };
 
         for (let i = 0; i < allToolCalls.length; i++) {
@@ -594,8 +606,21 @@ export const internalDoStreaming = internalAction({
             payload.data = toolArgs ?? {};
           }
 
-          // Only persist if we have at least a type
-          if (payload?.type) {
+          const payloadHasError =
+            payload &&
+            typeof payload === "object" &&
+            typeof payload.error === "string";
+
+          if (payloadHasError) {
+            continue;
+          }
+
+          const hasSupportedOperation =
+            typeof payload?.operation === "string" &&
+            ["create", "bulk_create", "edit", "bulk_edit", "delete"].includes(payload.operation);
+
+          // Only persist actionable items with type + operation
+          if (payload?.type && hasSupportedOperation) {
             functionCalls.push({
               callId: toolCallId,
               functionName: toolName,

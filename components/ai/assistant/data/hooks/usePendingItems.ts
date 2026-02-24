@@ -33,224 +33,14 @@ import {
   mergePendingItems,
   type PendingFunctionCall,
 } from "./pendingItemsHydration";
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function areValuesEqual(a: unknown, b: unknown): boolean {
-  if (Object.is(a, b)) return true;
-
-  if (Array.isArray(a) && Array.isArray(b)) {
-    if (a.length !== b.length) return false;
-    return a.every((item, index) => areValuesEqual(item, b[index]));
-  }
-
-  if (isPlainObject(a) && isPlainObject(b)) {
-    const aKeys = Object.keys(a);
-    const bKeys = Object.keys(b);
-
-    if (aKeys.length !== bKeys.length) return false;
-
-    for (const key of aKeys) {
-      if (!(key in b)) return false;
-      if (!areValuesEqual(a[key], b[key])) return false;
-    }
-
-    return true;
-  }
-
-  return false;
-}
-
-function hasShoppingCoreFields(value: Record<string, unknown>): boolean {
-  if (typeof value.name === "string" && value.name.trim().length > 0) return true;
-  return (
-    value.quantity !== undefined ||
-    value.sectionId !== undefined ||
-    value.sectionName !== undefined ||
-    value.category !== undefined
-  );
-}
-
-function hasLaborCoreFields(value: Record<string, unknown>): boolean {
-  if (typeof value.name === "string" && value.name.trim().length > 0) return true;
-  return (
-    value.quantity !== undefined ||
-    value.sectionId !== undefined ||
-    value.sectionName !== undefined ||
-    value.unit !== undefined
-  );
-}
-
-function getFirstNonEmptyString(...values: unknown[]): string | undefined {
-  for (const value of values) {
-    if (typeof value === "string") {
-      const trimmed = value.trim();
-      if (trimmed.length > 0) {
-        return trimmed;
-      }
-    }
-  }
-  return undefined;
-}
-
-function extractShoppingInput(value: unknown): Record<string, unknown> {
-  if (!isPlainObject(value)) return {};
-
-  const nestedCandidates = [
-    value.itemData,
-    value.data,
-    value.shoppingData,
-    value.item,
-  ].filter(isPlainObject);
-
-  const bestNested =
-    nestedCandidates.find((candidate) => typeof candidate.name === "string" && candidate.name.trim().length > 0) ??
-    nestedCandidates.find(hasShoppingCoreFields);
-
-  const base = hasShoppingCoreFields(value) ? value : (bestNested ?? value);
-  const extracted: Record<string, unknown> = { ...base };
-
-  for (const passthroughKey of ["sectionName", "sectionId", "category"] as const) {
-    if (value[passthroughKey] !== undefined && extracted[passthroughKey] === undefined) {
-      extracted[passthroughKey] = value[passthroughKey];
-    }
-  }
-
-  if (typeof extracted.name !== "string" || extracted.name.trim().length === 0) {
-    const fallbackName = getFirstNonEmptyString(
-      extracted.title,
-      extracted.itemName,
-      extracted.productName,
-      extracted.product,
-      extracted.label,
-      extracted.item,
-    );
-    if (fallbackName) {
-      extracted.name = fallbackName;
-    }
-  }
-
-  if (typeof extracted.notes !== "string" || extracted.notes.trim().length === 0) {
-    const fallbackNotes = getFirstNonEmptyString(
-      extracted.description,
-      extracted.content,
-      extracted.details,
-    );
-    if (fallbackNotes) {
-      extracted.notes = fallbackNotes;
-    }
-  }
-
-  if (extracted.quantity === undefined) {
-    const fallbackQuantity = toFiniteNumber(
-      extracted.qty ?? extracted.amount ?? extracted.count ?? extracted.units,
-    );
-    if (fallbackQuantity !== undefined) {
-      extracted.quantity = fallbackQuantity;
-    }
-  }
-
-  return extracted;
-}
-
-function extractLaborInput(value: unknown): Record<string, unknown> {
-  if (!isPlainObject(value)) return {};
-
-  const nestedCandidates = [
-    value.itemData,
-    value.data,
-    value.laborData,
-    value.item,
-  ].filter(isPlainObject);
-
-  const bestNested =
-    nestedCandidates.find((candidate) => typeof candidate.name === "string" && candidate.name.trim().length > 0) ??
-    nestedCandidates.find(hasLaborCoreFields);
-
-  const base = hasLaborCoreFields(value) ? value : (bestNested ?? value);
-  const extracted: Record<string, unknown> = { ...base };
-
-  for (const passthroughKey of ["sectionName", "sectionId", "assignedTo"] as const) {
-    if (value[passthroughKey] !== undefined && extracted[passthroughKey] === undefined) {
-      extracted[passthroughKey] = value[passthroughKey];
-    }
-  }
-
-  if (typeof extracted.name !== "string" || extracted.name.trim().length === 0) {
-    const fallbackName = getFirstNonEmptyString(
-      extracted.title,
-      extracted.itemName,
-      extracted.workName,
-      extracted.work,
-      extracted.label,
-      extracted.item,
-    );
-    if (fallbackName) {
-      extracted.name = fallbackName;
-    }
-  }
-
-  if (typeof extracted.notes !== "string" || extracted.notes.trim().length === 0) {
-    const fallbackNotes = getFirstNonEmptyString(
-      extracted.description,
-      extracted.content,
-      extracted.details,
-    );
-    if (fallbackNotes) {
-      extracted.notes = fallbackNotes;
-    }
-  }
-
-  if (extracted.quantity === undefined) {
-    const fallbackQuantity = toFiniteNumber(
-      extracted.qty ?? extracted.amount ?? extracted.count ?? extracted.hours ?? extracted.units,
-    );
-    if (fallbackQuantity !== undefined) {
-      extracted.quantity = fallbackQuantity;
-    }
-  }
-
-  const fallbackUnit = getFirstNonEmptyString(extracted.uom, extracted.measurementUnit);
-  if (fallbackUnit && extracted.unit === undefined) {
-    extracted.unit = fallbackUnit;
-  }
-
-  if (extracted.unitPrice === undefined) {
-    const fallbackUnitPrice = toFiniteNumber(extracted.rate ?? extracted.price);
-    if (fallbackUnitPrice !== undefined) {
-      extracted.unitPrice = fallbackUnitPrice;
-    }
-  }
-
-  const fallbackSectionName = getFirstNonEmptyString(extracted.section, extracted.category);
-  if (fallbackSectionName && extracted.sectionName === undefined) {
-    extracted.sectionName = fallbackSectionName;
-  }
-
-  if (extracted.assignedTo === undefined) {
-    const fallbackAssignedTo = getFirstNonEmptyString(extracted.assignee, extracted.worker);
-    if (fallbackAssignedTo) {
-      extracted.assignedTo = fallbackAssignedTo;
-    }
-  }
-
-  return extracted;
-}
-
-function toFiniteNumber(value: unknown): number | undefined {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === "string" && value.trim().length > 0) {
-    const parsed = Number(value.replace(",", "."));
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-  }
-  return undefined;
-}
+import {
+  areValuesEqual,
+  extractLaborInput,
+  extractShoppingInput,
+  getFirstNonEmptyString,
+  sanitizeProjectSettingsUpdates,
+  toFiniteNumber,
+} from "./pendingItemsHelpers";
 
 interface UsePendingItemsProps {
   projectId: Id<"projects"> | undefined;
@@ -333,6 +123,7 @@ export const usePendingItems = ({
   const createLaborSection = useMutation(apiAny.labor.createLaborSection);
   const updateLaborSection = useMutation(apiAny.labor.updateLaborSection);
   const deleteLaborSection = useMutation(apiAny.labor.deleteLaborSection);
+  const updateProjectSettings = useMutation(apiAny.projects.updateProject);
 
   // Actions
   const createConfirmedTask = useAction(apiAny.ai.confirmedActions.createConfirmedTask);
@@ -1451,6 +1242,24 @@ export const usePendingItems = ({
           });
           result = { success: true, message: "Labor section updated successfully" };
           break;
+        case 'projectSettings': {
+          const source = isPlainObject(item.updates)
+            ? item.updates
+            : isPlainObject(item.data)
+              ? item.data
+              : {};
+          const updates = sanitizeProjectSettingsUpdates(source);
+          if (Object.keys(updates).length === 0) {
+            throw new Error("No valid project settings changes were provided");
+          }
+
+          await updateProjectSettings({
+            projectId,
+            ...updates,
+          });
+          result = { success: true, message: "Project settings updated successfully" };
+          break;
+        }
         default:
           throw new Error(`Unknown content type for editing: ${item.type}`);
       }
@@ -1648,6 +1457,7 @@ export const usePendingItems = ({
     updateShoppingSection,
     createLaborSection,
     updateLaborSection,
+    updateProjectSettings,
   ]);
 
   // Handlers - Helper functions defined first to avoid ReferenceErrors
@@ -1783,7 +1593,7 @@ export const usePendingItems = ({
       setShowConfirmationGrid(false);
     }
 
-    toast.info(`${item.type} creation cancelled`);
+    toast.info(`${item.type} action cancelled`);
 
     if (item.functionCall && item.responseId && threadId && allSiblingsResolvedAfterReject) {
       try {
@@ -1823,7 +1633,7 @@ export const usePendingItems = ({
       }))
     );
     setShowConfirmationGrid(false);
-    toast.info("All item creations cancelled");
+    toast.info("All pending AI actions cancelled");
 
     if (threadId) {
       const groupedResults = new Map<string, { callId: string; result: string | undefined; status?: "rejected" }[]>();
@@ -1857,7 +1667,7 @@ export const usePendingItems = ({
       ...prev,
       {
         role: "assistant",
-        content: "❌ Rejected all pending AI suggestions.",
+        content: "❌ Rejected all pending AI actions.",
       },
     ]);
     resolvedIds.forEach((id) => scheduleResolvedRemoval(id));

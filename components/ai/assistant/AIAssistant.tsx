@@ -97,7 +97,6 @@ const AIAssistant = () => {
     handleConfirmItem,
     handleRejectItem,
     handleEditItem,
-    handleConfirmAll,
     handleRejectAll,
     handleUpdatePendingItem,
     isBulkProcessing,
@@ -139,10 +138,11 @@ const AIAssistant = () => {
         (item) => item.status !== "confirmed" && item.status !== "rejected",
       ).length;
       if (unresolvedPendingCount > 0) {
+        await handleRejectAll();
         toast.info(
           unresolvedPendingCount === 1
-            ? "1 pending action detected. Your message will be treated as a refinement unless you explicitly cancel."
-            : `${unresolvedPendingCount} pending actions detected. Your message will be treated as a refinement unless you explicitly cancel.`,
+            ? "Previous pending action was auto-cancelled before sending your new message."
+            : `${unresolvedPendingCount} pending actions were auto-cancelled before sending your new message.`,
         );
       }
 
@@ -176,6 +176,7 @@ const AIAssistant = () => {
     },
     [
       pendingItems,
+      handleRejectAll,
       sendMessageWithFile,
       generateUploadUrl,
       addFile,
@@ -311,8 +312,6 @@ const AIAssistant = () => {
         onConfirmItem={handleConfirmItem}
         onRejectItem={handleRejectItem}
         onEditItem={handleEditItem}
-        onConfirmAll={handleConfirmAll}
-        onRejectAll={handleRejectAll}
         onUpdateItem={handleUpdatePendingItem}
         isProcessing={isBulkProcessing}
         confirmationMode={autoConfirmCrud ? "auto_confirm" : "always_ask"}

@@ -44,8 +44,6 @@ type AssistantConversationProps = {
   onConfirmItem?: (index: number | string) => Promise<void>;
   onRejectItem?: (index: number | string) => void | Promise<void>;
   onEditItem?: (index: number) => void;
-  onConfirmAll?: () => Promise<void>;
-  onRejectAll?: () => void | Promise<void>;
   onUpdateItem?: (index: number | string, updates: Partial<PendingContentItem>) => void;
   isProcessing?: boolean;
   confirmationMode?: "always_ask" | "auto_confirm";
@@ -199,8 +197,6 @@ export default function AssistantConversation({
   onConfirmItem,
   onRejectItem,
   onEditItem,
-  onConfirmAll,
-  onRejectAll,
   onUpdateItem,
   isProcessing = false,
   confirmationMode = "always_ask",
@@ -458,8 +454,6 @@ export default function AssistantConversation({
               onConfirmItem={onConfirmItem}
               onRejectItem={onRejectItem}
               onEditItem={onEditItem}
-              onConfirmAll={onConfirmAll}
-              onRejectAll={onRejectAll}
               onUpdateItem={onUpdateItem}
               isProcessing={isProcessing}
               confirmationMode={confirmationMode}

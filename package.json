@@ -9,6 +9,8 @@
     "build": "next build",
     "start": "next start -p 3001",
     "lint": "next lint",
+    "test": "node --test tests/**/*.test.ts",
+    "test:assistant": "node --test tests/assistant/**/*.test.ts",
     "elo": "bash ./elo"
   },
   "dependencies": {

@@ -66,7 +66,7 @@ export const WORKFLOWS: WorkflowDefinition[] = [
 
 Present your analysis in a clear bullet-point format.`,
         description: "AI will analyze the plan and identify the rooms.",
-        enabledTools: ["create_note"],
+        enabledTools: ["create_item"],
       },
       {
         id: "renovation-scope",
@@ -82,7 +82,7 @@ Present your analysis in a clear bullet-point format.`,
 
 Create an initial task list in the project.`,
         description: "Define renovation scope for selected rooms.",
-        enabledTools: ["create_task", "create_multiple_tasks"],
+        enabledTools: ["create_item", "create_multiple_items"],
       },
       {
         id: "material-list",
@@ -95,7 +95,7 @@ Create an initial task list in the project.`,
 
 Add materials to the project shopping list with appropriate sections.`,
         description: "Generate a list of construction and finishing materials.",
-        enabledTools: ["create_shopping_item", "create_multiple_shopping_items", "create_shopping_section"],
+        enabledTools: ["create_item", "create_multiple_items"],
       },
       {
         id: "schedule",
@@ -109,7 +109,7 @@ Add materials to the project shopping list with appropriate sections.`,
 
 Update dates in previously created tasks to match this schedule.`,
         description: "Plan task order and timelines.",
-        enabledTools: ["edit_task", "edit_multiple_tasks"],
+        enabledTools: ["update_item", "update_multiple_items"],
       },
     ],
     content: `# Apartment Floor Plan Analysis
@@ -159,7 +159,7 @@ If the user uploaded a photo/plan, analyze it and ask follow-up questions.`,
 
 Create a note with the proposed layout.`,
         description: "Plan the new kitchen layout.",
-        enabledTools: ["create_note"],
+        enabledTools: ["create_item"],
       },
       {
         id: "style-selection",
@@ -184,7 +184,7 @@ Create a note with the proposed layout.`,
 
 Save the selected options as a note/spec.`,
         description: "Choose style and finishing materials.",
-        enabledTools: ["create_note"],
+        enabledTools: ["create_item"],
       },
       {
         id: "appliances",
@@ -205,7 +205,7 @@ Save the selected options as a note/spec.`,
 
 Add selected appliances to the shopping list with estimated prices.`,
         description: "Plan kitchen appliance requirements.",
-        enabledTools: ["create_shopping_item", "create_multiple_shopping_items", "create_shopping_section"],
+        enabledTools: ["create_item", "create_multiple_items"],
       },
       {
         id: "materials-budget",
@@ -223,7 +223,7 @@ Add selected appliances to the shopping list with estimated prices.`,
 For each category, provide an estimated cost and add it to the shopping list.
 Finish with a total budget summary.`,
         description: "Create a full shopping list with budget estimates.",
-        enabledTools: ["create_shopping_item", "create_multiple_shopping_items", "create_shopping_section"],
+        enabledTools: ["create_item", "create_multiple_items"],
       },
       {
         id: "tasks-schedule",
@@ -253,7 +253,7 @@ Finish with a total budget summary.`,
 
 Create tasks with assigned dates.`,
         description: "Plan execution tasks and timeline.",
-        enabledTools: ["create_task", "create_multiple_tasks"],
+        enabledTools: ["create_item", "create_multiple_items"],
       },
     ],
     content: `# Kitchen Renovation
@@ -311,7 +311,7 @@ If a photo or floor plan is uploaded, analyze it and ask follow-up questions.`,
 
 Create a note with the proposed layout.`,
         description: "Plan the new bathroom layout.",
-        enabledTools: ["create_note"],
+        enabledTools: ["create_item"],
       },
       {
         id: "finishes",
@@ -339,7 +339,7 @@ Create a note with the proposed layout.`,
 
 Save the finishing specification as a note.`,
         description: "Choose tiles and finishing details.",
-        enabledTools: ["create_note"],
+        enabledTools: ["create_item"],
       },
       {
         id: "fixtures",
@@ -364,7 +364,7 @@ Save the finishing specification as a note.`,
 
 Add everything to the shopping list by category.`,
         description: "Select fixtures and sanitary ceramics.",
-        enabledTools: ["create_shopping_item", "create_multiple_shopping_items", "create_shopping_section"],
+        enabledTools: ["create_item", "create_multiple_items"],
       },
       {
         id: "materials",
@@ -390,7 +390,7 @@ Add everything to the shopping list by category.`,
 
 Estimate quantities from dimensions and add items to the shopping list.`,
         description: "Construction material list.",
-        enabledTools: ["create_shopping_item", "create_multiple_shopping_items"],
+        enabledTools: ["create_item", "create_multiple_items"],
       },
       {
         id: "execution-plan",
@@ -424,7 +424,7 @@ Estimate quantities from dimensions and add items to the shopping list.`,
 
 Create tasks with timeline dates.`,
         description: "Bathroom renovation schedule.",
-        enabledTools: ["create_task", "create_multiple_tasks"],
+        enabledTools: ["create_item", "create_multiple_items"],
       },
     ],
     content: `# Bathroom Renovation
@@ -476,7 +476,7 @@ A complete assistant to plan your bathroom renovation from start to finish.`,
 
 Present the analysis clearly.`,
         description: "AI will analyze the visualization and identify key elements.",
-        enabledTools: ["create_note"],
+        enabledTools: ["create_item"],
       },
       {
         id: "feedback",
@@ -495,7 +495,7 @@ Present the analysis clearly.`,
 
 Create a project note with this feedback.`,
         description: "Collect comments and improvement suggestions.",
-        enabledTools: ["create_note"],
+        enabledTools: ["create_item"],
       },
       {
         id: "shopping-list",
@@ -518,7 +518,7 @@ Create a project note with this feedback.`,
 
 Add all items to the shopping list with proper sections.`,
         description: "Create a list of furnishing items to purchase.",
-        enabledTools: ["create_shopping_item", "create_multiple_shopping_items", "create_shopping_section"],
+        enabledTools: ["create_item", "create_multiple_items"],
       },
       {
         id: "tasks",
@@ -544,7 +544,7 @@ Add all items to the shopping list with proper sections.`,
 
 Create tasks with suggested order and dates.`,
         description: "Plan project execution.",
-        enabledTools: ["create_task", "create_multiple_tasks"],
+        enabledTools: ["create_item", "create_multiple_items"],
       },
     ],
     content: `# Visualization Review
@@ -575,7 +575,7 @@ A workflow for turning an interior visualization into a concrete shopping and ex
 
 Save the brief as a note. If the user has plans/photos/contracts, ask for upload.`,
         description: "Define project goals, scope, and constraints.",
-        enabledTools: ["create_note"],
+        enabledTools: ["create_item"],
       },
       {
         id: "scope-structure",
@@ -588,7 +588,7 @@ Save the brief as a note. If the user has plans/photos/contracts, ask for upload
 
 Create key tasks in a logical sequence.`,
         description: "Break down the project into tasks and dependencies.",
-        enabledTools: ["create_task", "create_multiple_tasks"],
+        enabledTools: ["create_item", "create_multiple_items"],
       },
       {
         id: "budget-procurement",
@@ -601,7 +601,7 @@ Create key tasks in a logical sequence.`,
 
 Add shopping sections and initial items with estimated costs.`,
         description: "Define budget and initial shopping plan.",
-        enabledTools: ["create_shopping_section", "create_multiple_shopping_items", "create_note"],
+        enabledTools: ["create_item", "create_multiple_items"],
       },
       {
         id: "schedule-milestones",
@@ -614,7 +614,7 @@ Add shopping sections and initial items with estimated costs.`,
 
 Update task dates according to the schedule.`,
         description: "Set a realistic schedule and milestones.",
-        enabledTools: ["edit_task", "edit_multiple_tasks"],
+        enabledTools: ["update_item", "update_multiple_items"],
       },
       {
         id: "team-contracts",
@@ -628,7 +628,7 @@ Update task dates according to the schedule.`,
 
 Add tasks related to contractor selection and documentation.`,
         description: "Prepare contractor collaboration plan.",
-        enabledTools: ["create_task", "create_multiple_tasks", "create_note"],
+        enabledTools: ["create_item", "create_multiple_items"],
       },
       {
         id: "risk-quality",
@@ -642,7 +642,7 @@ Add tasks related to contractor selection and documentation.`,
 
 Create tasks for quality control and acceptance checks.`,
         description: "Secure the project and plan acceptance checks.",
-        enabledTools: ["create_task", "create_multiple_tasks", "create_note"],
+        enabledTools: ["create_item", "create_multiple_items"],
       },
     ],
     content: `# Interior Renovation Project Management
@@ -717,7 +717,7 @@ If a plan/photo is uploaded, analyze it and ask follow-up details.`,
 
 Save scope as a note.`,
         description: "Define what work will be performed.",
-        enabledTools: ["create_note"],
+        enabledTools: ["create_item"],
       },
       {
         id: "calculations",
@@ -739,7 +739,7 @@ Save scope as a note.`,
 
 Present detailed calculations with quantities.`,
         description: "AI will calculate required material quantities.",
-        enabledTools: ["create_note"],
+        enabledTools: ["create_item"],
       },
       {
         id: "shopping-list",
@@ -761,7 +761,7 @@ End with a full material cost summary.
 
 Add all items to the shopping list in sections.`,
         description: "Material list with prices and estimate.",
-        enabledTools: ["create_shopping_item", "create_multiple_shopping_items", "create_shopping_section"],
+        enabledTools: ["create_item", "create_multiple_items"],
       },
     ],
     content: `# Material Estimation

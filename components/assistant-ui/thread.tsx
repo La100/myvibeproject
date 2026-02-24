@@ -18,8 +18,14 @@ import {
 import {
   ArrowDownIcon,
   ArrowUpIcon,
+  CalendarDays,
+  ClipboardCheck,
+  HardHat,
+  ListChecks,
+  ShoppingCart,
   Sparkles,
   SquareIcon,
+  Users,
   Zap,
 } from "lucide-react";
 import NextImage from "next/image";
@@ -35,8 +41,6 @@ type ThreadProps = {
   onConfirmItem?: (index: number | string) => Promise<void>;
   onRejectItem?: (index: number | string) => void | Promise<void>;
   onEditItem?: (index: number) => void;
-  onConfirmAll?: () => Promise<void>;
-  onRejectAll?: () => void | Promise<void>;
   onUpdateItem?: (index: number | string, updates: Partial<PendingContentItem>) => void;
   isProcessing?: boolean;
   confirmationMode?: "always_ask" | "auto_confirm";
@@ -54,8 +58,6 @@ export const Thread: FC<ThreadProps> = ({
   onConfirmItem,
   onRejectItem,
   onEditItem,
-  onConfirmAll,
-  onRejectAll,
   onUpdateItem,
   isProcessing = false,
   confirmationMode = "always_ask",
@@ -76,8 +78,6 @@ export const Thread: FC<ThreadProps> = ({
           onConfirmItem={onConfirmItem}
           onRejectItem={onRejectItem}
           onEditItem={onEditItem}
-          onConfirmAll={onConfirmAll}
-          onRejectAll={onRejectAll}
           onUpdateItem={onUpdateItem}
           isProcessing={isProcessing}
           confirmationMode={confirmationMode}
@@ -92,11 +92,9 @@ export const Thread: FC<ThreadProps> = ({
       confirmationMode,
       isModeUpdating,
       isProcessing,
-      onConfirmAll,
       onConfirmItem,
       onConfirmationModeChange,
       onEditItem,
-      onRejectAll,
       onRejectItem,
       onUpdateItem,
       pendingItems,
@@ -117,14 +115,14 @@ export const Thread: FC<ThreadProps> = ({
         className="aui-thread-viewport relative flex min-h-0 w-full flex-1 flex-col overflow-x-auto overflow-y-scroll scroll-smooth px-4 pt-4 pb-6"
       >
         <AuiIf condition={({ thread }) => showWelcome && thread.isEmpty}>
-          <div className="aui-thread-empty mx-auto flex min-h-full w-full max-w-(--thread-max-width) flex-col items-center justify-center gap-16 py-16">
+          <div className="aui-thread-empty mx-auto flex min-h-full w-full max-w-(--thread-max-width) flex-col items-center justify-end gap-12 pb-8">
             <ThreadWelcome />
           </div>
         </AuiIf>
 
         <ThreadPrimitive.Messages components={messageComponents} />
       </ThreadPrimitive.Viewport>
-      <div className="aui-thread-composer-footer w-full shrink-0 border-t border-border/50 bg-transparent px-4 pt-4 pb-4">
+      <div className="aui-thread-composer-footer w-full shrink-0 bg-transparent px-4 pt-3 pb-4">
         <div className="relative mx-auto flex w-full max-w-(--thread-max-width) flex-col gap-4">
           <ThreadScrollToBottom />
           <Composer
@@ -178,14 +176,14 @@ const ThreadScrollToBottom: FC = () => {
 
 const ThreadWelcome: FC = () => {
   return (
-    <div className="aui-thread-welcome-root flex w-full flex-col items-center text-center">
-      <div className="aui-thread-welcome-center flex w-full flex-col items-center justify-center">
-        <div className="aui-thread-welcome-message flex w-full flex-col items-center justify-center px-4">
-          <h1 className="aui-thread-welcome-message-inner fade-in slide-in-from-bottom-1 animate-in font-semibold text-2xl duration-200">
-            Hi, I'm VibePlanner.
+    <div className="aui-thread-welcome-root flex w-full flex-col items-center text-center gap-8">
+      <div className="aui-thread-welcome-center flex w-full flex-col items-center justify-center gap-2">
+        <div className="aui-thread-welcome-message flex w-full flex-col items-center justify-center gap-1 px-4">
+          <h1 className="aui-thread-welcome-message-inner fade-in slide-in-from-bottom-1 animate-in font-display font-semibold text-3xl tracking-tight duration-200">
+            Hi, I&apos;m Vibe.
           </h1>
-          <p className="aui-thread-welcome-message-inner fade-in slide-in-from-bottom-1 animate-in text-muted-foreground text-xl delay-75 duration-200">
-            I help run interior renovation projects from brief to handover. Where should we start?
+          <p className="aui-thread-welcome-message-inner fade-in slide-in-from-bottom-1 animate-in text-muted-foreground text-base delay-75 duration-200 max-w-md">
+            Your renovation copilot. I create tasks, shopping lists, cost estimates, and keep your project on track.
           </p>
         </div>
       </div>
@@ -194,28 +192,45 @@ const ThreadWelcome: FC = () => {
   );
 };
 
+const CARD_ICONS: Record<string, FC<{ className?: string }>> = {
+  "Set Up Phases": ListChecks,
+  "Material List": ShoppingCart,
+  "Labor Costs": HardHat,
+  "Add Contractors": Users,
+  "Week Plan": CalendarDays,
+  "Status Check": ClipboardCheck,
+};
+
 const ThreadSuggestions: FC = () => {
   return (
-    <div className="aui-thread-welcome-suggestions grid w-full @md:grid-cols-2 gap-2 pb-4">
-      {QUICK_PROMPTS.map((template, index) => (
-        <div
-          key={`${template.label}-${index}`}
-          className="aui-thread-welcome-suggestion-display fade-in slide-in-from-bottom-2 @md:nth-[n+3]:block nth-[n+3]:hidden animate-in fill-mode-both duration-200"
-        >
-          <ThreadPrimitive.Suggestion
-            prompt={template.prompt}
-            send
-            className="aui-thread-welcome-suggestion inline-flex h-auto w-full flex-wrap items-start justify-start gap-1 rounded-2xl border px-4 py-3 text-left text-sm transition-colors hover:bg-muted @md:flex-col"
+    <div className="aui-thread-welcome-suggestions grid w-full @md:grid-cols-2 gap-3 pb-4">
+      {QUICK_PROMPTS.map((template, index) => {
+        const Icon = CARD_ICONS[template.label] || Sparkles;
+        return (
+          <div
+            key={`${template.label}-${index}`}
+            className="aui-thread-welcome-suggestion-display fade-in slide-in-from-bottom-2 @md:nth-[n+3]:block nth-[n+3]:hidden animate-in fill-mode-both duration-200"
+            style={{ animationDelay: `${index * 50}ms` }}
           >
-            <span className="aui-thread-welcome-suggestion-text-1 font-medium">
-              {template.label}
-            </span>
-            <span className="aui-thread-welcome-suggestion-text-2 text-muted-foreground">
-              {template.prompt}
-            </span>
-          </ThreadPrimitive.Suggestion>
-        </div>
-      ))}
+            <ThreadPrimitive.Suggestion
+              prompt={template.prompt}
+              className="group aui-thread-welcome-suggestion inline-flex h-auto w-full items-start justify-start gap-3 rounded-2xl border border-border/70 bg-card px-4 py-3.5 text-left text-sm transition-all hover:bg-muted hover:border-border hover:shadow-sm @md:flex-col @md:gap-2"
+            >
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted/80 text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-foreground @md:h-7 @md:w-7">
+                <Icon className="h-4 w-4" />
+              </div>
+              <div className="flex flex-col gap-0.5 min-w-0">
+                <span className="aui-thread-welcome-suggestion-text-1 font-medium text-foreground">
+                  {template.label}
+                </span>
+                <span className="aui-thread-welcome-suggestion-text-2 text-muted-foreground text-xs leading-relaxed line-clamp-2">
+                  {template.prompt}
+                </span>
+              </div>
+            </ThreadPrimitive.Suggestion>
+          </div>
+        );
+      })}
     </div>
   );
 };
@@ -231,7 +246,7 @@ const Composer: FC<{
 }) => {
   return (
     <ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
-      <ComposerPrimitive.AttachmentDropzone className="aui-composer-attachment-dropzone flex w-full flex-col rounded-2xl border border-input bg-background px-1 pt-2 outline-none transition-shadow has-[textarea:focus-visible]:border-ring has-[textarea:focus-visible]:ring-2 has-[textarea:focus-visible]:ring-ring/20 data-[dragging=true]:border-ring data-[dragging=true]:border-dashed data-[dragging=true]:bg-accent/50">
+      <ComposerPrimitive.AttachmentDropzone className="aui-composer-attachment-dropzone flex w-full flex-col rounded-2xl border border-border/80 bg-card shadow-sm px-1 pt-2 outline-none transition-shadow has-[textarea:focus-visible]:border-ring has-[textarea:focus-visible]:ring-2 has-[textarea:focus-visible]:ring-ring/20 data-[dragging=true]:border-ring data-[dragging=true]:border-dashed data-[dragging=true]:bg-accent/50">
         <ComposerAttachments />
         <ComposerPrimitive.Input
           id="assistant-chat-input"
@@ -328,8 +343,6 @@ type AssistantMessageProps = {
   onConfirmItem?: (index: number | string) => Promise<void>;
   onRejectItem?: (index: number | string) => void | Promise<void>;
   onEditItem?: (index: number) => void;
-  onConfirmAll?: () => Promise<void>;
-  onRejectAll?: () => void | Promise<void>;
   onUpdateItem?: (index: number | string, updates: Partial<PendingContentItem>) => void;
   isProcessing?: boolean;
   confirmationMode?: "always_ask" | "auto_confirm";
@@ -344,8 +357,6 @@ const AssistantMessage: FC<AssistantMessageProps> = ({
   onConfirmItem,
   onRejectItem,
   onEditItem,
-  onConfirmAll,
-  onRejectAll,
   onUpdateItem,
   isProcessing = false,
   confirmationMode = "always_ask",
@@ -359,8 +370,6 @@ const AssistantMessage: FC<AssistantMessageProps> = ({
       onConfirmItem={onConfirmItem}
       onRejectItem={onRejectItem}
       onEditItem={onEditItem}
-      onConfirmAll={onConfirmAll}
-      onRejectAll={onRejectAll}
       onUpdateItem={onUpdateItem}
       isProcessing={isProcessing}
       confirmationMode={confirmationMode}

@@ -448,6 +448,44 @@ export const normalizePendingItems = (items: PendingItem[]): PendingItem[] =>
       };
     }
 
+    if (item.type === "projectSettings") {
+      const sourceCandidate =
+        item.updates && typeof item.updates === "object"
+          ? (item.updates as Record<string, unknown>)
+          : item.data && typeof item.data === "object"
+            ? (item.data as Record<string, unknown>)
+            : {};
+
+      const summary: string[] = [];
+      if (typeof sourceCandidate.name === "string") summary.push(`Name → ${sourceCandidate.name}`);
+      if (typeof sourceCandidate.status === "string") summary.push(`Status → ${sourceCandidate.status}`);
+      if (sourceCandidate.budget !== undefined) summary.push(`Budget → ${String(sourceCandidate.budget)}`);
+      if (typeof sourceCandidate.currency === "string") summary.push(`Currency → ${sourceCandidate.currency}`);
+      if (typeof sourceCandidate.customer === "string") summary.push(`Client → ${sourceCandidate.customer}`);
+      if (typeof sourceCandidate.location === "string") summary.push(`Location → ${sourceCandidate.location}`);
+      if (Object.prototype.hasOwnProperty.call(sourceCandidate, "coverImageUrl")) {
+        summary.push(
+          typeof sourceCandidate.coverImageUrl === "string" && sourceCandidate.coverImageUrl.trim().length > 0
+            ? "Cover image updated"
+            : "Cover image cleared"
+        );
+      }
+      if (typeof sourceCandidate.description === "string") {
+        summary.push("Description updated");
+      }
+
+      item = {
+        ...item,
+        display: {
+          title: "Update project settings",
+          description:
+            summary.length > 0
+              ? summary.join(" • ")
+              : "Review project settings changes before confirming.",
+        },
+      };
+    }
+
     if (item.type === "labor") {
       if (item.operation === "bulk_create") {
         const items = Array.isArray(item.data?.items)
@@ -776,7 +814,6 @@ export const resolveSectionName = (rawSectionName?: unknown, rawCategory?: unkno
   const normalizedCategory = typeof rawCategory === "string" ? rawCategory.trim() : "";
   return normalizedCategory.length > 0 ? normalizedCategory : undefined;
 };
-
 
 
 

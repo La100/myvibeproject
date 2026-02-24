@@ -43,7 +43,7 @@ interface MessagingPairingRequest {
 }
 
 export default function AISettings({ projectId }: AISettingsProps) {
-  const [customPrompt, setCustomPrompt] = useState(defaultPrompt);
+  const [customPrompt, setCustomPrompt] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [telegramBotUsername, setTelegramBotUsername] = useState("");
   const [telegramBotToken, setTelegramBotToken] = useState("");
@@ -72,7 +72,7 @@ export default function AISettings({ projectId }: AISettingsProps) {
   // Initialize custom prompt from project data
   useEffect(() => {
     if (!project) return;
-    setCustomPrompt(project.customAiPrompt || defaultPrompt);
+    setCustomPrompt(project.customAiPrompt || "");
   }, [project]);
 
   useEffect(() => {
@@ -87,7 +87,7 @@ export default function AISettings({ projectId }: AISettingsProps) {
 
     setIsSaving(true);
     try {
-      // Save as custom prompt only when non-empty and different from default
+      // Save as additional instructions only when non-empty and different from default body
       const normalizedPrompt = customPrompt.trim();
       const promptToSave =
         normalizedPrompt === "" || normalizedPrompt === defaultPrompt.trim()
@@ -97,17 +97,17 @@ export default function AISettings({ projectId }: AISettingsProps) {
         projectId,
         customAiPrompt: promptToSave,
       });
-      toast.success("Custom AI prompt saved");
+      toast.success("AI instructions saved");
     } catch (error) {
       console.error("Failed to save custom AI prompt:", error);
-      toast.error("Failed to save prompt");
+      toast.error("Failed to save AI instructions");
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleResetToDefault = () => {
-    setCustomPrompt(defaultPrompt);
+    setCustomPrompt("");
   };
 
   const handleToggleAutoConfirmCrud = async (checked: boolean) => {
@@ -223,7 +223,7 @@ export default function AISettings({ projectId }: AISettingsProps) {
     }
   };
 
-  const isCustomPromptChanged = customPrompt !== (project?.customAiPrompt || defaultPrompt);
+  const isCustomPromptChanged = customPrompt !== (project?.customAiPrompt || "");
   const connectedChannelsList = (connectedChannels ?? []) as MessagingChannel[];
   const pendingRequestsList = (pendingRequests ?? []) as MessagingPairingRequest[];
 
@@ -264,21 +264,21 @@ export default function AISettings({ projectId }: AISettingsProps) {
         </CardContent>
       </Card>
 
-      {/* Custom AI Prompt Card */}
+      {/* Custom AI Instructions Card */}
       <Card>
         <CardHeader className="pb-4">
           <div className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-primary" />
-            <CardTitle className="text-lg lg:text-xl">Custom AI Prompt</CardTitle>
+            <CardTitle className="text-lg lg:text-xl">Custom AI Instructions</CardTitle>
           </div>
           <CardDescription className="text-sm">
-            Customize how the AI assistant responds in this project. Leave empty to use the default prompt.
+            Add project-specific instructions. These are appended to the default system prompt guardrails.
           </CardDescription>
         </CardHeader>
         <CardContent className="px-4 lg:px-6 space-y-4">
           <div className="space-y-2">
             <Label htmlFor="customPrompt" className="text-sm font-medium">
-              Custom Prompt
+              Additional Instructions
             </Label>
             <Textarea
               id="customPrompt"
@@ -286,12 +286,13 @@ export default function AISettings({ projectId }: AISettingsProps) {
               onChange={(e) => setCustomPrompt(e.target.value)}
               rows={12}
               className="font-mono text-sm resize-none"
+              placeholder="Example: Prefer concise answers. Always include a brief risk note for schedule or budget recommendations."
             />
             <p className="text-xs text-muted-foreground">
-              {customPrompt.trim() === defaultPrompt ? (
-                <>Using the default system prompt ({defaultPrompt.length} characters)</>
+              {customPrompt.trim() === "" ? (
+                <>Using only the default system prompt ({defaultPrompt.length} characters)</>
               ) : (
-                <>Using a custom prompt ({customPrompt.length} characters)</>
+                <>Using default prompt + additional instructions ({customPrompt.length} characters)</>
               )}
             </p>
           </div>
@@ -310,25 +311,25 @@ export default function AISettings({ projectId }: AISettingsProps) {
               ) : (
                 <>
                   <Sparkles className="mr-2 h-4 w-4" />
-                  Save Prompt
+                  Save Instructions
                 </>
               )}
             </Button>
             <Button
               variant="outline"
               onClick={handleResetToDefault}
-              disabled={customPrompt.trim() === defaultPrompt}
+              disabled={customPrompt.trim() === ""}
               className="flex-1 sm:flex-initial"
             >
               <RotateCcw className="mr-2 h-4 w-4" />
-              Restore Default
+              Clear Instructions
             </Button>
           </div>
 
-          {customPrompt.trim() && customPrompt.trim() !== defaultPrompt && (
+          {customPrompt.trim() !== "" && (
             <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900">
               <p className="text-sm text-blue-800 dark:text-blue-200">
-                <strong>Note:</strong> You are using a custom prompt. The change will only affect new conversations. Existing conversations will keep using the previous prompt.
+                <strong>Note:</strong> Additional instructions affect only new conversations. Existing conversations keep their previous system instructions.
               </p>
             </div>
           )}

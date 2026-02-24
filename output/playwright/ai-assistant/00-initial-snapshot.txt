@@ -1,0 +1,8 @@
+### Page
+- Page URL: http://localhost:3001/sign-in?redirect_url=http%3A%2F%2Flocalhost%3A3001%2Forganisation%2Fprojects%2Ftest%2Fai
+- Page Title: Myvibe project
+- Console: 0 errors, 3 warnings
+### Snapshot
+- [Snapshot](.playwright-cli/page-2026-02-24T09-30-02-855Z.yml)
+### Events
+- New console entries: .playwright-cli/console-2026-02-24T09-29-57-930Z.log#L2-L3

@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery, query, mutation } from "./_generated/server";
 import { Id, Doc } from "./_generated/dataModel";
+import { r2 } from "./files";
 const internalAny = require("./_generated/api").internal as any;
 
 // Utility function to generate a slug from a string
@@ -13,6 +14,81 @@ const generateSlug = (name: string) => {
 
 const generateClientPanelAccessToken = () =>
   crypto.randomUUID().replace(/-/g, "");
+
+const configuredR2PublicBaseUrl = (() => {
+  const rawValue = (process.env.NEXT_PUBLIC_R2_PUBLIC_URL || process.env.R2_PUBLIC_URL || "").trim();
+  if (!rawValue) {
+    return null;
+  }
+  try {
+    return new URL(rawValue);
+  } catch {
+    return null;
+  }
+})();
+
+const extractCoverImageStorageKey = (coverImageUrl: string): string | undefined => {
+  const trimmed = coverImageUrl.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  if (!/^https?:\/\//i.test(trimmed)) {
+    return trimmed.replace(/^\/+/, "") || undefined;
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    const host = parsed.hostname.toLowerCase();
+    const configuredHost = configuredR2PublicBaseUrl?.hostname.toLowerCase();
+    const isLikelyR2Host =
+      host.endsWith(".r2.cloudflarestorage.com") ||
+      host.endsWith(".r2.dev") ||
+      (configuredHost ? host === configuredHost : false);
+
+    if (!isLikelyR2Host) {
+      return undefined;
+    }
+
+    let key = parsed.pathname.replace(/^\/+/, "");
+    if (configuredR2PublicBaseUrl && configuredHost && host === configuredHost) {
+      const basePath = configuredR2PublicBaseUrl.pathname.replace(/^\/+|\/+$/g, "");
+      if (basePath) {
+        if (key.startsWith(`${basePath}/`)) {
+          key = key.slice(basePath.length + 1);
+        } else if (key === basePath) {
+          key = "";
+        }
+      }
+    }
+
+    if (!key) {
+      return undefined;
+    }
+    return decodeURIComponent(key);
+  } catch {
+    return undefined;
+  }
+};
+
+const resolveCoverImageDisplayUrl = async (coverImageUrl?: string): Promise<string | undefined> => {
+  const trimmed = coverImageUrl?.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  const storageKey = extractCoverImageStorageKey(trimmed);
+  if (!storageKey) {
+    return trimmed;
+  }
+
+  try {
+    const signedUrl = await r2.getUrl(storageKey, { expiresIn: 60 * 60 * 24 * 7 });
+    return signedUrl || trimmed;
+  } catch {
+    return trimmed;
+  }
+};
 
 // Utility function to generate next project ID
 const generateNextProjectId = async (ctx: any) => {
@@ -201,18 +277,20 @@ export const listProjectsByClerkOrg = query({
       taskStatsByProject.set(task.projectId, currentStats);
     }
 
-    const projectsWithTasks = projects.map((project) => {
+    const projectsWithTasks = await Promise.all(projects.map(async (project) => {
       const stats = taskStatsByProject.get(project._id) || {
         taskCount: 0,
         completedTasks: 0,
       };
+      const coverImageDisplayUrl = await resolveCoverImageDisplayUrl(project.coverImageUrl);
 
       return {
         ...project,
+        coverImageDisplayUrl,
         taskCount: stats.taskCount,
         completedTasks: stats.completedTasks,
       };
-    });
+    }));
 
     return projectsWithTasks;
   },
@@ -398,7 +476,13 @@ export const getProjectBySlugInClerkOrg = query({
       )
       .unique();
 
-    return project;
+    if (!project) return null;
+
+    const coverImageDisplayUrl = await resolveCoverImageDisplayUrl(project.coverImageUrl);
+    return {
+      ...project,
+      coverImageDisplayUrl,
+    };
   },
 });
 

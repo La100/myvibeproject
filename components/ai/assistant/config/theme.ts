@@ -38,6 +38,7 @@ export const ITEM_TYPE_COLORS = {
   shoppingSection: "bg-card border-border/50 shadow-sm",
   labor: "bg-card border-border/50 shadow-sm",
   laborSection: "bg-card border-border/50 shadow-sm",
+  projectSettings: "bg-card border-border/50 shadow-sm",
 } as const;
 
 // ==================== OPERATION LABELS & COLORS ====================

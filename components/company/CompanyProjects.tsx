@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOrganization } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
@@ -85,7 +85,7 @@ export default function CompanyProjects() {
                 project={{
                   name: project.name,
                   description: project.description,
-                  coverImageUrl: project.coverImageUrl,
+                  coverImageUrl: project.coverImageDisplayUrl || project.coverImageUrl,
                   customer: project.customer,
                   location: project.location,
                   budget: project.budget,
@@ -187,6 +187,11 @@ function ProjectCard({
   };
 
   const [coverImageFailed, setCoverImageFailed] = useState(false);
+
+  useEffect(() => {
+    setCoverImageFailed(false);
+  }, [project.coverImageUrl]);
+
   const showCoverImage = Boolean(project.coverImageUrl && !coverImageFailed);
 
   return (

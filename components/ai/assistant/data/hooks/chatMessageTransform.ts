@@ -147,6 +147,9 @@ export const mergePersistentCallState = (
         if (!parsedArguments) continue;
 
         hasUpdates = true;
+        const outcome = persistentCall.result
+          ? parseJson<unknown>(persistentCall.result)
+          : undefined;
         parts.push({
           type: `tool-result:${callId}`,
           toolCallId: callId,
@@ -154,6 +157,7 @@ export const mergePersistentCallState = (
           result: JSON.stringify({
             ...parsedArguments,
             status: persistentCall.status,
+            outcome,
           }),
         } as MessagePart);
       }

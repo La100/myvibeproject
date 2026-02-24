@@ -45,6 +45,7 @@ const inferOperation = (
 
   if (functionName === "update_item") return "edit";
   if (functionName === "update_multiple_items") return "bulk_edit";
+  if (functionName === "update_project_settings") return "edit";
   if (functionName === "create_item") return "create";
   if (functionName === "create_multiple_items") return "bulk_create";
   if (functionName === "delete_item") return "delete";
@@ -70,12 +71,16 @@ const toPendingItem = (call: PendingFunctionCall): PendingItem | null => {
   const parsedType = isPendingItemType(parsedTypeValue)
     ? parsedTypeValue
     : undefined;
+  const functionNameType =
+    call.functionName === "update_project_settings"
+      ? "projectSettings"
+      : undefined;
   const functionCallType = isPendingItemType(call.functionName)
     ? call.functionName
     : undefined;
 
   return {
-    type: parsedType ?? functionCallType ?? "task",
+    type: parsedType ?? functionNameType ?? functionCallType ?? "task",
     operation: inferOperation(parsed, call.functionName),
     data: (parsed.data as Record<string, unknown>) || parsed,
     updates: parsed.updates as Record<string, unknown> | undefined,

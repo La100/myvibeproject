@@ -137,6 +137,30 @@ const sectionFields = z.object({
   name: z.string().describe("Section name"),
 });
 
+const projectStatusEnum = z.enum([
+  "planning",
+  "active",
+  "on_hold",
+  "completed",
+  "cancelled",
+]);
+
+const projectCurrencyEnum = z.enum([
+  "USD", "EUR", "PLN", "GBP", "CAD", "AUD", "JPY", "CHF", "SEK", "NOK",
+  "DKK", "CZK", "HUF", "CNY", "INR", "BRL", "MXN", "KRW", "SGD", "HKD",
+]);
+
+export const updateProjectSettingsSchema = z.object({
+  name: z.string().optional().describe("Project name (min 2 characters)"),
+  description: z.string().optional().describe("Project description"),
+  coverImageUrl: z.string().optional().describe("Project cover image URL (or empty string to clear)"),
+  status: projectStatusEnum.optional().describe("Project status"),
+  customer: z.string().optional().describe("Client name"),
+  location: z.string().optional().describe("Project location"),
+  budget: z.number().positive().optional().describe("Project budget"),
+  currency: projectCurrencyEnum.optional().describe("Project currency"),
+});
+
 // Generic create schema
 export const createItemSchema = z.object({
   type: itemTypeEnum.describe("Type of item to create"),
@@ -489,6 +513,85 @@ export function createStreamingTools(options?: StreamingToolOptions) {
             details: (error as Error).message
           });
         }
+      },
+    },
+
+    update_project_settings: {
+      description: "Update project General Settings (name, description, cover image URL, status, client, location, budget, currency). Use this when the user asks to change project settings.",
+      inputSchema: updateProjectSettingsSchema,
+      execute: async (args: z.infer<typeof updateProjectSettingsSchema>) => {
+        if (!options?.projectId) {
+          return JSON.stringify({
+            error: "Project settings update is unavailable without active project context",
+          });
+        }
+
+        const hasAnyUpdate = Object.values(args).some((value) => value !== undefined);
+        if (!hasAnyUpdate) {
+          return JSON.stringify({
+            error: "No project setting updates were provided",
+          });
+        }
+
+        const updates: Record<string, unknown> = {};
+        const hasOwn = (key: keyof z.infer<typeof updateProjectSettingsSchema>) =>
+          Object.prototype.hasOwnProperty.call(args, key);
+
+        if (hasOwn("name")) {
+          const rawName = typeof args.name === "string" ? args.name.trim() : "";
+          if (rawName.length > 0 && rawName.length < 2) {
+            return JSON.stringify({
+              error: "Project name must be at least 2 characters",
+            });
+          }
+          updates.name = rawName.length > 0 ? rawName : undefined;
+        }
+        if (hasOwn("description")) {
+          updates.description =
+            typeof args.description === "string" && args.description.trim().length > 0
+              ? args.description.trim()
+              : undefined;
+        }
+        if (hasOwn("coverImageUrl")) {
+          updates.coverImageUrl =
+            typeof args.coverImageUrl === "string"
+              ? args.coverImageUrl.trim()
+              : undefined;
+        }
+        if (hasOwn("status")) {
+          updates.status = args.status;
+        }
+        if (hasOwn("customer")) {
+          updates.customer =
+            typeof args.customer === "string" && args.customer.trim().length > 0
+              ? args.customer.trim()
+              : undefined;
+        }
+        if (hasOwn("location")) {
+          updates.location =
+            typeof args.location === "string" && args.location.trim().length > 0
+              ? args.location.trim()
+              : undefined;
+        }
+        if (hasOwn("budget")) {
+          updates.budget = args.budget;
+        }
+        if (hasOwn("currency")) {
+          updates.currency = args.currency;
+        }
+
+        const snapshot = options?.loadSnapshot ? await options.loadSnapshot() : undefined;
+
+        return JSON.stringify({
+          type: "projectSettings",
+          operation: "edit",
+          data: {
+            projectId: options.projectId,
+            ...updates,
+          },
+          updates,
+          originalItem: snapshot?.project || undefined,
+        });
       },
     },
 

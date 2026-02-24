@@ -15,11 +15,16 @@ export interface ProjectSummary {
   _id: string;
   name: string;
   description?: string;
+  coverImageUrl?: string;
   status: "planning" | "active" | "on_hold" | "completed" | "cancelled";
   startDate?: number;
   endDate?: number;
+  budget?: number;
   customer?: string;
   location?: string;
+  currency?:
+    | "USD" | "EUR" | "PLN" | "GBP" | "CAD" | "AUD" | "JPY" | "CHF" | "SEK" | "NOK"
+    | "DKK" | "CZK" | "HUF" | "CNY" | "INR" | "BRL" | "MXN" | "KRW" | "SGD" | "HKD";
   tags?: Array<string>;
   teamId?: Id<"teams">;
 }
@@ -137,7 +142,16 @@ export interface AITokenUsage {
 }
 
 export interface PendingItem {
-  type: "task" | "note" | "shopping" | "survey" | "contact" | "shoppingSection";
+  type:
+    | "task"
+    | "note"
+    | "shopping"
+    | "survey"
+    | "contact"
+    | "shoppingSection"
+    | "labor"
+    | "laborSection"
+    | "projectSettings";
   operation?: "create" | "edit" | "delete" | "bulk_edit" | "bulk_create";
   data: any;
   updates?: any;

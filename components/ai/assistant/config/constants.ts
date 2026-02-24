@@ -18,6 +18,7 @@ export const CANONICAL_TYPES: PendingItemType[] = [
   "shoppingSection",
   "labor",
   "laborSection",
+  "projectSettings",
 ];
 
 /** All valid pending item types including legacy names (for backwards compatibility) */
@@ -60,28 +61,28 @@ export const LEGACY_TYPE_TO_CANONICAL: Record<string, PendingItemType> = {
 
 export const QUICK_PROMPTS: QuickPrompt[] = [
   {
-    label: "Project Kickoff",
-    prompt: "Based on this information, prepare an interior renovation brief: goals, scope, priorities, budget, and timeline.",
+    label: "Set Up Phases",
+    prompt: "Create 6 renovation tasks in sequence: demolition, rough-in electrical, rough-in plumbing, finishing (tiling/painting), fixture installation, and final inspection. Set status to todo, assign priorities, and include dependency notes.",
   },
   {
-    label: "Schedule",
-    prompt: "Create a week-by-week renovation schedule with work sequence, milestones, and dependencies between teams.",
+    label: "Material List",
+    prompt: "Create shopping sections by phase (demolition, rough-in, finishing, fixtures) and add a starter material list with estimated quantities and unit prices in project currency. Use quantity=1 when unknown and mark unclear prices as TBD.",
   },
   {
-    label: "Cost Estimate",
-    prompt: "Prepare an initial renovation cost estimate: labor, materials, a 10-15% contingency, and the items most likely to exceed budget.",
+    label: "Labor Costs",
+    prompt: "Create labor items by trade (electrician, plumber, tiler, painter, carpenter) with estimated hours, unit=hour, and unitPrice in project currency. Add a note with the total estimated labor cost.",
   },
   {
-    label: "Shopping List",
-    prompt: "Create a materials shopping list grouped by work phase, with quantities, estimated prices, and recommended purchase timing.",
+    label: "Add Contractors",
+    prompt: "Create contacts for electrician, plumber, tiler, painter, and general contractor. Set type=contractor and leave unknown fields empty instead of inventing placeholder details.",
   },
   {
-    label: "Team Coordination",
-    prompt: "Build a team coordination plan (electrician, plumber, tiler, carpenter): who starts when and what must be ready before each team begins.",
+    label: "Week Plan",
+    prompt: "Starting from next Monday, create a week-by-week renovation plan with start/end dates and milestones for demolition, rough-in, installations, finishing, and handover.",
   },
   {
-    label: "Client Report",
-    prompt: "Write a short renovation progress report for the client: what was completed, what is in progress, current risks, decisions needed, and next steps.",
+    label: "Status Check",
+    prompt: "Load the full project context and provide a concise status report: completed, in progress, overdue/blocked, top 3 risks, and recommended actions for this week.",
   },
 ];
 

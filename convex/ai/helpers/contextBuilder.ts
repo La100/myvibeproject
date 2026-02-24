@@ -11,6 +11,15 @@ export const buildContextFromSnapshot = (snapshot: ProjectContextSnapshot): stri
 
   if (snapshot.project) {
     parts.push(`PROJECT: ${snapshot.project.name} (${snapshot.project.status})`);
+    const projectFacts: string[] = [];
+    if (snapshot.project.description) projectFacts.push(`description: ${snapshot.project.description}`);
+    if (snapshot.project.customer) projectFacts.push(`customer: ${snapshot.project.customer}`);
+    if (snapshot.project.location) projectFacts.push(`location: ${snapshot.project.location}`);
+    if (snapshot.project.budget !== undefined) projectFacts.push(`budget: ${snapshot.project.budget}`);
+    if (snapshot.project.currency) projectFacts.push(`currency: ${snapshot.project.currency}`);
+    if (projectFacts.length > 0) {
+      parts.push(`PROJECT SETTINGS: ${projectFacts.join(" | ")}`);
+    }
   }
 
   if (snapshot.tasks.length > 0) {
@@ -97,7 +106,7 @@ CURRENT DATE AND TIME: ${currentDateTime} (${currentDate})${timezoneInfo}
 
 ${teamMembersContext}${currentUserSection}
 
-When the user asks for multiple types of content, prepare a balanced mix across tasks, notes, shopping items/sections, surveys, and contacts unless they explicitly specify quantities for each.
+Create or update only the item types the user explicitly requests. Do not add extra categories unless asked.
 
 CRITICAL INSTRUCTION ON TIMEZONES:
 If a TIMEZONE is provided above, you MUST convert any user-requested local times to UTC before setting them in startDate/endDate.
@@ -214,7 +223,7 @@ export const getCurrentDateTime = (timezone?: string): { currentDate: string; cu
       const currentDateTime = new Intl.DateTimeFormat('en-US', timeOptions).format(now);
 
       return { currentDate, currentDateTime };
-    } catch (e) {
+    } catch {
       console.warn(`Invalid timezone: ${timezone}, falling back to UTC/Server time`);
     }
   }

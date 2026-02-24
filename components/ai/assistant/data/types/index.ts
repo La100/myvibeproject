@@ -23,7 +23,8 @@ export type PendingItemType =
   | 'contact'
   | 'shoppingSection'
   | 'labor'
-  | 'laborSection';
+  | 'laborSection'
+  | 'projectSettings';
 
 /**
  * Legacy type names that map to canonical types.

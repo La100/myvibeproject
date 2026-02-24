@@ -39,16 +39,14 @@ const useFileSrc = (file: File | undefined) => {
 };
 
 const useAttachmentSrc = () => {
-  const { file, src } = useAuiState(
-    ({ attachment }): { file?: File; src?: string } => {
-      if (attachment.type !== "image") return {};
-      if (attachment.file) return { file: attachment.file };
-      const src = attachment.content?.filter((c) => c.type === "image")[0]
-        ?.image;
-      if (!src) return {};
-      return { src };
-    },
+  const file = useAuiState(({ attachment }) =>
+    attachment.type === "image" ? attachment.file : undefined,
   );
+  const src = useAuiState(({ attachment }) => {
+    if (attachment.type !== "image") return undefined;
+    return attachment.content?.find((content) => content.type === "image")
+      ?.image;
+  });
 
   return useFileSrc(file) ?? src;
 };

@@ -1,0 +1,53 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - progressbar [active] [ref=e6]
+      - main [ref=e14]:
+        - generic [ref=e15]:
+          - generic [ref=e17]:
+            - generic [ref=e18]:
+              - img [ref=e20]
+              - generic [ref=e25]: Zaloguj się przez Google
+            - img "Clerk" [ref=e26]
+          - generic [ref=e27]:
+            - heading "Zaloguj się" [level=1] [ref=e28]
+            - generic [ref=e30]:
+              - text: Przejdź do aplikacji
+              - button "Clerk" [ref=e31] [cursor=pointer]
+        - generic [ref=e34]:
+          - generic [ref=e39]:
+            - generic [ref=e44]:
+              - textbox "Adres e-mail lub telefon" [ref=e45]: stolamarcin@gmail.com
+              - generic: Adres e-mail lub telefon
+            - button "Nie pamiętasz adresu?" [ref=e49] [cursor=pointer]
+          - generic [ref=e52]:
+            - text: Przed użyciem aplikacji Clerk możesz zapoznać się z jej
+            - link "polityką prywatności" [ref=e53] [cursor=pointer]:
+              - /url: https://clerk.com/legal/privacy
+            - text: i
+            - link "warunkami korzystania z usługi" [ref=e54] [cursor=pointer]:
+              - /url: https://clerk.com/legal/terms
+            - text: .
+        - generic [ref=e56]:
+          - button "Dalej" [ref=e60]:
+            - generic [ref=e63]: Dalej
+          - button "Utwórz konto" [ref=e68]:
+            - generic [ref=e71]: Utwórz konto
+    - contentinfo [ref=e75]:
+      - combobox "Zmień język polski" [ref=e79] [cursor=pointer]:
+        - generic:
+          - generic: polski
+        - generic:
+          - img
+      - list [ref=e81]:
+        - listitem [ref=e82]:
+          - link "Pomoc" [ref=e83] [cursor=pointer]:
+            - /url: https://support.google.com/accounts?hl=pl&p=account_iph
+        - listitem [ref=e84]:
+          - link "Prywatność" [ref=e85] [cursor=pointer]:
+            - /url: https://accounts.google.com/TOS?loc=PL&hl=pl&privacy=true
+        - listitem [ref=e86]:
+          - link "Warunki" [ref=e87] [cursor=pointer]:
+            - /url: https://accounts.google.com/TOS?loc=PL&hl=pl
+  - iframe [ref=e88]:
+    

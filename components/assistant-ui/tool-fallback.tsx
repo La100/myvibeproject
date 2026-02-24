@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircleIcon,
   CheckIcon,
@@ -287,71 +287,11 @@ function toPendingItemFromResult(
   };
 }
 
-function getPendingComparableId(
-  item: PendingContentItem,
-): string | undefined {
-  const data = item.data as Record<string, unknown> | undefined;
-  const original = item.originalItem as Record<string, unknown> | undefined;
-  const rawId =
-    data?.itemId ??
-    data?.taskId ??
-    data?.noteId ??
-    data?.contactId ??
-    data?.surveyId ??
-    data?.sectionId ??
-    data?._id ??
-    original?._id;
-
-  if (typeof rawId !== "string") return undefined;
-  const normalized = rawId.trim();
-  return normalized.length > 0 ? normalized : undefined;
-}
-
-function getPendingComparableLabel(
-  item: PendingContentItem,
-): string | undefined {
-  const data = item.data as Record<string, unknown> | undefined;
-  const original = item.originalItem as Record<string, unknown> | undefined;
-  const rawLabel =
-    data?.title ??
-    data?.name ??
-    original?.title ??
-    original?.name;
-
-  if (typeof rawLabel !== "string") return undefined;
-  const normalized = rawLabel.trim().toLowerCase();
-  return normalized.length > 0 ? normalized : undefined;
-}
-
-function matchesPendingByPayload(
-  pendingItem: PendingContentItem,
-  fallbackItem: PendingContentItem,
-): boolean {
-  if (pendingItem.type !== fallbackItem.type) return false;
-  if (pendingItem.operation !== fallbackItem.operation) return false;
-
-  const pendingId = getPendingComparableId(pendingItem);
-  const fallbackId = getPendingComparableId(fallbackItem);
-  if (pendingId && fallbackId) {
-    return pendingId === fallbackId;
-  }
-
-  const pendingLabel = getPendingComparableLabel(pendingItem);
-  const fallbackLabel = getPendingComparableLabel(fallbackItem);
-  if (pendingLabel && fallbackLabel) {
-    return pendingLabel === fallbackLabel;
-  }
-
-  return false;
-}
-
 export interface ToolFallbackProps extends ToolCallMessagePartProps {
   pendingItems?: PendingContentItem[];
   onConfirmItem?: (index: number | string) => Promise<void>;
   onRejectItem?: (index: number | string) => void | Promise<void>;
   onEditItem?: (index: number) => void;
-  onConfirmAll?: () => Promise<void>;
-  onRejectAll?: () => void | Promise<void>;
   onUpdateItem?: (
     index: number | string,
     updates: Partial<PendingContentItem>,
@@ -411,8 +351,6 @@ const ToolFallbackImpl = ({
   onConfirmItem,
   onRejectItem,
   onEditItem,
-  onConfirmAll,
-  onRejectAll,
   onUpdateItem,
   isProcessing = false,
   confirmationMode = "always_ask",
@@ -422,58 +360,63 @@ const ToolFallbackImpl = ({
   const isCancelled =
     status?.type === "incomplete" && status.reason === "cancelled";
 
-  const matchedPendingItemsByCallId = toolCallId
-    ? (pendingItems ?? []).filter((item) => item.functionCall?.callId === toolCallId)
-    : [];
+  const matchedPendingItemsByCallId = useMemo(
+    () =>
+      toolCallId
+        ? (pendingItems ?? []).filter(
+            (item) => item.functionCall?.callId === toolCallId,
+          )
+        : [],
+    [pendingItems, toolCallId],
+  );
   const hasPendingItems = (pendingItems?.length ?? 0) > 0;
-  const unresolvedPendingItems = (pendingItems ?? []).filter(
-    (item) => item.status !== "confirmed" && item.status !== "rejected",
+  const fallbackPendingItem = useMemo(
+    () => (toolCallId ? toPendingItemFromResult(toolCallId, result) : null),
+    [toolCallId, result],
   );
-  const resolvedPendingItems = (pendingItems ?? []).filter(
-    (item) => item.status === "confirmed" || item.status === "rejected",
-  );
-  const firstUnresolvedCallId = unresolvedPendingItems[0]?.functionCall?.callId;
-  const firstResolvedCallId = resolvedPendingItems[0]?.functionCall?.callId;
-  const shouldRenderUnifiedBatch =
-    unresolvedPendingItems.length > 0 &&
-    !!toolCallId &&
-    toolCallId === firstUnresolvedCallId;
-  const shouldRenderUnifiedResolvedBatch =
-    unresolvedPendingItems.length === 0 &&
-    resolvedPendingItems.length > 0 &&
-    !!toolCallId &&
-    toolCallId === firstResolvedCallId;
-
-  const fallbackPendingItem = toolCallId
-    ? toPendingItemFromResult(toolCallId, result)
-    : null;
-  const matchedPendingItemByPayload =
-    matchedPendingItemsByCallId.length === 0 && fallbackPendingItem
-      ? (pendingItems ?? []).find((item) =>
-          matchesPendingByPayload(item, fallbackPendingItem),
-        )
-      : undefined;
   const isCrudLikeResult =
     matchedPendingItemsByCallId.length > 0 ||
-    !!matchedPendingItemByPayload ||
     !!fallbackPendingItem;
 
-  const itemsForInlineConfirmation = shouldRenderUnifiedBatch
-    ? unresolvedPendingItems
-    : shouldRenderUnifiedResolvedBatch
-      ? resolvedPendingItems
-    : matchedPendingItemsByCallId.length > 0
-      ? matchedPendingItemsByCallId
-      : matchedPendingItemByPayload
-        ? [matchedPendingItemByPayload]
-        : !hasPendingItems && fallbackPendingItem
-          ? [fallbackPendingItem]
-          : [];
+  const itemsForInlineConfirmation = useMemo(() => {
+    if (matchedPendingItemsByCallId.length > 0) {
+      return matchedPendingItemsByCallId;
+    }
+    if (!hasPendingItems && fallbackPendingItem) {
+      return [fallbackPendingItem];
+    }
+    return [];
+  }, [matchedPendingItemsByCallId, hasPendingItems, fallbackPendingItem]);
 
   const showInlineConfirmation = itemsForInlineConfirmation.length > 0;
   const hasUnresolvedItemsInCard = itemsForInlineConfirmation.some(
     (item) => item.status !== "confirmed" && item.status !== "rejected",
   );
+  const scopedActionIds = useMemo(() => {
+    const seen = new Set<string>();
+    const ids: string[] = [];
+    for (const item of itemsForInlineConfirmation) {
+      const id = item.clientId ?? item.functionCall?.callId;
+      if (typeof id !== "string" || id.length === 0 || seen.has(id)) {
+        continue;
+      }
+      seen.add(id);
+      ids.push(id);
+    }
+    return ids;
+  }, [itemsForInlineConfirmation]);
+  const handleConfirmVisibleItems = useCallback(async () => {
+    if (!onConfirmItem) return;
+    for (const id of scopedActionIds) {
+      await onConfirmItem(id);
+    }
+  }, [onConfirmItem, scopedActionIds]);
+  const handleRejectVisibleItems = useCallback(async () => {
+    if (!onRejectItem) return;
+    for (const id of scopedActionIds) {
+      await onRejectItem(id);
+    }
+  }, [onRejectItem, scopedActionIds]);
   const [isOpen, setIsOpen] = useState(() => hasUnresolvedItemsInCard);
   const prevHadUnresolvedRef = useRef(hasUnresolvedItemsInCard);
 
@@ -492,21 +435,6 @@ const ToolFallbackImpl = ({
     prevHadUnresolvedRef.current = false;
   }, [hasUnresolvedItemsInCard, showInlineConfirmation]);
 
-  // While there are unresolved CRUD items, show exactly one unified slider:
-  // the card attached to the first unresolved call. Hide all sibling CRUD cards.
-  if (unresolvedPendingItems.length > 0 && !!toolCallId && !shouldRenderUnifiedBatch) {
-    return null;
-  }
-  // After resolution, keep only a single consolidated receipt container.
-  if (
-    unresolvedPendingItems.length === 0 &&
-    resolvedPendingItems.length > 0 &&
-    !!toolCallId &&
-    !shouldRenderUnifiedResolvedBatch
-  ) {
-    return null;
-  }
-
   if (showInlineConfirmation) {
     return (
       <div className="px-0 pt-2">
@@ -515,8 +443,12 @@ const ToolFallbackImpl = ({
           onConfirmItem={onConfirmItem}
           onRejectItem={onRejectItem}
           onEditItem={onEditItem}
-          onConfirmAll={onConfirmAll}
-          onRejectAll={onRejectAll}
+          onConfirmAll={
+            scopedActionIds.length > 1 ? handleConfirmVisibleItems : undefined
+          }
+          onRejectAll={
+            scopedActionIds.length > 1 ? handleRejectVisibleItems : undefined
+          }
           onUpdateItem={onUpdateItem}
           isProcessing={isProcessing}
           confirmationMode={confirmationMode}
