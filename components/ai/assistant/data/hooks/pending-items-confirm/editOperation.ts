@@ -22,6 +22,7 @@ export async function confirmEditItem(
     editConfirmedNote,
     editConfirmedShoppingItem,
     editConfirmedSurvey,
+    editConfirmedContact,
     bulkEditConfirmedTasks,
     editConfirmedLaborItem,
     updateShoppingSection,
@@ -384,6 +385,95 @@ export async function confirmEditItem(
         projectId,
         surveyId: surveyId as Id<"surveys">,
         updates: item.updates as Record<string, unknown>
+      });
+      break;
+    }
+    case 'contact': {
+      const pickContactUpdates = (source: Record<string, unknown>) => {
+        const updates: Record<string, unknown> = {};
+        const keys = [
+          "name",
+          "companyName",
+          "email",
+          "phone",
+          "address",
+          "city",
+          "postalCode",
+          "website",
+          "taxId",
+          "type",
+          "notes",
+        ] as const;
+
+        for (const key of keys) {
+          if (source[key] !== undefined) {
+            updates[key] = source[key];
+          }
+        }
+        return updates;
+      };
+
+      if (isBulkEdit) {
+        if (bulkItems.length === 0) {
+          throw new Error("No contacts provided for bulk edit");
+        }
+
+        let updatedCount = 0;
+        const errors: string[] = [];
+
+        for (const contactUpdate of bulkItems) {
+          try {
+            const candidateItem: PendingItem = {
+              ...item,
+              data: contactUpdate,
+              originalItem: isPlainObject(contactUpdate.originalItem)
+                ? (contactUpdate.originalItem as Record<string, unknown>)
+                : item.originalItem,
+            };
+            const contactId = resolvePendingTargetId(candidateItem, ["contactId", "itemId"]);
+            if (!contactId) {
+              errors.push("Skipped contact edit without contactId");
+              continue;
+            }
+
+            const rawUpdates = isPlainObject(contactUpdate.updates)
+              ? (contactUpdate.updates as Record<string, unknown>)
+              : contactUpdate;
+            const updates = pickContactUpdates(rawUpdates);
+
+            const editResult = await editConfirmedContact({
+              contactId: contactId as Id<"contacts">,
+              updates,
+            });
+
+            if (editResult.success) {
+              updatedCount++;
+            } else {
+              errors.push(editResult.message);
+            }
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            errors.push(message);
+          }
+        }
+
+        result = {
+          success: errors.length === 0,
+          message: errors.length === 0
+            ? `Updated ${updatedCount}/${bulkItems.length} contacts successfully`
+            : `Updated ${updatedCount}/${bulkItems.length} contacts with errors: ${errors.slice(0, 3).join(', ')}`,
+        };
+        break;
+      }
+
+      const contactId = resolvePendingTargetId(item, ["contactId", "itemId"]);
+      if (!contactId) {
+        throw new Error("Missing contactId for contact edit");
+      }
+
+      result = await editConfirmedContact({
+        contactId: contactId as Id<"contacts">,
+        updates: pickContactUpdates(item.updates as Record<string, unknown>),
       });
       break;
     }

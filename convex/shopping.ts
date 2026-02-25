@@ -4,6 +4,30 @@ import { R2 } from "@convex-dev/r2";
 import { components } from "./_generated/api";
 const internalAny = require("./_generated/api").internal as any;
 const r2 = new R2(components.r2);
+const normalizeSectionKey = (name: string) => name.trim().toLocaleLowerCase();
+
+const getClientPortalActorName = (rawName?: string | null) => {
+  const trimmed = typeof rawName === "string" ? rawName.trim() : "";
+  return trimmed.length > 0 ? trimmed : "Client (portal)";
+};
+
+const logClientPortalShoppingActivity = async (
+  ctx: any,
+  project: { _id: any; teamId: any },
+  actionType: string,
+  entityId: string,
+  details: Record<string, unknown>
+) => {
+  await ctx.db.insert("activityLog", {
+    teamId: project.teamId,
+    projectId: project._id,
+    userId: `client-portal:${project._id}`,
+    actionType,
+    details,
+    entityId,
+    entityType: "shopping",
+  });
+};
 
 // ====== SHOPPING LIST SECTIONS ======
 
@@ -48,10 +72,23 @@ export const createShoppingListSection = mutation({
     const project = await ctx.db.get(args.projectId);
     if (!project) throw new Error("Project not found");
 
-    const existingSections = await ctx.db.query("shoppingListSections").withIndex("by_project", q => q.eq("projectId", args.projectId)).collect();
+    const normalizedName = args.name.trim();
+    if (!normalizedName) throw new Error("Section name is required");
+
+    const existingSections = await ctx.db
+      .query("shoppingListSections")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+
+    const existingSection = existingSections.find(
+      (section) => normalizeSectionKey(section.name) === normalizeSectionKey(normalizedName),
+    );
+    if (existingSection) {
+      return existingSection._id;
+    }
 
     return await ctx.db.insert("shoppingListSections", {
-      name: args.name,
+      name: normalizedName,
       projectId: args.projectId,
       teamId: project.teamId,
       order: existingSections.length,
@@ -69,8 +106,27 @@ export const updateShoppingListSection = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
+    const section = await ctx.db.get(args.sectionId);
+    if (!section) throw new Error("Section not found");
+
+    const normalizedName = args.name.trim();
+    if (!normalizedName) throw new Error("Section name is required");
+
+    const projectSections = await ctx.db
+      .query("shoppingListSections")
+      .withIndex("by_project", (q) => q.eq("projectId", section.projectId))
+      .collect();
+    const duplicateSection = projectSections.find(
+      (projectSection) =>
+        projectSection._id !== args.sectionId &&
+        normalizeSectionKey(projectSection.name) === normalizeSectionKey(normalizedName),
+    );
+    if (duplicateSection) {
+      throw new Error("Section with this name already exists");
+    }
+
     await ctx.db.patch(args.sectionId, {
-      name: args.name,
+      name: normalizedName,
     });
   },
 });
@@ -130,20 +186,41 @@ export const getPublicShoppingListByAccessToken = query({
       return null;
     }
 
-    const sections = await ctx.db
-      .query("clientPanelSections")
-      .withIndex("by_project", (q) => q.eq("projectId", project._id))
-      .order("asc")
-      .collect();
+    const settings = {
+      showShoppingList: project.clientPanelPublishedSettings?.showShoppingList ?? false,
+      showFiles: project.clientPanelPublishedSettings?.showFiles ?? false,
+      showMoodboard: project.clientPanelPublishedSettings?.showMoodboard ?? false,
+      showSurveys: project.clientPanelPublishedSettings?.showSurveys ?? false,
+      showTasks: project.clientPanelPublishedSettings?.showTasks ?? false,
+      showLabor: project.clientPanelPublishedSettings?.showLabor ?? false,
+      showContacts: project.clientPanelPublishedSettings?.showContacts ?? false,
+      showBudget: project.clientPanelPublishedSettings?.showBudget ?? false,
+      showNotes: project.clientPanelPublishedSettings?.showNotes ?? true,
+      showSupplier: project.clientPanelPublishedSettings?.showSupplier ?? true,
+      showPrice: project.clientPanelPublishedSettings?.showPrice ?? true,
+    };
 
-    const items = await ctx.db
-      .query("clientPanelItems")
-      .withIndex("by_project", (q) => q.eq("projectId", project._id))
-      .collect();
-    const files = await ctx.db
-      .query("clientPanelFiles")
-      .withIndex("by_project", (q) => q.eq("projectId", project._id))
-      .collect();
+    const sections = settings.showShoppingList
+      ? await ctx.db
+          .query("clientPanelSections")
+          .withIndex("by_project", (q) => q.eq("projectId", project._id))
+          .order("asc")
+          .collect()
+      : [];
+
+    const items = settings.showShoppingList
+      ? await ctx.db
+          .query("clientPanelItems")
+          .withIndex("by_project", (q) => q.eq("projectId", project._id))
+          .collect()
+      : [];
+
+    const files = settings.showFiles || settings.showMoodboard
+      ? await ctx.db
+          .query("clientPanelFiles")
+          .withIndex("by_project", (q) => q.eq("projectId", project._id))
+          .collect()
+      : [];
     const filesWithUrls = await Promise.all(
       files.map(async (file) => {
         try {
@@ -158,24 +235,109 @@ export const getPublicShoppingListByAccessToken = query({
       })
     );
 
-    const settings = {
-      showNotes: project.clientPanelPublishedSettings?.showNotes ?? true,
-      showSupplier: project.clientPanelPublishedSettings?.showSupplier ?? true,
-      showPrice: project.clientPanelPublishedSettings?.showPrice ?? true,
-    };
+    const visibleFiles = filesWithUrls.filter((file) => !!file.url);
+    const moodboardFiles = visibleFiles.filter((file) => !!file.moodboardSection);
+    const standardFiles = visibleFiles.filter((file) => !file.moodboardSection);
+    const tasks = settings.showTasks
+      ? await ctx.db
+          .query("tasks")
+          .withIndex("by_project", (q) => q.eq("projectId", project._id))
+          .collect()
+      : [];
+    const laborItems = settings.showLabor
+      ? await ctx.db
+          .query("laborItems")
+          .withIndex("by_project", (q) => q.eq("projectId", project._id))
+          .collect()
+      : [];
+    const projectContactLinks = settings.showContacts
+      ? await ctx.db
+          .query("projectContacts")
+          .withIndex("by_project", (q) => q.eq("projectId", project._id))
+          .filter((q) => q.eq(q.field("isActive"), true))
+          .collect()
+      : [];
+    const contacts = settings.showContacts
+      ? (
+          await Promise.all(
+            projectContactLinks.map(async (link) => {
+              const contact = await ctx.db.get(link.contactId);
+              if (!contact || !contact.isActive) {
+                return null;
+              }
+              return {
+                _id: contact._id,
+                name: contact.name,
+                companyName: contact.companyName,
+                email: contact.email,
+                phone: contact.phone,
+                type: contact.type,
+                website: contact.website,
+                projectRole: link.role,
+                projectNotes: link.notes,
+              };
+            })
+          )
+        ).filter(Boolean)
+      : [];
+
+    const tasksForPortal = tasks
+      .map((task) => ({
+        _id: task._id,
+        title: task.title,
+        description: task.description,
+        status: task.status,
+        priority: task.priority,
+        startDate: task.startDate,
+        endDate: task.endDate,
+      }))
+      .sort((a, b) => {
+        const aDate = a.endDate || a.startDate || 0;
+        const bDate = b.endDate || b.startDate || 0;
+        if (aDate !== bDate) return aDate - bDate;
+        return a.title.localeCompare(b.title);
+      });
+
+    const laborForPortal = laborItems
+      .map((item) => ({
+        _id: item._id,
+        name: item.name,
+        notes: item.notes,
+        quantity: item.quantity,
+        unit: item.unit,
+        unitPrice: item.unitPrice,
+        totalPrice: item.totalPrice,
+        startDate: item.startDate,
+        endDate: item.endDate,
+      }))
+      .sort((a, b) => {
+        const aDate = a.startDate || a.endDate || 0;
+        const bDate = b.startDate || b.endDate || 0;
+        if (aDate !== bDate) return aDate - bDate;
+        return a.name.localeCompare(b.name);
+      });
+
+    const contactsForPortal = contacts
+      .map((contact) => contact!)
+      .sort((a, b) => a.name.localeCompare(b.name));
 
     return {
       project: {
         _id: project._id,
         name: project.name,
         currency: project.currency || "PLN",
+        budget: project.budget,
       },
       settings,
       version: project.clientPanelDataVersion || 0,
       updatedAt: project.clientPanelDataUpdatedAt || null,
       sections,
       items,
-      files: filesWithUrls.filter((file) => !!file.url),
+      files: settings.showFiles ? standardFiles : [],
+      moodboardFiles: settings.showMoodboard ? moodboardFiles : [],
+      tasks: settings.showTasks ? tasksForPortal : [],
+      labor: settings.showLabor ? laborForPortal : [],
+      contacts: settings.showContacts ? contactsForPortal : [],
     };
   },
 });
@@ -185,6 +347,7 @@ export const selectShoppingAlternativeByAccessToken = mutation({
     accessToken: v.string(),
     itemId: v.id("shoppingListItems"),
     selectedItemId: v.union(v.id("shoppingListItems"), v.null()),
+    respondentName: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const token = args.accessToken.trim();
@@ -201,6 +364,9 @@ export const selectShoppingAlternativeByAccessToken = mutation({
 
     if (!project) {
       throw new Error("Invalid panel link");
+    }
+    if (project.clientPanelPublishedSettings?.showShoppingList !== true) {
+      throw new Error("Shopping list is hidden in this portal");
     }
 
     const item = await ctx.db
@@ -262,10 +428,137 @@ export const selectShoppingAlternativeByAccessToken = mutation({
       updatedAt: Date.now(),
     });
 
+    const selectedSourceItemId = selectedAlternativeSourceItemId || baseItemId;
+    const selectedOption = projectItems.find(
+      (projectItem) => projectItem.sourceItemId === selectedSourceItemId
+    );
+    await logClientPortalShoppingActivity(
+      ctx,
+      { _id: project._id, teamId: project.teamId },
+      "shopping.customer.option_selected",
+      String(baseItemId),
+      {
+        actorName: getClientPortalActorName(args.respondentName),
+        baseItemId: String(baseItemId),
+        selectedItemId: String(selectedSourceItemId),
+        selectedItemName: selectedOption?.name || null,
+      }
+    );
+
     return {
       success: true,
       baseItemId,
       selectedItemId: selectedAlternativeSourceItemId || baseItemId,
+    };
+  },
+});
+
+export const setShoppingItemFeedbackByAccessToken = mutation({
+  args: {
+    accessToken: v.string(),
+    itemId: v.id("shoppingListItems"),
+    decision: v.union(v.literal("accepted"), v.literal("rejected"), v.null()),
+    comment: v.optional(v.union(v.string(), v.null())),
+    respondentName: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const token = args.accessToken.trim();
+    if (!token) {
+      throw new Error("Invalid panel link");
+    }
+
+    const project = await ctx.db
+      .query("projects")
+      .withIndex("by_client_panel_access_token", (q) =>
+        q.eq("clientPanelAccessToken", token)
+      )
+      .unique();
+
+    if (!project) {
+      throw new Error("Invalid panel link");
+    }
+    if (project.clientPanelPublishedSettings?.showShoppingList !== true) {
+      throw new Error("Shopping list is hidden in this portal");
+    }
+
+    const item = await ctx.db
+      .query("clientPanelItems")
+      .withIndex("by_project_and_source", (q) =>
+        q.eq("projectId", project._id).eq("sourceItemId", args.itemId)
+      )
+      .unique();
+    if (!item) {
+      throw new Error("Item not found in this published panel");
+    }
+
+    const baseItemId = item.alternativeToSourceItemId || item.sourceItemId;
+    const basePanelItem = await ctx.db
+      .query("clientPanelItems")
+      .withIndex("by_project_and_source", (q) =>
+        q.eq("projectId", project._id).eq("sourceItemId", baseItemId)
+      )
+      .unique();
+    if (!basePanelItem) {
+      throw new Error("Base item not found in published panel");
+    }
+
+    const normalizedComment =
+      typeof args.comment === "string" ? args.comment.trim() : "";
+    if (normalizedComment.length > 2000) {
+      throw new Error("Comment is too long (max 2000 characters)");
+    }
+
+    const customerDecisionUpdatedAt = Date.now();
+    const actorName = getClientPortalActorName(args.respondentName);
+    const normalizedDecisionComment =
+      normalizedComment.length > 0 ? normalizedComment : null;
+
+    await ctx.db.patch(basePanelItem._id, {
+      customerDecision: args.decision,
+      customerDecisionComment: normalizedDecisionComment,
+      customerDecisionUpdatedAt,
+    });
+
+    await ctx.db.patch(baseItemId, {
+      customerDecision: args.decision,
+      customerDecisionComment: normalizedDecisionComment,
+      customerDecisionUpdatedAt,
+      customerDecisionByName: actorName,
+      updatedAt: customerDecisionUpdatedAt,
+    });
+
+    await logClientPortalShoppingActivity(
+      ctx,
+      { _id: project._id, teamId: project.teamId },
+      "shopping.customer.feedback",
+      String(baseItemId),
+      {
+        actorName,
+        itemName: basePanelItem.name,
+        decision: args.decision,
+        comment: normalizedDecisionComment,
+      }
+    );
+
+    if (args.decision === "accepted" || args.decision === "rejected") {
+      await logClientPortalShoppingActivity(
+        ctx,
+        { _id: project._id, teamId: project.teamId },
+        "shopping.customer.decision",
+        String(baseItemId),
+        {
+          actorName,
+          itemName: basePanelItem.name,
+          decision: args.decision,
+        }
+      );
+    }
+
+    return {
+      success: true,
+      baseItemId,
+      decision: args.decision,
+      comment: normalizedDecisionComment,
     };
   },
 });

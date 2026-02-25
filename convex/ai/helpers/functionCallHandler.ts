@@ -40,7 +40,21 @@ export const processFunctionCalls = async (
   let finalResponse = aiResponse;
 
   for (const functionCall of functionCalls) {
-    const functionArgs = JSON.parse(functionCall.arguments);
+    let functionArgs: any;
+    try {
+      const parsedArgs = JSON.parse(functionCall.arguments);
+      functionArgs =
+        parsedArgs && typeof parsedArgs === "object" && !Array.isArray(parsedArgs)
+          ? parsedArgs
+          : {};
+    } catch (error) {
+      console.error("Failed to parse function call arguments", {
+        name: functionCall.name,
+        callId: functionCall.call_id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      continue;
+    }
     const funcCallDataPayload = {
       callId: functionCall.call_id,
       functionName: functionCall.name,

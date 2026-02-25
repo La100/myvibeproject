@@ -9,6 +9,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Users, FileText } from "lucide-react";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 interface SurveyResponsesPageProps {
   params: Promise<{
@@ -23,6 +29,7 @@ export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps
     surveyId: Id<"surveys">;
     projectSlug: string;
   } | null>(null);
+  const [expandedResponseId, setExpandedResponseId] = useState<string>("");
 
   useEffect(() => {
     params.then(p => {
@@ -70,6 +77,10 @@ export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps
     const user = users?.find(u => u.clerkUserId === respondentId);
     return user?.name || user?.email || "Unknown user";
   };
+
+  const sortedResponses = [...(responses || [])].sort(
+    (a, b) => (b.submittedAt || 0) - (a.submittedAt || 0)
+  );
 
   return (
     <ProjectPageLayout>
@@ -133,49 +144,98 @@ export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps
           </Card>
         ) : (
           <div className="space-y-6">
-            {responses?.map((response, responseIndex) => (
-              <Card key={response._id} className="border border-gray-200 shadow-sm bg-gray-50/50">
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle className="text-xl">
-                        {getUserName(response.respondentId)}
-                      </CardTitle>
-                      <CardDescription>
-                        Submitted: {new Date(response.submittedAt || 0).toLocaleString()}
-                      </CardDescription>
-                    </div>
-                    <span className="inline-block border border-border text-foreground bg-transparent rounded px-2 py-1 text-xs font-semibold">
-                      Response #{responseIndex + 1}
-                    </span>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    {survey.questions.map((question, questionIndex) => {
-                      const answer = response.answers.find(a => a.questionId === question._id);
-                      return (
-                        <Card key={question._id} className="border border-gray-200 shadow-sm bg-card">
-                          <CardContent className="p-6">
-                            <div className="flex items-center gap-3 mb-2">
-                              <span className="inline-block border border-border text-foreground bg-transparent rounded px-2 py-1 text-xs font-semibold">
-                                Question {questionIndex + 1}
-                              </span>
-                            </div>
-                            <div className="font-medium mb-2">{question.questionText}</div>
-                            <div className="bg-gray-50 p-3 rounded-lg">
-                              {answer ? getAnswerDisplay(answer) : (
-                                <span className="text-gray-500 italic">No answer</span>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+            <Card>
+              <CardHeader>
+                <CardTitle>Responses list</CardTitle>
+                <CardDescription>
+                  Select a response to expand details.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {sortedResponses.map((response, responseIndex) => {
+                  const responseId = String(response._id);
+                  return (
+                    <button
+                      key={responseId}
+                      type="button"
+                      onClick={() =>
+                        setExpandedResponseId((current) =>
+                          current === responseId ? "" : responseId
+                        )
+                      }
+                      className="flex w-full items-center justify-between rounded-lg border border-border bg-card px-4 py-3 text-left transition-colors hover:bg-accent"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold">
+                          {response.respondentName || getUserName(response.respondentId)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Submitted: {new Date(response.submittedAt || 0).toLocaleString()}
+                        </p>
+                      </div>
+                      <span className="ml-4 inline-block rounded border border-border px-2 py-1 text-xs font-semibold">
+                        #{responseIndex + 1}
+                      </span>
+                    </button>
+                  );
+                })}
+              </CardContent>
+            </Card>
+
+            <Accordion
+              type="single"
+              collapsible
+              value={expandedResponseId}
+              onValueChange={setExpandedResponseId}
+              className="rounded-xl border border-gray-200 bg-gray-50/50 px-4"
+            >
+              {sortedResponses.map((response, responseIndex) => {
+                const responseId = String(response._id);
+                return (
+                  <AccordionItem key={responseId} value={responseId} className="border-b border-gray-200 last:border-b-0">
+                    <AccordionTrigger className="py-5 hover:no-underline">
+                      <div className="flex w-full items-start justify-between pr-3 text-left">
+                        <div>
+                          <p className="text-xl font-bold">
+                            {response.respondentName || getUserName(response.respondentId)}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Submitted: {new Date(response.submittedAt || 0).toLocaleString()}
+                          </p>
+                        </div>
+                        <span className="inline-block rounded border border-border bg-transparent px-2 py-1 text-xs font-semibold">
+                          Response #{responseIndex + 1}
+                        </span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-6 pb-6">
+                        {survey.questions.map((question, questionIndex) => {
+                          const answer = response.answers.find(a => a.questionId === question._id);
+                          return (
+                            <Card key={question._id} className="border border-gray-200 shadow-sm bg-card">
+                              <CardContent className="p-6">
+                                <div className="flex items-center gap-3 mb-2">
+                                  <span className="inline-block border border-border text-foreground bg-transparent rounded px-2 py-1 text-xs font-semibold">
+                                    Question {questionIndex + 1}
+                                  </span>
+                                </div>
+                                <div className="font-medium mb-2">{question.questionText}</div>
+                                <div className="bg-gray-50 p-3 rounded-lg">
+                                  {answer ? getAnswerDisplay(answer) : (
+                                    <span className="text-gray-500 italic">No answer</span>
+                                  )}
+                                </div>
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                );
+              })}
+            </Accordion>
           </div>
         )}
       </div>

@@ -73,7 +73,6 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
         projectId: project._id as Id<"projects">,
         isRequired: false,
         allowMultipleResponses: false,
-        targetAudience: "all_customers",
       });
 
       // Add questions

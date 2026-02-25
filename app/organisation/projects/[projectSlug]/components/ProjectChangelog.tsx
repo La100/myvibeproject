@@ -224,6 +224,18 @@ const getActivityDescription = (actionType: string, details: Record<string, unkn
         return `updated "${details.name}" in shopping list`;
       case "shopping.delete":
         return `removed "${details.name}" from shopping list`;
+      case "shopping.customer.option_selected":
+        return `selected option "${details.selectedItemName || details.selectedItemId}" for a shopping item`;
+      case "shopping.customer.feedback":
+        if (details.decision === "accepted") {
+          return `accepted "${details.itemName}" in client portal`;
+        }
+        if (details.decision === "rejected") {
+          return `rejected "${details.itemName}" in client portal`;
+        }
+        return `left a comment for "${details.itemName}" in client portal`;
+      case "shopping.customer.decision":
+        return `${details.decision === "accepted" ? "accepted" : "rejected"} "${details.itemName}" in client portal`;
       default:
         return "performed a shopping list action";
     }
@@ -496,7 +508,13 @@ export function ProjectChangelog({
         </Card>
       ) : (
         <div className="space-y-3">
-          {paginatedActivities.map((activity) => (
+          {paginatedActivities.map((activity) => {
+            const actorName =
+              activity.userName ||
+              (typeof activity.details?.actorName === "string"
+                ? activity.details.actorName
+                : "Unknown User");
+            return (
             <div
               key={activity._id}
               className={`relative flex items-start space-x-3 p-4 rounded-lg border transition-all hover:shadow-md ${getActivityColor(activity.actionType)}`}
@@ -508,7 +526,7 @@ export function ProjectChangelog({
               <Avatar className="w-8 h-8 flex-shrink-0">
                 <AvatarImage src={activity.userImageUrl} />
                 <AvatarFallback className="text-xs">
-                  {activity.userName?.charAt(0) || "U"}
+                  {actorName.charAt(0) || "U"}
                 </AvatarFallback>
               </Avatar>
 
@@ -516,7 +534,7 @@ export function ProjectChangelog({
                 <div className="flex items-start justify-between gap-2">
                   <div className="text-sm flex-1">
                     <span className="font-medium text-gray-900">
-                      {activity.userName || "Unknown User"}
+                      {actorName}
                     </span>
                     <span className="text-gray-600 ml-1">
                       {getActivityDescription(activity.actionType, activity.details)}
@@ -563,7 +581,8 @@ export function ProjectChangelog({
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

@@ -241,6 +241,7 @@ export type ThreadListItem = {
 
 export type SurveyQuestion = {
   questionId?: string;
+  operation?: "create" | "edit" | "delete";
   questionText: string;
   questionType: "text_short" | "text_long" | "multiple_choice" | "single_choice" | "rating" | "yes_no" | "number" | "file";
   options?: string[];
@@ -255,8 +256,6 @@ export type SurveyData = {
   allowMultipleResponses?: boolean;
   startDate?: string;
   endDate?: string;
-  targetAudience?: "all_customers" | "specific_customers" | "team_members";
-  targetCustomerIds?: string[];
   questions?: SurveyQuestion[];
 };
 

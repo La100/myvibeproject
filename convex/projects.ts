@@ -102,12 +102,28 @@ const generateNextProjectId = async (ctx: any) => {
 };
 
 const clientPanelDisplaySettingsValidator = {
+  showShoppingList: v.optional(v.boolean()),
+  showFiles: v.optional(v.boolean()),
+  showMoodboard: v.optional(v.boolean()),
+  showSurveys: v.optional(v.boolean()),
+  showTasks: v.optional(v.boolean()),
+  showLabor: v.optional(v.boolean()),
+  showContacts: v.optional(v.boolean()),
+  showBudget: v.optional(v.boolean()),
   showNotes: v.optional(v.boolean()),
   showSupplier: v.optional(v.boolean()),
   showPrice: v.optional(v.boolean()),
 };
 
 const defaultClientPanelDisplaySettings = {
+  showShoppingList: false,
+  showFiles: false,
+  showMoodboard: false,
+  showSurveys: false,
+  showTasks: false,
+  showLabor: false,
+  showContacts: false,
+  showBudget: false,
   showNotes: true,
   showSupplier: true,
   showPrice: true,
@@ -118,6 +134,14 @@ type ClientPanelDisplaySettings = typeof defaultClientPanelDisplaySettings;
 const getResolvedClientPanelDisplaySettings = (
   settings?: Partial<ClientPanelDisplaySettings> | null
 ): ClientPanelDisplaySettings => ({
+  showShoppingList: settings?.showShoppingList ?? defaultClientPanelDisplaySettings.showShoppingList,
+  showFiles: settings?.showFiles ?? defaultClientPanelDisplaySettings.showFiles,
+  showMoodboard: settings?.showMoodboard ?? defaultClientPanelDisplaySettings.showMoodboard,
+  showSurveys: settings?.showSurveys ?? defaultClientPanelDisplaySettings.showSurveys,
+  showTasks: settings?.showTasks ?? defaultClientPanelDisplaySettings.showTasks,
+  showLabor: settings?.showLabor ?? defaultClientPanelDisplaySettings.showLabor,
+  showContacts: settings?.showContacts ?? defaultClientPanelDisplaySettings.showContacts,
+  showBudget: settings?.showBudget ?? defaultClientPanelDisplaySettings.showBudget,
   showNotes: settings?.showNotes ?? defaultClientPanelDisplaySettings.showNotes,
   showSupplier: settings?.showSupplier ?? defaultClientPanelDisplaySettings.showSupplier,
   showPrice: settings?.showPrice ?? defaultClientPanelDisplaySettings.showPrice,
@@ -900,18 +924,42 @@ export const getClientPanelConfiguration = query({
 
     const { project } = await getProjectManagerMembership(ctx, args.projectId, identity.subject);
 
-    const itemCount = (
-      await ctx.db
-        .query("clientPanelItems")
-        .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-        .collect()
-    ).length;
+    const snapshotItems = await ctx.db
+      .query("clientPanelItems")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+    const itemCount = snapshotItems.length;
     const fileCount = (
       await ctx.db
         .query("clientPanelFiles")
         .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
         .collect()
     ).length;
+    const productFeedback = snapshotItems
+      .filter((item) => !item.alternativeToSourceItemId)
+      .map((item) => ({
+        sourceItemId: item.sourceItemId,
+        itemName: item.name,
+        sectionName: item.sectionName,
+        decision: item.customerDecision ?? null,
+        comment: item.customerDecisionComment ?? null,
+        updatedAt: item.customerDecisionUpdatedAt ?? null,
+      }))
+      .sort((a, b) => {
+        const aDate = a.updatedAt || 0;
+        const bDate = b.updatedAt || 0;
+        if (aDate !== bDate) {
+          return bDate - aDate;
+        }
+        return a.itemName.localeCompare(b.itemName);
+      });
+    const feedbackSummary = {
+      acceptedCount: productFeedback.filter((item) => item.decision === "accepted").length,
+      rejectedCount: productFeedback.filter((item) => item.decision === "rejected").length,
+      commentedCount: productFeedback.filter(
+        (item) => typeof item.comment === "string" && item.comment.trim().length > 0
+      ).length,
+    };
 
     return {
       accessToken: project.clientPanelAccessToken || null,
@@ -922,6 +970,8 @@ export const getClientPanelConfiguration = query({
       updatedAt: project.clientPanelDataUpdatedAt || null,
       itemCount,
       fileCount,
+      productFeedback,
+      feedbackSummary,
     };
   },
 });
@@ -958,6 +1008,12 @@ export const publishClientPanelData = mutation({
       .query("clientPanelItems")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
+    const existingSnapshotItemBySourceId = new Map(
+      existingSnapshotItems.map((snapshotItem) => [
+        String(snapshotItem.sourceItemId),
+        snapshotItem,
+      ])
+    );
     await Promise.all(existingSnapshotItems.map((item) => ctx.db.delete(item._id)));
 
     const existingSnapshotSections = await ctx.db
@@ -985,6 +1041,7 @@ export const publishClientPanelData = mutation({
         item.sectionId && sectionMetaById.has(String(item.sectionId))
           ? sectionMetaById.get(String(item.sectionId))
           : null;
+      const existingSnapshotItem = existingSnapshotItemBySourceId.get(String(item._id));
 
       await ctx.db.insert("clientPanelItems", {
         projectId: args.projectId,
@@ -1006,6 +1063,14 @@ export const publishClientPanelData = mutation({
         sectionOrder: sectionMeta?.order ?? Number.MAX_SAFE_INTEGER,
         alternativeToSourceItemId: item.alternativeToItemId || null,
         selectedAlternativeSourceItemId: item.selectedAlternativeItemId || null,
+        customerDecision: existingSnapshotItem?.customerDecision ?? item.customerDecision ?? null,
+        customerDecisionComment:
+          existingSnapshotItem?.customerDecisionComment ??
+          item.customerDecisionComment ??
+          null,
+        customerDecisionUpdatedAt:
+          existingSnapshotItem?.customerDecisionUpdatedAt ??
+          item.customerDecisionUpdatedAt,
       });
     }
 
@@ -1038,6 +1103,7 @@ export const publishClientPanelData = mutation({
         mimeType: file.mimeType,
         size: file.size,
         folderName: file.folderId ? folderNameById.get(String(file.folderId)) : undefined,
+        moodboardSection: file.moodboardSection,
         uploadedAt: file._creationTime,
       });
     }

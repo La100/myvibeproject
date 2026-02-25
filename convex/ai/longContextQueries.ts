@@ -30,7 +30,6 @@ type SurveySnapshot = {
   title: string;
   description?: string;
   status: "draft" | "active" | "closed";
-  targetAudience: "all_customers" | "specific_customers" | "team_members";
   isRequired: boolean;
   allowMultipleResponses: boolean;
   questions: SurveyQuestionSnapshot[];
@@ -148,11 +147,6 @@ export const getProjectContextSnapshot = internalQuery({
         v.literal("active"),
         v.literal("closed"),
       ),
-      targetAudience: v.union(
-        v.literal("all_customers"),
-        v.literal("specific_customers"),
-        v.literal("team_members"),
-      ),
       isRequired: v.boolean(),
       allowMultipleResponses: v.boolean(),
       questions: v.array(v.object({
@@ -236,7 +230,6 @@ export const getProjectContextSnapshot = internalQuery({
         title: survey.title,
         description: survey.description,
         status: survey.status,
-        targetAudience: survey.targetAudience,
         isRequired: survey.isRequired,
         allowMultipleResponses: survey.allowMultipleResponses,
         questions: questions.map((question) => ({

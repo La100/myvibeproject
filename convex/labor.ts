@@ -52,6 +52,7 @@ const assertAttachmentBelongsToProject = async (
 
 // Use a lightweight function reference to avoid deep generated type instantiation.
 const logActivityMutationRef = makeFunctionReference<"mutation">("activityLog:logActivity");
+const normalizeSectionKey = (name: string) => name.trim().toLocaleLowerCase();
 
 // ====== LABOR SECTIONS ======
 
@@ -96,13 +97,23 @@ export const createLaborSection = mutation({
     const project = await ctx.db.get(args.projectId);
     if (!project) throw new Error("Project not found");
 
+    const normalizedName = args.name.trim();
+    if (!normalizedName) throw new Error("Section name is required");
+
     const existingSections = await ctx.db
       .query("laborSections")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
 
+    const existingSection = existingSections.find(
+      (section) => normalizeSectionKey(section.name) === normalizeSectionKey(normalizedName),
+    );
+    if (existingSection) {
+      return existingSection._id;
+    }
+
     return await ctx.db.insert("laborSections", {
-      name: args.name,
+      name: normalizedName,
       projectId: args.projectId,
       teamId: project.teamId,
       order: existingSections.length,
@@ -120,8 +131,27 @@ export const updateLaborSection = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
+    const section = await ctx.db.get(args.sectionId);
+    if (!section) throw new Error("Section not found");
+
+    const normalizedName = args.name.trim();
+    if (!normalizedName) throw new Error("Section name is required");
+
+    const projectSections = await ctx.db
+      .query("laborSections")
+      .withIndex("by_project", (q) => q.eq("projectId", section.projectId))
+      .collect();
+    const duplicateSection = projectSections.find(
+      (projectSection) =>
+        projectSection._id !== args.sectionId &&
+        normalizeSectionKey(projectSection.name) === normalizeSectionKey(normalizedName),
+    );
+    if (duplicateSection) {
+      throw new Error("Section with this name already exists");
+    }
+
     await ctx.db.patch(args.sectionId, {
-      name: args.name,
+      name: normalizedName,
     });
   },
 });

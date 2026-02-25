@@ -89,7 +89,6 @@ export interface SurveyContext {
   title: string;
   description?: string;
   status: "draft" | "active" | "closed";
-  targetAudience: "all_customers" | "specific_customers" | "team_members";
   isRequired: boolean;
   allowMultipleResponses: boolean;
   questions: Array<SurveyQuestionContext>;

@@ -142,6 +142,14 @@ export default defineSchema({
     // Public, link-only customer panel token.
     clientPanelAccessToken: v.optional(v.string()),
     clientPanelPublishedSettings: v.optional(v.object({
+      showShoppingList: v.optional(v.boolean()),
+      showFiles: v.optional(v.boolean()),
+      showMoodboard: v.optional(v.boolean()),
+      showSurveys: v.optional(v.boolean()),
+      showTasks: v.optional(v.boolean()),
+      showLabor: v.optional(v.boolean()),
+      showContacts: v.optional(v.boolean()),
+      showBudget: v.optional(v.boolean()),
       showNotes: v.optional(v.boolean()),
       showSupplier: v.optional(v.boolean()),
       showPrice: v.optional(v.boolean()),
@@ -394,6 +402,13 @@ export default defineSchema({
     alternativeToItemId: v.optional(v.union(v.id("shoppingListItems"), v.null())),
     // Stored on base item: which alternative was chosen by customer
     selectedAlternativeItemId: v.optional(v.union(v.id("shoppingListItems"), v.null())),
+    // Customer feedback from public portal (stored on base item)
+    customerDecision: v.optional(
+      v.union(v.literal("accepted"), v.literal("rejected"), v.null())
+    ),
+    customerDecisionComment: v.optional(v.union(v.string(), v.null())),
+    customerDecisionUpdatedAt: v.optional(v.number()),
+    customerDecisionByName: v.optional(v.union(v.string(), v.null())),
     realizationStatus: v.union(
       v.literal("PLANNED"),
       v.literal("ORDERED"),
@@ -449,6 +464,11 @@ export default defineSchema({
     sectionOrder: v.number(),
     alternativeToSourceItemId: v.optional(v.union(v.id("shoppingListItems"), v.null())),
     selectedAlternativeSourceItemId: v.optional(v.union(v.id("shoppingListItems"), v.null())),
+    customerDecision: v.optional(
+      v.union(v.literal("accepted"), v.literal("rejected"), v.null())
+    ),
+    customerDecisionComment: v.optional(v.union(v.string(), v.null())),
+    customerDecisionUpdatedAt: v.optional(v.number()),
   })
     .index("by_project", ["projectId"])
     .index("by_project_and_source", ["projectId", "sourceItemId"]),
@@ -470,6 +490,7 @@ export default defineSchema({
     mimeType: v.string(),
     size: v.number(),
     folderName: v.optional(v.string()),
+    moodboardSection: v.optional(v.string()),
     uploadedAt: v.number(),
   })
     .index("by_project", ["projectId"])
@@ -581,14 +602,10 @@ export default defineSchema({
     ),
     isRequired: v.boolean(), // whether the survey is mandatory
     allowMultipleResponses: v.boolean(), // whether it can be filled multiple times
+    targetAudience: v.optional(v.string()), // legacy field kept for backward compatibility
+    targetCustomerIds: v.optional(v.array(v.string())), // legacy field kept for backward compatibility
     startDate: v.optional(v.number()),
     endDate: v.optional(v.number()),
-    targetAudience: v.union(
-      v.literal("all_customers"), // all project customers
-      v.literal("specific_customers"), // specific customers
-      v.literal("team_members") // team members
-    ),
-    targetCustomerIds: v.optional(v.array(v.string())), // specific customers (Clerk user IDs)
     updatedAt: v.optional(v.number()),
   })
     .index("by_project", ["projectId"])
@@ -627,6 +644,7 @@ export default defineSchema({
   surveyResponses: defineTable({
     surveyId: v.id("surveys"),
     respondentId: v.string(), // Clerk user ID
+    respondentName: v.optional(v.string()),
     teamId: v.id("teams"),
     projectId: v.id("projects"),
     isComplete: v.boolean(),

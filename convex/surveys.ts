@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { query, mutation, internalQuery } from "./_generated/server";
+import { query, mutation, internalQuery, internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Doc, Id } from "./_generated/dataModel";
 
@@ -7,8 +7,7 @@ const getPortalRespondentId = (projectId: Id<"projects">, respondentKey: string)
   `portal:${projectId}:${respondentKey.trim().toLowerCase()}`;
 
 const isSurveyVisibleInPublicPortal = (survey: Doc<"surveys">, now: number) => {
-  if (survey.targetAudience === "team_members") return false;
-  if (survey.status !== "active") return false;
+  if (survey.status === "closed") return false;
   if (typeof survey.startDate === "number" && survey.startDate > now) return false;
   if (typeof survey.endDate === "number" && survey.endDate < now) return false;
   return true;
@@ -25,12 +24,6 @@ export const createSurvey = mutation({
     allowMultipleResponses: v.boolean(),
     startDate: v.optional(v.number()),
     endDate: v.optional(v.number()),
-    targetAudience: v.union(
-      v.literal("all_customers"),
-      v.literal("specific_customers"),
-      v.literal("team_members")
-    ),
-    targetCustomerIds: v.optional(v.array(v.string())),
   },
   async handler(ctx, args) {
     const identity = await ctx.auth.getUserIdentity();
@@ -66,8 +59,6 @@ export const createSurvey = mutation({
       allowMultipleResponses: args.allowMultipleResponses,
       startDate: args.startDate,
       endDate: args.endDate,
-      targetAudience: args.targetAudience,
-      targetCustomerIds: args.targetCustomerIds,
       updatedAt: Date.now(),
     });
 
@@ -82,6 +73,112 @@ export const createSurvey = mutation({
     });
 
     return surveyId;
+  },
+});
+
+export const cleanupSurveyLegacyAudienceFields = mutation({
+  args: {
+    projectId: v.id("projects"),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    total: v.number(),
+    updated: v.number(),
+  }),
+  async handler(ctx, args) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const project = await ctx.db.get(args.projectId);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    const teamMember = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
+      )
+      .unique();
+
+    if (!teamMember || teamMember.role !== "admin") {
+      throw new Error("Only admins can run survey cleanup");
+    }
+
+    const surveys = await ctx.db
+      .query("surveys")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+
+    let updated = 0;
+    for (const survey of surveys) {
+      const hasLegacyTargetAudience = Object.prototype.hasOwnProperty.call(survey, "targetAudience");
+      const hasLegacyTargetCustomerIds = Object.prototype.hasOwnProperty.call(survey, "targetCustomerIds");
+
+      if (!hasLegacyTargetAudience && !hasLegacyTargetCustomerIds) {
+        continue;
+      }
+
+      await ctx.db.patch(survey._id, {
+        targetAudience: undefined,
+        targetCustomerIds: undefined,
+        updatedAt: Date.now(),
+      });
+      updated += 1;
+    }
+
+    return {
+      success: true,
+      total: surveys.length,
+      updated,
+    };
+  },
+});
+
+export const cleanupSurveyLegacyAudienceFieldsInternal = internalMutation({
+  args: {
+    projectId: v.id("projects"),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    total: v.number(),
+    updated: v.number(),
+  }),
+  async handler(ctx, args) {
+    const project = await ctx.db.get(args.projectId);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    const surveys = await ctx.db
+      .query("surveys")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+
+    let updated = 0;
+    for (const survey of surveys) {
+      const hasLegacyTargetAudience = Object.prototype.hasOwnProperty.call(survey, "targetAudience");
+      const hasLegacyTargetCustomerIds = Object.prototype.hasOwnProperty.call(survey, "targetCustomerIds");
+
+      if (!hasLegacyTargetAudience && !hasLegacyTargetCustomerIds) {
+        continue;
+      }
+
+      await ctx.db.patch(survey._id, {
+        targetAudience: undefined,
+        targetCustomerIds: undefined,
+        updatedAt: Date.now(),
+      });
+      updated += 1;
+    }
+
+    return {
+      success: true,
+      total: surveys.length,
+      updated,
+    };
   },
 });
 
@@ -196,6 +293,9 @@ export const getPublicSurveysByAccessToken = query({
     if (!project) {
       return { surveys: [] };
     }
+    if (project.clientPanelPublishedSettings?.showSurveys !== true) {
+      return { surveys: [] };
+    }
 
     const now = Date.now();
     const surveys = await ctx.db
@@ -261,6 +361,7 @@ export const submitPublicSurveyResponseByAccessToken = mutation({
     accessToken: v.string(),
     surveyId: v.id("surveys"),
     respondentKey: v.string(),
+    respondentName: v.optional(v.string()),
     answers: v.array(v.object({
       questionId: v.id("surveyQuestions"),
       answerType: v.union(
@@ -297,6 +398,9 @@ export const submitPublicSurveyResponseByAccessToken = mutation({
 
     if (!project) {
       throw new Error("Invalid portal link");
+    }
+    if (project.clientPanelPublishedSettings?.showSurveys !== true) {
+      throw new Error("Surveys are hidden in this portal");
     }
 
     const survey = await ctx.db.get(args.surveyId);
@@ -356,6 +460,9 @@ export const submitPublicSurveyResponseByAccessToken = mutation({
     }
 
     const respondentId = getPortalRespondentId(project._id, respondentKey);
+    const respondentName = args.respondentName?.trim()
+      ? args.respondentName.trim().slice(0, 120)
+      : undefined;
 
     if (!survey.allowMultipleResponses) {
       const existingCompletedResponse = await ctx.db
@@ -383,11 +490,17 @@ export const submitPublicSurveyResponseByAccessToken = mutation({
       const responseId = await ctx.db.insert("surveyResponses", {
         surveyId: args.surveyId,
         respondentId,
+        respondentName,
         teamId: survey.teamId,
         projectId: survey.projectId,
         isComplete: false,
       });
       response = await ctx.db.get(responseId);
+    } else if (respondentName && response.respondentName !== respondentName) {
+      await ctx.db.patch(response._id, {
+        respondentName,
+      });
+      response = await ctx.db.get(response._id);
     }
 
     if (!response) {
@@ -490,12 +603,6 @@ export const updateSurvey = mutation({
     allowMultipleResponses: v.optional(v.boolean()),
     startDate: v.optional(v.number()),
     endDate: v.optional(v.number()),
-    targetAudience: v.optional(v.union(
-      v.literal("all_customers"),
-      v.literal("specific_customers"),
-      v.literal("team_members")
-    )),
-    targetCustomerIds: v.optional(v.array(v.string())),
   },
   async handler(ctx, args) {
     const identity = await ctx.auth.getUserIdentity();
@@ -1063,11 +1170,6 @@ export const getSurveysForIndexing = internalQuery({
       v.literal("active"),
       v.literal("closed")
     ),
-    targetAudience: v.union(
-      v.literal("all_customers"),
-      v.literal("specific_customers"),
-      v.literal("team_members")
-    ),
     isRequired: v.boolean(),
     allowMultipleResponses: v.boolean(),
     startDate: v.optional(v.number()),
@@ -1085,7 +1187,6 @@ export const getSurveysForIndexing = internalQuery({
       title: survey.title,
       description: survey.description,
       status: survey.status,
-      targetAudience: survey.targetAudience,
       isRequired: survey.isRequired,
       allowMultipleResponses: survey.allowMultipleResponses,
       startDate: survey.startDate,

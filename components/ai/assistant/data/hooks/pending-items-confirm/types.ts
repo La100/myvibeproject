@@ -23,6 +23,7 @@ export interface PendingItemsConfirmDeps {
   editConfirmedNote: (args: any) => Promise<any>;
   editConfirmedShoppingItem: (args: any) => Promise<any>;
   editConfirmedSurvey: (args: any) => Promise<any>;
+  editConfirmedContact: (args: any) => Promise<any>;
   bulkEditConfirmedTasks: (args: any) => Promise<any>;
   createConfirmedLaborItem: (args: any) => Promise<any>;
   editConfirmedLaborItem: (args: any) => Promise<any>;

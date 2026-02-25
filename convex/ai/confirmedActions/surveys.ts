@@ -20,8 +20,6 @@ export const createConfirmedSurvey = action({
       allowMultipleResponses: v.optional(v.boolean()),
       startDate: v.optional(v.string()),
       endDate: v.optional(v.string()),
-      targetAudience: v.optional(v.union(v.literal("all_customers"), v.literal("specific_customers"), v.literal("team_members"))),
-      targetCustomerIds: v.optional(v.array(v.string())),
       questions: v.optional(v.array(v.object({
         questionText: v.string(),
         questionType: v.union(v.literal("text_short"), v.literal("text_long"), v.literal("multiple_choice"), v.literal("single_choice"), v.literal("rating"), v.literal("yes_no"), v.literal("number"), v.literal("file")),
@@ -53,11 +51,9 @@ export const createConfirmedSurvey = action({
         title: args.surveyData.title,
         description: args.surveyData.description,
         isRequired: args.surveyData.isRequired || false,
-        targetAudience: (args.surveyData.targetAudience as "all_customers" | "specific_customers" | "team_members") || "all_customers",
         allowMultipleResponses: args.surveyData.allowMultipleResponses || false,
         startDate: startDateNumber,
         endDate: endDateNumber,
-        targetCustomerIds: args.surveyData.targetCustomerIds,
       });
 
       if (args.surveyData.questions && args.surveyData.questions.length > 0) {
@@ -104,13 +100,13 @@ export const editConfirmedSurvey = action({
       allowMultipleResponses: v.optional(v.boolean()),
       startDate: v.optional(v.string()),
       endDate: v.optional(v.string()),
-      targetAudience: v.optional(v.union(
-        v.literal("all_customers"),
-        v.literal("specific_customers"),
-        v.literal("team_members")
-      )),
       questions: v.optional(v.array(v.object({
-        questionId: v.id("surveyQuestions"),
+        questionId: v.optional(v.id("surveyQuestions")),
+        operation: v.optional(v.union(
+          v.literal("create"),
+          v.literal("edit"),
+          v.literal("delete")
+        )),
         questionText: v.optional(v.string()),
         questionType: v.optional(v.union(
           v.literal("text_short"),
@@ -162,12 +158,33 @@ export const editConfirmedSurvey = action({
         allowMultipleResponses: args.updates.allowMultipleResponses,
         startDate: startDateNumber,
         endDate: endDateNumber,
-        targetAudience: args.updates.targetAudience as "all_customers" | "specific_customers" | "team_members" | undefined,
       });
 
       if (args.updates.questions && args.updates.questions.length > 0) {
-        for (const questionUpdate of args.updates.questions) {
-          const { questionId, operation = "edit", ...questionFields } = questionUpdate as {
+        const existingQuestions = Array.isArray(survey.questions) ? survey.questions : [];
+        const existingQuestionsByOrder = new Map<number, Id<"surveyQuestions">>();
+        const existingQuestionsByText = new Map<string, Id<"surveyQuestions"> | null>();
+
+        for (const question of existingQuestions) {
+          existingQuestionsByOrder.set(question.order, question._id);
+
+          const normalizedText = question.questionText.trim().toLowerCase();
+          const previouslySeen = existingQuestionsByText.get(normalizedText);
+          if (previouslySeen === undefined) {
+            existingQuestionsByText.set(normalizedText, question._id);
+          } else {
+            // Mark duplicates as ambiguous to avoid false-positive matches by text.
+            existingQuestionsByText.set(normalizedText, null);
+          }
+        }
+
+        let nextQuestionOrder = existingQuestions.reduce((max, question) => Math.max(max, question.order), 0);
+        const shouldAllowIndexFallback =
+          existingQuestions.length > 0 &&
+          existingQuestions.length === args.updates.questions.length;
+
+        for (const [index, questionUpdate] of args.updates.questions.entries()) {
+          const { questionId, operation, ...questionFields } = questionUpdate as {
             questionId?: Id<"surveyQuestions">;
             operation?: "create" | "edit" | "delete";
             questionText?: string;
@@ -177,7 +194,44 @@ export const editConfirmedSurvey = action({
             order?: number;
           };
 
-          if (operation === "create") {
+          const resolveQuestionId = (): Id<"surveyQuestions"> | undefined => {
+            if (questionId) return questionId;
+
+            if (typeof questionFields.order === "number") {
+              const byOrder = existingQuestionsByOrder.get(questionFields.order);
+              if (byOrder) return byOrder;
+            }
+
+            if (typeof questionFields.questionText === "string") {
+              const normalizedText = questionFields.questionText.trim().toLowerCase();
+              const byText = existingQuestionsByText.get(normalizedText);
+              if (byText) return byText;
+            }
+
+            if (shouldAllowIndexFallback && existingQuestions[index]) {
+              return existingQuestions[index]._id;
+            }
+
+            return undefined;
+          };
+
+          const resolvedQuestionId = resolveQuestionId();
+          const resolvedOperation: "create" | "edit" | "delete" = operation
+            ? operation
+            : resolvedQuestionId
+              ? "edit"
+              : existingQuestions.length === 0
+                ? "create"
+                : "edit";
+
+          if (resolvedOperation === "create") {
+            if (!questionFields.questionText || !questionFields.questionType) {
+              throw new Error("Question create operation requires questionText and questionType");
+            }
+
+            const questionOrder = questionFields.order ?? ++nextQuestionOrder;
+            nextQuestionOrder = Math.max(nextQuestionOrder, questionOrder);
+
             await ctx.runMutation(api.surveys.createSurveyQuestion, {
               surveyId: args.surveyId,
               questionText: questionFields.questionText as string,
@@ -192,24 +246,24 @@ export const editConfirmedSurvey = action({
                 | "file",
               options: questionFields.options,
               isRequired: questionFields.isRequired ?? true,
-              order: questionFields.order ?? 1,
+              order: questionOrder,
             });
             continue;
           }
 
-          if (!questionId) {
-            throw new Error("Missing questionId for survey question update");
+          if (!resolvedQuestionId) {
+            throw new Error("Missing questionId for survey question update/delete. Use operation='create' for new questions.");
           }
 
-          if (operation === "delete") {
+          if (resolvedOperation === "delete") {
             await ctx.runMutation(api.surveys.deleteQuestion, {
-              questionId,
+              questionId: resolvedQuestionId,
             });
             continue;
           }
 
           await ctx.runMutation(api.surveys.updateQuestion, {
-            questionId,
+            questionId: resolvedQuestionId,
             questionText: questionFields.questionText,
             questionType: questionFields.questionType as
               | "text_short"
@@ -275,9 +329,6 @@ export const deleteConfirmedSurvey = action({
     }
   },
 });
-
-
-
 
 
 

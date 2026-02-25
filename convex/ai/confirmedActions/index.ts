@@ -38,8 +38,7 @@ export {
 export { createConfirmedSurvey, editConfirmedSurvey, deleteConfirmedSurvey } from "./surveys";
 
 // Contact actions
-export { createConfirmedContact, deleteConfirmedContact } from "./contacts";
-
+export { createConfirmedContact, editConfirmedContact, deleteConfirmedContact } from "./contacts";
 
 
 

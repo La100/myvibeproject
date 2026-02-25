@@ -100,6 +100,20 @@ export const getProjectTokenUsage = query({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
+    const project = await ctx.db.get(args.projectId);
+    if (!project) throw new Error("Project not found");
+    if (!project.teamId) throw new Error("Project has no team assigned");
+
+    const membership = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
+      )
+      .unique();
+    if (!membership || !membership.isActive) {
+      throw new Error("Not authorized to view this project usage");
+    }
+
     const days = args.days || 30;
     const cutoffTime = Date.now() - (days * 24 * 60 * 60 * 1000);
 
@@ -197,7 +211,18 @@ export const getTeamTokenUsage = query({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
-    // TODO: Check if user has access to team
+    const team = await ctx.db.get(args.teamId);
+    if (!team) throw new Error("Team not found");
+
+    const membership = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", args.teamId).eq("clerkUserId", identity.subject)
+      )
+      .unique();
+    if (!membership || !membership.isActive) {
+      throw new Error("Not authorized to view this team usage");
+    }
 
     const days = args.days || 30;
     const cutoffTime = Date.now() - (days * 24 * 60 * 60 * 1000);

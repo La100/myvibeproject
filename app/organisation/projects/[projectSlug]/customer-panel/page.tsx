@@ -8,12 +8,24 @@ import { apiAny } from "@/lib/convexApiAny";
 import { useProject } from "@/components/providers/ProjectProvider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 
 const DEFAULT_CLIENT_PANEL_SETTINGS = {
+  showShoppingList: false,
+  showFiles: false,
+  showMoodboard: false,
+  showSurveys: false,
+  showTasks: false,
+  showLabor: false,
+  showContacts: false,
+  showBudget: false,
   showNotes: true,
   showSupplier: true,
   showPrice: true,
 };
+
+type ClientPanelSettings = typeof DEFAULT_CLIENT_PANEL_SETTINGS;
 
 export default function CustomerPanelPage() {
   const { project, teamMember, isLoading } = useProject();
@@ -29,6 +41,9 @@ export default function CustomerPanelPage() {
   const [isPreparingLink, setIsPreparingLink] = useState(false);
   const [isRegeneratingLink, setIsRegeneratingLink] = useState(false);
   const [isPublishingPortal, setIsPublishingPortal] = useState(false);
+  const [portalSettings, setPortalSettings] = useState<ClientPanelSettings>(
+    DEFAULT_CLIENT_PANEL_SETTINGS
+  );
 
   const canManageCustomerPanel =
     teamMember?.role === "admin" || teamMember?.role === "member";
@@ -72,9 +87,35 @@ export default function CustomerPanelPage() {
     if (panelConfig.accessToken) {
       setAccessToken(panelConfig.accessToken);
     }
+    setPortalSettings({
+      ...DEFAULT_CLIENT_PANEL_SETTINGS,
+      ...panelConfig.settings,
+    });
   }, [panelConfig]);
 
+  const handleToggleSetting = (key: keyof ClientPanelSettings, checked: boolean) => {
+    setPortalSettings((prev) => ({
+      ...prev,
+      [key]: checked,
+    }));
+  };
+
   const panelPath = accessToken ? `/client-panel/${accessToken}` : "";
+  const feedbackItems =
+    panelConfig?.productFeedback ||
+    ([] as Array<{
+      sourceItemId: string;
+      itemName: string;
+      sectionName?: string;
+      decision: "accepted" | "rejected" | null;
+      comment: string | null;
+      updatedAt: number | null;
+    }>);
+  const feedbackSummary = panelConfig?.feedbackSummary || {
+    acceptedCount: 0,
+    rejectedCount: 0,
+    commentedCount: 0,
+  };
 
   const panelUrlValue =
     typeof window !== "undefined" && panelPath
@@ -112,7 +153,7 @@ export default function CustomerPanelPage() {
     try {
       const result = await publishClientPanelData({
         projectId: project._id,
-        settings: panelConfig?.settings ?? DEFAULT_CLIENT_PANEL_SETTINGS,
+        settings: portalSettings,
       });
       toast.success("Client portal updated", {
         description: `Published portal version #${result.version}.`,
@@ -168,6 +209,214 @@ export default function CustomerPanelPage() {
           {isPublishingPortal ? "Updating..." : "Update portal"}
         </Button>
       </div>
+
+      <section className="space-y-5">
+        <div>
+          <h2 className="text-lg font-semibold">Visibility</h2>
+          <p className="text-sm text-muted-foreground">
+            Choose what customers can see in the portal after Update portal.
+          </p>
+        </div>
+
+        <div className="space-y-6 rounded-lg border bg-card p-6">
+          <div className="space-y-4">
+            <h3 className="text-sm font-medium text-foreground">Portal sections</h3>
+            <div className="space-y-3">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <Label htmlFor="show-shopping-list" className="font-medium">
+                    Materials (shopping list)
+                  </Label>
+                  <p className="text-xs text-muted-foreground">Share products and alternatives.</p>
+                </div>
+                <Switch
+                  id="show-shopping-list"
+                  checked={portalSettings.showShoppingList}
+                  onCheckedChange={(checked) => handleToggleSetting("showShoppingList", checked)}
+                  disabled={isPublishingPortal}
+                />
+              </div>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <Label htmlFor="show-files" className="font-medium">
+                    Files
+                  </Label>
+                  <p className="text-xs text-muted-foreground">Share files marked for client portal.</p>
+                </div>
+                <Switch
+                  id="show-files"
+                  checked={portalSettings.showFiles}
+                  onCheckedChange={(checked) => handleToggleSetting("showFiles", checked)}
+                  disabled={isPublishingPortal}
+                />
+              </div>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <Label htmlFor="show-moodboard" className="font-medium">
+                    Moodboard
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Share moodboard visuals saved in project files.
+                  </p>
+                </div>
+                <Switch
+                  id="show-moodboard"
+                  checked={portalSettings.showMoodboard}
+                  onCheckedChange={(checked) => handleToggleSetting("showMoodboard", checked)}
+                  disabled={isPublishingPortal}
+                />
+              </div>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <Label htmlFor="show-surveys" className="font-medium">
+                    Surveys
+                  </Label>
+                  <p className="text-xs text-muted-foreground">Allow customers to submit surveys.</p>
+                </div>
+                <Switch
+                  id="show-surveys"
+                  checked={portalSettings.showSurveys}
+                  onCheckedChange={(checked) => handleToggleSetting("showSurveys", checked)}
+                  disabled={isPublishingPortal}
+                />
+              </div>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <Label htmlFor="show-tasks" className="font-medium">
+                    Tasks
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Share task list and statuses.
+                  </p>
+                </div>
+                <Switch
+                  id="show-tasks"
+                  checked={portalSettings.showTasks}
+                  onCheckedChange={(checked) => handleToggleSetting("showTasks", checked)}
+                  disabled={isPublishingPortal}
+                />
+              </div>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <Label htmlFor="show-labor" className="font-medium">
+                    Labor
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Share labor/services list with pricing.
+                  </p>
+                </div>
+                <Switch
+                  id="show-labor"
+                  checked={portalSettings.showLabor}
+                  onCheckedChange={(checked) => handleToggleSetting("showLabor", checked)}
+                  disabled={isPublishingPortal}
+                />
+              </div>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <Label htmlFor="show-contacts" className="font-medium">
+                    Contacts
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Share assigned project contacts.
+                  </p>
+                </div>
+                <Switch
+                  id="show-contacts"
+                  checked={portalSettings.showContacts}
+                  onCheckedChange={(checked) => handleToggleSetting("showContacts", checked)}
+                  disabled={isPublishingPortal}
+                />
+              </div>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <Label htmlFor="show-budget" className="font-medium">
+                    Budget
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Show project budget in the client portal.
+                  </p>
+                </div>
+                <Switch
+                  id="show-budget"
+                  checked={portalSettings.showBudget}
+                  onCheckedChange={(checked) => handleToggleSetting("showBudget", checked)}
+                  disabled={isPublishingPortal}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-5">
+        <div>
+          <h2 className="text-lg font-semibold">Customer product feedback</h2>
+          <p className="text-sm text-muted-foreground">
+            Decisions and comments submitted by customers in the Materials section.
+          </p>
+        </div>
+
+        <div className="space-y-4 rounded-lg border bg-card p-6">
+          <div className="flex flex-wrap gap-2">
+            <span className="inline-flex items-center rounded-full border bg-background px-3 py-1 text-xs font-medium">
+              Accepted: {feedbackSummary.acceptedCount}
+            </span>
+            <span className="inline-flex items-center rounded-full border bg-background px-3 py-1 text-xs font-medium">
+              Rejected: {feedbackSummary.rejectedCount}
+            </span>
+            <span className="inline-flex items-center rounded-full border bg-background px-3 py-1 text-xs font-medium">
+              Comments: {feedbackSummary.commentedCount}
+            </span>
+          </div>
+
+          {feedbackItems.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No published products yet. Click Update portal first.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {feedbackItems.map((item) => (
+                <div key={item.sourceItemId} className="rounded-md border bg-background p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium">{item.itemName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {item.sectionName || "No category"}
+                      </p>
+                    </div>
+                    <span
+                      className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${
+                        item.decision === "accepted"
+                          ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                          : item.decision === "rejected"
+                            ? "border-rose-300 bg-rose-50 text-rose-700"
+                            : "border-border bg-muted/50 text-muted-foreground"
+                      }`}
+                    >
+                      {item.decision === "accepted"
+                        ? "Accepted"
+                        : item.decision === "rejected"
+                          ? "Rejected"
+                          : "Pending"}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    {item.comment && item.comment.trim().length > 0
+                      ? item.comment
+                      : "No comment."}
+                  </p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {item.updatedAt
+                      ? `Updated: ${new Date(item.updatedAt).toLocaleString()}`
+                      : "No updates yet."}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
 
       <section className="space-y-5">
         <div>

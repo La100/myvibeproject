@@ -29,6 +29,10 @@ import { ShoppingListItemDetails } from './ShoppingListItemDetails';
 type ShoppingListItem = Doc<"shoppingListItems"> & {
   alternativeToItemId?: Id<"shoppingListItems"> | null;
   selectedAlternativeItemId?: Id<"shoppingListItems"> | null;
+  customerDecision?: "accepted" | "rejected" | null;
+  customerDecisionComment?: string | null;
+  customerDecisionUpdatedAt?: number;
+  customerDecisionByName?: string | null;
 };
 type Priority = ShoppingListItem["priority"];
 
@@ -605,6 +609,48 @@ export function ShoppingListSection({
                             </Select>
                           </div>
                         )}
+
+                        {!isAlternativeItem &&
+                        (item.customerDecision ||
+                          (item.customerDecisionComment &&
+                            item.customerDecisionComment.trim().length > 0)) ? (
+                          <div className="mt-3 rounded-md border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] p-3">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-xs font-medium text-[var(--ui-text-muted)]">
+                                Customer feedback:
+                              </span>
+                              <Badge
+                                variant="outline"
+                                className={
+                                  item.customerDecision === "accepted"
+                                    ? "border-emerald-300 text-emerald-700"
+                                    : item.customerDecision === "rejected"
+                                      ? "border-rose-300 text-rose-700"
+                                      : ""
+                                }
+                              >
+                                {item.customerDecision === "accepted"
+                                  ? "Accepted"
+                                  : item.customerDecision === "rejected"
+                                    ? "Rejected"
+                                    : "Comment only"}
+                              </Badge>
+                            </div>
+                            {item.customerDecisionComment ? (
+                              <p className="mt-2 text-sm text-[var(--ui-text-main)]">
+                                {item.customerDecisionComment}
+                              </p>
+                            ) : null}
+                            <p className="mt-2 text-xs text-[var(--ui-text-muted)]">
+                              {item.customerDecisionByName
+                                ? `${item.customerDecisionByName} · `
+                                : ""}
+                              {item.customerDecisionUpdatedAt
+                                ? new Date(item.customerDecisionUpdatedAt).toLocaleString()
+                                : "No timestamp"}
+                            </p>
+                          </div>
+                        ) : null}
 
                         {item.assignedTo && (
                           <div className="flex items-center gap-2 mt-3">

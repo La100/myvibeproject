@@ -1,5 +1,0 @@
-Project context for AI smoke test:
-- Focus: bathroom renovation.
-- Budget target: 18,000.
-- Deadline: 8 weeks.
-- Team: electrician, plumber, tiler.

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
-import { CheckCircle2, ClipboardList, Download, ExternalLink, Send, ShoppingCart } from "lucide-react";
+import { Banknote, CheckCircle2, ClipboardList, Download, ExternalLink, Send, Users, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { Doc, Id } from "@/convex/_generated/dataModel";
 import { apiAny } from "@/lib/convexApiAny";
@@ -15,6 +15,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { addDocumentMeta, addPageNumbers, ensurePdfUnicodeFont, formatMoney, sanitizeFileName } from "@/lib/pdfExport";
 
 type ClientPanelItem = Doc<"clientPanelItems">;
 type ClientPanelSection = Doc<"clientPanelSections">;
@@ -25,8 +26,40 @@ type ClientPanelFile = {
   mimeType: string;
   size: number;
   folderName?: string;
+  moodboardSection?: string;
   uploadedAt: number;
   url: string;
+};
+type PublicTask = {
+  _id: string;
+  title: string;
+  description?: string;
+  status: "todo" | "in_progress" | "review" | "done";
+  priority?: "low" | "medium" | "high" | "urgent" | null;
+  startDate?: number;
+  endDate?: number;
+};
+type PublicLaborItem = {
+  _id: string;
+  name: string;
+  notes?: string;
+  quantity: number;
+  unit: string;
+  unitPrice?: number;
+  totalPrice?: number;
+  startDate?: number;
+  endDate?: number;
+};
+type PublicContact = {
+  _id: string;
+  name: string;
+  companyName?: string;
+  email?: string;
+  phone?: string;
+  type: "contractor" | "supplier" | "subcontractor" | "other";
+  website?: string;
+  projectRole?: string;
+  projectNotes?: string;
 };
 type PublicSurveyQuestion = {
   _id: Id<"surveyQuestions">;
@@ -71,11 +104,28 @@ type PublicSurveyAnswerPayload = {
   numberAnswer?: number;
   booleanAnswer?: boolean;
 };
+type MaterialDecision = "accepted" | "rejected" | null;
+type MaterialFeedbackDraft = {
+  decision: MaterialDecision;
+  comment: string;
+};
+
 const EMPTY_SECTIONS: ClientPanelSection[] = [];
 const EMPTY_ITEMS: ClientPanelItem[] = [];
 const EMPTY_FILES: ClientPanelFile[] = [];
 const EMPTY_SURVEYS: PublicSurvey[] = [];
+const EMPTY_TASKS: PublicTask[] = [];
+const EMPTY_LABOR_ITEMS: PublicLaborItem[] = [];
+const EMPTY_CONTACTS: PublicContact[] = [];
 const DEFAULT_CLIENT_PANEL_SETTINGS = {
+  showShoppingList: false,
+  showFiles: false,
+  showMoodboard: false,
+  showSurveys: false,
+  showTasks: false,
+  showLabor: false,
+  showContacts: false,
+  showBudget: false,
   showNotes: true,
   showSupplier: true,
   showPrice: true,
@@ -142,6 +192,20 @@ const formatFileSize = (size: number) => {
     return `${(size / 1024).toFixed(1)} KB`;
   }
   return `${size} B`;
+};
+
+const formatPortalDate = (timestamp?: number) => {
+  if (!timestamp) return "-";
+  return new Date(timestamp).toLocaleDateString();
+};
+
+const formatTaskStatus = (status: PublicTask["status"]) =>
+  status.replace(/_/g, " ").toUpperCase();
+
+const getMaterialDecisionLabel = (decision: MaterialDecision) => {
+  if (decision === "accepted") return "Accepted";
+  if (decision === "rejected") return "Rejected";
+  return "Pending";
 };
 
 const getOrCreatePublicRespondentKey = (accessToken: string) => {
@@ -245,13 +309,7 @@ function ItemImage({
     );
   }
 
-  return (
-    <div
-      className={`${sizeClass} flex items-center justify-center rounded-xl border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] text-xs text-[var(--ui-text-muted)]`}
-    >
-      No image
-    </div>
-  );
+  return null;
 }
 
 function ClientPanelSkeleton() {
@@ -267,24 +325,37 @@ export default function PublicClientPanelPage() {
     accessToken,
   });
   const selectAlternative = useMutation(apiAny.shopping.selectShoppingAlternativeByAccessToken);
+  const setItemFeedback = useMutation(apiAny.shopping.setShoppingItemFeedbackByAccessToken);
   const submitPublicSurvey = useMutation(apiAny.surveys.submitPublicSurveyResponseByAccessToken);
   const publicSurveysData = useQuery(
     apiAny.surveys.getPublicSurveysByAccessToken,
-    respondentKey ? { accessToken, respondentKey } : "skip"
+    respondentKey && (panelData?.settings?.showSurveys ?? false)
+      ? { accessToken, respondentKey }
+      : "skip"
   );
 
   const [localSelection, setLocalSelection] = useState<Record<string, string>>({});
   const [savingItemId, setSavingItemId] = useState<string | null>(null);
+  const [savingFeedbackItemId, setSavingFeedbackItemId] = useState<string | null>(null);
   const [openSurveyId, setOpenSurveyId] = useState<string | null>(null);
   const [submittingSurveyId, setSubmittingSurveyId] = useState<string | null>(null);
   const [surveyStartTimes, setSurveyStartTimes] = useState<Record<string, number>>({});
   const [surveyAnswers, setSurveyAnswers] = useState<Record<string, Record<string, unknown>>>({});
+  const [feedbackByItem, setFeedbackByItem] = useState<Record<string, MaterialFeedbackDraft>>({});
+  const [isExportingMaterialsPdf, setIsExportingMaterialsPdf] = useState(false);
+  const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
+  const [respondentName, setRespondentName] = useState("");
 
   const project = panelData?.project;
   const sections = (panelData?.sections as ClientPanelSection[] | undefined) ?? EMPTY_SECTIONS;
   const items = (panelData?.items as ClientPanelItem[] | undefined) ?? EMPTY_ITEMS;
   const files = (panelData?.files as ClientPanelFile[] | undefined) ?? EMPTY_FILES;
+  const moodboardFiles =
+    (panelData?.moodboardFiles as ClientPanelFile[] | undefined) ?? EMPTY_FILES;
   const surveys = (publicSurveysData?.surveys as PublicSurvey[] | undefined) ?? EMPTY_SURVEYS;
+  const tasks = (panelData?.tasks as PublicTask[] | undefined) ?? EMPTY_TASKS;
+  const laborItems = (panelData?.labor as PublicLaborItem[] | undefined) ?? EMPTY_LABOR_ITEMS;
+  const contacts = (panelData?.contacts as PublicContact[] | undefined) ?? EMPTY_CONTACTS;
   const settings = panelData?.settings ?? DEFAULT_CLIENT_PANEL_SETTINGS;
 
   const currencySymbol = getCurrencySymbol(project?.currency);
@@ -293,6 +364,30 @@ export default function PublicClientPanelPage() {
     if (!accessToken || typeof window === "undefined") return;
     setRespondentKey(getOrCreatePublicRespondentKey(accessToken));
   }, [accessToken]);
+
+  useEffect(() => {
+    if (!accessToken || typeof window === "undefined") return;
+    const storageKey = `client-panel-respondent-name:${accessToken}`;
+    const savedName = window.localStorage.getItem(storageKey);
+    if (savedName) {
+      setRespondentName(savedName);
+    }
+  }, [accessToken]);
+
+  useEffect(() => {
+    const baseItems = items.filter((item) => !item.alternativeToSourceItemId);
+    setFeedbackByItem((prev) => {
+      const next: Record<string, MaterialFeedbackDraft> = {};
+      for (const item of baseItems) {
+        const itemId = String(item.sourceItemId);
+        next[itemId] = prev[itemId] ?? {
+          decision: item.customerDecision ?? null,
+          comment: item.customerDecisionComment || "",
+        };
+      }
+      return next;
+    });
+  }, [items]);
 
   const baseItemsBySection = useMemo(() => {
     const baseItems = items.filter((item) => !item.alternativeToSourceItemId);
@@ -365,6 +460,146 @@ export default function PublicClientPanelPage() {
   );
 
   const grandTotal = sectionSummaries.reduce((sum, section) => sum + section.total, 0);
+  const materialsItemCount = sectionSummaries.reduce(
+    (sum, section) => sum + section.itemCount,
+    0
+  );
+
+  const sectionCards = [
+    settings.showShoppingList
+      ? { id: "portal-materials", label: "Materials", count: materialsItemCount }
+      : null,
+    settings.showSurveys ? { id: "portal-surveys", label: "Surveys", count: surveys.length } : null,
+    settings.showFiles ? { id: "portal-files", label: "Files", count: files.length } : null,
+    settings.showMoodboard
+      ? { id: "portal-moodboard", label: "Moodboard", count: moodboardFiles.length }
+      : null,
+    settings.showTasks ? { id: "portal-tasks", label: "Tasks", count: tasks.length } : null,
+    settings.showLabor ? { id: "portal-labor", label: "Labor", count: laborItems.length } : null,
+    settings.showContacts ? { id: "portal-contacts", label: "Contacts", count: contacts.length } : null,
+    settings.showBudget
+      ? {
+          id: "portal-budget",
+          label: "Budget",
+          count: typeof project?.budget === "number" ? 1 : 0,
+        }
+      : null,
+  ].filter((section): section is { id: string; label: string; count: number } => !!section);
+
+  useEffect(() => {
+    if (sectionCards.length === 0) {
+      setActiveSectionId(null);
+      return;
+    }
+    setActiveSectionId((current) =>
+      current && sectionCards.some((section) => section.id === current)
+        ? current
+        : sectionCards[0].id
+    );
+  }, [sectionCards]);
+
+  const handleExportMaterialsPdf = async () => {
+    if (!project || sectionSummaries.length === 0) {
+      toast.info("No materials available for export.");
+      return;
+    }
+
+    setIsExportingMaterialsPdf(true);
+    try {
+      const jsPDF = (await import("jspdf")).default;
+      await import("jspdf-autotable");
+
+      const doc = new jsPDF({
+        putOnlyUsedFonts: true,
+        format: "a4",
+        unit: "mm",
+      });
+
+      let pdfFontFamily = "helvetica";
+      try {
+        pdfFontFamily = await ensurePdfUnicodeFont(doc);
+      } catch (fontError) {
+        console.warn("Could not load Unicode PDF font, falling back to Helvetica:", fontError);
+      }
+      doc.setFont(pdfFontFamily, "normal");
+
+      addDocumentMeta(doc, {
+        title: `Materials - ${project.name}`,
+        subtitle: `Items: ${Array.from(baseItemsBySection.values()).reduce((sum, itemsInSection) => sum + itemsInSection.length, 0)}`,
+        generatedOn: new Date().toLocaleString(),
+        fontFamily: pdfFontFamily,
+      });
+
+      const includePriceColumn = settings.showPrice;
+      const includeSupplierColumn = settings.showSupplier;
+      const includeNotesColumn = settings.showNotes;
+      const headers = [
+        "Section",
+        "Material",
+        "Qty",
+        ...(includePriceColumn ? ["Total"] : []),
+        ...(includeSupplierColumn ? ["Supplier"] : []),
+        ...(includeNotesColumn ? ["Notes"] : []),
+      ];
+
+      const rows = Array.from(baseItemsBySection.entries()).flatMap(
+        ([sectionName, sectionItems]) =>
+          sectionItems.map((baseItem) => {
+            const options = getOptionsForBaseItem(baseItem);
+            const baseItemId = String(baseItem.sourceItemId);
+            const selectedOptionId =
+              localSelection[baseItemId] || getInitialSelectedOption(baseItem, options);
+            const selectedOption =
+              options.find((option) => String(option.sourceItemId) === selectedOptionId) || baseItem;
+
+            return [
+              sectionName,
+              selectedOption.name || baseItem.name,
+              `${selectedOption.quantity} ${selectedOption.unit || "pcs"}`,
+              ...(includePriceColumn ? [formatMoney(selectedOption.totalPrice, currencySymbol)] : []),
+              ...(includeSupplierColumn ? [selectedOption.supplier || "-"] : []),
+              ...(includeNotesColumn ? [selectedOption.notes || "-"] : []),
+            ];
+          })
+      );
+
+      doc.autoTable({
+        head: [headers],
+        body: rows,
+        startY: 36,
+        styles: {
+          font: pdfFontFamily,
+          fontSize: 8.6,
+        },
+        headStyles: {
+          font: pdfFontFamily,
+        },
+      });
+
+      if (includePriceColumn) {
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const finalY = (doc.lastAutoTable?.finalY || 36) + 8;
+        doc.setFont(pdfFontFamily, "bold");
+        doc.setFontSize(11);
+        doc.text(
+          `Grand total: ${formatMoney(grandTotal, currencySymbol)}`,
+          pageWidth - 18,
+          finalY,
+          { align: "right" }
+        );
+      }
+
+      addPageNumbers(doc, pdfFontFamily);
+      const dateStamp = new Date().toISOString().slice(0, 10);
+      doc.save(`materials-${sanitizeFileName(project.name)}-${dateStamp}.pdf`);
+      toast.success("Materials PDF exported.");
+    } catch (error) {
+      console.error("Materials PDF export error:", error);
+      toast.error("Failed to export materials PDF.");
+    } finally {
+      setIsExportingMaterialsPdf(false);
+    }
+  };
 
   const handleSelect = async (baseItem: ClientPanelItem, selectedId: string) => {
     const baseItemId = String(baseItem.sourceItemId);
@@ -378,6 +613,7 @@ export default function PublicClientPanelPage() {
         accessToken,
         itemId: baseItem.sourceItemId,
         selectedItemId: selectedId as Id<"shoppingListItems">,
+        respondentName: respondentName.trim() || undefined,
       });
       toast.success("Selection saved");
     } catch (error) {
@@ -395,6 +631,92 @@ export default function PublicClientPanelPage() {
       });
     } finally {
       setSavingItemId(null);
+    }
+  };
+
+  const updateFeedbackDraft = (
+    itemId: string,
+    update: Partial<MaterialFeedbackDraft>,
+    fallback: MaterialFeedbackDraft
+  ) => {
+    setFeedbackByItem((prev) => ({
+      ...prev,
+      [itemId]: {
+        ...(prev[itemId] || fallback),
+        ...update,
+      },
+    }));
+  };
+
+  const handleSetMaterialDecision = async (
+    baseItem: ClientPanelItem,
+    nextDecision: Exclude<MaterialDecision, null>
+  ) => {
+    const itemId = String(baseItem.sourceItemId);
+    const fallbackDraft: MaterialFeedbackDraft = {
+      decision: baseItem.customerDecision ?? null,
+      comment: baseItem.customerDecisionComment || "",
+    };
+    const currentDraft = feedbackByItem[itemId] || fallbackDraft;
+    const resolvedDecision = currentDraft.decision === nextDecision ? null : nextDecision;
+    const previousDraft = currentDraft;
+
+    updateFeedbackDraft(itemId, { decision: resolvedDecision }, fallbackDraft);
+    setSavingFeedbackItemId(itemId);
+    try {
+      await setItemFeedback({
+        accessToken,
+        itemId: baseItem.sourceItemId,
+        decision: resolvedDecision,
+        comment: currentDraft.comment.trim() || null,
+        respondentName: respondentName.trim() || undefined,
+      });
+      toast.success("Customer decision saved");
+    } catch (error) {
+      setFeedbackByItem((prev) => ({
+        ...prev,
+        [itemId]: previousDraft,
+      }));
+      toast.error("Failed to save customer decision", {
+        description: (error as Error).message,
+      });
+    } finally {
+      setSavingFeedbackItemId(null);
+    }
+  };
+
+  const handleSaveMaterialComment = async (baseItem: ClientPanelItem) => {
+    const itemId = String(baseItem.sourceItemId);
+    const fallbackDraft: MaterialFeedbackDraft = {
+      decision: baseItem.customerDecision ?? null,
+      comment: baseItem.customerDecisionComment || "",
+    };
+    const currentDraft = feedbackByItem[itemId] || fallbackDraft;
+    const normalizedComment = currentDraft.comment.trim();
+
+    setSavingFeedbackItemId(itemId);
+    try {
+      await setItemFeedback({
+        accessToken,
+        itemId: baseItem.sourceItemId,
+        decision: currentDraft.decision,
+        comment: normalizedComment || null,
+        respondentName: respondentName.trim() || undefined,
+      });
+      setFeedbackByItem((prev) => ({
+        ...prev,
+        [itemId]: {
+          ...currentDraft,
+          comment: normalizedComment,
+        },
+      }));
+      toast.success("Comment saved");
+    } catch (error) {
+      toast.error("Failed to save comment", {
+        description: (error as Error).message,
+      });
+    } finally {
+      setSavingFeedbackItemId(null);
     }
   };
 
@@ -417,6 +739,11 @@ export default function PublicClientPanelPage() {
 
   const handleSubmitPublicSurvey = async (survey: PublicSurvey) => {
     if (!respondentKey) return;
+    const cleanedRespondentName = respondentName.trim();
+    if (!cleanedRespondentName) {
+      toast.error("Please enter who is answering.");
+      return;
+    }
 
     const surveyId = String(survey._id);
     const answersByQuestionId = surveyAnswers[surveyId] || {};
@@ -452,10 +779,15 @@ export default function PublicClientPanelPage() {
 
     setSubmittingSurveyId(surveyId);
     try {
+      if (typeof window !== "undefined") {
+        const storageKey = `client-panel-respondent-name:${accessToken}`;
+        window.localStorage.setItem(storageKey, cleanedRespondentName);
+      }
       await submitPublicSurvey({
         accessToken,
         surveyId: survey._id,
         respondentKey,
+        respondentName: cleanedRespondentName,
         answers: payload,
         metadata,
       });
@@ -502,25 +834,58 @@ export default function PublicClientPanelPage() {
       <div className="mb-10 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div className="space-y-4">
           <div className="flex items-center gap-3">
-            <ShoppingCart className="h-8 w-8 text-[var(--ui-accent-brand)]" />
+            <ClipboardList className="h-8 w-8 text-[var(--ui-accent-brand)]" />
             <h1 className="text-4xl font-medium tracking-tight font-[var(--font-display-serif)] text-[var(--ui-text-strong)] md:text-5xl">
-              Shopping List
+              Customer Portal
             </h1>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <span className="inline-flex items-center gap-2 rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-4 py-2 text-sm font-medium text-[var(--ui-accent-brand)]">
-              {project.name}
+              For project: {project.name}
             </span>
-            {settings.showPrice ? (
+            {settings.showShoppingList &&
+            settings.showPrice &&
+            activeSectionId === "portal-materials" ? (
               <span className="inline-flex items-center gap-2 rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-4 py-2 text-sm font-medium text-[var(--ui-text-main)]">
                 Total: {formatAmount(grandTotal, currencySymbol)}
               </span>
             ) : null}
           </div>
           <p className="max-w-4xl text-sm text-muted-foreground">
-            Select one option for each material. Your choices are saved automatically, and list
-            content changes only after the team clicks Update portal.
+            Use the cards below to switch between portal sections shared by the project team.
           </p>
+          {settings.showShoppingList &&
+          sectionSummaries.length > 0 &&
+          activeSectionId === "portal-materials" ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void handleExportMaterialsPdf()}
+              disabled={isExportingMaterialsPdf}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              {isExportingMaterialsPdf ? "Exporting PDF..." : "Export materials PDF"}
+            </Button>
+          ) : null}
+          {sectionCards.length > 0 ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {sectionCards.map((section) => (
+                <button
+                  key={section.id}
+                  type="button"
+                  onClick={() => setActiveSectionId(section.id)}
+                  className={`rounded-[14px] border px-4 py-3 text-left transition-colors ${
+                    activeSectionId === section.id
+                      ? "border-[var(--ui-accent-brand)] bg-[var(--ui-surface-soft)]"
+                      : "border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] hover:bg-[var(--ui-surface-soft)]"
+                  }`}
+                >
+                  <p className="text-sm font-medium text-[var(--ui-text-strong)]">{section.label}</p>
+                  <p className="text-xs text-[var(--ui-text-muted)]">{section.count} items</p>
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -531,7 +896,7 @@ export default function PublicClientPanelPage() {
         </div>
       ) : null}
 
-      {files.length > 0 ? (
+      {settings.showFiles && activeSectionId === "portal-files" ? (
         <div className="mb-10 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-4 shadow-[0_24px_60px_rgba(20,20,20,0.08)] sm:rounded-[32px] sm:p-8">
           <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
             <h2 className="text-xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)] sm:text-2xl">
@@ -541,51 +906,126 @@ export default function PublicClientPanelPage() {
               {files.length} files
             </span>
           </div>
-          <div className="space-y-3">
-            {files.map((file) => (
-              <div
-                key={file._id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-[16px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-4"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-[var(--ui-text-strong)]">{file.name}</p>
-                  <p className="mt-1 text-xs text-[var(--ui-text-muted)]">
-                    {file.fileType} • {formatFileSize(file.size)}
-                    {file.folderName ? ` • ${file.folderName}` : ""}
-                  </p>
+          {files.length === 0 ? (
+            <p className="text-sm text-[var(--ui-text-muted)]">No files shared.</p>
+          ) : (
+            <div className="space-y-3">
+              {files.map((file) => (
+                <div
+                  key={file._id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-[16px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-4"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-[var(--ui-text-strong)]">{file.name}</p>
+                    <p className="mt-1 text-xs text-[var(--ui-text-muted)]">
+                      {file.fileType} • {formatFileSize(file.size)}
+                      {file.folderName ? ` • ${file.folderName}` : ""}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={file.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--ui-border-soft)] text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-soft)] hover:text-[var(--ui-text-main)]"
+                      aria-label={`Open ${file.name}`}
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                    <a
+                      href={file.url}
+                      download={file.name}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--ui-border-soft)] text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-soft)] hover:text-[var(--ui-text-main)]"
+                      aria-label={`Download ${file.name}`}
+                    >
+                      <Download className="h-4 w-4" />
+                    </a>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <a
-                    href={file.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--ui-border-soft)] text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-soft)] hover:text-[var(--ui-text-main)]"
-                    aria-label={`Open ${file.name}`}
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </a>
-                  <a
-                    href={file.url}
-                    download={file.name}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--ui-border-soft)] text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-soft)] hover:text-[var(--ui-text-main)]"
-                    aria-label={`Download ${file.name}`}
-                  >
-                    <Download className="h-4 w-4" />
-                  </a>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       ) : null}
 
-      {respondentKey && publicSurveysData === undefined ? (
+      {settings.showMoodboard && activeSectionId === "portal-moodboard" ? (
+        <div className="mb-10 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-4 shadow-[0_24px_60px_rgba(20,20,20,0.08)] sm:rounded-[32px] sm:p-8">
+          <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
+            <h2 className="text-xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)] sm:text-2xl">
+              Moodboard
+            </h2>
+            <span className="inline-flex items-center justify-center rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-muted)]">
+              {moodboardFiles.length} items
+            </span>
+          </div>
+          {moodboardFiles.length === 0 ? (
+            <p className="text-sm text-[var(--ui-text-muted)]">No moodboard items shared.</p>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {moodboardFiles.map((file) => {
+                const isImage = file.mimeType.startsWith("image/");
+                return (
+                  <div
+                    key={file._id}
+                    className="rounded-[16px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-3"
+                  >
+                    {isImage ? (
+                      <a href={file.url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-lg">
+                        <img src={file.url} alt={file.name} className="h-44 w-full object-cover" />
+                      </a>
+                    ) : (
+                      <div className="mb-2 rounded-lg border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-soft)] p-3 text-xs text-[var(--ui-text-muted)]">
+                        Preview unavailable
+                      </div>
+                    )}
+                    <div className="mt-3 flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-[var(--ui-text-strong)]">{file.name}</p>
+                        <p className="mt-1 text-xs text-[var(--ui-text-muted)]">
+                          {file.moodboardSection ? `${file.moodboardSection} • ` : ""}
+                          {formatFileSize(file.size)}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <a
+                          href={file.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--ui-border-soft)] text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-soft)] hover:text-[var(--ui-text-main)]"
+                          aria-label={`Open ${file.name}`}
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                        <a
+                          href={file.url}
+                          download={file.name}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--ui-border-soft)] text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-soft)] hover:text-[var(--ui-text-main)]"
+                          aria-label={`Download ${file.name}`}
+                        >
+                          <Download className="h-4 w-4" />
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      {settings.showSurveys &&
+      activeSectionId === "portal-surveys" &&
+      respondentKey &&
+      publicSurveysData === undefined ? (
         <div className="mb-10 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-5 py-6 text-sm text-[var(--ui-text-muted)]">
           Loading surveys...
         </div>
       ) : null}
 
-      {surveys.length > 0 ? (
+      {settings.showSurveys &&
+      activeSectionId === "portal-surveys" &&
+      publicSurveysData !== undefined ? (
         <div className="mb-10 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-4 shadow-[0_24px_60px_rgba(20,20,20,0.08)] sm:rounded-[32px] sm:p-8">
           <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
             <h2 className="text-xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)] sm:text-2xl">
@@ -598,8 +1038,23 @@ export default function PublicClientPanelPage() {
           <p className="mb-6 text-sm text-[var(--ui-text-muted)]">
             Share your feedback directly in the portal. Responses are sent to the project team.
           </p>
-          <div className="space-y-4">
-            {surveys.map((survey) => {
+          <div className="mb-6 max-w-md space-y-2">
+            <Label htmlFor="respondent-name" className="text-sm font-medium">
+              Who is answering?
+            </Label>
+            <Input
+              id="respondent-name"
+              value={respondentName}
+              onChange={(event) => setRespondentName(event.target.value)}
+              placeholder="Your name"
+              maxLength={120}
+            />
+          </div>
+          {surveys.length === 0 ? (
+            <p className="text-sm text-[var(--ui-text-muted)]">No surveys shared.</p>
+          ) : (
+            <div className="space-y-4">
+              {surveys.map((survey) => {
               const surveyId = String(survey._id);
               const isOpen = openSurveyId === surveyId;
               const isSubmitting = submittingSurveyId === surveyId;
@@ -831,215 +1286,474 @@ export default function PublicClientPanelPage() {
                   ) : null}
                 </div>
               );
-            })}
-          </div>
+              })}
+            </div>
+          )}
         </div>
       ) : null}
 
-      {sectionSummaries.length === 0 ? (
-        files.length === 0 ? (
-          <div className="rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-8 text-center text-sm text-[var(--ui-text-muted)]">
-            No shopping items available yet.
+      {settings.showTasks && activeSectionId === "portal-tasks" ? (
+        <div className="mb-10 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-4 shadow-[0_24px_60px_rgba(20,20,20,0.08)] sm:rounded-[32px] sm:p-8">
+          <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
+            <h2 className="text-xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)] sm:text-2xl">
+              Tasks
+            </h2>
+            <span className="inline-flex items-center justify-center rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-muted)]">
+              {tasks.length} items
+            </span>
           </div>
-        ) : null
-      ) : (
-        sectionSummaries.map(({ sectionName, itemCount, total }) => {
-          const sectionItems = baseItemsBySection.get(sectionName) || [];
+          {tasks.length === 0 ? (
+            <p className="text-sm text-[var(--ui-text-muted)]">No tasks shared.</p>
+          ) : (
+            <div className="space-y-3">
+              {tasks.map((task) => (
+                <div
+                  key={task._id}
+                  className="rounded-[16px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-4"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <ClipboardList className="h-4 w-4 text-[var(--ui-accent-brand)]" />
+                    <p className="text-sm font-medium text-[var(--ui-text-strong)]">{task.title}</p>
+                    <Badge variant="outline" className="text-[10px]">
+                      {formatTaskStatus(task.status)}
+                    </Badge>
+                    {task.priority ? (
+                      <Badge variant="secondary" className="text-[10px]">
+                        {task.priority.toUpperCase()}
+                      </Badge>
+                    ) : null}
+                  </div>
+                  {task.description ? (
+                    <p className="mt-2 text-sm text-[var(--ui-text-muted)]">{task.description}</p>
+                  ) : null}
+                  <p className="mt-2 text-xs text-[var(--ui-text-muted)]">
+                    Start: {formatPortalDate(task.startDate)} · End: {formatPortalDate(task.endDate)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : null}
 
-          return (
-            <div
-              key={sectionName}
-              className="mb-10 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-4 shadow-[0_24px_60px_rgba(20,20,20,0.08)] sm:rounded-[32px] sm:p-8"
-            >
-              <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
-                <h2 className="text-xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)] sm:text-2xl">
-                  {sectionName}
-                </h2>
-                <span className="inline-flex items-center justify-center rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-muted)]">
-                  {itemCount} items
-                </span>
-                {settings.showPrice ? (
-                  <span className="inline-flex items-center justify-center rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-main)]">
-                    {formatAmount(total, currencySymbol)}
-                  </span>
-                ) : null}
-              </div>
+      {settings.showLabor && activeSectionId === "portal-labor" ? (
+        <div className="mb-10 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-4 shadow-[0_24px_60px_rgba(20,20,20,0.08)] sm:rounded-[32px] sm:p-8">
+          <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
+            <h2 className="text-xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)] sm:text-2xl">
+              Labor
+            </h2>
+            <span className="inline-flex items-center justify-center rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-muted)]">
+              {laborItems.length} items
+            </span>
+          </div>
+          {laborItems.length === 0 ? (
+            <p className="text-sm text-[var(--ui-text-muted)]">No labor entries shared.</p>
+          ) : (
+            <div className="space-y-3">
+              {laborItems.map((item) => (
+                <div
+                  key={item._id}
+                  className="rounded-[16px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-4"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Wrench className="h-4 w-4 text-[var(--ui-accent-brand)]" />
+                    <p className="text-sm font-medium text-[var(--ui-text-strong)]">{item.name}</p>
+                  </div>
+                  <p className="mt-2 text-sm text-[var(--ui-text-main)]">
+                    Qty: {item.quantity} {item.unit}
+                    {settings.showPrice && item.totalPrice !== undefined
+                      ? ` · Total: ${formatAmount(item.totalPrice, currencySymbol)}`
+                      : ""}
+                  </p>
+                  {item.notes ? (
+                    <p className="mt-2 text-sm text-[var(--ui-text-muted)]">{item.notes}</p>
+                  ) : null}
+                  <p className="mt-2 text-xs text-[var(--ui-text-muted)]">
+                    Start: {formatPortalDate(item.startDate)} · End: {formatPortalDate(item.endDate)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : null}
 
-              <div className="space-y-4">
-                {sectionItems.map((baseItem) => {
-                  const options = getOptionsForBaseItem(baseItem);
-                  const hasAlternatives = options.length > 1;
-                  const baseItemId = String(baseItem.sourceItemId);
-                  const selectedOptionId =
-                    localSelection[baseItemId] || getInitialSelectedOption(baseItem, options);
-                  const selectedOption =
-                    options.find((option) => String(option.sourceItemId) === selectedOptionId) ||
-                    baseItem;
-                  const statusLabel = getStatusLabel(
-                    selectedOption.realizationStatus || baseItem.realizationStatus
-                  );
+      {settings.showContacts && activeSectionId === "portal-contacts" ? (
+        <div className="mb-10 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-4 shadow-[0_24px_60px_rgba(20,20,20,0.08)] sm:rounded-[32px] sm:p-8">
+          <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
+            <h2 className="text-xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)] sm:text-2xl">
+              Contacts
+            </h2>
+            <span className="inline-flex items-center justify-center rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-muted)]">
+              {contacts.length} items
+            </span>
+          </div>
+          {contacts.length === 0 ? (
+            <p className="text-sm text-[var(--ui-text-muted)]">No contacts shared.</p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {contacts.map((contact) => (
+                <div
+                  key={contact._id}
+                  className="rounded-[16px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-4"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Users className="h-4 w-4 text-[var(--ui-accent-brand)]" />
+                    <p className="text-sm font-medium text-[var(--ui-text-strong)]">{contact.name}</p>
+                    <Badge variant="outline" className="text-[10px]">
+                      {contact.type.toUpperCase()}
+                    </Badge>
+                  </div>
+                  {contact.companyName ? (
+                    <p className="mt-2 text-sm text-[var(--ui-text-main)]">{contact.companyName}</p>
+                  ) : null}
+                  {(contact.email || contact.phone) ? (
+                    <p className="mt-2 text-xs text-[var(--ui-text-muted)]">
+                      {contact.email || "-"}
+                      {contact.phone ? ` · ${contact.phone}` : ""}
+                    </p>
+                  ) : null}
+                  {contact.projectRole ? (
+                    <p className="mt-2 text-xs text-[var(--ui-text-muted)]">
+                      Role: {contact.projectRole}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : null}
 
-                  return (
-                    <div
-                      key={baseItemId}
-                      className="group relative rounded-[20px] border border-[var(--ui-border-soft)]/50 bg-[var(--ui-surface-base)] p-5 transition-all hover:border-[var(--ui-border-soft)] hover:shadow-sm"
-                    >
-                      {hasAlternatives ? (
-                        <div className="space-y-3">
-                          <div className="rounded-md border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-2">
-                            <p className="text-sm font-medium text-[var(--ui-text-strong)]">Choose:</p>
-                            <p className="text-xs text-[var(--ui-text-muted)]">
-                              Select one option for this item.
-                            </p>
-                          </div>
-                          <RadioGroup
-                            value={selectedOptionId}
-                            onValueChange={(value) => void handleSelect(baseItem, value)}
-                            className="space-y-3"
-                          >
-                            {options.map((option) => {
-                              const optionId = String(option.sourceItemId);
-                              const isSelected = optionId === selectedOptionId;
-                              const optionStatusLabel = getStatusLabel(option.realizationStatus);
-                              const optionImage = option.imageUrl || baseItem.imageUrl;
-
-                              return (
-                                <div
-                                  key={optionId}
-                                  className={`rounded-[16px] border p-4 transition-all ${
-                                    isSelected
-                                      ? "border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)]"
-                                      : "border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)]"
-                                  }`}
-                                >
-                                  <div className="flex items-start gap-3">
-                                    <RadioGroupItem id={`${baseItemId}-${optionId}`} value={optionId} className="mt-1" />
-                                    <div className="flex min-w-0 flex-1 items-start justify-between gap-4">
-                                      <div className="flex min-w-0 flex-1 items-start gap-4">
-                                        <ItemImage imageUrl={optionImage} name={option.name} />
-                                        <div className="min-w-0 flex-1 py-1">
-                                          <Label
-                                            htmlFor={`${baseItemId}-${optionId}`}
-                                            className="cursor-pointer break-words text-lg font-medium text-[var(--ui-text-strong)]"
-                                          >
-                                            {option.name}
-                                          </Label>
-                                          <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-[var(--ui-text-main)]">
-                                            <span className="rounded-md border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-2 py-0.5 text-xs font-medium">
-                                              {getQtyLabel(option)}
-                                            </span>
-                                            {settings.showPrice && option.unitPrice !== undefined ? (
-                                              <span className="text-[var(--ui-text-muted)]">
-                                                {formatAmount(option.unitPrice, currencySymbol)} / unit
-                                              </span>
-                                            ) : null}
-                                            {settings.showPrice && option.totalPrice !== undefined ? (
-                                              <span className="font-medium">
-                                                Total: {formatAmount(option.totalPrice, currencySymbol)}
-                                              </span>
-                                            ) : null}
-                                            {settings.showSupplier && option.supplier ? (
-                                              <span>Supplier: {option.supplier}</span>
-                                            ) : null}
-                                          </div>
-                                          {settings.showNotes && option.notes ? (
-                                            <p className="mt-2 text-sm text-[var(--ui-text-muted)]">{option.notes}</p>
-                                          ) : null}
-                                        </div>
-                                      </div>
-                                      <div className="flex shrink-0 items-center gap-2">
-                                        <span className="h-2 w-2 rounded-full bg-[var(--ui-priority-medium)]" />
-                                        {optionStatusLabel ? (
-                                          <span className="inline-flex items-center justify-center rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-main)]">
-                                            {optionStatusLabel}
-                                          </span>
-                                        ) : null}
-                                        {option.productLink ? (
-                                          <a
-                                            href={option.productLink}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-soft)] hover:text-[var(--ui-text-main)]"
-                                          >
-                                            <ExternalLink className="h-4 w-4" />
-                                          </a>
-                                        ) : null}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </RadioGroup>
-                        </div>
-                      ) : (
-                        <div className="flex min-w-0 items-start justify-between gap-4">
-                          <div className="flex min-w-0 flex-1 items-start gap-4">
-                            <ItemImage
-                              imageUrl={selectedOption.imageUrl || baseItem.imageUrl}
-                              name={selectedOption.name || baseItem.name}
-                            />
-                            <div className="min-w-0 flex-1 py-1">
-                              <h3 className="break-words text-lg font-medium text-[var(--ui-text-strong)]">
-                                {selectedOption.name || baseItem.name}
-                              </h3>
-                              <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-[var(--ui-text-main)]">
-                                <span className="rounded-md border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-2 py-0.5 text-xs font-medium">
-                                  {getQtyLabel(selectedOption)}
-                                </span>
-                                {settings.showPrice && selectedOption.unitPrice !== undefined ? (
-                                  <span className="text-[var(--ui-text-muted)]">
-                                    {formatAmount(selectedOption.unitPrice, currencySymbol)} / unit
-                                  </span>
-                                ) : null}
-                                {settings.showPrice && selectedOption.totalPrice !== undefined ? (
-                                  <span className="font-medium">
-                                    Total: {formatAmount(selectedOption.totalPrice, currencySymbol)}
-                                  </span>
-                                ) : null}
-                                {settings.showSupplier && selectedOption.supplier ? (
-                                  <span>Supplier: {selectedOption.supplier}</span>
-                                ) : null}
-                              </div>
-                              {settings.showNotes && selectedOption.notes ? (
-                                <p className="mt-2 text-sm text-[var(--ui-text-muted)]">{selectedOption.notes}</p>
-                              ) : null}
-                            </div>
-                          </div>
-                          <div className="flex shrink-0 items-center gap-2">
-                            <span className="h-2 w-2 rounded-full bg-[var(--ui-priority-medium)]" />
-                            {statusLabel ? (
-                              <span className="inline-flex items-center justify-center rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-main)]">
-                                {statusLabel}
-                              </span>
-                            ) : null}
-                            {selectedOption.productLink ? (
-                              <a
-                                href={selectedOption.productLink}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-soft)] hover:text-[var(--ui-text-main)]"
-                              >
-                                <ExternalLink className="h-4 w-4" />
-                              </a>
-                            ) : null}
-                          </div>
-                        </div>
-                      )}
-
-                      {savingItemId === baseItemId ? (
-                        <p className="pt-3 text-xs text-[var(--ui-text-muted)]">Saving selection...</p>
-                      ) : null}
-                    </div>
-                  );
-                })}
+      {settings.showBudget && activeSectionId === "portal-budget" ? (
+        <div className="mb-10 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-4 shadow-[0_24px_60px_rgba(20,20,20,0.08)] sm:rounded-[32px] sm:p-8">
+          <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
+            <h2 className="text-xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)] sm:text-2xl">
+              Budget
+            </h2>
+          </div>
+          {typeof project.budget === "number" ? (
+            <div className="rounded-[16px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-6">
+              <p className="mb-2 text-sm text-[var(--ui-text-muted)]">Project budget</p>
+              <div className="flex items-center gap-3">
+                <Banknote className="h-5 w-5 text-[var(--ui-accent-brand)]" />
+                <p className="text-2xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)]">
+                  {formatAmount(project.budget, currencySymbol)}
+                </p>
               </div>
             </div>
-          );
-        })
-      )}
+          ) : (
+            <p className="text-sm text-[var(--ui-text-muted)]">No budget set for this project.</p>
+          )}
+        </div>
+      ) : null}
 
-      {settings.showPrice && sectionSummaries.length > 0 ? (
+      {settings.showShoppingList && activeSectionId === "portal-materials" ? (
+        <div>
+          {sectionSummaries.length === 0 ? (
+            <div className="rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-8 text-center text-sm text-[var(--ui-text-muted)]">
+              No shopping items available yet.
+            </div>
+          ) : (
+            sectionSummaries.map(({ sectionName, itemCount, total }) => {
+              const sectionItems = baseItemsBySection.get(sectionName) || [];
+
+              return (
+                <div
+                  key={sectionName}
+                  className="mb-10 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-4 shadow-[0_24px_60px_rgba(20,20,20,0.08)] sm:rounded-[32px] sm:p-8"
+                >
+                  <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
+                    <h2 className="text-xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)] sm:text-2xl">
+                      {sectionName}
+                    </h2>
+                    <span className="inline-flex items-center justify-center rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-muted)]">
+                      {itemCount} items
+                    </span>
+                    {settings.showPrice ? (
+                      <span className="inline-flex items-center justify-center rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-main)]">
+                        {formatAmount(total, currencySymbol)}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <div className="space-y-4">
+                    {sectionItems.map((baseItem) => {
+                      const options = getOptionsForBaseItem(baseItem);
+                      const hasAlternatives = options.length > 1;
+                      const baseItemId = String(baseItem.sourceItemId);
+                      const selectedOptionId =
+                        localSelection[baseItemId] || getInitialSelectedOption(baseItem, options);
+                      const selectedOption =
+                        options.find((option) => String(option.sourceItemId) === selectedOptionId) ||
+                        baseItem;
+                      const feedbackDraft = feedbackByItem[baseItemId] || {
+                        decision: baseItem.customerDecision ?? null,
+                        comment: baseItem.customerDecisionComment || "",
+                      };
+                      const statusLabel = getStatusLabel(
+                        selectedOption.realizationStatus || baseItem.realizationStatus
+                      );
+
+                      return (
+                        <div
+                          key={baseItemId}
+                          className="group relative rounded-[20px] border border-[var(--ui-border-soft)]/50 bg-[var(--ui-surface-base)] p-5 transition-all hover:border-[var(--ui-border-soft)] hover:shadow-sm"
+                        >
+                          {hasAlternatives ? (
+                            <div className="space-y-3">
+                              <div className="rounded-md border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-2">
+                                <p className="text-sm font-medium text-[var(--ui-text-strong)]">Choose:</p>
+                                <p className="text-xs text-[var(--ui-text-muted)]">
+                                  Select one option for this item.
+                                </p>
+                              </div>
+                              <RadioGroup
+                                value={selectedOptionId}
+                                onValueChange={(value) => void handleSelect(baseItem, value)}
+                                className="space-y-3"
+                              >
+                                {options.map((option) => {
+                                  const optionId = String(option.sourceItemId);
+                                  const isSelected = optionId === selectedOptionId;
+                                  const optionStatusLabel = getStatusLabel(option.realizationStatus);
+                                  const optionImage = option.imageUrl || baseItem.imageUrl;
+
+                                  return (
+                                    <div
+                                      key={optionId}
+                                      className={`rounded-[16px] border p-4 transition-all ${
+                                        isSelected
+                                          ? "border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)]"
+                                          : "border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)]"
+                                      }`}
+                                    >
+                                      <div className="flex items-start gap-3">
+                                        <RadioGroupItem id={`${baseItemId}-${optionId}`} value={optionId} className="mt-1" />
+                                        <div className="flex min-w-0 flex-1 items-start justify-between gap-4">
+                                          <div className="flex min-w-0 flex-1 items-start gap-4">
+                                            <ItemImage imageUrl={optionImage} name={option.name} />
+                                            <div className="min-w-0 flex-1 py-1">
+                                              <Label
+                                                htmlFor={`${baseItemId}-${optionId}`}
+                                                className="cursor-pointer break-words text-lg font-medium text-[var(--ui-text-strong)]"
+                                              >
+                                                {option.name}
+                                              </Label>
+                                              <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-[var(--ui-text-main)]">
+                                                <span className="rounded-md border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-2 py-0.5 text-xs font-medium">
+                                                  {getQtyLabel(option)}
+                                                </span>
+                                                {settings.showPrice && option.unitPrice !== undefined ? (
+                                                  <span className="text-[var(--ui-text-muted)]">
+                                                    {formatAmount(option.unitPrice, currencySymbol)} / unit
+                                                  </span>
+                                                ) : null}
+                                                {settings.showPrice && option.totalPrice !== undefined ? (
+                                                  <span className="font-medium">
+                                                    Total: {formatAmount(option.totalPrice, currencySymbol)}
+                                                  </span>
+                                                ) : null}
+                                                {settings.showSupplier && option.supplier ? (
+                                                  <span>Supplier: {option.supplier}</span>
+                                                ) : null}
+                                              </div>
+                                              {settings.showNotes && option.notes ? (
+                                                <p className="mt-2 text-sm text-[var(--ui-text-muted)]">{option.notes}</p>
+                                              ) : null}
+                                            </div>
+                                          </div>
+                                          <div className="flex shrink-0 items-center gap-2">
+                                            <span className="h-2 w-2 rounded-full bg-[var(--ui-priority-medium)]" />
+                                            {optionStatusLabel ? (
+                                              <span className="inline-flex items-center justify-center rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-main)]">
+                                                {optionStatusLabel}
+                                              </span>
+                                            ) : null}
+                                            {option.productLink ? (
+                                              <a
+                                                href={option.productLink}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-soft)] hover:text-[var(--ui-text-main)]"
+                                              >
+                                                <ExternalLink className="h-4 w-4" />
+                                              </a>
+                                            ) : null}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </RadioGroup>
+                            </div>
+                          ) : (
+                            <div className="flex min-w-0 items-start justify-between gap-4">
+                              <div className="flex min-w-0 flex-1 items-start gap-4">
+                                <ItemImage
+                                  imageUrl={selectedOption.imageUrl || baseItem.imageUrl}
+                                  name={selectedOption.name || baseItem.name}
+                                />
+                                <div className="min-w-0 flex-1 py-1">
+                                  <h3 className="break-words text-lg font-medium text-[var(--ui-text-strong)]">
+                                    {selectedOption.name || baseItem.name}
+                                  </h3>
+                                  <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-[var(--ui-text-main)]">
+                                    <span className="rounded-md border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-2 py-0.5 text-xs font-medium">
+                                      {getQtyLabel(selectedOption)}
+                                    </span>
+                                    {settings.showPrice && selectedOption.unitPrice !== undefined ? (
+                                      <span className="text-[var(--ui-text-muted)]">
+                                        {formatAmount(selectedOption.unitPrice, currencySymbol)} / unit
+                                      </span>
+                                    ) : null}
+                                    {settings.showPrice && selectedOption.totalPrice !== undefined ? (
+                                      <span className="font-medium">
+                                        Total: {formatAmount(selectedOption.totalPrice, currencySymbol)}
+                                      </span>
+                                    ) : null}
+                                    {settings.showSupplier && selectedOption.supplier ? (
+                                      <span>Supplier: {selectedOption.supplier}</span>
+                                    ) : null}
+                                  </div>
+                                  {settings.showNotes && selectedOption.notes ? (
+                                    <p className="mt-2 text-sm text-[var(--ui-text-muted)]">{selectedOption.notes}</p>
+                                  ) : null}
+                                </div>
+                              </div>
+                              <div className="flex shrink-0 items-center gap-2">
+                                <span className="h-2 w-2 rounded-full bg-[var(--ui-priority-medium)]" />
+                                {statusLabel ? (
+                                  <span className="inline-flex items-center justify-center rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-main)]">
+                                    {statusLabel}
+                                  </span>
+                                ) : null}
+                                {selectedOption.productLink ? (
+                                  <a
+                                    href={selectedOption.productLink}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-soft)] hover:text-[var(--ui-text-main)]"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </a>
+                                ) : null}
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="mt-4 rounded-[14px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] p-4">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                              <p className="text-sm font-medium text-[var(--ui-text-strong)]">
+                                Customer decision
+                              </p>
+                              <span
+                                className={`inline-flex items-center justify-center rounded-full border px-3 py-1 text-xs font-medium ${
+                                  feedbackDraft.decision === "accepted"
+                                    ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                                    : feedbackDraft.decision === "rejected"
+                                      ? "border-rose-300 bg-rose-50 text-rose-700"
+                                      : "border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-[var(--ui-text-muted)]"
+                                }`}
+                              >
+                                {getMaterialDecisionLabel(feedbackDraft.decision)}
+                              </span>
+                            </div>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant={
+                                  feedbackDraft.decision === "accepted" ? "default" : "outline"
+                                }
+                                onClick={() => void handleSetMaterialDecision(baseItem, "accepted")}
+                                disabled={savingFeedbackItemId === baseItemId}
+                              >
+                                Accept
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant={
+                                  feedbackDraft.decision === "rejected" ? "destructive" : "outline"
+                                }
+                                onClick={() => void handleSetMaterialDecision(baseItem, "rejected")}
+                                disabled={savingFeedbackItemId === baseItemId}
+                              >
+                                Reject
+                              </Button>
+                            </div>
+                            <div className="mt-3 space-y-2">
+                              <Label
+                                htmlFor={`comment-${baseItemId}`}
+                                className="text-xs text-[var(--ui-text-muted)]"
+                              >
+                                Comment
+                              </Label>
+                              <Textarea
+                                id={`comment-${baseItemId}`}
+                                value={feedbackDraft.comment}
+                                onChange={(event) =>
+                                  updateFeedbackDraft(
+                                    baseItemId,
+                                    { comment: event.target.value },
+                                    {
+                                      decision: baseItem.customerDecision ?? null,
+                                      comment: baseItem.customerDecisionComment || "",
+                                    }
+                                  )
+                                }
+                                placeholder="Add a comment for the project team..."
+                                rows={3}
+                                maxLength={2000}
+                              />
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <p className="text-xs text-[var(--ui-text-muted)]">
+                                  {baseItem.customerDecisionUpdatedAt
+                                    ? `Last update: ${new Date(baseItem.customerDecisionUpdatedAt).toLocaleString()}`
+                                    : "No customer feedback yet."}
+                                </p>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => void handleSaveMaterialComment(baseItem)}
+                                  disabled={savingFeedbackItemId === baseItemId}
+                                >
+                                  Save comment
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {savingItemId === baseItemId ? (
+                            <p className="pt-3 text-xs text-[var(--ui-text-muted)]">Saving selection...</p>
+                          ) : null}
+                          {savingFeedbackItemId === baseItemId ? (
+                            <p className="pt-2 text-xs text-[var(--ui-text-muted)]">Saving feedback...</p>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      ) : null}
+
+      {sectionCards.length === 0 ? (
+        <div className="rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-8 text-center text-sm text-[var(--ui-text-muted)]">
+          No portal sections are shared right now.
+        </div>
+      ) : null}
+
+      {settings.showShoppingList &&
+      settings.showPrice &&
+      sectionSummaries.length > 0 &&
+      activeSectionId === "portal-materials" ? (
         <div className="mt-12 rounded-[32px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-8 shadow-[0_24px_60px_rgba(20,20,20,0.08)]">
           <div className="space-y-4">
             {sectionSummaries.map(({ sectionName, total }) => (

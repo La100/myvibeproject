@@ -69,6 +69,71 @@ export const createConfirmedContact = action({
   },
 });
 
+export const editConfirmedContact = action({
+  args: {
+    contactId: v.id("contacts"),
+    updates: v.object({
+      name: v.optional(v.string()),
+      companyName: v.optional(v.string()),
+      email: v.optional(v.string()),
+      phone: v.optional(v.string()),
+      address: v.optional(v.string()),
+      city: v.optional(v.string()),
+      postalCode: v.optional(v.string()),
+      website: v.optional(v.string()),
+      taxId: v.optional(v.string()),
+      type: v.optional(
+        v.union(
+          v.literal("contractor"),
+          v.literal("supplier"),
+          v.literal("subcontractor"),
+          v.literal("other"),
+        ),
+      ),
+      notes: v.optional(v.string()),
+    }),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    message: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    try {
+      const contact = await ctx.runQuery(api.contacts.getContact, { contactId: args.contactId });
+      if (!contact) {
+        throw new Error("Contact not found");
+      }
+
+      await ensureTeamMembership(ctx, contact.teamId as Id<"teams">);
+
+      await ctx.runMutation(api.contacts.updateContact, {
+        contactId: args.contactId,
+        name: args.updates.name ?? contact.name,
+        companyName: args.updates.companyName ?? contact.companyName,
+        email: args.updates.email ?? contact.email,
+        phone: args.updates.phone ?? contact.phone,
+        address: args.updates.address ?? contact.address,
+        city: args.updates.city ?? contact.city,
+        postalCode: args.updates.postalCode ?? contact.postalCode,
+        website: args.updates.website ?? contact.website,
+        taxId: args.updates.taxId ?? contact.taxId,
+        type: args.updates.type ?? contact.type,
+        notes: args.updates.notes ?? contact.notes,
+      });
+
+      return {
+        success: true,
+        message: "Contact updated successfully",
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Failed to update contact: ${error}`,
+      };
+    }
+  },
+});
+
 export const deleteConfirmedContact = action({
   args: {
     contactId: v.id("contacts"),
@@ -102,7 +167,6 @@ export const deleteConfirmedContact = action({
     }
   },
 });
-
 
 
 

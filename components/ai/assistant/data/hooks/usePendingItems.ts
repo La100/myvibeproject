@@ -59,6 +59,69 @@ interface UsePendingItemsReturn {
   resetPendingState: () => void;
 }
 
+const PENDING_STATUSES_STORAGE_PREFIX = "ai.pending-item-statuses.v1";
+const normalizeSectionName = (value: string) => value.trim().toLocaleLowerCase();
+
+type PersistedPendingStatuses = Record<string, "confirmed" | "rejected">;
+
+const getPersistedStatusesStorageKey = (threadId: string) =>
+  `${PENDING_STATUSES_STORAGE_PREFIX}:${threadId}`;
+
+const readPersistedStatuses = (threadId: string): PersistedPendingStatuses => {
+  if (typeof window === "undefined") return {};
+
+  try {
+    const raw = window.localStorage.getItem(getPersistedStatusesStorageKey(threadId));
+    if (!raw) return {};
+
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return {};
+
+    return Object.fromEntries(
+      Object.entries(parsed).filter(
+        ([key, value]) =>
+          typeof key === "string" &&
+          (value === "confirmed" || value === "rejected")
+      )
+    ) as PersistedPendingStatuses;
+  } catch {
+    return {};
+  }
+};
+
+const writePersistedStatuses = (
+  threadId: string,
+  statuses: PersistedPendingStatuses,
+) => {
+  if (typeof window === "undefined") return;
+
+  try {
+    if (Object.keys(statuses).length === 0) {
+      window.localStorage.removeItem(getPersistedStatusesStorageKey(threadId));
+      return;
+    }
+    window.localStorage.setItem(
+      getPersistedStatusesStorageKey(threadId),
+      JSON.stringify(statuses),
+    );
+  } catch {
+    // Ignore storage write errors (private mode, quota limits, etc.)
+  }
+};
+
+const applyPersistedStatuses = (
+  items: PendingItem[],
+  statuses: PersistedPendingStatuses,
+): PendingItem[] =>
+  items.map((item) => {
+    if (!item.clientId) return item;
+    const persistedStatus = statuses[item.clientId];
+    if (persistedStatus !== "confirmed" && persistedStatus !== "rejected") {
+      return item;
+    }
+    return { ...item, status: persistedStatus };
+  });
+
 export const usePendingItems = ({
   projectId,
   teamSlug,
@@ -75,6 +138,14 @@ export const usePendingItems = ({
   const [isBulkProcessing, setIsBulkProcessing] = useState(false);
   const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
   const autoConfirmBatchKeyRef = useRef<string | null>(null);
+  const shoppingSectionCacheRef = useRef<Map<string, Id<"shoppingListSections">>>(new Map());
+  const shoppingSectionInFlightRef = useRef<
+    Map<string, Promise<Id<"shoppingListSections"> | undefined>>
+  >(new Map());
+  const laborSectionCacheRef = useRef<Map<string, Id<"laborSections">>>(new Map());
+  const laborSectionInFlightRef = useRef<
+    Map<string, Promise<Id<"laborSections"> | undefined>>
+  >(new Map());
 
   // Queries
   const pendingFunctionCalls = useQuery(
@@ -118,6 +189,7 @@ export const usePendingItems = ({
   const editConfirmedNote = useAction(apiAny.ai.confirmedActions.editConfirmedNote);
   const editConfirmedShoppingItem = useAction(apiAny.ai.confirmedActions.editConfirmedShoppingItem);
   const editConfirmedSurvey = useAction(apiAny.ai.confirmedActions.editConfirmedSurvey);
+  const editConfirmedContact = useAction(apiAny.ai.confirmedActions.editConfirmedContact);
   const bulkEditConfirmedTasks = useAction(apiAny.ai.actions.bulkEditConfirmedTasks);
   const createConfirmedLaborItem = useAction(apiAny.ai.confirmedActions.createConfirmedLaborItem);
   const editConfirmedLaborItem = useAction(apiAny.ai.confirmedActions.editConfirmedLaborItem);
@@ -134,8 +206,12 @@ export const usePendingItems = ({
     }
 
     if (pendingFunctionCalls && pendingFunctionCalls.length > 0) {
-      const hydratedPendingItems = hydratePendingItems(
-        pendingFunctionCalls as PendingFunctionCall[],
+      const persistedStatuses = readPersistedStatuses(threadId);
+      const hydratedPendingItems = applyPersistedStatuses(
+        hydratePendingItems(
+          pendingFunctionCalls as PendingFunctionCall[],
+        ),
+        persistedStatuses,
       );
 
       if (hydratedPendingItems.length > 0) {
@@ -157,10 +233,50 @@ export const usePendingItems = ({
     }
   }, [threadId, pendingFunctionCalls]);
 
+  useEffect(() => {
+    if (!threadId) return;
+
+    const resolvedStatuses = pendingItems.reduce<PersistedPendingStatuses>(
+      (acc, item) => {
+        if (!item.clientId) return acc;
+        if (item.status === "confirmed" || item.status === "rejected") {
+          acc[item.clientId] = item.status;
+        }
+        return acc;
+      },
+      {},
+    );
+
+    writePersistedStatuses(threadId, resolvedStatuses);
+  }, [threadId, pendingItems]);
+
   const scheduleResolvedRemoval = useCallback((clientId?: string) => {
     // Intentionally left blank - keep resolved items visible in the UI.
     void clientId;
   }, []);
+
+  useEffect(() => {
+    shoppingSectionCacheRef.current.clear();
+    shoppingSectionInFlightRef.current.clear();
+    laborSectionCacheRef.current.clear();
+    laborSectionInFlightRef.current.clear();
+  }, [projectId]);
+
+  useEffect(() => {
+    shoppingSectionCacheRef.current.clear();
+    if (!shoppingSections) return;
+    for (const section of shoppingSections) {
+      shoppingSectionCacheRef.current.set(normalizeSectionName(section.name), section._id);
+    }
+  }, [shoppingSections]);
+
+  useEffect(() => {
+    laborSectionCacheRef.current.clear();
+    if (!laborSections) return;
+    for (const section of laborSections) {
+      laborSectionCacheRef.current.set(normalizeSectionName(section.name), section._id);
+    }
+  }, [laborSections]);
 
   // Helper functions
   const resolveTeamSlug = useCallback(() => {
@@ -194,48 +310,102 @@ export const usePendingItems = ({
   );
 
   const findOrCreateSection = useCallback(async (sectionName: string): Promise<Id<"shoppingListSections"> | undefined> => {
-    if (!sectionName || !projectId) return undefined;
+    const trimmedName = sectionName?.trim();
+    if (!trimmedName || !projectId) return undefined;
+
+    const sectionKey = normalizeSectionName(trimmedName);
+    const cachedId = shoppingSectionCacheRef.current.get(sectionKey);
+    if (cachedId) {
+      return cachedId;
+    }
 
     const existingSection = shoppingSections?.find(
-      (s) => s.name.toLowerCase() === sectionName.toLowerCase()
+      (s) => normalizeSectionName(s.name) === sectionKey
     );
 
     if (existingSection) {
+      shoppingSectionCacheRef.current.set(sectionKey, existingSection._id);
       return existingSection._id;
     }
 
+    const inFlight = shoppingSectionInFlightRef.current.get(sectionKey);
+    if (inFlight) {
+      return await inFlight;
+    }
+
+    const createPromise = (async () => {
+      try {
+        const newSectionId = await createShoppingSection({
+          projectId,
+          name: trimmedName,
+        });
+        if (newSectionId) {
+          shoppingSectionCacheRef.current.set(sectionKey, newSectionId);
+        }
+        return newSectionId as Id<"shoppingListSections"> | undefined;
+      } catch (error) {
+        console.error("Failed to create section:", error);
+        return undefined;
+      } finally {
+        shoppingSectionInFlightRef.current.delete(sectionKey);
+      }
+    })();
+    shoppingSectionInFlightRef.current.set(sectionKey, createPromise);
+
     try {
-      const newSectionId = await createShoppingSection({
-        projectId,
-        name: sectionName,
-      });
-      return newSectionId;
-    } catch (error) {
-      console.error("Failed to create section:", error);
-      return undefined;
+      return await createPromise;
+    } finally {
+      shoppingSectionInFlightRef.current.delete(sectionKey);
     }
   }, [projectId, shoppingSections, createShoppingSection]);
 
   const findOrCreateLaborSection = useCallback(async (sectionName: string): Promise<Id<"laborSections"> | undefined> => {
-    if (!sectionName || !projectId) return undefined;
+    const trimmedName = sectionName?.trim();
+    if (!trimmedName || !projectId) return undefined;
+
+    const sectionKey = normalizeSectionName(trimmedName);
+    const cachedId = laborSectionCacheRef.current.get(sectionKey);
+    if (cachedId) {
+      return cachedId;
+    }
 
     const existingSection = laborSections?.find(
-      (s) => s.name.toLowerCase() === sectionName.toLowerCase()
+      (s) => normalizeSectionName(s.name) === sectionKey
     );
 
     if (existingSection) {
+      laborSectionCacheRef.current.set(sectionKey, existingSection._id);
       return existingSection._id;
     }
 
+    const inFlight = laborSectionInFlightRef.current.get(sectionKey);
+    if (inFlight) {
+      return await inFlight;
+    }
+
+    const createPromise = (async () => {
+      try {
+        const newSectionId = await createLaborSection({
+          projectId,
+          name: trimmedName,
+        });
+        if (newSectionId) {
+          laborSectionCacheRef.current.set(sectionKey, newSectionId);
+        }
+        return newSectionId as Id<"laborSections"> | undefined;
+      } catch (error) {
+        console.error("Failed to create labor section:", error);
+        return undefined;
+      } finally {
+        laborSectionInFlightRef.current.delete(sectionKey);
+      }
+    })();
+    laborSectionInFlightRef.current.set(sectionKey, createPromise);
+
     try {
-      const newSectionId = await createLaborSection({
-        projectId,
-        name: sectionName,
-      });
-      return newSectionId;
-    } catch (error) {
-      console.error("Failed to create labor section:", error);
-      return undefined;
+      return await createPromise;
+    } finally {
+      laborSectionInFlightRef.current.delete(sectionKey);
     }
   }, [projectId, laborSections, createLaborSection]);
 
@@ -259,6 +429,7 @@ export const usePendingItems = ({
         editConfirmedNote,
         editConfirmedShoppingItem,
         editConfirmedSurvey,
+        editConfirmedContact,
         bulkEditConfirmedTasks,
         createConfirmedLaborItem,
         editConfirmedLaborItem,
@@ -291,6 +462,7 @@ export const usePendingItems = ({
       editConfirmedNote,
       editConfirmedShoppingItem,
       editConfirmedSurvey,
+      editConfirmedContact,
       bulkEditConfirmedTasks,
       createConfirmedLaborItem,
       editConfirmedLaborItem,

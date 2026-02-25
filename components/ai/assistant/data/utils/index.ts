@@ -45,8 +45,6 @@ export const extractSurveyData = (data: Record<string, unknown>): SurveyData => 
   allowMultipleResponses: data.allowMultipleResponses as boolean | undefined,
   startDate: data.startDate as string | undefined,
   endDate: data.endDate as string | undefined,
-  targetAudience: data.targetAudience as "all_customers" | "specific_customers" | "team_members" | undefined,
-  targetCustomerIds: data.targetCustomerIds as string[] | undefined,
   questions: data.questions as SurveyData["questions"],
 });
 
@@ -988,7 +986,6 @@ export const resolveSectionName = (rawSectionName?: unknown, rawCategory?: unkno
   const normalizedCategory = typeof rawCategory === "string" ? rawCategory.trim() : "";
   return normalizedCategory.length > 0 ? normalizedCategory : undefined;
 };
-
 
 
 

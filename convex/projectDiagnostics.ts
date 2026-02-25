@@ -435,7 +435,6 @@ export const seedAndAnalyzeProject = action({
           projectId: args.projectId,
           isRequired: i % 2 === 0,
           allowMultipleResponses: false,
-          targetAudience: "team_members",
           startDate: now,
           endDate: now + 14 * 24 * 60 * 60 * 1000,
         });

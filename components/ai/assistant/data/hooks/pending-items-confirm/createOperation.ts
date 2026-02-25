@@ -29,8 +29,6 @@ export async function confirmCreateItem(
     createConfirmedSurvey,
     createConfirmedContact,
     createConfirmedLaborItem,
-    createShoppingSection,
-    createLaborSection,
   } = context;
 
   let result: ConfirmSingleItemResult;
@@ -117,13 +115,32 @@ export async function confirmCreateItem(
       });
       break;
     }
-    case 'shoppingSection':
-      await createShoppingSection({
-        projectId,
-        name: item.data.name as string,
-      });
-      result = { success: true, message: "Shopping section created successfully" };
+    case 'shoppingSection': {
+      const targetSectionName = resolveSectionName((item.data as Record<string, unknown>)?.name);
+      if (!targetSectionName) {
+        result = {
+          success: false,
+          message: "Shopping section is missing name. Edit it and try again.",
+        };
+        break;
+      }
+
+      const sectionId = await findOrCreateSection(targetSectionName);
+      if (!sectionId) {
+        result = {
+          success: false,
+          message: `Failed to create or resolve shopping section "${targetSectionName}".`,
+        };
+        break;
+      }
+
+      result = {
+        success: true,
+        sectionId,
+        message: "Shopping section created successfully",
+      };
       break;
+    }
     case 'create_multiple_surveys':
     case 'create_survey':
     case 'survey':
@@ -184,13 +201,32 @@ export async function confirmCreateItem(
       });
       break;
     }
-    case 'laborSection':
-      await createLaborSection({
-        projectId,
-        name: item.data.name as string,
-      });
-      result = { success: true, message: "Labor section created successfully" };
+    case 'laborSection': {
+      const targetSectionName = getFirstNonEmptyString((item.data as Record<string, unknown>)?.name);
+      if (!targetSectionName) {
+        result = {
+          success: false,
+          message: "Labor section is missing name. Edit it and try again.",
+        };
+        break;
+      }
+
+      const sectionId = await findOrCreateLaborSection(targetSectionName);
+      if (!sectionId) {
+        result = {
+          success: false,
+          message: `Failed to create or resolve labor section "${targetSectionName}".`,
+        };
+        break;
+      }
+
+      result = {
+        success: true,
+        sectionId,
+        message: "Labor section created successfully",
+      };
       break;
+    }
     default:
       throw new Error(`Unknown content type: ${item.type}`);
   }

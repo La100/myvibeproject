@@ -107,6 +107,25 @@ const laborFields = z.object({
   assignedTo: z.string().optional().describe("Contractor or team member name"),
 });
 
+const surveyQuestionFields = z.object({
+  questionText: z.string(),
+  questionType: z.enum(["text_short", "text_long", "multiple_choice", "single_choice", "rating", "yes_no", "number", "file"]),
+  options: z.array(z.string()).optional(),
+  isRequired: z.boolean().optional(),
+});
+
+const surveyQuestionUpdateFields = z
+  .object({
+    questionId: z.string().optional().describe("Existing survey question ID (required for edit/delete)"),
+    operation: z.enum(["create", "edit", "delete"]).optional().describe("Question operation when editing a survey"),
+    questionText: z.string().optional(),
+    questionType: z.enum(["text_short", "text_long", "multiple_choice", "single_choice", "rating", "yes_no", "number", "file"]).optional(),
+    options: z.array(z.string()).optional(),
+    isRequired: z.boolean().optional(),
+    order: z.number().optional(),
+  })
+  .passthrough();
+
 const surveyFields = z.object({
   title: z.string().describe("Survey title"),
   description: z.string().optional().describe("Survey description"),
@@ -114,14 +133,7 @@ const surveyFields = z.object({
   allowMultipleResponses: z.boolean().optional().describe("Allow multiple responses"),
   startDate: z.string().optional().describe("Survey start date in ISO format"),
   endDate: z.string().optional().describe("Survey end date in ISO format"),
-  targetAudience: z.enum(["all_customers", "specific_customers", "team_members"]).optional().describe("Target audience"),
-  targetCustomerIds: z.array(z.string()).optional().describe("Specific customer IDs"),
-  questions: z.array(z.object({
-    questionText: z.string(),
-    questionType: z.enum(["text_short", "text_long", "multiple_choice", "single_choice", "rating", "yes_no", "number", "file"]),
-    options: z.array(z.string()).optional(),
-    isRequired: z.boolean().optional(),
-  })).optional().describe("Survey questions"),
+  questions: z.array(surveyQuestionFields).optional().describe("Survey questions"),
 });
 
 const contactFields = z.object({
@@ -181,7 +193,17 @@ const updatableTaskFields = taskFields.partial().passthrough();
 const updatableNoteFields = noteFields.partial().passthrough();
 const updatableShoppingFields = shoppingFields.partial().passthrough();
 const updatableLaborFields = laborFields.partial().passthrough();
-const updatableSurveyFields = surveyFields.partial().passthrough();
+const updatableSurveyFields = z
+  .object({
+    title: z.string().optional(),
+    description: z.string().optional(),
+    isRequired: z.boolean().optional(),
+    allowMultipleResponses: z.boolean().optional(),
+    startDate: z.string().optional(),
+    endDate: z.string().optional(),
+    questions: z.array(surveyQuestionUpdateFields).optional(),
+  })
+  .passthrough();
 const updatableContactFields = contactFields.partial().passthrough();
 const updatableSectionFields = sectionFields.partial().passthrough();
 

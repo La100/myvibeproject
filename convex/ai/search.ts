@@ -175,6 +175,7 @@ export const searchSurveys = internalAction({
     status: v.optional(v.union(
       v.literal("draft"),
       v.literal("active"),
+      v.literal("closed"),
       v.literal("completed"),
       v.literal("archived")
     )),
@@ -197,7 +198,10 @@ export const searchSurveys = internalAction({
 
     // Filter by status if provided
     if (args.status) {
-      filteredSurveys = filteredSurveys.filter((survey: any) => survey.status === args.status);
+      const normalizedStatus = args.status === "completed" || args.status === "archived"
+        ? "closed"
+        : args.status;
+      filteredSurveys = filteredSurveys.filter((survey: any) => survey.status === normalizedStatus);
     }
 
     // Search by query if provided
@@ -215,11 +219,23 @@ export const searchSurveys = internalAction({
 
     // Limit results
     const results = filteredSurveys.slice(0, limit);
+    const surveysWithQuestions = await Promise.all(
+      results.map(async (survey: any) => {
+        const questions = await ctx.runQuery(internal.rag.getSurveyQuestionsById, {
+          surveyId: survey._id,
+        }) as any[];
+
+        return {
+          ...survey,
+          questions,
+        };
+      }),
+    );
 
     return {
-      count: results.length,
+      count: surveysWithQuestions.length,
       total: filteredSurveys.length,
-      surveys: results,
+      surveys: surveysWithQuestions,
     };
   },
 });

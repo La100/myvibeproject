@@ -304,6 +304,40 @@ test("update_multiple_items supports field/value update payloads", async () => {
   assert.equal(parsed.data.items[0].updates.unitPrice, 320);
 });
 
+test("update_item accepts survey question operations metadata", async () => {
+  const createStreamingTools = await getCreateStreamingTools();
+  const tools = createStreamingTools({
+    projectId: "project_1",
+    runQuery: async (_queryRef: unknown, args: { itemId: string }) => ({
+      _id: args.itemId,
+      projectId: "project_1",
+      title: "Survey",
+    }),
+  });
+
+  const raw = await tools.update_item.execute({
+    type: "survey",
+    itemId: "survey_1",
+    data: {
+      questions: [
+        {
+          questionId: "question_1",
+          operation: "edit",
+          questionText: "Updated question",
+          questionType: "text_short",
+          order: 1,
+        },
+      ],
+    },
+  } as any);
+  const parsed = JSON.parse(raw);
+
+  assert.equal(parsed.operation, "edit");
+  assert.equal(parsed.updates.questions[0].questionId, "question_1");
+  assert.equal(parsed.updates.questions[0].operation, "edit");
+  assert.equal(parsed.updates.questions[0].questionText, "Updated question");
+});
+
 test("search_items uses runAction (not runQuery)", async () => {
   const createStreamingTools = await getCreateStreamingTools();
   const calls = { runAction: 0, runQuery: 0 };

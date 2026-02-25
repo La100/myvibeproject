@@ -61,15 +61,18 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
 
   useEffect(() => {
     if (surveyQuestions?.questions) {
-      setQuestions((surveyQuestions.questions
-        .filter(q => q.questionType === 'text_long' || q.questionType === 'yes_no')
-        .map(q => ({
+      setQuestions(
+        surveyQuestions.questions.map((q) => ({
           _id: q._id,
-          id: q._id,
+          id: String(q._id),
           questionText: q.questionText,
-          questionType: q.questionType as 'text_long' | 'yes_no',
+          questionType: q.questionType as Question["questionType"],
           isRequired: q.isRequired,
-        })) as Question[]));
+          options: q.options,
+          ratingScale: q.ratingScale,
+          order: q.order,
+        })) as Question[]
+      );
     }
   }, [surveyQuestions]);
 

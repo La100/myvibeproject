@@ -46,5 +46,6 @@ export {
   
   // Contacts
   createConfirmedContact,
+  editConfirmedContact,
   deleteConfirmedContact,
 } from "./confirmedActions/index";

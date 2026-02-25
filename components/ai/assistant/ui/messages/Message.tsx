@@ -310,17 +310,36 @@ export const PurePreviewMessage = ({
     const items = extractPendingItemsFromMessage(message);
     if (!pendingItems || pendingItems.length === 0) return items;
 
-    return items.map(item => {
-      // Find matching local item by callId
-      const localItem = pendingItems.find(
-        p => p.functionCall?.callId === item.functionCall?.callId
-      );
+    const pendingStatusesByCallId = new Map<
+      string,
+      Array<PendingContentItem["status"]>
+    >();
+    for (const pendingItem of pendingItems) {
+      const callId = pendingItem.functionCall?.callId;
+      if (!callId) continue;
 
-      // If local item has a status (confirmed/rejected), use it
-      if (localItem?.status) {
+      const existing = pendingStatusesByCallId.get(callId);
+      if (existing) {
+        existing.push(pendingItem.status);
+      } else {
+        pendingStatusesByCallId.set(callId, [pendingItem.status]);
+      }
+    }
+
+    const callOccurrence = new Map<string, number>();
+
+    return items.map((item) => {
+      const callId = item.functionCall?.callId;
+      if (!callId) return item;
+
+      const occurrence = callOccurrence.get(callId) ?? 0;
+      callOccurrence.set(callId, occurrence + 1);
+
+      const localStatus = pendingStatusesByCallId.get(callId)?.[occurrence];
+      if (localStatus === "confirmed" || localStatus === "rejected") {
         return {
           ...item,
-          status: localItem.status
+          status: localStatus,
         };
       }
       return item;
