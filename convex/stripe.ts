@@ -238,7 +238,7 @@ async function evaluateAIAccess(ctx: any, team: any) {
   if (remainingTokens <= 0) {
     return {
       allowed: false,
-      message: "AI tokens are exhausted. Contact your administrator.",
+      message: "AI credits are exhausted. Upgrade your plan or manage billing to continue.",
       currentPlan: plan,
       subscriptionStatus: team.subscriptionStatus || null,
       totalTokens,
@@ -648,24 +648,6 @@ export const checkAIFeatureAccessByProject = internalQuery({
       };
     }
 
-    if (identity) {
-      const membership = await ctx.db
-        .query("teamMembers")
-        .withIndex("by_team_and_user", (q) =>
-          q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
-        )
-        .unique();
-
-      if (membership && membership.role === "customer") {
-        return {
-          allowed: false,
-          message: "🚫 Customers do not have access to AI features.",
-          currentPlan: team.subscriptionPlan || "free",
-          subscriptionStatus: team.subscriptionStatus || null,
-        };
-      }
-    }
-
     const access = await evaluateAIAccess(ctx, team);
     return {
       ...access,
@@ -685,24 +667,6 @@ export const checkAIFeatureAccess = internalQuery({
         allowed: false,
         message: "Team not found",
       };
-    }
-
-    if (identity) {
-      const membership = await ctx.db
-        .query("teamMembers")
-        .withIndex("by_team_and_user", (q) =>
-          q.eq("teamId", args.teamId).eq("clerkUserId", identity.subject)
-        )
-        .unique();
-
-      if (membership && membership.role === "customer") {
-        return {
-          allowed: false,
-          message: "🚫 Customers do not have access to AI features.",
-          currentPlan: team.subscriptionPlan || "free",
-          subscriptionStatus: team.subscriptionStatus || null,
-        };
-      }
     }
 
     const access = await evaluateAIAccess(ctx, team);
@@ -772,16 +736,6 @@ export const checkTeamAIAccess = query({
         message: "Not a member of this team",
         currentPlan: "free",
         subscriptionStatus: null,
-      };
-    }
-
-    if (membership.role === "customer") {
-      return {
-        hasAccess: false,
-        message: "🚫 Customers do not have access to AI features.",
-        currentPlan: team.subscriptionPlan || "free",
-        subscriptionStatus: team.subscriptionStatus || null,
-        subscriptionLimits: getEffectiveLimits(team),
       };
     }
 

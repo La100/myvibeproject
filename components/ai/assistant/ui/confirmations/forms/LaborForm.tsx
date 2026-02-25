@@ -3,13 +3,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-export function LaborForm({ data, onUpdate }: { data: Record<string, unknown>; onUpdate: (u: Record<string, unknown>) => void }) {
+export function LaborForm({
+    data,
+    onUpdate,
+    currency,
+}: {
+    data: Record<string, unknown>;
+    onUpdate: (u: Record<string, unknown>) => void;
+    currency?: string;
+}) {
     const [name, setName] = useState(String(data.name || ""));
     const [notes, setNotes] = useState(String(data.notes || ""));
     const [quantity, setQuantity] = useState(String(data.quantity || ""));
     const [unit, setUnit] = useState(String(data.unit || "m²"));
     const [unitPrice, setUnitPrice] = useState(String(data.unitPrice || ""));
     const [sectionName, setSectionName] = useState(String(data.sectionName || ""));
+    const currencySuffix = typeof currency === "string" && currency.trim().length > 0
+        ? ` (${currency.trim()})`
+        : "";
 
     useEffect(() => {
         onUpdate({
@@ -69,7 +80,7 @@ export function LaborForm({ data, onUpdate }: { data: Record<string, unknown>; o
 
             <div className="space-y-1.5">
                 <Label htmlFor="unitPrice" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Unit Price (PLN)
+                    Unit Price{currencySuffix}
                 </Label>
                 <Input
                     id="unitPrice"
@@ -110,4 +121,3 @@ export function LaborForm({ data, onUpdate }: { data: Record<string, unknown>; o
         </div>
     );
 }
-

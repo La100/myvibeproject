@@ -22,11 +22,6 @@ export default function CompanyLayout({
   const ensuredOrgIdRef = useRef<string | null>(null);
   const onboardingStatus = useQuery(apiAny.onboarding.getStatus);
 
-  const userRole = useQuery(
-    apiAny.teams.getCurrentUserRoleInClerkOrg,
-    organization?.id ? { clerkOrgId: organization.id } : "skip"
-  );
-
   useEffect(() => {
     if (onboardingStatus === undefined) {
       return;
@@ -62,15 +57,6 @@ export default function CompanyLayout({
       console.error("Failed to ensure team membership", error);
     });
   }, [isLoaded, organization?.id, organization?.name, ensureCurrentUserTeamMembership]);
-
-  useEffect(() => {
-    if (userRole === "customer") {
-      const allowedPaths = ["/organisation"];
-      if (!allowedPaths.some(path => pathname === path)) {
-        router.replace("/organisation");
-      }
-    }
-  }, [userRole, pathname, router]);
 
   const breadcrumbs = useMemo(() => {
     const routeLabels: Record<string, string> = {

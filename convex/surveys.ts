@@ -1,7 +1,18 @@
 import { v } from "convex/values";
 import { query, mutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { Doc } from "./_generated/dataModel";
+import { Doc, Id } from "./_generated/dataModel";
+
+const getPortalRespondentId = (projectId: Id<"projects">, respondentKey: string) =>
+  `portal:${projectId}:${respondentKey.trim().toLowerCase()}`;
+
+const isSurveyVisibleInPublicPortal = (survey: Doc<"surveys">, now: number) => {
+  if (survey.targetAudience === "team_members") return false;
+  if (survey.status !== "active") return false;
+  if (typeof survey.startDate === "number" && survey.startDate > now) return false;
+  if (typeof survey.endDate === "number" && survey.endDate < now) return false;
+  return true;
+};
 
 // ====== SURVEY MANAGEMENT ======
 
@@ -104,17 +115,6 @@ export const getSurveysByProject = query({
       .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .collect();
 
-    // For customers, only show surveys they're targeted for
-    if (teamMember.role === "customer") {
-      return surveys.filter(survey => {
-        if (survey.targetAudience === "all_customers") return true;
-        if (survey.targetAudience === "specific_customers") {
-          return survey.targetCustomerIds?.includes(identity.subject);
-        }
-        return false;
-      });
-    }
-
     return surveys;
   },
 });
@@ -161,17 +161,6 @@ export const getSurvey = query({
       return null;
     }
 
-    // For customers, check if they're targeted
-    if (teamMember.role === "customer") {
-      const isTargeted = survey.targetAudience === "all_customers" ||
-        (survey.targetAudience === "specific_customers" && 
-         survey.targetCustomerIds?.includes(identity.subject));
-      
-      if (!isTargeted) {
-        return null;
-      }
-    }
-
     const questions = await ctx.db
       .query("surveyQuestions")
       .withIndex("by_survey", q => q.eq("surveyId", args.surveyId))
@@ -183,6 +172,312 @@ export const getSurvey = query({
       ...survey,
       questions,
     };
+  },
+});
+
+export const getPublicSurveysByAccessToken = query({
+  args: {
+    accessToken: v.string(),
+    respondentKey: v.optional(v.string()),
+  },
+  async handler(ctx, args) {
+    const token = args.accessToken.trim();
+    if (!token) {
+      return { surveys: [] };
+    }
+
+    const project = await ctx.db
+      .query("projects")
+      .withIndex("by_client_panel_access_token", (q) =>
+        q.eq("clientPanelAccessToken", token)
+      )
+      .unique();
+
+    if (!project) {
+      return { surveys: [] };
+    }
+
+    const now = Date.now();
+    const surveys = await ctx.db
+      .query("surveys")
+      .withIndex("by_project", (q) => q.eq("projectId", project._id))
+      .collect();
+
+    const publicSurveys = surveys.filter((survey) => isSurveyVisibleInPublicPortal(survey, now));
+    const respondentId = args.respondentKey?.trim()
+      ? getPortalRespondentId(project._id, args.respondentKey)
+      : null;
+
+    const surveysWithQuestionsAndStatus = await Promise.all(
+      publicSurveys.map(async (survey) => {
+        const questions = await ctx.db
+          .query("surveyQuestions")
+          .withIndex("by_survey", (q) => q.eq("surveyId", survey._id))
+          .collect();
+        questions.sort((a, b) => a.order - b.order);
+
+        let latestResponse: Doc<"surveyResponses"> | null = null;
+        if (respondentId) {
+          latestResponse = await ctx.db
+            .query("surveyResponses")
+            .withIndex("by_survey_and_respondent", (q) =>
+              q.eq("surveyId", survey._id).eq("respondentId", respondentId)
+            )
+            .order("desc")
+            .first();
+        }
+
+        return {
+          _id: survey._id,
+          title: survey.title,
+          description: survey.description,
+          isRequired: survey.isRequired,
+          allowMultipleResponses: survey.allowMultipleResponses,
+          startDate: survey.startDate,
+          endDate: survey.endDate,
+          questions,
+          hasSubmitted: !!latestResponse?.isComplete,
+          submittedAt: latestResponse?.submittedAt,
+        };
+      })
+    );
+
+    surveysWithQuestionsAndStatus.sort((a, b) => {
+      if (a.hasSubmitted !== b.hasSubmitted) {
+        return a.hasSubmitted ? 1 : -1;
+      }
+      if (a.isRequired !== b.isRequired) {
+        return a.isRequired ? -1 : 1;
+      }
+      return a.title.localeCompare(b.title);
+    });
+
+    return { surveys: surveysWithQuestionsAndStatus };
+  },
+});
+
+export const submitPublicSurveyResponseByAccessToken = mutation({
+  args: {
+    accessToken: v.string(),
+    surveyId: v.id("surveys"),
+    respondentKey: v.string(),
+    answers: v.array(v.object({
+      questionId: v.id("surveyQuestions"),
+      answerType: v.union(
+        v.literal("text"),
+        v.literal("choice"),
+        v.literal("rating"),
+        v.literal("number"),
+        v.literal("boolean")
+      ),
+      textAnswer: v.optional(v.string()),
+      choiceAnswers: v.optional(v.array(v.string())),
+      ratingAnswer: v.optional(v.number()),
+      numberAnswer: v.optional(v.number()),
+      booleanAnswer: v.optional(v.boolean()),
+    })),
+    metadata: v.optional(v.object({
+      userAgent: v.optional(v.string()),
+      timeSpent: v.optional(v.number()),
+    })),
+  },
+  async handler(ctx, args) {
+    const token = args.accessToken.trim();
+    const respondentKey = args.respondentKey.trim();
+    if (!token || !respondentKey) {
+      throw new Error("Invalid survey request");
+    }
+
+    const project = await ctx.db
+      .query("projects")
+      .withIndex("by_client_panel_access_token", (q) =>
+        q.eq("clientPanelAccessToken", token)
+      )
+      .unique();
+
+    if (!project) {
+      throw new Error("Invalid portal link");
+    }
+
+    const survey = await ctx.db.get(args.surveyId);
+    if (!survey || survey.projectId !== project._id) {
+      throw new Error("Survey not found");
+    }
+
+    const now = Date.now();
+    if (!isSurveyVisibleInPublicPortal(survey, now)) {
+      throw new Error("Survey is not available");
+    }
+
+    const questions = await ctx.db
+      .query("surveyQuestions")
+      .withIndex("by_survey", (q) => q.eq("surveyId", args.surveyId))
+      .collect();
+    questions.sort((a, b) => a.order - b.order);
+
+    const questionById = new Map(questions.map((question) => [String(question._id), question]));
+    const answerByQuestionId = new Map(args.answers.map((answer) => [String(answer.questionId), answer]));
+
+    const unsupportedRequiredQuestion = questions.find(
+      (question) => question.isRequired && question.questionType === "file"
+    );
+    if (unsupportedRequiredQuestion) {
+      throw new Error("Required file uploads are not supported in the public portal");
+    }
+
+    const missingRequired = questions.filter((question) => {
+      if (!question.isRequired || question.questionType === "file") {
+        return false;
+      }
+      const answer = answerByQuestionId.get(String(question._id));
+      if (!answer) return true;
+
+      if (question.questionType === "text_short" || question.questionType === "text_long") {
+        return !answer.textAnswer || answer.textAnswer.trim().length === 0;
+      }
+      if (question.questionType === "single_choice" || question.questionType === "multiple_choice") {
+        return !answer.choiceAnswers || answer.choiceAnswers.length === 0;
+      }
+      if (question.questionType === "yes_no") {
+        return typeof answer.booleanAnswer !== "boolean";
+      }
+      if (question.questionType === "number") {
+        return typeof answer.numberAnswer !== "number" || Number.isNaN(answer.numberAnswer);
+      }
+      if (question.questionType === "rating") {
+        return typeof answer.ratingAnswer !== "number" || Number.isNaN(answer.ratingAnswer);
+      }
+
+      return true;
+    });
+
+    if (missingRequired.length > 0) {
+      throw new Error("Please answer all required questions");
+    }
+
+    const respondentId = getPortalRespondentId(project._id, respondentKey);
+
+    if (!survey.allowMultipleResponses) {
+      const existingCompletedResponse = await ctx.db
+        .query("surveyResponses")
+        .withIndex("by_survey_and_respondent", (q) =>
+          q.eq("surveyId", args.surveyId).eq("respondentId", respondentId)
+        )
+        .filter((q) => q.eq(q.field("isComplete"), true))
+        .first();
+
+      if (existingCompletedResponse) {
+        throw new Error("Survey has already been submitted");
+      }
+    }
+
+    let response = await ctx.db
+      .query("surveyResponses")
+      .withIndex("by_survey_and_respondent", (q) =>
+        q.eq("surveyId", args.surveyId).eq("respondentId", respondentId)
+      )
+      .filter((q) => q.eq(q.field("isComplete"), false))
+      .first();
+
+    if (!response) {
+      const responseId = await ctx.db.insert("surveyResponses", {
+        surveyId: args.surveyId,
+        respondentId,
+        teamId: survey.teamId,
+        projectId: survey.projectId,
+        isComplete: false,
+      });
+      response = await ctx.db.get(responseId);
+    }
+
+    if (!response) {
+      throw new Error("Could not create survey response");
+    }
+
+    const existingAnswers = await ctx.db
+      .query("surveyAnswers")
+      .withIndex("by_response", (q) => q.eq("responseId", response._id))
+      .collect();
+    await Promise.all(existingAnswers.map((answer) => ctx.db.delete(answer._id)));
+
+    for (const answer of args.answers) {
+      const question = questionById.get(String(answer.questionId));
+      if (!question || question.questionType === "file") {
+        continue;
+      }
+
+      if (question.questionType === "text_short" || question.questionType === "text_long") {
+        const textValue = answer.textAnswer?.trim();
+        if (!textValue) continue;
+        await ctx.db.insert("surveyAnswers", {
+          responseId: response._id,
+          questionId: question._id,
+          surveyId: args.surveyId,
+          answerType: "text",
+          textAnswer: textValue,
+        });
+        continue;
+      }
+
+      if (question.questionType === "single_choice" || question.questionType === "multiple_choice") {
+        const choices = (answer.choiceAnswers || []).filter((value) => value.trim().length > 0);
+        if (choices.length === 0) continue;
+        await ctx.db.insert("surveyAnswers", {
+          responseId: response._id,
+          questionId: question._id,
+          surveyId: args.surveyId,
+          answerType: "choice",
+          choiceAnswers: question.questionType === "single_choice" ? [choices[0]] : choices,
+        });
+        continue;
+      }
+
+      if (question.questionType === "rating") {
+        if (typeof answer.ratingAnswer !== "number" || Number.isNaN(answer.ratingAnswer)) continue;
+        await ctx.db.insert("surveyAnswers", {
+          responseId: response._id,
+          questionId: question._id,
+          surveyId: args.surveyId,
+          answerType: "rating",
+          ratingAnswer: answer.ratingAnswer,
+        });
+        continue;
+      }
+
+      if (question.questionType === "number") {
+        if (typeof answer.numberAnswer !== "number" || Number.isNaN(answer.numberAnswer)) continue;
+        await ctx.db.insert("surveyAnswers", {
+          responseId: response._id,
+          questionId: question._id,
+          surveyId: args.surveyId,
+          answerType: "number",
+          numberAnswer: answer.numberAnswer,
+        });
+        continue;
+      }
+
+      if (question.questionType === "yes_no") {
+        if (typeof answer.booleanAnswer !== "boolean") continue;
+        await ctx.db.insert("surveyAnswers", {
+          responseId: response._id,
+          questionId: question._id,
+          surveyId: args.surveyId,
+          answerType: "boolean",
+          booleanAnswer: answer.booleanAnswer,
+        });
+      }
+    }
+
+    await ctx.db.patch(response._id, {
+      isComplete: true,
+      submittedAt: now,
+      metadata: {
+        userAgent: args.metadata?.userAgent,
+        timeSpent: args.metadata?.timeSpent,
+      },
+    });
+
+    return { success: true, responseId: response._id };
   },
 });
 
@@ -686,13 +981,8 @@ export const getSurveyResponses = query({
       .filter(q => q.eq(q.field("isComplete"), true))
       .collect();
 
-    // If user is customer, only show their own responses
-    const filteredResponses = (teamMember.role === "admin" || teamMember.role === "member") 
-      ? responses 
-      : responses.filter(r => r.respondentId === identity.subject);
-
     const responsesWithAnswers = await Promise.all(
-      filteredResponses.map(async (response) => {
+      responses.map(async (response) => {
         const answers = await ctx.db
           .query("surveyAnswers")
           .withIndex("by_response", q => q.eq("responseId", response._id))

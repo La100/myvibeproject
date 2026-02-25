@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { AppendMessage, Attachment, ThreadMessageLike } from "@assistant-ui/react";
 import { AssistantRuntimeProvider, useExternalStoreRuntime } from "@assistant-ui/react";
 import type { AttachmentAdapter } from "@assistant-ui/react";
@@ -40,6 +40,9 @@ type AssistantConversationProps = {
   onReset: () => Promise<void> | void;
   userImageUrl?: string;
   userFallback?: string;
+  inputDisabled?: boolean;
+  inputPlaceholder?: string;
+  composerBanner?: ReactNode;
   pendingItems?: PendingContentItem[];
   onConfirmItem?: (index: number | string) => Promise<void>;
   onRejectItem?: (index: number | string) => void | Promise<void>;
@@ -193,6 +196,9 @@ export default function AssistantConversation({
   onReset,
   userImageUrl,
   userFallback = "U",
+  inputDisabled = false,
+  inputPlaceholder,
+  composerBanner,
   pendingItems = [],
   onConfirmItem,
   onRejectItem,
@@ -205,6 +211,7 @@ export default function AssistantConversation({
 }: AssistantConversationProps) {
   const [optimisticMessages, setOptimisticMessages] = useState<ThreadMessageLike[]>([]);
   const [hasSubmittedMessage, setHasSubmittedMessage] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const optimisticMetaRef = useRef<{
     normalizedText: string;
     serverUserCountAtSend: number;
@@ -220,11 +227,24 @@ export default function AssistantConversation({
     onStopRef.current = onStop;
   }, [onStop]);
 
+  useEffect(() => {
+    if (!isResetting) return;
+    if (uiMessages.length === 0 && !chatIsLoading) {
+      setIsResetting(false);
+    }
+  }, [chatIsLoading, isResetting, uiMessages.length]);
+
+  const effectiveUiMessages = useMemo(
+    () => (isResetting ? [] : uiMessages),
+    [isResetting, uiMessages],
+  );
+
   const isBooting = chatIsLoading;
-  const hasVisibleMessages = uiMessages.length > 0 || optimisticMessages.length > 0;
-  const shouldHideThread = isBooting && !hasVisibleMessages && !hasSubmittedMessage;
+  const hasVisibleMessages = effectiveUiMessages.length > 0 || optimisticMessages.length > 0;
+  const isBusy = isBooting || isLoading || isStreaming;
+  const shouldHideThread = isBusy && !hasVisibleMessages && !hasSubmittedMessage;
   const showWelcomeForEmptyThread =
-    !isBooting && !hasVisibleMessages && !hasSubmittedMessage;
+    !isBusy && !hasVisibleMessages && !hasSubmittedMessage;
 
   useEffect(() => {
     if (isBooting) return;
@@ -273,11 +293,11 @@ export default function AssistantConversation({
 
   const convertedMessages = useMemo<StoreMessage[]>(
     () => {
-      return uiMessages
+      return effectiveUiMessages
         .filter((message) => (message.role ?? "assistant") !== "system")
         .map((message) => ({ kind: "ui", message }));
     },
-    [uiMessages],
+    [effectiveUiMessages],
   );
 
   const serverUserCount = useMemo(
@@ -438,10 +458,15 @@ export default function AssistantConversation({
   const runtime = useExternalStoreRuntime(store);
 
   const handleReset = useCallback(async () => {
+    setIsResetting(true);
     optimisticMetaRef.current = null;
     setOptimisticMessages([]);
     setHasSubmittedMessage(false);
-    await onReset();
+    try {
+      await onReset();
+    } catch {
+      setIsResetting(false);
+    }
   }, [onReset]);
 
   const resolvedAssistantFallback = assistantFallback || title.charAt(0) || "A";
@@ -472,6 +497,9 @@ export default function AssistantConversation({
               assistantFallback={resolvedAssistantFallback}
               userImageUrl={userImageUrl}
               userFallback={userFallback}
+              inputDisabled={inputDisabled}
+              inputPlaceholder={inputPlaceholder}
+              composerBanner={composerBanner}
               pendingItems={pendingItems}
               onConfirmItem={onConfirmItem}
               onRejectItem={onRejectItem}

@@ -86,8 +86,9 @@ const shoppingFields = z.object({
   supplier: z.string().optional().describe("Supplier or store name"),
   category: z.string().optional().describe("Item category"),
   dimensions: z.string().optional().describe("Item dimensions or size"),
-  unitPrice: z.number().optional().describe("Price per unit"),
-  totalPrice: z.number().optional().describe("Total price"),
+  price: z.union([z.number(), z.string()]).optional().describe("Alias for unitPrice (price per unit, project currency)"),
+  unitPrice: z.union([z.number(), z.string()]).optional().describe("Price per unit in project currency"),
+  totalPrice: z.union([z.number(), z.string()]).optional().describe("Total price in project currency"),
   productLink: z.string().optional().describe("Link to product page"),
   catalogNumber: z.string().optional().describe("Product catalog/model number"),
   sectionId: z.string().optional().describe("Shopping list section ID"),
@@ -99,7 +100,8 @@ const laborFields = z.object({
   notes: z.string().optional().describe("Additional notes or description"),
   quantity: z.number().optional().describe("Quantity of work"),
   unit: z.string().optional().describe("Unit of measurement (m², m, hours, pcs, etc.)"),
-  unitPrice: z.number().optional().describe("Price per unit"),
+  price: z.union([z.number(), z.string()]).optional().describe("Alias for unitPrice (price per unit, project currency)"),
+  unitPrice: z.union([z.number(), z.string()]).optional().describe("Price per unit in project currency"),
   sectionId: z.string().optional().describe("Labor section ID"),
   sectionName: z.string().optional().describe("Labor section name"),
   assignedTo: z.string().optional().describe("Contractor or team member name"),
@@ -175,35 +177,51 @@ export const createMultipleItemsSchema = z.object({
   items: z.array(z.union([taskFields, noteFields, shoppingFields, laborFields, surveyFields, contactFields])).describe("Array of items to create"),
 });
 
-// Generic update schema
-export const updateItemSchema = z.object({
-  type: itemTypeEnum.describe("Type of item to update"),
-  itemId: z.string().describe("ID of the item to update"),
-  data: z.union([
-    taskFields.partial(),
-    noteFields.partial(),
-    shoppingFields.partial(),
-    laborFields.partial(),
-    surveyFields.partial(),
-    contactFields.partial(),
-    sectionFields.partial(),
-  ]).describe("Fields to update"),
-});
+const updatableTaskFields = taskFields.partial().passthrough();
+const updatableNoteFields = noteFields.partial().passthrough();
+const updatableShoppingFields = shoppingFields.partial().passthrough();
+const updatableLaborFields = laborFields.partial().passthrough();
+const updatableSurveyFields = surveyFields.partial().passthrough();
+const updatableContactFields = contactFields.partial().passthrough();
+const updatableSectionFields = sectionFields.partial().passthrough();
 
-export const updateMultipleItemsSchema = z.object({
-  type: itemTypeEnum.describe("Type of items to update"),
-  updates: z.array(z.object({
-    itemId: z.string(),
-    data: z.union([
-      taskFields.partial(),
-      noteFields.partial(),
-      shoppingFields.partial(),
-      laborFields.partial(),
-      surveyFields.partial(),
-      contactFields.partial(),
-    ]),
-  })).describe("Array of items to update with their IDs"),
-});
+const updatableAnyFields = z
+  .union([
+    updatableTaskFields,
+    updatableNoteFields,
+    updatableShoppingFields,
+    updatableLaborFields,
+    updatableSurveyFields,
+    updatableContactFields,
+    updatableSectionFields,
+  ])
+  .describe("Fields to update");
+
+// Keep root schema as object for AI SDK compatibility.
+export const updateItemSchema = z
+  .object({
+    type: itemTypeEnum.describe("Type of item to update"),
+    itemId: z.string().describe("ID of the item to update"),
+    data: updatableAnyFields.optional(),
+  })
+  .passthrough();
+
+// Keep root schema as object for AI SDK compatibility.
+export const updateMultipleItemsSchema = z
+  .object({
+    type: itemTypeEnum.describe("Type of items to update"),
+    updates: z
+      .array(
+        z
+          .object({
+            itemId: z.string(),
+            data: updatableAnyFields.optional(),
+          })
+          .passthrough(),
+      )
+      .describe("Array of items to update with their IDs"),
+  })
+  .passthrough();
 
 // Generic delete schema
 export const deleteItemSchema = z.object({
@@ -255,6 +273,184 @@ function getOperationType(type: ItemType): string {
   return typeMap[type];
 }
 
+function normalizePriceAliases(
+  type: ItemType,
+  rawData: unknown,
+): Record<string, unknown> {
+  if (!rawData || typeof rawData !== "object" || Array.isArray(rawData)) {
+    return {};
+  }
+
+  const data = { ...(rawData as Record<string, unknown>) };
+  const toNumber = (value: unknown): number | undefined => {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string") {
+      const raw = value.trim();
+      const numericLike = raw.match(/-?\d[\d\s.,]*/)?.[0];
+      if (!numericLike) return undefined;
+
+      let normalized = numericLike.replace(/\s+/g, "");
+      const commaCount = (normalized.match(/,/g) || []).length;
+      const dotCount = (normalized.match(/\./g) || []).length;
+
+      if (commaCount > 0 && dotCount > 0) {
+        if (normalized.lastIndexOf(",") > normalized.lastIndexOf(".")) {
+          normalized = normalized.replace(/\./g, "").replace(",", ".");
+        } else {
+          normalized = normalized.replace(/,/g, "");
+        }
+      } else if (commaCount > 0) {
+        if (commaCount > 1) {
+          normalized = normalized.replace(/,/g, "");
+        } else {
+          const [intPart, fracPart = ""] = normalized.split(",");
+          normalized = fracPart.length === 3 ? `${intPart}${fracPart}` : `${intPart}.${fracPart}`;
+        }
+      } else if (dotCount > 1) {
+        normalized = normalized.replace(/\./g, "");
+      } else if (dotCount === 1) {
+        const [intPart, fracPart = ""] = normalized.split(".");
+        if (fracPart.length === 3) {
+          normalized = `${intPart}${fracPart}`;
+        }
+      }
+
+      const parsed = Number(normalized);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+    return undefined;
+  };
+
+  if (type === "shopping" || type === "labor") {
+    const aliasPrice = toNumber(data.price);
+    if (data.unitPrice === undefined && aliasPrice !== undefined && aliasPrice > 0) {
+      data.unitPrice = aliasPrice;
+    }
+
+    const quantity = toNumber(data.quantity);
+    const totalPrice = toNumber(data.totalPrice);
+    if (
+      data.unitPrice === undefined &&
+      totalPrice !== undefined &&
+      totalPrice > 0 &&
+      quantity !== undefined &&
+      quantity > 0
+    ) {
+      data.unitPrice = totalPrice / quantity;
+    }
+
+    const directUnitPrice = toNumber(data.unitPrice);
+    if (directUnitPrice !== undefined) {
+      if (directUnitPrice > 0) {
+        data.unitPrice = directUnitPrice;
+      } else {
+        delete data.unitPrice;
+      }
+    }
+
+    delete data.price;
+  }
+
+  return data;
+}
+
+function toRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+  return { ...(value as Record<string, unknown>) };
+}
+
+function extractUpdateData(rawData: unknown): Record<string, unknown> {
+  const data = toRecord(rawData);
+  if (Object.keys(data).length === 0) return {};
+
+  const normalized = { ...data };
+
+  // Flatten common wrappers used by models: { updates: {...} }, { data: {...} }, { patch: {...} }.
+  const wrapperCandidates = [
+    normalized.updates,
+    normalized.data,
+    normalized.patch,
+    normalized.payload,
+    normalized.fields,
+  ].map(toRecord);
+
+  const wrapper = wrapperCandidates.find((candidate) => Object.keys(candidate).length > 0);
+  if (wrapper && Object.keys(normalized).every((key) => ["updates", "data", "patch", "payload", "fields"].includes(key))) {
+    return wrapper;
+  }
+
+  // Flatten field/value style payloads: { field: "unitPrice", value: 250 }.
+  const fieldKey =
+    (typeof normalized.field === "string" && normalized.field.trim().length > 0 && normalized.field.trim()) ||
+    (typeof normalized.key === "string" && normalized.key.trim().length > 0 && normalized.key.trim()) ||
+    undefined;
+  if (fieldKey && Object.prototype.hasOwnProperty.call(normalized, "value")) {
+    return { [fieldKey]: normalized.value };
+  }
+
+  return normalized;
+}
+
+function extractUpdateDataFromSingleArgs(rawArgs: unknown): Record<string, unknown> {
+  const argsRecord = toRecord(rawArgs);
+  const nestedData = extractUpdateData(argsRecord.data);
+  const directData = { ...argsRecord };
+  delete directData.type;
+  delete directData.itemId;
+  delete directData.data;
+  const flattenedDirectData = extractUpdateData(directData);
+
+  return Object.keys(nestedData).length > 0
+    ? { ...flattenedDirectData, ...nestedData }
+    : flattenedDirectData;
+}
+
+function extractUpdateDataFromBulkEntry(rawEntry: unknown): Record<string, unknown> {
+  const entry = toRecord(rawEntry);
+  const nestedData = extractUpdateData(entry.data);
+  const directData = { ...entry };
+  delete directData.itemId;
+  delete directData.data;
+  const flattenedDirectData = extractUpdateData(directData);
+
+  return Object.keys(nestedData).length > 0
+    ? { ...flattenedDirectData, ...nestedData }
+    : flattenedDirectData;
+}
+
+function hasMeaningfulValue(
+  value: unknown,
+  options?: { allowZeroNumber?: boolean },
+): boolean {
+  const { allowZeroNumber = true } = options ?? {};
+  if (value === undefined || value === null) return false;
+  if (typeof value === "string") return value.trim().length > 0;
+  if (typeof value === "number") return Number.isFinite(value) && (allowZeroNumber || value !== 0);
+  if (Array.isArray(value)) return value.some((entry) => hasMeaningfulValue(entry, options));
+  if (typeof value === "object") {
+    return Object.values(value as Record<string, unknown>).some((entry) => hasMeaningfulValue(entry, options));
+  }
+  return true;
+}
+
+function hasMeaningfulUpdateFields(
+  data: Record<string, unknown>,
+): boolean {
+  return Object.values(data).some((value) => hasMeaningfulValue(value, { allowZeroNumber: true }));
+}
+
+function hasFallbackUpdateFields(
+  data: Record<string, unknown>,
+): boolean {
+  return Object.values(data).some((value) => {
+    if (value === undefined || value === null) return false;
+    if (typeof value === "string") return value.trim().length > 0;
+    return hasMeaningfulValue(value, { allowZeroNumber: false });
+  });
+}
+
 /**
  * Create tools in AI SDK format for use with streamText
  * Using inputSchema (AI SDK v5) instead of parameters
@@ -267,7 +463,7 @@ export function createStreamingTools(options?: StreamingToolOptions) {
       inputSchema: createItemSchema,
       execute: async (args: z.infer<typeof createItemSchema>) => {
         // Validate that we have minimum required fields
-        const data = args.data as Record<string, unknown>;
+        const data = normalizePriceAliases(args.type, args.data);
         const hasTitle = data.title && typeof data.title === 'string' && data.title.trim().length > 0;
         const hasName = data.name && typeof data.name === 'string' && data.name.trim().length > 0;
 
@@ -282,7 +478,7 @@ export function createStreamingTools(options?: StreamingToolOptions) {
         return JSON.stringify({
           type: getOperationType(args.type),
           operation: "create",
-          data: args.data
+          data
         });
       },
     },
@@ -291,10 +487,11 @@ export function createStreamingTools(options?: StreamingToolOptions) {
       description: "Create multiple items at once (2+ items of the same type). More efficient than multiple single creates.",
       inputSchema: createMultipleItemsSchema,
       execute: async (args: z.infer<typeof createMultipleItemsSchema>) => {
+        const items = args.items.map((item) => normalizePriceAliases(args.type, item));
         return JSON.stringify({
           type: getOperationType(args.type),
           operation: "bulk_create",
-          data: { items: args.items }
+          data: { items }
         });
       },
     },
@@ -350,11 +547,25 @@ export function createStreamingTools(options?: StreamingToolOptions) {
           });
         }
 
+        const rawUpdates = extractUpdateDataFromSingleArgs(args);
+        const normalizedUpdates = normalizePriceAliases(args.type, rawUpdates);
+        const updatesPayload = hasMeaningfulUpdateFields(normalizedUpdates)
+          ? normalizedUpdates
+          : rawUpdates;
+
+        if (!hasMeaningfulUpdateFields(updatesPayload)) {
+          return JSON.stringify({
+            error: "No valid update fields provided",
+            type: args.type,
+            itemId: args.itemId,
+          });
+        }
+
         return JSON.stringify({
           type: getOperationType(args.type),
           operation: "edit",
           data: { itemId: args.itemId },
-          updates: args.data,
+          updates: updatesPayload,
           originalItem: originalItem || { _id: args.itemId },
         });
       },
@@ -364,6 +575,29 @@ export function createStreamingTools(options?: StreamingToolOptions) {
       description: "Update multiple items at once (2+ items of the same type). More efficient than multiple single updates.",
       inputSchema: updateMultipleItemsSchema,
       execute: async (args: z.infer<typeof updateMultipleItemsSchema>) => {
+        const normalizedUpdates = args.updates.map((update) => {
+          const rawData = extractUpdateDataFromBulkEntry(update);
+          return {
+            ...update,
+            data: normalizePriceAliases(args.type, rawData),
+          };
+        }).filter((update) => hasMeaningfulUpdateFields(update.data));
+
+        const rawUpdatesFallback = args.updates.map((update) => ({
+          ...update,
+          data: extractUpdateDataFromBulkEntry(update),
+        })).filter((update) => hasFallbackUpdateFields(update.data));
+
+        const effectiveUpdates =
+          normalizedUpdates.length > 0 ? normalizedUpdates : rawUpdatesFallback;
+
+        if (effectiveUpdates.length === 0) {
+          return JSON.stringify({
+            error: "No valid update fields provided",
+            type: args.type,
+          });
+        }
+
         // Fetch original items from database for bulk edit
         let usedDbLookup = false;
         const originalItems: Array<{
@@ -387,7 +621,7 @@ export function createStreamingTools(options?: StreamingToolOptions) {
             const tableName = typeToTable[args.type];
             const searchApi = getInternalSearchApi();
             if (tableName) {
-              for (const update of args.updates) {
+              for (const update of effectiveUpdates) {
                 const item = await options.runQuery(searchApi.getItemById, {
                   tableName,
                   itemId: update.itemId,
@@ -430,7 +664,7 @@ export function createStreamingTools(options?: StreamingToolOptions) {
                 originalItem: item.originalItem,
                 updates: item.updates,
               }))
-              : args.updates.map(u => ({
+              : effectiveUpdates.map(u => ({
                 itemId: u.itemId,
                 originalItem: {},
                 updates: u.data

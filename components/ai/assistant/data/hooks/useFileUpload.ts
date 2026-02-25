@@ -8,7 +8,7 @@
 
 import { useState, useRef, useCallback, type ChangeEvent } from "react";
 import { toast } from "sonner";
-import { MAX_FILE_SIZE_BYTES } from "../../config/constants";
+import { MAX_FILE_SIZE_BYTES, MAX_FILE_SIZE_MB } from "../../config/constants";
 const MAX_FILES = 10; // Maximum number of files allowed
 
 export const useFileUpload = () => {
@@ -27,7 +27,7 @@ export const useFileUpload = () => {
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       if (file.size > MAX_FILE_SIZE_BYTES) {
-        errors.push(`${file.name} is too large (max 512MB)`);
+        errors.push(`${file.name} is too large (max ${MAX_FILE_SIZE_MB}MB)`);
         continue;
       }
       newFiles.push(file);
@@ -79,7 +79,6 @@ export const useFileUpload = () => {
 };
 
 export default useFileUpload;
-
 
 
 

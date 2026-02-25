@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { listMessages } from "@convex-dev/agent";
+import { createThread, listMessages } from "@convex-dev/agent";
 import { components } from "../_generated/api";
 import { internalQuery, internalMutation, mutation, query } from "../_generated/server";
 
@@ -16,118 +16,6 @@ function resolveAgentThreadId(thread: { threadId: string; agentThreadId?: string
 function isLegacyThreadId(threadId: string): boolean {
   return threadId.startsWith("thread-") || threadId.startsWith("thread_");
 }
-
-// Internal version - used by server-side functions
-export const getOrCreateThread = internalMutation({
-  args: {
-    threadId: v.string(),
-    projectId: v.id("projects"),
-    userClerkId: v.string(),
-  },
-  returns: v.string(),
-  handler: async (ctx, args) => {
-    // Check if thread exists
-    const existingThread = await ctx.db
-      .query("aiThreads")
-      .withIndex("by_thread_id", (q) => q.eq("threadId", args.threadId))
-      .unique();
-
-    if (existingThread) {
-      // Update last message time
-      await ctx.db.patch(existingThread._id, {
-        lastMessageAt: Date.now(),
-      });
-      return args.threadId;
-    }
-
-    // Get project to get teamId
-    const project = await ctx.db.get(args.projectId);
-    if (!project) {
-      throw new Error("Project not found");
-    }
-
-    // Create new thread
-    await ctx.db.insert("aiThreads", {
-      threadId: args.threadId,
-      projectId: args.projectId,
-      teamId: project.teamId,
-      userClerkId: args.userClerkId,
-      lastMessageAt: Date.now(),
-      messageCount: 0,
-      lastResponseId: undefined, // Will be set after first AI response
-    });
-
-    return args.threadId;
-  },
-});
-
-// Public version - callable from client
-export const getOrCreateThreadPublic = mutation({
-  args: {
-    threadId: v.optional(v.string()),
-    projectId: v.id("projects"),
-    userClerkId: v.string(),
-  },
-  returns: v.string(),
-  handler: async (ctx, args) => {
-    // Generate threadId if not provided
-    const threadIdToUse = args.threadId || `thread-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-
-    // Check if thread exists
-    const existingThread = await ctx.db
-      .query("aiThreads")
-      .withIndex("by_thread_id", (q) => q.eq("threadId", threadIdToUse))
-      .unique();
-
-    if (existingThread) {
-      // Update last message time
-      await ctx.db.patch(existingThread._id, {
-        lastMessageAt: Date.now(),
-      });
-      return threadIdToUse;
-    }
-
-    // Get project to get teamId
-    const project = await ctx.db.get(args.projectId);
-    if (!project) {
-      throw new Error("Project not found");
-    }
-
-    // Create new thread
-    await ctx.db.insert("aiThreads", {
-      threadId: threadIdToUse,
-      projectId: args.projectId,
-      teamId: project.teamId,
-      userClerkId: args.userClerkId,
-      lastMessageAt: Date.now(),
-      messageCount: 0,
-      lastResponseId: undefined, // Will be set after first AI response
-    });
-
-    return threadIdToUse;
-  },
-});
-
-// Update thread with last response ID for Responses API
-export const updateThreadResponseId = internalMutation({
-  args: {
-    threadId: v.string(),
-    responseId: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const thread = await ctx.db
-      .query("aiThreads")
-      .withIndex("by_thread_id", (q) => q.eq("threadId", args.threadId))
-      .unique();
-
-    if (thread) {
-      await ctx.db.patch(thread._id, {
-        lastResponseId: args.responseId,
-        lastMessageAt: Date.now(),
-      });
-    }
-  },
-});
 
 // Get thread for Responses API (includes lastResponseId)
 export const getThreadForResponses = internalQuery({
@@ -256,15 +144,21 @@ export const getProjectThread = mutation({
       throw new Error("Project not found");
     }
 
-    const threadId = `thread-${args.projectId}-${args.userClerkId}-${Date.now()}`;
+    const threadTitle = args.title ?? "Assistant Chat";
+    const threadId = await createThread(ctx, components.agent, {
+      userId: args.userClerkId,
+      title: threadTitle,
+    });
+
     await ctx.db.insert("aiThreads", {
       threadId,
+      agentThreadId: threadId,
       projectId: args.projectId,
       teamId: project.teamId,
       userClerkId: args.userClerkId,
       lastMessageAt: Date.now(),
       messageCount: 0,
-      title: args.title ?? "Assistant Chat",
+      title: threadTitle,
     });
 
     return threadId;
@@ -295,15 +189,21 @@ export const getProjectThreadInternal = internalMutation({
       throw new Error("Project not found");
     }
 
-    const threadId = `thread-${args.projectId}-${args.userClerkId}-${Date.now()}`;
+    const threadTitle = args.title ?? "Assistant Chat";
+    const threadId = await createThread(ctx, components.agent, {
+      userId: args.userClerkId,
+      title: threadTitle,
+    });
+
     await ctx.db.insert("aiThreads", {
       threadId,
+      agentThreadId: threadId,
       projectId: args.projectId,
       teamId: project.teamId,
       userClerkId: args.userClerkId,
       lastMessageAt: Date.now(),
       messageCount: 0,
-      title: args.title ?? "Assistant Chat",
+      title: threadTitle,
     });
 
     return threadId;
@@ -343,60 +243,6 @@ export const getLatestAssistantMessageText = internalQuery({
     return latestAssistant?.text ?? null;
   },
 });
-
-export const getLatestToolCallStatus = internalQuery({
-  args: {
-    threadId: v.string(),
-  },
-  returns: v.object({
-    responseId: v.optional(v.string()),
-    hasPending: v.boolean(),
-    hasRejected: v.boolean(),
-  }),
-  handler: async (ctx, args) => {
-    const thread = await ctx.db
-      .query("aiThreads")
-      .withIndex("by_thread_id", (q) => q.eq("threadId", args.threadId))
-      .unique();
-
-    if (!thread || !thread.lastResponseId) {
-      return {
-        responseId: undefined,
-        hasPending: false,
-        hasRejected: false,
-      };
-    }
-
-    const responseId = thread.lastResponseId;
-
-    const calls = await ctx.db
-      .query("aiFunctionCalls")
-      .withIndex("by_response_id", (q) => q.eq("responseId", responseId))
-      .collect();
-
-    let hasPending = false;
-    let hasRejected = false;
-
-    for (const call of calls) {
-      if (call.status === "pending") {
-        hasPending = true;
-      } else if (call.status === "rejected") {
-        hasRejected = true;
-      }
-
-      if (hasPending && hasRejected) {
-        break;
-      }
-    }
-
-    return {
-      responseId,
-      hasPending,
-      hasRejected,
-    };
-  },
-});
-
 
 export const listThreadsForUser = query({
   args: {
@@ -895,75 +741,5 @@ export const clearThreadInternal = internalMutation({
 
     await ctx.db.delete(thread._id);
     return { success: true };
-  },
-});
-
-// Clear the last response ID to break the chain when user rejects a tool call
-export const clearLastResponseId = mutation({
-  args: {
-    threadId: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const thread = await ctx.db
-      .query("aiThreads")
-      .withIndex("by_thread_id", (q) => q.eq("threadId", args.threadId))
-      .unique();
-
-    if (thread) {
-      await ctx.db.patch(thread._id, {
-        lastResponseId: undefined,
-      });
-    }
-  },
-});
-
-// Save pending items from AI tool calls (for streaming chat)
-export const savePendingItems = internalMutation({
-  args: {
-    threadId: v.string(),
-    projectId: v.id("projects"),
-    items: v.array(v.object({
-      type: v.string(),
-      operation: v.optional(v.string()),
-      data: v.any(),
-      functionCall: v.optional(v.object({
-        callId: v.string(),
-        functionName: v.string(),
-        arguments: v.string(),
-      })),
-    })),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    // Get or create a response ID for grouping these items
-    const responseId = `stream_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-
-    for (const item of args.items) {
-      await ctx.db.insert("aiFunctionCalls", {
-        threadId: args.threadId,
-        projectId: args.projectId,
-        responseId,
-        callId: item.functionCall?.callId || `call_${Date.now()}`,
-        functionName: item.functionCall?.functionName || item.type,
-        arguments: item.functionCall?.arguments || JSON.stringify(item.data),
-        status: "pending",
-        createdAt: Date.now(),
-      });
-    }
-
-    // Update thread with response ID
-    const thread = await ctx.db
-      .query("aiThreads")
-      .withIndex("by_thread_id", (q) => q.eq("threadId", args.threadId))
-      .unique();
-
-    if (thread) {
-      await ctx.db.patch(thread._id, {
-        lastResponseId: responseId,
-        lastMessageAt: Date.now(),
-      });
-    }
-
-    return null;
   },
 });

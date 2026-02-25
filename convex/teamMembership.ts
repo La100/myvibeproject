@@ -1,6 +1,5 @@
 import { v } from "convex/values";
 import { mutation } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
 
 const generateSlug = (name: string) => {
   return name
@@ -52,42 +51,12 @@ export const ensureCurrentUserTeamMembership = mutation({
       ""
     ).toLowerCase();
 
-    const derivedRole: "admin" | "member" | "customer" =
+    const derivedRole: "admin" | "member" =
       roleClaimRaw.includes("admin")
         ? "admin"
-        : roleClaimRaw.includes("customer")
-          ? "customer"
-          : "member";
+        : "member";
 
     let fallbackRole = derivedRole;
-    let fallbackProjectIds: Id<"projects">[] | undefined;
-
-    if (identity.email) {
-      const normalizedEmail = identity.email.trim().toLowerCase();
-      const now = Date.now();
-      const pendingInvitations = await ctx.db
-        .query("pendingCustomerInvitations")
-        .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
-        .filter((q) =>
-          q.and(
-            q.eq(q.field("clerkOrgId"), args.clerkOrgId),
-            q.eq(q.field("status"), "pending"),
-            q.gt(q.field("expiresAt"), now)
-          )
-        )
-        .collect();
-
-      if (pendingInvitations.length > 0) {
-        fallbackRole = "customer";
-        fallbackProjectIds = Array.from(new Set(pendingInvitations.map((invitation) => invitation.projectId)));
-
-        for (const invitation of pendingInvitations) {
-          await ctx.db.patch(invitation._id, {
-            status: "accepted",
-          });
-        }
-      }
-    }
 
     const membership = await ctx.db
       .query("teamMembers")
@@ -120,13 +89,6 @@ export const ensureCurrentUserTeamMembership = mutation({
       if (derivedRole === "admin" && membership.role !== "admin") {
         patch.role = "admin";
       }
-      if (fallbackRole === "customer" && membership.role !== "customer") {
-        patch.role = "customer";
-      }
-      if (fallbackProjectIds && fallbackProjectIds.length > 0) {
-        const existingProjectIds = membership.projectIds || [];
-        patch.projectIds = Array.from(new Set([...existingProjectIds, ...fallbackProjectIds]));
-      }
       if (Object.keys(patch).length > 0) {
         await ctx.db.patch(membership._id, patch);
       }
@@ -136,7 +98,6 @@ export const ensureCurrentUserTeamMembership = mutation({
         clerkUserId: identity.subject,
         clerkOrgId: args.clerkOrgId,
         role: fallbackRole,
-        projectIds: fallbackProjectIds,
         permissions: [],
         joinedAt: Date.now(),
         isActive: true,

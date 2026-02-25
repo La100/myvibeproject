@@ -383,7 +383,7 @@ export function InlineConfirmationList({
                 disabled={isProcessing}
               >
                 {isProcessing && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
-                Confirm All
+                Accept All
               </Button>
             </div>
           )}

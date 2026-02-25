@@ -36,9 +36,14 @@ export function InlineCreationForm({
   onUpdate,
 }: InlineCreationFormProps) {
   const { project } = useProject();
+  const projectCurrency =
+    typeof project.currency === "string" && project.currency.trim().length > 0
+      ? project.currency.trim()
+      : undefined;
   const type = normalizeType(item.type);
 
   const operation = item.operation || "create";
+  const isEditOperation = operation === "edit" || operation === "bulk_edit";
   const operationVerb = operation === "delete" ? "Delete" : (operation === "edit" || operation === "bulk_edit") ? "Update" : "Create";
 
   const projectSettingsDefaults: Record<string, unknown> = type === "projectSettings"
@@ -59,7 +64,7 @@ export function InlineCreationForm({
   const payloadOriginal = (item.originalItem || {}) as Record<string, unknown>;
 
   const baseData = (() => {
-    if (operation === "edit" && type === "projectSettings") {
+    if (isEditOperation && type === "projectSettings") {
       const { projectId: _projectId, ...dataWithoutProjectId } = payloadData;
       void _projectId;
       return {
@@ -70,7 +75,7 @@ export function InlineCreationForm({
       };
     }
 
-    if (operation === "edit" && item.originalItem) {
+    if (isEditOperation && item.originalItem) {
       return { ...payloadOriginal, ...payloadUpdates };
     }
 
@@ -104,7 +109,7 @@ export function InlineCreationForm({
 
   const updateData = (updates: Record<string, unknown>) => {
     const id = item.clientId ?? item.functionCall?.callId ?? index;
-    if (operation === "edit") {
+    if (isEditOperation) {
       onUpdate(id, {
         updates: { ...(item.updates || {}), ...updates },
       });
@@ -122,7 +127,7 @@ export function InlineCreationForm({
           <div className={cn("w-2 h-2 rounded-full", getDotColor(type))} />
           <span>{operationVerb} {getLabel(type)}</span>
         </div>
-        {operation === "edit" && displayTitle && (
+        {isEditOperation && displayTitle && (
           <span className="text-xs text-muted-foreground truncate max-w-[220px]">{displayTitle}</span>
         )}
       </div>
@@ -146,8 +151,8 @@ export function InlineCreationForm({
 
             {type === "task" && <TaskForm data={data} onUpdate={updateData} teamMembers={teamMembers} />}
             {type === "note" && <NoteForm data={data} onUpdate={updateData} />}
-            {type === "shopping" && <ShoppingForm data={data} onUpdate={updateData} />}
-            {type === "labor" && <LaborForm data={data} onUpdate={updateData} />}
+            {type === "shopping" && <ShoppingForm data={data} onUpdate={updateData} currency={projectCurrency} />}
+            {type === "labor" && <LaborForm data={data} onUpdate={updateData} currency={projectCurrency} />}
             {type === "contact" && <ContactForm data={data} onUpdate={updateData} />}
             {type === "survey" && <SurveyForm data={data} onUpdate={updateData} />}
             {type === "projectSettings" && <ProjectSettingsForm data={data} onUpdate={updateData} />}

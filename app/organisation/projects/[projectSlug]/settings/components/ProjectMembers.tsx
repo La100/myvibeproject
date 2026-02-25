@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Users, Mail, UserX, Crown, User } from "lucide-react";
+import { Users, UserX, Crown, User } from "lucide-react";
 import { toast } from "sonner";
 import { Id } from "@/convex/_generated/dataModel";
 
@@ -20,7 +20,7 @@ interface ProjectMembersProps {
 
 interface TeamMember {
   _id: Id<"teamMembers">;
-  role: "admin" | "member" | "customer";
+  role: "admin" | "member";
   name: string;
   email: string;
   imageUrl?: string;
@@ -78,7 +78,6 @@ export default function ProjectMembers({ project }: ProjectMembersProps) {
                     role="Admin"
                     description="Full project access"
                     canManage={false}
-                    projectId={project._id}
                     teamId={project.teamId}
                   />
                 ))}
@@ -102,7 +101,6 @@ export default function ProjectMembers({ project }: ProjectMembersProps) {
                     role="Member"
                     description="Can edit tasks and files"
                     canManage={isCurrentUserAdmin}
-                    projectId={project._id}
                     teamId={project.teamId}
                   />
                 ))}
@@ -123,18 +121,15 @@ function MemberRow({
   role, 
   description,
   canManage,
-  projectId,
   teamId
 }: { 
   member: TeamMember; 
   role: string; 
   description: string;
   canManage: boolean;
-  projectId: Id<"projects">;
   teamId: Id<"teams">;
 }) {
   const removeTeamMember = useMutation(apiAny.teams.removeTeamMember);
-  const inviteCustomerToProject = useMutation(apiAny.teams.inviteCustomerToProject);
 
   const getRoleColor = (role: string) => {
     switch (role.toLowerCase()) {
@@ -156,29 +151,6 @@ function MemberRow({
     }
   };
 
-  const handleChangeToCustomer = async () => {
-    if (!member.email) {
-      toast.error("Cannot convert member without an email address.");
-      return;
-    }
-
-    try {
-      await inviteCustomerToProject({
-        email: member.email,
-        projectId,
-      });
-
-      await removeTeamMember({
-        clerkUserId: member.clerkUserId,
-        teamId,
-      });
-
-      toast.success("Member converted to project customer");
-    } catch (error) {
-      toast.error("Failed to convert member: " + (error as Error).message);
-    }
-  };
-
   return (
     <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
       <div className="flex items-center gap-2 lg:gap-3 min-w-0 flex-1">
@@ -197,15 +169,6 @@ function MemberRow({
         <Badge variant={getRoleColor(role) as "default" | "secondary" | "outline"} className="text-xs">{role}</Badge>
         {canManage && member.role === "member" && (
           <>
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={handleChangeToCustomer}
-              className="text-blue-600 hover:text-blue-700 h-6 w-6 lg:h-8 lg:w-8 p-0"
-              title="Change to Project Customer"
-            >
-              <Mail className="h-3 w-3 lg:h-4 lg:w-4" />
-            </Button>
             <Button 
               variant="ghost" 
               size="sm"

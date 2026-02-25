@@ -54,7 +54,7 @@ function ProjectSidebarContent() {
   const pathname = usePathname();
   const router = useRouter();
   const { setOpenMobile } = useSidebar();
-  const { project, teamMember } = useProject();
+  const { project } = useProject();
   const { signOut, openUserProfile } = useClerk();
   const { user } = useUser();
 
@@ -76,13 +76,10 @@ function ProjectSidebarContent() {
   const aiItem = { href: `/organisation/projects/${params.projectSlug}/ai`, label: "AI Assistant", icon: Sparkles, key: "ai" };
   const settingsItem = { href: `/organisation/projects/${params.projectSlug}/settings`, label: "Settings", icon: Settings, key: "settings" };
 
-  const isCustomer = teamMember?.role === "customer";
-  const projectNavItems = allNavItems.filter(
-    (item) => item.group === "project" && !(item.key === "customer_panel" && isCustomer)
-  );
+  const projectNavItems = allNavItems.filter((item) => item.group === "project");
   const architectureNavItems = allNavItems.filter((item) => item.group === "architecture");
   const footerItems = [
-    ...(!isCustomer ? [settingsItem] : []),
+    settingsItem,
     { href: "/help", label: "Help", icon: LifeBuoy },
   ];
 

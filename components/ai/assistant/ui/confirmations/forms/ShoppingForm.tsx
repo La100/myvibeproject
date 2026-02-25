@@ -2,8 +2,69 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-export function ShoppingForm({ data, onUpdate }: { data: Record<string, unknown>; onUpdate: (u: Record<string, unknown>) => void }) {
+export function ShoppingForm({
+    data,
+    onUpdate,
+    currency,
+}: {
+    data: Record<string, unknown>;
+    onUpdate: (u: Record<string, unknown>) => void;
+    currency?: string;
+}) {
     const priorityValue = typeof data.priority === "string" ? data.priority : "none";
+    const toNumber = (value: unknown): number | undefined => {
+        if (typeof value === "number" && Number.isFinite(value)) return value;
+        if (typeof value === "string") {
+            const raw = value.trim();
+            const numericLike = raw.match(/-?\d[\d\s.,]*/)?.[0];
+            if (!numericLike) return undefined;
+
+            let normalized = numericLike.replace(/\s+/g, "");
+            const commaCount = (normalized.match(/,/g) || []).length;
+            const dotCount = (normalized.match(/\./g) || []).length;
+
+            if (commaCount > 0 && dotCount > 0) {
+                if (normalized.lastIndexOf(",") > normalized.lastIndexOf(".")) {
+                    normalized = normalized.replace(/\./g, "").replace(",", ".");
+                } else {
+                    normalized = normalized.replace(/,/g, "");
+                }
+            } else if (commaCount > 0) {
+                if (commaCount > 1) {
+                    normalized = normalized.replace(/,/g, "");
+                } else {
+                    const [intPart, fracPart = ""] = normalized.split(",");
+                    normalized = fracPart.length === 3 ? `${intPart}${fracPart}` : `${intPart}.${fracPart}`;
+                }
+            } else if (dotCount > 1) {
+                normalized = normalized.replace(/\./g, "");
+            } else if (dotCount === 1) {
+                const [intPart, fracPart = ""] = normalized.split(".");
+                if (fracPart.length === 3) {
+                    normalized = `${intPart}${fracPart}`;
+                }
+            }
+
+            const parsed = Number(normalized);
+            if (Number.isFinite(parsed)) return parsed;
+        }
+        return undefined;
+    };
+    const quantityValue = toNumber(data.quantity) ?? 1;
+    const unitPriceValue = (() => {
+        const direct = toNumber(data.unitPrice);
+        if (direct !== undefined && direct > 0) return direct;
+        const alias = toNumber(data.price);
+        if (alias !== undefined && alias > 0) return alias;
+        const total = toNumber(data.totalPrice);
+        if (total !== undefined && total > 0 && quantityValue > 0) {
+            return total / quantityValue;
+        }
+        return undefined;
+    })();
+    const currencySuffix = typeof currency === "string" && currency.trim().length > 0
+        ? ` (${currency.trim()})`
+        : "";
     return (
         <div className="space-y-3">
             <div className="space-y-1.5">
@@ -21,16 +82,18 @@ export function ShoppingForm({ data, onUpdate }: { data: Record<string, unknown>
                     <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Quantity</Label>
                     <Input
                         type="number"
-                        value={Number(data.quantity || 1)}
+                        value={quantityValue}
                         onChange={(e) => onUpdate({ quantity: Number(e.target.value) })}
                         className="rounded-md border border-border/60 bg-card px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                     />
                 </div>
                 <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Price (Optional)</Label>
+                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                        Price{currencySuffix} (Optional)
+                    </Label>
                     <Input
                         type="number"
-                        value={Number(data.unitPrice || "")}
+                        value={unitPriceValue === undefined ? "" : String(unitPriceValue)}
                         onChange={(e) => onUpdate({ unitPrice: e.target.value ? Number(e.target.value) : undefined })}
                         placeholder="0.00"
                         className="rounded-md border border-border/60 bg-card px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
@@ -142,4 +205,3 @@ export function ShoppingForm({ data, onUpdate }: { data: Record<string, unknown>
         </div>
     );
 }
-

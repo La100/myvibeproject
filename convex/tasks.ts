@@ -35,16 +35,6 @@ const hasProjectAccess = async (ctx: any, projectId: Id<"projects">, requireWrit
     return true;
   }
 
-  if (membership.role === 'customer') {
-    if (requireWriteAccess) return false; // Customers never have write access
-    return membership.projectIds?.includes(projectId) ?? false;
-  }
-
-  if (membership.role === 'client') {
-    if (requireWriteAccess) return false; // Clients never have write access
-    return membership.projectIds?.includes(projectId) ?? false;
-  }
-
   return false;
 };
 

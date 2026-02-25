@@ -1,25 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
-import type { Id } from "@/convex/_generated/dataModel";
 import { useUser } from "@clerk/nextjs";
 import { useProject } from "@/components/providers/ProjectProvider";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 
 import { useChat } from "./data/hooks";
 import { usePendingItems } from "./data/hooks";
-import { AISubscriptionWall } from "@/components/ai/shared";
+import { AISubscriptionWall, AIQuotaUpsellCard } from "@/components/ai/shared";
 import AssistantConversation from "@/components/assistant-ui/assistant-conversation";
 import type { UIMessage } from "@convex-dev/agent/react";
 import { toast } from "sonner";
@@ -41,8 +32,6 @@ const AIAssistant = () => {
     team?._id ? { teamId: team._id } : "skip",
   );
 
-  const generateUploadUrl = useMutation(apiAny.files.generateUploadUrlWithCustomKey);
-  const addFile = useMutation(apiAny.files.addFile);
   const updateProject = useMutation(apiAny.projects.updateProject);
   const clearAllThreadsForUser = useMutation(apiAny.ai.threads.clearAllThreadsForUser);
 
@@ -110,25 +99,45 @@ const AIAssistant = () => {
   });
 
   const handleResetChat = useCallback(async () => {
-    if (project?._id && user?.id) {
-      try {
-        await clearAllThreadsForUser({
-          projectId: project._id,
-          userClerkId: user.id,
-        });
-      } catch (error) {
-        console.error("Failed to clear AI threads during reset:", error);
-        toast.error("Failed to reset conversation");
-        return;
-      }
-    }
-
+    // Optimistic reset to avoid stale-thread flicker while backend cleanup runs.
     handleNewChat();
     resetPendingState();
-  }, [project?._id, user?.id, clearAllThreadsForUser, handleNewChat, resetPendingState]);
+
+    if (!project?._id || !user?.id) {
+      return;
+    }
+
+    try {
+      await clearAllThreadsForUser({
+        projectId: project._id,
+        userClerkId: user.id,
+      });
+    } catch (error) {
+      console.error("Failed to clear AI threads during reset:", error);
+      toast.error("Failed to reset conversation");
+    }
+  }, [
+    clearAllThreadsForUser,
+    handleNewChat,
+    project?._id,
+    resetPendingState,
+    user?.id,
+  ]);
+
+  const isQuotaBlocked = !!(
+    aiAccess &&
+    !aiAccess.hasAccess &&
+    (aiAccess.remainingTokens === 0 ||
+      (aiAccess.message || "").toLowerCase().includes("exhaust"))
+  );
 
   const handleConversationSend = useCallback(
     async (payload: { text: string; files: File[] }) => {
+      if (isQuotaBlocked) {
+        toast.error("AI credits exhausted. Upgrade your plan or manage billing to continue.");
+        return;
+      }
+
       const trimmedMessage = payload.text.trim();
       if (!trimmedMessage && payload.files.length === 0) {
         return;
@@ -156,38 +165,29 @@ const AIAssistant = () => {
         () => { },
         () => { },
         async (args) => {
-          const result = await generateUploadUrl({
-            projectId: args.projectId,
-            fileName: args.fileName,
-            origin: args.origin as "general" | "ai",
+          const formData = new FormData();
+          formData.append("projectId", String(args.projectId));
+          formData.append("file", args.file);
+
+          const response = await fetch("/api/ai/files", {
+            method: "POST",
+            body: formData,
           });
-          return { url: result.url, key: result.key };
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(errorText || "OpenAI file upload failed");
+          }
+          return await response.json();
         },
-        addFile as (args: {
-          projectId: Id<"projects">;
-          fileKey: string;
-          fileName: string;
-          fileType: string;
-          fileSize: number;
-          origin: string;
-        }) => Promise<string>,
         trimmedMessage || fileLabel,
       );
     },
     [
+      isQuotaBlocked,
       pendingItems,
       handleRejectAll,
       sendMessageWithFile,
-      generateUploadUrl,
-      addFile,
     ],
-  );
-
-  const isQuotaBlocked = !!(
-    aiAccess &&
-    !aiAccess.hasAccess &&
-    (aiAccess.remainingTokens === 0 ||
-      (aiAccess.message || "").toLowerCase().includes("exhaust"))
   );
 
   const handleToggleAutoConfirmCrud = useCallback(async (checked: boolean) => {
@@ -228,61 +228,68 @@ const AIAssistant = () => {
     user?.primaryEmailAddress?.emailAddress?.charAt(0) ||
     "U";
 
+  const quotaBlockedAssistantMessage = useMemo(() => {
+    if (!isQuotaBlocked) return null;
+
+    const noticeText = [
+      "### AI credits exhausted",
+      aiAccess?.message || "AI credits are exhausted.",
+      "",
+      "Upgrade your plan or manage billing to continue. You can still review previous messages and visualizations.",
+    ].join("\n");
+
+    return {
+      id: "quota-blocked-assistant-message",
+      key: "quota-blocked-assistant-message",
+      role: "assistant",
+      content: noticeText,
+      text: noticeText,
+      parts: [
+        {
+          type: "text",
+          text: noticeText,
+        },
+      ],
+      order: Number.MAX_SAFE_INTEGER,
+      stepOrder: Number.MAX_SAFE_INTEGER,
+      status: "success",
+      _creationTime: Date.now(),
+    } as UIMessage;
+  }, [aiAccess?.message, isQuotaBlocked]);
+
+  const conversationMessages = useMemo(() => {
+    const baseMessages = [...((uiMessages as UIMessage[] | undefined) ?? [])];
+    if (!quotaBlockedAssistantMessage) return baseMessages;
+
+    const withoutQuotaNotice = baseMessages.filter((message) => {
+      const messageKey = message.key ?? message.id;
+      return messageKey !== quotaBlockedAssistantMessage.key;
+    });
+
+    return [...withoutQuotaNotice, quotaBlockedAssistantMessage];
+  }, [quotaBlockedAssistantMessage, uiMessages]);
+
+  const quotaBanner =
+    isQuotaBlocked && team?._id ? (
+      <AIQuotaUpsellCard
+        teamId={team._id}
+        currentPlan={aiAccess?.currentPlan}
+        subscriptionStatus={aiAccess?.subscriptionStatus ?? null}
+        message={aiAccess?.message}
+        remainingTokens={aiAccess?.remainingTokens ?? 0}
+      />
+    ) : null;
+
   if (aiAccess !== undefined && !aiAccess.hasAccess && team?._id) {
-    if (isQuotaBlocked) {
-      const remainingTokens = aiAccess.remainingTokens ?? 0;
-
-      return (
-        <div className="flex min-h-screen items-center justify-center bg-background/50 px-4">
-          <Card className="w-full max-w-lg overflow-hidden rounded-3xl border-border/50 bg-card/80 shadow-2xl backdrop-blur-xl">
-            <CardHeader className="space-y-4 pb-2">
-              <Badge
-                variant="secondary"
-                className="w-fit rounded-lg border-0 bg-red-100 px-3 py-1 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400"
-              >
-                Tokens exhausted
-              </Badge>
-              <div className="space-y-2">
-                <CardTitle className="font-display text-2xl tracking-tight">
-                  No AI tokens available
-                </CardTitle>
-                <CardDescription className="text-base">{aiAccess.message}</CardDescription>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-4">
-              <div className="space-y-3 rounded-2xl border border-border/50 bg-muted/30 p-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                    Remaining tokens
-                  </span>
-                  <span className="text-sm font-semibold text-foreground">
-                    {remainingTokens.toLocaleString()}
-                  </span>
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-red-500 to-orange-500"
-                    style={{ width: "100%" }}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Contact your administrator to add more tokens.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      );
+    if (!isQuotaBlocked) {
+      return <AISubscriptionWall teamId={team._id} teamSlug={team.slug} />;
     }
-
-    return <AISubscriptionWall teamId={team._id} teamSlug={team.slug} />;
   }
 
   const showUnifiedLoading =
     isProjectContextLoading ||
     !team?._id ||
-    aiAccess === undefined ||
-    (chatIsLoading && uiMessages.length === 0);
+    aiAccess === undefined;
 
   if (showUnifiedLoading) {
     return (
@@ -299,7 +306,7 @@ const AIAssistant = () => {
         showHeader
         title={project?.name || "AI Assistant"}
         assistantFallback={(project?.name || "A").charAt(0)}
-        uiMessages={uiMessages as UIMessage[]}
+        uiMessages={conversationMessages}
         isLoading={isLoading}
         isStreaming={isStreaming}
         chatIsLoading={chatIsLoading}
@@ -308,6 +315,7 @@ const AIAssistant = () => {
         onReset={handleResetChat}
         userImageUrl={user?.imageUrl || undefined}
         userFallback={userFallback}
+        composerBanner={quotaBanner}
         pendingItems={pendingItems}
         onConfirmItem={handleConfirmItem}
         onRejectItem={handleRejectItem}

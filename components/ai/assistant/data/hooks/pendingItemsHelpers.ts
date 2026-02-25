@@ -64,7 +64,37 @@ export function toFiniteNumber(value: unknown): number | undefined {
     return value;
   }
   if (typeof value === "string" && value.trim().length > 0) {
-    const parsed = Number(value.replace(",", "."));
+    const raw = value.trim();
+    const numericLike = raw.match(/-?\d[\d\s.,]*/)?.[0];
+    if (!numericLike) return undefined;
+
+    let normalized = numericLike.replace(/\s+/g, "");
+    const commaCount = (normalized.match(/,/g) || []).length;
+    const dotCount = (normalized.match(/\./g) || []).length;
+
+    if (commaCount > 0 && dotCount > 0) {
+      if (normalized.lastIndexOf(",") > normalized.lastIndexOf(".")) {
+        normalized = normalized.replace(/\./g, "").replace(",", ".");
+      } else {
+        normalized = normalized.replace(/,/g, "");
+      }
+    } else if (commaCount > 0) {
+      if (commaCount > 1) {
+        normalized = normalized.replace(/,/g, "");
+      } else {
+        const [intPart, fracPart = ""] = normalized.split(",");
+        normalized = fracPart.length === 3 ? `${intPart}${fracPart}` : `${intPart}.${fracPart}`;
+      }
+    } else if (dotCount > 1) {
+      normalized = normalized.replace(/\./g, "");
+    } else if (dotCount === 1) {
+      const [intPart, fracPart = ""] = normalized.split(".");
+      if (fracPart.length === 3) {
+        normalized = `${intPart}${fracPart}`;
+      }
+    }
+
+    const parsed = Number(normalized);
     if (Number.isFinite(parsed)) {
       return parsed;
     }

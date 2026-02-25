@@ -24,6 +24,13 @@ interface UseAIChatProps {
   initialThreadId?: string;
 }
 
+type OpenAIUploadedFile = {
+  fileId: string;
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+};
+
 interface UseAIChatReturn {
   // State
   message: string;
@@ -76,11 +83,13 @@ interface UseAIChatReturn {
   // Actions
   handleSendMessage: (
     selectedFiles: File[],
-    uploadedFileIds: string[],
+    uploadedFiles: OpenAIUploadedFile[],
     onUploadStart: () => void,
-    onUploadComplete: (fileIds: string[]) => void,
-    generateUploadUrl: (args: { projectId: Id<"projects">; fileName: string; origin: string }) => Promise<{ url: string; key: string }>,
-    addFile: (args: { projectId: Id<"projects">; fileKey: string; fileName: string; fileType: string; fileSize: number; origin: string }) => Promise<string>,
+    onUploadComplete: (files: OpenAIUploadedFile[]) => void,
+    uploadOpenAIFile: (args: {
+      projectId: Id<"projects">;
+      file: File;
+    }) => Promise<OpenAIUploadedFile>,
     promptOverride?: string
   ) => Promise<void>;
   handleStopResponse: () => void;
@@ -442,11 +451,13 @@ export const useAIChat = ({
   // ===========================================
   const handleSendMessage = useCallback(async (
     selectedFiles: File[],
-    uploadedFileIds: string[],
+    uploadedFiles: OpenAIUploadedFile[],
     onUploadStart: () => void,
-    onUploadComplete: (fileIds: string[]) => void,
-    generateUploadUrl: (args: { projectId: Id<"projects">; fileName: string; origin: string }) => Promise<{ url: string; key: string }>,
-    addFile: (args: { projectId: Id<"projects">; fileKey: string; fileName: string; fileType: string; fileSize: number; origin: string }) => Promise<string>,
+    onUploadComplete: (files: OpenAIUploadedFile[]) => void,
+    uploadOpenAIFile: (args: {
+      projectId: Id<"projects">;
+      file: File;
+    }) => Promise<OpenAIUploadedFile>,
     promptOverride?: string
   ) => {
     let currentThreadId = threadId;
@@ -486,41 +497,20 @@ export const useAIChat = ({
 
     try {
 
-      const currentFileIds: string[] = [...uploadedFileIds];
-      // Handle file uploads
+      const currentOpenAIFiles: OpenAIUploadedFile[] = [...uploadedFiles];
+      // Upload directly to OpenAI Files API
       if (selectedFiles.length > 0) {
         onUploadStart();
 
         for (const file of selectedFiles) {
-          const uploadData = await generateUploadUrl({
+          const uploaded = await uploadOpenAIFile({
             projectId,
-            fileName: file.name,
-            origin: "ai",
+            file,
           });
-
-          const uploadResult = await fetch(uploadData.url, {
-            method: "PUT",
-            headers: { "Content-Type": file.type },
-            body: file,
-          });
-
-          if (!uploadResult.ok) {
-            throw new Error(`Upload failed for ${file.name}`);
-          }
-
-          const fileId = await addFile({
-            projectId,
-            fileKey: uploadData.key,
-            fileName: file.name,
-            fileType: file.type,
-            fileSize: file.size,
-            origin: "ai",
-          });
-
-          currentFileIds.push(fileId);
+          currentOpenAIFiles.push(uploaded);
         }
 
-        onUploadComplete(currentFileIds);
+        onUploadComplete(currentOpenAIFiles);
       }
 
       // Clear message immediately for better UX
@@ -537,7 +527,7 @@ export const useAIChat = ({
         threadId: currentThreadId,
         projectId,
         prompt,
-        fileIds: hasFiles ? (currentFileIds as Id<"files">[]) : undefined,
+        openaiFiles: hasFiles ? currentOpenAIFiles : undefined,
       });
 
       if (!currentThreadId && result?.threadId) {

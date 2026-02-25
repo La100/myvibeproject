@@ -290,11 +290,10 @@ export default defineSchema({
     clerkOrgId: v.string(),
     role: v.union(
       v.literal("admin"),
-      v.literal("member"),
-      v.literal("customer") // ✅ temporarily restored for compatibility
+      v.literal("member")
     ),
     permissions: v.array(v.string()),
-    projectIds: v.optional(v.array(v.id("projects"))), // ✅ temporarily restored for compatibility
+    projectIds: v.optional(v.array(v.id("projects"))),
     joinedAt: v.number(),
     isActive: v.boolean(),
   })
@@ -313,23 +312,6 @@ export default defineSchema({
   })
     .index("by_clerk_invitation_id", ["clerkInvitationId"])
     .index("by_team", ["teamId"]),
-
-  // Temporary customer invitations (to specific projects)
-  pendingCustomerInvitations: defineTable({
-    email: v.string(),
-    projectId: v.id("projects"),
-    clerkOrgId: v.string(),
-    invitedBy: v.string(),
-    status: v.union(
-      v.literal("pending"),
-      v.literal("accepted"),
-      v.literal("expired")
-    ),
-    expiresAt: v.number(),
-  })
-    .index("by_email", ["email"])
-    .index("by_project", ["projectId"])
-    .index("by_org", ["clerkOrgId"]),
 
   // Users
   users: defineTable({

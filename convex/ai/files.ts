@@ -22,6 +22,13 @@ export type FileMetadataForHistory = {
   fileSize?: number;
 };
 
+export type OpenAIUploadedFile = {
+  fileId: string;
+  fileName: string;
+  fileType?: string;
+  fileSize?: number;
+};
+
 export type PreparedFileMessage = {
   message: string;
   content: MessageContentPart[];
@@ -206,6 +213,65 @@ export async function prepareMessageWithFiles({
       console.error("Failed to prepare AI message with file:", error);
       appendToMessage(`[User attached file: ${fileId} - processing failed, please ask for specific content.]`);
     }
+  }
+
+  if (content.length === 0) {
+    return {
+      message,
+      content: [{ type: "text", text: message }],
+      fileMetadata: filesMetadata[0],
+      filesMetadata: filesMetadata.length > 0 ? filesMetadata : undefined,
+    };
+  }
+
+  return {
+    message,
+    content: [...content, { type: "text", text: message }],
+    fileMetadata: filesMetadata[0],
+    filesMetadata: filesMetadata.length > 0 ? filesMetadata : undefined,
+  };
+}
+
+export async function prepareMessageWithOpenAIFiles({
+  openaiFiles,
+  baseMessage,
+}: {
+  openaiFiles: OpenAIUploadedFile[];
+  baseMessage: string;
+}): Promise<PreparedFileMessage> {
+  let message = baseMessage;
+  const content: MessageContentPart[] = [];
+  const filesMetadata: FileMetadataForHistory[] = [];
+
+  const appendToMessage = (text: string) => {
+    message = message ? `${message}\n\n${text}` : text;
+  };
+
+  for (const file of openaiFiles) {
+    const fileType = file.fileType || "application/octet-stream";
+    const isImage = fileType.startsWith("image/");
+    const normalizedMediaType = isImage ? fileType : "application/pdf";
+    const readableName = file.fileName || file.fileId;
+
+    if (isImage) {
+      appendToMessage(`User attached image: ${readableName} (${fileType})`);
+    } else {
+      appendToMessage(`User attached file: ${readableName} (${fileType})`);
+    }
+
+    // File IDs from OpenAI are passed directly to the model as input_file/input_image.
+    content.push({
+      type: "file",
+      data: file.fileId,
+      mediaType: normalizedMediaType,
+    });
+
+    filesMetadata.push({
+      fileId: file.fileId,
+      fileName: readableName,
+      fileType: fileType,
+      fileSize: typeof file.fileSize === "number" ? file.fileSize : undefined,
+    });
   }
 
   if (content.length === 0) {

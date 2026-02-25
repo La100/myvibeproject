@@ -193,12 +193,13 @@ export const ComposerAttachments: FC = () => {
   );
 };
 
-export const ComposerAddAttachment: FC = () => {
+export const ComposerAddAttachment: FC<{ disabled?: boolean }> = ({ disabled = false }) => {
   return (
     <ComposerPrimitive.AddAttachment
       className="aui-composer-add-attachment inline-flex size-8.5 items-center justify-center rounded-full p-1 font-semibold text-xs transition-colors hover:bg-muted-foreground/15 disabled:opacity-50 dark:border-muted-foreground/15 dark:hover:bg-muted-foreground/30"
       aria-label="Add Attachment"
       title="Add Attachment"
+      disabled={disabled}
     >
       <PlusIcon className="aui-attachment-add-icon size-5 stroke-[1.5px]" />
       <span className="sr-only">Add Attachment</span>

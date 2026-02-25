@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import type { FunctionReference } from "convex/server";
-import { query, mutation, internalMutation, internalQuery, internalAction } from "./_generated/server";
+import { query, mutation, internalQuery, internalAction } from "./_generated/server";
 import { Doc } from "./_generated/dataModel";
 import { r2 } from "./files";
 
@@ -13,10 +13,6 @@ const buildPublicR2FileUrl = (key: string) => {
   }
   return `${publicBaseUrl}/${key}`;
 };
-
-const createPendingCustomerInvitationRef = {
-  _name: "teams:createPendingCustomerInvitation",
-} as const;
 
 export const listUserTeams = query({
   args: {},
@@ -110,7 +106,7 @@ export const getTeamMemberByClerkId = internalQuery({
     teamId: v.id("teams"),
     clerkUserId: v.string(),
     clerkOrgId: v.string(),
-    role: v.union(v.literal("admin"), v.literal("member"), v.literal("customer")),
+    role: v.union(v.literal("admin"), v.literal("member")),
     permissions: v.array(v.string()),
     projectIds: v.optional(v.array(v.id("projects"))),
     joinedAt: v.number(),
@@ -289,91 +285,6 @@ export const getTeamSettingsByClerkOrg = query({
   }
 });
 
-export const inviteCustomerToProject = mutation({
-  args: {
-    email: v.string(),
-    projectId: v.id("projects"),
-  },
-  async handler(ctx, args) {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project) {
-      throw new Error("Project not found");
-    }
-
-    const team = await ctx.db.get(project.teamId);
-    if (!team) {
-      throw new Error("Team not found for this project");
-    }
-
-    const teamMember = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", q =>
-        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
-      )
-      .unique();
-
-    if (!teamMember || (teamMember.role !== "admin" && teamMember.role !== "member")) {
-      throw new Error("Insufficient permissions to invite a customer");
-    }
-
-    const normalizedEmail = args.email.trim().toLowerCase();
-
-    // Replace any older pending invitation for this email+project pair.
-    const existingPendingInvitations = await ctx.db
-      .query("pendingCustomerInvitations")
-      .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
-      .filter((q) => q.eq(q.field("projectId"), args.projectId))
-      .collect();
-
-    for (const pendingInvitation of existingPendingInvitations) {
-      await ctx.db.delete(pendingInvitation._id);
-    }
-
-    const invitationId = await ctx.db.insert("pendingCustomerInvitations", {
-      email: normalizedEmail,
-      projectId: args.projectId,
-      clerkOrgId: team.clerkOrgId,
-      invitedBy: identity.subject,
-      status: "pending",
-      expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
-    });
-
-    // Wyślij email przez Clerk
-    const sendCustomerInvitationRef = {
-      _name: "teams:sendCustomerClerkInvitation",
-    } as unknown as FunctionReference<"action">;
-
-    const scheduler = ctx.scheduler as unknown as {
-      runAfter: (
-        delayMs: number,
-        reference: FunctionReference<"action">,
-        args: {
-          clerkOrgId: string;
-          email: string;
-          projectId: string;
-          projectName: string;
-          invitedBy: string;
-        },
-      ) => Promise<void>;
-    };
-
-    await scheduler.runAfter(0, sendCustomerInvitationRef, {
-      clerkOrgId: team.clerkOrgId,
-      email: normalizedEmail,
-      projectId: args.projectId,
-      projectName: project.name,
-      invitedBy: identity.subject,
-    });
-
-    return { invitationId };
-  }
-});
-
 const generateSlug = (name: string) => {
   return name
     .toLowerCase()
@@ -414,151 +325,6 @@ export const syncTeamWithClerkOrg = mutation({
   },
 });
 
-export const removeProjectFromCustomer = mutation({
-  args: {
-    clerkUserId: v.string(),
-    projectId: v.id("projects"),
-  },
-  async handler(ctx, args) {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project) throw new Error("Project not found");
-
-    // Sprawdź uprawnienia wywołującego
-    const callerMember = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", q =>
-        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
-      )
-      .unique();
-
-    if (!callerMember || (callerMember.role !== "admin" && callerMember.role !== "member")) {
-      throw new Error("Insufficient permissions");
-    }
-
-    // Znajdź członka zespołu
-    const targetMember = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", q =>
-        q.eq("teamId", project.teamId).eq("clerkUserId", args.clerkUserId)
-      )
-      .unique();
-
-    if (!targetMember || targetMember.role !== "customer") {
-      throw new Error("Customer not found");
-    }
-
-    // Usuń projekt z listy
-    const currentProjectIds = targetMember.projectIds || [];
-    const filteredProjectIds = currentProjectIds.filter(id => id !== args.projectId);
-
-    await ctx.db.patch(targetMember._id, {
-      projectIds: filteredProjectIds,
-    });
-
-    return { success: true };
-  }
-});
-
-export const addCustomerToProject = internalMutation({
-  args: {
-    email: v.string(),
-    projectId: v.id("projects"),
-    clerkOrgId: v.string(),
-  },
-  async handler(ctx, args) {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
-    // Sprawdź uprawnienia do projektu
-    const project = await ctx.db.get(args.projectId);
-    if (!project) throw new Error("Project not found");
-
-    const teamMember = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", q =>
-        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
-      )
-      .unique();
-
-    if (!teamMember || (teamMember.role !== "admin" && teamMember.role !== "member")) {
-      throw new Error("Insufficient permissions");
-    }
-
-    const normalizedEmail = args.email.trim().toLowerCase();
-
-    // Customer records table was removed; keep only pending invitations.
-    await ctx.runMutation(createPendingCustomerInvitationRef as any, {
-      email: normalizedEmail,
-      projectId: args.projectId,
-      clerkOrgId: args.clerkOrgId,
-      invitedBy: identity.subject,
-    });
-
-    return { success: true };
-  }
-});
-
-export const createPendingCustomerInvitation = internalMutation({
-  args: {
-    email: v.string(),
-    projectId: v.id("projects"),
-    clerkOrgId: v.string(),
-    invitedBy: v.string(),
-  },
-  async handler(ctx, args) {
-    // Usuń poprzednie zaproszenia dla tego email + projekt (jeśli istnieją)
-    const existingInvitations = await ctx.db
-      .query("pendingCustomerInvitations")
-      .filter(q => q.and(
-        q.eq(q.field("email"), args.email),
-        q.eq(q.field("projectId"), args.projectId)
-      ))
-      .collect();
-
-    for (const invitation of existingInvitations) {
-      await ctx.db.delete(invitation._id);
-    }
-
-    // Stwórz nowe zaproszenie
-    return await ctx.db.insert("pendingCustomerInvitations", {
-      email: args.email,
-      projectId: args.projectId,
-      clerkOrgId: args.clerkOrgId,
-      invitedBy: args.invitedBy,
-      status: "pending",
-      expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000), // 7 dni
-    });
-  }
-});
-
-export const cleanupExpiredInvitations = internalMutation({
-  args: {},
-  async handler(ctx) {
-    const now = Date.now();
-
-    // Znajdź wygasłe zaproszenia
-    const expiredInvitations = await ctx.db
-      .query("pendingCustomerInvitations")
-      .filter(q => q.and(
-        q.eq(q.field("status"), "pending"),
-        q.lt(q.field("expiresAt"), now)
-      ))
-      .collect();
-
-    // Oznacz jako wygasłe zamiast usuwać
-    for (const invitation of expiredInvitations) {
-      await ctx.db.patch(invitation._id, {
-        status: "expired"
-      });
-    }
-
-    return { cleanedUp: expiredInvitations.length };
-  }
-});
-
 export const getTeamMembersForIndexing = internalQuery({
   args: {
     projectId: v.id("projects"),
@@ -572,8 +338,10 @@ export const getTeamMembersForIndexing = internalQuery({
       .withIndex("by_team", (q) => q.eq("teamId", project.teamId!))
       .collect();
 
-    // Filter members who have access to this project
-    const filteredMembers = members.filter(m => m.projectIds?.includes(args.projectId) || m.role !== 'customer');
+    // Keep only internal roles.
+    const filteredMembers = members.filter(
+      (member) => member.role === "admin" || member.role === "member"
+    );
 
     // Get user details for each member (including name and email for AI matching)
     return await Promise.all(
@@ -608,7 +376,7 @@ export const getTeamMembersWithUserDetails = internalQuery({
     // Get user details for each member
     return await Promise.all(
       members
-        .filter(m => m.projectIds?.includes(args.projectId) || m.role !== 'customer')
+        .filter((member) => member.role === "admin" || member.role === "member")
         .map(async (member) => {
           const user = await ctx.db
             .query("users")
@@ -793,7 +561,7 @@ export const sendClerkInvitation = internalAction({
   args: {
     clerkOrgId: v.string(),
     email: v.string(),
-    role: v.string(), // "admin" or "member"
+    role: v.union(v.literal("admin"), v.literal("member")),
     invitedBy: v.string(),
   },
   async handler(_ctx, args) {
@@ -834,61 +602,6 @@ export const sendClerkInvitation = internalAction({
 
     } catch (error) {
       console.error("Failed to send Clerk invitation:", error);
-      throw new Error((error as Error).message);
-    }
-  },
-});
-
-export const sendCustomerClerkInvitation = internalAction({
-  args: {
-    clerkOrgId: v.string(),
-    email: v.string(),
-    projectId: v.id("projects"),
-    projectName: v.string(),
-    invitedBy: v.string(),
-  },
-  async handler(_ctx, args) {
-    const clerkApiKey = process.env.CLERK_SECRET_KEY;
-    if (!clerkApiKey) {
-      throw new Error("CLERK_SECRET_KEY environment variable not set");
-    }
-
-    const redirectUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-
-    try {
-      const response = await fetch(
-        `https://api.clerk.com/v1/organizations/${args.clerkOrgId}/invitations`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${clerkApiKey}`,
-          },
-          body: JSON.stringify({
-            email_address: args.email,
-            role: 'org:member', // Customers get member role in Clerk
-            inviter_user_id: args.invitedBy,
-            redirect_url: redirectUrl,
-            public_metadata: {
-              isCustomer: true,
-              projectId: args.projectId,
-              projectName: args.projectName,
-            }
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorBody = await response.json();
-        console.error("Clerk API Error (Customer Invitation):", JSON.stringify(errorBody, null, 2));
-        const clerkError = errorBody.errors[0]?.long_message || "Failed to send customer invitation.";
-        throw new Error(`Clerk API Error: ${clerkError}`);
-      }
-
-      console.log(`Customer invitation email sent successfully to ${args.email} for project ${args.projectName}`);
-
-    } catch (error) {
-      console.error("Failed to send customer Clerk invitation:", error);
       throw new Error((error as Error).message);
     }
   },
@@ -978,21 +691,7 @@ export const addExistingMemberToProject = mutation({
       throw new Error("User is not a member of this organization");
     }
 
-    // Only customer members can have project-scoped access.
-    if (targetMember.role !== "customer") {
-      return { success: true, message: "Internal members already have project access." };
-    }
-
-    const currentProjectIds = targetMember.projectIds || [];
-    if (currentProjectIds.includes(args.projectId)) {
-      return { success: true, message: "User already has access to this project" };
-    }
-
-    await ctx.db.patch(targetMember._id, {
-      projectIds: [...currentProjectIds, args.projectId],
-    });
-
-    return { success: true, message: "User added to project successfully" };
+    return { success: true, message: "Project-scoped access is disabled." };
   }
 });
 
@@ -1000,78 +699,8 @@ export const getAvailableOrgMembersForProject = query({
   args: {
     projectId: v.id("projects"),
   },
-  async handler(ctx, args) {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return [];
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project) return [];
-
-    // Sprawdź uprawnienia
-    const callerMember = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", q =>
-        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
-      )
-      .unique();
-
-    if (!callerMember || (callerMember.role !== "admin" && callerMember.role !== "member")) {
-      return [];
-    }
-
-    // Pobierz wszystkich członków organizacji
-    const allMembers = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team", q => q.eq("teamId", project.teamId))
-      .filter(q => q.eq(q.field("isActive"), true))
-      .collect();
-
-    // Fetch all team users
-    const allMembersWithUsers = await Promise.all(
-      allMembers.map(async (member) => {
-        const user = await ctx.db
-          .query("users")
-          .withIndex("by_clerk_user_id", q => q.eq("clerkUserId", member.clerkUserId))
-          .unique();
-
-        return {
-          ...member,
-          user: user,
-        };
-      })
-    );
-
-    // Improved logic: show only those who can be added as project customers
-    const availableMembers = allMembersWithUsers.filter(memberWithUser => {
-      const { user, ...member } = memberWithUser;
-
-      // Admin and Member already have full access to all projects - no need to add them as project customers
-      if (member.role === "admin" || member.role === "member") {
-        return false;
-      }
-
-      // For organizational customers: check if they already have this project in projectIds
-      if (member.role === "customer" && member.projectIds && member.projectIds.includes(args.projectId)) {
-        return false;
-      }
-
-      // Show: Customers who don't yet have access to this project
-      return true;
-    });
-
-    // Format result with user data
-    const membersWithUserData = availableMembers.map(memberWithUser => {
-      const { user, ...member } = memberWithUser;
-
-      return {
-        ...member,
-        name: user?.name ?? "Unknown User",
-        email: user?.email ?? "No email",
-        imageUrl: user?.imageUrl,
-      };
-    });
-
-    return membersWithUserData;
+  async handler() {
+    return [];
   }
 });
 

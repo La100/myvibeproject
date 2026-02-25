@@ -29,7 +29,7 @@ import {
   Zap,
 } from "lucide-react";
 import NextImage from "next/image";
-import { useMemo, type FC, type ComponentProps } from "react";
+import { useMemo, type FC, type ComponentProps, type ReactNode } from "react";
 
 type ThreadProps = {
   showWelcome?: boolean;
@@ -37,6 +37,9 @@ type ThreadProps = {
   assistantFallback?: string;
   userImageUrl?: string;
   userFallback?: string;
+  inputDisabled?: boolean;
+  inputPlaceholder?: string;
+  composerBanner?: ReactNode;
   pendingItems?: PendingContentItem[];
   onConfirmItem?: (index: number | string) => Promise<void>;
   onRejectItem?: (index: number | string) => void | Promise<void>;
@@ -54,6 +57,9 @@ export const Thread: FC<ThreadProps> = ({
   assistantFallback,
   userImageUrl,
   userFallback,
+  inputDisabled = false,
+  inputPlaceholder,
+  composerBanner,
   pendingItems = [],
   onConfirmItem,
   onRejectItem,
@@ -125,7 +131,10 @@ export const Thread: FC<ThreadProps> = ({
       <div className="aui-thread-composer-footer w-full shrink-0 bg-transparent px-4 pt-3 pb-4">
         <div className="relative mx-auto flex w-full max-w-(--thread-max-width) flex-col gap-4">
           <ThreadScrollToBottom />
+          {composerBanner}
           <Composer
+            inputDisabled={inputDisabled}
+            inputPlaceholder={inputPlaceholder}
             confirmationMode={confirmationMode}
             onConfirmationModeChange={onConfirmationModeChange}
             isModeUpdating={isModeUpdating}
@@ -236,27 +245,36 @@ const ThreadSuggestions: FC = () => {
 };
 
 const Composer: FC<{
+  inputDisabled?: boolean;
+  inputPlaceholder?: string;
   confirmationMode?: "always_ask" | "auto_confirm";
   onConfirmationModeChange?: (mode: "always_ask" | "auto_confirm") => void | Promise<void>;
   isModeUpdating?: boolean;
 }> = ({
+  inputDisabled = false,
+  inputPlaceholder,
   confirmationMode = "always_ask",
   onConfirmationModeChange,
   isModeUpdating = false,
 }) => {
+  const resolvedPlaceholder =
+    inputPlaceholder ?? "Describe the renovation stage, problem, or question...";
+
   return (
     <ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
       <ComposerPrimitive.AttachmentDropzone className="aui-composer-attachment-dropzone flex w-full flex-col rounded-2xl border border-border/80 bg-card shadow-sm px-1 pt-2 outline-none transition-shadow has-[textarea:focus-visible]:border-ring has-[textarea:focus-visible]:ring-2 has-[textarea:focus-visible]:ring-ring/20 data-[dragging=true]:border-ring data-[dragging=true]:border-dashed data-[dragging=true]:bg-accent/50">
         <ComposerAttachments />
         <ComposerPrimitive.Input
           id="assistant-chat-input"
-          placeholder="Describe the renovation stage, problem, or question..."
+          placeholder={resolvedPlaceholder}
           className="aui-composer-input mb-1 max-h-32 min-h-14 w-full resize-none bg-transparent px-4 pt-2 pb-3 text-sm text-foreground caret-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-0"
           rows={1}
           autoFocus
           aria-label="Message input"
+          disabled={inputDisabled}
         />
         <ComposerAction
+          inputDisabled={inputDisabled}
           confirmationMode={confirmationMode}
           onConfirmationModeChange={onConfirmationModeChange}
           isModeUpdating={isModeUpdating}
@@ -267,64 +285,67 @@ const Composer: FC<{
 };
 
 const ComposerAction: FC<{
+  inputDisabled?: boolean;
   confirmationMode?: "always_ask" | "auto_confirm";
   onConfirmationModeChange?: (mode: "always_ask" | "auto_confirm") => void | Promise<void>;
   isModeUpdating?: boolean;
 }> = ({
+  inputDisabled = false,
   confirmationMode = "always_ask",
   onConfirmationModeChange,
   isModeUpdating = false,
 }) => {
-    return (
-      <div className="aui-composer-action-wrapper relative mx-2 mb-2 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <ComposerAddAttachment />
-          {onConfirmationModeChange && (
-            <div
-              className="flex items-center gap-2 rounded-full border border-border/60 bg-muted/30 px-2 py-1 cursor-pointer"
-              title={
-                confirmationMode === "auto_confirm"
-                  ? "Auto-confirm ON. AI actions are applied automatically"
-                  : "Auto-confirm OFF. AI actions require your approval"
+  return (
+    <div className="aui-composer-action-wrapper relative mx-2 mb-2 flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <ComposerAddAttachment disabled={inputDisabled} />
+        {onConfirmationModeChange && (
+          <div
+            className="flex items-center gap-2 rounded-full border border-border/60 bg-muted/30 px-2 py-1 cursor-pointer"
+            title={
+              confirmationMode === "auto_confirm"
+                ? "Auto-confirm ON. AI actions are applied automatically"
+                : "Auto-confirm OFF. AI actions require your approval"
+            }
+          >
+            <Switch
+              checked={confirmationMode === "auto_confirm"}
+              onCheckedChange={(checked) =>
+                onConfirmationModeChange(checked ? "auto_confirm" : "always_ask")
               }
-            >
-              <Switch
-                checked={confirmationMode === "auto_confirm"}
-                onCheckedChange={(checked) =>
-                  onConfirmationModeChange(checked ? "auto_confirm" : "always_ask")
-                }
-                disabled={isModeUpdating}
-                aria-label="Auto accept CRUD actions"
-              />
-              <Zap className="h-3.5 w-3.5 text-muted-foreground" />
-            </div>
-          )}
-        </div>
-        <AuiIf condition={({ thread }) => !thread.isRunning}>
-          <ComposerPrimitive.Send
-            type="submit"
-            className="aui-composer-send inline-flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-soft-md transition-colors hover:bg-primary/92 disabled:opacity-50"
-            aria-label="Send message"
-            title="Send message"
-          >
-            <ArrowUpIcon className="aui-composer-send-icon size-4" />
-            <span className="sr-only">Send message</span>
-          </ComposerPrimitive.Send>
-        </AuiIf>
-        <AuiIf condition={({ thread }) => thread.isRunning}>
-          <ComposerPrimitive.Cancel
-            type="button"
-            className="aui-composer-cancel inline-flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-soft-md transition-colors hover:bg-primary/92 disabled:opacity-50"
-            aria-label="Stop generating"
-            title="Stop generating"
-          >
-            <SquareIcon className="aui-composer-cancel-icon size-3 fill-current" />
-            <span className="sr-only">Stop generating</span>
-          </ComposerPrimitive.Cancel>
-        </AuiIf>
+              disabled={isModeUpdating}
+              aria-label="Auto accept CRUD actions"
+            />
+            <Zap className="h-3.5 w-3.5 text-muted-foreground" />
+          </div>
+        )}
       </div>
-    );
-  };
+      <AuiIf condition={({ thread }) => !thread.isRunning}>
+        <ComposerPrimitive.Send
+          type="submit"
+          className="aui-composer-send inline-flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-soft-md transition-colors hover:bg-primary/92 disabled:opacity-50"
+          aria-label="Send message"
+          title="Send message"
+          disabled={inputDisabled}
+        >
+          <ArrowUpIcon className="aui-composer-send-icon size-4" />
+          <span className="sr-only">Send message</span>
+        </ComposerPrimitive.Send>
+      </AuiIf>
+      <AuiIf condition={({ thread }) => thread.isRunning}>
+        <ComposerPrimitive.Cancel
+          type="button"
+          className="aui-composer-cancel inline-flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-soft-md transition-colors hover:bg-primary/92 disabled:opacity-50"
+          aria-label="Stop generating"
+          title="Stop generating"
+        >
+          <SquareIcon className="aui-composer-cancel-icon size-3 fill-current" />
+          <span className="sr-only">Stop generating</span>
+        </ComposerPrimitive.Cancel>
+      </AuiIf>
+    </div>
+  );
+};
 
 const MessageError: FC = () => {
   return (

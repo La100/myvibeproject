@@ -179,7 +179,7 @@ export const getProjectsByTeam = query({
       )
       .unique();
 
-    if (!membership) {
+    if (!membership || (membership.role !== "admin" && membership.role !== "member")) {
       throw new Error("User is not a member of this team");
     }
 
@@ -243,11 +243,6 @@ export const listProjectsByClerkOrg = query({
             .withIndex("by_team", (q) => q.eq("teamId", team._id))
             .collect();
         }
-      } else if (membership.role === "customer" && membership.projectIds) {
-        // Customer with specific projectIds in teamMembers
-        const projectPromises = membership.projectIds.map(id => ctx.db.get(id));
-        const projectResults = await Promise.all(projectPromises);
-        projects = projectResults.filter(p => p !== null);
       }
     } else {
       return [];
@@ -312,7 +307,11 @@ export const listProjectsByTeam = query({
       )
       .unique();
 
-    if (!teamMember || !teamMember.isActive) {
+    if (
+      !teamMember ||
+      !teamMember.isActive ||
+      (teamMember.role !== "admin" && teamMember.role !== "member")
+    ) {
       return [];
     }
 
@@ -463,11 +462,26 @@ export const getProjectBySlugInClerkOrg = query({
     projectSlug: v.string(),
   },
   async handler(ctx, args) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+
     const team = await ctx.db
       .query("teams")
       .withIndex("by_clerk_org", q => q.eq("clerkOrgId", args.clerkOrgId))
       .unique();
     if (!team) return null;
+
+    const membership = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", team._id).eq("clerkUserId", identity.subject)
+      )
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .first();
+
+    if (!membership || (membership.role !== "admin" && membership.role !== "member")) {
+      return null;
+    }
 
     const project = await ctx.db
       .query("projects")
@@ -775,15 +789,6 @@ export const getProjectsForTeam = query({
           .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
           .collect();
       }
-    } else if (
-      membership.role === "customer" &&
-      membership.projectIds &&
-      membership.projectIds.length > 0
-    ) {
-      const customerProjects = await Promise.all(
-        membership.projectIds.map((id) => ctx.db.get(id))
-      );
-      projects = customerProjects.filter((p): p is Doc<"projects"> => p !== null);
     }
 
     projects.sort((a, b) => a.name.localeCompare(b.name));
@@ -830,11 +835,6 @@ export const checkUserProjectAccess = query({
       }
       // If no projectIds = access to all (backward compatibility)
       return teamMember;
-    }
-
-    // Customers have access only to assigned projects
-    if (teamMember.role === "customer") {
-      return teamMember.projectIds?.includes(args.projectId) ? teamMember : false;
     }
     
     // In other cases, no access
@@ -1127,32 +1127,6 @@ export const deleteProject = mutation({
     const allComments = [...projectComments, ...taskComments];
     const commentDeletionPromises = allComments.map(comment => ctx.db.delete(comment._id));
     await Promise.all(commentDeletionPromises);
-
-    // Handle team members with role "customer" - remove project or delete member entirely
-    const customerTeamMembers = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team", q => q.eq("teamId", project.teamId))
-      .filter(q => q.eq(q.field("role"), "customer"))
-      .collect();
-
-    const memberOperationPromises = customerTeamMembers.map(async (member) => {
-      const currentProjectIds = member.projectIds || [];
-      
-      if (currentProjectIds.includes(args.projectId) || currentProjectIds.length === 0) {
-        const updatedProjectIds = currentProjectIds.filter(id => id !== args.projectId);
-        
-        if (updatedProjectIds.length === 0) {
-          // If this was the customer's only project or they had no projects, remove member completely
-          await ctx.db.delete(member._id);
-          console.log(`Deleted customer team member ${member.clerkUserId} - no more projects`);
-        } else {
-          // If they have more projects, just remove this project from the list
-          await ctx.db.patch(member._id, { projectIds: updatedProjectIds });
-          console.log(`Updated customer team member ${member.clerkUserId} - removed project from list`);
-        }
-      }
-    });
-    await Promise.all(memberOperationPromises);
 
     // Delete messaging channels and pairing artifacts.
     const messagingChannels = await ctx.db

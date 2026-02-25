@@ -4,10 +4,10 @@
  * Myvibe project AI Streaming Chat
  * 
  * Streaming architecture:
- * 1. Client calls /api/ai/stream which calls initializeStreaming mutation
+ * 1. Client calls initiateStreaming mutation
  * 2. Mutation schedules internalDoStreaming action and returns immediately
- * 3. Client subscribes to listStreamingMessages query with threadId
- * 4. Action runs, saves deltas to DB as they're generated via Convex Agent saveStreamDeltas
+ * 3. Client subscribes to listThreadMessages query with threadId
+ * 4. Action runs, saves deltas via Convex Agent saveStreamDeltas
  * 5. Client sees streaming updates via query subscription
  * 
  * See: https://docs.convex.dev/agents/streaming
@@ -18,7 +18,7 @@ const apiAny = require("../_generated/api").api as any;
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const internalAny = require("../_generated/api").internal as any;
 import { components } from "../_generated/api";
-import { action, internalAction } from "../_generated/server";
+import { internalAction } from "../_generated/server";
 import { v } from "convex/values";
 import { createMyvibeProjectAgent } from "./agent";
 import {
@@ -26,7 +26,11 @@ import {
   buildSystemInstructions,
   getCurrentDateTime,
 } from "./helpers/contextBuilder";
-import { prepareMessageWithFile, prepareMessageWithFiles } from "./files";
+import {
+  prepareMessageWithFile,
+  prepareMessageWithFiles,
+  prepareMessageWithOpenAIFiles,
+} from "./files";
 import type { ProjectContextSnapshot } from "./types";
 import { AI_MODEL, calculateCost } from "./config";
 import { defaultPrompt } from "./prompt";
@@ -34,7 +38,18 @@ import type { Id } from "../_generated/dataModel";
 import { buildFallbackResponseFromTools } from "./helpers/streamResponseBuilder";
 
 const AI_CREDITS_EXHAUSTED_MESSAGE =
-  "You've run out of AI credits. Contact your administrator to add more tokens.";
+  "You've run out of AI credits. Upgrade your plan or manage billing to continue.";
+
+const READ_ONLY_TOOL_NAMES = new Set([
+  "search_items",
+  "search_tasks",
+  "search_notes",
+  "search_shopping_items",
+  "search_labor_items",
+  "search_surveys",
+  "search_contacts",
+  "load_full_project_context",
+]);
 
 /**
  * Internal action that does the actual streaming work
@@ -48,6 +63,16 @@ export const internalDoStreaming = internalAction({
     threadId: v.string(),
     fileId: v.optional(v.union(v.id("files"), v.string())),
     fileIds: v.optional(v.array(v.union(v.id("files"), v.string()))),
+    openaiFiles: v.optional(
+      v.array(
+        v.object({
+          fileId: v.string(),
+          fileName: v.string(),
+          fileType: v.optional(v.string()),
+          fileSize: v.optional(v.number()),
+        }),
+      ),
+    ),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -59,7 +84,11 @@ export const internalDoStreaming = internalAction({
       projectId: args.projectId,
       userClerkId: args.userClerkId,
       message: args.message.substring(0, 100) + (args.message.length > 100 ? "..." : ""),
-      hasFiles: !!(args.fileId || args.fileIds),
+      hasFiles: !!(
+        args.fileId ||
+        args.fileIds ||
+        (args.openaiFiles && args.openaiFiles.length > 0)
+      ),
       timestamp: new Date().toISOString(),
     });
 
@@ -198,7 +227,14 @@ Apply these additional instructions when they do not conflict with the tool cont
           | { type: "image"; image: string; mediaType?: string }
           | { type: "file"; data: string; mediaType: string }
         > = userPrompt;
-      if (args.fileIds && args.fileIds.length > 0) {
+      if (args.openaiFiles && args.openaiFiles.length > 0) {
+        const result = await prepareMessageWithOpenAIFiles({
+          openaiFiles: args.openaiFiles,
+          baseMessage: args.message,
+        });
+        userPrompt = result.message;
+        userMessageContent = result.content;
+      } else if (args.fileIds && args.fileIds.length > 0) {
         const result = await prepareMessageWithFiles({
           ctx,
           fileIds: args.fileIds as string[],
@@ -219,6 +255,7 @@ Apply these additional instructions when they do not conflict with the tool cont
       console.log("📨 [USER MESSAGE]", {
         messageLength: userPrompt.length,
         hasMultipartContent: Array.isArray(userMessageContent),
+        openaiFiles: args.openaiFiles?.length || 0,
         fileIds: args.fileIds?.length || 0,
         fileId: args.fileId || null,
       });
@@ -514,18 +551,6 @@ Apply these additional instructions when they do not conflict with the tool cont
           toolNames: allToolCalls.map((tc: any) => tc.toolName || tc.name).filter(Boolean),
         });
 
-        // Tools that should NOT create pending items (read-only/search tools)
-        const readOnlyTools = new Set([
-          'search_items',
-          'search_tasks',
-          'search_shopping_items',
-          'search_notes',
-          'search_labor_items',
-          'search_surveys',
-          'search_contacts',
-          'load_full_project_context',
-        ]);
-
         const functionCalls: Array<{
           callId: string;
           functionName: string;
@@ -563,7 +588,7 @@ Apply these additional instructions when they do not conflict with the tool cont
           const toolArgs = toolCall.args || toolCall.input || toolCall.arguments || {};
 
           // Skip read-only tools - they shouldn't create pending items
-          if (readOnlyTools.has(toolName)) {
+          if (READ_ONLY_TOOL_NAMES.has(toolName)) {
             continue;
           }
 
@@ -688,21 +713,8 @@ Apply these additional instructions when they do not conflict with the tool cont
           }
         }
 
-        // Save action function calls to database for confirmation UI
-        // Filter out read-only tools that don't require confirmation
-        const READ_ONLY_TOOLS = new Set([
-          "search_items",
-          "search_tasks",
-          "search_notes",
-          "search_shopping_items",
-          "search_labor_items",
-          "search_surveys",
-          "search_contacts",
-          "load_full_project_context",
-        ]);
-
         const actionFunctionCalls = functionCalls.filter(
-          (fc) => !READ_ONLY_TOOLS.has(fc.functionName)
+          (fc) => !READ_ONLY_TOOL_NAMES.has(fc.functionName)
         );
 
         if (replacedExistingPendingCall) {
@@ -883,120 +895,6 @@ Apply these additional instructions when they do not conflict with the tool cont
         threadId: args.threadId,
       });
       return null;
-    }
-  },
-});
-
-/**
- * Public action for backwards compatibility
- * Now schedules streaming via mutation and returns immediately
- */
-export const startStreamingChat = action({
-  args: {
-    message: v.string(),
-    projectId: v.id("projects"),
-    userClerkId: v.string(),
-    threadId: v.optional(v.string()),
-    fileId: v.optional(v.union(v.id("files"), v.string())),
-    fileIds: v.optional(v.array(v.union(v.id("files"), v.string()))),
-  },
-  returns: v.object({
-    threadId: v.string(),
-    agentThreadId: v.optional(v.string()),
-    success: v.boolean(),
-    error: v.optional(v.string()),
-  }),
-  handler: async (ctx, args): Promise<{
-    threadId: string;
-    agentThreadId: string | undefined;
-    success: boolean;
-    error?: string;
-  }> => {
-    console.log("🎬 [START STREAMING CHAT ACTION]", {
-      projectId: args.projectId,
-      userClerkId: args.userClerkId,
-      hasThreadId: !!args.threadId,
-      messageLength: args.message.length,
-    });
-
-    try {
-      const identity = await ctx.auth.getUserIdentity();
-      if (!identity) {
-        console.error("❌ [UNAUTHORIZED] No identity");
-        throw new Error("Unauthorized");
-      }
-
-      if (identity.subject !== args.userClerkId) {
-        console.error("❌ [FORBIDDEN] Identity mismatch");
-        throw new Error("Forbidden");
-      }
-
-      const project = await ctx.runQuery(apiAny.projects.getProject, { projectId: args.projectId }) as { teamId: Id<"teams"> } | null;
-      if (!project) {
-        throw new Error("Project not found");
-      }
-
-      const membership = await ctx.runQuery(apiAny.teams.getCurrentUserTeamMember, {
-        teamId: project.teamId,
-      }) as { isActive?: boolean } | null;
-
-      if (!membership || membership.isActive === false) {
-        throw new Error("Forbidden");
-      }
-
-      // Generate threadId if not provided
-      const providedThreadId = typeof args.threadId === "string" && args.threadId.trim().length > 0
-        ? args.threadId
-        : `thread-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-
-      await ctx.runMutation(internalAny.activityLog.logActivity, {
-        teamId: project.teamId,
-        actionType: "analytics.ai.message_sent",
-        details: {
-          threadId: providedThreadId,
-          hasFiles: Boolean(args.fileId || (args.fileIds && args.fileIds.length > 0)),
-          messageLength: args.message.length,
-        },
-        entityId: providedThreadId,
-        entityType: "ai_thread",
-      });
-
-      console.log("📅 [SCHEDULE STREAMING]", {
-        providedThreadId,
-        isNewThread: !args.threadId,
-      });
-
-      // Call the mutation to initialize and schedule streaming
-      // Type annotation to break circular reference
-      await ctx.scheduler.runAfter(0, internalAny.ai.streaming.internalDoStreaming, {
-        message: args.message,
-        projectId: args.projectId,
-        userClerkId: args.userClerkId,
-        threadId: providedThreadId,
-        fileId: args.fileId,
-        fileIds: args.fileIds,
-      });
-
-      console.log("✅ [STREAMING SCHEDULED]", {
-        threadId: providedThreadId,
-      });
-
-      return {
-        threadId: providedThreadId,
-        agentThreadId: undefined,
-        success: true,
-      };
-    } catch (error) {
-      console.error("❌ [ERROR SCHEDULING STREAMING]", {
-        error: error instanceof Error ? error.message : String(error),
-        threadId: args.threadId,
-      });
-      return {
-        threadId: args.threadId || "",
-        agentThreadId: undefined,
-        success: false,
-        error: (error as Error).message,
-      };
     }
   },
 });

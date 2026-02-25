@@ -310,7 +310,7 @@ export default function TasksView() {
              <p className="text-muted-foreground">Manage your project's tasks</p>
            </div>
            <div className="flex items-center gap-2">
-             <Button onClick={() => setIsTaskFormOpen(true)} disabled={!hasAccess || (typeof hasAccess === 'object' && hasAccess.role === 'customer')}>
+             <Button onClick={() => setIsTaskFormOpen(true)} disabled={!hasAccess}>
                 Add Task
             </Button>
              <div className="flex items-center rounded-md border bg-background">

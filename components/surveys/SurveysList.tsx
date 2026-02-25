@@ -5,7 +5,7 @@ import { apiAny } from "@/lib/convexApiAny";
 import { useProject } from "@/components/providers/ProjectProvider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Edit, FileText, BarChart3 } from "lucide-react";
+import { Plus, Edit, BarChart3 } from "lucide-react";
 import Link from "next/link";
 interface SurveysListProps {
   projectSlug: string;
@@ -24,18 +24,7 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
 
   const isAdmin = currentUserMember?.role === "admin";
   const isMember = currentUserMember?.role === "member";
-  const isClient = currentUserMember?.role === "customer";
   const canEdit = isAdmin || isMember;
-
-  // Get user's responses to check if they already responded
-  const userResponses = useQuery(
-    apiAny.surveys.getUserSurveyResponses, 
-    isClient ? { projectId: project._id } : "skip"
-  );
-
-  const hasUserResponded = (surveyId: string) => {
-    return userResponses?.some(response => response.surveyId === surveyId && response.isComplete);
-  };
 
 
   return (
@@ -88,7 +77,7 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
               </CardHeader>
               <CardContent>
                 <div className="mt-4 flex gap-2 flex-wrap">
-                  {canEdit ? (
+                  {canEdit && (
                     <>
                       <Link href={`/organisation/projects/${projectSlug}/surveys/${survey._id}/edit`}>
                         <Button variant="outline" size="sm">
@@ -102,24 +91,6 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
                           Responses
                         </Button>
                       </Link>
-                    </>
-                  ) : (
-                    <>
-                      {!hasUserResponded(survey._id) ? (
-                        <Link href={`/organisation/projects/${projectSlug}/surveys/${survey._id}`}>
-                          <Button variant="outline" size="sm">
-                            <FileText className="mr-1 h-3 w-3" />
-                            Respond
-                          </Button>
-                        </Link>
-                      ) : (
-                        <Link href={`/organisation/projects/${projectSlug}/surveys/${survey._id}/responses`}>
-                          <Button variant="outline" size="sm">
-                            <BarChart3 className="mr-1 h-3 w-3" />
-                            My Response
-                          </Button>
-                        </Link>
-                      )}
                     </>
                   )}
                 </div>

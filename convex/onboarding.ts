@@ -49,7 +49,7 @@ type ActiveTeamContext = {
     timezone?: string;
   };
   membership: {
-    role: "admin" | "member" | "customer";
+    role: "admin" | "member";
     isActive: boolean;
   };
 };
@@ -114,7 +114,7 @@ const getActiveTeamContext = async (ctx: QueryCtx, identity: UserIdentity): Prom
     .withIndex("by_user", (q) => q.eq("clerkUserId", identity.subject))
     .collect()) as unknown as Array<{
     teamId: Id<"teams">;
-    role: "admin" | "member" | "customer";
+    role: "admin" | "member";
     isActive: boolean;
   }>;
 

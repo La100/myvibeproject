@@ -54,7 +54,6 @@ const hasProjectAccess = (
   requireWrite: boolean,
 ) => {
   if (!membership || !membership.isActive) return false;
-  if (requireWrite && membership.role === "customer") return false;
   if (
     membership.role === "member" &&
     membership.projectIds &&

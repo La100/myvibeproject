@@ -123,8 +123,6 @@ export default function MemberDetailsModal({
         return 'default';
       case 'member':
         return 'secondary';
-      case 'customer':
-        return 'outline';
       default:
         return 'secondary';
     }
@@ -159,7 +157,7 @@ export default function MemberDetailsModal({
                 <div className="flex items-center gap-2 mt-2">
                   <Badge variant={getRoleBadgeVariant(member.role)}>
                     {member.role === 'admin' ? 'Administrator' :
-                     member.role === 'member' ? 'Member' : 'Customer'}
+                     member.role === 'member' ? 'Member' : 'Unknown'}
                   </Badge>
                   {member.clerkUserId === currentUserClerkId && (
                     <Badge variant="outline" className="text-xs">You</Badge>

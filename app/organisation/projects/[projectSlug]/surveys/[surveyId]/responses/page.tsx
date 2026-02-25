@@ -46,13 +46,6 @@ export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps
     userIds.length > 0 ? { clerkUserIds: userIds } : "skip"
   );
 
-  // Get current user role to customize view
-  const currentUserMember = useQuery(apiAny.teams.getCurrentUserTeamMember,
-    routeParams && survey && survey.teamId ? { teamId: survey.teamId } : "skip"
-  );
-
-  const isClient = currentUserMember?.role === "customer";
-
   if (!survey || !routeParams) {
     return <div>Loading...</div>;
   }
@@ -93,7 +86,7 @@ export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps
           </Button>
           <div className="flex-1">
             <h1 className="text-3xl font-bold tracking-tight">
-              {isClient ? "My response" : "Survey responses"}
+              Survey responses
             </h1>
             <p className="text-muted-foreground mt-1">{survey.title}</p>
           </div>
@@ -104,16 +97,14 @@ export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
                 <Users className="h-5 w-5 text-foreground" />
-                {isClient ? "Status" : "Responses"}
+                Responses
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {isClient ? (responses?.length ?? 0 > 0 ? "Submitted" : "None") : (responses?.length ?? 0)}
+                {responses?.length ?? 0}
               </div>
-              <p className="text-sm text-gray-600">
-                {isClient ? "Your response" : "Total responses"}
-              </p>
+              <p className="text-sm text-gray-600">Total responses</p>
             </CardContent>
           </Card>
 
@@ -136,13 +127,8 @@ export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps
         {((responses?.length ?? 0) === 0) ? (
           <Card>
             <CardHeader>
-              <CardTitle>{isClient ? "No response yet" : "No responses"}</CardTitle>
-              <CardDescription>
-                {isClient
-                  ? "You have not filled out this survey yet."
-                  : "No one has responded to this survey yet."
-                }
-              </CardDescription>
+              <CardTitle>No responses</CardTitle>
+              <CardDescription>No one has responded to this survey yet.</CardDescription>
             </CardHeader>
           </Card>
         ) : (

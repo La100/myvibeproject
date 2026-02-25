@@ -39,10 +39,6 @@ export const ensureProjectAccess = async (
     throw new Error("Forbidden");
   }
 
-  if (requireWriteAccess && membership.role === "customer") {
-    throw new Error("Forbidden");
-  }
-
   if (
     membership.role === "member" &&
     membership.projectIds &&
@@ -67,7 +63,6 @@ export const ensureTeamMembership = async (ctx: any, teamId: Id<"teams">) => {
 
   return { identity, membership };
 };
-
 
 
 

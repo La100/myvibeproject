@@ -147,10 +147,11 @@ export const OPTIONAL_CONTACT_STRING_FIELDS: Array<keyof Omit<ContactInput, "nam
 
 // ==================== FILE UPLOAD ====================
 
-export const MAX_FILE_SIZE_MB = 512;
+export const MAX_FILE_SIZE_MB = 32;
 export const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
-export const ACCEPTED_FILE_TYPES = "image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx,.xlsm,.txt,.json,.jsonl,.csv,.md,.py,.js,.ts,.html,.css,.xml,.rtf";
+export const ACCEPTED_FILE_TYPES =
+  "image/*,application/pdf,.txt,.md,.csv,.tsv,.json,.jsonl,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.xlsm,.xml,.html,.py,.js,.ts,.css,.rtf";
 
 // ==================== UI CONSTANTS ====================
 

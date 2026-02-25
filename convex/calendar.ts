@@ -24,16 +24,20 @@ const hasProjectAccess = async (
     .first();
 
   if (!membership) return false;
-
-  if (membership.role === "customer") {
-    if (requireWriteAccess) return false;
-    return membership.projectIds?.includes(projectId) ?? false;
+  if (
+    membership.role === "member" &&
+    membership.projectIds &&
+    membership.projectIds.length > 0 &&
+    !membership.projectIds.includes(projectId)
+  ) {
+    return false;
   }
 
-  const validRoles = requireWriteAccess
-    ? ["admin", "member"]
-    : ["admin", "member", "customer"];
-  return validRoles.includes(membership.role);
+  if (requireWriteAccess) {
+    return membership.role === "admin" || membership.role === "member";
+  }
+
+  return membership.role === "admin" || membership.role === "member";
 };
 
 const fetchUsersByClerkIds = async (

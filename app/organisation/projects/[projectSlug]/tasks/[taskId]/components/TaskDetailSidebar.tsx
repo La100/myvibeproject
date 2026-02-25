@@ -45,7 +45,7 @@ interface TeamMemberWithUser {
   name: string;
   email: string;
   imageUrl?: string;
-  role: "admin" | "member" | "customer";
+  role: "admin" | "member";
 }
 
 interface TaskDetailSidebarProps {

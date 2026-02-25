@@ -53,10 +53,73 @@ export const extractSurveyData = (data: Record<string, unknown>): SurveyData => 
 // ==================== SANITIZERS ====================
 
 export const sanitizeShoppingItemData = (data: Record<string, unknown>) => {
+  const toNumber = (value: unknown): number | undefined => {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string") {
+      const raw = value.trim();
+      const numericLike = raw.match(/-?\d[\d\s.,]*/)?.[0];
+      if (!numericLike) return undefined;
+
+      let normalized = numericLike.replace(/\s+/g, "");
+      const commaCount = (normalized.match(/,/g) || []).length;
+      const dotCount = (normalized.match(/\./g) || []).length;
+
+      if (commaCount > 0 && dotCount > 0) {
+        if (normalized.lastIndexOf(",") > normalized.lastIndexOf(".")) {
+          normalized = normalized.replace(/\./g, "").replace(",", ".");
+        } else {
+          normalized = normalized.replace(/,/g, "");
+        }
+      } else if (commaCount > 0) {
+        if (commaCount > 1) {
+          normalized = normalized.replace(/,/g, "");
+        } else {
+          const [intPart, fracPart = ""] = normalized.split(",");
+          normalized = fracPart.length === 3 ? `${intPart}${fracPart}` : `${intPart}.${fracPart}`;
+        }
+      } else if (dotCount > 1) {
+        normalized = normalized.replace(/\./g, "");
+      } else if (dotCount === 1) {
+        const [intPart, fracPart = ""] = normalized.split(".");
+        if (fracPart.length === 3) {
+          normalized = `${intPart}${fracPart}`;
+        }
+      }
+
+      const parsed = Number(normalized);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+    return undefined;
+  };
+
+  const normalizedData: Record<string, unknown> = { ...data };
+  const quantity = toNumber(data.quantity);
+  const unitPrice =
+    toNumber(data.unitPrice) ??
+    toNumber(data.price);
+  const totalPrice = toNumber(data.totalPrice);
+
+  if (quantity !== undefined) {
+    normalizedData.quantity = quantity;
+  }
+  if (unitPrice !== undefined && unitPrice > 0) {
+    normalizedData.unitPrice = unitPrice;
+  } else if (
+    totalPrice !== undefined &&
+    totalPrice > 0 &&
+    quantity !== undefined &&
+    quantity > 0
+  ) {
+    normalizedData.unitPrice = totalPrice / quantity;
+  }
+  if (totalPrice !== undefined && totalPrice > 0) {
+    normalizedData.totalPrice = totalPrice;
+  }
+
   const sanitized: Record<string, unknown> = {};
   for (const key of ALLOWED_SHOPPING_FIELDS) {
-    if (data[key] !== undefined) {
-      sanitized[key] = data[key];
+    if (normalizedData[key] !== undefined) {
+      sanitized[key] = normalizedData[key];
     }
   }
   return sanitized;
@@ -560,6 +623,37 @@ export const expandBulkEditItems = (items: PendingItem[]): PendingItem[] => {
       return formatShoppingSectionDisplay(item);
     }
 
+    const isRecord = (value: unknown): value is Record<string, unknown> =>
+      typeof value === "object" && value !== null && !Array.isArray(value);
+
+    const nonEmptyString = (value: unknown): string | undefined => {
+      if (typeof value !== "string") return undefined;
+      const trimmed = value.trim();
+      return trimmed.length > 0 ? trimmed : undefined;
+    };
+
+    const idFieldByType: Partial<Record<PendingItem["type"], string>> = {
+      task: "taskId",
+      note: "noteId",
+      survey: "surveyId",
+      contact: "contactId",
+      shoppingSection: "sectionId",
+      laborSection: "sectionId",
+      projectSettings: "projectId",
+    };
+
+    const idCandidatesByType: Partial<Record<PendingItem["type"], string[]>> = {
+      task: ["taskId", "itemId", "_id", "id"],
+      note: ["noteId", "itemId", "_id", "id"],
+      shopping: ["itemId", "_id", "id"],
+      labor: ["itemId", "_id", "id"],
+      survey: ["surveyId", "itemId", "_id", "id"],
+      contact: ["contactId", "itemId", "_id", "id"],
+      shoppingSection: ["sectionId", "itemId", "_id", "id"],
+      laborSection: ["sectionId", "itemId", "_id", "id"],
+      projectSettings: ["projectId", "_id", "id"],
+    };
+
     if (item.operation === 'bulk_create') {
       const tasks = Array.isArray(item.data?.tasks)
         ? (item.data.tasks as TaskInput[])
@@ -685,6 +779,86 @@ export const expandBulkEditItems = (items: PendingItem[]): PendingItem[] => {
       }
 
       return item;
+    }
+
+    if (item.operation === "bulk_edit") {
+      const rawItems = Array.isArray((item.data as { items?: unknown })?.items)
+        ? ((item.data as { items: unknown[] }).items)
+        : [];
+
+      const expandedItems = rawItems.flatMap<PendingItem>((entry) => {
+        if (!isRecord(entry)) return [];
+
+        const originalItem = isRecord(entry.originalItem)
+          ? { ...entry.originalItem }
+          : {};
+        const updatesSource = isRecord(entry.updates)
+          ? { ...entry.updates }
+          : { ...entry };
+
+        delete updatesSource.originalItem;
+        delete updatesSource.updates;
+
+        for (const idField of [
+          "itemId",
+          "taskId",
+          "noteId",
+          "surveyId",
+          "contactId",
+          "sectionId",
+          "projectId",
+          "_id",
+          "id",
+        ]) {
+          delete updatesSource[idField];
+        }
+
+        const hasMeaningfulUpdates = Object.values(updatesSource).some((value) => {
+          if (value === undefined || value === null) return false;
+          if (typeof value === "string") return value.trim().length > 0;
+          return true;
+        });
+        if (!hasMeaningfulUpdates) {
+          return [];
+        }
+
+        const idCandidates = idCandidatesByType[item.type] ?? ["itemId", "_id", "id"];
+        const resolvedId =
+          idCandidates
+            .map((field) => nonEmptyString(entry[field]) ?? nonEmptyString(originalItem[field]))
+            .find(Boolean) ??
+          nonEmptyString(originalItem._id);
+        const idField = idFieldByType[item.type] ?? "itemId";
+
+        const mergedData: Record<string, unknown> = {
+          ...originalItem,
+          ...updatesSource,
+        };
+        if (resolvedId && mergedData[idField] === undefined) {
+          mergedData[idField] = resolvedId;
+        }
+
+        const normalizedOriginal = resolvedId && originalItem._id === undefined
+          ? { ...originalItem, _id: resolvedId }
+          : originalItem;
+
+        return [{
+          type: item.type,
+          operation: "edit",
+          data: mergedData,
+          updates: updatesSource,
+          originalItem: normalizedOriginal,
+          functionCall: item.functionCall,
+          responseId: item.responseId,
+          status: item.status,
+          approvalState: item.approvalState,
+          approvalReason: item.approvalReason,
+        } satisfies PendingItem];
+      });
+
+      if (expandedItems.length > 0) {
+        return expandedItems;
+      }
     }
 
     if (item.type === 'task' && item.operation === 'bulk_edit') {
@@ -814,11 +988,6 @@ export const resolveSectionName = (rawSectionName?: unknown, rawCategory?: unkno
   const normalizedCategory = typeof rawCategory === "string" ? rawCategory.trim() : "";
   return normalizedCategory.length > 0 ? normalizedCategory : undefined;
 };
-
-
-
-
-
 
 
 

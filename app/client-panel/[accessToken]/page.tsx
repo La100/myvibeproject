@@ -1,15 +1,20 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
-import { Download, ExternalLink, ShoppingCart } from "lucide-react";
+import { CheckCircle2, ClipboardList, Download, ExternalLink, Send, ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
 import { Doc, Id } from "@/convex/_generated/dataModel";
 import { apiAny } from "@/lib/convexApiAny";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
+import { Textarea } from "@/components/ui/textarea";
 
 type ClientPanelItem = Doc<"clientPanelItems">;
 type ClientPanelSection = Doc<"clientPanelSections">;
@@ -23,9 +28,53 @@ type ClientPanelFile = {
   uploadedAt: number;
   url: string;
 };
+type PublicSurveyQuestion = {
+  _id: Id<"surveyQuestions">;
+  questionText: string;
+  questionType:
+    | "text_short"
+    | "text_long"
+    | "multiple_choice"
+    | "single_choice"
+    | "rating"
+    | "yes_no"
+    | "number"
+    | "file";
+  options?: string[];
+  isRequired: boolean;
+  order: number;
+  ratingScale?: {
+    min: number;
+    max: number;
+    minLabel?: string;
+    maxLabel?: string;
+  };
+};
+type PublicSurvey = {
+  _id: Id<"surveys">;
+  title: string;
+  description?: string;
+  isRequired: boolean;
+  allowMultipleResponses: boolean;
+  startDate?: number;
+  endDate?: number;
+  questions: PublicSurveyQuestion[];
+  hasSubmitted: boolean;
+  submittedAt?: number;
+};
+type PublicSurveyAnswerPayload = {
+  questionId: Id<"surveyQuestions">;
+  answerType: "text" | "choice" | "rating" | "number" | "boolean";
+  textAnswer?: string;
+  choiceAnswers?: string[];
+  ratingAnswer?: number;
+  numberAnswer?: number;
+  booleanAnswer?: boolean;
+};
 const EMPTY_SECTIONS: ClientPanelSection[] = [];
 const EMPTY_ITEMS: ClientPanelItem[] = [];
 const EMPTY_FILES: ClientPanelFile[] = [];
+const EMPTY_SURVEYS: PublicSurvey[] = [];
 const DEFAULT_CLIENT_PANEL_SETTINGS = {
   showNotes: true,
   showSupplier: true,
@@ -95,6 +144,86 @@ const formatFileSize = (size: number) => {
   return `${size} B`;
 };
 
+const getOrCreatePublicRespondentKey = (accessToken: string) => {
+  const storageKey = `client-panel-respondent:${accessToken}`;
+  const existing = window.localStorage.getItem(storageKey);
+  if (existing && existing.trim().length > 0) {
+    return existing;
+  }
+
+  const generated =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  window.localStorage.setItem(storageKey, generated);
+  return generated;
+};
+
+const buildPublicSurveyAnswerPayload = (
+  question: PublicSurveyQuestion,
+  value: unknown
+): PublicSurveyAnswerPayload | null => {
+  if (question.questionType === "file") return null;
+
+  if (question.questionType === "text_short" || question.questionType === "text_long") {
+    if (typeof value !== "string" || value.trim().length === 0) return null;
+    return {
+      questionId: question._id,
+      answerType: "text",
+      textAnswer: value.trim(),
+    };
+  }
+
+  if (question.questionType === "single_choice") {
+    if (typeof value !== "string" || value.trim().length === 0) return null;
+    return {
+      questionId: question._id,
+      answerType: "choice",
+      choiceAnswers: [value],
+    };
+  }
+
+  if (question.questionType === "multiple_choice") {
+    if (!Array.isArray(value)) return null;
+    const selectedValues = value.filter((option): option is string => typeof option === "string");
+    if (selectedValues.length === 0) return null;
+    return {
+      questionId: question._id,
+      answerType: "choice",
+      choiceAnswers: selectedValues,
+    };
+  }
+
+  if (question.questionType === "rating") {
+    if (typeof value !== "number" || Number.isNaN(value)) return null;
+    return {
+      questionId: question._id,
+      answerType: "rating",
+      ratingAnswer: value,
+    };
+  }
+
+  if (question.questionType === "number") {
+    if (typeof value !== "number" || Number.isNaN(value)) return null;
+    return {
+      questionId: question._id,
+      answerType: "number",
+      numberAnswer: value,
+    };
+  }
+
+  if (question.questionType === "yes_no") {
+    if (typeof value !== "boolean") return null;
+    return {
+      questionId: question._id,
+      answerType: "boolean",
+      booleanAnswer: value,
+    };
+  }
+
+  return null;
+};
+
 function ItemImage({
   imageUrl,
   name,
@@ -132,22 +261,38 @@ function ClientPanelSkeleton() {
 export default function PublicClientPanelPage() {
   const params = useParams<{ accessToken: string }>();
   const accessToken = params.accessToken;
+  const [respondentKey, setRespondentKey] = useState<string | null>(null);
 
   const panelData = useQuery(apiAny.shopping.getPublicShoppingListByAccessToken, {
     accessToken,
   });
   const selectAlternative = useMutation(apiAny.shopping.selectShoppingAlternativeByAccessToken);
+  const submitPublicSurvey = useMutation(apiAny.surveys.submitPublicSurveyResponseByAccessToken);
+  const publicSurveysData = useQuery(
+    apiAny.surveys.getPublicSurveysByAccessToken,
+    respondentKey ? { accessToken, respondentKey } : "skip"
+  );
 
   const [localSelection, setLocalSelection] = useState<Record<string, string>>({});
   const [savingItemId, setSavingItemId] = useState<string | null>(null);
+  const [openSurveyId, setOpenSurveyId] = useState<string | null>(null);
+  const [submittingSurveyId, setSubmittingSurveyId] = useState<string | null>(null);
+  const [surveyStartTimes, setSurveyStartTimes] = useState<Record<string, number>>({});
+  const [surveyAnswers, setSurveyAnswers] = useState<Record<string, Record<string, unknown>>>({});
 
   const project = panelData?.project;
   const sections = (panelData?.sections as ClientPanelSection[] | undefined) ?? EMPTY_SECTIONS;
   const items = (panelData?.items as ClientPanelItem[] | undefined) ?? EMPTY_ITEMS;
   const files = (panelData?.files as ClientPanelFile[] | undefined) ?? EMPTY_FILES;
+  const surveys = (publicSurveysData?.surveys as PublicSurvey[] | undefined) ?? EMPTY_SURVEYS;
   const settings = panelData?.settings ?? DEFAULT_CLIENT_PANEL_SETTINGS;
 
   const currencySymbol = getCurrencySymbol(project?.currency);
+
+  useEffect(() => {
+    if (!accessToken || typeof window === "undefined") return;
+    setRespondentKey(getOrCreatePublicRespondentKey(accessToken));
+  }, [accessToken]);
 
   const baseItemsBySection = useMemo(() => {
     const baseItems = items.filter((item) => !item.alternativeToSourceItemId);
@@ -253,6 +398,88 @@ export default function PublicClientPanelPage() {
     }
   };
 
+  const updateSurveyAnswer = (surveyId: string, questionId: string, value: unknown) => {
+    setSurveyAnswers((prev) => ({
+      ...prev,
+      [surveyId]: {
+        ...(prev[surveyId] || {}),
+        [questionId]: value,
+      },
+    }));
+  };
+
+  const handleOpenSurvey = (surveyId: string) => {
+    setOpenSurveyId((current) => (current === surveyId ? null : surveyId));
+    setSurveyStartTimes((prev) =>
+      prev[surveyId] ? prev : { ...prev, [surveyId]: Date.now() }
+    );
+  };
+
+  const handleSubmitPublicSurvey = async (survey: PublicSurvey) => {
+    if (!respondentKey) return;
+
+    const surveyId = String(survey._id);
+    const answersByQuestionId = surveyAnswers[surveyId] || {};
+    const payload: PublicSurveyAnswerPayload[] = [];
+    const missingRequired: PublicSurveyQuestion[] = [];
+    for (const question of survey.questions) {
+      const value = answersByQuestionId[String(question._id)];
+      const answer = buildPublicSurveyAnswerPayload(question, value);
+      if (answer) {
+        payload.push(answer);
+        continue;
+      }
+      if (question.isRequired && question.questionType !== "file") {
+        missingRequired.push(question);
+      }
+    }
+
+    if (missingRequired.length > 0) {
+      toast.error("Please answer all required questions", {
+        description: `${missingRequired.length} required question${missingRequired.length === 1 ? "" : "s"} missing.`,
+      });
+      return;
+    }
+
+    const metadata: { userAgent?: string; timeSpent?: number } = {};
+    if (typeof navigator !== "undefined" && navigator.userAgent) {
+      metadata.userAgent = navigator.userAgent;
+    }
+    const startedAt = surveyStartTimes[surveyId];
+    if (startedAt) {
+      metadata.timeSpent = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
+    }
+
+    setSubmittingSurveyId(surveyId);
+    try {
+      await submitPublicSurvey({
+        accessToken,
+        surveyId: survey._id,
+        respondentKey,
+        answers: payload,
+        metadata,
+      });
+      toast.success("Survey submitted");
+      setOpenSurveyId(null);
+      setSurveyAnswers((prev) => {
+        const next = { ...prev };
+        delete next[surveyId];
+        return next;
+      });
+      setSurveyStartTimes((prev) => {
+        const next = { ...prev };
+        delete next[surveyId];
+        return next;
+      });
+    } catch (error) {
+      toast.error("Could not submit survey", {
+        description: (error as Error).message,
+      });
+    } finally {
+      setSubmittingSurveyId(null);
+    }
+  };
+
   if (panelData === undefined) {
     return <ClientPanelSkeleton />;
   }
@@ -348,6 +575,263 @@ export default function PublicClientPanelPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      ) : null}
+
+      {respondentKey && publicSurveysData === undefined ? (
+        <div className="mb-10 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-5 py-6 text-sm text-[var(--ui-text-muted)]">
+          Loading surveys...
+        </div>
+      ) : null}
+
+      {surveys.length > 0 ? (
+        <div className="mb-10 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-4 shadow-[0_24px_60px_rgba(20,20,20,0.08)] sm:rounded-[32px] sm:p-8">
+          <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
+            <h2 className="text-xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)] sm:text-2xl">
+              Surveys
+            </h2>
+            <span className="inline-flex items-center justify-center rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-muted)]">
+              {surveys.length} available
+            </span>
+          </div>
+          <p className="mb-6 text-sm text-[var(--ui-text-muted)]">
+            Share your feedback directly in the portal. Responses are sent to the project team.
+          </p>
+          <div className="space-y-4">
+            {surveys.map((survey) => {
+              const surveyId = String(survey._id);
+              const isOpen = openSurveyId === surveyId;
+              const isSubmitting = submittingSurveyId === surveyId;
+              const isLocked = survey.hasSubmitted && !survey.allowMultipleResponses;
+              const hasRequiredFileQuestion = survey.questions.some(
+                (question) => question.questionType === "file" && question.isRequired
+              );
+              const answersForSurvey = surveyAnswers[surveyId] || {};
+
+              return (
+                <div
+                  key={surveyId}
+                  className="rounded-[20px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-5"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="min-w-0 space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <ClipboardList className="h-4 w-4 text-[var(--ui-accent-brand)]" />
+                        <h3 className="text-lg font-medium text-[var(--ui-text-strong)]">{survey.title}</h3>
+                        {survey.isRequired ? (
+                          <Badge variant="destructive" className="text-[10px]">Required</Badge>
+                        ) : null}
+                        {survey.hasSubmitted ? (
+                          <Badge variant="outline" className="text-[10px]">
+                            <CheckCircle2 className="mr-1 h-3 w-3" />
+                            Submitted
+                          </Badge>
+                        ) : null}
+                      </div>
+                      {survey.description ? (
+                        <p className="text-sm text-[var(--ui-text-muted)]">{survey.description}</p>
+                      ) : null}
+                      <p className="text-xs text-[var(--ui-text-muted)]">
+                        {survey.questions.length} question{survey.questions.length === 1 ? "" : "s"}
+                        {survey.submittedAt ? ` · last submitted ${new Date(survey.submittedAt).toLocaleString()}` : ""}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {!isLocked ? (
+                        <Button
+                          type="button"
+                          variant={isOpen ? "outline" : "default"}
+                          onClick={() => handleOpenSurvey(surveyId)}
+                        >
+                          {isOpen ? "Hide" : survey.hasSubmitted ? "Submit again" : "Fill survey"}
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  {isLocked ? (
+                    <p className="mt-4 text-sm text-[var(--ui-text-muted)]">
+                      You already submitted this survey.
+                    </p>
+                  ) : null}
+
+                  {isOpen ? (
+                    <div className="mt-6 space-y-4 border-t border-[var(--ui-border-soft)] pt-5">
+                      {survey.questions.map((question, index) => {
+                        const questionId = String(question._id);
+                        const answerValue = answersForSurvey[questionId];
+                        return (
+                          <div
+                            key={questionId}
+                            className="rounded-[14px] border border-[var(--ui-border-soft)]/60 bg-[var(--ui-surface-soft)] p-4"
+                          >
+                            <div className="mb-3 flex flex-wrap items-center gap-2">
+                              <Badge variant="outline" className="text-[10px]">Question {index + 1}</Badge>
+                              {question.isRequired ? (
+                                <Badge variant="destructive" className="text-[10px]">Required</Badge>
+                              ) : null}
+                            </div>
+                            <p className="mb-3 text-sm font-medium text-[var(--ui-text-strong)]">
+                              {question.questionText}
+                            </p>
+
+                            {(question.questionType === "text_short" || question.questionType === "text_long") ? (
+                              question.questionType === "text_long" ? (
+                                <Textarea
+                                  value={typeof answerValue === "string" ? answerValue : ""}
+                                  onChange={(event) =>
+                                    updateSurveyAnswer(surveyId, questionId, event.target.value)
+                                  }
+                                  placeholder="Your answer"
+                                  rows={4}
+                                />
+                              ) : (
+                                <Input
+                                  value={typeof answerValue === "string" ? answerValue : ""}
+                                  onChange={(event) =>
+                                    updateSurveyAnswer(surveyId, questionId, event.target.value)
+                                  }
+                                  placeholder="Your answer"
+                                />
+                              )
+                            ) : null}
+
+                            {question.questionType === "single_choice" ? (
+                              <RadioGroup
+                                value={typeof answerValue === "string" ? answerValue : ""}
+                                onValueChange={(value) => updateSurveyAnswer(surveyId, questionId, value)}
+                                className="space-y-2"
+                              >
+                                {(question.options || []).map((option) => (
+                                  <div key={option} className="flex items-center space-x-2">
+                                    <RadioGroupItem value={option} id={`${questionId}-${option}`} />
+                                    <Label htmlFor={`${questionId}-${option}`}>{option}</Label>
+                                  </div>
+                                ))}
+                              </RadioGroup>
+                            ) : null}
+
+                            {question.questionType === "multiple_choice" ? (
+                              <div className="space-y-2">
+                                {(question.options || []).map((option) => {
+                                  const selectedValues = Array.isArray(answerValue)
+                                    ? answerValue.filter((value): value is string => typeof value === "string")
+                                    : [];
+                                  const checked = selectedValues.includes(option);
+                                  return (
+                                    <div key={option} className="flex items-center space-x-2">
+                                      <Checkbox
+                                        id={`${questionId}-${option}`}
+                                        checked={checked}
+                                        onCheckedChange={(nextChecked) => {
+                                          const nextValues = nextChecked
+                                            ? [...selectedValues, option]
+                                            : selectedValues.filter((value) => value !== option);
+                                          updateSurveyAnswer(surveyId, questionId, nextValues);
+                                        }}
+                                      />
+                                      <Label htmlFor={`${questionId}-${option}`}>{option}</Label>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : null}
+
+                            {question.questionType === "rating" ? (
+                              <RadioGroup
+                                value={typeof answerValue === "number" ? String(answerValue) : ""}
+                                onValueChange={(value) =>
+                                  updateSurveyAnswer(surveyId, questionId, Number.parseInt(value, 10))
+                                }
+                                className="space-y-2"
+                              >
+                                <div className="flex items-center justify-between text-xs text-[var(--ui-text-muted)]">
+                                  <span>{question.ratingScale?.minLabel || question.ratingScale?.min || 1}</span>
+                                  <span>{question.ratingScale?.maxLabel || question.ratingScale?.max || 5}</span>
+                                </div>
+                                <div className="flex flex-wrap gap-3">
+                                  {Array.from(
+                                    { length: (question.ratingScale?.max || 5) - (question.ratingScale?.min || 1) + 1 },
+                                    (_, i) => (question.ratingScale?.min || 1) + i
+                                  ).map((value) => (
+                                    <div key={value} className="flex items-center gap-2">
+                                      <RadioGroupItem value={String(value)} id={`${questionId}-${value}`} />
+                                      <Label htmlFor={`${questionId}-${value}`}>{value}</Label>
+                                    </div>
+                                  ))}
+                                </div>
+                              </RadioGroup>
+                            ) : null}
+
+                            {question.questionType === "yes_no" ? (
+                              <RadioGroup
+                                value={typeof answerValue === "boolean" ? String(answerValue) : ""}
+                                onValueChange={(value) => updateSurveyAnswer(surveyId, questionId, value === "true")}
+                                className="space-y-2"
+                              >
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="true" id={`${questionId}-yes`} />
+                                  <Label htmlFor={`${questionId}-yes`}>Yes</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="false" id={`${questionId}-no`} />
+                                  <Label htmlFor={`${questionId}-no`}>No</Label>
+                                </div>
+                              </RadioGroup>
+                            ) : null}
+
+                            {question.questionType === "number" ? (
+                              <Input
+                                type="number"
+                                value={typeof answerValue === "number" ? String(answerValue) : ""}
+                                onChange={(event) => {
+                                  const raw = event.target.value;
+                                  if (raw.trim() === "") {
+                                    updateSurveyAnswer(surveyId, questionId, undefined);
+                                    return;
+                                  }
+                                  const parsed = Number.parseFloat(raw);
+                                  updateSurveyAnswer(
+                                    surveyId,
+                                    questionId,
+                                    Number.isNaN(parsed) ? undefined : parsed
+                                  );
+                                }}
+                                placeholder="Enter number"
+                              />
+                            ) : null}
+
+                            {question.questionType === "file" ? (
+                              <p className="text-xs text-[var(--ui-text-muted)]">
+                                File uploads are not available in the public portal yet.
+                              </p>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+
+                      {hasRequiredFileQuestion ? (
+                        <p className="text-xs text-red-600">
+                          This survey has required file upload questions and cannot be submitted in the public portal.
+                        </p>
+                      ) : null}
+
+                      <div className="flex justify-end">
+                        <Button
+                          type="button"
+                          onClick={() => void handleSubmitPublicSurvey(survey)}
+                          disabled={isSubmitting || hasRequiredFileQuestion}
+                        >
+                          <Send className="mr-2 h-4 w-4" />
+                          {isSubmitting ? "Submitting..." : "Submit survey"}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
         </div>
       ) : null}

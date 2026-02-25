@@ -1,6 +1,5 @@
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
 
 // Utility function to generate a slug from a string
 const generateSlug = (name: string) => {
@@ -149,12 +148,6 @@ export const deleteTeamInternal = internalMutation({
           .filter(q => q.eq(q.field("teamId"), project.teamId)) // Filter by teamId instead
           .collect();
 
-        // Delete all pending customer invitations for this project
-        const pendingInvitations = await ctx.db
-          .query("pendingCustomerInvitations")
-          .filter(q => q.eq(q.field("projectId"), project._id))
-          .collect();
-
         // Delete all folders related to the project
         const projectFolders = await ctx.db
           .query("folders")
@@ -180,7 +173,6 @@ export const deleteTeamInternal = internalMutation({
           ...projectFiles.map(file => ctx.db.delete(file._id)),
           ...taskFiles.map(file => ctx.db.delete(file._id)),
           ...projectInvitations.map(invitation => ctx.db.delete(invitation._id)),
-          ...pendingInvitations.map(invitation => ctx.db.delete(invitation._id)),
           ...projectFolders.map(folder => ctx.db.delete(folder._id)),
           ...shoppingListSections.map(section => ctx.db.delete(section._id)),
           ...shoppingListItems.map(item => ctx.db.delete(item._id)),
@@ -307,48 +299,23 @@ export const createOrUpdateMembership = internalMutation({
 
         console.log(`[createOrUpdateMembership] Processing membership for email: ${args.userEmail}, clerkUserId: ${args.clerkUserId}, clerkOrgId: ${args.clerkOrgId}, role: ${args.role}`);
 
-        let invitedProjectIds: Id<"projects">[] = [];
-        if (args.userEmail) {
-            const normalizedEmail = args.userEmail.trim().toLowerCase();
-            const now = Date.now();
-            const pendingInvitations = await ctx.db
-                .query("pendingCustomerInvitations")
-                .withIndex("by_email", q => q.eq("email", normalizedEmail))
-                .filter(q => q.and(
-                    q.eq(q.field("clerkOrgId"), args.clerkOrgId),
-                    q.eq(q.field("status"), "pending"),
-                    q.gt(q.field("expiresAt"), now)
-                ))
-                .collect();
-
-            if (pendingInvitations.length > 0) {
-                invitedProjectIds = Array.from(new Set(pendingInvitations.map((invitation) => invitation.projectId)));
-                for (const invitation of pendingInvitations) {
-                    await ctx.db.patch(invitation._id, { status: "accepted" });
-                }
-            }
-        }
-
         const membership = await ctx.db
             .query("teamMembers")
             .withIndex("by_team_and_user", (q) => q.eq("teamId", team._id).eq("clerkUserId", args.clerkUserId))
             .unique();
         
         // Określ rolę użytkownika w zespole
-        let role: "admin" | "member" | "customer" = "member"; // domyślna rola
-        let projectIds: Id<"projects">[] | undefined;
+        let role: "admin" | "member" = "member"; // domyślna rola
 
         // 1. Sprawdź rolę z Clerk
         if (args.role === "admin" || args.role === "org:admin") {
             role = "admin";
-        } else if (args.role === "org:customer") {
-            role = "customer";
         } else {
             role = "member"; // org:member, basic_member, itp.
         }
 
         // 1.5. Sprawdź czy to pierwszy członek organizacji (powinien być adminem)
-        if (!membership && invitedProjectIds.length === 0) {
+        if (!membership) {
             const existingMembers = await ctx.db
                 .query("teamMembers")
                 .withIndex("by_team", q => q.eq("teamId", team._id))
@@ -360,18 +327,8 @@ export const createOrUpdateMembership = internalMutation({
             }
         }
 
-        if (invitedProjectIds.length > 0) {
-            role = "customer";
-            projectIds = invitedProjectIds;
-        }
-
         if(membership){
-            const patch: Record<string, unknown> = { role };
-            if (projectIds && projectIds.length > 0) {
-                const currentProjectIds = membership.projectIds || [];
-                patch.projectIds = Array.from(new Set([...currentProjectIds, ...projectIds]));
-            }
-            await ctx.db.patch(membership._id, patch);
+            await ctx.db.patch(membership._id, { role });
         } else {
             // Stwórz nowego członka
             await ctx.db.insert("teamMembers", {
@@ -379,7 +336,6 @@ export const createOrUpdateMembership = internalMutation({
                 clerkUserId: args.clerkUserId,
                 clerkOrgId: args.clerkOrgId,
                 role: role,
-                projectIds: projectIds,
                 isActive: true,
                 joinedAt: Date.now(),
                 permissions: [],
@@ -411,29 +367,7 @@ export const deleteMembership = internalMutation({
             await ctx.db.delete(membership._id);
         }
 
-        // Also clean up any pending invitations for this user's email
-        const user = await ctx.db
-            .query("users")
-            .withIndex("by_clerk_user_id", q => q.eq("clerkUserId", args.clerkUserId))
-            .unique();
-
-        if (user?.email) {
-            const pendingInvitations = await ctx.db
-                .query("pendingCustomerInvitations")
-                .filter(q => q.and(
-                    q.eq(q.field("email"), user.email!),
-                    q.eq(q.field("clerkOrgId"), args.clerkOrgId)
-                ))
-                .collect();
-
-            for (const invitation of pendingInvitations) {
-                await ctx.db.patch(invitation._id, {
-                    status: "expired"
-                });
-            }
-        }
-
-        console.log(`Cleaned up membership and pending invitations for user ${args.clerkUserId} from org ${args.clerkOrgId}`);
+        console.log(`Cleaned up membership for user ${args.clerkUserId} from org ${args.clerkOrgId}`);
     }
 });
 

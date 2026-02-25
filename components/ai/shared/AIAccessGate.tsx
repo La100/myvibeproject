@@ -64,7 +64,7 @@ export const renderAccessGate = ({ aiAccess, team }: AccessGateProps) => {
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Contact your administrator to add more tokens.
+                  Upgrade your plan in Billing to continue using AI.
                 </p>
               </div>
             </CardContent>

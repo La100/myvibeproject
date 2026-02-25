@@ -18,7 +18,7 @@ import {
   History,
 } from "lucide-react";
 import { AISubscriptionWall } from "@/components/ai/shared";
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { AIQuotaUpsellCard } from "@/components/ai/shared";
 import { Badge } from "@/components/ui/badge";
 
 import { ChatSidebar, ThreadListItem } from "@/components/ai/assistant/ui/Sidebar";
@@ -219,6 +219,10 @@ export default function VisualizationsPage() {
 
   const handleSendMessage = async (payload: { text: string; files: FileUIPart[] }) => {
     if (isGenerating || isUploading || !team) return;
+    if (isQuotaBlocked) {
+      toast.error("AI credits exhausted. Upgrade your plan or manage billing to continue.");
+      return;
+    }
 
     const userPrompt = payload.text.trim();
     if (!userPrompt) return;
@@ -371,26 +375,39 @@ export default function VisualizationsPage() {
     (aiAccess.remainingTokens === 0 || (aiAccess.message || "").toLowerCase().includes("exhaust"))
   );
 
+  const quotaBlockedAssistantMessage = useMemo(() => {
+    if (!isQuotaBlocked) return null;
+
+    const text = [
+      "### AI credits exhausted",
+      aiAccess?.message || "AI credits are exhausted.",
+      "",
+      "Upgrade your plan or manage billing to continue. You can still browse your previous visualizations in history.",
+    ].join("\n");
+
+    return {
+      id: "quota-blocked-visualizations-message",
+      key: "quota-blocked-visualizations-message",
+      role: "assistant",
+      content: text,
+      text,
+      parts: [
+        {
+          type: "text",
+          text,
+        },
+      ],
+      order: Number.MAX_SAFE_INTEGER,
+      stepOrder: Number.MAX_SAFE_INTEGER,
+      status: "success",
+      _creationTime: Date.now(),
+    } as UIMessage;
+  }, [aiAccess?.message, isQuotaBlocked]);
+
   if (aiAccess !== undefined && !aiAccess.hasAccess && team?._id) {
-    if (isQuotaBlocked) {
-      return (
-        <div className="flex min-h-screen items-center justify-center px-4 bg-background/50">
-          <Card className="max-w-lg w-full border-border/50 shadow-2xl rounded-3xl overflow-hidden bg-card/80 backdrop-blur-xl">
-            <CardHeader className="space-y-4 pb-2">
-              <Badge
-                variant="secondary"
-                className="w-fit bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400 border-0 px-3 py-1 rounded-lg"
-              >
-                Tokens exhausted
-              </Badge>
-              <CardTitle className="text-2xl font-display tracking-tight">No AI tokens available</CardTitle>
-              <CardDescription className="text-base">{aiAccess.message}</CardDescription>
-            </CardHeader>
-          </Card>
-        </div>
-      );
+    if (!isQuotaBlocked) {
+      return <AISubscriptionWall teamId={team._id} teamSlug={team.slug} />;
     }
-    return <AISubscriptionWall teamId={team._id} teamSlug={team.slug} />;
   }
 
   if (aiAccess === undefined && team?._id) {
@@ -438,34 +455,67 @@ export default function VisualizationsPage() {
             {/* Messages area */}
             <div className="flex-1 overflow-y-auto px-6">
               {showEmptyState ? (
-                <div className="flex flex-col items-center justify-center min-h-full w-full max-w-2xl mx-auto px-4 py-12 animate-in fade-in zoom-in-95 duration-500">
-                  <h1 className="text-4xl md:text-5xl font-medium tracking-tight mb-3 text-center text-foreground font-display">
-                    Visualizations
-                  </h1>
+                isQuotaBlocked && quotaBlockedAssistantMessage ? (
+                  <div className="max-w-4xl mx-auto py-8 space-y-6">
+                    <AssistantMessage
+                      message={quotaBlockedAssistantMessage}
+                      isLoading={false}
+                    />
+                    <div className="mx-auto w-full max-w-[44rem]">
+                      <Composer
+                        submitStatus={submitStatus}
+                        onSubmit={handleSendMessage}
+                        onStopResponse={handleStopResponse}
+                        placeholder="Describe your visualization..."
+                        accept="image/*"
+                        maxFiles={10}
+                        maxFileSize={20 * 1024 * 1024}
+                        isUploading={isUploading}
+                        disabled={isGenerating}
+                      />
+                    </div>
+                    {team?._id && (
+                      <div className="mx-auto w-full max-w-[44rem]">
+                        <AIQuotaUpsellCard
+                          teamId={team._id}
+                          currentPlan={aiAccess?.currentPlan}
+                          subscriptionStatus={aiAccess?.subscriptionStatus ?? null}
+                          message={aiAccess?.message}
+                          remainingTokens={aiAccess?.remainingTokens ?? 0}
+                        />
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center min-h-full w-full max-w-2xl mx-auto px-4 py-12 animate-in fade-in zoom-in-95 duration-500">
+                    <h1 className="text-4xl md:text-5xl font-medium tracking-tight mb-3 text-center text-foreground font-display">
+                      Visualizations
+                    </h1>
 
-                  <p className="text-muted-foreground text-center mb-12 text-lg">
-                    Describe your <span className="italic font-serif text-foreground">vision</span>. AI
-                    brings it to{" "}
-                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 font-semibold">
-                      life
-                    </span>
-                    .
-                  </p>
+                    <p className="text-muted-foreground text-center mb-12 text-lg">
+                      Describe your <span className="italic font-serif text-foreground">vision</span>. AI
+                      brings it to{" "}
+                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 font-semibold">
+                        life
+                      </span>
+                      .
+                    </p>
 
-                  <Composer
-                    submitStatus={submitStatus}
-                    onSubmit={handleSendMessage}
-                    onStopResponse={handleStopResponse}
-                    placeholder="Describe your visualization..."
-                    accept="image/*"
-                    maxFiles={10}
-                    maxFileSize={20 * 1024 * 1024}
-                    isUploading={isUploading}
-                    disabled={isGenerating}
-                  />
+                    <Composer
+                      submitStatus={submitStatus}
+                      onSubmit={handleSendMessage}
+                      onStopResponse={handleStopResponse}
+                      placeholder="Describe your visualization..."
+                      accept="image/*"
+                      maxFiles={10}
+                      maxFileSize={20 * 1024 * 1024}
+                      isUploading={isUploading}
+                      disabled={isGenerating}
+                    />
 
-                  <VisualizationSuggestions suggestions={suggestions} />
-                </div>
+                    <VisualizationSuggestions suggestions={suggestions} />
+                  </div>
+                )
               ) : (
                 <div className="max-w-4xl mx-auto py-6 space-y-6">
                   {displayMessages.map(({ raw, mapped }) => (
@@ -488,6 +538,26 @@ export default function VisualizationsPage() {
                       onDownloadImage={handleDownload}
                     />
                   ))}
+
+                  {isQuotaBlocked && quotaBlockedAssistantMessage && (
+                    <>
+                      <AssistantMessage
+                        message={quotaBlockedAssistantMessage}
+                        isLoading={false}
+                      />
+                      {team?._id && (
+                        <div className="mx-auto w-full max-w-[44rem]">
+                          <AIQuotaUpsellCard
+                            teamId={team._id}
+                            currentPlan={aiAccess?.currentPlan}
+                            subscriptionStatus={aiAccess?.subscriptionStatus ?? null}
+                            message={aiAccess?.message}
+                            remainingTokens={aiAccess?.remainingTokens ?? 0}
+                          />
+                        </div>
+                      )}
+                    </>
+                  )}
 
                   {/* Generating indicator - only show if for this session */}
                   {isGenerating && (generatingSessionId === currentSessionId || (generatingSessionId === "new" && !currentSessionId)) && (
