@@ -107,7 +107,7 @@ export function PricingSection() {
                 }`}
             >
               {plan.highlighted && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[var(--ui-accent-copper)] px-4 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-white shadow-[0_8px_20px_rgba(192,106,61,0.3)]">
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[var(--ui-accent-copper)] px-4 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--overlay-foreground)] shadow-[0_8px_20px_rgba(192,106,61,0.3)]">
                   Most Popular
                 </span>
               )}

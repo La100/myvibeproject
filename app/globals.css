@@ -27,6 +27,7 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -39,6 +40,56 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-gray-50: var(--ui-gray-50);
+  --color-gray-100: var(--ui-gray-100);
+  --color-gray-200: var(--ui-gray-200);
+  --color-gray-300: var(--ui-gray-300);
+  --color-gray-400: var(--ui-gray-400);
+  --color-gray-500: var(--ui-gray-500);
+  --color-gray-600: var(--ui-gray-600);
+  --color-gray-700: var(--ui-gray-700);
+  --color-gray-800: var(--ui-gray-800);
+  --color-gray-900: var(--ui-gray-900);
+  --color-slate-50: var(--ui-gray-50);
+  --color-slate-100: var(--ui-gray-100);
+  --color-slate-200: var(--ui-gray-200);
+  --color-slate-300: var(--ui-gray-300);
+  --color-slate-400: var(--ui-gray-400);
+  --color-slate-500: var(--ui-gray-500);
+  --color-slate-600: var(--ui-gray-600);
+  --color-slate-700: var(--ui-gray-700);
+  --color-slate-800: var(--ui-gray-800);
+  --color-slate-900: var(--ui-gray-900);
+  --color-neutral-50: var(--ui-gray-50);
+  --color-neutral-100: var(--ui-gray-100);
+  --color-neutral-200: var(--ui-gray-200);
+  --color-neutral-300: var(--ui-gray-300);
+  --color-neutral-400: var(--ui-gray-400);
+  --color-neutral-500: var(--ui-gray-500);
+  --color-neutral-600: var(--ui-gray-600);
+  --color-neutral-700: var(--ui-gray-700);
+  --color-neutral-800: var(--ui-gray-800);
+  --color-neutral-900: var(--ui-gray-900);
+  --color-zinc-50: var(--ui-gray-50);
+  --color-zinc-100: var(--ui-gray-100);
+  --color-zinc-200: var(--ui-gray-200);
+  --color-zinc-300: var(--ui-gray-300);
+  --color-zinc-400: var(--ui-gray-400);
+  --color-zinc-500: var(--ui-gray-500);
+  --color-zinc-600: var(--ui-gray-600);
+  --color-zinc-700: var(--ui-gray-700);
+  --color-zinc-800: var(--ui-gray-800);
+  --color-zinc-900: var(--ui-gray-900);
+  --color-stone-50: var(--ui-gray-50);
+  --color-stone-100: var(--ui-gray-100);
+  --color-stone-200: var(--ui-gray-200);
+  --color-stone-300: var(--ui-gray-300);
+  --color-stone-400: var(--ui-gray-400);
+  --color-stone-500: var(--ui-gray-500);
+  --color-stone-600: var(--ui-gray-600);
+  --color-stone-700: var(--ui-gray-700);
+  --color-stone-800: var(--ui-gray-800);
+  --color-stone-900: var(--ui-gray-900);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -62,6 +113,7 @@
   --accent: var(--vibe-light-accent, #E8E6DE);
   --accent-foreground: var(--vibe-light-accent-foreground, #262523);
   --destructive: var(--vibe-light-destructive, #dc322f);
+  --destructive-foreground: var(--vibe-light-destructive-foreground, #FFFFFF);
   --border: var(--vibe-light-border, #E2E0D8);
   --input: var(--vibe-light-input, #DAD7CF);
   --ring: var(--vibe-light-ring, #4C4A44);
@@ -109,6 +161,24 @@
   --ui-clerk-input-bg: var(--ui-surface-base);
   --ui-clerk-primary: var(--primary);
   --ui-clerk-primary-hover: var(--ui-action-hover);
+  --overlay-foreground: #FFFFFF;
+  --overlay-foreground-muted: rgba(255, 255, 255, 0.85);
+  --overlay-border-soft: rgba(255, 255, 255, 0.12);
+  --overlay-border: rgba(255, 255, 255, 0.45);
+  --overlay-border-strong: rgba(255, 255, 255, 0.72);
+  --ui-gray-50: color-mix(in oklab, var(--background) 94%, white 6%);
+  --ui-gray-100: color-mix(in oklab, var(--background) 88%, var(--foreground) 12%);
+  --ui-gray-200: color-mix(in oklab, var(--background) 80%, var(--foreground) 20%);
+  --ui-gray-300: color-mix(in oklab, var(--background) 70%, var(--foreground) 30%);
+  --ui-gray-400: color-mix(in oklab, var(--background) 60%, var(--foreground) 40%);
+  --ui-gray-500: color-mix(in oklab, var(--background) 50%, var(--foreground) 50%);
+  --ui-gray-600: color-mix(in oklab, var(--background) 40%, var(--foreground) 60%);
+  --ui-gray-700: color-mix(in oklab, var(--background) 30%, var(--foreground) 70%);
+  --ui-gray-800: color-mix(in oklab, var(--background) 20%, var(--foreground) 80%);
+  --ui-gray-900: color-mix(in oklab, var(--background) 12%, var(--foreground) 88%);
+  --ui-code-bg: color-mix(in oklab, black 82%, var(--foreground) 18%);
+  --ui-code-fg: color-mix(in oklab, white 90%, var(--foreground) 10%);
+  --ui-code-highlight: color-mix(in oklab, var(--ui-accent-indigo) 14%, var(--background) 86%);
   --font-display-serif: var(--font-serif);
 
   /* Animation timing tokens */
@@ -151,6 +221,7 @@
   --accent: var(--vibe-dark-accent, #3A3833);
   --accent-foreground: var(--vibe-dark-accent-foreground, #121212);
   --destructive: var(--vibe-dark-destructive, #E07B52);
+  --destructive-foreground: var(--vibe-dark-destructive-foreground, #1A1A1A);
   --border: var(--vibe-dark-border, rgba(255, 255, 255, 0.12));
   --input: var(--vibe-dark-input, rgba(255, 255, 255, 0.14));
   --ring: var(--vibe-dark-ring, rgba(229, 222, 208, 0.38));
@@ -198,6 +269,11 @@
   --ui-clerk-input-bg: var(--ui-surface-base);
   --ui-clerk-primary: var(--primary);
   --ui-clerk-primary-hover: var(--ui-action-hover);
+  --overlay-foreground: #F4F2EC;
+  --overlay-foreground-muted: rgba(244, 242, 236, 0.84);
+  --overlay-border-soft: rgba(244, 242, 236, 0.14);
+  --overlay-border: rgba(244, 242, 236, 0.42);
+  --overlay-border-strong: rgba(244, 242, 236, 0.68);
 }
 
 @layer base {
@@ -300,7 +376,7 @@
 }
 
 .ProseMirror p.is-editor-empty:first-child::before {
-  color: #adb5bd;
+  color: var(--ui-text-subtle);
   content: attr(data-placeholder);
   float: left;
   height: 0;
@@ -338,17 +414,17 @@
 }
 
 .ProseMirror code {
-  background-color: #f1f5f9;
+  background-color: var(--muted);
   border-radius: 0.25rem;
-  color: #0f172a;
+  color: var(--foreground);
   font-size: 0.85rem;
   padding: 0.25em 0.3em;
 }
 
 .ProseMirror pre {
-  background: #0f172a;
+  background: var(--ui-code-bg);
   border-radius: 0.25rem;
-  color: #fff;
+  color: var(--ui-code-fg);
   font-family: 'JetBrainsMono', monospace;
   margin: 1.5rem 0;
   padding: 0.75rem 1rem;
@@ -362,14 +438,14 @@
 }
 
 .ProseMirror blockquote {
-  border-left: 3px solid #e2e8f0;
+  border-left: 3px solid var(--border);
   margin: 1.5rem 0;
   padding-left: 1rem;
 }
 
 .ProseMirror hr {
   border: none;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--border);
   margin: 2rem 0;
 }
 
@@ -385,13 +461,13 @@
 }
 
 .ProseMirror a {
-  color: #3b82f6;
+  color: var(--ui-accent-indigo);
   cursor: pointer;
   text-decoration: underline;
 }
 
 .ProseMirror a:hover {
-  color: #1d4ed8;
+  color: color-mix(in oklab, var(--ui-accent-indigo) 78%, var(--foreground) 22%);
 }
 
 /* Table styles */
@@ -406,7 +482,7 @@
 .ProseMirror td,
 .ProseMirror th {
   min-width: 1em;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border);
   padding: 0.5rem;
   vertical-align: top;
   box-sizing: border-box;
@@ -416,7 +492,7 @@
 .ProseMirror th {
   font-weight: bold;
   text-align: left;
-  background-color: #f9fafb;
+  background-color: var(--muted);
 }
 
 .ProseMirror .selectedCell:after {
@@ -427,13 +503,13 @@
   right: 0;
   top: 0;
   bottom: 0;
-  background: rgba(59, 130, 246, 0.1);
+  background: var(--ui-code-highlight);
   pointer-events: none;
 }
 
 /* Highlight styles */
 .ProseMirror mark {
-  background-color: #fbbf24;
+  background-color: color-mix(in oklab, var(--ui-priority-medium) 44%, var(--background) 56%);
   border-radius: 0.125rem;
   padding: 0.1rem 0.2rem;
 }
@@ -449,7 +525,7 @@
   top: 0.5rem;
   right: 0.5rem;
   font-size: 0.75rem;
-  color: #9ca3af;
+  color: var(--ui-text-subtle);
   text-transform: uppercase;
 }
 
@@ -460,7 +536,7 @@
 
 /* Placeholder improvements */
 .ProseMirror p.is-editor-empty:first-child::before {
-  color: #9ca3af;
+  color: var(--ui-text-subtle);
   content: attr(data-placeholder);
   float: left;
   height: 0;
@@ -477,26 +553,26 @@
 
 /* Task Detail Page Styles - Notion-like Design */
 .task-detail-container {
-  background-color: #f8fafc;
+  background-color: var(--background);
   min-height: 100vh;
 }
 
 .task-detail-header {
   backdrop-filter: blur(10px);
-  background: rgba(255, 255, 255, 0.95);
-  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+  background: color-mix(in oklab, var(--background) 92%, var(--card) 8%);
+  border-bottom: 1px solid var(--border);
 }
 
 .task-detail-sidebar {
-  background: #ffffff;
+  background: var(--card);
   border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-sm);
   backdrop-filter: blur(10px);
   transition: all 0.2s ease;
 }
 
 .task-detail-sidebar:hover {
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-md);
 }
 
 .task-detail-sidebar .sidebar-section {
@@ -510,26 +586,31 @@
 }
 
 .task-detail-sidebar .sidebar-item:hover {
-  background-color: #f1f5f9;
+  background-color: color-mix(in oklab, var(--muted) 76%, var(--card) 24%);
   transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-xs);
 }
 
 .task-detail-main {
-  background: #ffffff;
+  background: var(--card);
   border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
   transition: all 0.2s ease;
 }
 
 .task-detail-main:hover {
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-md);
 }
 
 .task-detail-title-area {
-  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f0f9ff 100%);
-  border-bottom: 1px solid #e0f2fe;
+  background: linear-gradient(
+    135deg,
+    color-mix(in oklab, var(--ui-surface-soft) 84%, var(--ui-accent-indigo) 16%) 0%,
+    color-mix(in oklab, var(--card) 78%, var(--ui-accent-brand) 22%) 50%,
+    color-mix(in oklab, var(--ui-surface-soft) 86%, var(--ui-accent-indigo) 14%) 100%
+  );
+  border-bottom: 1px solid var(--border);
   position: relative;
   overflow: hidden;
 }
@@ -541,7 +622,12 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
+  background: linear-gradient(
+    45deg,
+    transparent 30%,
+    color-mix(in oklab, var(--foreground) 8%, transparent) 50%,
+    transparent 70%
+  );
   animation: shimmer 3s ease-in-out infinite;
 }
 
@@ -563,68 +649,76 @@
   min-height: 500px;
   font-size: 16px;
   line-height: 1.6;
-  color: #334155;
-  background: #ffffff;
+  color: var(--ui-text-main);
+  background: var(--card);
 }
 
 .task-detail-main .ProseMirror h1 {
   font-size: 2.25rem;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--ui-text-strong);
   margin: 2rem 0 1rem 0;
   line-height: 1.2;
-  border-bottom: 2px solid #e2e8f0;
+  border-bottom: 2px solid var(--border);
   padding-bottom: 0.5rem;
 }
 
 .task-detail-main .ProseMirror h2 {
   font-size: 1.875rem;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--ui-text-strong);
   margin: 1.5rem 0 0.75rem 0;
 }
 
 .task-detail-main .ProseMirror h3 {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #334155;
+  color: var(--ui-text-main);
   margin: 1.25rem 0 0.5rem 0;
 }
 
 .task-detail-main .ProseMirror p {
   margin: 0.75rem 0;
-  color: #475569;
+  color: var(--ui-text-main);
   line-height: 1.65;
 }
 
 .task-detail-main .ProseMirror blockquote {
-  border-left: 4px solid #3b82f6;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-left: 4px solid var(--ui-accent-indigo);
+  background: linear-gradient(
+    135deg,
+    color-mix(in oklab, var(--muted) 84%, var(--card) 16%) 0%,
+    color-mix(in oklab, var(--muted) 72%, var(--card) 28%) 100%
+  );
   padding: 1rem 1.5rem;
   margin: 1.5rem 0;
   border-radius: 0 4px 4px 0;
   font-style: italic;
-  color: #334155;
+  color: var(--ui-text-main);
 }
 
 .task-detail-main .ProseMirror table {
   border-radius: 4px;
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e2e8f0;
+  box-shadow: var(--shadow-xs);
+  border: 1px solid var(--border);
 }
 
 .task-detail-main .ProseMirror th {
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  background: linear-gradient(
+    135deg,
+    color-mix(in oklab, var(--muted) 86%, var(--card) 14%) 0%,
+    color-mix(in oklab, var(--muted) 72%, var(--card) 28%) 100%
+  );
   font-weight: 600;
-  color: #334155;
+  color: var(--ui-text-main);
   font-size: 0.875rem;
   text-transform: uppercase;
   letter-spacing: 0.025em;
 }
 
 .task-detail-main .ProseMirror td {
-  color: #475569;
+  color: var(--ui-text-main);
 }
 
 /* Loading animations */

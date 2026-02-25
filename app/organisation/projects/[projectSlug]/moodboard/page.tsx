@@ -268,7 +268,7 @@ function MoodboardRow({ row, onUpdateTitle }: {
             <img
               src={image.url}
               alt=""
-              className="w-full h-auto object-contain cursor-pointer group-hover:scale-[1.02] transition-transform duration-300 bg-white rounded-xl"
+              className="w-full h-auto object-contain cursor-pointer group-hover:scale-[1.02] transition-transform duration-300 bg-card rounded-xl"
               loading="lazy"
               onClick={() => setSelectedImage(image)}
             />
@@ -279,7 +279,7 @@ function MoodboardRow({ row, onUpdateTitle }: {
                 e.stopPropagation();
                 handleDeleteImage(image.id);
               }}
-              className="absolute top-3 right-3 bg-red-500 hover:bg-red-600 text-white rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 shadow-lg"
+              className="absolute top-3 right-3 bg-red-500 hover:bg-red-600 text-primary-foreground rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 shadow-lg"
               title="Delete image"
             >
               <Trash2 className="h-4 w-4" />
@@ -331,7 +331,7 @@ export default function MoodboardPage() {
   return (
     <ProjectPageLayout>
       {/* Header - cleaner, more minimal */}
-      <div className="text-center py-12 bg-white border-b rounded-3xl mb-8">
+      <div className="text-center py-12 bg-card border-b rounded-3xl mb-8">
         <h1 className="text-5xl font-light tracking-[0.2em] mb-3 text-gray-900">
           {project.name.toUpperCase()}
         </h1>

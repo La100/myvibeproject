@@ -211,9 +211,9 @@ function ProjectCard({
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/35 to-black/5" />
             <div className="relative z-10 mt-auto flex h-full flex-col justify-end">
-              <p className="text-lg font-medium leading-snug line-clamp-3 text-white">{project.name}</p>
+              <p className="text-lg font-medium leading-snug line-clamp-3 text-[var(--overlay-foreground)]">{project.name}</p>
               {project.description ? (
-                <p className="mt-1.5 text-xs text-white/85 line-clamp-2">{project.description}</p>
+                <p className="mt-1.5 text-xs text-[var(--overlay-foreground-muted)] line-clamp-2">{project.description}</p>
               ) : null}
             </div>
           </>

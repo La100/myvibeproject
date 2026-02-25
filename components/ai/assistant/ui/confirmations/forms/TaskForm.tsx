@@ -85,7 +85,7 @@ export function TaskForm({
                 <Input
                     value={String(data.title || data.name || "")}
                     onChange={(e) => onUpdate({ title: e.target.value })}
-                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30 text-base font-medium"
+                    className="rounded-md border border-border/60 bg-card px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30 text-base font-medium"
                     placeholder="Enter title"
                 />
             </div>
@@ -95,7 +95,7 @@ export function TaskForm({
                 <Input
                     value={String(data.description || "")}
                     onChange={(e) => onUpdate({ description: e.target.value })}
-                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
+                    className="rounded-md border border-border/60 bg-card px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                     placeholder="Add description"
                 />
             </div>
@@ -107,7 +107,7 @@ export function TaskForm({
                         value={statusValue}
                         onValueChange={(value) => onUpdate({ status: value })}
                     >
-                        <SelectTrigger className="h-9 rounded-md border border-border/60 bg-white px-3 shadow-none">
+                        <SelectTrigger className="h-9 rounded-md border border-border/60 bg-card px-3 shadow-none">
                             <SelectValue placeholder="Select status" />
                         </SelectTrigger>
                         <SelectContent>
@@ -124,7 +124,7 @@ export function TaskForm({
                         value={priorityValue}
                         onValueChange={(value) => onUpdate({ priority: value === "none" ? undefined : value })}
                     >
-                        <SelectTrigger className="h-9 rounded-md border border-border/60 bg-white px-3 shadow-none">
+                        <SelectTrigger className="h-9 rounded-md border border-border/60 bg-card px-3 shadow-none">
                             <SelectValue placeholder="Select priority" />
                         </SelectTrigger>
                         <SelectContent>
@@ -154,7 +154,7 @@ export function TaskForm({
                         });
                     }}
                 >
-                    <SelectTrigger className="h-9 rounded-md border border-border/60 bg-white px-3 shadow-none">
+                    <SelectTrigger className="h-9 rounded-md border border-border/60 bg-card px-3 shadow-none">
                         <SelectValue placeholder="Select a person" />
                     </SelectTrigger>
                     <SelectContent>
@@ -179,7 +179,7 @@ export function TaskForm({
                             .filter(Boolean);
                         onUpdate({ tags: nextTags.length > 0 ? nextTags : undefined });
                     }}
-                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
+                    className="rounded-md border border-border/60 bg-card px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                     placeholder="e.g. meeting, painter"
                 />
             </div>
@@ -193,7 +193,7 @@ export function TaskForm({
                                 <Button
                                     variant={"outline"}
                                     className={cn(
-                                        "w-full justify-start text-left font-normal h-9 rounded-md border border-border/60 bg-white px-3 shadow-none",
+                                        "w-full justify-start text-left font-normal h-9 rounded-md border border-border/60 bg-card px-3 shadow-none",
                                         !startDate && "text-muted-foreground"
                                     )}
                                 >
@@ -209,7 +209,7 @@ export function TaskForm({
                             type="time"
                             value={startTime}
                             onChange={(e) => setStartTime(e.target.value)}
-                            className="h-9 w-[108px] rounded-md border border-border/60 bg-white px-2 shadow-none"
+                            className="h-9 w-[108px] rounded-md border border-border/60 bg-card px-2 shadow-none"
                         />
                     </div>
                 </div>
@@ -222,7 +222,7 @@ export function TaskForm({
                                 <Button
                                     variant={"outline"}
                                     className={cn(
-                                        "w-full justify-start text-left font-normal h-9 rounded-md border border-border/60 bg-white px-3 shadow-none",
+                                        "w-full justify-start text-left font-normal h-9 rounded-md border border-border/60 bg-card px-3 shadow-none",
                                         !endDate && "text-muted-foreground"
                                     )}
                                 >
@@ -238,7 +238,7 @@ export function TaskForm({
                             type="time"
                             value={endTime}
                             onChange={(e) => setEndTime(e.target.value)}
-                            className="h-9 w-[108px] rounded-md border border-border/60 bg-white px-2 shadow-none"
+                            className="h-9 w-[108px] rounded-md border border-border/60 bg-card px-2 shadow-none"
                         />
                     </div>
                 </div>

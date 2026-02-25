@@ -86,7 +86,7 @@ export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps
             variant="outline"
             size="sm"
             onClick={() => router.push(`/organisation/projects/${routeParams.projectSlug}/surveys`)}
-            className="shrink-0 bg-black text-white border-black hover:bg-neutral-900 hover:text-white"
+            className="shrink-0 bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:text-primary-foreground"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to surveys
@@ -103,7 +103,7 @@ export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
-                <Users className="h-5 w-5 text-black" />
+                <Users className="h-5 w-5 text-foreground" />
                 {isClient ? "Status" : "Responses"}
               </CardTitle>
             </CardHeader>
@@ -120,7 +120,7 @@ export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
-                <FileText className="h-5 w-5 text-black" />
+                <FileText className="h-5 w-5 text-foreground" />
                 Questions
               </CardTitle>
             </CardHeader>
@@ -159,7 +159,7 @@ export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps
                         Submitted: {new Date(response.submittedAt || 0).toLocaleString()}
                       </CardDescription>
                     </div>
-                    <span className="inline-block border border-black text-black bg-transparent rounded px-2 py-1 text-xs font-semibold">
+                    <span className="inline-block border border-border text-foreground bg-transparent rounded px-2 py-1 text-xs font-semibold">
                       Response #{responseIndex + 1}
                     </span>
                   </div>
@@ -169,10 +169,10 @@ export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps
                     {survey.questions.map((question, questionIndex) => {
                       const answer = response.answers.find(a => a.questionId === question._id);
                       return (
-                        <Card key={question._id} className="border border-gray-200 shadow-sm bg-white">
+                        <Card key={question._id} className="border border-gray-200 shadow-sm bg-card">
                           <CardContent className="p-6">
                             <div className="flex items-center gap-3 mb-2">
-                              <span className="inline-block border border-black text-black bg-transparent rounded px-2 py-1 text-xs font-semibold">
+                              <span className="inline-block border border-border text-foreground bg-transparent rounded px-2 py-1 text-xs font-semibold">
                                 Question {questionIndex + 1}
                               </span>
                             </div>

@@ -19,7 +19,7 @@ export function SectionForm({ data, onUpdate, type }: { data: Record<string, unk
                     id="name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30 text-base font-medium"
+                    className="rounded-md border border-border/60 bg-card px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30 text-base font-medium"
                     placeholder="Enter section name"
                 />
             </div>

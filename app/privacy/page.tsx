@@ -3,7 +3,7 @@ const LAST_UPDATED = "February 20, 2026"
 export default function PrivacyPolicyPage() {
   return (
     <div className="min-h-screen bg-background px-6 py-12">
-      <div className="mx-auto max-w-3xl rounded-xl border border-border bg-card p-8 shadow-sm">
+      <div className="mx-auto max-w-3xl rounded-xl border border-border bg-card p-8 shadow-soft-sm">
         <h1 className="text-3xl font-semibold text-foreground">Privacy Policy</h1>
         <p className="mt-2 text-sm text-muted-foreground">Last updated: {LAST_UPDATED}</p>
 

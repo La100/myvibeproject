@@ -5,6 +5,7 @@ import { useSignIn, useSignUp, useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { Button } from "@/components/ui/button";
 
 export default function SignInPage() {
   const { signIn } = useSignIn();
@@ -88,10 +89,9 @@ export default function SignInPage() {
           <h1 className="text-3xl font-display text-foreground mb-2">Myvibe project</h1>
           <p className="text-muted-foreground text-base mb-10">AI assistant workspace.</p>
 
-          {/* Google Sign In Button */}
-          <button
+          <Button
             onClick={handleGoogleSignIn}
-            className="w-full flex items-center justify-center gap-3 bg-primary hover:bg-primary/90 text-primary-foreground py-3.5 px-6 rounded-lg font-medium transition-colors mb-6 shadow-soft-sm"
+            className="w-full h-12 gap-3 rounded-lg mb-6 shadow-soft-sm"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path
@@ -112,7 +112,7 @@ export default function SignInPage() {
               />
             </svg>
             Log in
-          </button>
+          </Button>
 
           {/* Divider */}
           <div className="w-full flex items-center gap-4 mb-6">
@@ -121,13 +121,13 @@ export default function SignInPage() {
             <div className="flex-1 h-px bg-border"></div>
           </div>
 
-          {/* Sign Up Button */}
-          <button
+          <Button
+            variant="outline"
             onClick={handleSignUp}
-            className="w-full flex items-center justify-center bg-card hover:bg-accent text-card-foreground py-3.5 px-6 rounded-lg font-medium border border-border shadow-soft-sm transition-colors mb-8"
+            className="w-full h-12 rounded-lg mb-8 shadow-soft-sm"
           >
             Sign up
-          </button>
+          </Button>
 
           <div id="clerk-captcha" className="w-full mb-8" />
 

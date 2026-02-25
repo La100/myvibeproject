@@ -54,7 +54,7 @@ export default function PDFThumbnail({ url, className = '', onClick }: PDFThumbn
 
   return (
     <div 
-      className={`relative overflow-hidden rounded-lg bg-white ${className} ${onClick ? 'cursor-pointer' : ''}`}
+      className={`relative overflow-hidden rounded-lg bg-card ${className} ${onClick ? 'cursor-pointer' : ''}`}
       onClick={onClick}
     >
       {loading && (
@@ -81,7 +81,7 @@ export default function PDFThumbnail({ url, className = '', onClick }: PDFThumbn
       </Document>
       
       {numPages > 1 && (
-        <div className="absolute bottom-1 right-1 bg-black bg-opacity-75 text-white text-xs px-1 rounded">
+        <div className="absolute bottom-1 right-1 rounded bg-black/75 px-1 text-xs text-[var(--overlay-foreground)]">
           {numPages} pages
         </div>
       )}

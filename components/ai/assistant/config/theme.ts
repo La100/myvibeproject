@@ -7,11 +7,11 @@
 // ==================== ACTION COLORS ====================
 
 export const ACTION_COLORS = {
-  confirm: "bg-green-600 hover:bg-green-700 text-white",
+  confirm: "bg-green-600 hover:bg-green-700 text-primary-foreground",
   confirmSecondary: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-  reject: "bg-red-600 hover:bg-red-700 text-white",
+  reject: "bg-red-600 hover:bg-red-700 text-primary-foreground",
   rejectSecondary: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
-  edit: "bg-blue-600 hover:bg-blue-700 text-white",
+  edit: "bg-blue-600 hover:bg-blue-700 text-primary-foreground",
   editSecondary: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
   primary: "bg-primary/10 text-primary hover:bg-primary/20",
   destructive: "bg-destructive/10 text-destructive hover:bg-destructive/20",

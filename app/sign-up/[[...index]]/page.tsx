@@ -5,6 +5,7 @@ import { useSignIn, useSignUp, useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { Button } from "@/components/ui/button";
 
 export default function SignUpPage() {
   const { signIn } = useSignIn();
@@ -65,9 +66,8 @@ export default function SignUpPage() {
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Left Panel - Image */}
-      <div className="hidden lg:flex flex-1 p-4">
-        <div className="relative w-full rounded-[24px] overflow-hidden">
+      <div className="hidden lg:flex flex-1 p-4 bg-background">
+        <div className="relative w-full rounded-2xl overflow-hidden border border-border shadow-soft-lg">
           <Image
             src="/auth-image.jpg"
             alt="Myvibe project"
@@ -75,23 +75,17 @@ export default function SignUpPage() {
             className="object-cover"
             priority
           />
-
-          {/* Content overlay */}
-
         </div>
       </div>
 
-      {/* Right Panel - Sign Up Form */}
       <div className="flex-1 flex items-center justify-center p-8 lg:p-12">
         <div className="w-full max-w-[340px] flex flex-col items-center">
-          {/* Logo/Title */}
-          <h1 className="text-3xl font-medium text-gray-900 mb-2">Myvibe project</h1>
-          <p className="text-gray-500 text-base mb-10">AI assistant workspace.</p>
+          <h1 className="text-3xl font-display text-foreground mb-2">Myvibe project</h1>
+          <p className="text-muted-foreground text-base mb-10">AI assistant workspace.</p>
 
-          {/* Google Sign Up Button */}
-          <button
+          <Button
             onClick={handleGoogleSignUp}
-            className="w-full flex items-center justify-center gap-3 bg-gray-900 hover:bg-gray-800 text-white py-3.5 px-6 rounded-full font-medium transition-colors mb-6"
+            className="w-full h-12 gap-3 rounded-lg mb-6 shadow-soft-sm"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path
@@ -112,42 +106,39 @@ export default function SignUpPage() {
               />
             </svg>
             Sign up
-          </button>
+          </Button>
 
-          {/* Divider */}
           <div className="w-full flex items-center gap-4 mb-6">
-            <div className="flex-1 h-px bg-gray-300"></div>
-            <span className="text-gray-400 text-sm">or</span>
-            <div className="flex-1 h-px bg-gray-300"></div>
+            <div className="flex-1 h-px bg-border"></div>
+            <span className="text-muted-foreground text-sm uppercase tracking-widest text-xs">or</span>
+            <div className="flex-1 h-px bg-border"></div>
           </div>
 
-          {/* Log in Button */}
-          <button
+          <Button
+            variant="outline"
             onClick={handleLogIn}
-            className="w-full flex items-center justify-center bg-white hover:bg-gray-50 text-gray-900 py-3.5 px-6 rounded-full font-medium border border-gray-300 transition-colors mb-8"
+            className="w-full h-12 rounded-lg mb-8 shadow-soft-sm"
           >
             Log in
-          </button>
+          </Button>
 
           <div id="clerk-captcha" className="w-full mb-8" />
 
-          {/* Terms */}
-          <p className="text-center text-xs text-gray-500 mb-16">
+          <p className="text-center text-xs text-muted-foreground mb-16">
             By signing up you agree to our{" "}
-            <Link href="/privacy" className="underline hover:text-gray-700">
+            <Link href="/privacy" className="font-semibold hover:text-foreground">
               Privacy Policy
             </Link>{" "}
             and{" "}
-            <Link href="/terms" className="underline hover:text-gray-700">
+            <Link href="/terms" className="font-semibold hover:text-foreground">
               Terms of Service
             </Link>
             .
           </p>
 
-          {/* Footer */}
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             by{" "}
-            <Link href="/" className="underline hover:text-gray-700">
+            <Link href="/" className="font-semibold hover:text-foreground">
               Myvibe project
             </Link>
           </p>

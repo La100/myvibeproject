@@ -165,7 +165,7 @@ const AttachmentUI: FC = () => {
 const AttachmentRemove: FC = () => {
   return (
     <AttachmentPrimitive.Remove
-      className="aui-attachment-tile-remove absolute top-1.5 right-1.5 inline-flex size-3.5 items-center justify-center rounded-full bg-white text-muted-foreground opacity-100 shadow-sm transition-colors hover:bg-white! disabled:opacity-50 [&_svg]:text-black hover:[&_svg]:text-destructive"
+      className="aui-attachment-tile-remove absolute top-1.5 right-1.5 inline-flex size-3.5 items-center justify-center rounded-full bg-card text-muted-foreground opacity-100 shadow-sm transition-colors hover:!bg-card disabled:opacity-50 [&_svg]:text-foreground hover:[&_svg]:text-destructive"
       aria-label="Remove file"
       title="Remove file"
     >

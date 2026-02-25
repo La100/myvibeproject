@@ -227,6 +227,7 @@ Apply these additional instructions when they do not conflict with the tool cont
       const agent = createMyvibeProjectAgent(systemInstructions, {
         projectId: args.projectId as string,
         runAction: ctx.runAction,
+        runQuery: ctx.runQuery,
         loadSnapshot: ensureSnapshot,
       });
 

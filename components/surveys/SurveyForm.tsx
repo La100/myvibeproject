@@ -129,7 +129,7 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
             variant="outline"
             size="sm"
             onClick={() => router.back()}
-            className="shrink-0 bg-black text-white border-black hover:bg-neutral-900 hover:text-white"
+            className="shrink-0 bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:text-primary-foreground"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
@@ -144,10 +144,10 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
 
         <form onSubmit={handleSubmit} className="space-y-8">
           {/* Basic Information */}
-          <Card className="shadow-sm border-0 bg-white">
+          <Card className="shadow-sm border-0 bg-card">
             <CardHeader className="pb-6">
               <div className="flex items-center gap-3">
-                <FileText className="h-5 w-5 text-black" />
+                <FileText className="h-5 w-5 text-foreground" />
                 <div>
                   <CardTitle className="text-xl">Basic Information</CardTitle>
                   <CardDescription className="text-sm mt-1">
@@ -188,11 +188,11 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
           </Card>
 
           {/* Questions Section */}
-          <Card className="shadow-sm border-0 bg-white">
+          <Card className="shadow-sm border-0 bg-card">
             <CardHeader className="pb-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <HelpCircle className="h-5 w-5 text-black" />
+                  <HelpCircle className="h-5 w-5 text-foreground" />
                   <div>
                     <CardTitle className="text-xl">Questions</CardTitle>
                     <CardDescription className="text-sm mt-1">
@@ -203,7 +203,7 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
                 <Button 
                   type="button" 
                   onClick={addNewQuestion}
-                  className="bg-black text-white hover:bg-neutral-900 shadow-sm"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Add Question
@@ -226,7 +226,7 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
                     type="button" 
                     onClick={addNewQuestion}
                     variant="outline"
-                    className="border-black text-black hover:bg-neutral-100"
+                    className="border-border text-foreground hover:bg-accent"
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     Add First Question
@@ -243,7 +243,7 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
                             <div className="flex items-center gap-3">
                               <div className="flex items-center gap-2">
                                 <GripVertical className="h-4 w-4 text-gray-400" />
-                                <Badge variant="secondary" className="border border-black text-black bg-transparent">
+                                <Badge variant="secondary" className="border border-border text-foreground bg-transparent">
                                   Question {index + 1}
                                 </Badge>
                               </div>
@@ -257,7 +257,7 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
                               variant="ghost"
                               size="sm"
                               onClick={() => removeQuestion(question.id)}
-                              className="text-black hover:text-white hover:bg-black"
+                              className="text-foreground hover:text-primary-foreground hover:bg-primary"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -295,13 +295,13 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
                                 <SelectContent>
                                   <SelectItem value="text_long">
                                     <div className="flex items-center gap-2">
-                                      <FileText className="h-4 w-4 text-black" />
+                                      <FileText className="h-4 w-4 text-foreground" />
                                       Text
                                     </div>
                                   </SelectItem>
                                   <SelectItem value="yes_no">
                                     <div className="flex items-center gap-2">
-                                      <HelpCircle className="h-4 w-4 text-black" />
+                                      <HelpCircle className="h-4 w-4 text-foreground" />
                                       Yes/No
                                     </div>
                                   </SelectItem>
@@ -311,7 +311,7 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
                           </div>
 
                           {/* Required toggle */}
-                          <div className="flex items-center justify-between p-4 bg-white rounded-lg border border-gray-200">
+                          <div className="flex items-center justify-between p-4 bg-card rounded-lg border border-gray-200">
                             <div className="flex items-center space-x-3">
                               <Switch
                                 checked={question.isRequired}
@@ -340,14 +340,14 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
               type="button"
               variant="outline"
               onClick={() => router.back()}
-              className="min-w-[120px] bg-black text-white border-black hover:bg-neutral-900 hover:text-white"
+              className="min-w-[120px] bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:text-primary-foreground"
             >
               Cancel
             </Button>
             <Button 
               type="submit" 
               disabled={isSubmitting || !title.trim()}
-              className="min-w-[160px] bg-black text-white hover:bg-neutral-900 shadow-sm"
+              className="min-w-[160px] bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
             >
               <Save className="h-4 w-4 mr-2" />
               {isSubmitting ? "Creating..." : "Create Survey"}

@@ -65,6 +65,7 @@ import type * as myFunctions from "../myFunctions.js";
 import type * as notes from "../notes.js";
 import type * as onboarding from "../onboarding.js";
 import type * as productLibrary from "../productLibrary.js";
+import type * as projectDiagnostics from "../projectDiagnostics.js";
 import type * as projects from "../projects.js";
 import type * as rag from "../rag.js";
 import type * as shopping from "../shopping.js";
@@ -140,6 +141,7 @@ declare const fullApi: ApiFromModules<{
   notes: typeof notes;
   onboarding: typeof onboarding;
   productLibrary: typeof productLibrary;
+  projectDiagnostics: typeof projectDiagnostics;
   projects: typeof projects;
   rag: typeof rag;
   shopping: typeof shopping;

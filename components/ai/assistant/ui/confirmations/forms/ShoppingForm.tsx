@@ -11,7 +11,7 @@ export function ShoppingForm({ data, onUpdate }: { data: Record<string, unknown>
                 <Input
                     value={String(data.name || "")}
                     onChange={(e) => onUpdate({ name: e.target.value })}
-                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30 text-base font-medium"
+                    className="rounded-md border border-border/60 bg-card px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30 text-base font-medium"
                     placeholder="e.g. Milk"
                 />
             </div>
@@ -23,7 +23,7 @@ export function ShoppingForm({ data, onUpdate }: { data: Record<string, unknown>
                         type="number"
                         value={Number(data.quantity || 1)}
                         onChange={(e) => onUpdate({ quantity: Number(e.target.value) })}
-                        className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
+                        className="rounded-md border border-border/60 bg-card px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                     />
                 </div>
                 <div className="space-y-1.5">
@@ -33,7 +33,7 @@ export function ShoppingForm({ data, onUpdate }: { data: Record<string, unknown>
                         value={Number(data.unitPrice || "")}
                         onChange={(e) => onUpdate({ unitPrice: e.target.value ? Number(e.target.value) : undefined })}
                         placeholder="0.00"
-                        className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
+                        className="rounded-md border border-border/60 bg-card px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                     />
                 </div>
             </div>
@@ -45,7 +45,7 @@ export function ShoppingForm({ data, onUpdate }: { data: Record<string, unknown>
                         value={priorityValue}
                         onValueChange={(value) => onUpdate({ priority: value === "none" ? undefined : value })}
                     >
-                        <SelectTrigger className="h-9 rounded-md border border-border/60 bg-white px-3 shadow-none">
+                        <SelectTrigger className="h-9 rounded-md border border-border/60 bg-card px-3 shadow-none">
                             <SelectValue placeholder="Select priority" />
                         </SelectTrigger>
                         <SelectContent>
@@ -63,7 +63,7 @@ export function ShoppingForm({ data, onUpdate }: { data: Record<string, unknown>
                         type="date"
                         value={String(data.buyBefore || "")}
                         onChange={(e) => onUpdate({ buyBefore: e.target.value || undefined })}
-                        className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
+                        className="rounded-md border border-border/60 bg-card px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                     />
                 </div>
             </div>
@@ -73,7 +73,7 @@ export function ShoppingForm({ data, onUpdate }: { data: Record<string, unknown>
                 <Input
                     value={String(data.category || "")}
                     onChange={(e) => onUpdate({ category: e.target.value })}
-                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
+                    className="rounded-md border border-border/60 bg-card px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                     placeholder="e.g. Dairy"
                 />
             </div>
@@ -84,7 +84,7 @@ export function ShoppingForm({ data, onUpdate }: { data: Record<string, unknown>
                     <Input
                         value={String(data.supplier || "")}
                         onChange={(e) => onUpdate({ supplier: e.target.value })}
-                        className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
+                        className="rounded-md border border-border/60 bg-card px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                         placeholder="Supplier name"
                     />
                 </div>
@@ -93,7 +93,7 @@ export function ShoppingForm({ data, onUpdate }: { data: Record<string, unknown>
                     <Input
                         value={String(data.sectionName || "")}
                         onChange={(e) => onUpdate({ sectionName: e.target.value })}
-                        className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
+                        className="rounded-md border border-border/60 bg-card px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                         placeholder="e.g. Bathroom"
                     />
                 </div>
@@ -105,7 +105,7 @@ export function ShoppingForm({ data, onUpdate }: { data: Record<string, unknown>
                     <Input
                         value={String(data.dimensions || "")}
                         onChange={(e) => onUpdate({ dimensions: e.target.value })}
-                        className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
+                        className="rounded-md border border-border/60 bg-card px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                         placeholder="e.g. 120x60 cm"
                     />
                 </div>
@@ -114,7 +114,7 @@ export function ShoppingForm({ data, onUpdate }: { data: Record<string, unknown>
                     <Input
                         value={String(data.catalogNumber || "")}
                         onChange={(e) => onUpdate({ catalogNumber: e.target.value })}
-                        className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
+                        className="rounded-md border border-border/60 bg-card px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                         placeholder="Model / SKU"
                     />
                 </div>
@@ -125,7 +125,7 @@ export function ShoppingForm({ data, onUpdate }: { data: Record<string, unknown>
                 <Input
                     value={String(data.productLink || "")}
                     onChange={(e) => onUpdate({ productLink: e.target.value })}
-                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
+                    className="rounded-md border border-border/60 bg-card px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                     placeholder="https://"
                 />
             </div>
@@ -135,7 +135,7 @@ export function ShoppingForm({ data, onUpdate }: { data: Record<string, unknown>
                 <Input
                     value={String(data.notes || "")}
                     onChange={(e) => onUpdate({ notes: e.target.value })}
-                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
+                    className="rounded-md border border-border/60 bg-card px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                     placeholder="Add details..."
                 />
             </div>

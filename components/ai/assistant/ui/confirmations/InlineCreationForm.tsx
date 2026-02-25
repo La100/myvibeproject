@@ -116,8 +116,8 @@ export function InlineCreationForm({
   };
 
   return (
-    <div className="w-full max-w-xl mx-auto bg-white rounded-xl border border-border/70 shadow-sm overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[48vh]">
-      <div className="px-4 py-2.5 border-b border-border/70 bg-white flex items-center justify-between">
+    <div className="w-full max-w-xl mx-auto bg-card rounded-xl border border-border/70 shadow-sm overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[48vh]">
+      <div className="px-4 py-2.5 border-b border-border/70 bg-card flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <div className={cn("w-2 h-2 rounded-full", getDotColor(type))} />
           <span>{operationVerb} {getLabel(type)}</span>
@@ -158,7 +158,7 @@ export function InlineCreationForm({
         )}
       </div>
 
-      <div className="flex items-center justify-end px-4 py-2.5 bg-white border-t border-border/70">
+      <div className="flex items-center justify-end px-4 py-2.5 bg-card border-t border-border/70">
         <div className="flex items-center gap-2.5">
           <Button
             variant="ghost"

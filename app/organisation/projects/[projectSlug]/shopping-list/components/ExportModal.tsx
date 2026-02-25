@@ -34,7 +34,7 @@ export function ExportModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 backdrop-blur-sm">
       <div className="bg-[var(--ui-surface-base)] rounded-lg p-6 w-96 max-w-[90vw]">
         <h3 className="text-lg font-semibold mb-4">Export Shopping List</h3>
         
@@ -90,14 +90,24 @@ export function ExportModal({
             </label>
             
             {exportOptions.format === 'pdf' && (
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={exportOptions.groupBySections}
-                  onChange={(e) => onExportOptionsChange({...exportOptions, groupBySections: e.target.checked})}
-                />
-                <span className="text-sm">Group by Sections</span>
-              </label>
+              <>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={exportOptions.includeImages}
+                    onChange={(e) => onExportOptionsChange({...exportOptions, includeImages: e.target.checked})}
+                  />
+                  <span className="text-sm">Include Images</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={exportOptions.groupBySections}
+                    onChange={(e) => onExportOptionsChange({...exportOptions, groupBySections: e.target.checked})}
+                  />
+                  <span className="text-sm">Group by Sections</span>
+                </label>
+              </>
             )}
           </div>
         </div>

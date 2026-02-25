@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { makeFunctionReference } from "convex/server";
 import { mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 
@@ -50,8 +51,7 @@ const assertAttachmentBelongsToProject = async (
 };
 
 // Use a lightweight function reference to avoid deep generated type instantiation.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const logActivityMutationRef = { _name: "activityLog:logActivity" } as any;
+const logActivityMutationRef = makeFunctionReference<"mutation">("activityLog:logActivity");
 
 // ====== LABOR SECTIONS ======
 
@@ -212,7 +212,7 @@ export const createLaborItem = mutation({
       updatedAt: Date.now(),
     });
 
-    await (ctx.runMutation as any)(logActivityMutationRef, {
+    await ctx.runMutation(logActivityMutationRef, {
       teamId: project.teamId,
       projectId: args.projectId,
       actionType: "labor.create",
@@ -279,7 +279,7 @@ export const updateLaborItem = mutation({
 
     await ctx.db.patch(itemId, patch);
 
-    await (ctx.runMutation as any)(logActivityMutationRef, {
+    await ctx.runMutation(logActivityMutationRef, {
       teamId: item.teamId,
       projectId: item.projectId,
       actionType: "labor.update",
@@ -304,7 +304,7 @@ export const deleteLaborItem = mutation({
     const item = await ctx.db.get(args.itemId);
     if (!item) throw new Error("Item not found");
 
-    await (ctx.runMutation as any)(logActivityMutationRef, {
+    await ctx.runMutation(logActivityMutationRef, {
       teamId: item.teamId,
       projectId: item.projectId,
       actionType: "labor.delete",

@@ -17,10 +17,14 @@ import { createAgentTools } from "./tools";
 // RunAction type matches ctx.runAction signature
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type RunActionFn = (action: any, args: any) => Promise<any>;
+// RunQuery type matches ctx.runQuery signature
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type RunQueryFn = (query: any, args: any) => Promise<any>;
 
 interface AgentOptions {
   projectId?: string;
   runAction?: RunActionFn;
+  runQuery?: RunQueryFn;
   loadSnapshot?: () => Promise<ProjectContextSnapshot>;
 }
 
@@ -57,6 +61,7 @@ export const createMyvibeProjectAgent = (
     tools: createAgentTools({
       projectId: options?.projectId,
       runAction: options?.runAction,
+      runQuery: options?.runQuery,
       loadSnapshot: options?.loadSnapshot,
     }),
   };

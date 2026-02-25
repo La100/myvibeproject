@@ -541,7 +541,7 @@ export function ProjectChangelog({
                 )}
 
                 {activity.actionType === "task.comment.add" && activity.details.commentPreview && (
-                  <div className="mt-2 p-2 bg-white/50 rounded text-xs text-gray-600 italic">
+                  <div className="mt-2 p-2 bg-card/50 rounded text-xs text-gray-600 italic">
                     "{activity.details.commentPreview}..."
                   </div>
                 )}

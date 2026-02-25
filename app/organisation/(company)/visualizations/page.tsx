@@ -63,9 +63,9 @@ function VisualizationSuggestions({ suggestions }: { suggestions: Suggestion[] }
             key={suggestion.text}
             onClick={() => textInput.setInput(suggestion.text)}
             className={cn(
-              "group relative overflow-hidden rounded-[20px] text-left transition-all duration-300 aspect-[5/3] flex-shrink-0 border border-white/40 shadow-lg",
+              "group relative overflow-hidden rounded-[20px] text-left transition-all duration-300 aspect-[5/3] flex-shrink-0 border border-[color:var(--overlay-border)] shadow-lg",
               "min-w-[70vw] sm:min-w-[300px] md:min-w-[280px] lg:min-w-[260px] snap-center",
-              "hover:shadow-2xl hover:-translate-y-1.5 hover:border-white/70"
+              "hover:shadow-2xl hover:-translate-y-1.5 hover:border-[color:var(--overlay-border-strong)]"
             )}
           >
             <div className="absolute inset-0 z-0">
@@ -78,7 +78,7 @@ function VisualizationSuggestions({ suggestions }: { suggestions: Suggestion[] }
             </div>
 
             <div className="relative z-10 h-full flex flex-col justify-end p-5">
-              <p className="text-white font-semibold leading-snug text-sm drop-shadow-sm">
+              <p className="text-[var(--overlay-foreground)] font-semibold leading-snug text-sm drop-shadow-sm">
                 {suggestion.text}
               </p>
             </div>
@@ -565,12 +565,12 @@ export default function VisualizationsPage() {
               </motion.div>
 
               <div
-                className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 z-50 bg-black/50 backdrop-blur-md p-2 rounded-full border border-white/10 shadow-xl"
+                className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 z-50 bg-black/50 backdrop-blur-md p-2 rounded-full border border-[color:var(--overlay-border-soft)] shadow-xl"
                 onClick={(e) => e.stopPropagation()}
               >
                 <Button
                   variant="ghost"
-                  className="rounded-lg text-white hover:bg-white/20 hover:text-white px-6 h-10"
+                  className="rounded-lg text-[var(--overlay-foreground)] hover:bg-card/20 hover:text-[var(--overlay-foreground)] px-6 h-10"
                   onClick={() => handleDownload(selectedLightbox.url)}
                 >
                   <Download className="h-4 w-4 mr-2" />

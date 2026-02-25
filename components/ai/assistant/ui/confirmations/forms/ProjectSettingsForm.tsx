@@ -14,7 +14,7 @@ export function ProjectSettingsForm({ data, onUpdate }: { data: Record<string, u
                 <Input
                     value={String(data.name || "")}
                     onChange={(e) => onUpdate({ name: e.target.value })}
-                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30 text-base font-medium"
+                    className="rounded-md border border-border/60 bg-card px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30 text-base font-medium"
                     placeholder="Project name"
                 />
             </div>
@@ -24,7 +24,7 @@ export function ProjectSettingsForm({ data, onUpdate }: { data: Record<string, u
                 <Textarea
                     value={String(data.description || "")}
                     onChange={(e) => onUpdate({ description: e.target.value })}
-                    className="min-h-[72px] resize-none rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
+                    className="min-h-[72px] resize-none rounded-md border border-border/60 bg-card px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                     placeholder="Project description"
                 />
             </div>
@@ -36,7 +36,7 @@ export function ProjectSettingsForm({ data, onUpdate }: { data: Record<string, u
                         value={statusValue}
                         onValueChange={(value) => onUpdate({ status: value })}
                     >
-                        <SelectTrigger className="h-9 rounded-md border border-border/60 bg-white px-3 shadow-none">
+                        <SelectTrigger className="h-9 rounded-md border border-border/60 bg-card px-3 shadow-none">
                             <SelectValue placeholder="Select status" />
                         </SelectTrigger>
                         <SelectContent>
@@ -54,7 +54,7 @@ export function ProjectSettingsForm({ data, onUpdate }: { data: Record<string, u
                         value={currencyValue}
                         onValueChange={(value) => onUpdate({ currency: value })}
                     >
-                        <SelectTrigger className="h-9 rounded-md border border-border/60 bg-white px-3 shadow-none">
+                        <SelectTrigger className="h-9 rounded-md border border-border/60 bg-card px-3 shadow-none">
                             <SelectValue placeholder="Select currency" />
                         </SelectTrigger>
                         <SelectContent>
@@ -89,7 +89,7 @@ export function ProjectSettingsForm({ data, onUpdate }: { data: Record<string, u
                     <Input
                         value={String(data.customer || "")}
                         onChange={(e) => onUpdate({ customer: e.target.value })}
-                        className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
+                        className="rounded-md border border-border/60 bg-card px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                         placeholder="Client name"
                     />
                 </div>
@@ -98,7 +98,7 @@ export function ProjectSettingsForm({ data, onUpdate }: { data: Record<string, u
                     <Input
                         value={String(data.location || "")}
                         onChange={(e) => onUpdate({ location: e.target.value })}
-                        className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
+                        className="rounded-md border border-border/60 bg-card px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                         placeholder="City / address"
                     />
                 </div>
@@ -110,7 +110,7 @@ export function ProjectSettingsForm({ data, onUpdate }: { data: Record<string, u
                     type="number"
                     value={data.budget === undefined || data.budget === null ? "" : String(data.budget)}
                     onChange={(e) => onUpdate({ budget: e.target.value ? Number(e.target.value) : undefined })}
-                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
+                    className="rounded-md border border-border/60 bg-card px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                     placeholder="Project budget"
                 />
             </div>
@@ -120,7 +120,7 @@ export function ProjectSettingsForm({ data, onUpdate }: { data: Record<string, u
                 <Input
                     value={String(data.coverImageUrl || "")}
                     onChange={(e) => onUpdate({ coverImageUrl: e.target.value })}
-                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
+                    className="rounded-md border border-border/60 bg-card px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                     placeholder="https://example.com/cover.jpg"
                 />
             </div>

@@ -32,7 +32,7 @@ export function LaborForm({ data, onUpdate }: { data: Record<string, unknown>; o
                     id="name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30 text-base font-medium"
+                    className="rounded-md border border-border/60 bg-card px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30 text-base font-medium"
                     placeholder="Enter work description"
                 />
             </div>
@@ -48,7 +48,7 @@ export function LaborForm({ data, onUpdate }: { data: Record<string, unknown>; o
                         step="0.01"
                         value={quantity}
                         onChange={(e) => setQuantity(e.target.value)}
-                        className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
+                        className="rounded-md border border-border/60 bg-card px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                         placeholder="0"
                     />
                 </div>
@@ -61,7 +61,7 @@ export function LaborForm({ data, onUpdate }: { data: Record<string, unknown>; o
                         id="unit"
                         value={unit}
                         onChange={(e) => setUnit(e.target.value)}
-                        className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
+                        className="rounded-md border border-border/60 bg-card px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                         placeholder="m², m, hours, pcs"
                     />
                 </div>
@@ -77,7 +77,7 @@ export function LaborForm({ data, onUpdate }: { data: Record<string, unknown>; o
                     step="0.01"
                     value={unitPrice}
                     onChange={(e) => setUnitPrice(e.target.value)}
-                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
+                    className="rounded-md border border-border/60 bg-card px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                     placeholder="0.00"
                 />
             </div>
@@ -90,7 +90,7 @@ export function LaborForm({ data, onUpdate }: { data: Record<string, unknown>; o
                     id="sectionName"
                     value={sectionName}
                     onChange={(e) => setSectionName(e.target.value)}
-                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
+                    className="rounded-md border border-border/60 bg-card px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                     placeholder="Optional section name"
                 />
             </div>
@@ -103,7 +103,7 @@ export function LaborForm({ data, onUpdate }: { data: Record<string, unknown>; o
                     id="notes"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30 min-h-[60px]"
+                    className="rounded-md border border-border/60 bg-card px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30 min-h-[60px]"
                     placeholder="Additional notes"
                 />
             </div>

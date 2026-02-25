@@ -204,6 +204,7 @@ export default function AssistantConversation({
   isModeUpdating = false,
 }: AssistantConversationProps) {
   const [optimisticMessages, setOptimisticMessages] = useState<ThreadMessageLike[]>([]);
+  const [hasSubmittedMessage, setHasSubmittedMessage] = useState(false);
   const optimisticMetaRef = useRef<{
     normalizedText: string;
     serverUserCountAtSend: number;
@@ -221,8 +222,9 @@ export default function AssistantConversation({
 
   const isBooting = chatIsLoading;
   const hasVisibleMessages = uiMessages.length > 0 || optimisticMessages.length > 0;
-  const shouldHideThread = isBooting && !hasVisibleMessages;
-  const showWelcomeForEmptyThread = !isBooting && !hasVisibleMessages;
+  const shouldHideThread = isBooting && !hasVisibleMessages && !hasSubmittedMessage;
+  const showWelcomeForEmptyThread =
+    !isBooting && !hasVisibleMessages && !hasSubmittedMessage;
 
   useEffect(() => {
     if (isBooting) return;
@@ -307,8 +309,13 @@ export default function AssistantConversation({
           .filter((file): file is File => !!file) ?? [];
 
       const promptText = toText(message.content) || "";
+      const hasDraftContent = Boolean(promptText || files.length > 0);
 
-      if (ENABLE_OPTIMISTIC_USER_MESSAGE && (promptText || files.length > 0)) {
+      if (hasDraftContent) {
+        setHasSubmittedMessage(true);
+      }
+
+      if (ENABLE_OPTIMISTIC_USER_MESSAGE && hasDraftContent) {
         const optimisticMessage = makeLocalMessage("user", promptText, message.attachments);
         optimisticMetaRef.current = {
           normalizedText: normalizeText(promptText),
@@ -342,7 +349,9 @@ export default function AssistantConversation({
       hasFreshUserMessage &&
       getLastServerUserText(converted) === (optimisticMeta?.normalizedText ?? optimisticText);
 
-    return hasUserMessage
+    // Keep optimistic entries during boot/loading to avoid empty-thread flicker
+    // while thread subscription catches up after first send.
+    return hasUserMessage && !isBooting
       ? converted
       : [
           ...converted,
@@ -350,7 +359,13 @@ export default function AssistantConversation({
             (message): StoreMessage => ({ kind: "optimistic", message }),
           ),
         ];
-  }, [convertedMessages, getLastServerUserText, optimisticMessages, serverUserCount]);
+  }, [
+    convertedMessages,
+    getLastServerUserText,
+    isBooting,
+    optimisticMessages,
+    serverUserCount,
+  ]);
 
   useEffect(() => {
     if (!ENABLE_OPTIMISTIC_USER_MESSAGE) return;
@@ -364,11 +379,17 @@ export default function AssistantConversation({
       hasFreshUserMessage &&
       getLastServerUserText(convertedMessages) ===
         (optimisticMeta?.normalizedText ?? optimisticText);
-    if (hasUserMessage) {
+    if (hasUserMessage && !isBooting) {
       optimisticMetaRef.current = null;
       setOptimisticMessages([]);
     }
-  }, [convertedMessages, getLastServerUserText, optimisticMessages, serverUserCount]);
+  }, [
+    convertedMessages,
+    getLastServerUserText,
+    isBooting,
+    optimisticMessages,
+    serverUserCount,
+  ]);
 
   const convertMessage = useMemo(
     () =>
@@ -419,6 +440,7 @@ export default function AssistantConversation({
   const handleReset = useCallback(async () => {
     optimisticMetaRef.current = null;
     setOptimisticMessages([]);
+    setHasSubmittedMessage(false);
     await onReset();
   }, [onReset]);
 

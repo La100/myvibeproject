@@ -24,7 +24,7 @@ export function SurveyForm({ data, onUpdate }: { data: Record<string, unknown>; 
                     id="title"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30 text-base font-medium"
+                    className="rounded-md border border-border/60 bg-card px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30 text-base font-medium"
                     placeholder="Enter survey title"
                 />
             </div>
@@ -37,7 +37,7 @@ export function SurveyForm({ data, onUpdate }: { data: Record<string, unknown>; 
                     id="description"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30 min-h-[64px]"
+                    className="rounded-md border border-border/60 bg-card px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30 min-h-[64px]"
                     placeholder="Survey description"
                 />
             </div>

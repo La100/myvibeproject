@@ -17,6 +17,9 @@ import type { ProjectContextSnapshot } from "./types";
 // RunAction type matches ctx.runAction signature
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type RunActionFn = (action: any, args: any) => Promise<any>;
+// RunQuery type matches ctx.runQuery signature
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type RunQueryFn = (query: any, args: any) => Promise<any>;
 
 type InternalSearchApi = {
   getItemById: unknown;
@@ -231,6 +234,7 @@ export const loadFullProjectContextSchema = z.object({
 interface StreamingToolOptions {
   projectId?: string;
   runAction?: RunActionFn;
+  runQuery?: RunQueryFn;
   loadSnapshot?: () => Promise<ProjectContextSnapshot>;
 }
 
@@ -313,14 +317,14 @@ export function createStreamingTools(options?: StreamingToolOptions) {
         // Fetch original item from database to show in edit form
         let originalItem: { title?: string; name?: string; _id?: string } | null = null;
 
-        if (options?.runAction) {
+        if (options?.runQuery) {
           try {
             const tableName = typeToTable[args.type];
             const searchApi = getInternalSearchApi();
 
             if (tableName) {
               try {
-                originalItem = await options.runAction(searchApi.getItemById, {
+                originalItem = await options.runQuery(searchApi.getItemById, {
                   tableName,
                   itemId: args.itemId,
                 });
@@ -367,7 +371,7 @@ export function createStreamingTools(options?: StreamingToolOptions) {
           originalItem: Record<string, unknown>;
           updates: Record<string, unknown>;
         }> = [];
-        if (options?.runAction) {
+        if (options?.runQuery) {
           usedDbLookup = true;
           try {
             const typeToTable: Record<string, string> = {
@@ -384,7 +388,7 @@ export function createStreamingTools(options?: StreamingToolOptions) {
             const searchApi = getInternalSearchApi();
             if (tableName) {
               for (const update of args.updates) {
-                const item = await options.runAction(searchApi.getItemById, {
+                const item = await options.runQuery(searchApi.getItemById, {
                   tableName,
                   itemId: update.itemId,
                 });
@@ -442,7 +446,7 @@ export function createStreamingTools(options?: StreamingToolOptions) {
       execute: async (args: z.infer<typeof deleteItemSchema>) => {
         // Fetch original item to show full details in delete confirmation
         let originalItem: { title?: string; name?: string; _id?: string } | null = null;
-        if (options?.runAction) {
+        if (options?.runQuery) {
           try {
             const searchApi = getInternalSearchApi();
             const typeToTable: Record<string, string> = {
@@ -457,7 +461,7 @@ export function createStreamingTools(options?: StreamingToolOptions) {
             };
             const tableName = typeToTable[args.type];
             if (tableName) {
-              originalItem = await options.runAction(searchApi.getItemById, {
+              originalItem = await options.runQuery(searchApi.getItemById, {
                 tableName,
                 itemId: args.itemId,
               });

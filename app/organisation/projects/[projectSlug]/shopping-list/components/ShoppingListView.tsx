@@ -69,6 +69,103 @@ const truncatePdfText = (value: string, maxLength: number): string => {
 const formatQuantity = (quantity: number): string =>
   Number.isInteger(quantity) ? `${quantity}` : quantity.toFixed(2);
 
+type PdfInlineImage = {
+  dataUrl: string;
+  width: number;
+  height: number;
+  format: 'PNG' | 'JPEG';
+};
+
+const PDF_IMAGE_MAX_SIDE = 220;
+const PDF_IMAGE_JPEG_QUALITY = 0.82;
+
+const loadImageElement = (sourceUrl: string): Promise<HTMLImageElement> =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error(`Failed to load image: ${sourceUrl}`));
+    img.src = sourceUrl;
+  });
+
+const loadPdfInlineImage = async (imageUrl: string): Promise<PdfInlineImage | null> => {
+  try {
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      return null;
+    }
+
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const image = await loadImageElement(objectUrl);
+
+    const scale = Math.min(1, PDF_IMAGE_MAX_SIDE / Math.max(image.naturalWidth || image.width, image.naturalHeight || image.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round((image.naturalWidth || image.width) * scale));
+    canvas.height = Math.max(1, Math.round((image.naturalHeight || image.height) * scale));
+
+    const context = canvas.getContext('2d');
+    if (!context) {
+      URL.revokeObjectURL(objectUrl);
+      return null;
+    }
+
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+    const mimeType = blob.type === 'image/png' ? 'image/png' : 'image/jpeg';
+    const dataUrl = mimeType === 'image/png'
+      ? canvas.toDataURL('image/png')
+      : canvas.toDataURL('image/jpeg', PDF_IMAGE_JPEG_QUALITY);
+
+    URL.revokeObjectURL(objectUrl);
+
+    return {
+      dataUrl,
+      width: canvas.width,
+      height: canvas.height,
+      format: mimeType === 'image/png' ? 'PNG' : 'JPEG',
+    };
+  } catch (error) {
+    console.warn('Failed to load inline PDF image:', error);
+    return null;
+  }
+};
+
+const preloadPdfInlineImages = async (items: ShoppingListItem[]): Promise<Map<string, PdfInlineImage>> => {
+  const urlCandidates = Array.from(
+    new Set(
+      items
+        .map((item) => item.imageUrl?.trim())
+        .filter((value): value is string => !!value),
+    ),
+  );
+
+  if (urlCandidates.length === 0) {
+    return new Map();
+  }
+
+  const byUrl = new Map<string, PdfInlineImage | null>();
+  await Promise.all(
+    urlCandidates.map(async (url) => {
+      const loaded = await loadPdfInlineImage(url);
+      byUrl.set(url, loaded);
+    }),
+  );
+
+  const byItemId = new Map<string, PdfInlineImage>();
+  items.forEach((item) => {
+    const url = item.imageUrl?.trim();
+    if (!url) {
+      return;
+    }
+    const loaded = byUrl.get(url);
+    if (loaded) {
+      byItemId.set(String(item._id), loaded);
+    }
+  });
+
+  return byItemId;
+};
+
 
 export function ShoppingListViewSkeleton() {
   return <Spinner className="p-4 sm:p-6" />;
@@ -96,7 +193,7 @@ export default function ShoppingListView() {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [exportOptions, setExportOptions] = useState({
     format: 'csv' as 'csv' | 'pdf',
-    includeImages: false,
+    includeImages: true,
     statusFilter: 'all' as 'all' | 'planned' | 'ordered' | 'completed',
     includeNotes: true,
     groupBySections: true
@@ -332,15 +429,22 @@ export default function ShoppingListView() {
       const pageWidth = doc.internal.pageSize.getWidth();
       const filteredTotal = calculateShoppingTotal(filteredItemsForExport);
       const printableWidth = pageWidth - 36;
+      const includeImagesInPdf = exportOptions.includeImages;
+      const itemsWithImageUrl = filteredItemsForExport.filter((item) => !!item.imageUrl?.trim());
+      const pdfImagesByItemId = includeImagesInPdf
+        ? await preloadPdfInlineImages(filteredItemsForExport)
+        : new Map<string, PdfInlineImage>();
+      const hasImageColumn = includeImagesInPdf && itemsWithImageUrl.length > 0;
       const hasAnyUnit = filteredItemsForExport.some((item) => !!item.unit?.trim());
       const hasAnyPrice = filteredItemsForExport.some((item) => item.totalPrice !== undefined && item.totalPrice !== null);
       const hasAnySupplier = filteredItemsForExport.some((item) => !!item.supplier?.trim());
       const hasAnyAssigned = filteredItemsForExport.some((item) => !!item.assignedTo);
       const hasAnyNonPlannedStatus = filteredItemsForExport.some((item) => item.realizationStatus !== 'PLANNED');
 
-      type PdfColumnKey = 'section' | 'product' | 'qty' | 'unit' | 'total' | 'status' | 'supplier' | 'assigned';
+      type PdfColumnKey = 'image' | 'section' | 'product' | 'qty' | 'unit' | 'total' | 'status' | 'supplier' | 'assigned';
 
       const columnLabels: Record<PdfColumnKey, string> = {
+        image: 'Image',
         section: 'Section',
         product: 'Product',
         qty: 'Qty',
@@ -352,6 +456,7 @@ export default function ShoppingListView() {
       };
 
       const baseColumnWidths: Record<Exclude<PdfColumnKey, 'product'>, number> = {
+        image: 18,
         section: 28,
         qty: 14,
         unit: 14,
@@ -362,6 +467,7 @@ export default function ShoppingListView() {
       };
 
       const visibleOptionalKeys: PdfColumnKey[] = [
+        ...(hasImageColumn ? ['image' as const] : []),
         ...(hasAnyPrice ? ['total' as const] : []),
         ...(hasAnyUnit ? ['unit' as const] : []),
         ...(hasAnyNonPlannedStatus ? ['status' as const] : []),
@@ -373,8 +479,10 @@ export default function ShoppingListView() {
         keys.reduce((sum, key) => sum + (key === 'product' ? 0 : baseColumnWidths[key]), 0);
 
       const getTableConfig = (grouped: boolean) => {
-        const minProductWidth = grouped ? 58 : 48;
-        const leadingKeys: PdfColumnKey[] = grouped ? [] : ['section'];
+        const minProductWidth = grouped ? 52 : 44;
+        const leadingKeys: PdfColumnKey[] = grouped
+          ? (hasImageColumn ? ['image'] : [])
+          : (hasImageColumn ? ['image', 'section'] : ['section']);
         const selectedKeys: PdfColumnKey[] = [...leadingKeys, 'product', 'qty'];
 
         for (const key of visibleOptionalKeys) {
@@ -392,6 +500,17 @@ export default function ShoppingListView() {
                 index,
                 {
                   cellWidth: productWidth,
+                },
+              ];
+            }
+            if (key === 'image') {
+              return [
+                index,
+                {
+                  cellWidth: baseColumnWidths[key],
+                  minCellHeight: 16,
+                  halign: 'center',
+                  valign: 'middle',
                 },
               ];
             }
@@ -435,6 +554,7 @@ export default function ShoppingListView() {
           : productLabel;
 
         const rowData: Record<PdfColumnKey, string> = {
+          image: '',
           section: normalizePdfText(sectionName, 'No Category'),
           product: productCell,
           qty: formatQuantity(item.quantity),
@@ -448,6 +568,11 @@ export default function ShoppingListView() {
         return keys.map((key) => rowData[key]);
       };
 
+      type PdfPreparedRow = {
+        cells: string[];
+        image: PdfInlineImage | null;
+      };
+
       const tableThemeOverride = {
         ...pdfTableTheme,
         styles: {
@@ -456,6 +581,7 @@ export default function ShoppingListView() {
           fontSize: 8.2,
           cellPadding: 2,
           valign: 'top' as const,
+          ...(hasImageColumn ? { minCellHeight: 16 } : {}),
         },
         headStyles: {
           ...pdfTableTheme.headStyles,
@@ -463,6 +589,48 @@ export default function ShoppingListView() {
           fontSize: 8.4,
           lineWidth: 0.12,
         },
+      };
+
+      const renderTable = (tableConfig: ReturnType<typeof getTableConfig>, rows: PdfPreparedRow[], startY: number) => {
+        const imageColumnIndex = tableConfig.keys.indexOf('image');
+
+        doc.autoTable({
+          ...tableThemeOverride,
+          startY,
+          head: tableConfig.head,
+          body: rows.map((row) => row.cells),
+          columnStyles: tableConfig.columnStyles,
+          didDrawCell: (data: {
+            section: string;
+            row: { index: number };
+            column: { index: number };
+            cell: { x: number; y: number; width: number; height: number };
+          }) => {
+            if (imageColumnIndex === -1 || data.section !== 'body' || data.column.index !== imageColumnIndex) {
+              return;
+            }
+
+            const image = rows[data.row.index]?.image;
+            if (!image) {
+              return;
+            }
+
+            const padding = 1.2;
+            const maxWidth = Math.max(0, data.cell.width - padding * 2);
+            const maxHeight = Math.max(0, data.cell.height - padding * 2);
+            if (maxWidth <= 0 || maxHeight <= 0) {
+              return;
+            }
+
+            const scale = Math.min(maxWidth / image.width, maxHeight / image.height);
+            const drawWidth = image.width * scale;
+            const drawHeight = image.height * scale;
+            const drawX = data.cell.x + (data.cell.width - drawWidth) / 2;
+            const drawY = data.cell.y + (data.cell.height - drawHeight) / 2;
+
+            doc.addImage(image.dataUrl, image.format, drawX, drawY, drawWidth, drawHeight);
+          },
+        });
       };
 
       let yPosition = await addBrandHeader(doc, {
@@ -496,28 +664,20 @@ export default function ShoppingListView() {
           );
           yPosition += 3;
 
-          const tableData = sectionItems.map((item) => buildRow(item, groupedTableConfig.keys));
-
-          doc.autoTable({
-            ...tableThemeOverride,
-            startY: yPosition,
-            head: groupedTableConfig.head,
-            body: tableData,
-            columnStyles: groupedTableConfig.columnStyles,
-          });
+          const preparedRows = sectionItems.map((item) => ({
+            cells: buildRow(item, groupedTableConfig.keys),
+            image: pdfImagesByItemId.get(String(item._id)) ?? null,
+          }));
+          renderTable(groupedTableConfig, preparedRows, yPosition);
 
           yPosition = doc.lastAutoTable.finalY + 6;
         });
       } else {
-        const tableData = filteredItemsForExport.map((item) => buildRow(item, flatTableConfig.keys));
-
-        doc.autoTable({
-          ...tableThemeOverride,
-          startY: yPosition,
-          head: flatTableConfig.head,
-          body: tableData,
-          columnStyles: flatTableConfig.columnStyles,
-        });
+        const preparedRows = filteredItemsForExport.map((item) => ({
+          cells: buildRow(item, flatTableConfig.keys),
+          image: pdfImagesByItemId.get(String(item._id)) ?? null,
+        }));
+        renderTable(flatTableConfig, preparedRows, yPosition);
 
         yPosition = doc.lastAutoTable.finalY + 6;
       }
@@ -537,6 +697,9 @@ export default function ShoppingListView() {
       doc.save(`shopping-list-${sanitizeFileName(project.name)}-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
 
       setIsExportModalOpen(false);
+      if (includeImagesInPdf && itemsWithImageUrl.length > pdfImagesByItemId.size) {
+        toast.info('Some images could not be embedded because the source blocked loading.');
+      }
       toast.success('PDF exported successfully!');
     } catch (error) {
       console.error('PDF export error:', error);

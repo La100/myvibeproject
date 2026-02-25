@@ -393,7 +393,7 @@ export default function FilesView() {
                         preload="metadata"
                       />
                       <div className="absolute inset-0 bg-black/20 flex items-center justify-center rounded-lg">
-                        <Play className="h-8 w-8 text-white" />
+                        <Play className="h-8 w-8 text-[var(--overlay-foreground)]" />
                       </div>
                     </div>
                   ) : file.fileType === "document" && file.url && file.mimeType === "application/pdf" ? (

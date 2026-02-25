@@ -608,7 +608,7 @@ export function ShoppingListSection({
 
                         {item.assignedTo && (
                           <div className="flex items-center gap-2 mt-3">
-                            <Avatar className="h-6 w-6 border border-white shadow-sm">
+                            <Avatar className="h-6 w-6 border border-border/70 shadow-sm">
                               <AvatarImage src={teamMembers?.find(m => m.clerkUserId === item.assignedTo)?.imageUrl} />
                               <AvatarFallback className="text-[10px] bg-[var(--ui-surface-soft)] text-[var(--ui-text-main)]">
                                 {getAssignedMemberName(item.assignedTo)?.[0]}

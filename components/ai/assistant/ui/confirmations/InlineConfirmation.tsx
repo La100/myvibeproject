@@ -268,8 +268,8 @@ export function InlineConfirmationList({
                 className={cn(
                   "rounded-md border px-2 py-1.5 text-xs",
                   rejectedCount > 0
-                    ? "border-amber-200/70 bg-white/70 text-amber-900"
-                    : "border-green-200/70 bg-white/70 text-green-900",
+                    ? "border-amber-200/70 bg-card/70 text-amber-900"
+                    : "border-green-200/70 bg-card/70 text-green-900",
                 )}
               >
                 <div className="flex items-center justify-between gap-2">
@@ -378,7 +378,7 @@ export function InlineConfirmationList({
               </Button>
               <Button
                 size="sm"
-                className="text-xs h-7 bg-green-600 hover:bg-green-700 text-white"
+                className="text-xs h-7 bg-green-600 hover:bg-green-700 text-primary-foreground"
                 onClick={onConfirmAll}
                 disabled={isProcessing}
               >

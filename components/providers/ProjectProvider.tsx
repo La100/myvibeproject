@@ -76,8 +76,8 @@ export function ProjectProvider({ children }: {
       <div className="fixed inset-0 flex items-center justify-center bg-muted/30">
         <div className="text-center space-y-4">
           <div className="flex items-center justify-center gap-3 mb-6">
-            <Building className="h-8 w-8 text-black animate-pulse" />
-            <span className="text-2xl font-semibold text-black">Myvibe project</span>
+            <Building className="h-8 w-8 text-foreground animate-pulse" />
+            <span className="text-2xl font-semibold text-foreground">Myvibe project</span>
           </div>
           <div className="flex items-center justify-center gap-2">
             <div className="w-2 h-2 bg-foreground rounded-full animate-bounce [animation-delay:-0.3s]"></div>

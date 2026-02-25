@@ -385,7 +385,7 @@ export default function AdvancedEditor({
       <BubbleMenu 
         editor={editor} 
         tippyOptions={{ duration: 100 }}
-        className="bg-white border rounded-lg shadow-lg p-1 flex gap-1"
+        className="bg-card border rounded-lg shadow-lg p-1 flex gap-1"
       >
         <Button
           variant="ghost"

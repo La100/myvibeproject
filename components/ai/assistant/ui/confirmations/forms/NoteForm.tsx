@@ -10,7 +10,7 @@ export function NoteForm({ data, onUpdate }: { data: Record<string, unknown>; on
                 <Input
                     value={String(data.title || "")}
                     onChange={(e) => onUpdate({ title: e.target.value })}
-                    className="rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30 text-base font-medium"
+                    className="rounded-md border border-border/60 bg-card px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30 text-base font-medium"
                     placeholder="Note title"
                 />
             </div>
@@ -19,7 +19,7 @@ export function NoteForm({ data, onUpdate }: { data: Record<string, unknown>; on
                 <Textarea
                     value={String(data.content || "")}
                     onChange={(e) => onUpdate({ content: e.target.value })}
-                    className="min-h-[96px] resize-none rounded-md border border-border/60 bg-white px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
+                    className="min-h-[96px] resize-none rounded-md border border-border/60 bg-card px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30"
                     placeholder="Type your note here..."
                 />
             </div>
