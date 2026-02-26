@@ -618,8 +618,10 @@ export const revokeClerkInvitation = internalAction({
       {
         method: "POST",
         headers: {
+          "Content-Type": "application/json",
           Authorization: `Bearer ${clerkApiKey}`,
         },
+        body: JSON.stringify({}),
       }
     );
 

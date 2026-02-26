@@ -169,6 +169,7 @@ test("Team invite/revoke flow stays scheduler + internalAction based", async () 
   assert.match(source, /runAfter\(\s*0,\s*"teams:sendClerkInvitation"/);
   assert.match(source, /runAfter\(\s*0,\s*"teams:revokeClerkInvitation"/);
   assert.match(source, /export const revokeClerkInvitation = internalAction\(/);
+  assert.match(source, /"Content-Type":\s*"application\/json"/);
   assert.match(source, /ctx\.db\.patch\(\s*invitation\._id,\s*\{\s*status:\s*"revoked"\s*\}\s*\)/);
   assert.doesNotMatch(source, /export const revokeInvitation = mutation\([\s\S]*?\bfetch\s*\(/);
 });

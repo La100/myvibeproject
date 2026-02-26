@@ -68,12 +68,18 @@ export default function CompanyTeam() {
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
+  const [optimisticallyRevokedInvitationIds, setOptimisticallyRevokedInvitationIds] = useState<Set<Id<"invitations">>>(new Set());
 
   const revokeInvitation = useMutation(apiAny.teams.revokeInvitation);
 
   const handleRevoke = async (invitationId: Id<"invitations">) => {
     try {
       await revokeInvitation({ invitationId });
+      setOptimisticallyRevokedInvitationIds((prev) => {
+        const next = new Set(prev);
+        next.add(invitationId);
+        return next;
+      });
       toast.success("Invitation revoked");
     } catch (error) {
       toast.error("Failed to revoke invitation", {
@@ -96,6 +102,9 @@ export default function CompanyTeam() {
   // Only internal team members (no more organizational customers)
   const teamMembersOnly = filteredMembers.filter((member: TeamMember) => 
     member.role === 'admin' || member.role === 'member'
+  );
+  const visiblePendingInvitations = pendingInvitations.filter(
+    (inv: PendingInvitation) => !optimisticallyRevokedInvitationIds.has(inv._id),
   );
 
   const handleMemberClick = (member: TeamMember) => {
@@ -386,7 +395,7 @@ export default function CompanyTeam() {
                   <h3 className="text-xl font-semibold">Pending Invitations</h3>
                   <p className="text-muted-foreground">Manage team invitations and track their status</p>
                 </div>
-                {pendingInvitations.length > 0 && currentUserMember?.role === 'admin' && (
+                {visiblePendingInvitations.length > 0 && currentUserMember?.role === 'admin' && (
                   <InviteMemberDialog teamId={team._id}>
                     <Button>
                       <Mail className="mr-2 h-4 w-4" />
@@ -398,9 +407,9 @@ export default function CompanyTeam() {
 
               <Card>
                 <CardContent className="pt-6">
-                  {pendingInvitations.length > 0 ? (
+                  {visiblePendingInvitations.length > 0 ? (
                     <div className="space-y-3">
-                      {pendingInvitations.map((inv: PendingInvitation) => (
+                      {visiblePendingInvitations.map((inv: PendingInvitation) => (
                         <div key={inv._id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                           <div className="flex items-center gap-4 flex-1">
                             <Avatar className="h-10 w-10">
@@ -467,7 +476,7 @@ export default function CompanyTeam() {
               </Card>
 
               {/* Invitation Info Card */}
-              {pendingInvitations.length > 0 && (
+              {visiblePendingInvitations.length > 0 && (
                 <Card className="border-blue-200 bg-blue-50">
                   <CardContent className="pt-6">
                     <div className="flex items-start gap-3">
@@ -481,7 +490,7 @@ export default function CompanyTeam() {
                           Invited users will receive full access based on their assigned role once they accept.
                         </p>
                         <p className="text-xs text-blue-600 mt-2">
-                          Total pending: {pendingInvitations.length} invitation{pendingInvitations.length !== 1 ? 's' : ''}
+                          Total pending: {visiblePendingInvitations.length} invitation{visiblePendingInvitations.length !== 1 ? 's' : ''}
                         </p>
                       </div>
                     </div>
