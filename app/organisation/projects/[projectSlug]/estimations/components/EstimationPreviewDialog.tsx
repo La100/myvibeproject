@@ -146,11 +146,11 @@ export function EstimationPreviewDialog({
         y = doc.lastAutoTable.finalY + 10;
       }
 
-      // Materials Table
+      // Shopping List Table
       if (estimation.materialItems && estimation.materialItems.length > 0) {
         doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
-        doc.text('Materials', 20, y);
+        doc.text('Shopping List', 20, y);
         y += 5;
 
         doc.autoTable({
@@ -182,7 +182,7 @@ export function EstimationPreviewDialog({
       doc.text(`${estimation.laborTotal?.toFixed(2) || '0.00'} ${currencySymbol}`, valueX, y, { align: 'right' });
       y += 5;
 
-      doc.text('Materials:', summaryX, y);
+      doc.text('Shopping List:', summaryX, y);
       doc.text(`${estimation.materialsTotal?.toFixed(2) || '0.00'} ${currencySymbol}`, valueX, y, { align: 'right' });
       y += 5;
 
@@ -352,10 +352,10 @@ export function EstimationPreviewDialog({
             </div>
           )}
 
-          {/* Materials Table */}
+          {/* Shopping List Table */}
           {estimation.materialItems && estimation.materialItems.length > 0 && (
             <div className="mb-6">
-              <h4 className="font-semibold mb-3">Materials</h4>
+              <h4 className="font-semibold mb-3">Shopping List</h4>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-[var(--ui-surface-soft)]">
@@ -381,7 +381,7 @@ export function EstimationPreviewDialog({
                 </tbody>
                 <tfoot>
                   <tr className="bg-[var(--ui-surface-soft)]">
-                    <td colSpan={3} className="text-right py-2 px-3 font-medium">Materials Subtotal:</td>
+                    <td colSpan={3} className="text-right py-2 px-3 font-medium">Shopping List Subtotal:</td>
                     <td className="text-right py-2 px-3 font-semibold">
                       {estimation.materialsTotal?.toFixed(2) || '0.00'} {currencySymbol}
                     </td>
@@ -399,7 +399,7 @@ export function EstimationPreviewDialog({
                 <span>{estimation.laborTotal?.toFixed(2) || '0.00'} {currencySymbol}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-[var(--ui-text-muted)]">Materials:</span>
+                <span className="text-[var(--ui-text-muted)]">Shopping List:</span>
                 <span>{estimation.materialsTotal?.toFixed(2) || '0.00'} {currencySymbol}</span>
               </div>
               <div className="flex justify-between font-medium border-t pt-2">

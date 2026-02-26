@@ -250,7 +250,7 @@ export default function EstimationsView() {
                   <span className="font-medium">{estimation.laborTotal?.toFixed(2) || '0.00'} {currencySymbol}</span>
                 </div>
                 <div>
-                  <span className="text-[var(--ui-text-muted)]">Materials: </span>
+                  <span className="text-[var(--ui-text-muted)]">Shopping List: </span>
                   <span className="font-medium">{estimation.materialsTotal?.toFixed(2) || '0.00'} {currencySymbol}</span>
                 </div>
                 <div>

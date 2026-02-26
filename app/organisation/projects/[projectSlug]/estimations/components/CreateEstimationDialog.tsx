@@ -37,6 +37,22 @@ interface CreateEstimationDialogProps {
   currencySymbol: string;
 }
 
+interface ProjectContactOption {
+  _id: Id<"contacts">;
+  name: string;
+  companyName?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  postalCode?: string;
+  country?: string;
+  projectRole?: string;
+}
+
+const MANUAL_CONTACT_VALUE = '__manual__' as const;
+const CUSTOMER_EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export function CreateEstimationDialog({
   open,
   onOpenChange,
@@ -58,6 +74,7 @@ export function CreateEstimationDialog({
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
+  const [selectedContactId, setSelectedContactId] = useState<Id<"contacts"> | typeof MANUAL_CONTACT_VALUE>(MANUAL_CONTACT_VALUE);
   const [notes, setNotes] = useState('');
   const [selectedLaborIds, setSelectedLaborIds] = useState<Id<"laborItems">[]>([]);
   const [selectedMaterialIds, setSelectedMaterialIds] = useState<Id<"shoppingListItems">[]>([]);
@@ -77,11 +94,46 @@ export function CreateEstimationDialog({
 
   const createEstimation = useMutation(apiAny.costEstimations.createCostEstimation);
 
-  const primaryProjectContact = projectContacts?.[0];
+  const contactOptions = (projectContacts || []) as ProjectContactOption[];
+  const primaryProjectContact = contactOptions[0];
+  const selectedContact = selectedContactId === MANUAL_CONTACT_VALUE
+    ? undefined
+    : contactOptions.find((contact) => contact._id === selectedContactId);
+
+  const buildContactAddress = (contact: Pick<ProjectContactOption, 'address' | 'postalCode' | 'city' | 'country'> | undefined) => {
+    if (!contact) return '';
+
+    const parts: string[] = [];
+    const line1 = contact.address?.trim();
+    if (line1) {
+      parts.push(line1);
+    }
+
+    const line2 = [contact.postalCode?.trim(), contact.city?.trim()].filter(Boolean).join(' ');
+    if (line2) {
+      parts.push(line2);
+    }
+
+    const country = contact.country?.trim();
+    if (country) {
+      parts.push(country);
+    }
+
+    return parts.join(', ');
+  };
+
+  const applyContactData = (contact: ProjectContactOption | undefined) => {
+    if (!contact) return;
+    setCustomerName(contact.name?.trim() || '');
+    setCustomerEmail(contact.email?.trim() || '');
+    setCustomerPhone(contact.phone?.trim() || '');
+    setCustomerAddress(buildContactAddress(contact));
+  };
+
   const defaultCustomerName = (primaryProjectContact?.name || project?.customer || '').trim();
   const defaultCustomerEmail = (primaryProjectContact?.email || '').trim();
   const defaultCustomerPhone = (primaryProjectContact?.phone || '').trim();
-  const defaultCustomerAddress = (primaryProjectContact?.address || '').trim();
+  const defaultCustomerAddress = buildContactAddress(primaryProjectContact);
   const hasProjectCustomerDefaults = Boolean(
     defaultCustomerName || defaultCustomerEmail || defaultCustomerPhone || defaultCustomerAddress
   );
@@ -135,6 +187,7 @@ export function CreateEstimationDialog({
       setCustomerEmail('');
       setCustomerPhone('');
       setCustomerAddress('');
+      setSelectedContactId(MANUAL_CONTACT_VALUE);
       setNotes('');
       setSelectedLaborIds([]);
       setSelectedMaterialIds([]);
@@ -148,6 +201,11 @@ export function CreateEstimationDialog({
 
     if (project?.location) {
       setLocation((prev) => prev || project.location || '');
+    }
+    if (primaryProjectContact?._id) {
+      setSelectedContactId((prev) => (
+        prev === MANUAL_CONTACT_VALUE ? primaryProjectContact._id : prev
+      ));
     }
     if (defaultCustomerName) {
       setCustomerName((prev) => prev || defaultCustomerName);
@@ -168,6 +226,7 @@ export function CreateEstimationDialog({
     defaultCustomerEmail,
     defaultCustomerPhone,
     defaultCustomerAddress,
+    primaryProjectContact?._id,
   ]);
 
   // Calculate totals
@@ -185,9 +244,62 @@ export function CreateEstimationDialog({
   const vatAmount = afterDiscount * (vatPercent / 100);
   const grossTotal = afterDiscount + vatAmount;
 
+  const handleContactSelectionChange = (value: string) => {
+    if (value === MANUAL_CONTACT_VALUE) {
+      setSelectedContactId(MANUAL_CONTACT_VALUE);
+      return;
+    }
+
+    const contactId = value as Id<"contacts">;
+    setSelectedContactId(contactId);
+    applyContactData(contactOptions.find((contact) => contact._id === contactId));
+  };
+
+  const validateStep = (targetStep: number) => {
+    if (targetStep === 2) {
+      if (!title.trim()) {
+        toast.error('Please enter a title');
+        return false;
+      }
+      if (plannedStartDate && validUntil && validUntil < plannedStartDate) {
+        toast.error('Valid until date cannot be earlier than planned start date');
+        return false;
+      }
+    }
+
+    if (targetStep === 3) {
+      if (selectedLaborIds.length === 0 && selectedMaterialIds.length === 0) {
+        toast.error('Select at least one labor or shopping list item');
+        return false;
+      }
+    }
+
+    if (targetStep === 4) {
+      if (!customerName.trim()) {
+        toast.error('Please provide customer name or choose a contact');
+        return false;
+      }
+      if (customerEmail.trim() && !CUSTOMER_EMAIL_REGEX.test(customerEmail.trim())) {
+        toast.error('Customer email is invalid');
+        return false;
+      }
+      if (vatPercent < 0 || vatPercent > 100 || discountPercent < 0 || discountPercent > 100) {
+        toast.error('VAT and discount must be between 0 and 100');
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const handleNextStep = () => {
+    const nextStep = step + 1;
+    if (!validateStep(nextStep)) return;
+    setStep(nextStep);
+  };
+
   const handleSubmit = async () => {
-    if (!title.trim()) {
-      toast.error('Please enter a title');
+    if (!validateStep(4)) {
       return;
     }
 
@@ -196,18 +308,18 @@ export function CreateEstimationDialog({
       await createEstimation({
         projectId,
         title: title.trim(),
-        estimationNumber: nextNumber || undefined,
         location: location.trim() || undefined,
         plannedStartDate: plannedStartDate?.getTime(),
         validUntil: validUntil?.getTime(),
         vatPercent,
-        discountPercent: discountPercent || undefined,
+        discountPercent,
         materialItemIds: selectedMaterialIds,
         laborItemIds: selectedLaborIds,
         customerName: customerName.trim() || undefined,
         customerEmail: customerEmail.trim() || undefined,
         customerPhone: customerPhone.trim() || undefined,
         customerAddress: customerAddress.trim() || undefined,
+        contactId: selectedContactId === MANUAL_CONTACT_VALUE ? undefined : selectedContactId,
         notes: notes.trim() || undefined,
       });
 
@@ -272,7 +384,7 @@ export function CreateEstimationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle className="text-2xl font-[var(--font-display-serif)]">
             New Cost Estimation
@@ -328,7 +440,7 @@ export function CreateEstimationDialog({
                   className="mt-1"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <Label>Planned Start Date</Label>
                   <Popover>
@@ -388,11 +500,11 @@ export function CreateEstimationDialog({
         {step === 2 && (
           <div className="space-y-6">
             <h3 className="text-lg font-medium mb-4">Select Labor Items</h3>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-2">
+            <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-sm text-[var(--ui-text-muted)]">{selectedLaborIds.length} selected</span>
-              <div className="flex items-center gap-2">
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
                 <Select value={laborFilter} onValueChange={setLaborFilter}>
-                  <SelectTrigger className="w-[200px] h-8">
+                  <SelectTrigger className="h-8 w-full sm:w-[200px]">
                     <SelectValue placeholder="Filter by section" />
                   </SelectTrigger>
                   <SelectContent>
@@ -405,12 +517,12 @@ export function CreateEstimationDialog({
                     <SelectItem value="unassigned">No section</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button variant="ghost" size="sm" onClick={toggleVisibleLaborSelection}>
+                <Button className="w-full sm:w-auto" variant="ghost" size="sm" onClick={toggleVisibleLaborSelection}>
                   {allVisibleLaborSelected ? 'Deselect visible' : 'Select visible'}
                 </Button>
               </div>
             </div>
-            <div className="border rounded-lg max-h-64 overflow-y-auto">
+            <div className="max-h-64 overflow-y-auto overflow-x-hidden rounded-lg border">
               {laborItems?.length === 0 ? (
                 <div className="p-4 text-center text-[var(--ui-text-muted)]">
                   No labor items. Add some in the Labor section first.
@@ -431,14 +543,14 @@ export function CreateEstimationDialog({
                     />
                     <div className="flex-1 min-w-0">
                       <div className="font-medium truncate">{item.name}</div>
-                      <div className="text-sm text-[var(--ui-text-muted)]">
+                      <div className="truncate text-sm text-[var(--ui-text-muted)]">
                         {item.quantity} {item.unit}
                         {item.sectionId && laborSectionNameById.get(item.sectionId) && (
                           <span> • {laborSectionNameById.get(item.sectionId)}</span>
                         )}
                       </div>
                     </div>
-                    <span className="font-medium">
+                    <span className="shrink-0 text-right font-medium tabular-nums">
                       {item.totalPrice?.toFixed(2) || '0.00'} {currencySymbol}
                     </span>
                   </div>
@@ -446,12 +558,12 @@ export function CreateEstimationDialog({
               )}
             </div>
 
-            <h3 className="text-lg font-medium mb-4 mt-6">Select Materials</h3>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-2">
+            <h3 className="text-lg font-medium mb-4 mt-6">Select Shopping List Items</h3>
+            <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-sm text-[var(--ui-text-muted)]">{selectedMaterialIds.length} selected</span>
-              <div className="flex items-center gap-2">
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
                 <Select value={materialFilter} onValueChange={setMaterialFilter}>
-                  <SelectTrigger className="w-[220px] h-8">
+                  <SelectTrigger className="h-8 w-full sm:w-[220px]">
                     <SelectValue placeholder="Filter by category" />
                   </SelectTrigger>
                   <SelectContent>
@@ -463,19 +575,19 @@ export function CreateEstimationDialog({
                     ))}
                   </SelectContent>
                 </Select>
-                <Button variant="ghost" size="sm" onClick={toggleVisibleMaterialSelection}>
+                <Button className="w-full sm:w-auto" variant="ghost" size="sm" onClick={toggleVisibleMaterialSelection}>
                   {allVisibleMaterialsSelected ? 'Deselect visible' : 'Select visible'}
                 </Button>
               </div>
             </div>
-            <div className="border rounded-lg max-h-64 overflow-y-auto">
+            <div className="max-h-64 overflow-y-auto overflow-x-hidden rounded-lg border">
               {materialItems?.length === 0 ? (
                 <div className="p-4 text-center text-[var(--ui-text-muted)]">
-                  No materials. Add some in the Materials section first.
+                  No shopping list items. Add some in the Shopping List section first.
                 </div>
               ) : filteredMaterialItems.length === 0 ? (
                 <div className="p-4 text-center text-[var(--ui-text-muted)]">
-                  No materials match this category filter.
+                  No shopping list items match this category filter.
                 </div>
               ) : (
                 filteredMaterialItems.map((item) => (
@@ -489,12 +601,12 @@ export function CreateEstimationDialog({
                     />
                     <div className="flex-1 min-w-0">
                       <div className="font-medium truncate">{item.name}</div>
-                      <div className="text-sm text-[var(--ui-text-muted)]">
+                      <div className="truncate text-sm text-[var(--ui-text-muted)]">
                         Qty: {item.quantity}
                         <span> • {resolveMaterialCategory(item)}</span>
                       </div>
                     </div>
-                    <span className="font-medium">
+                    <span className="shrink-0 text-right font-medium tabular-nums">
                       {item.totalPrice?.toFixed(2) || '0.00'} {currencySymbol}
                     </span>
                   </div>
@@ -513,7 +625,32 @@ export function CreateEstimationDialog({
                 Customer details were pre-filled from {primaryProjectContact ? 'the project contact' : 'the project settings'}.
               </p>
             )}
-            <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Customer Source</Label>
+              <Select
+                value={selectedContactId}
+                onValueChange={handleContactSelectionChange}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Manual entry" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={MANUAL_CONTACT_VALUE}>Manual entry</SelectItem>
+                  {contactOptions.map((contact) => (
+                    <SelectItem key={contact._id} value={contact._id}>
+                      {contact.name}
+                      {contact.companyName ? ` (${contact.companyName})` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedContact?.projectRole && (
+                <p className="mt-2 text-xs text-[var(--ui-text-muted)]">
+                  Project role: {selectedContact.projectRole}
+                </p>
+              )}
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <Label>Customer Name</Label>
                 <Input
@@ -553,7 +690,7 @@ export function CreateEstimationDialog({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+            <div className="grid grid-cols-1 gap-4 border-t pt-4 sm:grid-cols-2">
               <div>
                 <Label>VAT (%)</Label>
                 <Input
@@ -613,7 +750,7 @@ export function CreateEstimationDialog({
                 <span>{laborTotal.toFixed(2)} {currencySymbol}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[var(--ui-text-muted)]">Materials ({selectedMaterialIds.length} items)</span>
+                <span className="text-[var(--ui-text-muted)]">Shopping List ({selectedMaterialIds.length} items)</span>
                 <span>{materialsTotal.toFixed(2)} {currencySymbol}</span>
               </div>
               <div className="flex justify-between font-medium border-t pt-3">
@@ -649,7 +786,7 @@ export function CreateEstimationDialog({
           </Button>
 
           {step < 4 ? (
-            <Button onClick={() => setStep(step + 1)}>
+            <Button onClick={handleNextStep}>
               Next
               <ChevronRightIcon className="h-4 w-4 ml-2" />
             </Button>

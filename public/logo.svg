@@ -1,0 +1,42 @@
+<svg width="520" height="128" viewBox="0 0 520 128" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="myvibe logo">
+  <rect x="0" y="0" width="128" height="128" rx="30" fill="#050505" />
+
+  <g stroke="#FFFFFF" stroke-width="6" fill="none" stroke-linecap="square">
+    <line x1="28" y1="26" x2="100" y2="26" />
+    <line x1="100" y1="26" x2="100" y2="100" />
+    <line x1="28" y1="100" x2="58" y2="100" />
+    <line x1="74" y1="100" x2="100" y2="100" />
+    <line x1="28" y1="26" x2="28" y2="60" />
+    <line x1="28" y1="76" x2="28" y2="100" />
+  </g>
+
+  <g stroke="#FFFFFF" stroke-width="5" fill="none" stroke-linecap="square">
+    <line x1="64" y1="26" x2="64" y2="42" />
+    <line x1="64" y1="54" x2="64" y2="64" />
+    <line x1="64" y1="74" x2="64" y2="80" />
+
+    <line x1="28" y1="64" x2="44" y2="64" />
+    <line x1="56" y1="64" x2="72" y2="64" />
+    <line x1="84" y1="64" x2="100" y2="64" />
+  </g>
+
+  <text
+    x="160"
+    y="78"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="92"
+    font-weight="400"
+    fill="#111111"
+    letter-spacing="-1.4"
+  >myvibe</text>
+  <text
+    x="167"
+    y="124"
+    font-family="'Inter', 'Segoe UI', system-ui, sans-serif"
+    font-size="28"
+    font-weight="500"
+    fill="#152D24"
+    letter-spacing="4.4"
+  >PROJECT MANAGER</text>
+
+</svg>

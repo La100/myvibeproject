@@ -68,7 +68,7 @@ function ProjectSidebarContent() {
     { href: `/organisation/projects/${params.projectSlug}/calendar`, label: "Calendar", icon: Calendar, key: "calendar", group: "project" },
     { href: `/organisation/projects/${params.projectSlug}/surveys`, label: "Surveys", icon: ClipboardList, key: "surveys", group: "project" },
     { href: `/organisation/projects/${params.projectSlug}/files`, label: "Files", icon: Files, key: "files", group: "project" },
-    { href: `/organisation/projects/${params.projectSlug}/shopping-list`, label: "Materials", icon: ShoppingCart, key: "shopping_list", group: "architecture" },
+    { href: `/organisation/projects/${params.projectSlug}/shopping-list`, label: "Shopping List", icon: ShoppingCart, key: "shopping_list", group: "architecture" },
     { href: `/organisation/projects/${params.projectSlug}/labor`, label: "Labor", icon: Hammer, key: "labor", group: "architecture" },
     { href: `/organisation/projects/${params.projectSlug}/estimations`, label: "Estimations", icon: Calculator, key: "estimations", group: "project" },
   ];

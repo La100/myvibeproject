@@ -86,7 +86,15 @@ export default function SignInPage() {
       <div className="flex-1 flex items-center justify-center p-8 lg:p-12">
         <div className="w-full max-w-[340px] flex flex-col items-center">
           {/* Logo/Title */}
-          <h1 className="text-3xl font-display text-foreground mb-2">Myvibe project</h1>
+          <Link href="/" className="mb-3 inline-flex">
+            <Image
+              src="/logo.svg"
+              alt="Myvibe project"
+              width={520}
+              height={128}
+              className="h-10 w-auto"
+            />
+          </Link>
           <p className="text-muted-foreground text-base mb-10">AI assistant workspace.</p>
 
           <Button

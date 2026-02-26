@@ -467,7 +467,7 @@ export default function PublicClientPanelPage() {
 
   const sectionCards = [
     settings.showShoppingList
-      ? { id: "portal-materials", label: "Materials", count: materialsItemCount }
+      ? { id: "portal-materials", label: "Shopping List", count: materialsItemCount }
       : null,
     settings.showSurveys ? { id: "portal-surveys", label: "Surveys", count: surveys.length } : null,
     settings.showFiles ? { id: "portal-files", label: "Files", count: files.length } : null,
@@ -500,7 +500,7 @@ export default function PublicClientPanelPage() {
 
   const handleExportMaterialsPdf = async () => {
     if (!project || sectionSummaries.length === 0) {
-      toast.info("No materials available for export.");
+      toast.info("No shopping list items available for export.");
       return;
     }
 
@@ -524,7 +524,7 @@ export default function PublicClientPanelPage() {
       doc.setFont(pdfFontFamily, "normal");
 
       addDocumentMeta(doc, {
-        title: `Materials - ${project.name}`,
+        title: `Shopping List - ${project.name}`,
         subtitle: `Items: ${Array.from(baseItemsBySection.values()).reduce((sum, itemsInSection) => sum + itemsInSection.length, 0)}`,
         generatedOn: new Date().toLocaleString(),
         fontFamily: pdfFontFamily,
@@ -591,11 +591,11 @@ export default function PublicClientPanelPage() {
 
       addPageNumbers(doc, pdfFontFamily);
       const dateStamp = new Date().toISOString().slice(0, 10);
-      doc.save(`materials-${sanitizeFileName(project.name)}-${dateStamp}.pdf`);
-      toast.success("Materials PDF exported.");
+      doc.save(`shopping-list-${sanitizeFileName(project.name)}-${dateStamp}.pdf`);
+      toast.success("Shopping list PDF exported.");
     } catch (error) {
-      console.error("Materials PDF export error:", error);
-      toast.error("Failed to export materials PDF.");
+      console.error("Shopping list PDF export error:", error);
+      toast.error("Failed to export shopping list PDF.");
     } finally {
       setIsExportingMaterialsPdf(false);
     }
@@ -864,7 +864,7 @@ export default function PublicClientPanelPage() {
               disabled={isExportingMaterialsPdf}
             >
               <Download className="mr-2 h-4 w-4" />
-              {isExportingMaterialsPdf ? "Exporting PDF..." : "Export materials PDF"}
+              {isExportingMaterialsPdf ? "Exporting PDF..." : "Export shopping list PDF"}
             </Button>
           ) : null}
           {sectionCards.length > 0 ? (

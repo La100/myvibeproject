@@ -1,15 +1,17 @@
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 const Logo = () => {
   return (
-    <Link href="/" className="flex items-center gap-3 group" aria-label="Myvibe project">
-      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-semibold tracking-tight transition-transform duration-200 group-hover:-translate-y-0.5">
-        VP
-      </span>
-      <span className="text-lg font-normal tracking-tight font-[var(--font-display-serif)] text-foreground group-hover:opacity-90 transition-opacity duration-200">
-        Myvibe project
-      </span>
+    <Link href="/" className="group inline-flex items-center" aria-label="Myvibe project">
+      <Image
+        src="/logo.svg"
+        alt="Myvibe project"
+        width={520}
+        height={128}
+        className="h-8 w-auto transition-opacity duration-200 group-hover:opacity-90 sm:h-9"
+      />
     </Link>
   );
 };

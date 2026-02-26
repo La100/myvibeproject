@@ -225,7 +225,7 @@ export default function CustomerPanelPage() {
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <Label htmlFor="show-shopping-list" className="font-medium">
-                    Materials (shopping list)
+                    Shopping List
                   </Label>
                   <p className="text-xs text-muted-foreground">Share products and alternatives.</p>
                 </div>
@@ -353,7 +353,7 @@ export default function CustomerPanelPage() {
         <div>
           <h2 className="text-lg font-semibold">Customer product feedback</h2>
           <p className="text-sm text-muted-foreground">
-            Decisions and comments submitted by customers in the Materials section.
+            Decisions and comments submitted by customers in the Shopping List section.
           </p>
         </div>
 

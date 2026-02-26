@@ -1,22 +1,20 @@
 "use server";
 
 import type { WebhookEvent } from "@clerk/clerk-sdk-node";
-import type { FunctionReference } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { Webhook } from "svix";
-
-const mutationRef = (name: string): FunctionReference<"mutation"> =>
-  ({ _name: name } as unknown as FunctionReference<"mutation">);
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const internalAny = require("./_generated/api").internal as any;
 
 const internalRefs = {
-  createOrUpdateTeam: mutationRef("myFunctions:createOrUpdateTeam"),
-  deleteTeamInternal: mutationRef("myFunctions:deleteTeamInternal"),
-  createOrUpdateMembership: mutationRef("myFunctions:createOrUpdateMembership"),
-  deleteMembership: mutationRef("myFunctions:deleteMembership"),
-  createOrUpdateUser: mutationRef("myFunctions:createOrUpdateUser"),
-  deleteUser: mutationRef("myFunctions:deleteUser"),
-  createInvitation: mutationRef("myFunctions:createInvitation"),
-  updateInvitationStatus: mutationRef("myFunctions:updateInvitationStatus"),
+  createOrUpdateTeam: internalAny.myFunctions.createOrUpdateTeam,
+  deleteTeamInternal: internalAny.myFunctions.deleteTeamInternal,
+  createOrUpdateMembership: internalAny.myFunctions.createOrUpdateMembership,
+  deleteMembership: internalAny.myFunctions.deleteMembership,
+  createOrUpdateUser: internalAny.myFunctions.createOrUpdateUser,
+  deleteUser: internalAny.myFunctions.deleteUser,
+  createInvitation: internalAny.myFunctions.createInvitation,
+  updateInvitationStatus: internalAny.myFunctions.updateInvitationStatus,
 };
 
 const handleClerkWebhook = httpAction(async (ctx, request) => {

@@ -1,5 +1,4 @@
 import { v } from "convex/values";
-import type { FunctionReference } from "convex/server";
 import { query, mutation, internalQuery, internalAction } from "./_generated/server";
 import { Doc } from "./_generated/dataModel";
 import { r2 } from "./files";
@@ -529,24 +528,20 @@ export const inviteTeamMember = mutation({
       throw new Error("Only admins can invite members");
     }
 
-    const sendClerkInvitationRef = {
-      _name: "teams:sendClerkInvitation",
-    } as unknown as FunctionReference<"action">;
-
-    const scheduler = ctx.scheduler as unknown as {
+    const scheduler = ctx.scheduler as {
       runAfter: (
         delayMs: number,
-        reference: FunctionReference<"action">,
+        functionReference: string,
         args: {
           clerkOrgId: string;
           email: string;
           role: "admin" | "member";
           invitedBy: string;
         },
-      ) => Promise<void>;
+      ) => Promise<unknown>;
     };
 
-    await scheduler.runAfter(0, sendClerkInvitationRef, {
+    await scheduler.runAfter(0, "teams:sendClerkInvitation", {
       clerkOrgId: team.clerkOrgId,
       email: args.email,
       role: args.role,
@@ -603,6 +598,35 @@ export const sendClerkInvitation = internalAction({
     } catch (error) {
       console.error("Failed to send Clerk invitation:", error);
       throw new Error((error as Error).message);
+    }
+  },
+});
+
+export const revokeClerkInvitation = internalAction({
+  args: {
+    clerkOrgId: v.string(),
+    clerkInvitationId: v.string(),
+  },
+  async handler(_ctx, args) {
+    const clerkApiKey = process.env.CLERK_SECRET_KEY;
+    if (!clerkApiKey) {
+      throw new Error("CLERK_SECRET_KEY environment variable not set");
+    }
+
+    const response = await fetch(
+      `https://api.clerk.com/v1/organizations/${args.clerkOrgId}/invitations/${args.clerkInvitationId}/revoke`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${clerkApiKey}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      console.error("Failed to revoke Clerk invitation:", errorBody);
+      throw new Error("Failed to revoke invitation in Clerk");
     }
   },
 });
@@ -788,26 +812,25 @@ export const revokeInvitation = mutation({
       throw new Error("Only admins can revoke invitations");
     }
 
-    const clerkApiKey = process.env.CLERK_SECRET_KEY;
-    if (!clerkApiKey) {
-      throw new Error("CLERK_SECRET_KEY environment variable not set");
-    }
-
-    const response = await fetch(
-      `https://api.clerk.com/v1/organizations/${currentUserMember.clerkOrgId}/invitations/${invitation.clerkInvitationId}/revoke`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${clerkApiKey}`,
+    const scheduler = ctx.scheduler as {
+      runAfter: (
+        delayMs: number,
+        functionReference: string,
+        args: {
+          clerkOrgId: string;
+          clerkInvitationId: string;
         },
-      }
-    );
+      ) => Promise<unknown>;
+    };
 
-    if (!response.ok) {
-      throw new Error("Failed to revoke invitation in Clerk");
-    }
+    await scheduler.runAfter(0, "teams:revokeClerkInvitation", {
+      clerkOrgId: currentUserMember.clerkOrgId,
+      clerkInvitationId: invitation.clerkInvitationId,
+    });
 
-    // The webhook will handle the DB update
+    // Update local state immediately so pending list refreshes without waiting for webhook delivery.
+    await ctx.db.patch(invitation._id, { status: "revoked" });
+
     return { success: true };
   },
 });
