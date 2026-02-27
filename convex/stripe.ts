@@ -23,7 +23,6 @@ export const SUBSCRIPTION_PLANS = {
     hasAdvancedFeatures: false,
     hasAIFeatures: true,
     price: 0,
-    aiMonthlySpendLimitCents: FREE_TRIAL_AI_BUDGET_CENTS,
     aiMonthlyTokens: tokenBudgetFromUsd(FREE_TRIAL_AI_BUDGET_USD),
   },
   basic: {
@@ -102,7 +101,6 @@ function getEffectiveLimits(team: any) {
       ),
       hasAIFeatures: true,
       aiMonthlyTokens: defaultLimits.aiMonthlyTokens ?? 0,
-      aiMonthlySpendLimitCents: FREE_TRIAL_AI_BUDGET_CENTS,
     };
   }
 
@@ -196,26 +194,7 @@ export const ensureBillingWindow = mutation({
 async function evaluateAIAccess(ctx: any, team: any) {
   const plan = (team.subscriptionPlan || "free") as keyof typeof SUBSCRIPTION_PLANS;
   const planTokens = Math.max(0, getEffectiveLimits(team)?.aiMonthlyTokens ?? 0);
-  const legacyStoredTokens = team.subscriptionLimits?.aiMonthlyTokens ?? 0;
-  const isLegacyFreeZeroBalance =
-    plan === "free" &&
-    team.aiTokens === 0 &&
-    legacyStoredTokens <= 0;
-
-  let shouldUsePlanTokensAsBalance = typeof team.aiTokens !== "number";
-  if (isLegacyFreeZeroBalance) {
-    const [previousTokenUsage, previousImageUsage] = await Promise.all([
-      ctx.db
-        .query("aiTokenUsage")
-        .withIndex("by_team", (q: any) => q.eq("teamId", team._id))
-        .first(),
-      ctx.db
-        .query("aiGeneratedImages")
-        .withIndex("by_team", (q: any) => q.eq("teamId", team._id))
-        .first(),
-    ]);
-    shouldUsePlanTokensAsBalance = !previousTokenUsage && !previousImageUsage;
-  }
+  const shouldUsePlanTokensAsBalance = typeof team.aiTokens !== "number";
   
   // Simple token system: aiTokens = remaining balance (gets decremented on use)
   const storedRemainingTokens = Math.max(0, team.aiTokens || 0);
@@ -481,8 +460,7 @@ export const fixTeamAIAccess = internalMutation({
     await ctx.db.patch(args.teamId as Id<"teams">, {
       subscriptionLimits: limits,
       ...(plan === "free" && (
-        team.aiTokens === undefined ||
-        (team.aiTokens === 0 && (team.subscriptionLimits?.aiMonthlyTokens ?? 0) <= 0)
+        team.aiTokens === undefined
       )
         ? { aiTokens: limits.aiMonthlyTokens || 0 }
         : {}),
@@ -525,8 +503,7 @@ export const refreshTeamLimits = mutation({
     await ctx.db.patch(args.teamId, {
       subscriptionLimits: limits,
       ...(plan === "free" && (
-        team.aiTokens === undefined ||
-        (team.aiTokens === 0 && (team.subscriptionLimits?.aiMonthlyTokens ?? 0) <= 0)
+        team.aiTokens === undefined
       )
         ? { aiTokens: limits.aiMonthlyTokens || 0 }
         : {}),

@@ -9,7 +9,7 @@ import { IMAGE_GENERATION_CONFIG } from "./imageGen/config";
 
 /**
  * Gemini Image Generation for Architectural Visualizations
- * Uses Gemini 3 Pro Image model with official SDK and chat history
+ * Uses Gemini image model with official SDK and chat history
  */
 
 // History message type - includes image data for model responses

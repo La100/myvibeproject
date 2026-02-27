@@ -3,6 +3,7 @@ import { ReactNode } from "react";
 interface ProjectPageHeaderProps {
     title: string;
     icon?: ReactNode;
+    subtitle?: ReactNode;
     tags?: ReactNode;
     actions?: ReactNode;
 }
@@ -10,6 +11,7 @@ interface ProjectPageHeaderProps {
 export function ProjectPageHeader({
     title,
     icon,
+    subtitle,
     tags,
     actions,
 }: ProjectPageHeaderProps) {
@@ -26,6 +28,11 @@ export function ProjectPageHeader({
                         {title}
                     </h1>
                 </div>
+                {subtitle && (
+                    <p className="text-[var(--ui-text-muted)]">
+                        {subtitle}
+                    </p>
+                )}
                 {tags && (
                     <div className="flex flex-wrap gap-3 items-center">
                         {tags}

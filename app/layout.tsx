@@ -11,8 +11,12 @@ export const metadata: Metadata = {
   title: "Myvibe project",
   description: "Architektoniczny Project Manager",
   icons: {
-    icon: "/logo-icon.svg",
-    shortcut: "/logo-icon.svg",
+    icon: [
+      { url: "/logo-icon.svg", type: "image/svg+xml" },
+      { url: "/logo-icon.png", type: "image/png" },
+    ],
+    shortcut: "/logo-icon.png",
+    apple: "/logo-icon.png",
   },
 };
 

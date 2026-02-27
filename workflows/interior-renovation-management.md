@@ -26,7 +26,7 @@ steps:
       Zapisz brief jako notatke. Jesli uzytkownik ma rzut/zdjecia/umowy, popros o upload.
     description: Ustal cele, zakres i ograniczenia projektu.
     enabledTools:
-      - create_note
+      - create_item
   - id: scope-structure
     name: Zakres i Struktura Prac
     prompt: |
@@ -39,8 +39,8 @@ steps:
       Utworz zadania dla kluczowych prac w odpowiedniej kolejnosci.
     description: Rozbij projekt na zadania i zaleznosci.
     enabledTools:
-      - create_task
-      - create_multiple_tasks
+      - create_item
+      - create_multiple_items
   - id: budget-procurement
     name: Budzet i Zakupy
     prompt: |
@@ -54,8 +54,8 @@ steps:
     description: Ustal budzet i wstepna liste zakupow.
     enabledTools:
       - create_shopping_section
-      - create_multiple_shopping_items
-      - create_note
+      - create_multiple_items
+      - create_item
   - id: schedule-milestones
     name: Harmonogram i Kamienie Milowe
     prompt: |
@@ -68,8 +68,8 @@ steps:
       Zaktualizuj daty zadan zgodnie z harmonogramem.
     description: Ustal realny harmonogram i kamienie milowe.
     enabledTools:
-      - edit_task
-      - edit_multiple_tasks
+      - update_item
+      - update_multiple_items
   - id: team-contracts
     name: Ekipa i Umowy
     prompt: |
@@ -83,9 +83,9 @@ steps:
       Dodaj zadania zwiazane z wyborami wykonawcow i dokumentami.
     description: Przygotuj plan wspolpracy z wykonawcami.
     enabledTools:
-      - create_task
-      - create_multiple_tasks
-      - create_note
+      - create_item
+      - create_multiple_items
+      - create_item
   - id: risk-quality
     name: Ryzyka i Kontrola Jakosci
     prompt: |
@@ -99,9 +99,9 @@ steps:
       Utworz zadania dla kontroli jakosci i odbiorow.
     description: Zabezpiecz projekt i zaplanuj odbiory.
     enabledTools:
-      - create_task
-      - create_multiple_tasks
-      - create_note
+      - create_item
+      - create_multiple_items
+      - create_item
 ---
 
 # Zarzadzanie Projektem Remontu Wnetrz

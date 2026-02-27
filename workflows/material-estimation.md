@@ -61,7 +61,7 @@ steps:
       Zapisz zakres prac jako notatkę.
     description: Określ jakie prace będą wykonywane.
     enabledTools:
-      - create_note
+      - create_item
   - id: calculations
     name: Obliczenia Ilości
     prompt: |
@@ -83,7 +83,7 @@ steps:
       Przedstawię szczegółowe obliczenia z ilościami.
     description: AI obliczy potrzebne ilości materiałów.
     enabledTools:
-      - create_note
+      - create_item
   - id: shopping-list
     name: Lista Zakupów z Cenami
     prompt: |
@@ -105,8 +105,8 @@ steps:
       Dodam wszystko do listy zakupów z podziałem na sekcje.
     description: Lista materiałów z cenami i kosztorys.
     enabledTools:
-      - create_shopping_item
-      - create_multiple_shopping_items
+      - create_item
+      - create_multiple_items
       - create_shopping_section
 ---
 

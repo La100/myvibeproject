@@ -50,12 +50,6 @@ const inferOperation = (
   if (functionName === "create_multiple_items") return "bulk_create";
   if (functionName === "delete_item") return "delete";
 
-  if (functionName.startsWith("edit_multiple_")) return "bulk_edit";
-  if (functionName.startsWith("edit_")) return "edit";
-  if (functionName.startsWith("delete_")) return "delete";
-  if (functionName.startsWith("create_multiple_")) return "bulk_create";
-  if (functionName.startsWith("create_")) return "create";
-
   // Fail closed: prefer edit over accidental create when metadata is incomplete.
   return "edit";
 };
@@ -75,12 +69,9 @@ const toPendingItem = (call: PendingFunctionCall): PendingItem | null => {
     call.functionName === "update_project_settings"
       ? "projectSettings"
       : undefined;
-  const functionCallType = isPendingItemType(call.functionName)
-    ? call.functionName
-    : undefined;
 
   return {
-    type: parsedType ?? functionNameType ?? functionCallType ?? "task",
+    type: parsedType ?? functionNameType ?? "task",
     operation: inferOperation(parsed, call.functionName),
     data: (parsed.data as Record<string, unknown>) || parsed,
     updates: parsed.updates as Record<string, unknown> | undefined,

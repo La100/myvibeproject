@@ -154,13 +154,6 @@ export const buildFallbackResponseFromTools = (
       toolResults[i]?.result ?? toolResults[i]?.output ?? toolResults[i];
     const parsedResult = safeParseJSON(rawResult);
 
-    if (toolName === "search_tasks") {
-      const summary = summarizeTasksFromSearch(parsedResult);
-      if (summary) {
-        return summary;
-      }
-    }
-
     if (toolName === "load_full_project_context") {
       const summary = summarizeProjectCounts(parsedResult);
       if (summary) {
@@ -168,17 +161,30 @@ export const buildFallbackResponseFromTools = (
       }
     }
 
-    if (toolName === "search_shopping_items") {
-      const summary = summarizeShoppingSearch(parsedResult);
-      if (summary) {
-        return summary;
+    if (toolName === "search_items") {
+      const parsedArgs = safeParseJSON(toolCalls[i]?.args) as
+        | { type?: string }
+        | null;
+      const searchType = parsedArgs?.type;
+
+      if (searchType === "task") {
+        const summary = summarizeTasksFromSearch(parsedResult);
+        if (summary) {
+          return summary;
+        }
+      }
+
+      if (searchType === "shopping") {
+        const summary = summarizeShoppingSearch(parsedResult);
+        if (summary) {
+          return summary;
+        }
       }
     }
   }
 
   return null;
 };
-
 
 
 

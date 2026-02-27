@@ -585,6 +585,11 @@ export function ShoppingListSection({
                               Total: {item.totalPrice.toFixed(2)} {currencySymbol}
                             </span>
                           )}
+                          {item.catalogNumber && (
+                            <span className="mt-1 text-xs text-[var(--ui-text-muted)]">
+                              Catalog #: <span className="font-medium text-[var(--ui-text-main)]">{item.catalogNumber}</span>
+                            </span>
+                          )}
                         </div>
 
                         {hasAlternatives && (
@@ -611,7 +616,8 @@ export function ShoppingListSection({
                         )}
 
                         {!isAlternativeItem &&
-                        (item.customerDecision ||
+                        (item.customerDecision === "accepted" ||
+                          item.customerDecision === "rejected" ||
                           (item.customerDecisionComment &&
                             item.customerDecisionComment.trim().length > 0)) ? (
                           <div className="mt-3 rounded-md border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] p-3">
@@ -636,18 +642,19 @@ export function ShoppingListSection({
                                     : "Comment only"}
                               </Badge>
                             </div>
-                            {item.customerDecisionComment ? (
-                              <p className="mt-2 text-sm text-[var(--ui-text-main)]">
-                                {item.customerDecisionComment}
-                              </p>
-                            ) : null}
+                            <p className="mt-2 text-sm text-[var(--ui-text-main)]">
+                              {item.customerDecisionComment &&
+                              item.customerDecisionComment.trim().length > 0
+                                ? item.customerDecisionComment
+                                : "No comment."}
+                            </p>
                             <p className="mt-2 text-xs text-[var(--ui-text-muted)]">
                               {item.customerDecisionByName
                                 ? `${item.customerDecisionByName} · `
                                 : ""}
                               {item.customerDecisionUpdatedAt
                                 ? new Date(item.customerDecisionUpdatedAt).toLocaleString()
-                                : "No timestamp"}
+                                : "No updates yet."}
                             </p>
                           </div>
                         ) : null}

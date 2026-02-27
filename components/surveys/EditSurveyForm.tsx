@@ -15,6 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Save, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 
 interface Question {
   _id?: Id<"surveyQuestions">;
@@ -159,10 +160,12 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
   
 
   return (
-    <div className="min-h-screen bg-gray-50/50">
-      <div className="container mx-auto p-6 max-w-5xl">
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
+    <div className="space-y-8">
+      <ProjectPageHeader
+        title="Edit Survey"
+        icon={<Save className="h-8 w-8 text-[var(--ui-accent-brand)]" />}
+        subtitle={`Edit survey for ${project.name}`}
+        actions={
           <Button
             variant="outline"
             size="sm"
@@ -172,14 +175,10 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
-          <div className="flex-1">
-            <h1 className="text-3xl font-bold tracking-tight">Edit Survey</h1>
-            <p className="text-muted-foreground mt-1">
-              Edit survey for project <span className="font-medium text-foreground">{project.name}</span>
-            </p>
-          </div>
-        </div>
+        }
+      />
 
+      <div className="mx-auto w-full max-w-5xl">
         <form onSubmit={handleSubmit} className="space-y-8">
           {/* Basic Information */}
           <Card className="shadow-sm border-0 bg-card">

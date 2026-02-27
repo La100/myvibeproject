@@ -424,6 +424,53 @@ export const ensureLaborFolder = mutation({
   },
 });
 
+// Ensure root "moodboard" folder exists for project attachments.
+export const ensureMoodboardFolder = mutation({
+  args: {
+    projectId: v.id("projects"),
+  },
+  returns: v.id("folders"),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const project = await ctx.db.get(args.projectId);
+    if (!project) throw new Error("Project not found");
+
+    const hasAccess = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
+      )
+      .unique();
+
+    if (!hasAccess || !hasAccess.isActive) {
+      throw new Error("No access to this project");
+    }
+
+    const rootFolders = await ctx.db
+      .query("folders")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .filter((q) => q.eq(q.field("parentFolderId"), undefined))
+      .collect();
+
+    const existingMoodboardFolder = rootFolders.find(
+      (folder) => folder.name.trim().toLowerCase() === "moodboard"
+    );
+
+    if (existingMoodboardFolder) {
+      return existingMoodboardFolder._id;
+    }
+
+    return await ctx.db.insert("folders", {
+      name: "Moodboard",
+      teamId: project.teamId,
+      projectId: args.projectId,
+      createdBy: identity.subject,
+    });
+  },
+});
+
 // Dodaj plik do projektu/folderu
 export const addFile = mutation({
   args: {
@@ -457,6 +504,8 @@ export const addFile = mutation({
     }
 
     const origin = args.origin ?? "general";
+    const hasMoodboardSection =
+      typeof args.moodboardSection === "string" && args.moodboardSection.trim().length > 0;
 
     // Sprawdź czy folder istnieje i należy do projektu
     if (args.folderId) {
@@ -491,7 +540,8 @@ export const addFile = mutation({
       isLatest: true,
       origin,
       moodboardSection: args.moodboardSection,
-      showInClientPortal: false,
+      // Moodboard uploads should be visible in the client portal by default.
+      showInClientPortal: hasMoodboardSection,
     });
 
     // Log activity if file is attached to a task
@@ -829,67 +879,6 @@ export const getMoodboardImagesBySection = query({
         q.eq("projectId", args.projectId).eq("moodboardSection", args.section)
       )
       .filter(q => q.eq(q.field("fileType"), "image"))
-      .collect();
-
-    // Generate URLs for files
-    const filesWithUrls = await Promise.all(
-      files.map(async (file) => {
-        try {
-          const url = await r2.getUrl(file.storageId as string, {
-            expiresIn: 60 * 60 * 24, // 24 hours
-          });
-          return { 
-            id: file.storageId as string,
-            url,
-            name: file.name,
-            _creationTime: file._creationTime
-          };
-        } catch (error) {
-          console.error(`Error generating URL for file ${file._id}:`, error);
-          return { 
-            id: file.storageId as string,
-            url: "",
-            name: file.name,
-            _creationTime: file._creationTime
-          };
-        }
-      })
-    );
-
-    return filesWithUrls;
-  },
-});
-
-// Get moodboard images for a project (legacy - keep for compatibility)
-export const getMoodboardImages = query({
-  args: { 
-    projectId: v.id("projects")
-  },
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return [];
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project) return [];
-
-    // Check access
-    const hasAccess = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", q => 
-        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
-      )
-      .unique();
-
-    if (!hasAccess || !hasAccess.isActive) return [];
-
-    // Get only image files without folder (moodboard images)
-    const files = await ctx.db
-      .query("files")
-      .withIndex("by_project", q => q.eq("projectId", args.projectId))
-      .filter(q => q.and(
-        q.eq(q.field("folderId"), undefined),
-        q.eq(q.field("fileType"), "image")
-      ))
       .collect();
 
     // Generate URLs for files

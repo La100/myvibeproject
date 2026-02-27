@@ -31,8 +31,7 @@ const hasProjectAccess = async (ctx: any, projectId: Id<"projects">, requireWrit
     if (membership.projectIds && membership.projectIds.length > 0) {
       return membership.projectIds.includes(projectId);
     }
-    // Member without projectIds has access to all projects (backward compatibility)
-    return true;
+    return false;
   }
 
   return false;

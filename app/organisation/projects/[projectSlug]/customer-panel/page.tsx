@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 
 const DEFAULT_CLIENT_PANEL_SETTINGS = {
   showShoppingList: false,
@@ -45,8 +46,7 @@ export default function CustomerPanelPage() {
     DEFAULT_CLIENT_PANEL_SETTINGS
   );
 
-  const canManageCustomerPanel =
-    teamMember?.role === "admin" || teamMember?.role === "member";
+  const canManageCustomerPanel = !!teamMember;
 
   useEffect(() => {
     if (isLoading || !canManageCustomerPanel) {
@@ -101,21 +101,6 @@ export default function CustomerPanelPage() {
   };
 
   const panelPath = accessToken ? `/client-panel/${accessToken}` : "";
-  const feedbackItems =
-    panelConfig?.productFeedback ||
-    ([] as Array<{
-      sourceItemId: string;
-      itemName: string;
-      sectionName?: string;
-      decision: "accepted" | "rejected" | null;
-      comment: string | null;
-      updatedAt: number | null;
-    }>);
-  const feedbackSummary = panelConfig?.feedbackSummary || {
-    acceptedCount: 0,
-    rejectedCount: 0,
-    commentedCount: 0,
-  };
 
   const panelUrlValue =
     typeof window !== "undefined" && panelPath
@@ -175,41 +160,30 @@ export default function CustomerPanelPage() {
     );
   }
 
-  if (!canManageCustomerPanel) {
-    return (
-      <div className="flex min-h-[320px] items-center justify-center text-center">
-        <div>
-          <h1 className="mb-2 text-2xl font-bold text-red-600">Access Denied</h1>
-          <p className="text-muted-foreground">
-            Only admins and members can manage customer links.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="mx-auto max-w-2xl space-y-10">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold">Client Portal</h2>
-          <p className="text-sm text-muted-foreground">
+    <div className="space-y-10">
+      <ProjectPageHeader
+        title="Client Portal"
+        icon={<ExternalLink className="h-8 w-8 text-[var(--ui-accent-brand)]" />}
+        subtitle={
+          <>
             Publish the latest portal data for the public client link.
-          </p>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Portal version: #{panelConfig?.version || 0}
-          </p>
-        </div>
-        <Button
-          type="button"
-          size="sm"
-          onClick={handlePublishPortal}
-          disabled={isPublishingPortal}
-        >
-          {isPublishingPortal ? "Updating..." : "Update portal"}
-        </Button>
-      </div>
+            <span className="mt-1 block text-xs">Portal version: #{panelConfig?.version || 0}</span>
+          </>
+        }
+        actions={
+          <Button
+            type="button"
+            size="sm"
+            onClick={handlePublishPortal}
+            disabled={isPublishingPortal}
+          >
+            {isPublishingPortal ? "Updating..." : "Update portal"}
+          </Button>
+        }
+      />
 
+      <div className="mx-auto w-full max-w-2xl space-y-10">
       <section className="space-y-5">
         <div>
           <h2 className="text-lg font-semibold">Visibility</h2>
@@ -351,75 +325,6 @@ export default function CustomerPanelPage() {
 
       <section className="space-y-5">
         <div>
-          <h2 className="text-lg font-semibold">Customer product feedback</h2>
-          <p className="text-sm text-muted-foreground">
-            Decisions and comments submitted by customers in the Shopping List section.
-          </p>
-        </div>
-
-        <div className="space-y-4 rounded-lg border bg-card p-6">
-          <div className="flex flex-wrap gap-2">
-            <span className="inline-flex items-center rounded-full border bg-background px-3 py-1 text-xs font-medium">
-              Accepted: {feedbackSummary.acceptedCount}
-            </span>
-            <span className="inline-flex items-center rounded-full border bg-background px-3 py-1 text-xs font-medium">
-              Rejected: {feedbackSummary.rejectedCount}
-            </span>
-            <span className="inline-flex items-center rounded-full border bg-background px-3 py-1 text-xs font-medium">
-              Comments: {feedbackSummary.commentedCount}
-            </span>
-          </div>
-
-          {feedbackItems.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No published products yet. Click Update portal first.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {feedbackItems.map((item) => (
-                <div key={item.sourceItemId} className="rounded-md border bg-background p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-medium">{item.itemName}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {item.sectionName || "No category"}
-                      </p>
-                    </div>
-                    <span
-                      className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${
-                        item.decision === "accepted"
-                          ? "border-emerald-300 bg-emerald-50 text-emerald-700"
-                          : item.decision === "rejected"
-                            ? "border-rose-300 bg-rose-50 text-rose-700"
-                            : "border-border bg-muted/50 text-muted-foreground"
-                      }`}
-                    >
-                      {item.decision === "accepted"
-                        ? "Accepted"
-                        : item.decision === "rejected"
-                          ? "Rejected"
-                          : "Pending"}
-                    </span>
-                  </div>
-                  <p className="mt-3 text-sm text-muted-foreground">
-                    {item.comment && item.comment.trim().length > 0
-                      ? item.comment
-                      : "No comment."}
-                  </p>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    {item.updatedAt
-                      ? `Updated: ${new Date(item.updatedAt).toLocaleString()}`
-                      : "No updates yet."}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
-
-      <section className="space-y-5">
-        <div>
           <h2 className="text-lg font-semibold">Portal Link</h2>
           <p className="text-sm text-muted-foreground">
             Share this link directly with a customer. The portal refreshes after Update portal.
@@ -459,6 +364,7 @@ export default function CustomerPanelPage() {
           </div>
         </div>
       </section>
+      </div>
     </div>
   );
 }

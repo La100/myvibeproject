@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Plus, Trash2, ArrowLeft, Save, FileText, HelpCircle, GripVertical } from "lucide-react";
 import { toast } from "sonner";
+import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 
 interface Question {
   id: string;
@@ -120,10 +121,12 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50/50">
-      <div className="container mx-auto p-6 max-w-5xl">
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
+    <div className="space-y-8">
+      <ProjectPageHeader
+        title="New Survey"
+        icon={<FileText className="h-8 w-8 text-[var(--ui-accent-brand)]" />}
+        subtitle={`Create a survey for ${project.name}`}
+        actions={
           <Button
             variant="outline"
             size="sm"
@@ -133,14 +136,10 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
-          <div className="flex-1">
-            <h1 className="text-3xl font-bold tracking-tight">New Survey</h1>
-            <p className="text-muted-foreground mt-1">
-              Create a survey for project <span className="font-medium text-foreground">{project.name}</span>
-            </p>
-          </div>
-        </div>
+        }
+      />
 
+      <div className="mx-auto w-full max-w-5xl">
         <form onSubmit={handleSubmit} className="space-y-8">
           {/* Basic Information */}
           <Card className="shadow-sm border-0 bg-card">

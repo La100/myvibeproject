@@ -6,9 +6,18 @@
 
 import { action } from "../../_generated/server";
 import { v } from "convex/values";
-import { api } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
+import { makeFunctionReference } from "convex/server";
 import { ensureProjectAccess } from "./helpers";
+
+const getSurveyQueryRef = makeFunctionReference<"query">("surveys:getSurvey");
+const createSurveyMutationRef = makeFunctionReference<"mutation">("surveys:createSurvey");
+const createSurveyQuestionMutationRef =
+  makeFunctionReference<"mutation">("surveys:createSurveyQuestion");
+const updateSurveyMutationRef = makeFunctionReference<"mutation">("surveys:updateSurvey");
+const updateQuestionMutationRef = makeFunctionReference<"mutation">("surveys:updateQuestion");
+const deleteQuestionMutationRef = makeFunctionReference<"mutation">("surveys:deleteQuestion");
+const deleteSurveyMutationRef = makeFunctionReference<"mutation">("surveys:deleteSurvey");
 
 export const createConfirmedSurvey = action({
   args: {
@@ -25,6 +34,7 @@ export const createConfirmedSurvey = action({
         questionType: v.union(v.literal("text_short"), v.literal("text_long"), v.literal("multiple_choice"), v.literal("single_choice"), v.literal("rating"), v.literal("yes_no"), v.literal("number"), v.literal("file")),
         options: v.optional(v.array(v.string())),
         isRequired: v.optional(v.boolean()),
+        order: v.optional(v.number()),
       }))),
     }),
   },
@@ -46,7 +56,7 @@ export const createConfirmedSurvey = action({
         endDateNumber = new Date(args.surveyData.endDate).getTime();
       }
 
-      const surveyId: any = await ctx.runMutation(api.surveys.createSurvey, {
+      const surveyId: any = await ctx.runMutation(createSurveyMutationRef, {
         projectId: args.projectId,
         title: args.surveyData.title,
         description: args.surveyData.description,
@@ -59,13 +69,13 @@ export const createConfirmedSurvey = action({
       if (args.surveyData.questions && args.surveyData.questions.length > 0) {
         for (let i = 0; i < args.surveyData.questions.length; i++) {
           const question = args.surveyData.questions[i];
-          await ctx.runMutation(api.surveys.createSurveyQuestion, {
+          await ctx.runMutation(createSurveyQuestionMutationRef, {
             surveyId,
             questionText: question.questionText,
             questionType: question.questionType as "text_short" | "text_long" | "multiple_choice" | "single_choice" | "rating" | "yes_no" | "number" | "file",
             options: question.options,
             isRequired: question.isRequired ?? true,
-            order: i + 1,
+            order: question.order ?? i + 1,
           });
         }
       }
@@ -130,7 +140,7 @@ export const editConfirmedSurvey = action({
   }),
   handler: async (ctx, args) => {
     try {
-      const survey = await ctx.runQuery(api.surveys.getSurvey, { surveyId: args.surveyId });
+      const survey = await ctx.runQuery(getSurveyQueryRef, { surveyId: args.surveyId });
       if (!survey) {
         throw new Error("Survey not found");
       }
@@ -150,7 +160,7 @@ export const editConfirmedSurvey = action({
         endDateNumber = new Date(args.updates.endDate).getTime();
       }
 
-      await ctx.runMutation(api.surveys.updateSurvey, {
+      await ctx.runMutation(updateSurveyMutationRef, {
         surveyId: args.surveyId,
         title: args.updates.title,
         description: args.updates.description,
@@ -232,7 +242,7 @@ export const editConfirmedSurvey = action({
             const questionOrder = questionFields.order ?? ++nextQuestionOrder;
             nextQuestionOrder = Math.max(nextQuestionOrder, questionOrder);
 
-            await ctx.runMutation(api.surveys.createSurveyQuestion, {
+            await ctx.runMutation(createSurveyQuestionMutationRef, {
               surveyId: args.surveyId,
               questionText: questionFields.questionText as string,
               questionType: questionFields.questionType as
@@ -256,13 +266,13 @@ export const editConfirmedSurvey = action({
           }
 
           if (resolvedOperation === "delete") {
-            await ctx.runMutation(api.surveys.deleteQuestion, {
+            await ctx.runMutation(deleteQuestionMutationRef, {
               questionId: resolvedQuestionId,
             });
             continue;
           }
 
-          await ctx.runMutation(api.surveys.updateQuestion, {
+          await ctx.runMutation(updateQuestionMutationRef, {
             questionId: resolvedQuestionId,
             questionText: questionFields.questionText,
             questionType: questionFields.questionType as
@@ -307,13 +317,13 @@ export const deleteConfirmedSurvey = action({
   }),
   handler: async (ctx, args) => {
     try {
-      const survey = await ctx.runQuery(api.surveys.getSurvey, { surveyId: args.surveyId });
+      const survey = await ctx.runQuery(getSurveyQueryRef, { surveyId: args.surveyId });
       if (!survey) {
         throw new Error("Survey not found");
       }
       await ensureProjectAccess(ctx, survey.projectId, true);
 
-      await ctx.runMutation(api.surveys.deleteSurvey, {
+      await ctx.runMutation(deleteSurveyMutationRef, {
         surveyId: args.surveyId,
       });
 
@@ -329,12 +339,6 @@ export const deleteConfirmedSurvey = action({
     }
   },
 });
-
-
-
-
-
-
 
 
 

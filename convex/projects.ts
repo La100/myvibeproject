@@ -857,8 +857,7 @@ export const checkUserProjectAccess = query({
       if (teamMember.projectIds && teamMember.projectIds.length > 0) {
         return teamMember.projectIds.includes(args.projectId) ? teamMember : false;
       }
-      // If no projectIds = access to all (backward compatibility)
-      return teamMember;
+      return false;
     }
     
     // In other cases, no access
@@ -1078,7 +1077,11 @@ export const publishClientPanelData = mutation({
       .query("files")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
-    const selectedFiles = files.filter((file) => file.showInClientPortal === true);
+    // Moodboard files are a dedicated portal section, so include them in the snapshot
+    // even when they were uploaded before per-file visibility was introduced.
+    const selectedFiles = files.filter(
+      (file) => file.showInClientPortal === true || !!file.moodboardSection
+    );
     const folderNameById = new Map<string, string>();
     const folderIds = [
       ...new Set(

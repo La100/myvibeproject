@@ -6,7 +6,6 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 
 const TOKEN_SYNC_KEY = "myvibeproject_extension_token_sync"
-const LEGACY_TOKEN_SYNC_KEY = "vibeplanner_extension_token_sync"
 const TOKEN_SYNC_META_KEY = "myvibeproject_extension_token_sync_meta"
 
 function extractTokenExpiry(token: string): number | null {
@@ -60,7 +59,6 @@ export default function ExtensionAuthPage() {
         }
 
         localStorage.setItem(TOKEN_SYNC_KEY, token)
-        localStorage.setItem(LEGACY_TOKEN_SYNC_KEY, token)
         localStorage.setItem(
           TOKEN_SYNC_META_KEY,
           JSON.stringify({

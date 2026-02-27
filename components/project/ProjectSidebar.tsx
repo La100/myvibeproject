@@ -3,9 +3,11 @@
 import Link from "next/link";
 import NextImage from "next/image";
 import { useParams, usePathname, useRouter } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useQuery } from "convex/react";
 import { useClerk, useUser } from "@clerk/nextjs";
 import { useProject } from "@/components/providers/ProjectProvider";
+import { apiAny } from "@/lib/convexApiAny";
 import {
   Sidebar,
   SidebarContent,
@@ -37,6 +39,7 @@ import {
   Settings2,
   ChevronDown,
   Calendar,
+  BellRing,
   FolderOpen,
   DraftingCompass,
   type LucideIcon,
@@ -48,6 +51,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  CLIENT_NOTIFICATION_READ_EVENT,
+  getProjectClientNotificationsLastSeen,
+  getProjectClientNotificationsStorageKey,
+  isClientNotificationActivity,
+  markProjectClientNotificationsRead,
+} from "@/lib/projectClientNotifications";
 
 function ProjectSidebarContent() {
   const params = useParams<{ projectSlug: string }>();
@@ -57,10 +67,63 @@ function ProjectSidebarContent() {
   const { project } = useProject();
   const { signOut, openUserProfile } = useClerk();
   const { user } = useUser();
+  const activities = useQuery(apiAny.activityLog.getForProject, { projectId: project._id });
+  const [lastSeenAt, setLastSeenAt] = useState(0);
+
+  const clientNotifications = useMemo(
+    () => (activities ?? []).filter(isClientNotificationActivity),
+    [activities],
+  );
+  const latestClientNotificationAt = clientNotifications[0]?._creationTime ?? 0;
+  const isNotificationsPage = pathname.startsWith(`/organisation/projects/${params.projectSlug}/changelog`);
+
+  useEffect(() => {
+    setLastSeenAt(getProjectClientNotificationsLastSeen(String(project._id)));
+  }, [project._id]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleRead = (event: Event) => {
+      const customEvent = event as CustomEvent<{ projectId?: string; lastSeenAt?: number }>;
+      if (customEvent.detail?.projectId !== String(project._id)) return;
+      if (typeof customEvent.detail?.lastSeenAt !== "number") return;
+      setLastSeenAt((current) => Math.max(current, customEvent.detail!.lastSeenAt!));
+    };
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== getProjectClientNotificationsStorageKey(String(project._id))) return;
+      setLastSeenAt(getProjectClientNotificationsLastSeen(String(project._id)));
+    };
+
+    window.addEventListener(CLIENT_NOTIFICATION_READ_EVENT, handleRead as EventListener);
+    window.addEventListener("storage", handleStorage);
+    return () => {
+      window.removeEventListener(CLIENT_NOTIFICATION_READ_EVENT, handleRead as EventListener);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, [project._id]);
+
+  useEffect(() => {
+    if (!isNotificationsPage || latestClientNotificationAt === 0) return;
+    markProjectClientNotificationsRead(String(project._id), latestClientNotificationAt);
+  }, [isNotificationsPage, latestClientNotificationAt, project._id]);
+
+  const unreadClientNotifications = clientNotifications.filter(
+    (activity) => activity._creationTime > lastSeenAt,
+  ).length;
 
   const allNavItems = [
     { href: `/organisation/projects/${params.projectSlug}`, label: "Overview", icon: LayoutDashboard, key: "overview", group: "project" },
     { href: `/organisation/projects/${params.projectSlug}/customer-panel`, label: "Client Portal", icon: Eye, key: "customer_panel", group: "project" },
+    {
+      href: `/organisation/projects/${params.projectSlug}/changelog`,
+      label: "Notifications",
+      icon: BellRing,
+      key: "notifications",
+      group: "project",
+      notificationCount: unreadClientNotifications,
+    },
     { href: `/organisation/projects/${params.projectSlug}/tasks`, label: "Tasks", icon: CheckSquare, key: "tasks", group: "architecture" },
     { href: `/organisation/projects/${params.projectSlug}/moodboard`, label: "Moodboard", icon: Image, key: "moodboard", group: "project" },
     { href: `/organisation/projects/${params.projectSlug}/notes`, label: "Notes", icon: StickyNote, key: "notes", group: "project" },
@@ -134,10 +197,15 @@ function ProjectSidebarContent() {
                     href={item.href}
                     onClick={handleLinkClick}
                     onMouseEnter={() => handleLinkHover(item.href)}
-                    className="flex flex-1 items-center gap-3"
+                    className="flex min-w-0 flex-1 items-center gap-3"
                   >
                     <item.icon className={`h-4 w-4 ${isActive ? "text-sidebar-foreground" : "text-sidebar-foreground/85"}`} />
-                    <span className="truncate">{item.label}</span>
+                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                    {typeof item.notificationCount === "number" && item.notificationCount > 0 ? (
+                      <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
+                        {item.notificationCount > 99 ? "99+" : item.notificationCount}
+                      </span>
+                    ) : null}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

@@ -40,7 +40,6 @@ export async function confirmBulkCreateItem(
 
   let result: ConfirmSingleItemResult;
   switch (item.type) {
-    case 'create_multiple_tasks':
     case 'task': {
       const data = item.data as BulkTaskData;
       const tasks = Array.isArray(data.tasks) ? data.tasks : [];
@@ -89,7 +88,6 @@ export async function confirmBulkCreateItem(
       };
       break;
     }
-    case 'create_multiple_notes':
     case 'note': {
       const data = item.data as BulkNoteData;
       const notes = Array.isArray(data.notes) ? data.notes : [];
@@ -126,7 +124,6 @@ export async function confirmBulkCreateItem(
       };
       break;
     }
-    case 'create_multiple_shopping_items':
     case 'shopping': {
       const data = item.data as BulkShoppingData;
       const items = Array.isArray(data.items) ? data.items : [];
@@ -227,11 +224,13 @@ export async function confirmBulkCreateItem(
       };
       break;
     }
-    case 'create_multiple_surveys':
-    case 'create_survey':
     case 'survey': {
       const data = item.data as BulkSurveyData;
-      const surveys = Array.isArray(data.surveys) ? data.surveys : [];
+      const surveys = Array.isArray(data.surveys)
+        ? data.surveys
+        : Array.isArray((data as { items?: Array<Record<string, unknown>> }).items)
+          ? ((data as { items: Array<Record<string, unknown>> }).items)
+          : [];
 
       if (surveys.length === 0) {
         throw new Error("No surveys provided for bulk creation");
@@ -265,12 +264,15 @@ export async function confirmBulkCreateItem(
       };
       break;
     }
-    case 'create_contact':
     case 'contact': {
       const contacts = Array.isArray(
         (item.data as { contacts?: Array<Record<string, unknown>> }).contacts
       )
         ? ((item.data as { contacts?: Array<Record<string, unknown>> }).contacts as Array<Record<string, unknown>>)
+        : Array.isArray(
+          (item.data as { items?: Array<Record<string, unknown>> }).items
+        )
+          ? ((item.data as { items: Array<Record<string, unknown>> }).items)
         : [];
 
       if (contacts.length === 0) {

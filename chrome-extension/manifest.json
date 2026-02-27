@@ -10,6 +10,11 @@
     "scripting",
     "commands"
   ],
+  "host_permissions": [
+    "https://myvibeproject.com/*",
+    "http://localhost:3000/*",
+    "http://localhost:3001/*"
+  ],
   "background": {
     "service_worker": "background.js",
     "type": "module"

@@ -35,17 +35,6 @@ export const saveTokenUsage = internalMutation({
     errorMessage: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const [hadPreviousTokenUsage, hadPreviousImageUsage] = await Promise.all([
-      ctx.db
-        .query("aiTokenUsage")
-        .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
-        .first(),
-      ctx.db
-        .query("aiGeneratedImages")
-        .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
-        .first(),
-    ]);
-
     const resolvedFeature =
       args.feature ||
       (args.requestType === "chat" ? "assistant" : "other");
@@ -66,14 +55,8 @@ export const saveTokenUsage = internalMutation({
         plan === "free"
           ? defaultPlanTokens
           : (storedPlanTokens ?? defaultPlanTokens);
-      const isLegacyFreeZeroBalance =
-        plan === "free" &&
-        team.aiTokens === 0 &&
-        ((storedPlanTokens ?? 0) <= 0) &&
-        !hadPreviousTokenUsage &&
-        !hadPreviousImageUsage;
       const currentBalance =
-        typeof team.aiTokens === "number" && !isLegacyFreeZeroBalance
+        typeof team.aiTokens === "number"
           ? (
               plan === "free"
                 ? Math.min(Math.max(0, team.aiTokens), Math.max(0, planTokens))

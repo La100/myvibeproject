@@ -70,12 +70,12 @@ const taskFields = z.object({
   startDate: z.string().optional().describe("Start date in ISO format (YYYY-MM-DDTHH:mm:ss.sssZ)"),
   endDate: z.string().optional().describe("End date in ISO format (YYYY-MM-DDTHH:mm:ss.sssZ)"),
   tags: z.array(z.string()).optional().describe("Task tags for categorization"),
-});
+}).passthrough();
 
 const noteFields = z.object({
   title: z.string().describe("Note title"),
   content: z.string().describe("Note content"),
-});
+}).passthrough();
 
 const shoppingFields = z.object({
   name: z.string().describe("Item name"),
@@ -93,7 +93,7 @@ const shoppingFields = z.object({
   catalogNumber: z.string().optional().describe("Product catalog/model number"),
   sectionId: z.string().optional().describe("Shopping list section ID"),
   sectionName: z.string().optional().describe("Shopping list section name"),
-});
+}).passthrough();
 
 const laborFields = z.object({
   name: z.string().describe("Work description"),
@@ -105,14 +105,14 @@ const laborFields = z.object({
   sectionId: z.string().optional().describe("Labor section ID"),
   sectionName: z.string().optional().describe("Labor section name"),
   assignedTo: z.string().optional().describe("Contractor or team member name"),
-});
+}).passthrough();
 
 const surveyQuestionFields = z.object({
   questionText: z.string(),
   questionType: z.enum(["text_short", "text_long", "multiple_choice", "single_choice", "rating", "yes_no", "number", "file"]),
   options: z.array(z.string()).optional(),
   isRequired: z.boolean().optional(),
-});
+}).passthrough();
 
 const surveyQuestionUpdateFields = z
   .object({
@@ -134,7 +134,7 @@ const surveyFields = z.object({
   startDate: z.string().optional().describe("Survey start date in ISO format"),
   endDate: z.string().optional().describe("Survey end date in ISO format"),
   questions: z.array(surveyQuestionFields).optional().describe("Survey questions"),
-});
+}).passthrough();
 
 const contactFields = z.object({
   name: z.string().describe("Contact name"),
@@ -148,11 +148,11 @@ const contactFields = z.object({
   taxId: z.string().optional().describe("Tax ID"),
   type: z.enum(["contractor", "supplier", "subcontractor", "other"]).optional().describe("Contact type"),
   notes: z.string().optional().describe("Additional notes"),
-});
+}).passthrough();
 
 const sectionFields = z.object({
   name: z.string().describe("Section name"),
-});
+}).passthrough();
 
 const projectStatusEnum = z.enum([
   "planning",
@@ -261,7 +261,7 @@ export const searchItemsSchema = z.object({
   limit: z.number().optional().default(10).describe("Maximum number of results"),
 });
 
-// Keep specific schemas for backward compatibility and specific use cases
+// Keep specific schemas for dedicated use cases.
 export const loadFullProjectContextSchema = z.object({
   reason: z.string().optional().describe("Why you need the full context"),
 });
@@ -376,6 +376,118 @@ function normalizePriceAliases(
   return data;
 }
 
+function getRequiredPrimaryField(type: ItemType): "title" | "name" {
+  switch (type) {
+    case "task":
+    case "note":
+    case "survey":
+      return "title";
+    default:
+      return "name";
+  }
+}
+
+function getBulkCreatePayload(
+  type: ItemType,
+  items: Record<string, unknown>[],
+): Record<string, unknown> {
+  switch (type) {
+    case "task":
+      return { tasks: items };
+    case "note":
+      return { notes: items };
+    case "survey":
+      return { surveys: items };
+    case "contact":
+      return { contacts: items };
+    case "shopping":
+    case "labor":
+    case "shoppingSection":
+    case "laborSection":
+    default:
+      return { items };
+  }
+}
+
+function normalizePrimaryField(
+  type: ItemType,
+  rawData: unknown,
+): Record<string, unknown> {
+  const data = toRecord(rawData);
+  const requiredField = getRequiredPrimaryField(type);
+  const aliasField = requiredField === "title" ? "name" : "title";
+  const primaryValue = data[requiredField];
+  const aliasValue = data[aliasField];
+
+  if (typeof primaryValue === "string") {
+    const trimmed = primaryValue.trim();
+    if (trimmed.length > 0) {
+      data[requiredField] = trimmed;
+      return data;
+    }
+  }
+
+  if (typeof aliasValue === "string") {
+    const trimmedAlias = aliasValue.trim();
+    if (trimmedAlias.length > 0) {
+      data[requiredField] = trimmedAlias;
+    }
+  }
+
+  return data;
+}
+
+function normalizeSurveyCreateData(rawData: Record<string, unknown>): Record<string, unknown> {
+  const data = { ...rawData };
+
+  if (Array.isArray(data.questions)) {
+    const normalizedQuestions = data.questions
+      .map((question) => toRecord(question))
+      .map((question) => ({
+        questionText: question.questionText,
+        questionType: question.questionType,
+        options: question.options,
+        isRequired: question.isRequired,
+      }))
+      .filter(
+        (question) =>
+          typeof question.questionText === "string" &&
+          question.questionText.trim().length > 0 &&
+          typeof question.questionType === "string",
+      );
+
+    data.questions = normalizedQuestions;
+  }
+
+  delete data.order;
+  return data;
+}
+
+function normalizeCreateData(
+  type: ItemType,
+  rawData: unknown,
+): Record<string, unknown> {
+  const normalized = normalizePrimaryField(
+    type,
+    normalizePriceAliases(type, rawData),
+  );
+
+  if (type === "survey") {
+    return normalizeSurveyCreateData(normalized);
+  }
+
+  return normalized;
+}
+
+function hasRequiredPrimaryField(
+  type: ItemType,
+  data: Record<string, unknown>,
+): boolean {
+  const requiredField = getRequiredPrimaryField(type);
+  const value = data[requiredField];
+  return typeof value === "string" && value.trim().length > 0;
+}
+
 function toRecord(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return {};
@@ -484,15 +596,12 @@ export function createStreamingTools(options?: StreamingToolOptions) {
       description: "Create a new item (task, note, shopping item, labor item, survey, contact, or section). Specify the type and provide the appropriate data fields. ONLY use this when the user explicitly asks to create something.",
       inputSchema: createItemSchema,
       execute: async (args: z.infer<typeof createItemSchema>) => {
-        // Validate that we have minimum required fields
-        const data = normalizePriceAliases(args.type, args.data);
-        const hasTitle = data.title && typeof data.title === 'string' && data.title.trim().length > 0;
-        const hasName = data.name && typeof data.name === 'string' && data.name.trim().length > 0;
+        const data = normalizeCreateData(args.type, args.data);
+        const requiredField = getRequiredPrimaryField(args.type);
 
-        // Require at least title or name
-        if (!hasTitle && !hasName) {
+        if (!hasRequiredPrimaryField(args.type, data)) {
           return JSON.stringify({
-            error: "Cannot create item without title or name",
+            error: `Cannot create ${args.type} without ${requiredField}`,
             message: "Please provide item details before creating"
           });
         }
@@ -509,11 +618,34 @@ export function createStreamingTools(options?: StreamingToolOptions) {
       description: "Create multiple items at once (2+ items of the same type). More efficient than multiple single creates.",
       inputSchema: createMultipleItemsSchema,
       execute: async (args: z.infer<typeof createMultipleItemsSchema>) => {
-        const items = args.items.map((item) => normalizePriceAliases(args.type, item));
+        if (args.items.length === 0) {
+          return JSON.stringify({
+            error: "No items were provided for bulk create",
+            type: args.type,
+          });
+        }
+
+        const items = args.items.map((item) =>
+          normalizeCreateData(args.type, item),
+        );
+        const requiredField = getRequiredPrimaryField(args.type);
+        const invalidIndexes = items
+          .map((item, index) =>
+            hasRequiredPrimaryField(args.type, item) ? null : index + 1,
+          )
+          .filter((index): index is number => index !== null);
+
+        if (invalidIndexes.length > 0) {
+          return JSON.stringify({
+            error: `Cannot create ${args.type} items without ${requiredField}`,
+            invalidItemPositions: invalidIndexes,
+          });
+        }
+
         return JSON.stringify({
           type: getOperationType(args.type),
           operation: "bulk_create",
-          data: { items }
+          data: getBulkCreatePayload(args.type, items)
         });
       },
     },
@@ -725,6 +857,19 @@ export function createStreamingTools(options?: StreamingToolOptions) {
           } catch (error) {
             console.error("Failed to fetch original item for deletion:", error);
           }
+        }
+
+        if (
+          originalItem &&
+          options?.projectId &&
+          typeof (originalItem as Record<string, unknown>).projectId === "string" &&
+          (originalItem as Record<string, unknown>).projectId !== options.projectId
+        ) {
+          return JSON.stringify({
+            error: "Cannot delete item outside the active project",
+            itemId: args.itemId,
+            type: args.type,
+          });
         }
 
         return JSON.stringify({

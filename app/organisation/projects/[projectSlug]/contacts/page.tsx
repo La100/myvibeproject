@@ -34,6 +34,7 @@ import { toast } from "sonner";
 import { ContactForm } from "@/app/organisation/(company)/contacts/components/ContactForm";
 import { Id } from "@/convex/_generated/dataModel";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
+import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 
 export default function ContactsPage() {
   const { project } = useProject();
@@ -90,13 +91,12 @@ export default function ContactsPage() {
 
   return (
     <ProjectPageLayout>
-      <div className="p-6">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold">Contacts</h1>
-          <p className="text-muted-foreground">
-            Manage contacts for {project.name}
-          </p>
-        </div>
+      <div>
+        <ProjectPageHeader
+          title="Contacts"
+          icon={<User className="h-8 w-8 text-[var(--ui-accent-brand)]" />}
+          subtitle={`Manage contacts for ${project.name}`}
+        />
 
         <Card>
           <CardHeader className="pb-4">

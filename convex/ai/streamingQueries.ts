@@ -18,13 +18,6 @@ import { createThread, vStreamArgs, listUIMessages, syncStreams } from "@convex-
 import type { SyncStreamsReturnValue } from "@convex-dev/agent";
 
 /**
- * Check if a thread ID is a legacy/custom format (not a Convex agent thread ID)
- */
-function isLegacyThreadId(threadId: string): boolean {
-  return threadId.startsWith("thread-") || threadId.startsWith("thread_");
-}
-
-/**
  * Query for useUIMessages hook - the main streaming query
  * 
  * This is the query that useUIMessages from @convex-dev/agent/react subscribes to.
@@ -62,48 +55,10 @@ export const listThreadMessages = query({
       };
     }
 
-    let agentThreadId = args.threadId;
-
-    // Handle legacy/custom thread IDs (e.g. "thread-123" or "thread_123")
-    if (isLegacyThreadId(args.threadId)) {
-      // Check if thread document exists first - this is a reactive query
-      const threadDoc = await ctx.db
-        .query("aiThreads")
-        .withIndex("by_thread_id", (q) => q.eq("threadId", args.threadId))
-        .first();
-
-      if (!threadDoc) {
-        // Thread doesn't exist yet - this is a brand new chat
-        // Return empty but query will re-run when thread is created
-        return {
-          page: [],
-          isDone: true,
-          continueCursor: "",
-          streams: emptyStreams,
-          _waiting: true,
-        };
-      }
-
-      // Thread exists, check for agent mapping
-      if (threadDoc.agentThreadId) {
-        agentThreadId = threadDoc.agentThreadId;
-      } else {
-        // Thread exists but no mapping yet - action is working on it
-        // Return empty but query will re-run when mapping is saved
-        return {
-          page: [],
-          isDone: true,
-          continueCursor: "",
-          streams: emptyStreams,
-          _waiting: true,
-        };
-      }
-    }
-
     // Get paginated messages when pagination opts are provided
     const paginated = args.paginationOpts
       ? await listUIMessages(ctx, components.agent, {
-          threadId: agentThreadId,
+          threadId: args.threadId,
           paginationOpts: args.paginationOpts,
         })
       : { page: [], isDone: true, continueCursor: "" };
@@ -114,7 +69,7 @@ export const listThreadMessages = query({
       try {
         streams =
           (await syncStreams(ctx, components.agent, {
-          threadId: agentThreadId,
+          threadId: args.threadId,
           streamArgs: args.streamArgs,
           // Include "finished" status for longer to smooth transition to persisted messages
           // This prevents flickering when streaming completes but DB hasn't updated yet
@@ -221,8 +176,7 @@ export const initiateStreaming = mutation({
         title: threadTitle,
       });
 
-      // For new threads, we directly use the agent thread ID
-      // No mapping needed since it's not a legacy thread ID
+      // For new threads, use the created agent thread ID directly.
       await ctx.db.insert("aiThreads", {
         threadId: agentThreadId,
         agentThreadId: agentThreadId, // Store agent thread ID in both fields
@@ -349,11 +303,7 @@ export const abortStreamByOrder = internalMutation({
       .withIndex("by_thread_id", (q) => q.eq("threadId", args.threadId))
       .unique();
 
-    const resolvedAgentThreadId = thread?.agentThreadId
-      ? thread.agentThreadId
-      : thread?.threadId && !isLegacyThreadId(thread.threadId)
-        ? thread.threadId
-        : undefined;
+    const resolvedAgentThreadId = thread?.agentThreadId ?? thread?.threadId;
 
     if (resolvedAgentThreadId) {
       try {
@@ -415,11 +365,7 @@ export const abortStream = mutation({
 
     console.log(`🛑 User requested abort for thread ${args.threadId}`);
 
-    const resolvedAgentThreadId = thread.agentThreadId
-      ? thread.agentThreadId
-      : !isLegacyThreadId(thread.threadId)
-        ? thread.threadId
-        : undefined;
+    const resolvedAgentThreadId = thread.agentThreadId ?? thread.threadId;
 
     let abortedStreams = 0;
 

@@ -13,16 +13,19 @@ const buildSnapshot = async () =>
     project: null,
   }) as any;
 
-test("stages pending shopping item for legacy create_shopping_item", async () => {
+test("stages pending shopping item for generic create_item", async () => {
   const result = await processFunctionCalls(
     [
       {
         call_id: "call-1",
-        name: "create_shopping_item",
+        name: "create_item",
         arguments: JSON.stringify({
-          name: "Farba biala",
-          quantity: 2,
-          priority: "high",
+          type: "shopping",
+          data: {
+            name: "Farba biala",
+            quantity: 2,
+            priority: "high",
+          },
         }),
       },
     ],
@@ -37,7 +40,7 @@ test("stages pending shopping item for legacy create_shopping_item", async () =>
   assert.equal(result.pendingItems[0].operation, "create");
   assert.equal((result.pendingItems[0].data as any).name, "Farba biala");
   assert.equal((result.pendingItems[0].data as any).quantity, 2);
-  assert.match(result.finalResponse, /add "Farba biala" to shopping list/i);
+  assert.match(result.finalResponse, /create a shopping/i);
 });
 
 test("skips malformed function call arguments and continues processing", async () => {
@@ -45,15 +48,18 @@ test("skips malformed function call arguments and continues processing", async (
     [
       {
         call_id: "call-bad",
-        name: "create_shopping_item",
+        name: "create_item",
         arguments: "{bad-json",
       },
       {
         call_id: "call-good",
-        name: "create_shopping_item",
+        name: "create_item",
         arguments: JSON.stringify({
-          name: "Walek",
-          quantity: 1,
+          type: "shopping",
+          data: {
+            name: "Walek",
+            quantity: 1,
+          },
         }),
       },
     ],

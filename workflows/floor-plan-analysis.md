@@ -35,7 +35,7 @@ steps:
       Przedstaw analizę w przejrzystej formie punktowej.
     description: AI przeanalizuje rzut i zidentyfikuje pomieszczenia.
     enabledTools:
-      - create_note
+      - create_item
   - id: renovation-scope
     name: Zakres Remontu
     prompt: |
@@ -51,8 +51,8 @@ steps:
       Stwórz wstępną listę zadań jako tasks w projekcie.
     description: Określ zakres prac remontowych dla wybranych pomieszczeń.
     enabledTools:
-      - create_task
-      - create_multiple_tasks
+      - create_item
+      - create_multiple_items
   - id: material-list
     name: Lista Materiałów
     prompt: |
@@ -65,8 +65,8 @@ steps:
       Dodaj materiały do listy zakupów projektu z odpowiednimi sekcjami.
     description: Wygeneruj listę materiałów budowlanych i wykończeniowych.
     enabledTools:
-      - create_shopping_item
-      - create_multiple_shopping_items
+      - create_item
+      - create_multiple_items
       - create_shopping_section
   - id: schedule
     name: Harmonogram
@@ -81,8 +81,8 @@ steps:
       Zaktualizuj daty w utworzonych wcześniej zadaniach aby odzwierciedlały harmonogram.
     description: Zaplanuj kolejność i terminy prac.
     enabledTools:
-      - edit_task
-      - edit_multiple_tasks
+      - update_item
+      - update_multiple_items
 ---
 
 # Analiza Rzutu Mieszkania

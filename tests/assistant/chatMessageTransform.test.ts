@@ -12,9 +12,9 @@ test("adds tool-result after confirmation and strips reasoning/thinking", () => 
         { type: "text", text: "Juz robie<thinking>sekret</thinking>\n" },
         { type: "reasoning", text: "internal" },
         {
-          type: "tool-create_shopping_item",
+          type: "tool-create_item",
           toolCallId: "call-1",
-          toolName: "create_shopping_item",
+          toolName: "create_item",
         },
       ],
       text: "Juz robie<thinking>sekret</thinking>",

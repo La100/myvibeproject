@@ -208,6 +208,7 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
           extractDomain(tab.url ?? "") ??
           prev.supplier ??
           "",
+        catalogNumber: response.product?.catalogNumber ?? prev.catalogNumber ?? "",
         // Notes stay manual-only: never auto-fill from page detection.
         notes: prev.notes ?? "",
         imageUrl: response.product?.imageUrl ?? prev.imageUrl ?? "",
@@ -339,6 +340,7 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
         quantity,
         totalPrice,
         supplier: product.supplier?.trim() || undefined,
+        catalogNumber: product.catalogNumber?.trim() || undefined,
         notes: product.notes?.trim() || undefined,
         productLink: product.productLink?.trim() || undefined,
         imageUrl: product.imageUrl?.trim() || undefined,
@@ -619,6 +621,18 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
                     placeholder="Supplier name"
                   />
                 </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="product-catalog-number">Catalog number</Label>
+                <Input
+                  id="product-catalog-number"
+                  value={product.catalogNumber ?? ""}
+                  onChange={(event) =>
+                    handleProductChange("catalogNumber", event.target.value)
+                  }
+                  placeholder="e.g. BU1K367PH-3BC1"
+                />
               </div>
 
               <div className="space-y-1.5">

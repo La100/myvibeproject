@@ -42,12 +42,6 @@ const AI_CREDITS_EXHAUSTED_MESSAGE =
 
 const READ_ONLY_TOOL_NAMES = new Set([
   "search_items",
-  "search_tasks",
-  "search_notes",
-  "search_shopping_items",
-  "search_labor_items",
-  "search_surveys",
-  "search_contacts",
   "load_full_project_context",
 ]);
 
@@ -94,11 +88,9 @@ export const internalDoStreaming = internalAction({
 
     try {
       const providedThreadId = args.threadId;
-      const isLegacyThreadId = providedThreadId.startsWith("thread-") || providedThreadId.startsWith("thread_");
 
       console.log("📝 [THREAD INFO]", {
         providedThreadId,
-        isLegacyThreadId,
       });
 
       // Streaming start
@@ -270,55 +262,12 @@ Apply these additional instructions when they do not conflict with the tool cont
 
       console.log("🤖 [AGENT CREATED]");
 
-      // Determine the agent thread ID
-      let agentThreadId: string | undefined;
-
-      if (isLegacyThreadId) {
-        // Legacy thread ID - look up or create mapping
-        const mapping: any = await ctx.runQuery(internalAny.ai.threads.getThreadForResponses, {
-          threadId: providedThreadId
-        });
-        if (mapping && mapping.agentThreadId) {
-          agentThreadId = mapping.agentThreadId;
-          console.log("🔗 [FOUND EXISTING MAPPING]", {
-            legacyThreadId: providedThreadId,
-            agentThreadId,
-          });
-        } else {
-          // Create new agent thread for legacy ID
-          console.log("🆕 [CREATE NEW AGENT THREAD]");
-          const createResult = await agent.createThread(ctx, {
-            userId: args.userClerkId,
-          });
-          agentThreadId = createResult.threadId;
-
-          console.log("💾 [SAVE THREAD MAPPING]", {
-            legacyThreadId: providedThreadId,
-            agentThreadId: agentThreadId,
-          });
-
-          await ctx.runMutation(internalAny.ai.threads.saveAgentThreadMapping, {
-            threadId: providedThreadId,
-            agentThreadId: agentThreadId
-          });
-        }
-      } else {
-        // Not a legacy ID - providedThreadId IS the agent thread ID
-        // (created via createThread in the mutation)
-        agentThreadId = providedThreadId;
-        console.log("✅ [USING DIRECT AGENT THREAD ID]", {
-          agentThreadId,
-        });
-      }
+      const agentThreadId = providedThreadId;
 
       console.log("🔗 [FINAL THREAD ID]", {
         agentThreadId,
         providedThreadId,
       });
-
-      if (!agentThreadId) {
-        throw new Error("Unable to resolve agent thread ID");
-      }
 
       const aiAccess = await ctx.runQuery(internalAny.stripe.checkAIFeatureAccessByProject, {
         projectId: args.projectId,
@@ -557,24 +506,13 @@ Apply these additional instructions when they do not conflict with the tool cont
           arguments: string;
         }> = [];
 
-        // Fallback map so delete/edit tools still create pending items even if parsing fails
-        const toolNameDefaults: Record<string, { type: string; operation?: string }> = {
-          delete_task: { type: 'task', operation: 'delete' },
-          delete_note: { type: 'note', operation: 'delete' },
-          delete_shopping_item: { type: 'shopping', operation: 'delete' },
-          delete_shopping_section: { type: 'shoppingSection', operation: 'delete' },
-          delete_survey: { type: 'survey', operation: 'delete' },
-          delete_contact: { type: 'contact', operation: 'delete' },
-          edit_task: { type: 'task', operation: 'edit' },
-          edit_note: { type: 'note', operation: 'edit' },
-          edit_shopping_item: { type: 'shopping', operation: 'edit' },
-          edit_shopping_section: { type: 'shoppingSection', operation: 'edit' },
-          edit_survey: { type: 'survey', operation: 'edit' },
-          edit_contact: { type: 'contact', operation: 'edit' },
-          create_multiple_tasks: { type: 'task', operation: 'bulk_create' },
-          create_multiple_notes: { type: 'note', operation: 'bulk_create' },
-          create_multiple_shopping_items: { type: 'shopping', operation: 'bulk_create' },
-          create_multiple_surveys: { type: 'survey', operation: 'bulk_create' },
+        // Fallback map so generic tools still create pending items even if parsing fails.
+        const toolNameDefaults: Record<string, { type?: string; operation?: string }> = {
+          create_item: { operation: 'create' },
+          create_multiple_items: { operation: 'bulk_create' },
+          update_item: { operation: 'edit' },
+          update_multiple_items: { operation: 'bulk_edit' },
+          delete_item: { operation: 'delete' },
           update_project_settings: { type: 'projectSettings', operation: 'edit' },
         };
 
@@ -622,10 +560,31 @@ Apply these additional instructions when they do not conflict with the tool cont
               ? (() => { try { return JSON.parse(normalizedArgs); } catch { return normalizedArgs; } })()
               : normalizedArgs;
 
+            const inferredType =
+              payload?.type ??
+              (
+                finalArgs &&
+                typeof finalArgs === "object" &&
+                typeof (finalArgs as { type?: unknown }).type === "string"
+                  ? (finalArgs as { type: string }).type
+                  : undefined
+              ) ??
+              defaults?.type;
+            const inferredOperation =
+              payload?.operation ??
+              (
+                finalArgs &&
+                typeof finalArgs === "object" &&
+                typeof (finalArgs as { operation?: unknown }).operation === "string"
+                  ? (finalArgs as { operation: string }).operation
+                  : undefined
+              ) ??
+              defaults?.operation;
+
             payload = {
               ...(payload && typeof payload === 'object' ? payload : {}),
-              type: payload?.type ?? defaults?.type ?? toolName,
-              operation: payload?.operation ?? defaults?.operation,
+              type: inferredType,
+              operation: inferredOperation,
               data: payload?.data ?? finalArgs ?? {},
             };
           } else if (!payload.data) {
@@ -687,7 +646,6 @@ Apply these additional instructions when they do not conflict with the tool cont
             const pendingData = (pendingPayload?.data ?? {}) as Record<string, unknown>;
             const nextData = (nextPayload?.data ?? {}) as Record<string, unknown>;
             const mergedData = { ...pendingData, ...nextData } as Record<string, unknown>;
-            delete mergedData.taskId;
 
             const mergedPayload = {
               ...pendingPayload,
@@ -698,7 +656,7 @@ Apply these additional instructions when they do not conflict with the tool cont
 
             functionCalls[0] = {
               ...functionCalls[0],
-              functionName: "create_task",
+              functionName: "create_item",
               arguments: JSON.stringify(mergedPayload),
             };
 
@@ -706,7 +664,7 @@ Apply these additional instructions when they do not conflict with the tool cont
               threadId: providedThreadId,
               responseId: pendingCall.responseId,
               callId: pendingCall.callId,
-              functionName: "create_task",
+              functionName: "create_item",
               arguments: functionCalls[0].arguments,
             });
             replacedExistingPendingCall = true;
@@ -745,13 +703,13 @@ Apply these additional instructions when they do not conflict with the tool cont
             message: "Tool calls did not generate pending items (read-only or parsing failed)",
           });
 
-          // Heuristic: if user asked to delete and search_shopping_items returned exactly one item, auto-stage delete
+          // Heuristic: if user asked to delete and search_items returned shopping matches, auto-stage delete.
           const userAskedToDelete = /\b(delete|remove)\b/i.test(args.message);
-          const onlyShoppingSearch =
+          const onlyItemSearch =
             allToolCalls.length === 1 &&
-            (allToolCalls[0]?.toolName || allToolCalls[0]?.name) === "search_shopping_items";
+            (allToolCalls[0]?.toolName || allToolCalls[0]?.name) === "search_items";
 
-          if (userAskedToDelete && onlyShoppingSearch && allToolResults.length === 1) {
+          if (userAskedToDelete && onlyItemSearch && allToolResults.length === 1) {
             const rawResult = allToolResults[0]?.result || allToolResults[0]?.output || allToolResults[0];
             try {
               const parsed = typeof rawResult === "string" ? JSON.parse(rawResult) : rawResult;
@@ -764,7 +722,7 @@ Apply these additional instructions when they do not conflict with the tool cont
                   const itemId = item?.id || item?._id || `unknown_${idx}`;
                   return {
                     callId: `auto_delete_${itemId}`,
-                    functionName: "delete_shopping_item",
+                    functionName: "delete_item",
                     arguments: JSON.stringify({
                       type: "shopping",
                       operation: "delete",
@@ -786,7 +744,7 @@ Apply these additional instructions when they do not conflict with the tool cont
                   const responseId = `resp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
                   const autoCall = {
                     callId: `auto_delete_${itemId}`,
-                    functionName: "delete_shopping_item",
+                    functionName: "delete_item",
                     arguments: JSON.stringify({
                       type: "shopping",
                       operation: "delete",

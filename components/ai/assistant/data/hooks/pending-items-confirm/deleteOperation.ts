@@ -20,20 +20,18 @@ export async function confirmDeleteItem(
   let result: ConfirmSingleItemResult;
   switch (item.type) {
     case 'task': {
-      // Support both legacy format (taskId) and new format (itemId)
-      const taskId = (item.data.taskId ?? item.data.itemId) as Id<"tasks">;
+      const taskId = item.data.itemId as Id<"tasks">;
       if (!taskId) {
-        throw new Error("Missing taskId or itemId for task deletion");
+        throw new Error("Missing itemId for task deletion");
       }
       await deleteTask({ taskId });
       result = { success: true, message: "Task deleted successfully" };
       break;
     }
     case 'note': {
-      // Support both legacy format (noteId) and new format (itemId)
-      const noteId = (item.data.noteId ?? item.data.itemId) as Id<"notes">;
+      const noteId = item.data.itemId as Id<"notes">;
       if (!noteId) {
-        throw new Error("Missing noteId or itemId for note deletion");
+        throw new Error("Missing itemId for note deletion");
       }
       await deleteNote({ noteId });
       result = { success: true, message: "Note deleted successfully" };
@@ -59,20 +57,18 @@ export async function confirmDeleteItem(
       break;
     }
     case 'survey': {
-      // Support both legacy format (surveyId) and new format (itemId)
-      const surveyId = (item.data.surveyId ?? item.data.itemId) as Id<"surveys">;
+      const surveyId = item.data.itemId as Id<"surveys">;
       if (!surveyId) {
-        throw new Error("Missing surveyId or itemId for survey deletion");
+        throw new Error("Missing itemId for survey deletion");
       }
       await deleteSurvey({ surveyId });
       result = { success: true, message: "Survey deleted successfully" };
       break;
     }
     case 'contact': {
-      // Support both legacy format (contactId) and new format (itemId)
-      const contactId = (item.data.contactId ?? item.data.itemId) as Id<"contacts">;
+      const contactId = item.data.itemId as Id<"contacts">;
       if (!contactId) {
-        throw new Error("Missing contactId or itemId for contact deletion");
+        throw new Error("Missing itemId for contact deletion");
       }
       await deleteContact({ contactId });
       result = { success: true, message: "Contact deleted successfully" };

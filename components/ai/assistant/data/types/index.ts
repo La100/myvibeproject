@@ -13,7 +13,6 @@ import type React from "react";
 /**
  * Canonical pending item types.
  * The operation (create/edit/delete/bulk_*) is specified in PendingOperation.
- * Legacy tool names like 'create_task' are normalized to 'task' + operation='create'
  */
 export type PendingItemType =
   | 'task'
@@ -26,34 +25,7 @@ export type PendingItemType =
   | 'laborSection'
   | 'projectSettings';
 
-/**
- * Legacy type names that map to canonical types.
- * Used during normalization in utils
- */
-export type LegacyPendingItemType =
-  | 'create_task'
-  | 'create_note'
-  | 'create_shopping_item'
-  | 'create_survey'
-  | 'create_contact'
-  | 'create_multiple_tasks'
-  | 'create_multiple_notes'
-  | 'create_multiple_shopping_items'
-  | 'create_multiple_surveys'
-  | 'create_labor_item'
-  | 'create_labor_section'
-  | 'create_multiple_labor_items';
-
-/**
- * All possible types including legacy names.
- * Used for type guards and input validation.
- */
-export type AnyPendingItemType = PendingItemType | LegacyPendingItemType;
-
-/**
- * Also exported as PendingContentType for backwards compatibility
- */
-export type PendingContentType = AnyPendingItemType;
+export type PendingContentType = PendingItemType;
 
 /**
  * Operation types for pending items
@@ -88,8 +60,8 @@ export interface PendingDisplay {
  * Main pending item structure
  */
 export type PendingItem = {
-  /** Canonical or legacy type before normalization */
-  type: AnyPendingItemType;
+  /** Canonical pending item type */
+  type: PendingItemType;
   /** Operation to perform */
   operation: PendingOperation;
   /** Client-side id for UI transitions */
@@ -128,9 +100,6 @@ export type PendingItem = {
   responseId?: string;
 };
 
-/**
- * Also exported as PendingContentItem for backwards compatibility
- */
 export type PendingContentItem = PendingItem;
 
 // ==================== INPUT TYPES ====================

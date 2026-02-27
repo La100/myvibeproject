@@ -23,7 +23,7 @@ const AIAssistant = () => {
   const searchParams = useSearchParams();
   const sessionParam = searchParams.get("session");
   const initialThreadIdFromUrl =
-    typeof sessionParam === "string" && sessionParam.startsWith("thread-")
+    typeof sessionParam === "string" && sessionParam.trim().length > 0
       ? sessionParam
       : undefined;
 

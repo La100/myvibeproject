@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/ui/spinner";
+import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
 import { Plus, MoreHorizontal, Edit, Trash2, StickyNote, Eye } from "lucide-react";
@@ -276,18 +277,17 @@ export default function NotesView() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Notes</h1>
-          <p className="text-muted-foreground">
-            Manage project notes and documentation
-          </p>
-        </div>
-        <Button onClick={() => setIsFormOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Note
-        </Button>
-      </div>
+      <ProjectPageHeader
+        title="Notes"
+        icon={<StickyNote className="h-8 w-8 text-[var(--ui-accent-brand)]" />}
+        subtitle="Manage project notes and documentation"
+        actions={
+          <Button onClick={() => setIsFormOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Note
+          </Button>
+        }
+      />
 
       {notes.length === 0 ? (
         <Card className="p-12 text-center">

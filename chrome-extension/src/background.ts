@@ -177,7 +177,6 @@ type AuthSyncMeta = {
 
 type AuthTabPayload = {
   token: string | null
-  legacyToken: string | null
   metaUpdatedAt: number | null
 }
 
@@ -186,7 +185,6 @@ async function readAuthPayloadFromTab(tabId: number): Promise<AuthTabPayload> {
     target: { tabId },
     func: () => {
       const token = localStorage.getItem("myvibeproject_extension_token_sync")
-      const legacyToken = localStorage.getItem("vibeplanner_extension_token_sync")
       const rawMeta = localStorage.getItem("myvibeproject_extension_token_sync_meta")
 
       let metaUpdatedAt: number | null = null
@@ -202,7 +200,6 @@ async function readAuthPayloadFromTab(tabId: number): Promise<AuthTabPayload> {
 
       return {
         token,
-        legacyToken,
         metaUpdatedAt,
       }
     },
@@ -211,7 +208,6 @@ async function readAuthPayloadFromTab(tabId: number): Promise<AuthTabPayload> {
   const payload = results[0]?.result as AuthTabPayload | undefined
   return {
     token: payload?.token ?? null,
-    legacyToken: payload?.legacyToken ?? null,
     metaUpdatedAt: payload?.metaUpdatedAt ?? null,
   }
 }
@@ -225,7 +221,7 @@ async function waitForFreshTokenFromAuthTab(
 
   while (Date.now() < deadline) {
     const payload = await readAuthPayloadFromTab(tabId).catch(() => null)
-    const candidate = payload?.token ?? payload?.legacyToken ?? null
+    const candidate = payload?.token ?? null
     if (!candidate) {
       await new Promise((resolve) => setTimeout(resolve, AUTH_TOKEN_POLL_INTERVAL_MS))
       continue

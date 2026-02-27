@@ -31,6 +31,7 @@ import ProjectMembers from "./ProjectMembers";
 import AISettings from "./AISettings";
 import { Spinner } from "@/components/ui/spinner";
 import { useOrganization } from "@clerk/nextjs";
+import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 
 
 const settingsFormSchema = z.object({
@@ -58,7 +59,7 @@ const deleteFormSchema = z.object({
 });
 
 function ProjectSettingsSkeleton() {
-  return <Spinner className="mt-4 px-4 pb-8 lg:mt-8 lg:px-0" />;
+  return <Spinner className="pb-8" />;
 }
 
 function ProjectSettingsContent() {
@@ -73,10 +74,6 @@ function ProjectSettingsContent() {
     organization?.id
       ? { clerkOrgId: organization.id, projectSlug: params.projectSlug }
       : "skip"
-  );
-
-  const hasAccess = useQuery(apiAny.projects.checkUserProjectAccess, 
-    project ? { projectId: project._id } : "skip"
   );
 
   const teamMember = useQuery(apiAny.teams.getCurrentUserTeamMember, 
@@ -105,15 +102,7 @@ function ProjectSettingsContent() {
     defaultValues: { confirmName: "" },
   });
 
-  if (!project || hasAccess === false || !teamMember) {
-    if (hasAccess === false) {
-      return (
-        <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
-          <h1 className="text-2xl font-bold text-red-600 mb-2">Access Denied</h1>
-          <p className="text-muted-foreground">You don't have permission to access project settings.</p>
-        </div>
-      );
-    }
+  if (!project || !teamMember) {
     // Let suspense handle the rest
     return null;
   }
@@ -175,11 +164,12 @@ function ProjectSettingsContent() {
   }
 
   return (
-    <div className="mt-4 lg:mt-8 px-4 lg:px-0 pb-8">
-      <div className="mb-6">
-        <h1 className="text-2xl lg:text-3xl font-bold">Project Settings</h1>
-        <p className="text-muted-foreground text-sm lg:text-base mt-1">Manage your project configuration and access.</p>
-      </div>
+    <div className="pb-8">
+      <ProjectPageHeader
+        title="Project Settings"
+        icon={<Settings className="h-8 w-8 text-[var(--ui-accent-brand)]" />}
+        subtitle="Manage your project configuration and access."
+      />
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)} className="w-full">
         <TabsList className="grid w-full grid-cols-5 h-auto p-1 mb-6">

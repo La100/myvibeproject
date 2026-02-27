@@ -78,8 +78,6 @@ export default defineSchema({
       hasAIFeatures: v.optional(v.boolean()),
       price: v.number(),
       aiMonthlyTokens: v.optional(v.number()), // Monthly AI tokens
-      aiMonthlySpendLimitCents: v.optional(v.number()), // Legacy cost-based limit
-      aiImageGenerationsLimit: v.optional(v.number()), // Legacy image generation limit
     })),
     // Simple AI tokens field - manually editable in dashboard
     aiTokens: v.optional(v.number()), // Total tokens available for this team
@@ -164,7 +162,7 @@ export default defineSchema({
     telegramBotUsername: v.optional(v.string()), // Telegram bot username (without @)
     telegramBotToken: v.optional(v.string()), // Telegram bot token from @BotFather
     telegramWebhookSecret: v.optional(v.string()), // Secret validated by Telegram webhook
-    whatsappNumber: v.optional(v.string()), // Reserved for WhatsApp compatibility
+    whatsappNumber: v.optional(v.string()), // Reserved for WhatsApp integration
   })
     .index("by_team", ["teamId"])
     .index("by_team_and_slug", ["teamId", "slug"])
@@ -602,8 +600,6 @@ export default defineSchema({
     ),
     isRequired: v.boolean(), // whether the survey is mandatory
     allowMultipleResponses: v.boolean(), // whether it can be filled multiple times
-    targetAudience: v.optional(v.string()), // legacy field kept for backward compatibility
-    targetCustomerIds: v.optional(v.array(v.string())), // legacy field kept for backward compatibility
     startDate: v.optional(v.number()),
     endDate: v.optional(v.number()),
     updatedAt: v.optional(v.number()),
@@ -905,7 +901,7 @@ export default defineSchema({
     userClerkId: v.string(),
     sessionId: v.optional(v.id("aiVisualizationSessions")), // Link to conversation session
     prompt: v.string(),
-    model: v.string(), // e.g. "gemini-3-pro-image-preview"
+    model: v.string(), // e.g. "gemini-3-pro-image-preview" or "gemini-2.5-flash-image"
     storageKey: v.optional(v.string()), // R2 storage key
     fileUrl: v.optional(v.string()), // Direct URL to image
     mimeType: v.string(),
@@ -966,7 +962,7 @@ export default defineSchema({
     .index("by_platform_and_external_id", ["platform", "externalUserId"])
     .index("by_user", ["userClerkId"]),
 
-  // Temporary pairing tokens (kept for compatibility with vibeplanner flow).
+  // Temporary pairing tokens.
   messagingPairingTokens: defineTable({
     token: v.string(),
     projectId: v.id("projects"),

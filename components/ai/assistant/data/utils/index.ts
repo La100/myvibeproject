@@ -6,7 +6,7 @@
 
 import type {
   PendingItem,
-  AnyPendingItemType,
+  PendingItemType,
   TaskInput,
   NoteInput,
   ShoppingItemInput,
@@ -14,6 +14,7 @@ import type {
   ContactInput,
   ChatHistoryEntry,
   SurveyData,
+  SurveyQuestion,
 } from "../types";
 import {
   PENDING_ITEM_TYPES,
@@ -25,8 +26,8 @@ import {
 
 // ==================== TYPE GUARDS ====================
 
-export const isPendingItemType = (value: unknown): value is AnyPendingItemType =>
-  typeof value === "string" && PENDING_ITEM_TYPES.includes(value as AnyPendingItemType);
+export const isPendingItemType = (value: unknown): value is PendingItemType =>
+  typeof value === "string" && PENDING_ITEM_TYPES.includes(value as PendingItemType);
 
 // ==================== MESSAGE HELPERS ====================
 
@@ -38,15 +39,111 @@ export const computeNextMessageIndex = (history: ChatHistoryEntry[]) =>
 
 // ==================== SURVEY DATA EXTRACTION ====================
 
-export const extractSurveyData = (data: Record<string, unknown>): SurveyData => ({
-  title: (data.title as string) || '',
-  description: data.description as string | undefined,
-  isRequired: data.isRequired as boolean | undefined,
-  allowMultipleResponses: data.allowMultipleResponses as boolean | undefined,
-  startDate: data.startDate as string | undefined,
-  endDate: data.endDate as string | undefined,
-  questions: data.questions as SurveyData["questions"],
-});
+const SURVEY_QUESTION_TYPES = new Set<SurveyQuestion["questionType"]>([
+  "text_short",
+  "text_long",
+  "multiple_choice",
+  "single_choice",
+  "rating",
+  "yes_no",
+  "number",
+  "file",
+]);
+
+const normalizeSurveyQuestionType = (value: unknown): SurveyQuestion["questionType"] | undefined => {
+  if (typeof value !== "string") return undefined;
+
+  const normalized = value.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  if (SURVEY_QUESTION_TYPES.has(normalized as SurveyQuestion["questionType"])) {
+    return normalized as SurveyQuestion["questionType"];
+  }
+
+  switch (normalized) {
+    case "yes/no":
+    case "yesno":
+    case "tak/nie":
+    case "taknie":
+    case "boolean":
+      return "yes_no";
+    case "short_text":
+    case "short_answer":
+      return "text_short";
+    case "long_text":
+    case "long_answer":
+      return "text_long";
+    case "single":
+    case "single_option":
+      return "single_choice";
+    case "multiple":
+    case "multi_choice":
+      return "multiple_choice";
+    default:
+      return undefined;
+  }
+};
+
+const normalizeSurveyQuestionEntry = (
+  rawQuestion: Record<string, unknown>,
+): SurveyQuestion | null => {
+  const questionTextRaw = rawQuestion.questionText;
+  const questionText = typeof questionTextRaw === "string" ? questionTextRaw.trim() : "";
+  if (!questionText) return null;
+
+  const questionType =
+    normalizeSurveyQuestionType(rawQuestion.questionType) ??
+    (Array.isArray(rawQuestion.options) ? "single_choice" : "text_short");
+
+  const normalizedQuestion: SurveyQuestion = {
+    questionText,
+    questionType,
+    isRequired: typeof rawQuestion.isRequired === "boolean" ? rawQuestion.isRequired : undefined,
+  };
+
+  if (Array.isArray(rawQuestion.options)) {
+    const options = rawQuestion.options
+      .map((option) => (typeof option === "string" ? option.trim() : ""))
+      .filter((option) => option.length > 0);
+    if (options.length > 0) {
+      normalizedQuestion.options = options;
+    }
+  }
+
+  return normalizedQuestion;
+};
+
+export const extractSurveyData = (data: Record<string, unknown>): SurveyData => {
+  const questionsSource = Array.isArray(data.questions)
+    ? (data.questions as Array<Record<string, unknown>>)
+    : [];
+  const normalizedQuestions = questionsSource
+    .map((question) => normalizeSurveyQuestionEntry(question))
+    .filter((question): question is SurveyQuestion => question !== null);
+
+  // Legacy fallback: accept top-level single question fields.
+  if (normalizedQuestions.length === 0) {
+    const singleQuestionCandidate = normalizeSurveyQuestionEntry(
+      {
+        questionText: data.questionText,
+        questionType: data.questionType,
+        options: data.options,
+        isRequired: data.questionIsRequired ?? data.isQuestionRequired ?? data.isRequired,
+      },
+    );
+    if (singleQuestionCandidate) {
+      normalizedQuestions.push(singleQuestionCandidate);
+    }
+  }
+
+  return {
+    title: (data.title as string) || "",
+    description: data.description as string | undefined,
+    isRequired: data.isRequired as boolean | undefined,
+    allowMultipleResponses: data.allowMultipleResponses as boolean | undefined,
+    startDate: data.startDate as string | undefined,
+    endDate: data.endDate as string | undefined,
+    questions: normalizedQuestions.length > 0 ? normalizedQuestions : undefined,
+  };
+};
 
 // ==================== SANITIZERS ====================
 
@@ -183,63 +280,6 @@ export const normalizePendingItems = (items: PendingItem[]): PendingItem[] =>
         operation = operation ?? mapped.operation;
       }
 
-      switch (type) {
-        case "create_task":
-          type = "task";
-          operation = operation ?? "create";
-          break;
-        case "create_note":
-          type = "note";
-          operation = operation ?? "create";
-          break;
-        case "create_shopping_item":
-          type = "shopping";
-          operation = operation ?? "create";
-          break;
-        case "create_survey":
-          type = "survey";
-          operation = operation ?? "create";
-          break;
-        case "create_contact":
-          type = "contact";
-          operation = operation ?? "create";
-          break;
-        case "create_multiple_items":
-          type = (item.data?.type as string) || "task";
-          operation = operation ?? "bulk_create";
-          break;
-        case "create_multiple_tasks":
-          type = "task";
-          operation = operation ?? "bulk_create";
-          break;
-        case "create_multiple_notes":
-          type = "note";
-          operation = operation ?? "bulk_create";
-          break;
-        case "create_multiple_shopping_items":
-          type = "shopping";
-          operation = operation ?? "bulk_create";
-          break;
-        case "create_multiple_surveys":
-          type = "survey";
-          operation = operation ?? "bulk_create";
-          break;
-        case "create_labor_item":
-          type = "labor";
-          operation = operation ?? "create";
-          break;
-        case "create_labor_section":
-          type = "laborSection";
-          operation = operation ?? "create";
-          break;
-        case "create_multiple_labor_items":
-          type = "labor";
-          operation = operation ?? "bulk_create";
-          break;
-        default:
-          break;
-      }
-
       const finalType = isPendingItemType(type) ? type : item.type;
       const finalOperation = operation ?? item.operation ?? "create";
 
@@ -250,8 +290,10 @@ export const normalizePendingItems = (items: PendingItem[]): PendingItem[] =>
         const hasBulkNotes = Array.isArray(data.notes) || (Array.isArray(data.items) && finalType === "note");
         const hasBulkShopping = Array.isArray(data.items) && finalType === "shopping";
         const hasBulkLabor = Array.isArray(data.items) && finalType === "labor";
+        const hasBulkSurveys = Array.isArray(data.surveys) || (Array.isArray(data.items) && finalType === "survey");
+        const hasBulkContacts = Array.isArray(data.contacts) || (Array.isArray(data.items) && finalType === "contact");
 
-        if (hasBulkTasks || hasBulkNotes || hasBulkShopping || hasBulkLabor) {
+        if (hasBulkTasks || hasBulkNotes || hasBulkShopping || hasBulkLabor || hasBulkSurveys || hasBulkContacts) {
           return {
             ...item,
             type: finalType,
@@ -457,6 +499,8 @@ export const normalizePendingItems = (items: PendingItem[]): PendingItem[] =>
       if (item.operation === "bulk_create") {
         const surveys = Array.isArray(item.data?.surveys)
           ? (item.data!.surveys as Array<Record<string, unknown>>)
+          : Array.isArray(item.data?.items)
+            ? (item.data!.items as Array<Record<string, unknown>>)
           : [];
         const preview = surveys
           .slice(0, 3)
@@ -673,8 +717,14 @@ export const expandBulkEditItems = (items: PendingItem[]): PendingItem[] => {
       const laborItems = item.type === 'labor' && Array.isArray(item.data?.items) ? (item.data.items as LaborItemInput[]) : [];
       const contacts = Array.isArray((item.data as { contacts?: unknown })?.contacts)
         ? ((item.data as { contacts: ContactInput[] }).contacts)
+        : item.type === "contact" && Array.isArray(item.data?.items)
+          ? (item.data.items as ContactInput[])
         : [];
-      const surveys = Array.isArray(item.data?.surveys) ? (item.data.surveys as Array<Record<string, unknown>>) : [];
+      const surveys = Array.isArray(item.data?.surveys)
+        ? (item.data.surveys as Array<Record<string, unknown>>)
+        : item.type === "survey" && Array.isArray(item.data?.items)
+          ? (item.data.items as Array<Record<string, unknown>>)
+          : [];
 
       const expandedItems: PendingItem[] = [];
 
@@ -986,10 +1036,4 @@ export const resolveSectionName = (rawSectionName?: unknown, rawCategory?: unkno
   const normalizedCategory = typeof rawCategory === "string" ? rawCategory.trim() : "";
   return normalizedCategory.length > 0 ? normalizedCategory : undefined;
 };
-
-
-
-
-
-
 

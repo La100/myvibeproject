@@ -37,7 +37,7 @@ steps:
       Stwórz notatkę z proponowanym układem.
     description: Zaplanuj nowy układ kuchni.
     enabledTools:
-      - create_note
+      - create_item
   - id: style-selection
     name: Wybór Stylu
     prompt: |
@@ -62,7 +62,7 @@ steps:
       Zapisz wybory użytkownika jako notatkę ze specyfikacją.
     description: Wybierz styl i materiały wykończeniowe.
     enabledTools:
-      - create_note
+      - create_item
   - id: appliances
     name: Sprzęt AGD
     prompt: |
@@ -83,8 +83,8 @@ steps:
       Dodaj wybrane sprzęty do listy zakupów z orientacyjnymi cenami.
     description: Zaplanuj sprzęty AGD.
     enabledTools:
-      - create_shopping_item
-      - create_multiple_shopping_items
+      - create_item
+      - create_multiple_items
       - create_shopping_section
   - id: materials-budget
     name: Materiały i Budżet
@@ -103,8 +103,8 @@ steps:
       Na koniec podsumuj całkowity budżet.
     description: Stwórz kompletną listę zakupów z budżetem.
     enabledTools:
-      - create_shopping_item
-      - create_multiple_shopping_items
+      - create_item
+      - create_multiple_items
       - create_shopping_section
   - id: tasks-schedule
     name: Zadania i Harmonogram
@@ -135,8 +135,8 @@ steps:
       Utwórz zadania z przypisanymi datami.
     description: Zaplanuj prace i harmonogram.
     enabledTools:
-      - create_task
-      - create_multiple_tasks
+      - create_item
+      - create_multiple_items
 ---
 
 # Remont Kuchni

@@ -3,6 +3,12 @@ import { ConvexHttpClient } from "convex/browser"
 import type { Id } from "@/convex/_generated/dataModel"
 import { apiAny } from "@/lib/convexApiAny"
 
+const DEFAULT_ALLOWED_WEB_ORIGINS = new Set(
+  ["https://myvibeproject.com", "http://localhost:3000", "http://localhost:3001"] as const,
+)
+const CORS_ALLOWED_METHODS = "GET, POST, OPTIONS"
+const CORS_FALLBACK_ALLOWED_HEADERS = "Authorization, Content-Type"
+
 const PRIORITIES = new Set(["low", "medium", "high", "urgent"] as const)
 const REALIZATION_STATUSES = new Set(
   ["PLANNED", "ORDERED", "IN_TRANSIT", "DELIVERED", "COMPLETED", "CANCELLED"] as const,
@@ -26,6 +32,7 @@ interface AddShoppingListItemPayload {
   quantity: number
   totalPrice?: number
   supplier?: string
+  catalogNumber?: string
   notes?: string
   productLink?: string
   imageUrl?: string
@@ -33,8 +40,71 @@ interface AddShoppingListItemPayload {
   realizationStatus: RealizationStatus
 }
 
-function jsonError(message: string, status: number) {
-  return NextResponse.json({ message }, { status })
+function parseConfiguredWebOrigins(): Set<string> {
+  const envOrigins = (process.env.CLIPPER_ALLOWED_ORIGINS ?? "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean)
+
+  const nextPublicAppUrl = process.env.NEXT_PUBLIC_APP_URL?.trim()
+  if (nextPublicAppUrl) {
+    envOrigins.push(nextPublicAppUrl)
+  }
+
+  return new Set([...DEFAULT_ALLOWED_WEB_ORIGINS, ...envOrigins])
+}
+
+const ALLOWED_WEB_ORIGINS = parseConfiguredWebOrigins()
+
+function isAllowedCorsOrigin(origin: string): boolean {
+  if (!origin) {
+    return false
+  }
+
+  if (origin.startsWith("chrome-extension://")) {
+    return true
+  }
+
+  return ALLOWED_WEB_ORIGINS.has(origin)
+}
+
+function getCorsHeaders(req: Request): HeadersInit | null {
+  const origin = req.headers.get("origin")?.trim() ?? ""
+  if (!isAllowedCorsOrigin(origin)) {
+    return null
+  }
+
+  const requestedHeaders = req.headers
+    .get("access-control-request-headers")
+    ?.trim()
+
+  return {
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Methods": CORS_ALLOWED_METHODS,
+    "Access-Control-Allow-Headers":
+      requestedHeaders && requestedHeaders.length > 0
+        ? requestedHeaders
+        : CORS_FALLBACK_ALLOWED_HEADERS,
+    "Access-Control-Max-Age": "86400",
+    Vary: "Origin, Access-Control-Request-Headers",
+  }
+}
+
+function withCors(req: Request, response: NextResponse): NextResponse {
+  const corsHeaders = getCorsHeaders(req)
+  if (!corsHeaders) {
+    return response
+  }
+
+  for (const [header, value] of Object.entries(corsHeaders)) {
+    response.headers.set(header, value)
+  }
+
+  return response
+}
+
+function jsonError(req: Request, message: string, status: number) {
+  return withCors(req, NextResponse.json({ message }, { status }))
 }
 
 function getAuthTokenFromRequest(req: Request): string | null {
@@ -177,6 +247,7 @@ function validateClipperPostPayload(raw: unknown): AddShoppingListItemPayload {
     quantity,
     totalPrice,
     supplier: asOptionalBoundedString(body.supplier, "supplier", 160),
+    catalogNumber: asOptionalBoundedString(body.catalogNumber, "catalogNumber", 120),
     notes: asOptionalBoundedString(body.notes, "notes", 8_000),
     productLink: asOptionalHttpUrl(body.productLink, "productLink"),
     imageUrl: asOptionalHttpUrl(body.imageUrl, "imageUrl"),
@@ -203,7 +274,7 @@ function extractErrorMessage(error: unknown): string {
 export async function GET(req: Request) {
   const token = getAuthTokenFromRequest(req)
   if (!token) {
-    return jsonError("Authorization token is missing.", 401)
+    return jsonError(req, "Authorization token is missing.", 401)
   }
 
   try {
@@ -217,7 +288,7 @@ export async function GET(req: Request) {
     const projectId = searchParams.get("projectId")?.trim() || null
 
     if (projectId && !teamId) {
-      return jsonError("teamId is required when projectId is provided.", 400)
+      return jsonError(req, "teamId is required when projectId is provided.", 400)
     }
 
     if (teamId && projectId) {
@@ -231,18 +302,18 @@ export async function GET(req: Request) {
           teamId: teamId as Id<"teams">,
         }),
       ])
-      return NextResponse.json({ sections, items })
+      return withCors(req, NextResponse.json({ sections, items }))
     }
 
     if (teamId) {
       const projects = await convexAny.query(apiAny.clipper.getProjectsForTeam, {
         teamId: teamId as Id<"teams">,
       })
-      return NextResponse.json({ projects })
+      return withCors(req, NextResponse.json({ projects }))
     }
 
     const data = await convexAny.query(apiAny.clipper.getTeamsAndProjects, {})
-    return NextResponse.json(data)
+    return withCors(req, NextResponse.json(data))
   } catch (error: unknown) {
     const message = extractErrorMessage(error)
     const status = /not authenticated|authorization|token/i.test(message)
@@ -252,14 +323,14 @@ export async function GET(req: Request) {
         : 500
 
     console.error("[CLIPPER_API_GET_ERROR]", { message })
-    return jsonError(message, status)
+    return jsonError(req, message, status)
   }
 }
 
 export async function POST(req: Request) {
   const token = getAuthTokenFromRequest(req)
   if (!token) {
-    return jsonError("Authorization token is missing.", 401)
+    return jsonError(req, "Authorization token is missing.", 401)
   }
 
   try {
@@ -271,7 +342,7 @@ export async function POST(req: Request) {
     }
 
     const newItem = await convexAny.mutation(apiAny.clipper.addShoppingListItem, payload)
-    return NextResponse.json(newItem)
+    return withCors(req, NextResponse.json(newItem))
   } catch (error: unknown) {
     const message = extractErrorMessage(error)
     const status = /invalid|required|field/i.test(message)
@@ -281,6 +352,18 @@ export async function POST(req: Request) {
         : 500
 
     console.error("[CLIPPER_API_POST_ERROR]", { message })
-    return jsonError(message, status)
+    return jsonError(req, message, status)
   }
+}
+
+export async function OPTIONS(req: Request) {
+  const corsHeaders = getCorsHeaders(req)
+  if (!corsHeaders) {
+    return new NextResponse(null, { status: 204 })
+  }
+
+  return new NextResponse(null, {
+    status: 204,
+    headers: corsHeaders,
+  })
 }

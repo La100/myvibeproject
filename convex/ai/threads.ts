@@ -4,70 +4,8 @@ import { components } from "../_generated/api";
 import { internalQuery, internalMutation, mutation, query } from "../_generated/server";
 
 function resolveAgentThreadId(thread: { threadId: string; agentThreadId?: string | undefined }) {
-  if (thread.agentThreadId) {
-    return thread.agentThreadId;
-  }
-  if (thread.threadId.startsWith("thread-") || thread.threadId.startsWith("thread_")) {
-    return undefined;
-  }
-  return thread.threadId;
+  return thread.agentThreadId ?? thread.threadId;
 }
-
-function isLegacyThreadId(threadId: string): boolean {
-  return threadId.startsWith("thread-") || threadId.startsWith("thread_");
-}
-
-// Get thread for Responses API (includes lastResponseId)
-export const getThreadForResponses = internalQuery({
-  args: {
-    threadId: v.string(),
-  },
-  returns: v.union(v.null(), v.object({
-    _id: v.id("aiThreads"),
-    threadId: v.string(),
-    projectId: v.id("projects"),
-    lastResponseId: v.optional(v.string()),
-    agentThreadId: v.optional(v.string()),
-  })),
-  handler: async (ctx, args) => {
-    const thread = await ctx.db
-      .query("aiThreads")
-      .withIndex("by_thread_id", (q) => q.eq("threadId", args.threadId))
-      .unique();
-
-    if (!thread) {
-      return null;
-    }
-
-    return {
-      _id: thread._id,
-      threadId: thread.threadId,
-      projectId: thread.projectId,
-      lastResponseId: thread.lastResponseId,
-      agentThreadId: thread.agentThreadId,
-    };
-  },
-});
-
-// Helper to map legacy thread ID to agent thread ID
-export const saveAgentThreadMapping = internalMutation({
-  args: {
-    threadId: v.string(),
-    agentThreadId: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const thread = await ctx.db
-      .query("aiThreads")
-      .withIndex("by_thread_id", (q) => q.eq("threadId", args.threadId))
-      .unique();
-
-    if (thread) {
-      await ctx.db.patch(thread._id, {
-        agentThreadId: args.agentThreadId,
-      });
-    }
-  },
-});
 
 export const updateThreadSummary = internalMutation({
   args: {
@@ -217,21 +155,8 @@ export const getLatestAssistantMessageText = internalQuery({
   },
   returns: v.union(v.null(), v.string()),
   handler: async (ctx, args) => {
-    let agentThreadId = args.threadId;
-
-    if (isLegacyThreadId(args.threadId)) {
-      const mapping = await ctx.db
-        .query("aiThreads")
-        .withIndex("by_thread_id", (q) => q.eq("threadId", args.threadId))
-        .unique();
-      if (!mapping?.agentThreadId) {
-        return null;
-      }
-      agentThreadId = mapping.agentThreadId;
-    }
-
     const latestMessages = await listMessages(ctx, components.agent, {
-      threadId: agentThreadId,
+      threadId: args.threadId,
       paginationOpts: { cursor: null, numItems: 5 },
       excludeToolMessages: true,
     });

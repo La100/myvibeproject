@@ -43,13 +43,6 @@ export const OPERATION_LABELS: Record<
 };
 
 export function getCanonicalType(type: PendingContentType): string {
-  const typeStr = type as string;
-  if (typeStr.startsWith("create_multiple_")) {
-    return typeStr.replace("create_multiple_", "").replace(/s$/, "");
-  }
-  if (typeStr.startsWith("create_")) {
-    return typeStr.replace("create_", "");
-  }
   return type;
 }
 
@@ -80,9 +73,6 @@ export function getDescription(item: PendingContentItem): string | undefined {
 
 export function getOperation(item: PendingContentItem): string {
   if (item.operation) return item.operation;
-  const typeStr = item.type as string;
-  if (typeStr.startsWith("create_multiple_")) return "bulk_create";
-  if (typeStr.startsWith("create_")) return "create";
   return "create";
 }
 

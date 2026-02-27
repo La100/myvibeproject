@@ -35,7 +35,6 @@ export async function confirmCreateItem(
   // Create operations
   switch (item.type) {
     case 'task':
-    case 'create_task':
       const cleanTaskData = { ...(item.data as Record<string, unknown>) };
       delete cleanTaskData.assignedToName;
       result = await createConfirmedTask({
@@ -52,16 +51,12 @@ export async function confirmCreateItem(
         },
       });
       break;
-    case 'create_multiple_notes':
-    case 'create_note':
     case 'note':
       result = await createConfirmedNote({
         projectId,
         noteData: item.data as { title: string; content: string }
       });
       break;
-    case 'create_multiple_shopping_items':
-    case 'create_shopping_item':
     case 'shopping': {
       const rawShoppingData = extractShoppingInput(item.data);
       const { sectionName, ...shoppingItemData } = rawShoppingData;
@@ -141,16 +136,13 @@ export async function confirmCreateItem(
       };
       break;
     }
-    case 'create_multiple_surveys':
-    case 'create_survey':
     case 'survey':
       result = await createConfirmedSurvey({
         projectId,
         surveyData: extractSurveyData(item.data)
       });
       break;
-    case 'contact':
-    case 'create_contact': {
+    case 'contact': {
       const slug = resolveTeamSlug();
       if (!slug) {
         throw new Error("Missing team slug for contact creation");

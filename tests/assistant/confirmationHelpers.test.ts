@@ -10,20 +10,20 @@ import {
   shouldRenderByState,
 } from "../../components/ai/assistant/ui/confirmations/helpers.ts";
 
-test("maps create_multiple_* type to canonical item type", () => {
-  assert.equal(getCanonicalType("create_multiple_tasks" as any), "task");
-  assert.equal(getCanonicalType("create_shopping_item" as any), "shopping_item");
+test("returns canonical item type as-is", () => {
+  assert.equal(getCanonicalType("task" as any), "task");
+  assert.equal(getCanonicalType("shopping" as any), "shopping");
   assert.equal(getCanonicalType("task" as any), "task");
 });
 
 test("derives operation and approval label/state", () => {
   const pendingItem: any = {
-    type: "create_multiple_tasks",
+    type: "task",
     status: "pending",
     data: { title: "Kup materialy" },
   };
 
-  assert.equal(getOperation(pendingItem), "bulk_create");
+  assert.equal(getOperation(pendingItem), "create");
   assert.equal(getApprovalState({ ...pendingItem, status: "confirmed" }), "output-available");
   assert.equal(getApprovalLabel("output-available" as any), "Approved");
   assert.equal(shouldRenderByState("input-streaming" as any), false);

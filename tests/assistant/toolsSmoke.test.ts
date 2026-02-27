@@ -48,6 +48,210 @@ test("update_item uses runQuery for getItemById lookup", async () => {
   assert.equal(parsed.originalItem._id, "shopping_1");
 });
 
+test("create_item maps shopping title alias into name", async () => {
+  const createStreamingTools = await getCreateStreamingTools();
+  const tools = createStreamingTools({ projectId: "project_1" });
+
+  const raw = await tools.create_item.execute({
+    type: "shopping",
+    data: {
+      title: "Farba biala",
+      quantity: 2,
+    } as any,
+  });
+  const parsed = JSON.parse(raw);
+
+  assert.equal(parsed.operation, "create");
+  assert.equal(parsed.data.name, "Farba biala");
+});
+
+test("create_item maps task name alias into title", async () => {
+  const createStreamingTools = await getCreateStreamingTools();
+  const tools = createStreamingTools({ projectId: "project_1" });
+
+  const raw = await tools.create_item.execute({
+    type: "task",
+    data: {
+      name: "Rozpisac harmonogram",
+      priority: "high",
+    } as any,
+  });
+  const parsed = JSON.parse(raw);
+
+  assert.equal(parsed.operation, "create");
+  assert.equal(parsed.data.title, "Rozpisac harmonogram");
+});
+
+test("create_item supports all assistant entity types", async () => {
+  const createStreamingTools = await getCreateStreamingTools();
+  const tools = createStreamingTools({ projectId: "project_1" });
+
+  const cases: Array<{
+    type: "task" | "note" | "shopping" | "labor" | "survey" | "contact" | "shoppingSection" | "laborSection";
+    data: Record<string, unknown>;
+  }> = [
+    { type: "task", data: { title: "Task test" } },
+    { type: "note", data: { title: "Note test", content: "Body" } },
+    { type: "shopping", data: { name: "Farba", quantity: 1 } },
+    { type: "labor", data: { name: "Malowanie", quantity: 1 } },
+    {
+      type: "survey",
+      data: {
+        title: "Survey test",
+        questions: [{ questionText: "Czy ok?", questionType: "yes_no" }],
+      },
+    },
+    { type: "contact", data: { name: "Jan Kowalski" } },
+    { type: "shoppingSection", data: { name: "Sciany" } },
+    { type: "laborSection", data: { name: "Roboty mokre" } },
+  ];
+
+  for (const entry of cases) {
+    const raw = await tools.create_item.execute({
+      type: entry.type,
+      data: entry.data as any,
+    });
+    const parsed = JSON.parse(raw);
+    assert.equal(parsed.error, undefined);
+    assert.equal(parsed.operation, "create");
+    assert.equal(parsed.type, entry.type);
+  }
+});
+
+test("create_item keeps survey single-question fields in payload", async () => {
+  const createStreamingTools = await getCreateStreamingTools();
+  const tools = createStreamingTools({ projectId: "project_1" });
+
+  const raw = await tools.create_item.execute({
+    type: "survey",
+    data: {
+      title: "Ankieta testowa",
+      questionText: "Jak oceniasz dzisiejszy dzien?",
+      questionType: "rating",
+      order: 1,
+    } as any,
+  });
+  const parsed = JSON.parse(raw);
+
+  assert.equal(parsed.operation, "create");
+  assert.equal(parsed.type, "survey");
+  assert.equal(parsed.data.title, "Ankieta testowa");
+  assert.equal(parsed.data.questionText, "Jak oceniasz dzisiejszy dzien?");
+  assert.equal(parsed.data.questionType, "rating");
+  assert.equal(parsed.data.order, undefined);
+});
+
+test("create_item strips unsupported order from survey questions array", async () => {
+  const createStreamingTools = await getCreateStreamingTools();
+  const tools = createStreamingTools({ projectId: "project_1" });
+
+  const raw = await tools.create_item.execute({
+    type: "survey",
+    data: {
+      title: "Ankieta testowa",
+      questions: [
+        {
+          questionText: "Jak oceniasz dzisiejszy dzien?",
+          questionType: "rating",
+          order: 1,
+          isRequired: true,
+        },
+      ],
+    } as any,
+  });
+  const parsed = JSON.parse(raw);
+
+  assert.equal(parsed.operation, "create");
+  assert.equal(parsed.type, "survey");
+  assert.equal(Array.isArray(parsed.data.questions), true);
+  assert.equal(parsed.data.questions[0].questionText, "Jak oceniasz dzisiejszy dzien?");
+  assert.equal(parsed.data.questions[0].questionType, "rating");
+  assert.equal(parsed.data.questions[0].isRequired, true);
+  assert.equal(parsed.data.questions[0].order, undefined);
+});
+
+test("create_multiple_items uses surveys key for bulk survey payload", async () => {
+  const createStreamingTools = await getCreateStreamingTools();
+  const tools = createStreamingTools({ projectId: "project_1" });
+
+  const raw = await tools.create_multiple_items.execute({
+    type: "survey",
+    items: [
+      {
+        title: "Ankieta 1",
+        questions: [
+          {
+            questionText: "Czy materialy sa ok?",
+            questionType: "yes_no",
+            isRequired: true,
+          },
+        ],
+      },
+    ] as any,
+  });
+  const parsed = JSON.parse(raw);
+
+  assert.equal(parsed.operation, "bulk_create");
+  assert.equal(Array.isArray(parsed.data?.surveys), true);
+  assert.equal(parsed.data.surveys.length, 1);
+  assert.equal(parsed.data.surveys[0].title, "Ankieta 1");
+  assert.equal(Array.isArray(parsed.data?.items), false);
+});
+
+test("create_multiple_items uses contacts key for bulk contact payload", async () => {
+  const createStreamingTools = await getCreateStreamingTools();
+  const tools = createStreamingTools({ projectId: "project_1" });
+
+  const raw = await tools.create_multiple_items.execute({
+    type: "contact",
+    items: [
+      {
+        name: "Jan Kowalski",
+        email: "jan@example.com",
+      },
+    ] as any,
+  });
+  const parsed = JSON.parse(raw);
+
+  assert.equal(parsed.operation, "bulk_create");
+  assert.equal(Array.isArray(parsed.data?.contacts), true);
+  assert.equal(parsed.data.contacts.length, 1);
+  assert.equal(parsed.data.contacts[0].name, "Jan Kowalski");
+  assert.equal(Array.isArray(parsed.data?.items), false);
+});
+
+test("create_multiple_items rejects entries missing required primary field", async () => {
+  const createStreamingTools = await getCreateStreamingTools();
+  const tools = createStreamingTools({ projectId: "project_1" });
+
+  const raw = await tools.create_multiple_items.execute({
+    type: "shopping",
+    items: [
+      { name: "Walek" } as any,
+      { title: "   " } as any,
+    ],
+  });
+  const parsed = JSON.parse(raw);
+
+  assert.equal(parsed.operation, undefined);
+  assert.equal(parsed.error, "Cannot create shopping items without name");
+  assert.deepEqual(parsed.invalidItemPositions, [2]);
+});
+
+test("create_multiple_items rejects empty input list", async () => {
+  const createStreamingTools = await getCreateStreamingTools();
+  const tools = createStreamingTools({ projectId: "project_1" });
+
+  const raw = await tools.create_multiple_items.execute({
+    type: "shopping",
+    items: [],
+  });
+  const parsed = JSON.parse(raw);
+
+  assert.equal(parsed.operation, undefined);
+  assert.equal(parsed.error, "No items were provided for bulk create");
+});
+
 test("update_item accepts top-level shopping price fields without data wrapper", async () => {
   const createStreamingTools = await getCreateStreamingTools();
   const tools = createStreamingTools({
@@ -336,6 +540,27 @@ test("update_item accepts survey question operations metadata", async () => {
   assert.equal(parsed.updates.questions[0].questionId, "question_1");
   assert.equal(parsed.updates.questions[0].operation, "edit");
   assert.equal(parsed.updates.questions[0].questionText, "Updated question");
+});
+
+test("delete_item blocks cross-project deletion candidates", async () => {
+  const createStreamingTools = await getCreateStreamingTools();
+  const tools = createStreamingTools({
+    projectId: "project_1",
+    runQuery: async (_queryRef: unknown, args: { itemId: string }) => ({
+      _id: args.itemId,
+      projectId: "project_2",
+      title: "Other project task",
+    }),
+  });
+
+  const raw = await tools.delete_item.execute({
+    type: "task",
+    itemId: "task_other",
+  });
+  const parsed = JSON.parse(raw);
+
+  assert.equal(parsed.operation, undefined);
+  assert.equal(parsed.error, "Cannot delete item outside the active project");
 });
 
 test("search_items uses runAction (not runQuery)", async () => {

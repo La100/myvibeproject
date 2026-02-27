@@ -28,6 +28,7 @@ import TaskForm from "./TaskForm";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -174,10 +175,6 @@ export default function TasksView() {
 
   const tasksToDisplay = tasks ?? preservedTasks;
 
-  const hasAccess = useQuery(apiAny.projects.checkUserProjectAccess, 
-    project ? { projectId: project._id } : "skip"
-  );
-  
   const updateTaskStatus = useMutation(apiAny.tasks.updateTaskStatus);
   
   const statusOptions = useMemo(() => 
@@ -285,7 +282,7 @@ export default function TasksView() {
 
   const isFiltered = filters.searchQuery !== "" || filters.status.length > 0 || filters.priority.length > 0 || filters.assignedTo.length > 0 || filters.tags.length > 0;
 
-  if (project === undefined || hasAccess === undefined || teamMembers === undefined) {
+  if (project === undefined || teamMembers === undefined) {
     return <TasksViewSkeleton viewMode={viewMode} />;
   }
 
@@ -293,46 +290,39 @@ export default function TasksView() {
     return <div>Project not found.</div>;
   }
 
-  if (hasAccess === false) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <p>You do not have access to view tasks for this project.</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col h-full p-4">
-       <div className="flex-shrink-0 sticky top-0 z-10 p-4 border-b mb-4">
-         <div className="flex items-center justify-between">
-           <div>
-             <h1 className="text-2xl font-bold">{project.name} Tasks</h1>
-             <p className="text-muted-foreground">Manage your project's tasks</p>
-           </div>
-           <div className="flex items-center gap-2">
-             <Button onClick={() => setIsTaskFormOpen(true)} disabled={!hasAccess}>
-                Add Task
-            </Button>
-             <div className="flex items-center rounded-md border bg-background">
-                <Button
-                 variant={viewMode === 'kanban' ? 'secondary' : 'ghost'}
-                 size="sm"
-                 onClick={() => setViewMode('kanban')}
-                 className="rounded-r-none"
-               >
-                 <LayoutGrid className="h-4 w-4" />
+    <div className="flex flex-col gap-4">
+       <div className="mb-2">
+         <ProjectPageHeader
+           title="Tasks"
+           icon={<ListTodo className="h-8 w-8 text-[var(--ui-accent-brand)]" />}
+           subtitle={`Manage tasks for ${project.name}`}
+           actions={
+             <div className="flex items-center gap-2">
+               <Button onClick={() => setIsTaskFormOpen(true)}>
+                 Add Task
                </Button>
-               <Button
-                 variant={viewMode === 'list' ? 'secondary' : 'ghost'}
-                 size="sm"
-                 onClick={() => setViewMode('list')}
-                 className="rounded-l-none"
-               >
-                 <List className="h-4 w-4" />
-               </Button>
+               <div className="flex items-center rounded-md border bg-background">
+                 <Button
+                   variant={viewMode === "kanban" ? "secondary" : "ghost"}
+                   size="sm"
+                   onClick={() => setViewMode("kanban")}
+                   className="rounded-r-none"
+                 >
+                   <LayoutGrid className="h-4 w-4" />
+                 </Button>
+                 <Button
+                   variant={viewMode === "list" ? "secondary" : "ghost"}
+                   size="sm"
+                   onClick={() => setViewMode("list")}
+                   className="rounded-l-none"
+                 >
+                   <List className="h-4 w-4" />
+                 </Button>
+               </div>
              </div>
-           </div>
-         </div>
+           }
+         />
          
          {/* Filters */}
          <div className="flex items-center gap-2 mt-4">
@@ -390,7 +380,7 @@ export default function TasksView() {
         </DialogContent>
       </Dialog>
 
-      <div className="flex-grow overflow-y-auto overflow-x-hidden">
+      <div className="overflow-y-auto overflow-x-hidden">
         {localKanbanTasks.length === 0 ? (
           <EmptyState
             icon={ListTodo}

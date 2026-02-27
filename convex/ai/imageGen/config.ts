@@ -1,5 +1,5 @@
 export const IMAGE_GENERATION_CONFIG = {
-  // Gemini Model ID
+  // Nano Banana Pro model (Gemini 3 Pro Image Preview)
   MODEL_ID: "gemini-3-pro-image-preview",
 
   // System prompt for architectural visualizations

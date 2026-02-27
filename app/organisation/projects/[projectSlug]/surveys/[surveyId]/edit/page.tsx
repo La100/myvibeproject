@@ -28,8 +28,7 @@ export default function EditSurveyPage() {
 
   return (
     <ProjectPageLayout>
-      <div className="p-6">
-        <h1 className="text-3xl font-bold mb-6">Edit Survey</h1>
+      <div>
         <EditSurveyForm survey={transformedSurvey} />
       </div>
     </ProjectPageLayout>

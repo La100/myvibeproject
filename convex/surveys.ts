@@ -1,10 +1,15 @@
 import { v } from "convex/values";
-import { query, mutation, internalQuery, internalMutation } from "./_generated/server";
+import { query, mutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Doc, Id } from "./_generated/dataModel";
 
 const getPortalRespondentId = (projectId: Id<"projects">, respondentKey: string) =>
   `portal:${projectId}:${respondentKey.trim().toLowerCase()}`;
+const getPortalActorName = (name?: string) => {
+  const trimmed = typeof name === "string" ? name.trim() : "";
+  return trimmed.length > 0 ? trimmed : "Client (portal)";
+};
+const logActivityMutation = internal.activityLog.logActivity;
 
 const isSurveyVisibleInPublicPortal = (survey: Doc<"surveys">, now: number) => {
   if (survey.status === "closed") return false;
@@ -62,7 +67,7 @@ export const createSurvey = mutation({
       updatedAt: Date.now(),
     });
 
-    await ctx.runMutation(internal.activityLog.logActivity, {
+    await ctx.runMutation(logActivityMutation, {
       teamId: project.teamId,
       projectId: args.projectId,
       
@@ -73,112 +78,6 @@ export const createSurvey = mutation({
     });
 
     return surveyId;
-  },
-});
-
-export const cleanupSurveyLegacyAudienceFields = mutation({
-  args: {
-    projectId: v.id("projects"),
-  },
-  returns: v.object({
-    success: v.boolean(),
-    total: v.number(),
-    updated: v.number(),
-  }),
-  async handler(ctx, args) {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project) {
-      throw new Error("Project not found");
-    }
-
-    const teamMember = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
-      )
-      .unique();
-
-    if (!teamMember || teamMember.role !== "admin") {
-      throw new Error("Only admins can run survey cleanup");
-    }
-
-    const surveys = await ctx.db
-      .query("surveys")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .collect();
-
-    let updated = 0;
-    for (const survey of surveys) {
-      const hasLegacyTargetAudience = Object.prototype.hasOwnProperty.call(survey, "targetAudience");
-      const hasLegacyTargetCustomerIds = Object.prototype.hasOwnProperty.call(survey, "targetCustomerIds");
-
-      if (!hasLegacyTargetAudience && !hasLegacyTargetCustomerIds) {
-        continue;
-      }
-
-      await ctx.db.patch(survey._id, {
-        targetAudience: undefined,
-        targetCustomerIds: undefined,
-        updatedAt: Date.now(),
-      });
-      updated += 1;
-    }
-
-    return {
-      success: true,
-      total: surveys.length,
-      updated,
-    };
-  },
-});
-
-export const cleanupSurveyLegacyAudienceFieldsInternal = internalMutation({
-  args: {
-    projectId: v.id("projects"),
-  },
-  returns: v.object({
-    success: v.boolean(),
-    total: v.number(),
-    updated: v.number(),
-  }),
-  async handler(ctx, args) {
-    const project = await ctx.db.get(args.projectId);
-    if (!project) {
-      throw new Error("Project not found");
-    }
-
-    const surveys = await ctx.db
-      .query("surveys")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .collect();
-
-    let updated = 0;
-    for (const survey of surveys) {
-      const hasLegacyTargetAudience = Object.prototype.hasOwnProperty.call(survey, "targetAudience");
-      const hasLegacyTargetCustomerIds = Object.prototype.hasOwnProperty.call(survey, "targetCustomerIds");
-
-      if (!hasLegacyTargetAudience && !hasLegacyTargetCustomerIds) {
-        continue;
-      }
-
-      await ctx.db.patch(survey._id, {
-        targetAudience: undefined,
-        targetCustomerIds: undefined,
-        updatedAt: Date.now(),
-      });
-      updated += 1;
-    }
-
-    return {
-      success: true,
-      total: surveys.length,
-      updated,
-    };
   },
 });
 
@@ -590,6 +489,20 @@ export const submitPublicSurveyResponseByAccessToken = mutation({
       },
     });
 
+    await ctx.db.insert("activityLog", {
+      teamId: project.teamId,
+      projectId: project._id,
+      userId: `client-portal:${project._id}`,
+      actionType: "survey.response.submit",
+      details: {
+        actorName: getPortalActorName(args.respondentName),
+        surveyTitle: survey.title,
+        responseId: String(response._id),
+      },
+      entityId: String(args.surveyId),
+      entityType: "survey",
+    });
+
     return { success: true, responseId: response._id };
   },
 });
@@ -630,7 +543,7 @@ export const updateSurvey = mutation({
     const { surveyId, ...updates } = args;
     await ctx.db.patch(surveyId, { ...updates, updatedAt: Date.now() });
 
-    await ctx.runMutation(internal.activityLog.logActivity, {
+    await ctx.runMutation(logActivityMutation, {
       teamId: survey.teamId,
       projectId: survey.projectId,
       
@@ -669,7 +582,7 @@ export const deleteSurvey = mutation({
       throw new Error("Only admins can delete surveys");
     }
 
-    await ctx.runMutation(internal.activityLog.logActivity, {
+    await ctx.runMutation(logActivityMutation, {
       teamId: survey.teamId,
       projectId: survey.projectId,
       
@@ -761,7 +674,7 @@ export const addQuestion = mutation({
       order: maxOrder + 1,
     });
 
-    await ctx.runMutation(internal.activityLog.logActivity, {
+    await ctx.runMutation(logActivityMutation, {
       teamId: survey.teamId,
       projectId: survey.projectId,
       
@@ -824,7 +737,7 @@ export const updateQuestion = mutation({
     const { questionId, ...updates } = args;
     await ctx.db.patch(questionId, updates);
 
-    await ctx.runMutation(internal.activityLog.logActivity, {
+    await ctx.runMutation(logActivityMutation, {
       teamId: survey.teamId,
       projectId: survey.projectId,
       
@@ -868,7 +781,7 @@ export const deleteQuestion = mutation({
       throw new Error("Insufficient permissions to delete question");
     }
 
-    await ctx.runMutation(internal.activityLog.logActivity, {
+    await ctx.runMutation(logActivityMutation, {
       teamId: survey.teamId,
       projectId: survey.projectId,
       

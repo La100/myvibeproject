@@ -33,7 +33,7 @@ Use only these tool names:
 - load_full_project_context
 - update_project_settings
 
-Never invent tool names. If workflow text mentions legacy names (for example create_task/edit_task), map them to the generic tools above.
+Never invent tool names.
 
 ## Language and Output Style
 

@@ -202,6 +202,12 @@ const formatPortalDate = (timestamp?: number) => {
 const formatTaskStatus = (status: PublicTask["status"]) =>
   status.replace(/_/g, " ").toUpperCase();
 
+const formatMoodboardSectionLabel = (section?: string) => {
+  const normalized = section?.trim();
+  if (!normalized) return "Moodboard";
+  return /^\d+$/.test(normalized) ? `Section ${normalized}` : normalized;
+};
+
 const getMaterialDecisionLabel = (decision: MaterialDecision) => {
   if (decision === "accepted") return "Accepted";
   if (decision === "rejected") return "Rejected";
@@ -345,6 +351,7 @@ export default function PublicClientPanelPage() {
   const [isExportingMaterialsPdf, setIsExportingMaterialsPdf] = useState(false);
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const [respondentName, setRespondentName] = useState("");
+  const [selectedMoodboardFile, setSelectedMoodboardFile] = useState<ClientPanelFile | null>(null);
 
   const project = panelData?.project;
   const sections = (panelData?.sections as ClientPanelSection[] | undefined) ?? EMPTY_SECTIONS;
@@ -359,6 +366,33 @@ export default function PublicClientPanelPage() {
   const settings = panelData?.settings ?? DEFAULT_CLIENT_PANEL_SETTINGS;
 
   const currencySymbol = getCurrencySymbol(project?.currency);
+  const moodboardSections = useMemo(() => {
+    const grouped = new Map<
+      string,
+      {
+        sectionId: string;
+        sectionLabel: string;
+        files: ClientPanelFile[];
+      }
+    >();
+
+    for (const file of moodboardFiles) {
+      const sectionId = file.moodboardSection?.trim() || "__default";
+      const existing = grouped.get(sectionId);
+      if (existing) {
+        existing.files.push(file);
+        continue;
+      }
+
+      grouped.set(sectionId, {
+        sectionId,
+        sectionLabel: formatMoodboardSectionLabel(file.moodboardSection),
+        files: [file],
+      });
+    }
+
+    return Array.from(grouped.values());
+  }, [moodboardFiles]);
 
   useEffect(() => {
     if (!accessToken || typeof window === "undefined") return;
@@ -741,7 +775,7 @@ export default function PublicClientPanelPage() {
     if (!respondentKey) return;
     const cleanedRespondentName = respondentName.trim();
     if (!cleanedRespondentName) {
-      toast.error("Please enter who is answering.");
+      toast.error(`Please enter who is answering survey "${survey.title}".`);
       return;
     }
 
@@ -949,69 +983,117 @@ export default function PublicClientPanelPage() {
       ) : null}
 
       {settings.showMoodboard && activeSectionId === "portal-moodboard" ? (
-        <div className="mb-10 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-4 shadow-[0_24px_60px_rgba(20,20,20,0.08)] sm:rounded-[32px] sm:p-8">
-          <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
-            <h2 className="text-xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)] sm:text-2xl">
-              Moodboard
-            </h2>
-            <span className="inline-flex items-center justify-center rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-muted)]">
-              {moodboardFiles.length} items
-            </span>
-          </div>
-          {moodboardFiles.length === 0 ? (
-            <p className="text-sm text-[var(--ui-text-muted)]">No moodboard items shared.</p>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {moodboardFiles.map((file) => {
-                const isImage = file.mimeType.startsWith("image/");
-                return (
-                  <div
-                    key={file._id}
-                    className="rounded-[16px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-3"
-                  >
-                    {isImage ? (
-                      <a href={file.url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-lg">
-                        <img src={file.url} alt={file.name} className="h-44 w-full object-cover" />
-                      </a>
-                    ) : (
-                      <div className="mb-2 rounded-lg border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-soft)] p-3 text-xs text-[var(--ui-text-muted)]">
-                        Preview unavailable
-                      </div>
-                    )}
-                    <div className="mt-3 flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-[var(--ui-text-strong)]">{file.name}</p>
-                        <p className="mt-1 text-xs text-[var(--ui-text-muted)]">
-                          {file.moodboardSection ? `${file.moodboardSection} • ` : ""}
-                          {formatFileSize(file.size)}
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-2">
-                        <a
-                          href={file.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--ui-border-soft)] text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-soft)] hover:text-[var(--ui-text-main)]"
-                          aria-label={`Open ${file.name}`}
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </a>
-                        <a
-                          href={file.url}
-                          download={file.name}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--ui-border-soft)] text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-soft)] hover:text-[var(--ui-text-main)]"
-                          aria-label={`Download ${file.name}`}
-                        >
-                          <Download className="h-4 w-4" />
-                        </a>
-                      </div>
+        <>
+          <div className="mb-10 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-4 shadow-[0_24px_60px_rgba(20,20,20,0.08)] sm:rounded-[32px] sm:p-8">
+            <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
+              <h2 className="text-xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)] sm:text-2xl">
+                Moodboard
+              </h2>
+              <span className="inline-flex items-center justify-center rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-muted)]">
+                {moodboardFiles.length} items
+              </span>
+            </div>
+            {moodboardFiles.length === 0 ? (
+              <p className="text-sm text-[var(--ui-text-muted)]">No moodboard items shared.</p>
+            ) : (
+              <div className="space-y-12">
+                {moodboardSections.map((section) => (
+                  <div key={section.sectionId} className="space-y-6">
+                    <div className="flex items-center gap-3">
+                      <h3 className="text-sm font-semibold tracking-[0.2em] uppercase text-[var(--ui-text-strong)]">
+                        {section.sectionLabel}
+                      </h3>
+                      <span className="inline-flex items-center justify-center rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-1 text-[11px] font-medium text-[var(--ui-text-muted)]">
+                        {section.files.length} items
+                      </span>
+                    </div>
+
+                    <div className="columns-1 sm:columns-2 md:columns-2 lg:columns-3 xl:columns-3 gap-6 space-y-6">
+                      {section.files.map((file) => {
+                        const isImage = file.mimeType.startsWith("image/");
+                        return (
+                          <div
+                            key={file._id}
+                            className="group relative mb-4 break-inside-avoid overflow-hidden rounded-xl border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)]"
+                          >
+                            {isImage ? (
+                              <button
+                                type="button"
+                                onClick={() => setSelectedMoodboardFile(file)}
+                                className="block w-full"
+                                aria-label={`Preview ${file.name}`}
+                              >
+                                <img
+                                  src={file.url}
+                                  alt={file.name}
+                                  className="w-full h-auto object-contain bg-[var(--ui-surface-soft)] transition-transform duration-300 group-hover:scale-[1.02]"
+                                />
+                              </button>
+                            ) : (
+                              <a
+                                href={file.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block rounded-lg border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-soft)] p-3 text-xs text-[var(--ui-text-muted)]"
+                              >
+                                Preview unavailable
+                              </a>
+                            )}
+
+                            <div className="absolute right-3 top-3 z-10 flex items-center gap-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                              <a
+                                href={file.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)]/90 text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-soft)] hover:text-[var(--ui-text-main)]"
+                                aria-label={`Open ${file.name}`}
+                              >
+                                <ExternalLink className="h-4 w-4" />
+                              </a>
+                              <a
+                                href={file.url}
+                                download={file.name}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)]/90 text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-soft)] hover:text-[var(--ui-text-main)]"
+                                aria-label={`Download ${file.name}`}
+                              >
+                                <Download className="h-4 w-4" />
+                              </a>
+                            </div>
+
+                            <div className="border-t border-[var(--ui-border-soft)]/60 px-3 py-2">
+                              <p className="truncate text-sm font-medium text-[var(--ui-text-strong)]">
+                                {file.name}
+                              </p>
+                              <p className="mt-0.5 text-xs text-[var(--ui-text-muted)]">
+                                {formatFileSize(file.size)}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
-                );
-              })}
+                ))}
+              </div>
+            )}
+          </div>
+
+          {selectedMoodboardFile ? (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+              onClick={() => setSelectedMoodboardFile(null)}
+            >
+              <div className="max-h-full max-w-6xl" onClick={(event) => event.stopPropagation()}>
+                <img
+                  src={selectedMoodboardFile.url}
+                  alt={selectedMoodboardFile.name}
+                  className="max-h-[88vh] w-auto max-w-full object-contain"
+                />
+                <p className="mt-3 text-center text-xs text-white/80">{selectedMoodboardFile.name}</p>
+              </div>
             </div>
-          )}
-        </div>
+          ) : null}
+        </>
       ) : null}
 
       {settings.showSurveys &&
@@ -1038,18 +1120,6 @@ export default function PublicClientPanelPage() {
           <p className="mb-6 text-sm text-[var(--ui-text-muted)]">
             Share your feedback directly in the portal. Responses are sent to the project team.
           </p>
-          <div className="mb-6 max-w-md space-y-2">
-            <Label htmlFor="respondent-name" className="text-sm font-medium">
-              Who is answering?
-            </Label>
-            <Input
-              id="respondent-name"
-              value={respondentName}
-              onChange={(event) => setRespondentName(event.target.value)}
-              placeholder="Your name"
-              maxLength={120}
-            />
-          </div>
           {surveys.length === 0 ? (
             <p className="text-sm text-[var(--ui-text-muted)]">No surveys shared.</p>
           ) : (
@@ -1113,6 +1183,19 @@ export default function PublicClientPanelPage() {
 
                   {isOpen ? (
                     <div className="mt-6 space-y-4 border-t border-[var(--ui-border-soft)] pt-5">
+                      <div className="max-w-md space-y-2">
+                        <Label htmlFor={`respondent-name-${surveyId}`} className="text-sm font-medium">
+                          Who is answering survey "{survey.title}"?
+                        </Label>
+                        <Input
+                          id={`respondent-name-${surveyId}`}
+                          value={respondentName}
+                          onChange={(event) => setRespondentName(event.target.value)}
+                          placeholder="Your name"
+                          maxLength={120}
+                        />
+                      </div>
+
                       {survey.questions.map((question, index) => {
                         const questionId = String(question._id);
                         const answerValue = answersForSurvey[questionId];

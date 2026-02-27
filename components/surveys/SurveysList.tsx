@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Edit, BarChart3 } from "lucide-react";
 import Link from "next/link";
+import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 interface SurveysListProps {
   projectSlug: string;
 }
@@ -28,21 +29,22 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
 
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Surveys</h1>
-          <p className="text-gray-600">Manage surveys for project {project.name}</p>
-        </div>
-        {canEdit && (
-          <Link href={`/organisation/projects/${projectSlug}/surveys/new`}>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              New Survey
-            </Button>
-          </Link>
-        )}
-      </div>
+    <div className="space-y-6">
+      <ProjectPageHeader
+        title="Surveys"
+        icon={<BarChart3 className="h-8 w-8 text-[var(--ui-accent-brand)]" />}
+        subtitle={`Manage surveys for ${project.name}`}
+        actions={
+          canEdit ? (
+            <Link href={`/organisation/projects/${projectSlug}/surveys/new`}>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                New Survey
+              </Button>
+            </Link>
+          ) : undefined
+        }
+      />
 
       {surveys?.length === 0 ? (
         <Card>

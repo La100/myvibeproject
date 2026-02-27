@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Users, FileText } from "lucide-react";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
+import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 import {
   Accordion,
   AccordionContent,
@@ -84,24 +85,23 @@ export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps
 
   return (
     <ProjectPageLayout>
-      <div className="p-6">
-        <div className="flex items-center gap-4 mb-8">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.push(`/organisation/projects/${routeParams.projectSlug}/surveys`)}
-            className="shrink-0 bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:text-primary-foreground"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to surveys
-          </Button>
-          <div className="flex-1">
-            <h1 className="text-3xl font-bold tracking-tight">
-              Survey responses
-            </h1>
-            <p className="text-muted-foreground mt-1">{survey.title}</p>
-          </div>
-        </div>
+      <div className="space-y-6">
+        <ProjectPageHeader
+          title="Survey Responses"
+          icon={<Users className="h-8 w-8 text-[var(--ui-accent-brand)]" />}
+          subtitle={survey.title}
+          actions={
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push(`/organisation/projects/${routeParams.projectSlug}/surveys`)}
+              className="shrink-0 bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:text-primary-foreground"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to surveys
+            </Button>
+          }
+        />
 
         <div className="grid gap-6 md:grid-cols-2 mb-6">
           <Card>

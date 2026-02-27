@@ -5,10 +5,11 @@ import { useProject } from "@/components/providers/ProjectProvider";
 import { useMutation, useQuery } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import { Button } from "@/components/ui/button";
-import { Plus, Edit3, Trash2 } from "lucide-react";
+import { Plus, Edit3, Trash2, Images } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
+import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 
 // Mock data for demonstration - organized by rows
 const mockMoodboardRows = [
@@ -144,6 +145,7 @@ function MoodboardRow({ row, onUpdateTitle }: {
   });
 
   const generateUploadUrl = useMutation(apiAny.files.generateUploadUrlWithCustomKey);
+  const ensureMoodboardFolder = useMutation(apiAny.files.ensureMoodboardFolder);
   const addFile = useMutation(apiAny.files.addFile);
   const deleteFileByStorageId = useMutation(apiAny.files.deleteFileByStorageId);
 
@@ -175,6 +177,10 @@ function MoodboardRow({ row, onUpdateTitle }: {
     setIsUploading(true);
 
     try {
+      const moodboardFolderId = await ensureMoodboardFolder({
+        projectId: project._id,
+      });
+
       for (const file of fileArray) {
         // Only process image files
         if (!file.type.startsWith('image/')) {
@@ -207,7 +213,7 @@ function MoodboardRow({ row, onUpdateTitle }: {
         // 4. Attach file to project with moodboard section
         await addFile({
           projectId: project._id,
-          folderId: undefined, // No folder for moodboard images
+          folderId: moodboardFolderId,
           fileKey,
           fileName: file.name,
           fileType: file.type,
@@ -330,12 +336,29 @@ export default function MoodboardPage() {
 
   return (
     <ProjectPageLayout>
-      {/* Header - cleaner, more minimal */}
-      <div className="text-center py-12 bg-card border-b rounded-3xl mb-8">
-        <h1 className="text-5xl font-light tracking-[0.2em] mb-3 text-gray-900">
-          {project.name.toUpperCase()}
-        </h1>
-      </div>
+      <ProjectPageHeader
+        title="Moodboard"
+        icon={<Images className="h-8 w-8 text-[var(--ui-accent-brand)]" />}
+        tags={
+          <>
+            <span className="inline-flex items-center gap-2 rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-4 py-2 text-sm font-medium text-[var(--ui-accent-brand)]">
+              {project.name}
+            </span>
+            <span className="inline-flex items-center gap-2 rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-4 py-2 text-sm font-medium text-[var(--ui-text-main)]">
+              {rows.length} sections
+            </span>
+          </>
+        }
+        actions={
+          <Button
+            onClick={handleAddRow}
+            className="rounded-lg bg-[var(--ui-action-bg)] px-6 text-[var(--primary-foreground)] shadow-[0_14px_36px_rgba(14,14,14,0.18)] hover:bg-[var(--ui-action-hover)] transition-transform hover:-translate-y-0.5"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Section
+          </Button>
+        }
+      />
 
       {/* Moodboard Content */}
       <div className="w-full">
@@ -349,15 +372,6 @@ export default function MoodboardPage() {
           ))}
         </div>
 
-        {/* Add New Row */}
-        <div className="flex justify-center pt-16">
-          <button
-            onClick={handleAddRow}
-            className="text-gray-600 hover:text-gray-800 text-sm tracking-wider transition-colors"
-          >
-            + Add New Section
-          </button>
-        </div>
       </div>
     </ProjectPageLayout>
   );

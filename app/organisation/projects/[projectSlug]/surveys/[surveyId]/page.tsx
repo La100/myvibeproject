@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Send, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
+import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 
 interface SurveyResponsePageProps {
   params: Promise<{
@@ -296,17 +297,22 @@ export default function SurveyResponsePage({ params }: SurveyResponsePageProps) 
   if (isResponseComplete) {
     return (
       <ProjectPageLayout>
-        <div className="p-6">
-          <div className="flex items-center gap-4 mb-6">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => router.back()}
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-          </div>
+        <div className="space-y-6">
+          <ProjectPageHeader
+            title={survey.title}
+            icon={<Send className="h-8 w-8 text-[var(--ui-accent-brand)]" />}
+            subtitle="Survey completed"
+            actions={
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.back()}
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
+            }
+          />
 
           <Card>
             <CardHeader>
@@ -328,23 +334,22 @@ export default function SurveyResponsePage({ params }: SurveyResponsePageProps) 
 
   return (
     <ProjectPageLayout>
-      <div className="p-6">
-        <div className="flex items-center gap-4 mb-6">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.back()}
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold">{survey.title}</h1>
-            {survey.description && (
-              <p className="text-gray-600 mt-2">{survey.description}</p>
-            )}
-          </div>
-        </div>
+      <div className="space-y-6">
+        <ProjectPageHeader
+          title={survey.title}
+          icon={<Send className="h-8 w-8 text-[var(--ui-accent-brand)]" />}
+          subtitle={survey.description}
+          actions={
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.back()}
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
+            </Button>
+          }
+        />
 
 
         {!hasStarted ? (

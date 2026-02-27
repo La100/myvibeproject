@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 
 type ProjectChangelogProps = {
   enabled?: boolean;
@@ -296,6 +297,8 @@ const getActivityDescription = (actionType: string, details: Record<string, unkn
         return `updated question in survey "${details.surveyTitle}"`;
       case "survey.question.delete":
         return `deleted question from survey "${details.surveyTitle}"`;
+      case "survey.response.submit":
+        return `submitted survey "${details.surveyTitle || "Untitled"}" in client portal`;
       default:
         return "performed a survey action";
     }
@@ -354,14 +357,9 @@ export function ProjectChangelog({
   const [timeFilter, setTimeFilter] = useState<string>("all");
   const [page, setPage] = useState(1);
 
-  const hasAccess = useQuery(
-    apiAny.projects.checkUserProjectAccess,
-    enabled ? { projectId: project._id } : "skip"
-  );
-
   const activities = useQuery(
     apiAny.activityLog.getForProject,
-    enabled && hasAccess ? { projectId: project._id } : "skip"
+    enabled ? { projectId: project._id } : "skip"
   );
 
   const filteredActivities = useMemo(() => {
@@ -408,15 +406,6 @@ export function ProjectChangelog({
     return null;
   }
 
-  if (hasAccess === false) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
-        <h1 className="text-2xl font-bold text-red-600 mb-2">Access Denied</h1>
-        <p className="text-muted-foreground">You don't have permission to view this project's changelog.</p>
-      </div>
-    );
-  }
-
   if (!activities) {
     return <ProjectChangelogSkeleton className={className} />;
   }
@@ -424,15 +413,11 @@ export function ProjectChangelog({
   return (
     <div className={cn("px-4 lg:px-0", className)}>
       {showHeader && (
-        <div className="mb-4 lg:mb-6">
-          <div className="flex items-center gap-2 mb-2">
-            <History className="h-8 w-8 text-primary" />
-            <h1 className="text-2xl lg:text-3xl font-bold">Project Changelog</h1>
-          </div>
-          <p className="text-muted-foreground text-sm lg:text-base">
-            Complete activity history for {project.name}
-          </p>
-        </div>
+        <ProjectPageHeader
+          title="Project Changelog"
+          icon={<History className="h-8 w-8 text-[var(--ui-accent-brand)]" />}
+          subtitle={`Complete activity history for ${project.name}`}
+        />
       )}
 
       <Card className="mb-6">

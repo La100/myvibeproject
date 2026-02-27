@@ -31,6 +31,7 @@ import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { Spinner } from "@/components/ui/spinner";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
+import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 
 export function FilesViewSkeleton() {
   return <Spinner className="p-6" />;
@@ -63,10 +64,6 @@ export default function FilesView() {
     apiAny.files.getFolder,
     currentFolderId ? { folderId: currentFolderId } : "skip"
   );
-
-  const hasAccess = useQuery(apiAny.projects.checkUserProjectAccess, {
-    projectId: project._id,
-  });
 
   const generateUploadUrl = useMutation(apiAny.files.generateUploadUrlWithCustomKey);
   const addFile = useMutation(apiAny.files.addFile);
@@ -120,16 +117,7 @@ export default function FilesView() {
     }))
   ];
 
-  if (!project || !content || hasAccess === false || (currentFolderId && !currentFolder)) {
-    // This will be handled by Suspense
-    if (hasAccess === false) {
-      return (
-        <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
-          <h1 className="text-2xl font-bold text-red-600 mb-2">Access Denied</h1>
-          <p className="text-muted-foreground">You don't have permission to access this project.</p>
-        </div>
-      );
-    }
+  if (!project || !content || (currentFolderId && !currentFolder)) {
     if (!project) {
       return <div>Project not found.</div>;
     }
@@ -261,39 +249,36 @@ export default function FilesView() {
 
   return (
     <ProjectPageLayout>
-      <div className="p-6">
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-3">
-              <h1 className="text-3xl font-bold">{project.name} - Files</h1>
-            </div>
+      <div>
+        <div className="mb-6">
+          <ProjectPageHeader
+            title="Files"
+            icon={<FolderOpen className="h-8 w-8 text-[var(--ui-accent-brand)]" />}
+            subtitle={`Organize files and folders for ${project.name}`}
+            actions={
+              currentFolderId && currentFolder ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-red-600 hover:bg-red-50 border-red-200"
+                  onClick={async () => {
+                    await handleDeleteFolder(currentFolderId);
+                    if (folderPath.length > 1) {
+                      const parentFolder = folderPath[folderPath.length - 2];
+                      navigateToFolder(parentFolder.id, parentFolder.name);
+                    } else {
+                      navigateToFolder(undefined, "Files");
+                    }
+                  }}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Folder
+                </Button>
+              ) : undefined
+            }
+          />
 
-            <Breadcrumbs items={breadcrumbItems} className="mb-2" />
-
-            <p className="font-medium text-[var(--ui-text-main)]">Organize your project files in folders</p>
-          </div>
-
-          {/* Delete folder button when inside a folder */}
-          {currentFolderId && currentFolder && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-red-600 hover:bg-red-50 border-red-200"
-              onClick={async () => {
-                await handleDeleteFolder(currentFolderId);
-                // Go back to parent folder
-                if (folderPath.length > 1) {
-                  const parentFolder = folderPath[folderPath.length - 2];
-                  navigateToFolder(parentFolder.id, parentFolder.name);
-                } else {
-                  navigateToFolder(undefined, "Files");
-                }
-              }}
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete Folder
-            </Button>
-          )}
+          <Breadcrumbs items={breadcrumbItems} className="mb-2" />
         </div>
 
         {/* Actions */}

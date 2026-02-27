@@ -20,8 +20,6 @@ type LocalStorageSnapshot = {
   [STORAGE_KEYS.TEAMS]?: string
   [STORAGE_KEYS.SELECTED_TEAM_ID]?: string
   [STORAGE_KEYS.SELECTED_PROJECT_ID]?: string
-  [STORAGE_KEYS.LEGACY_SELECTED_TEAM]?: string
-  [STORAGE_KEYS.LEGACY_SELECTED_PROJECT]?: string
 }
 
 const initialState: AppState = {
@@ -69,8 +67,6 @@ const App = () => {
       STORAGE_KEYS.TEAMS,
       STORAGE_KEYS.SELECTED_TEAM_ID,
       STORAGE_KEYS.SELECTED_PROJECT_ID,
-      STORAGE_KEYS.LEGACY_SELECTED_TEAM,
-      STORAGE_KEYS.LEGACY_SELECTED_PROJECT,
     ])
 
     return data as LocalStorageSnapshot
@@ -83,8 +79,6 @@ const App = () => {
     await chrome.storage.local.set({
       [STORAGE_KEYS.SELECTED_TEAM_ID]: teamId,
       [STORAGE_KEYS.SELECTED_PROJECT_ID]: projectId,
-      [STORAGE_KEYS.LEGACY_SELECTED_TEAM]: null,
-      [STORAGE_KEYS.LEGACY_SELECTED_PROJECT]: null,
     })
   }
 
@@ -96,8 +90,6 @@ const App = () => {
       STORAGE_KEYS.TEAMS,
       STORAGE_KEYS.SELECTED_TEAM_ID,
       STORAGE_KEYS.SELECTED_PROJECT_ID,
-      STORAGE_KEYS.LEGACY_SELECTED_TEAM,
-      STORAGE_KEYS.LEGACY_SELECTED_PROJECT,
     ])
   }
 
@@ -142,22 +134,13 @@ const App = () => {
     teams: Team[],
     snapshot: LocalStorageSnapshot,
   ) => {
-    const legacyTeam = safeJsonParse<Team>(
-      snapshot[STORAGE_KEYS.LEGACY_SELECTED_TEAM],
-    )
-    const legacyProject = safeJsonParse<Project>(
-      snapshot[STORAGE_KEYS.LEGACY_SELECTED_PROJECT],
-    )
-
-    const selectedTeamId =
-      snapshot[STORAGE_KEYS.SELECTED_TEAM_ID] ?? legacyTeam?._id ?? null
+    const selectedTeamId = snapshot[STORAGE_KEYS.SELECTED_TEAM_ID] ?? null
 
     const team = selectedTeamId
       ? teams.find((entry) => entry._id === selectedTeamId) ?? null
       : null
 
-    const selectedProjectId =
-      snapshot[STORAGE_KEYS.SELECTED_PROJECT_ID] ?? legacyProject?._id ?? null
+    const selectedProjectId = snapshot[STORAGE_KEYS.SELECTED_PROJECT_ID] ?? null
 
     const fallback = pickDefaultSelection(teams)
     const finalTeam = team ?? fallback.team

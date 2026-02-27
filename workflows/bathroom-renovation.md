@@ -51,7 +51,7 @@ steps:
       Stworzę notatkę z proponowanym układem.
     description: Zaplanuj nowy układ łazienki.
     enabledTools:
-      - create_note
+      - create_item
   - id: finishes
     name: Wykończenia
     prompt: |
@@ -79,7 +79,7 @@ steps:
       Zapiszę specyfikację wykończeń.
     description: Wybierz płytki i wykończenia.
     enabledTools:
-      - create_note
+      - create_item
   - id: fixtures
     name: Armatura i Ceramika
     prompt: |
@@ -104,8 +104,8 @@ steps:
       Dodam wszystko do listy zakupów z podziałem na kategorie.
     description: Wybierz armaturę i ceramikę sanitarną.
     enabledTools:
-      - create_shopping_item
-      - create_multiple_shopping_items
+      - create_item
+      - create_multiple_items
       - create_shopping_section
   - id: materials
     name: Materiały Budowlane
@@ -132,8 +132,8 @@ steps:
       Obliczę ilości na podstawie wymiarów i dodam do listy zakupów.
     description: Lista materiałów budowlanych.
     enabledTools:
-      - create_shopping_item
-      - create_multiple_shopping_items
+      - create_item
+      - create_multiple_items
   - id: execution-plan
     name: Plan Wykonania
     prompt: |
@@ -167,8 +167,8 @@ steps:
       Stworzę zadania z terminami.
     description: Harmonogram prac remontowych.
     enabledTools:
-      - create_task
-      - create_multiple_tasks
+      - create_item
+      - create_multiple_items
 ---
 
 # Remont Łazienki

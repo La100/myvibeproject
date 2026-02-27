@@ -5,13 +5,21 @@ import { apiAny } from "@/lib/convexApiAny";
 import { useProject } from "@/components/providers/ProjectProvider";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, TrendingUp, MapPin, DollarSign, Building2, User, Target, History, ChevronDown, Hammer } from "lucide-react";
-import { Suspense, useState } from "react";
+import {
+  Calendar,
+  TrendingUp,
+  MapPin,
+  DollarSign,
+  Building2,
+  User,
+  Target,
+  Hammer,
+} from "lucide-react";
+import { Suspense } from "react";
 import { Spinner } from "@/components/ui/spinner";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ProjectChangelog } from "./ProjectChangelog";
 import { calculateShoppingTotal } from "@/lib/shoppingAlternatives";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
+import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 
 function ProjectOverviewSkeleton() {
   return <Spinner />;
@@ -19,35 +27,25 @@ function ProjectOverviewSkeleton() {
 
 function ProjectOverviewContent() {
   const { project } = useProject();
-  const [isChangelogOpen, setChangelogOpen] = useState(false);
 
-  const hasAccess = useQuery(apiAny.projects.checkUserProjectAccess, {
+  const tasks = useQuery(apiAny.tasks.listProjectTasks, {
     projectId: project._id,
   });
 
-  const tasks = useQuery(apiAny.tasks.listProjectTasks,
-    hasAccess ? { projectId: project._id } : "skip"
-  );
-
-  const shoppingListItems = useQuery(apiAny.shopping.getShoppingListItemsByProject,
-    hasAccess ? { projectId: project._id } : "skip"
-  );
+  const shoppingListItems = useQuery(apiAny.shopping.getShoppingListItemsByProject, {
+    projectId: project._id,
+  });
 
   const laborItems = useQuery(
     apiAny.labor.listLaborItems,
-    hasAccess ? { projectId: project._id } : "skip"
+    { projectId: project._id }
   );
 
-  if (hasAccess === false) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
-        <h1 className="text-2xl font-bold text-red-600 mb-2">Access Denied</h1>
-        <p className="text-muted-foreground">You don't have permission to view this project.</p>
-      </div>
-    );
-  }
-
-  if (hasAccess === undefined || tasks === undefined || shoppingListItems === undefined || laborItems === undefined) {
+  if (
+    tasks === undefined ||
+    shoppingListItems === undefined ||
+    laborItems === undefined
+  ) {
     return <ProjectOverviewSkeleton />;
   }
 
@@ -67,12 +65,11 @@ function ProjectOverviewContent() {
   return (
     <ProjectPageLayout>
       <div className="space-y-7">
-        <div>
-          <h1 className="clean-title text-3xl font-medium tracking-tight lg:text-4xl">Project Overview</h1>
-          <p className="clean-subtitle mt-2 text-sm lg:text-base">
-            A summary of {project.name}
-          </p>
-        </div>
+        <ProjectPageHeader
+          title="Project Overview"
+          icon={<Target className="h-8 w-8 text-[var(--ui-accent-brand)]" />}
+          subtitle={`A summary of ${project.name}`}
+        />
 
         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:mb-8 lg:grid-cols-3 lg:gap-5">
           {/* Total Project Cost */}
@@ -276,36 +273,6 @@ function ProjectOverviewContent() {
             </CardContent>
           </Card>
         )}
-
-        <Collapsible open={isChangelogOpen} onOpenChange={setChangelogOpen}>
-          <Card className="mt-6 bg-card/92 lg:mt-8">
-            <CardHeader className="pb-2">
-              <CollapsibleTrigger asChild>
-                <button
-                  type="button"
-                  className="flex w-full items-center justify-between gap-3 rounded-xl px-1 text-left"
-                >
-                  <div className="flex items-center gap-2">
-                    <History className="h-5 w-5 text-primary" />
-                    <CardTitle className="clean-title text-lg font-medium lg:text-xl">Project Changelog</CardTitle>
-                  </div>
-                  <ChevronDown
-                    className={`h-4 w-4 transition-transform ${isChangelogOpen ? "rotate-180" : ""}`}
-                  />
-                </button>
-              </CollapsibleTrigger>
-            </CardHeader>
-            <CollapsibleContent>
-              <CardContent className="pt-0">
-                <ProjectChangelog
-                  enabled={isChangelogOpen}
-                  showHeader={false}
-                  className="px-0 lg:px-0"
-                />
-              </CardContent>
-            </CollapsibleContent>
-          </Card>
-        </Collapsible>
       </div>
     </ProjectPageLayout>
   );

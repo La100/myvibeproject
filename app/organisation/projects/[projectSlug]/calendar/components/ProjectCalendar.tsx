@@ -20,8 +20,10 @@ import {
   FileText,
   Receipt,
   Flag,
+  CalendarDays,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 import {
   startOfMonth,
   endOfMonth,
@@ -451,8 +453,14 @@ export default function ProjectCalendar() {
   };
 
   return (
-    <div className="flex h-full w-full flex-col overflow-hidden rounded-xl border bg-card">
-      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b bg-card">
+    <div className="space-y-6">
+      <ProjectPageHeader
+        title="Calendar"
+        icon={<CalendarDays className="h-8 w-8 text-[var(--ui-accent-brand)]" />}
+        subtitle={`Timeline and planning for ${project.name}`}
+      />
+      <div className="flex h-full w-full flex-col overflow-hidden rounded-xl border bg-card">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b bg-card">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goToPrevMonth}>
             <ChevronLeft className="h-4 w-4" />
@@ -532,8 +540,8 @@ export default function ProjectCalendar() {
         </div>
       </div>
 
-      <ScrollArea className="flex-1">
-        <div className="p-4 space-y-4">
+        <ScrollArea className="flex-1">
+          <div className="p-4 space-y-4">
           <div className="grid grid-cols-7 gap-px rounded-t-lg overflow-hidden">
             {WEEKDAY_HEADERS.map((day) => (
               <div
@@ -886,8 +894,9 @@ export default function ProjectCalendar() {
               </CardContent>
             </Card>
           )}
-        </div>
-      </ScrollArea>
+          </div>
+        </ScrollArea>
+      </div>
     </div>
   );
 }

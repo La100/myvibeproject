@@ -44,7 +44,7 @@ steps:
       Przedstaw analizę w czytelnej formie.
     description: AI przeanalizuje wizualizację i zidentyfikuje elementy.
     enabledTools:
-      - create_note
+      - create_item
   - id: feedback
     name: Feedback i Uwagi
     prompt: |
@@ -63,7 +63,7 @@ steps:
       Stwórz notatkę z feedbackiem do projektu.
     description: Zbierz uwagi i sugestie zmian.
     enabledTools:
-      - create_note
+      - create_item
   - id: shopping-list
     name: Lista Zakupów
     prompt: |
@@ -86,8 +86,8 @@ steps:
       Dodaj wszystkie elementy do listy zakupów z odpowiednimi sekcjami.
     description: Stwórz listę elementów wyposażenia do zakupu.
     enabledTools:
-      - create_shopping_item
-      - create_multiple_shopping_items
+      - create_item
+      - create_multiple_items
       - create_shopping_section
   - id: tasks
     name: Zadania Realizacyjne
@@ -114,8 +114,8 @@ steps:
       Utwórz zadania z proponowanymi terminami i kolejnością.
     description: Zaplanuj realizację projektu.
     enabledTools:
-      - create_task
-      - create_multiple_tasks
+      - create_item
+      - create_multiple_items
 ---
 
 # Przegląd Wizualizacji

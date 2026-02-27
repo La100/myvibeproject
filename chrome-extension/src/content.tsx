@@ -105,6 +105,8 @@ function canOpenClipperOnThisPage(): { allowed: boolean; reason?: string } {
 
 const IFRAME_ID = "myvibeproject-iframe-popup"
 const OVERLAY_ID = "myvibeproject-iframe-overlay"
+const POPUP_TOP_GAP_PX = 16
+const POPUP_VERTICAL_GAP_PX = POPUP_TOP_GAP_PX * 2
 
 let iframePopup: HTMLIFrameElement | null = null
 let overlayElement: HTMLDivElement | null = null
@@ -595,7 +597,6 @@ function createIframePopup(): void {
     position: fixed !important;
     inset: 0 !important;
     background: rgba(15, 23, 42, 0.28) !important;
-    backdrop-filter: blur(1px) !important;
     z-index: 2147483646 !important;
   `
   overlay.addEventListener("click", removeIframePopup)
@@ -606,10 +607,11 @@ function createIframePopup(): void {
   iframe.title = "MyVibeProject Clipper"
   iframe.style.cssText = `
     position: fixed !important;
-    top: 24px !important;
+    top: ${POPUP_TOP_GAP_PX}px !important;
     right: 24px !important;
     width: 420px !important;
-    height: 600px !important;
+    height: calc(100vh - ${POPUP_VERTICAL_GAP_PX}px) !important;
+    max-height: calc(100vh - ${POPUP_VERTICAL_GAP_PX}px) !important;
     border: 1px solid rgba(15, 23, 42, 0.15) !important;
     border-radius: 14px !important;
     box-shadow: 0 22px 40px rgba(2, 6, 23, 0.35) !important;
