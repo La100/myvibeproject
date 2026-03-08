@@ -552,6 +552,18 @@ export const setShoppingItemFeedbackByAccessToken = mutation({
           decision: args.decision,
         }
       );
+
+      await ctx.scheduler.runAfter(
+        0,
+        internalAny.notifications.sendClientPortalEventEmail,
+        {
+          projectId: project._id,
+          actionType: "shopping.customer.decision",
+          actorName,
+          itemName: basePanelItem.name,
+          decision: args.decision,
+        }
+      );
     }
 
     return {

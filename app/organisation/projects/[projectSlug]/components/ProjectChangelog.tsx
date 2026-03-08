@@ -26,6 +26,7 @@ import {
   Filter,
   Calendar as CalendarIcon,
   Hammer,
+  ChevronDown,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -38,6 +39,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 type ProjectChangelogProps = {
   enabled?: boolean;
@@ -45,7 +51,7 @@ type ProjectChangelogProps = {
   className?: string;
 };
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 30;
 
 export function ProjectChangelogSkeleton({ className }: { className?: string }) {
   return <Spinner className={cn("px-4 lg:px-0", className)} />;
@@ -353,13 +359,15 @@ export function ProjectChangelog({
   className,
 }: ProjectChangelogProps) {
   const { project } = useProject();
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [hasOpened, setHasOpened] = useState(false);
   const [filterType, setFilterType] = useState<string>("all");
   const [timeFilter, setTimeFilter] = useState<string>("all");
   const [page, setPage] = useState(1);
 
   const activities = useQuery(
     apiAny.activityLog.getForProject,
-    enabled ? { projectId: project._id } : "skip"
+    enabled && hasOpened ? { projectId: project._id } : "skip"
   );
 
   const filteredActivities = useMemo(() => {
@@ -406,10 +414,6 @@ export function ProjectChangelog({
     return null;
   }
 
-  if (!activities) {
-    return <ProjectChangelogSkeleton className={className} />;
-  }
-
   return (
     <div className={cn("px-4 lg:px-0", className)}>
       {showHeader && (
@@ -420,186 +424,231 @@ export function ProjectChangelog({
         />
       )}
 
-      <Card className="mb-6">
-        <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Filters:</span>
-            </div>
-
-            <div className="flex flex-wrap gap-3 flex-1">
-              <Select value={filterType} onValueChange={setFilterType}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Entity Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="task">Tasks</SelectItem>
-                  <SelectItem value="shopping">Shopping List</SelectItem>
-                  <SelectItem value="labor">Labor</SelectItem>
-                  <SelectItem value="note">Notes</SelectItem>
-                  <SelectItem value="contact">Contacts</SelectItem>
-                  <SelectItem value="survey">Surveys</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={timeFilter} onValueChange={setTimeFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Time Range" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Time</SelectItem>
-                  <SelectItem value="24h">Last 24 Hours</SelectItem>
-                  <SelectItem value="7d">Last 7 Days</SelectItem>
-                  <SelectItem value="30d">Last 30 Days</SelectItem>
-                </SelectContent>
-              </Select>
-
-              {(filterType !== "all" || timeFilter !== "all") && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setFilterType("all");
-                    setTimeFilter("all");
-                  }}
-                >
-                  Clear Filters
-                </Button>
-              )}
-            </div>
-
-            <div className="text-sm text-muted-foreground">
-              {filteredActivities.length} {filteredActivities.length === 1 ? "activity" : "activities"}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {filteredActivities.length === 0 ? (
-        <Card>
-          <CardContent className="py-12">
-            <div className="text-center text-muted-foreground">
-              <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p className="text-lg font-medium">No activity found</p>
-              <p className="text-sm mt-1">
-                {filterType !== "all" || timeFilter !== "all"
-                  ? "Try adjusting your filters"
-                  : "Activity will appear here as team members work on the project"}
-              </p>
-            </div>
+      <Collapsible
+        open={isExpanded}
+        onOpenChange={(open) => {
+          setIsExpanded(open);
+          if (open) {
+            setHasOpened(true);
+          }
+        }}
+      >
+        <Card className="mb-6">
+          <CardContent className="p-3">
+            <CollapsibleTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-auto w-full justify-between px-2 py-2 text-left hover:bg-muted"
+              >
+                <div>
+                  <div className="text-sm font-semibold">Project activity</div>
+                  <div className="text-xs text-muted-foreground">
+                    {hasOpened
+                      ? `${filteredActivities.length} ${filteredActivities.length === 1 ? "activity" : "activities"}`
+                      : "Expand to load activities"}
+                  </div>
+                </div>
+                <ChevronDown
+                  className={cn(
+                    "h-4 w-4 transition-transform duration-200",
+                    isExpanded && "rotate-180",
+                  )}
+                />
+              </Button>
+            </CollapsibleTrigger>
           </CardContent>
         </Card>
-      ) : (
-        <div className="space-y-3">
-          {paginatedActivities.map((activity) => {
-            const actorName =
-              activity.userName ||
-              (typeof activity.details?.actorName === "string"
-                ? activity.details.actorName
-                : "Unknown User");
-            return (
-            <div
-              key={activity._id}
-              className={`relative flex items-start space-x-3 p-4 rounded-lg border transition-all hover:shadow-md ${getActivityColor(activity.actionType)}`}
-            >
-              <div className="flex-shrink-0 mt-1">
-                {getActivityIcon(activity.actionType)}
-              </div>
 
-              <Avatar className="w-8 h-8 flex-shrink-0">
-                <AvatarImage src={activity.userImageUrl} />
-                <AvatarFallback className="text-xs">
-                  {actorName.charAt(0) || "U"}
-                </AvatarFallback>
-              </Avatar>
+        <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
+          {!activities ? (
+            <ProjectChangelogSkeleton className="pt-2" />
+          ) : (
+            <>
+              <Card className="mb-6">
+                <CardContent className="pt-6">
+                  <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                    <div className="flex items-center gap-2">
+                      <Filter className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">Filters:</span>
+                    </div>
 
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="text-sm flex-1">
-                    <span className="font-medium text-gray-900">
-                      {actorName}
-                    </span>
-                    <span className="text-gray-600 ml-1">
-                      {getActivityDescription(activity.actionType, activity.details)}
-                    </span>
+                    <div className="flex flex-wrap gap-3 flex-1">
+                      <Select value={filterType} onValueChange={setFilterType}>
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="Entity Type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Types</SelectItem>
+                          <SelectItem value="task">Tasks</SelectItem>
+                          <SelectItem value="shopping">Shopping List</SelectItem>
+                          <SelectItem value="labor">Labor</SelectItem>
+                          <SelectItem value="note">Notes</SelectItem>
+                          <SelectItem value="contact">Contacts</SelectItem>
+                          <SelectItem value="survey">Surveys</SelectItem>
+                        </SelectContent>
+                      </Select>
+
+                      <Select value={timeFilter} onValueChange={setTimeFilter}>
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="Time Range" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Time</SelectItem>
+                          <SelectItem value="24h">Last 24 Hours</SelectItem>
+                          <SelectItem value="7d">Last 7 Days</SelectItem>
+                          <SelectItem value="30d">Last 30 Days</SelectItem>
+                        </SelectContent>
+                      </Select>
+
+                      {(filterType !== "all" || timeFilter !== "all") && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setFilterType("all");
+                            setTimeFilter("all");
+                          }}
+                        >
+                          Clear Filters
+                        </Button>
+                      )}
+                    </div>
+
+                    <div className="text-sm text-muted-foreground">
+                      {filteredActivities.length} {filteredActivities.length === 1 ? "activity" : "activities"}
+                    </div>
                   </div>
+                </CardContent>
+              </Card>
 
-                  <Badge variant="outline" className="text-xs flex-shrink-0">
-                    {getEntityTypeLabel(activity.actionType)}
-                  </Badge>
+              {filteredActivities.length === 0 ? (
+                <Card>
+                  <CardContent className="py-12">
+                    <div className="text-center text-muted-foreground">
+                      <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p className="text-lg font-medium">No activity found</p>
+                      <p className="text-sm mt-1">
+                        {filterType !== "all" || timeFilter !== "all"
+                          ? "Try adjusting your filters"
+                          : "Activity will appear here as team members work on the project"}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-3">
+                  {paginatedActivities.map((activity) => {
+                    const actorName =
+                      activity.userName ||
+                      (typeof activity.details?.actorName === "string"
+                        ? activity.details.actorName
+                        : "Unknown User");
+                    return (
+                      <div
+                        key={activity._id}
+                        className={`relative flex items-start space-x-3 p-4 rounded-lg border transition-all hover:shadow-md ${getActivityColor(activity.actionType)}`}
+                      >
+                        <div className="flex-shrink-0 mt-1">
+                          {getActivityIcon(activity.actionType)}
+                        </div>
+
+                        <Avatar className="w-8 h-8 flex-shrink-0">
+                          <AvatarImage src={activity.userImageUrl} />
+                          <AvatarFallback className="text-xs">
+                            {actorName.charAt(0) || "U"}
+                          </AvatarFallback>
+                        </Avatar>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="text-sm flex-1">
+                              <span className="font-medium text-gray-900">
+                                {actorName}
+                              </span>
+                              <span className="text-gray-600 ml-1">
+                                {getActivityDescription(activity.actionType, activity.details)}
+                              </span>
+                            </div>
+
+                            <Badge variant="outline" className="text-xs flex-shrink-0">
+                              {getEntityTypeLabel(activity.actionType)}
+                            </Badge>
+                          </div>
+
+                          {(activity.actionType === "task.status.change" || activity.actionType === "task.status_change") && (
+                            <div className="mt-2 flex items-center space-x-2">
+                              <Badge className={getStatusBadgeColor((activity.details.fromStatus || activity.details.from) as string)}>
+                                {getStatusLabel((activity.details.fromStatus || activity.details.from) as string)}
+                              </Badge>
+                              <span className="text-gray-400">→</span>
+                              <Badge className={getStatusBadgeColor((activity.details.toStatus || activity.details.to) as string)}>
+                                {getStatusLabel((activity.details.toStatus || activity.details.to) as string)}
+                              </Badge>
+                            </div>
+                          )}
+
+                          {activity.actionType === "task.comment.add" && activity.details.commentPreview && (
+                            <div className="mt-2 p-2 bg-card/50 rounded text-xs text-gray-600 italic">
+                              "{activity.details.commentPreview}..."
+                            </div>
+                          )}
+
+                          {activity.actionType === "task.file.add" && (
+                            <div className="mt-2 flex items-center space-x-2">
+                              <FileText className="h-4 w-4 text-gray-500" />
+                              <span className="text-xs text-gray-600">
+                                {activity.details.fileType} file
+                              </span>
+                            </div>
+                          )}
+
+                          <div className="mt-2 flex items-center space-x-2 text-xs text-gray-500">
+                            <CalendarIcon className="h-3 w-3" />
+                            <span>{formatDistanceToNow(new Date(activity._creationTime), { addSuffix: true })}</span>
+                            <span>•</span>
+                            <span>{new Date(activity._creationTime).toLocaleString()}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
+              )}
 
-                {(activity.actionType === "task.status.change" || activity.actionType === "task.status_change") && (
-                  <div className="mt-2 flex items-center space-x-2">
-                    <Badge className={getStatusBadgeColor((activity.details.fromStatus || activity.details.from) as string)}>
-                      {getStatusLabel((activity.details.fromStatus || activity.details.from) as string)}
-                    </Badge>
-                    <span className="text-gray-400">→</span>
-                    <Badge className={getStatusBadgeColor((activity.details.toStatus || activity.details.to) as string)}>
-                      {getStatusLabel((activity.details.toStatus || activity.details.to) as string)}
-                    </Badge>
-                  </div>
-                )}
-
-                {activity.actionType === "task.comment.add" && activity.details.commentPreview && (
-                  <div className="mt-2 p-2 bg-card/50 rounded text-xs text-gray-600 italic">
-                    "{activity.details.commentPreview}..."
-                  </div>
-                )}
-
-                {activity.actionType === "task.file.add" && (
-                  <div className="mt-2 flex items-center space-x-2">
-                    <FileText className="h-4 w-4 text-gray-500" />
-                    <span className="text-xs text-gray-600">
-                      {activity.details.fileType} file
-                    </span>
-                  </div>
-                )}
-
-                <div className="mt-2 flex items-center space-x-2 text-xs text-gray-500">
-                  <CalendarIcon className="h-3 w-3" />
-                  <span>{formatDistanceToNow(new Date(activity._creationTime), { addSuffix: true })}</span>
-                  <span>•</span>
-                  <span>{new Date(activity._creationTime).toLocaleString()}</span>
+              {filteredActivities.length > 0 && (
+                <div className="mt-6 text-center text-sm text-muted-foreground">
+                  Showing {showingStart}-{showingEnd} of {filteredActivities.length} activities
                 </div>
-              </div>
-            </div>
-            );
-          })}
-        </div>
-      )}
+              )}
 
-      {filteredActivities.length > 0 && (
-        <div className="mt-6 text-center text-sm text-muted-foreground">
-          Showing {showingStart}-{showingEnd} of {filteredActivities.length} activities
-        </div>
-      )}
-
-      {filteredActivities.length > PAGE_SIZE && (
-        <div className="mt-4 flex items-center justify-center gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage((current) => Math.max(1, current - 1))}
-            disabled={page === 1}
-          >
-            Previous
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            Page {page} of {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
-            disabled={page === totalPages}
-          >
-            Next
-          </Button>
-        </div>
-      )}
+              {filteredActivities.length > PAGE_SIZE && (
+                <div className="mt-4 flex items-center justify-center gap-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((current) => Math.max(1, current - 1))}
+                    disabled={page === 1}
+                  >
+                    Previous
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    Page {page} of {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                    disabled={page === totalPages}
+                  >
+                    Next
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 }

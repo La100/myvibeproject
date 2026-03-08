@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { createThread, listMessages } from "@convex-dev/agent";
 import { components } from "../_generated/api";
 import { internalQuery, internalMutation, mutation, query } from "../_generated/server";
+import { ensureProjectAccess, ensureThreadAccess, requireIdentity } from "./access";
 
 function resolveAgentThreadId(thread: { threadId: string; agentThreadId?: string | undefined }) {
   return thread.agentThreadId ?? thread.threadId;
@@ -67,6 +68,13 @@ export const getProjectThread = mutation({
   },
   returns: v.string(),
   handler: async (ctx, args) => {
+    const identity = await requireIdentity(ctx);
+    if (identity.subject !== args.userClerkId) {
+      throw new Error("Forbidden");
+    }
+
+    const { project } = await ensureProjectAccess(ctx, args.projectId, identity.subject);
+
     const existingThread = await ctx.db
       .query("aiThreads")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
@@ -75,11 +83,6 @@ export const getProjectThread = mutation({
 
     if (existingThread) {
       return existingThread.threadId;
-    }
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project) {
-      throw new Error("Project not found");
     }
 
     const threadTitle = args.title ?? "Assistant Chat";
@@ -478,6 +481,12 @@ export const listPendingItems = query({
     result: v.optional(v.string()),
   })),
   handler: async (ctx, args) => {
+    const identity = await requireIdentity(ctx);
+    const authorizedThread = await ensureThreadAccess(ctx, args.threadId, identity.subject);
+    if (!authorizedThread) {
+      return [];
+    }
+
     const calls = await ctx.db
       .query("aiFunctionCalls")
       .withIndex("by_thread", (q) => q.eq("threadId", args.threadId))
@@ -544,11 +553,22 @@ export const markFunctionCallsAsConfirmed = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const identity = await requireIdentity(ctx);
+    const authorizedThread = await ensureThreadAccess(ctx, args.threadId, identity.subject);
+    if (!authorizedThread) {
+      return null;
+    }
+
     // Find all pending calls for this response
     const calls = await ctx.db
       .query("aiFunctionCalls")
       .withIndex("by_response_id", (q) => q.eq("responseId", args.responseId))
-      .filter((q) => q.eq(q.field("status"), "pending"))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("threadId"), args.threadId),
+          q.eq(q.field("status"), "pending"),
+        ),
+      )
       .collect();
 
     for (const call of calls) {

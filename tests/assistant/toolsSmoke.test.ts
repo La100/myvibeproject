@@ -563,6 +563,29 @@ test("delete_item blocks cross-project deletion candidates", async () => {
   assert.equal(parsed.error, "Cannot delete item outside the active project");
 });
 
+test("delete_item includes sectionId for section deletions", async () => {
+  const createStreamingTools = await getCreateStreamingTools();
+  const tools = createStreamingTools({
+    projectId: "project_1",
+    runQuery: async (_queryRef: unknown, args: { itemId: string }) => ({
+      _id: args.itemId,
+      projectId: "project_1",
+      name: "Sciany",
+    }),
+  });
+
+  const raw = await tools.delete_item.execute({
+    type: "shoppingSection",
+    itemId: "section_1",
+  });
+  const parsed = JSON.parse(raw);
+
+  assert.equal(parsed.operation, "delete");
+  assert.equal(parsed.data.itemId, "section_1");
+  assert.equal(parsed.data.sectionId, "section_1");
+  assert.equal(parsed.data.name, "Sciany");
+});
+
 test("search_items uses runAction (not runQuery)", async () => {
   const createStreamingTools = await getCreateStreamingTools();
   const calls = { runAction: 0, runQuery: 0 };

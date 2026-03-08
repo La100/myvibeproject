@@ -9,6 +9,7 @@
  */
 
 import type * as activityLog from "../activityLog.js";
+import type * as ai_access from "../ai/access.js";
 import type * as ai_actions from "../ai/actions.js";
 import type * as ai_agent from "../ai/agent.js";
 import type * as ai_config from "../ai/config.js";
@@ -63,6 +64,7 @@ import type * as messaging_telegramActions from "../messaging/telegramActions.js
 import type * as messaging_types from "../messaging/types.js";
 import type * as myFunctions from "../myFunctions.js";
 import type * as notes from "../notes.js";
+import type * as notifications from "../notifications.js";
 import type * as onboarding from "../onboarding.js";
 import type * as productLibrary from "../productLibrary.js";
 import type * as projectDiagnostics from "../projectDiagnostics.js";
@@ -85,6 +87,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   activityLog: typeof activityLog;
+  "ai/access": typeof ai_access;
   "ai/actions": typeof ai_actions;
   "ai/agent": typeof ai_agent;
   "ai/config": typeof ai_config;
@@ -139,6 +142,7 @@ declare const fullApi: ApiFromModules<{
   "messaging/types": typeof messaging_types;
   myFunctions: typeof myFunctions;
   notes: typeof notes;
+  notifications: typeof notifications;
   onboarding: typeof onboarding;
   productLibrary: typeof productLibrary;
   projectDiagnostics: typeof projectDiagnostics;

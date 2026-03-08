@@ -173,3 +173,55 @@ test("Team invite/revoke flow stays scheduler + internalAction based", async () 
   assert.match(source, /ctx\.db\.patch\(\s*invitation\._id,\s*\{\s*status:\s*"revoked"\s*\}\s*\)/);
   assert.doesNotMatch(source, /export const revokeInvitation = mutation\([\s\S]*?\bfetch\s*\(/);
 });
+
+test("AI assistant public endpoints stay access-controlled", async () => {
+  const threadsPath = path.join(convexRoot, "ai", "threads.ts");
+  const source = await readFile(threadsPath, "utf8");
+
+  assert.match(
+    source,
+    /export const getProjectThread = mutation\([\s\S]*?const identity = await requireIdentity\(ctx\)/,
+  );
+  assert.match(
+    source,
+    /export const getProjectThread = mutation\([\s\S]*?identity\.subject !== args\.userClerkId/,
+  );
+  assert.match(
+    source,
+    /export const getProjectThread = mutation\([\s\S]*?ensureProjectAccess\(ctx,\s*args\.projectId,\s*identity\.subject\)/,
+  );
+  assert.match(
+    source,
+    /export const listPendingItems = query\([\s\S]*?ensureThreadAccess\(ctx,\s*args\.threadId,\s*identity\.subject\)/,
+  );
+  assert.match(
+    source,
+    /export const markFunctionCallsAsConfirmed = mutation\([\s\S]*?ensureThreadAccess\(ctx,\s*args\.threadId,\s*identity\.subject\)/,
+  );
+  assert.match(
+    source,
+    /export const markFunctionCallsAsConfirmed = mutation\([\s\S]*?q\.and\([\s\S]*?q\.eq\(q\.field\("threadId"\),\s*args\.threadId\)[\s\S]*?q\.eq\(q\.field\("status"\),\s*"pending"\)/,
+  );
+});
+
+test("AI streaming endpoints stay scoped to authorized thread/project access", async () => {
+  const streamingPath = path.join(convexRoot, "ai", "streamingQueries.ts");
+  const source = await readFile(streamingPath, "utf8");
+
+  assert.match(
+    source,
+    /export const listThreadMessages = query\([\s\S]*?const identity = await requireIdentity\(ctx\)/,
+  );
+  assert.match(
+    source,
+    /export const listThreadMessages = query\([\s\S]*?ensureThreadAccess\(ctx,\s*args\.threadId,\s*identity\.subject\)/,
+  );
+  assert.match(
+    source,
+    /export const initiateStreaming = mutation\([\s\S]*?const identity = await requireIdentity\(ctx\)/,
+  );
+  assert.match(
+    source,
+    /export const initiateStreaming = mutation\([\s\S]*?ensureProjectAccess\(ctx,\s*args\.projectId,\s*userClerkId\)/,
+  );
+});

@@ -1,47 +1,51 @@
-import { useEffect, useState } from "react";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { useEffect, useState } from "react"
 
-export function SurveyForm({ data, onUpdate }: { data: Record<string, unknown>; onUpdate: (u: Record<string, unknown>) => void }) {
-    const [title, setTitle] = useState(String(data.title || ""));
-    const [description, setDescription] = useState(String(data.description || ""));
+import {
+  Field,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 
-    useEffect(() => {
-        onUpdate({
-            title,
-            description: description || undefined,
-        });
-    }, [title, description, onUpdate]);
+export function SurveyForm({
+  data,
+  onUpdate,
+}: {
+  data: Record<string, unknown>
+  onUpdate: (u: Record<string, unknown>) => void
+}) {
+  const [title, setTitle] = useState(String(data.title || ""))
+  const [description, setDescription] = useState(String(data.description || ""))
 
-    return (
-        <div className="space-y-3">
-            <div className="space-y-1.5">
-                <Label htmlFor="title" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Survey Title
-                </Label>
-                <Input
-                    id="title"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    className="rounded-md border border-border/60 bg-card px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30 text-base font-medium"
-                    placeholder="Enter survey title"
-                />
-            </div>
+  useEffect(() => {
+    onUpdate({
+      title,
+      description: description || undefined,
+    })
+  }, [description, onUpdate, title])
 
-            <div className="space-y-1.5">
-                <Label htmlFor="description" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Description
-                </Label>
-                <Textarea
-                    id="description"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    className="rounded-md border border-border/60 bg-card px-3 shadow-none focus-visible:ring-1 focus-visible:ring-ring/30 min-h-[64px]"
-                    placeholder="Survey description"
-                />
-            </div>
-        </div>
-    );
+  return (
+    <FieldGroup className="gap-4">
+      <Field>
+        <FieldLabel htmlFor="survey-title">Survey Title</FieldLabel>
+        <Input
+          id="survey-title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Enter survey title"
+        />
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="survey-description">Description</FieldLabel>
+        <Textarea
+          id="survey-description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          className="min-h-16"
+          placeholder="Survey description"
+        />
+      </Field>
+    </FieldGroup>
+  )
 }
-

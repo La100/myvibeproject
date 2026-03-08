@@ -43,7 +43,7 @@ export default function CompanyProjects() {
     [projects, searchQuery],
   );
 
-  const projectGridClass = "grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4";
+  const projectGridClass = "grid grid-cols-1 justify-items-start gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4";
 
   return (
     <div className="space-y-6">
@@ -77,6 +77,7 @@ export default function CompanyProjects() {
           filteredProjects.map((project, index) => (
             <motion.div
               key={project._id}
+              className="w-full md:max-w-[30rem] xl:max-w-none"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.2, delay: index * 0.03 }}
@@ -198,9 +199,9 @@ function ProjectCard({
     <div
       onClick={onClick}
       onMouseEnter={onHover}
-      className="group cursor-pointer"
+      className="group w-full cursor-pointer"
     >
-      <div className="relative aspect-[4/3] overflow-hidden rounded-lg border border-border bg-muted/40 p-4 transition-shadow group-hover:shadow-md">
+      <div className="relative aspect-[5/4] overflow-hidden rounded-lg border border-border bg-muted/40 p-4 transition-shadow group-hover:shadow-md md:aspect-[16/10] xl:aspect-[4/3]">
         {showCoverImage ? (
           <>
             <img

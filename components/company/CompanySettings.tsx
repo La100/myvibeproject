@@ -535,13 +535,13 @@ export default function CompanySettings() {
                   </div>
                   <div className="grid gap-3 md:grid-cols-3">
                     {[
-                      { role: "Admin", desc: "Full access to all settings, billing, and members.", color: "bg-blue-500/10 text-blue-600 border-blue-200" },
-                      { role: "Member", desc: "Can create and manage projects and content.", color: "bg-emerald-500/10 text-emerald-600 border-emerald-200" },
-                      { role: "Customer", desc: "Limited view-only or restricted access.", color: "bg-orange-500/10 text-orange-600 border-orange-200" }
+                      { role: "Admin", desc: "Full access to all settings, billing, and members." },
+                      { role: "Member", desc: "Can create and manage projects and content." },
+                      { role: "Customer", desc: "Limited view-only or restricted access." }
                     ].map((item) => (
-                      <div key={item.role} className={`rounded-lg border px-4 py-3 ${item.color}`}>
-                        <div className="font-semibold text-sm mb-1">{item.role}</div>
-                        <div className="text-xs opacity-80 leading-snug">{item.desc}</div>
+                      <div key={item.role} className="rounded-lg border bg-card px-4 py-3">
+                        <div className="mb-1 text-sm font-semibold text-foreground">{item.role}</div>
+                        <div className="text-xs leading-snug text-muted-foreground">{item.desc}</div>
                       </div>
                     ))}
                   </div>

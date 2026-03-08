@@ -12,6 +12,7 @@
   ],
   "host_permissions": [
     "https://myvibeproject.com/*",
+    "https://www.myvibeproject.com/*",
     "http://localhost:3000/*",
     "http://localhost:3001/*"
   ],

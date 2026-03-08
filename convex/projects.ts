@@ -440,6 +440,7 @@ export const createProjectInOrg = mutation({
       startDate: args.startDate,
       endDate: args.endDate,
       createdBy: identity.subject,
+      responsibleClerkUserId: identity.subject,
       assignedTo: [],
       taskStatusSettings: defaultStatusSettings,
       aiAutoConfirmCrud: false,
@@ -641,6 +642,7 @@ export const updateProject = mutation({
       v.literal("HUF"), v.literal("CNY"), v.literal("INR"), v.literal("BRL"),
       v.literal("MXN"), v.literal("KRW"), v.literal("SGD"), v.literal("HKD")
     )),
+    responsibleClerkUserId: v.optional(v.string()),
     taskStatusSettings: v.optional(v.any()), // Allow any object for simplification
     customAiPrompt: v.optional(v.string()),
     aiAutoConfirmCrud: v.optional(v.boolean()),
@@ -652,7 +654,14 @@ export const updateProject = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
-    const { projectId, name, telegramBotToken, coverImageUrl, ...rest } = args;
+    const {
+      projectId,
+      name,
+      telegramBotToken,
+      coverImageUrl,
+      responsibleClerkUserId,
+      ...rest
+    } = args;
 
     const existingProject = await ctx.db.get(projectId);
     if (!existingProject) {
@@ -680,6 +689,34 @@ export const updateProject = mutation({
     const coverImagePatch = coverImageProvided
       ? { coverImageUrl: normalizedCoverImageUrl || undefined }
       : {};
+    const responsibleProvided = Object.prototype.hasOwnProperty.call(
+      args,
+      "responsibleClerkUserId"
+    );
+    let responsiblePatch: { responsibleClerkUserId?: string } = {};
+
+    if (responsibleProvided) {
+      const normalizedResponsibleUserId = (responsibleClerkUserId || "").trim();
+      const effectiveResponsibleUserId =
+        normalizedResponsibleUserId || existingProject.createdBy;
+
+      const responsibleMember = await ctx.db
+        .query("teamMembers")
+        .withIndex("by_team_and_user", (q) =>
+          q.eq("teamId", existingProject.teamId).eq("clerkUserId", effectiveResponsibleUserId)
+        )
+        .unique();
+
+      if (
+        !responsibleMember ||
+        !responsibleMember.isActive ||
+        (responsibleMember.role !== "admin" && responsibleMember.role !== "member")
+      ) {
+        throw new Error("Selected responsible person must be an active team member");
+      }
+
+      responsiblePatch = { responsibleClerkUserId: effectiveResponsibleUserId };
+    }
     
     if (name && name !== existingProject.name) {
       const baseSlug = generateSlug(name);
@@ -705,6 +742,7 @@ export const updateProject = mutation({
         slug,
         ...telegramTokenPatch,
         ...coverImagePatch,
+        ...responsiblePatch,
         ...(shouldRotateTelegramSecret ? { telegramWebhookSecret } : {}),
         ...rest,
       });
@@ -720,6 +758,7 @@ export const updateProject = mutation({
       await ctx.db.patch(projectId, {
         ...telegramTokenPatch,
         ...coverImagePatch,
+        ...responsiblePatch,
         ...(shouldRotateTelegramSecret ? { telegramWebhookSecret } : {}),
         ...rest,
       });

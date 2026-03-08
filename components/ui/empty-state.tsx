@@ -1,9 +1,18 @@
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { LucideIcon } from "lucide-react";
+import { LucideIcon } from "lucide-react"
+
+import { Button } from "@/components/ui/button"
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty"
+import { cn } from "@/lib/utils"
 
 interface EmptyStateProps {
-  icon?: LucideIcon;
+  icon?: LucideIcon
   title: string;
   description: string;
   action?: {
@@ -15,7 +24,7 @@ interface EmptyStateProps {
     label: string;
     onClick: () => void;
   };
-  className?: string;
+  className?: string
 }
 
 export function EmptyState({
@@ -27,24 +36,21 @@ export function EmptyState({
   className
 }: EmptyStateProps) {
   return (
-    <div className={cn(
-      "flex flex-col items-center justify-center py-16 px-4 text-center animate-fadeIn",
-      className
-    )}>
-      {Icon && (
-        <div className="mb-4 rounded-full bg-muted p-6 animate-scaleIn">
-          <Icon className="size-12 text-muted-foreground" strokeWidth={1.5} />
-        </div>
-      )}
-      <h3 className="text-xl font-semibold mb-2">{title}</h3>
-      <p className="text-muted-foreground max-w-md mb-6 text-sm">
-        {description}
-      </p>
+    <Empty className={cn("border-dashed py-16", className)}>
+      <EmptyHeader>
+        {Icon && (
+          <EmptyMedia variant="icon">
+            <Icon strokeWidth={1.5} />
+          </EmptyMedia>
+        )}
+        <EmptyTitle>{title}</EmptyTitle>
+        <EmptyDescription>{description}</EmptyDescription>
+      </EmptyHeader>
       {(action || secondaryAction) && (
-        <div className="flex gap-3 flex-wrap justify-center">
+        <EmptyContent className="flex-row flex-wrap justify-center">
           {action && (
-            <Button onClick={action.onClick} size="lg" className="gap-2">
-              {action.icon && <action.icon className="size-4" />}
+            <Button onClick={action.onClick} size="lg">
+              {action.icon && <action.icon data-icon="inline-start" />}
               {action.label}
             </Button>
           )}
@@ -53,8 +59,8 @@ export function EmptyState({
               {secondaryAction.label}
             </Button>
           )}
-        </div>
+        </EmptyContent>
       )}
-    </div>
-  );
+    </Empty>
+  )
 }

@@ -1,11 +1,11 @@
-import { Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react"
 
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils"
 
 type SpinnerProps = React.ComponentProps<"div"> & {
-  iconClassName?: string;
-  fullHeight?: boolean;
-};
+  iconClassName?: string
+  fullHeight?: boolean
+}
 
 export function Spinner({
   className,
@@ -25,8 +25,8 @@ export function Spinner({
       aria-live="polite"
       {...props}
     >
-      <Loader2 className={cn("h-8 w-8 animate-spin text-primary", iconClassName)} />
+      <Loader2 className={cn("size-8 animate-spin text-primary", iconClassName)} />
       <span className="sr-only">Loading</span>
     </div>
-  );
+  )
 }

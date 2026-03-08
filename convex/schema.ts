@@ -130,6 +130,8 @@ export default defineSchema({
       v.literal("HKD"), // Hong Kong Dollar
     )),
     createdBy: v.string(), // Clerk user ID
+    // Project owner responsible for client notifications and updates
+    responsibleClerkUserId: v.optional(v.string()),
     assignedTo: v.array(v.string()), // Array of Clerk user IDs
     taskStatusSettings: v.optional(v.object({
       todo: v.object({ name: v.string(), color: v.string() }),

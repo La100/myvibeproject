@@ -5,9 +5,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
-import {  Loader2, Wand2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
-import { useAction, useMutation } from "convex/react";
+import { useMutation } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import { Doc, Id } from "@/convex/_generated/dataModel";
 
@@ -59,17 +59,14 @@ interface TaskFormProps {
 }
   
 export default function TaskForm({ projectId, teamId, teamMembers, task, onTaskCreated, setIsOpen }: TaskFormProps) {
-    const [aiMessage, setAiMessage] = useState("");
-    const [isParsing, setIsParsing] = useState(false);
     const [singleDayTask, setSingleDayTask] = useState(false);
-    const [isAllDay, setIsAllDay] = useState(true);
+    const [isAllDay, setIsAllDay] = useState(false);
     const [startTime, setStartTime] = useState("09:00");
     const [endTime, setEndTime] = useState("");
     const [hasEndTime, setHasEndTime] = useState(false);
 
     const updateTask = useMutation(apiAny.tasks.updateTask);
     const createTask = useMutation(apiAny.tasks.createTask);
-    const generateTaskDetails = useAction(apiAny.tasks.generateTaskDetailsFromPrompt);
 
     const form = useForm<TaskFormValues>({
       resolver: zodResolver(taskFormSchema),
@@ -109,69 +106,56 @@ export default function TaskForm({ projectId, teamId, teamMembers, task, onTaskC
             endDate: endDate,
         });
         
-        // Check if it's a single day task
-        if (task.startDate && task.endDate && 
-            new Date(task.startDate).toDateString() === new Date(task.endDate).toDateString()) {
-            setSingleDayTask(true);
+        const isSingleDayTask =
+          Boolean(task.startDate && task.endDate) &&
+          new Date(task.startDate!).toDateString() === new Date(task.endDate!).toDateString();
+        setSingleDayTask(isSingleDayTask);
+
+        const hasStartTime = Boolean(startDate) && (startDate!.getHours() !== 0 || startDate!.getMinutes() !== 0);
+        const hasEndTimeValue = Boolean(endDate) && (endDate!.getHours() !== 0 || endDate!.getMinutes() !== 0);
+        const hasSpecificTime = hasStartTime || hasEndTimeValue;
+
+        setIsAllDay(!hasSpecificTime);
+
+        if (hasStartTime && startDate) {
+          setStartTime(`${String(startDate.getHours()).padStart(2, "0")}:${String(startDate.getMinutes()).padStart(2, "0")}`);
+        } else {
+          setStartTime("09:00");
         }
-        
-        // Check if it has specific times (not midnight)
-        if (startDate) {
-            const hasStartTime = startDate.getHours() !== 0 || startDate.getMinutes() !== 0;
-            if (hasStartTime) {
-                setIsAllDay(false);
-                setStartTime(`${String(startDate.getHours()).padStart(2, '0')}:${String(startDate.getMinutes()).padStart(2, '0')}`);
-            }
+
+        if (hasEndTimeValue && endDate) {
+          const endTimeStr = `${String(endDate.getHours()).padStart(2, "0")}:${String(endDate.getMinutes()).padStart(2, "0")}`;
+          const startTimeStr = startDate
+            ? `${String(startDate.getHours()).padStart(2, "0")}:${String(startDate.getMinutes()).padStart(2, "0")}`
+            : "";
+          if (!hasStartTime || endTimeStr !== startTimeStr) {
+            setEndTime(endTimeStr);
+            setHasEndTime(true);
+          } else {
+            setEndTime("");
+            setHasEndTime(false);
+          }
+        } else {
+          setEndTime("");
+          setHasEndTime(false);
         }
-        if (endDate) {
-            const hasEndTimeValue = endDate.getHours() !== 0 || endDate.getMinutes() !== 0;
-            if (hasEndTimeValue) {
-                setIsAllDay(false);
-                const endTimeStr = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`;
-                // Check if end time is different from start time
-                const startTimeStr = startDate ? `${String(startDate.getHours()).padStart(2, '0')}:${String(startDate.getMinutes()).padStart(2, '0')}` : '';
-                if (endTimeStr !== startTimeStr) {
-                    setEndTime(endTimeStr);
-                    setHasEndTime(true);
-                }
-            }
-        }
+      } else {
+        form.reset({
+          title: "",
+          description: "",
+          priority: undefined,
+          status: "todo",
+          assignedTo: "",
+          startDate: undefined,
+          endDate: undefined,
+        });
+        setSingleDayTask(false);
+        setIsAllDay(false);
+        setStartTime("09:00");
+        setEndTime("");
+        setHasEndTime(false);
       }
     }, [task, form]);
-  
-    const handleParse = async () => {
-        if (!aiMessage) return;
-        setIsParsing(true);
-        try {
-            const timezoneOffsetInMinutes = new Date().getTimezoneOffset();
-            const result = await generateTaskDetails({ 
-                prompt: aiMessage, 
-                projectId,
-                timezoneOffsetInMinutes 
-            });
-            
-            const startDate = result.startDate ? new Date(result.startDate) : undefined;
-            const endDate = result.endDate ? new Date(result.endDate) : undefined;
-            
-            form.reset({
-                title: result.title || "",
-                description: result.description || "",
-                priority: result.priority as TaskFormValues["priority"],
-                status: result.status as TaskFormValues["status"] || "todo",
-                assignedTo: result.assignedTo || undefined,
-                startDate: startDate,
-                endDate: endDate,
-            });
-
-            toast.success("Task details generated by AI!");
-            
-        } catch (error) {
-            toast.error("AI parsing failed.");
-            console.error(error);
-        } finally {
-            setIsParsing(false);
-        }
-    }
 
     const onSubmit = async (values: TaskFormValues) => {
       try {
@@ -252,32 +236,6 @@ export default function TaskForm({ projectId, teamId, teamMembers, task, onTaskC
   
     return (
         <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row gap-2 mb-4">
-                <Input 
-                    value={aiMessage}
-                    onChange={(e) => setAiMessage(e.target.value)}
-                    placeholder="Create a task for 'Design review' tomorrow at 3 PM with high priority..."
-                    disabled={isParsing}
-                    className="flex-1"
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            if (!isParsing && aiMessage) {
-                                handleParse();
-                            }
-                        }
-                    }}
-                />
-                <Button 
-                    onClick={handleParse} 
-                    disabled={isParsing || !aiMessage}
-                    className="w-full sm:w-auto shrink-0"
-                >
-                    {isParsing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-                    <span className="ml-2 sm:hidden">Parse</span>
-                </Button>
-            </div>
-
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField

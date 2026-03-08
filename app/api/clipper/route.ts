@@ -4,7 +4,12 @@ import type { Id } from "@/convex/_generated/dataModel"
 import { apiAny } from "@/lib/convexApiAny"
 
 const DEFAULT_ALLOWED_WEB_ORIGINS = new Set(
-  ["https://myvibeproject.com", "http://localhost:3000", "http://localhost:3001"] as const,
+  [
+    "https://myvibeproject.com",
+    "https://www.myvibeproject.com",
+    "http://localhost:3000",
+    "http://localhost:3001",
+  ] as const,
 )
 const CORS_ALLOWED_METHODS = "GET, POST, OPTIONS"
 const CORS_FALLBACK_ALLOWED_HEADERS = "Authorization, Content-Type"
@@ -70,7 +75,20 @@ function isAllowedCorsOrigin(origin: string): boolean {
 
 function getCorsHeaders(req: Request): HeadersInit | null {
   const origin = req.headers.get("origin")?.trim() ?? ""
-  if (!isAllowedCorsOrigin(origin)) {
+
+  let allowOrigin: string | null = null
+  if (isAllowedCorsOrigin(origin)) {
+    allowOrigin = origin
+  } else if (
+    !origin &&
+    (req.headers.has("access-control-request-method") || req.headers.get("sec-fetch-mode") === "cors")
+  ) {
+    // Some proxies strip non-http(s) origins (e.g. chrome-extension://) on preflight.
+    // Fallback to wildcard keeps token-authenticated extension requests working.
+    allowOrigin = "*"
+  }
+
+  if (!allowOrigin) {
     return null
   }
 
@@ -79,7 +97,7 @@ function getCorsHeaders(req: Request): HeadersInit | null {
     ?.trim()
 
   return {
-    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Origin": allowOrigin,
     "Access-Control-Allow-Methods": CORS_ALLOWED_METHODS,
     "Access-Control-Allow-Headers":
       requestedHeaders && requestedHeaders.length > 0

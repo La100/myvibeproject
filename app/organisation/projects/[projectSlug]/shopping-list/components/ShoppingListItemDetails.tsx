@@ -1,14 +1,20 @@
 import { Badge } from "@/components/ui/badge";
 import { Doc } from "@/convex/_generated/dataModel";
+import type { TeamMember } from "@/lib/teamMember";
 import { format } from "date-fns";
 
 type ShoppingListItem = Doc<"shoppingListItems">;
 
 interface ShoppingListItemDetailsProps {
     item: ShoppingListItem;
+    teamMembers?: TeamMember[];
 }
 
-export function ShoppingListItemDetails({ item }: ShoppingListItemDetailsProps) {
+export function ShoppingListItemDetails({ item, teamMembers }: ShoppingListItemDetailsProps) {
+    const assignedMemberName = item.assignedTo
+        ? teamMembers?.find((member) => member.clerkUserId === item.assignedTo)?.name || item.assignedTo
+        : undefined;
+
     return (
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 text-sm text-gray-600">
             {item.priority && (
@@ -62,8 +68,7 @@ export function ShoppingListItemDetails({ item }: ShoppingListItemDetailsProps) 
             {item.assignedTo && (
                 <div className="flex items-center gap-2">
                     <span className="font-semibold">Assigned To:</span>
-                    {/* TODO: Fetch and display user name */}
-                    <span>{item.assignedTo}</span>
+                    <span>{assignedMemberName}</span>
                 </div>
             )}
             {item.notes && (

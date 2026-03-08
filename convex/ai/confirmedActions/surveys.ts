@@ -188,7 +188,10 @@ export const editConfirmedSurvey = action({
           }
         }
 
-        let nextQuestionOrder = existingQuestions.reduce((max, question) => Math.max(max, question.order), 0);
+        let nextQuestionOrder = existingQuestions.reduce(
+          (max: number, question: { order: number }) => Math.max(max, question.order),
+          0,
+        );
         const shouldAllowIndexFallback =
           existingQuestions.length > 0 &&
           existingQuestions.length === args.updates.questions.length;
@@ -339,7 +342,6 @@ export const deleteConfirmedSurvey = action({
     }
   },
 });
-
 
 
 

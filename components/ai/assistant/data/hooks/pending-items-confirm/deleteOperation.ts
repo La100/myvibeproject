@@ -48,7 +48,7 @@ export async function confirmDeleteItem(
       break;
     }
     case 'shoppingSection': {
-      const sectionId = item.data.sectionId as Id<"shoppingListSections">;
+      const sectionId = (item.data.sectionId ?? item.data.itemId) as Id<"shoppingListSections">;
       if (!sectionId) {
         throw new Error("Missing sectionId for shopping section deletion");
       }
@@ -85,7 +85,7 @@ export async function confirmDeleteItem(
       break;
     }
     case 'laborSection': {
-      const sectionId = item.data.sectionId as Id<"laborSections">;
+      const sectionId = (item.data.sectionId ?? item.data.itemId) as Id<"laborSections">;
       if (!sectionId) {
         throw new Error("Missing sectionId for labor section deletion");
       }

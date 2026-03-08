@@ -872,10 +872,18 @@ export function createStreamingTools(options?: StreamingToolOptions) {
           });
         }
 
+        const isSectionType =
+          args.type === "shoppingSection" || args.type === "laborSection";
+
         return JSON.stringify({
           type: getOperationType(args.type),
           operation: "delete",
-          data: { itemId: args.itemId, name: args.name || originalItem?.title || originalItem?.name, reason: args.reason },
+          data: {
+            itemId: args.itemId,
+            sectionId: isSectionType ? args.itemId : undefined,
+            name: args.name || originalItem?.title || originalItem?.name,
+            reason: args.reason,
+          },
           originalItem: originalItem || { _id: args.itemId, title: args.name, name: args.name },
         });
       },

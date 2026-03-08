@@ -56,6 +56,23 @@ function SelectContent({
   position = "popper",
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
+  const groupedChildren = React.useMemo(() => {
+    const items = React.Children.toArray(children)
+    const hasExplicitGroup = items.some((child) => {
+      if (!React.isValidElement(child)) {
+        return false
+      }
+
+      return child.type === SelectGroup
+    })
+
+    if (hasExplicitGroup) {
+      return children
+    }
+
+    return <SelectGroup>{children}</SelectGroup>
+  }, [children])
+
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
@@ -77,7 +94,7 @@ function SelectContent({
               "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)] scroll-my-1"
           )}
         >
-          {children}
+          {groupedChildren}
         </SelectPrimitive.Viewport>
         <SelectScrollDownButton />
       </SelectPrimitive.Content>

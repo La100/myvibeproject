@@ -740,7 +740,7 @@ export function ShoppingListSection({
                   
                   {expandedDetails[item._id] && (
                     <div className="pt-4 border-t border-[var(--ui-border-soft)] mt-4 animate-in slide-in-from-top-2 duration-200">
-                      <ShoppingListItemDetails item={item} />
+                      <ShoppingListItemDetails item={item} teamMembers={teamMembers} />
                     </div>
                   )}
                 </div>

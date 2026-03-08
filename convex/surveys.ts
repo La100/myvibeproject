@@ -503,6 +503,17 @@ export const submitPublicSurveyResponseByAccessToken = mutation({
       entityType: "survey",
     });
 
+    await ctx.scheduler.runAfter(
+      0,
+      internal.notifications.sendClientPortalEventEmail,
+      {
+        projectId: project._id,
+        actionType: "survey.response.submit",
+        actorName: getPortalActorName(args.respondentName),
+        surveyTitle: survey.title,
+      }
+    );
+
     return { success: true, responseId: response._id };
   },
 });

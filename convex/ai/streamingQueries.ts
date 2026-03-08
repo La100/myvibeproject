@@ -16,6 +16,7 @@ import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import { createThread, vStreamArgs, listUIMessages, syncStreams } from "@convex-dev/agent";
 import type { SyncStreamsReturnValue } from "@convex-dev/agent";
+import { ensureProjectAccess, ensureThreadAccess, requireIdentity } from "./access";
 
 /**
  * Query for useUIMessages hook - the main streaming query
@@ -47,6 +48,17 @@ export const listThreadMessages = query({
 
     // Handle placeholder threadId (when client has no real thread yet)
     if (!args.threadId || args.threadId === "__no_thread__") {
+      return {
+        page: [],
+        isDone: true,
+        continueCursor: "",
+        streams: emptyStreams,
+      };
+    }
+
+    const identity = await requireIdentity(ctx);
+    const authorizedThread = await ensureThreadAccess(ctx, args.threadId, identity.subject);
+    if (!authorizedThread) {
       return {
         page: [],
         isDone: true,
@@ -138,22 +150,13 @@ export const initiateStreaming = mutation({
       ),
     });
 
-    // Validate user identity
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      console.error("❌ [MUTATION] Unauthorized - no identity");
-      throw new Error("Unauthorized");
-    }
+    // Validate user identity + project access
+    const identity = await requireIdentity(ctx);
     const userClerkId = identity.subject;
 
     console.log("👤 [MUTATION] User authenticated:", userClerkId);
 
-    // Validate project access
-    const project = await ctx.db.get(args.projectId);
-    if (!project) {
-      console.error("❌ [MUTATION] Project not found:", args.projectId);
-      throw new Error("Project not found");
-    }
+    const { project } = await ensureProjectAccess(ctx, args.projectId, userClerkId);
 
     console.log("📁 [MUTATION] Project found:", {
       projectName: project.name,
@@ -198,14 +201,19 @@ export const initiateStreaming = mutation({
       }
       const assuredThreadId = threadId;
 
-      const existingThread = await ctx.db
-        .query("aiThreads")
-        .withIndex("by_thread_id", (q) => q.eq("threadId", assuredThreadId))
-        .unique();
+      const authorizedThread = await ensureThreadAccess(ctx, assuredThreadId, userClerkId);
+      const existingThread = authorizedThread?.thread ?? null;
 
       if (!existingThread) {
+        console.log("⚠️ [MUTATION] Unknown thread ID supplied, creating a fresh thread");
+        const agentThreadId = await createThread(ctx, components.agent, {
+          userId: userClerkId,
+          title: threadTitle,
+        });
+
         await ctx.db.insert("aiThreads", {
-          threadId: assuredThreadId,
+          threadId: agentThreadId,
+          agentThreadId,
           projectId: args.projectId,
           teamId: project.teamId,
           userClerkId,
@@ -215,10 +223,8 @@ export const initiateStreaming = mutation({
           lastMessagePreview: args.prompt,
           lastMessageRole: "user",
         });
+        threadId = agentThreadId;
       } else {
-        if (existingThread.userClerkId !== userClerkId || existingThread.projectId !== args.projectId) {
-          throw new Error("Thread does not belong to this project or user");
-        }
 
         const titlePatch =
           (!existingThread.title || existingThread.title.trim().length === 0) && trimmedPrompt.length > 0

@@ -47,6 +47,7 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -106,6 +107,7 @@ function ProjectSidebarContent() {
 
   useEffect(() => {
     if (!isNotificationsPage || latestClientNotificationAt === 0) return;
+    setLastSeenAt((current) => Math.max(current, latestClientNotificationAt));
     markProjectClientNotificationsRead(String(project._id), latestClientNotificationAt);
   }, [isNotificationsPage, latestClientNotificationAt, project._id]);
 
@@ -327,14 +329,16 @@ function ProjectSidebarContent() {
                   </p>
                 </div>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => openUserProfile?.()}>
-                  <Settings2 className="mr-2 h-4 w-4" />
-                  Manage account
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => signOut()}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Sign out
-                </DropdownMenuItem>
+                <DropdownMenuGroup>
+                  <DropdownMenuItem onClick={() => openUserProfile?.()}>
+                    <Settings2 className="mr-2 h-4 w-4" />
+                    Manage account
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => signOut()}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sign out
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarGroupContent>

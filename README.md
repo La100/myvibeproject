@@ -76,6 +76,10 @@ Myvibe project is a comprehensive project management tool tailored for architect
 
 3.  **Environment Setup**:
     Create `.env.local` and populate it with keys for Clerk, Convex, OpenAI, Stripe, etc.
+    For client-portal email alerts via Resend, add:
+    - `RESEND_API_KEY`
+    - `RESEND_FROM_EMAIL` (must be a verified sender/domain in Resend, e.g. `Myvibe <notifications@yourdomain.com>`)
+    - `NEXT_PUBLIC_BASE_URL` (used for links in email, e.g. `https://app.yourdomain.com`)
     *(See `.env.example` if available)*
 
 4.  **Run Development Server**:
