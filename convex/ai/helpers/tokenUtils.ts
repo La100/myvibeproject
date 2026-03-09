@@ -5,9 +5,18 @@
  */
 
 import type { AITokenUsage } from "../types";
+import { calculateTextCostUsd } from "../billing";
+
+type TokenUsageResult = {
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    total_tokens?: number;
+  };
+};
 
 export const calculateTokenUsage = (
-  result: any,
+  result: TokenUsageResult,
   userMessage: string,
   aiResponse: string,
 ): AITokenUsage => {
@@ -22,10 +31,10 @@ export const calculateTokenUsage = (
     tokenUsage.totalTokens = tokenUsage.inputTokens + tokenUsage.outputTokens;
   }
 
-  // GPT-5 pricing: $1.25/1M input tokens, $10/1M output tokens
-  const inputCost = (tokenUsage.inputTokens / 1000000) * 1.25;
-  const outputCost = (tokenUsage.outputTokens / 1000000) * 10;
-  tokenUsage.estimatedCostUSD = inputCost + outputCost;
+  tokenUsage.estimatedCostUSD = calculateTextCostUsd(
+    tokenUsage.inputTokens,
+    tokenUsage.outputTokens
+  );
 
   return tokenUsage;
 };

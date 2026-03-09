@@ -308,7 +308,7 @@ export default function SurveyResponsePage({ params }: SurveyResponsePageProps) 
                 size="sm"
                 onClick={() => router.back()}
               >
-                <ArrowLeft className="h-4 w-4 mr-2" />
+                <ArrowLeft className="mr-2 h-5 w-5 stroke-[2.4]" />
                 Back
               </Button>
             }
@@ -345,7 +345,7 @@ export default function SurveyResponsePage({ params }: SurveyResponsePageProps) 
               size="sm"
               onClick={() => router.back()}
             >
-              <ArrowLeft className="h-4 w-4 mr-2" />
+              <ArrowLeft className="mr-2 h-5 w-5 stroke-[2.4]" />
               Back
             </Button>
           }

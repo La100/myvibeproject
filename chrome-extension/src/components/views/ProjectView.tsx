@@ -16,8 +16,13 @@ const ProjectView = ({ team, onProjectSelect, onBack }: ProjectViewProps) => {
     <div className="flex h-full flex-col px-4 pb-4 pt-5">
       <div className="mb-4 flex items-start justify-between">
         <div className="flex items-start gap-2">
-          <Button variant="ghost" size="sm" onClick={onBack} className="mt-0.5 h-8 w-8 p-0">
-            <ArrowLeft className="h-4 w-4" />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onBack}
+            className="mt-0.5 h-9 w-9 rounded-full border border-border/80 bg-background/80 p-0 text-foreground shadow-sm hover:bg-accent/60"
+          >
+            <ArrowLeft className="h-5 w-5 stroke-[2.4]" />
           </Button>
           <div>
             <p className="vp-title">Team projects</p>

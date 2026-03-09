@@ -81,6 +81,7 @@ export default function NewProjectPage() {
     currency: "PLN",
     measurements: "metric",
     tax: false,
+    taxRate: "23",
   });
   const selectedCurrency = useDefaultCurrency ? (team?.currency || "PLN") : newProject.currency;
   const selectedCurrencySymbol = currencySymbols[selectedCurrency] || selectedCurrency;
@@ -184,6 +185,11 @@ export default function NewProjectPage() {
         budget: newProject.budget ? parseFloat(newProject.budget) : undefined,
         startDate: newProject.startDate ? new Date(newProject.startDate).getTime() : undefined,
         endDate: newProject.endDate ? new Date(newProject.endDate).getTime() : undefined,
+        currency: selectedCurrency,
+        taxEnabled: newProject.tax,
+        taxRate: newProject.tax
+          ? Math.min(Math.max(parseFloat(newProject.taxRate) || 0, 0), 100)
+          : undefined,
       });
 
       if (coverImageFile && createdProject?.id) {
@@ -407,54 +413,68 @@ export default function NewProjectPage() {
             </div>
 
             {!useDefaultCurrency && (
-              <>
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>Project Currency</Label>
-                    <Select value={newProject.currency} onValueChange={(v) => setNewProject({ ...newProject, currency: v })}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="PLN">Polish Zloty (PLN-zl)</SelectItem>
-                        <SelectItem value="USD">US Dollar (USD-$)</SelectItem>
-                        <SelectItem value="EUR">Euro (EUR-€)</SelectItem>
-                        <SelectItem value="GBP">British Pound (GBP-£)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Measurements</Label>
-                    <Select value={newProject.measurements} onValueChange={(v) => setNewProject({ ...newProject, measurements: v })}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="metric">Metric</SelectItem>
-                        <SelectItem value="imperial">Imperial</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <Label>Project Currency</Label>
+                  <Select value={newProject.currency} onValueChange={(v) => setNewProject({ ...newProject, currency: v })}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PLN">Polish Zloty (PLN-zl)</SelectItem>
+                      <SelectItem value="USD">US Dollar (USD-$)</SelectItem>
+                      <SelectItem value="EUR">Euro (EUR-€)</SelectItem>
+                      <SelectItem value="GBP">British Pound (GBP-£)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-
-                <div className="flex items-start gap-3 rounded-lg bg-muted/50 p-4">
-                  <input
-                    type="checkbox"
-                    id="tax"
-                    checked={newProject.tax}
-                    onChange={(e) => setNewProject({ ...newProject, tax: e.target.checked })}
-                    className="mt-1 h-4 w-4 rounded border-gray-300"
-                  />
-                  <div>
-                    <label htmlFor="tax" className="cursor-pointer text-sm font-medium">Tax</label>
-                    <p className="text-sm text-muted-foreground">
-                      Turning tax on will result in tax calculated at the schedule level.
-                    </p>
-                  </div>
-                </div>
-              </>
+              </div>
             )}
+
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Measurements</Label>
+                <Select value={newProject.measurements} onValueChange={(v) => setNewProject({ ...newProject, measurements: v })}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="metric">Metric</SelectItem>
+                    <SelectItem value="imperial">Imperial</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="taxRate">Tax Rate (%)</Label>
+                <Input
+                  id="taxRate"
+                  type="number"
+                  min="0"
+                  max="100"
+                  placeholder="23"
+                  value={newProject.taxRate}
+                  onChange={(e) => setNewProject({ ...newProject, taxRate: e.target.value })}
+                  disabled={!newProject.tax}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 rounded-lg bg-muted/50 p-4">
+              <input
+                type="checkbox"
+                id="tax"
+                checked={newProject.tax}
+                onChange={(e) => setNewProject({ ...newProject, tax: e.target.checked })}
+                className="mt-1 h-4 w-4 rounded border-gray-300"
+              />
+              <div>
+                <label htmlFor="tax" className="cursor-pointer text-sm font-medium">Tax</label>
+                <p className="text-sm text-muted-foreground">
+                  When enabled, project cost overview includes tax and new estimations start with this VAT rate.
+                </p>
+              </div>
+            </div>
           </div>
         </section>
 

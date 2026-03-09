@@ -2,7 +2,6 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery } from "../../_generated/server";
 import type { Id } from "../../_generated/dataModel";
 import { r2 } from "../../files";
-import { SUBSCRIPTION_PLANS } from "../../stripe";
 
 /**
  * Internal helper functions for image generation
@@ -98,7 +97,7 @@ export const createFileRecord = internalMutation({
     // Only try to find/create folder if we are in a project
     if (args.projectId) {
       // Find or create "Generated" folder
-      let generatedFolder = await ctx.db
+      const generatedFolder = await ctx.db
         .query("folders")
         .withIndex("by_project", (q) => q.eq("projectId", args.projectId!))
         .filter((q) => q.eq(q.field("name"), "Generated"))
@@ -190,9 +189,6 @@ export const getFileUrl = internalQuery({
   },
 });
 
-// Token cost per image generation
-const IMAGE_GENERATION_TOKENS = 10000;
-
 const normalizePromptForGallery = (prompt: string): string => {
   const trimmed = prompt.trim();
   if (!trimmed) return trimmed;
@@ -231,6 +227,8 @@ export const logImageGeneration = internalMutation({
     promptTokens: v.optional(v.number()),
     responseTokens: v.optional(v.number()),
     totalTokens: v.optional(v.number()),
+    billableTokens: v.optional(v.number()),
+    estimatedCostCents: v.optional(v.number()),
     referenceImageCount: v.optional(v.number()),
     textResponse: v.optional(v.string()),
     error: v.optional(v.string()),
@@ -254,37 +252,14 @@ export const logImageGeneration = internalMutation({
       promptTokens: args.promptTokens,
       responseTokens: args.responseTokens,
       totalTokens: args.totalTokens,
+      billableTokens: args.billableTokens,
+      estimatedCostCents: args.estimatedCostCents,
       savedToFiles: false,
       referenceImageCount: args.referenceImageCount,
       textResponse: args.textResponse,
       error: args.error,
       success: args.success,
     });
-
-    // Decrement aiTokens from team (only for successful generations).
-    // If balance was never initialized, seed from plan limit first.
-    if (args.success) {
-      const team = await ctx.db.get(args.teamId);
-      if (team) {
-        const plan = (team.subscriptionPlan || "free") as keyof typeof SUBSCRIPTION_PLANS;
-        const defaultPlanTokens = SUBSCRIPTION_PLANS[plan]?.aiMonthlyTokens ?? 0;
-        const storedPlanTokens = team.subscriptionLimits?.aiMonthlyTokens;
-        const planTokens =
-          plan === "free"
-            ? defaultPlanTokens
-            : (storedPlanTokens ?? defaultPlanTokens);
-        const currentBalance =
-          typeof team.aiTokens === "number"
-            ? (
-                plan === "free"
-                  ? Math.min(Math.max(0, team.aiTokens), Math.max(0, planTokens))
-                  : Math.max(0, team.aiTokens)
-              )
-            : Math.max(0, planTokens);
-        const newBalance = Math.max(0, currentBalance - IMAGE_GENERATION_TOKENS);
-        await ctx.db.patch(args.teamId, { aiTokens: newBalance });
-      }
-    }
 
     return generationId;
   },
@@ -355,6 +330,8 @@ export const deleteGeneratedImage = internalMutation({
     if (image.storageKey) {
       try {
         await ctx.runMutation(
+          // Convex component handles are not typed in this runtime path.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           { kind: "function", functionHandle: "components/r2/lib:deleteObject" } as any,
           {
             accessKeyId: process.env.R2_ACCESS_KEY_ID!,

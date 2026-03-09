@@ -26,6 +26,7 @@ export const saveTokenUsage = internalMutation({
     inputTokens: v.number(),
     outputTokens: v.number(),
     totalTokens: v.number(),
+    billableTokens: v.optional(v.number()),
     
     contextSize: v.optional(v.number()),
     mode: v.optional(v.string()),
@@ -38,11 +39,13 @@ export const saveTokenUsage = internalMutation({
     const resolvedFeature =
       args.feature ||
       (args.requestType === "chat" ? "assistant" : "other");
+    const billableTokens = Math.max(0, args.billableTokens ?? args.totalTokens);
 
     // Insert usage record
     const usageId = await ctx.db.insert("aiTokenUsage", {
       ...args,
       feature: resolvedFeature,
+      billableTokens,
     });
 
     // Decrement aiTokens from team. If balance was never initialized, seed from plan limit first.
@@ -63,7 +66,7 @@ export const saveTokenUsage = internalMutation({
                 : Math.max(0, team.aiTokens)
             )
           : Math.max(0, planTokens);
-      const newBalance = Math.max(0, currentBalance - args.totalTokens);
+      const newBalance = Math.max(0, currentBalance - billableTokens);
       await ctx.db.patch(args.teamId, { aiTokens: newBalance });
     }
 
@@ -109,7 +112,10 @@ export const getProjectTokenUsage = query({
     // Calculate totals
     const totalInputTokens = usage.reduce((sum, record) => sum + record.inputTokens, 0);
     const totalOutputTokens = usage.reduce((sum, record) => sum + record.outputTokens, 0);
-    const totalTokens = usage.reduce((sum, record) => sum + record.totalTokens, 0);
+    const totalTokens = usage.reduce(
+      (sum, record) => sum + (record.billableTokens ?? record.totalTokens),
+      0
+    );
     const totalCostCents = usage.reduce((sum, record) => sum + (record.estimatedCostCents || 0), 0);
     const totalRequests = usage.length;
     const successfulRequests = usage.filter(r => r.success).length;
@@ -134,7 +140,7 @@ export const getProjectTokenUsage = query({
       acc[date].requests++;
       acc[date].inputTokens += record.inputTokens;
       acc[date].outputTokens += record.outputTokens;
-      acc[date].totalTokens += record.totalTokens;
+      acc[date].totalTokens += record.billableTokens ?? record.totalTokens;
       acc[date].costCents += record.estimatedCostCents || 0;
       return acc;
     }, {} as Record<string, any>);
@@ -155,12 +161,18 @@ export const getProjectTokenUsage = query({
       byMode: {
         full: {
           requests: fullModeUsage.length,
-          tokens: fullModeUsage.reduce((sum, r) => sum + r.totalTokens, 0),
+          tokens: fullModeUsage.reduce(
+            (sum, r) => sum + (r.billableTokens ?? r.totalTokens),
+            0
+          ),
           cost: fullModeUsage.reduce((sum, r) => sum + (r.estimatedCostCents || 0), 0),
         },
         smart: {
           requests: smartModeUsage.length,
-          tokens: smartModeUsage.reduce((sum, r) => sum + r.totalTokens, 0),
+          tokens: smartModeUsage.reduce(
+            (sum, r) => sum + (r.billableTokens ?? r.totalTokens),
+            0
+          ),
           cost: smartModeUsage.reduce((sum, r) => sum + (r.estimatedCostCents || 0), 0),
         }
       },
@@ -173,7 +185,7 @@ export const getProjectTokenUsage = query({
           mode: record.mode,
           inputTokens: record.inputTokens,
           outputTokens: record.outputTokens,
-          totalTokens: record.totalTokens,
+          totalTokens: record.billableTokens ?? record.totalTokens,
           costCents: record.estimatedCostCents,
           success: record.success,
           responseTime: record.responseTimeMs,
@@ -216,7 +228,10 @@ export const getTeamTokenUsage = query({
       .filter((q) => q.gte(q.field("_creationTime"), cutoffTime))
       .collect();
 
-    const totalTokens = usage.reduce((sum, record) => sum + record.totalTokens, 0);
+    const totalTokens = usage.reduce(
+      (sum, record) => sum + (record.billableTokens ?? record.totalTokens),
+      0
+    );
     const totalCostCents = usage.reduce((sum, record) => sum + (record.estimatedCostCents || 0), 0);
 
     // By project breakdown
@@ -231,7 +246,7 @@ export const getTeamTokenUsage = query({
         };
       }
       acc[projectId].requests++;
-      acc[projectId].tokens += record.totalTokens;
+      acc[projectId].tokens += record.billableTokens ?? record.totalTokens;
       acc[projectId].costCents += record.estimatedCostCents || 0;
       return acc;
     }, {} as Record<string, any>);
@@ -289,8 +304,9 @@ export const getTeamUsageBreakdown = query({
         const feature =
           record.feature ||
           (record.requestType === "chat" ? "assistant" : "other");
-        acc.totalTokens += record.totalTokens;
-        acc.byFeature[feature] = (acc.byFeature[feature] || 0) + record.totalTokens;
+        const billable = record.billableTokens ?? record.totalTokens;
+        acc.totalTokens += billable;
+        acc.byFeature[feature] = (acc.byFeature[feature] || 0) + billable;
         return acc;
       },
       {

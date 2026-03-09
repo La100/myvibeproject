@@ -35,7 +35,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { TimezonePicker } from "@/components/ui/timezone-picker";
-import { GEMINI_4K_IMAGE_TOKENS, formatTokens } from "@/lib/aiPricing";
+import { GEMINI_FLASH_IMAGE_TYPICAL_CREDITS, formatTokens } from "@/lib/aiPricing";
 
 export default function CompanySettings() {
   const router = useRouter();
@@ -905,7 +905,8 @@ export default function CompanySettings() {
                       })}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {GEMINI_4K_IMAGE_TOKENS.toLocaleString()} tokens per 4K image.
+                      Typical visualization runs about {formatTokens(GEMINI_FLASH_IMAGE_TYPICAL_CREDITS)} credits,
+                      with higher usage for long prompts, edits, and reference images.
                     </p>
                   </CardContent>
                 </Card>

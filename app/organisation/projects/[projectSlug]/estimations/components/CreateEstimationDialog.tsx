@@ -134,6 +134,7 @@ export function CreateEstimationDialog({
   const defaultCustomerEmail = (primaryProjectContact?.email || '').trim();
   const defaultCustomerPhone = (primaryProjectContact?.phone || '').trim();
   const defaultCustomerAddress = buildContactAddress(primaryProjectContact);
+  const defaultVatPercent = project?.taxEnabled ? project.taxRate ?? 23 : 0;
   const hasProjectCustomerDefaults = Boolean(
     defaultCustomerName || defaultCustomerEmail || defaultCustomerPhone || defaultCustomerAddress
   );
@@ -181,7 +182,7 @@ export function CreateEstimationDialog({
       setLocation('');
       setPlannedStartDate(undefined);
       setValidUntil(undefined);
-      setVatPercent(23);
+      setVatPercent(defaultVatPercent);
       setDiscountPercent(0);
       setCustomerName('');
       setCustomerEmail('');
@@ -194,7 +195,7 @@ export function CreateEstimationDialog({
       setLaborFilter('all');
       setMaterialFilter('all');
     }
-  }, [open]);
+  }, [defaultVatPercent, open]);
 
   useEffect(() => {
     if (!open) return;

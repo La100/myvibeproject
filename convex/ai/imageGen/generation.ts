@@ -5,14 +5,16 @@ import { action } from "../../_generated/server";
 import { internal } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
 import { GoogleGenAI } from "@google/genai";
+import {
+  calculateGeminiFlashImageCostUsd,
+  usdToCredits,
+} from "../billing";
 import { IMAGE_GENERATION_CONFIG } from "./config";
 
 /**
  * Gemini Image Generation for Architectural Visualizations
  * Uses Gemini image model with official SDK and chat history
  */
-
-const FALLBACK_IMAGE_TOKENS = 10000;
 
 // History message type - includes image data for model responses
 const historyMessageValidator = v.object({
@@ -229,8 +231,14 @@ export const generateVisualization = action({
 
       const inputTokens = usageMetadata?.promptTokenCount || 0;
       const outputTokens = usageMetadata?.candidatesTokenCount || 0;
-      const computedTotal = usageMetadata?.totalTokenCount ?? (inputTokens + outputTokens);
-      const totalTokens = computedTotal > 0 ? computedTotal : FALLBACK_IMAGE_TOKENS;
+      const totalTokens =
+        usageMetadata?.totalTokenCount ?? (inputTokens + outputTokens);
+      const estimatedCostUsd = calculateGeminiFlashImageCostUsd(
+        inputTokens,
+        outputTokens
+      );
+      const estimatedCostCents = Math.round(estimatedCostUsd * 100);
+      const billableTokens = usdToCredits(estimatedCostUsd);
 
       let contextInfo: {
         teamId: Id<"teams">;
@@ -259,8 +267,10 @@ export const generateVisualization = action({
             inputTokens,
             outputTokens,
             totalTokens,
+            billableTokens,
             contextSize: args.history?.length || 0,
             mode: "visualization",
+            estimatedCostCents,
             responseTimeMs: duration,
             success: true,
           });
@@ -355,7 +365,9 @@ export const generateVisualization = action({
               durationMs: duration,
               promptTokens: usageMetadata?.promptTokenCount,
               responseTokens: usageMetadata?.candidatesTokenCount,
-              totalTokens: usageMetadata?.totalTokenCount,
+              totalTokens,
+              billableTokens,
+              estimatedCostCents,
               referenceImageCount: args.referenceImages?.length || 0,
               textResponse,
               success: true,

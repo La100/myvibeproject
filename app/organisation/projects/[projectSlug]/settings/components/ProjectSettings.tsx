@@ -14,6 +14,7 @@ import { apiAny } from "@/lib/convexApiAny";
 import { Id } from "@/convex/_generated/dataModel";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -74,6 +75,16 @@ const settingsFormSchema = z.object({
       "KRW",
       "SGD",
       "HKD",
+    ])
+    .optional(),
+  taxEnabled: z.boolean().optional(),
+  taxRate: z
+    .union([
+      z.coerce
+        .number()
+        .min(0, "Tax rate must be at least 0")
+        .max(100, "Tax rate cannot exceed 100"),
+      z.literal(""),
     ])
     .optional(),
 });
@@ -224,6 +235,8 @@ function ProjectSettingsContent() {
           location: project.location || "",
           status: project.status || "planning",
           currency: project.currency || "PLN",
+          taxEnabled: project.taxEnabled || false,
+          taxRate: project.taxRate ?? 23,
         }
       : {
           name: "",
@@ -235,6 +248,8 @@ function ProjectSettingsContent() {
           location: "",
           status: "planning",
           currency: "PLN",
+          taxEnabled: false,
+          taxRate: 23,
         },
   });
 
@@ -306,6 +321,8 @@ function ProjectSettingsContent() {
     const normalizedBudget =
       values.budget === "" || values.budget === undefined ? undefined : Number(values.budget);
     const normalizedCoverUrl = normalizeCoverImageUrl(values.coverImageUrl);
+    const normalizedTaxRate =
+      values.taxRate === "" || values.taxRate === undefined ? undefined : Number(values.taxRate);
 
     try {
       const validResponsibleIds = new Set(
@@ -331,6 +348,8 @@ function ProjectSettingsContent() {
         location: values.location || undefined,
         status: values.status,
         currency: values.currency,
+        taxEnabled: values.taxEnabled || false,
+        taxRate: values.taxEnabled ? normalizedTaxRate ?? 23 : undefined,
         responsibleClerkUserId: resolvedResponsibleClerkUserId,
       });
       toast.success("Project settings updated");
@@ -860,6 +879,52 @@ function GeneralTab({
                           ))}
                         </SelectContent>
                       </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={settingsForm.control}
+                  name="taxEnabled"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 rounded-xl border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)]/60 p-4 md:col-span-2">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={(checked) => field.onChange(Boolean(checked))}
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel className="text-sm font-medium">
+                          Include tax in project cost analysis
+                        </FormLabel>
+                        <p className="text-xs text-[var(--ui-text-muted)]">
+                          Overview totals will show net, tax, and gross. Estimations will use this as the default VAT.
+                        </p>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={settingsForm.control}
+                  name="taxRate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium">Tax Rate (%)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          placeholder="23"
+                          {...field}
+                          value={field.value ?? ""}
+                          disabled={!settingsForm.watch("taxEnabled")}
+                          className="h-10 w-full bg-[var(--ui-surface-base)]"
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}

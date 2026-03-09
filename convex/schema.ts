@@ -129,9 +129,12 @@ export default defineSchema({
       v.literal("SGD"), // Singapore Dollar
       v.literal("HKD"), // Hong Kong Dollar
     )),
+    taxEnabled: v.optional(v.boolean()),
+    taxRate: v.optional(v.number()),
     createdBy: v.string(), // Clerk user ID
     // Project owner responsible for client notifications and updates
     responsibleClerkUserId: v.optional(v.string()),
+    clientNotificationsLastReadAt: v.optional(v.number()),
     assignedTo: v.array(v.string()), // Array of Clerk user IDs
     taskStatusSettings: v.optional(v.object({
       todo: v.object({ name: v.string(), color: v.string() }),
@@ -150,12 +153,16 @@ export default defineSchema({
       showLabor: v.optional(v.boolean()),
       showContacts: v.optional(v.boolean()),
       showBudget: v.optional(v.boolean()),
+      showPayments: v.optional(v.boolean()),
       showNotes: v.optional(v.boolean()),
       showSupplier: v.optional(v.boolean()),
       showPrice: v.optional(v.boolean()),
     })),
     clientPanelDataVersion: v.optional(v.number()),
     clientPanelDataUpdatedAt: v.optional(v.number()),
+    paymentCustomerName: v.optional(v.string()),
+    paymentCustomerEmail: v.optional(v.string()),
+    stripeProjectCustomerId: v.optional(v.string()),
     // Custom AI assistant prompt override
     customAiPrompt: v.optional(v.string()),
     // If true, CRUD tool calls from AI are auto-confirmed in the assistant UI
@@ -496,6 +503,37 @@ export default defineSchema({
     .index("by_project", ["projectId"])
     .index("by_project_and_source", ["projectId", "sourceFileId"]),
 
+  // Project payment installments managed in Stripe.
+  projectPayments: defineTable({
+    projectId: v.id("projects"),
+    teamId: v.id("teams"),
+    title: v.string(),
+    description: v.optional(v.string()),
+    amount: v.number(),
+    currency: v.string(),
+    dueDate: v.optional(v.number()),
+    order: v.number(),
+    status: v.union(
+      v.literal("draft"),
+      v.literal("open"),
+      v.literal("paid"),
+      v.literal("void"),
+      v.literal("uncollectible")
+    ),
+    createdBy: v.string(),
+    updatedAt: v.number(),
+    stripeInvoiceId: v.optional(v.string()),
+    stripeHostedInvoiceUrl: v.optional(v.string()),
+    stripeInvoiceNumber: v.optional(v.string()),
+    stripePaymentIntentId: v.optional(v.string()),
+    sentAt: v.optional(v.number()),
+    paidAt: v.optional(v.number()),
+    lastStripeSyncAt: v.optional(v.number()),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_project_and_order", ["projectId", "order"])
+    .index("by_stripe_invoice_id", ["stripeInvoiceId"]),
+
   // Labor sections for grouping labor items
   laborSections: defineTable({
     name: v.string(),
@@ -770,6 +808,7 @@ export default defineSchema({
     inputTokens: v.number(),
     outputTokens: v.number(),
     totalTokens: v.number(),
+    billableTokens: v.optional(v.number()),
     contextSize: v.optional(v.number()),
     mode: v.optional(v.string()),
     estimatedCostCents: v.optional(v.number()),
@@ -912,6 +951,8 @@ export default defineSchema({
     promptTokens: v.optional(v.number()),
     responseTokens: v.optional(v.number()),
     totalTokens: v.optional(v.number()),
+    billableTokens: v.optional(v.number()),
+    estimatedCostCents: v.optional(v.number()),
     savedToFiles: v.boolean(), // Whether user saved it to project files
     fileId: v.optional(v.id("files")), // Reference to files table if saved
     referenceImageCount: v.optional(v.number()), // How many reference images were used

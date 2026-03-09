@@ -411,11 +411,11 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 w-8 p-0"
+              className="h-9 w-9 rounded-full border border-border/80 bg-background/80 p-0 text-foreground shadow-sm hover:bg-accent/60"
               onClick={onBack}
               title="Back"
             >
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="h-5 w-5 stroke-[2.4]" />
             </Button>
 
             <Button

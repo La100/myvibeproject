@@ -14,12 +14,14 @@ import {
   User,
   Target,
   Hammer,
+  Wallet,
 } from "lucide-react";
 import { Suspense } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { calculateShoppingTotal } from "@/lib/shoppingAlternatives";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
+import { formatCurrency } from "@/lib/utils";
 
 function ProjectOverviewSkeleton() {
   return <Spinner />;
@@ -40,19 +42,38 @@ function ProjectOverviewContent() {
     apiAny.labor.listLaborItems,
     { projectId: project._id }
   );
+  const paymentsData = useQuery(apiAny.projectPayments.getProjectPaymentsOverview, {
+    projectId: project._id,
+  });
 
   if (
     tasks === undefined ||
     shoppingListItems === undefined ||
-    laborItems === undefined
+    laborItems === undefined ||
+    paymentsData === undefined
   ) {
     return <ProjectOverviewSkeleton />;
   }
 
   const shoppingListCost = calculateShoppingTotal(shoppingListItems);
   const laborCost = laborItems.reduce((sum: number, item) => sum + (item.totalPrice || 0), 0);
-  const totalCost = shoppingListCost + laborCost;
+  const netCost = shoppingListCost + laborCost;
+  const taxRate = project.taxEnabled ? project.taxRate ?? 23 : 0;
+  const taxAmount = taxRate > 0 ? netCost * (taxRate / 100) : 0;
+  const totalCost = netCost + taxAmount;
   const currencySymbol = project.currency === "EUR" ? "€" : project.currency === "PLN" ? "zł" : "$";
+  const unpaidInstallments =
+    ((paymentsData?.installments as Array<{
+      _id: string;
+      title: string;
+      amount: number;
+      currency: string;
+      dueDate?: number;
+      status: "draft" | "open" | "paid" | "void" | "uncollectible";
+      isOverdue?: boolean;
+    }> | undefined) ?? [])
+      .filter((installment) => installment.status !== "paid" && installment.status !== "void")
+      .slice(0, 3);
 
   const statusColors = {
     planning: "border-sky-200 bg-sky-50 text-sky-700",
@@ -85,7 +106,7 @@ function ProjectOverviewContent() {
                 {totalCost.toFixed(2)} {currencySymbol}
               </div>
               <p className="text-xs text-muted-foreground">
-                Shopping List & Labor
+                {taxRate > 0 ? `Gross total including ${taxRate}% tax` : "Shopping List & Labor"}
               </p>
             </CardContent>
           </Card>
@@ -103,7 +124,7 @@ function ProjectOverviewContent() {
                 {shoppingListCost.toFixed(2)} {currencySymbol}
               </div>
               <p className="text-xs text-muted-foreground">
-                Cost from all items
+                Net cost from all items
               </p>
             </CardContent>
           </Card>
@@ -121,10 +142,29 @@ function ProjectOverviewContent() {
                 {laborCost.toFixed(2)} {currencySymbol}
               </div>
               <p className="text-xs text-muted-foreground">
-                Cost from all labor items
+                Net cost from all labor items
               </p>
             </CardContent>
           </Card>
+
+          {taxRate > 0 && (
+            <Card className="bg-card/90">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <DollarSign className="h-4 w-4" />
+                  Tax
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {taxAmount.toFixed(2)} {currencySymbol}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Calculated at {taxRate}% on current net costs
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Project Status */}
           <Card className="bg-card/90">
@@ -191,6 +231,25 @@ function ProjectOverviewContent() {
             </Card>
           )}
 
+          {paymentsData && paymentsData.totals.installmentCount > 0 ? (
+            <Card className="bg-card/90">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Wallet className="h-4 w-4" />
+                  Payments Collected
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-lg font-semibold">
+                  {formatCurrency(paymentsData.totals.paid || 0, paymentsData.currency)}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Outstanding: {formatCurrency(paymentsData.totals.outstanding || 0, paymentsData.currency)}
+                </p>
+              </CardContent>
+            </Card>
+          ) : null}
+
           {/* Project Dates */}
           {(project.startDate || project.endDate) && (
             <Card className="bg-card/90">
@@ -238,6 +297,18 @@ function ProjectOverviewContent() {
                     <span>Spent:</span>
                     <span className="font-semibold">{totalCost.toFixed(2)} {currencySymbol}</span>
                   </div>
+                  {taxRate > 0 && (
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span>Net:</span>
+                        <span className="font-semibold">{netCost.toFixed(2)} {currencySymbol}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Tax ({taxRate}%):</span>
+                        <span className="font-semibold">{taxAmount.toFixed(2)} {currencySymbol}</span>
+                      </div>
+                    </>
+                  )}
                   <div className="flex justify-between text-sm">
                     <span>Budget:</span>
                     <span className="font-semibold">{project.budget.toLocaleString()} {currencySymbol}</span>
@@ -273,6 +344,34 @@ function ProjectOverviewContent() {
             </CardContent>
           </Card>
         )}
+
+        {unpaidInstallments.length > 0 ? (
+          <Card className="bg-card/92">
+            <CardHeader className="pb-4">
+              <CardTitle className="clean-title text-lg font-medium lg:text-xl">Upcoming Installments</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 px-6">
+              {unpaidInstallments.map((installment) => (
+                <div key={installment._id} className="flex items-center justify-between rounded-xl border p-4">
+                  <div>
+                    <p className="font-medium">{installment.title}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {installment.dueDate
+                        ? `Due ${new Date(installment.dueDate).toLocaleDateString()}`
+                        : "No due date"}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold">{formatCurrency(installment.amount, installment.currency)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {installment.isOverdue ? "Overdue" : installment.status.replace("_", " ")}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        ) : null}
       </div>
     </ProjectPageLayout>
   );

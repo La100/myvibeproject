@@ -1,11 +1,18 @@
 import { httpRouter } from "convex/server";
-import { internal, components } from "./_generated/api";
+import { components } from "./_generated/api";
 import handleClerkWebhook from "./clerk";
 import { registerRoutes } from "@convex-dev/stripe";
 import type Stripe from "stripe";
 import { telegramWebhook } from "./messaging/telegram";
 
 const http = httpRouter();
+const internalAny = require("./_generated/api").internal as any;
+
+const getInvoicePaymentIntentId = (invoice: Stripe.Invoice) => {
+  const paymentIntent = (invoice as any).payment_intent;
+  if (!paymentIntent) return undefined;
+  return typeof paymentIntent === "string" ? paymentIntent : paymentIntent.id;
+};
 
 // Telegram webhook (assistant integration)
 http.route({
@@ -50,7 +57,7 @@ registerRoutes(http, components.stripe, {
           console.log(`Checkout completed for team ${teamId}, subscription: ${subscriptionId}, status: ${subscription.status}`);
 
           // Sync directly without relying on Stripe component database
-          await ctx.runMutation(internal.stripe.syncSubscriptionDirectly, {
+          await ctx.runMutation(internalAny.stripe.syncSubscriptionDirectly, {
             teamId: teamId as any,
             subscriptionId: subscriptionId,
             status: subscription.status,
@@ -77,7 +84,7 @@ registerRoutes(http, components.stripe, {
       if (teamId) {
         console.log(`Subscription CREATED for team ${teamId}: ${subscription.status}`);
 
-        await ctx.runMutation(internal.stripe.syncSubscriptionDirectly, {
+        await ctx.runMutation(internalAny.stripe.syncSubscriptionDirectly, {
           teamId: teamId as any,
           subscriptionId: subscription.id,
           status: subscription.status,
@@ -103,7 +110,7 @@ registerRoutes(http, components.stripe, {
       if (teamId) {
         console.log(`Subscription updated for team ${teamId}: ${subscription.status}`);
 
-        await ctx.runMutation(internal.stripe.syncSubscriptionDirectly, {
+        await ctx.runMutation(internalAny.stripe.syncSubscriptionDirectly, {
           teamId: teamId as any,
           subscriptionId: subscription.id,
           status: subscription.status,
@@ -122,10 +129,84 @@ registerRoutes(http, components.stripe, {
       if (teamId) {
         console.log(`Subscription deleted for team ${teamId}`);
 
-        await ctx.runMutation(internal.stripe.updateTeamToFree, {
+        await ctx.runMutation(internalAny.stripe.updateTeamToFree, {
           teamId,
         });
       }
+    },
+
+    "invoice.finalized": async (ctx, event: Stripe.InvoiceFinalizedEvent) => {
+      const invoice = event.data.object;
+      if (!invoice.id) return;
+
+      await ctx.runMutation(internalAny.projectPayments.syncProjectPaymentByStripeInvoiceId, {
+        stripeInvoiceId: invoice.id,
+        status: "open",
+        stripeHostedInvoiceUrl: invoice.hosted_invoice_url || undefined,
+        stripeInvoiceNumber: invoice.number || undefined,
+        stripePaymentIntentId: getInvoicePaymentIntentId(invoice),
+        sentAt: invoice.status_transitions.finalized_at
+          ? invoice.status_transitions.finalized_at * 1000
+          : Date.now(),
+        paidAt: undefined,
+        lastStripeSyncAt: Date.now(),
+      });
+    },
+
+    "invoice.paid": async (ctx, event: Stripe.InvoicePaidEvent) => {
+      const invoice = event.data.object;
+      if (!invoice.id) return;
+
+      await ctx.runMutation(internalAny.projectPayments.syncProjectPaymentByStripeInvoiceId, {
+        stripeInvoiceId: invoice.id,
+        status: "paid",
+        stripeHostedInvoiceUrl: invoice.hosted_invoice_url || undefined,
+        stripeInvoiceNumber: invoice.number || undefined,
+        stripePaymentIntentId: getInvoicePaymentIntentId(invoice),
+        sentAt: invoice.status_transitions.finalized_at
+          ? invoice.status_transitions.finalized_at * 1000
+          : undefined,
+        paidAt: invoice.status_transitions.paid_at
+          ? invoice.status_transitions.paid_at * 1000
+          : Date.now(),
+        lastStripeSyncAt: Date.now(),
+      });
+    },
+
+    "invoice.voided": async (ctx, event: Stripe.InvoiceVoidedEvent) => {
+      const invoice = event.data.object;
+      if (!invoice.id) return;
+
+      await ctx.runMutation(internalAny.projectPayments.syncProjectPaymentByStripeInvoiceId, {
+        stripeInvoiceId: invoice.id,
+        status: "void",
+        stripeHostedInvoiceUrl: invoice.hosted_invoice_url || undefined,
+        stripeInvoiceNumber: invoice.number || undefined,
+        stripePaymentIntentId: getInvoicePaymentIntentId(invoice),
+        sentAt: invoice.status_transitions.finalized_at
+          ? invoice.status_transitions.finalized_at * 1000
+          : undefined,
+        paidAt: undefined,
+        lastStripeSyncAt: Date.now(),
+      });
+    },
+
+    "invoice.marked_uncollectible": async (ctx, event: Stripe.InvoiceMarkedUncollectibleEvent) => {
+      const invoice = event.data.object;
+      if (!invoice.id) return;
+
+      await ctx.runMutation(internalAny.projectPayments.syncProjectPaymentByStripeInvoiceId, {
+        stripeInvoiceId: invoice.id,
+        status: "uncollectible",
+        stripeHostedInvoiceUrl: invoice.hosted_invoice_url || undefined,
+        stripeInvoiceNumber: invoice.number || undefined,
+        stripePaymentIntentId: getInvoicePaymentIntentId(invoice),
+        sentAt: invoice.status_transitions.finalized_at
+          ? invoice.status_transitions.finalized_at * 1000
+          : undefined,
+        paidAt: undefined,
+        lastStripeSyncAt: Date.now(),
+      });
     },
   },
   onEvent: async (_ctx, event: Stripe.Event) => {

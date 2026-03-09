@@ -21,6 +21,7 @@ import { components } from "../_generated/api";
 import { internalAction } from "../_generated/server";
 import { v } from "convex/values";
 import { createMyvibeProjectAgent } from "./agent";
+import { usdToCredits } from "./billing";
 import {
   buildTeamMembersContext,
   buildSystemInstructions,
@@ -795,6 +796,7 @@ Apply these additional instructions when they do not conflict with the tool cont
           totalOutputTokens || Math.ceil(fullResponse.length / 4)
         ),
       };
+      const billableTokens = usdToCredits(tokenUsage.estimatedCostUSD);
 
       const responseTime = Date.now() - startTime;
 
@@ -831,6 +833,7 @@ Apply these additional instructions when they do not conflict with the tool cont
         inputTokens: tokenUsage.inputTokens,
         outputTokens: tokenUsage.outputTokens,
         totalTokens: tokenUsage.totalTokens,
+        billableTokens,
         contextSize: 0,
         mode: agentModeIdentifier,
         estimatedCostCents: Math.round(tokenUsage.estimatedCostUSD * 100),

@@ -1,6 +1,6 @@
 export const IMAGE_GENERATION_CONFIG = {
-  // Nano Banana Pro model (Gemini 3 Pro Image Preview)
-  MODEL_ID: "gemini-3-pro-image-preview",
+  // Stable lower-cost model for team-wide visualization quotas
+  MODEL_ID: "gemini-2.5-flash-image",
 
   // System prompt for architectural visualizations
   SYSTEM_PROMPT: `You are an expert architectural visualization artist. When generating images:
@@ -15,8 +15,5 @@ export const IMAGE_GENERATION_CONFIG = {
   // Generation parameters
   GENERATION_CONFIG: {
     responseModalities: ["TEXT", "IMAGE"],
-    imageConfig: {
-      imageSize: "4K", // Options: '2K', '4K'
-    },
   },
 };

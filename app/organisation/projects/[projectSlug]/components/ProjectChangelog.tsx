@@ -39,6 +39,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
+import { dedupeActivityLogActivities } from "@/lib/activityLogDeduplication";
 import {
   Collapsible,
   CollapsibleContent,
@@ -396,7 +397,7 @@ export function ProjectChangelog({
       }
     }
 
-    return filtered;
+    return dedupeActivityLogActivities(filtered) as typeof filtered;
   }, [activities, filterType, timeFilter]);
 
   useEffect(() => {

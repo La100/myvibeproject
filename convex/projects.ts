@@ -110,6 +110,7 @@ const clientPanelDisplaySettingsValidator = {
   showLabor: v.optional(v.boolean()),
   showContacts: v.optional(v.boolean()),
   showBudget: v.optional(v.boolean()),
+  showPayments: v.optional(v.boolean()),
   showNotes: v.optional(v.boolean()),
   showSupplier: v.optional(v.boolean()),
   showPrice: v.optional(v.boolean()),
@@ -124,6 +125,7 @@ const defaultClientPanelDisplaySettings = {
   showLabor: false,
   showContacts: false,
   showBudget: false,
+  showPayments: false,
   showNotes: true,
   showSupplier: true,
   showPrice: true,
@@ -142,6 +144,7 @@ const getResolvedClientPanelDisplaySettings = (
   showLabor: settings?.showLabor ?? defaultClientPanelDisplaySettings.showLabor,
   showContacts: settings?.showContacts ?? defaultClientPanelDisplaySettings.showContacts,
   showBudget: settings?.showBudget ?? defaultClientPanelDisplaySettings.showBudget,
+  showPayments: settings?.showPayments ?? defaultClientPanelDisplaySettings.showPayments,
   showNotes: settings?.showNotes ?? defaultClientPanelDisplaySettings.showNotes,
   showSupplier: settings?.showSupplier ?? defaultClientPanelDisplaySettings.showSupplier,
   showPrice: settings?.showPrice ?? defaultClientPanelDisplaySettings.showPrice,
@@ -361,6 +364,15 @@ export const createProjectInOrg = mutation({
     budget: v.optional(v.number()),
     startDate: v.optional(v.number()),
     endDate: v.optional(v.number()),
+    currency: v.optional(v.union(
+      v.literal("USD"), v.literal("EUR"), v.literal("PLN"), v.literal("GBP"),
+      v.literal("CAD"), v.literal("AUD"), v.literal("JPY"), v.literal("CHF"),
+      v.literal("SEK"), v.literal("NOK"), v.literal("DKK"), v.literal("CZK"),
+      v.literal("HUF"), v.literal("CNY"), v.literal("INR"), v.literal("BRL"),
+      v.literal("MXN"), v.literal("KRW"), v.literal("SGD"), v.literal("HKD")
+    )),
+    taxEnabled: v.optional(v.boolean()),
+    taxRate: v.optional(v.number()),
   },
   async handler(ctx, args) {
     const identity = await ctx.auth.getUserIdentity();
@@ -424,6 +436,10 @@ export const createProjectInOrg = mutation({
     }
 
     const normalizedCoverImageUrl = args.coverImageUrl?.trim();
+    const taxEnabled = args.taxEnabled ?? false;
+    const taxRate = taxEnabled
+      ? Math.min(Math.max(args.taxRate ?? 23, 0), 100)
+      : undefined;
 
     const projectId = await ctx.db.insert("projects", {
       name: args.name,
@@ -436,7 +452,9 @@ export const createProjectInOrg = mutation({
       customer: args.customer,
       location: args.location,
       budget: args.budget,
-      currency: team.currency || "PLN", // Inherit currency from team, default PLN
+      currency: args.currency || team.currency || "PLN",
+      taxEnabled,
+      taxRate,
       startDate: args.startDate,
       endDate: args.endDate,
       createdBy: identity.subject,
@@ -522,6 +540,35 @@ export const getProjectBySlugInClerkOrg = query({
       ...project,
       coverImageDisplayUrl,
     };
+  },
+});
+
+export const markClientNotificationsRead = mutation({
+  args: {
+    projectId: v.id("projects"),
+    lastReadAt: v.number(),
+  },
+  async handler(ctx, args) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const { project } = await getProjectManagerMembership(ctx, args.projectId, identity.subject);
+    const normalizedLastReadAt = Number.isFinite(args.lastReadAt)
+      ? Math.floor(args.lastReadAt)
+      : Date.now();
+    const currentLastReadAt = project.clientNotificationsLastReadAt ?? 0;
+
+    if (normalizedLastReadAt <= currentLastReadAt) {
+      return { success: true, lastReadAt: currentLastReadAt };
+    }
+
+    await ctx.db.patch(args.projectId, {
+      clientNotificationsLastReadAt: normalizedLastReadAt,
+    });
+
+    return { success: true, lastReadAt: normalizedLastReadAt };
   },
 });
 
@@ -642,6 +689,8 @@ export const updateProject = mutation({
       v.literal("HUF"), v.literal("CNY"), v.literal("INR"), v.literal("BRL"),
       v.literal("MXN"), v.literal("KRW"), v.literal("SGD"), v.literal("HKD")
     )),
+    taxEnabled: v.optional(v.boolean()),
+    taxRate: v.optional(v.number()),
     responsibleClerkUserId: v.optional(v.string()),
     taskStatusSettings: v.optional(v.any()), // Allow any object for simplification
     customAiPrompt: v.optional(v.string()),
@@ -660,6 +709,8 @@ export const updateProject = mutation({
       telegramBotToken,
       coverImageUrl,
       responsibleClerkUserId,
+      taxEnabled,
+      taxRate,
       ...rest
     } = args;
 
@@ -689,6 +740,24 @@ export const updateProject = mutation({
     const coverImagePatch = coverImageProvided
       ? { coverImageUrl: normalizedCoverImageUrl || undefined }
       : {};
+    const taxEnabledProvided = Object.prototype.hasOwnProperty.call(args, "taxEnabled");
+    const taxRateProvided = Object.prototype.hasOwnProperty.call(args, "taxRate");
+    const resolvedTaxEnabled = taxEnabledProvided
+      ? Boolean(taxEnabled)
+      : existingProject.taxEnabled ?? false;
+    const resolvedTaxRate = resolvedTaxEnabled
+      ? Math.min(
+          Math.max((taxRateProvided ? taxRate : existingProject.taxRate) ?? 23, 0),
+          100
+        )
+      : undefined;
+    const taxPatch =
+      taxEnabledProvided || taxRateProvided
+        ? {
+            taxEnabled: resolvedTaxEnabled,
+            taxRate: resolvedTaxRate,
+          }
+        : {};
     const responsibleProvided = Object.prototype.hasOwnProperty.call(
       args,
       "responsibleClerkUserId"
@@ -742,6 +811,7 @@ export const updateProject = mutation({
         slug,
         ...telegramTokenPatch,
         ...coverImagePatch,
+        ...taxPatch,
         ...responsiblePatch,
         ...(shouldRotateTelegramSecret ? { telegramWebhookSecret } : {}),
         ...rest,
@@ -758,6 +828,7 @@ export const updateProject = mutation({
       await ctx.db.patch(projectId, {
         ...telegramTokenPatch,
         ...coverImagePatch,
+        ...taxPatch,
         ...responsiblePatch,
         ...(shouldRotateTelegramSecret ? { telegramWebhookSecret } : {}),
         ...rest,

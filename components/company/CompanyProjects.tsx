@@ -194,6 +194,7 @@ function ProjectCard({
   }, [project.coverImageUrl]);
 
   const showCoverImage = Boolean(project.coverImageUrl && !coverImageFailed);
+  const projectInitials = getProjectInitials(project.name);
 
   return (
     <div
@@ -201,7 +202,14 @@ function ProjectCard({
       onMouseEnter={onHover}
       className="group w-full cursor-pointer"
     >
-      <div className="relative aspect-[5/4] overflow-hidden rounded-lg border border-border bg-muted/40 p-4 transition-shadow group-hover:shadow-md md:aspect-[16/10] xl:aspect-[4/3]">
+      <div
+        className={cn(
+          "relative aspect-[5/4] overflow-hidden rounded-lg border transition-shadow group-hover:shadow-md md:aspect-[16/10] xl:aspect-[4/3]",
+          showCoverImage
+            ? "border-border bg-muted/40 p-4"
+            : "border-border bg-card p-5",
+        )}
+      >
         {showCoverImage ? (
           <>
             <img
@@ -220,10 +228,38 @@ function ProjectCard({
           </>
         ) : (
           <>
-            <p className="text-lg font-medium leading-snug line-clamp-3">{project.name}</p>
-            {project.description ? (
-              <p className="mt-1.5 text-xs text-muted-foreground line-clamp-2">{project.description}</p>
-            ) : null}
+            <div className="pointer-events-none absolute inset-0">
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,color-mix(in_oklab,var(--card)_94%,white_6%)_0%,color-mix(in_oklab,var(--muted)_62%,var(--card)_38%)_100%)]" />
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,color-mix(in_oklab,white_90%,transparent)_0%,transparent_34%)]" />
+              <div className="absolute inset-0 opacity-[0.55] bg-[linear-gradient(135deg,transparent_0%,transparent_64%,color-mix(in_oklab,var(--foreground)_3%,transparent)_64%,color-mix(in_oklab,var(--foreground)_3%,transparent)_65%,transparent_65%,transparent_100%)]" />
+              <div className="absolute inset-0 opacity-[0.35] bg-[linear-gradient(to_right,color-mix(in_oklab,var(--foreground)_3%,transparent)_1px,transparent_1px),linear-gradient(to_bottom,color-mix(in_oklab,var(--foreground)_2.5%,transparent)_1px,transparent_1px)] [background-size:32px_32px]" />
+              <div className="absolute -bottom-4 right-4 text-[5.5rem] font-semibold tracking-[-0.08em] text-foreground/[0.05]">
+                {projectInitials}
+              </div>
+            </div>
+
+            <div className="relative z-10 flex h-full flex-col">
+              <div className="flex items-start justify-between gap-4">
+                {(project.location || project.customer) ? (
+                  <span className="rounded-full border border-border/70 bg-background/80 px-2.5 py-1 text-[11px] font-medium text-muted-foreground backdrop-blur-sm">
+                    {project.location || project.customer}
+                  </span>
+                ) : (
+                  <span />
+                )}
+              </div>
+
+              <div className="mt-auto max-w-[24rem]">
+                <p className="text-xl font-medium leading-tight tracking-tight text-foreground">
+                  {project.name}
+                </p>
+                {project.description ? (
+                  <p className="mt-2 max-w-[20rem] text-sm leading-6 text-muted-foreground line-clamp-2">
+                    {project.description}
+                  </p>
+                ) : null}
+              </div>
+            </div>
           </>
         )}
       </div>
@@ -246,4 +282,18 @@ function ProjectCard({
       </div>
     </div>
   );
+}
+
+function getProjectInitials(name: string) {
+  const parts = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2);
+
+  if (parts.length === 0) {
+    return "PR";
+  }
+
+  return parts.map((part) => part[0]?.toUpperCase() ?? "").join("");
 }

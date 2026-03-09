@@ -133,7 +133,7 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
             onClick={() => router.back()}
             className="shrink-0 bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:text-primary-foreground"
           >
-            <ArrowLeft className="h-4 w-4 mr-2" />
+            <ArrowLeft className="mr-2 h-5 w-5 stroke-[2.4]" />
             Back
           </Button>
         }

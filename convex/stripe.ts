@@ -2,14 +2,11 @@ import { v } from "convex/values";
 import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
 import { components } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
+import { usdToCredits } from "./ai/billing";
 
 const DEFAULT_BILLING_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 const FREE_TRIAL_AI_BUDGET_USD = 1;
-const FREE_TRIAL_AI_BUDGET_CENTS = FREE_TRIAL_AI_BUDGET_USD * 100;
-const TOKEN_EQ_COST_PER_1M_USD = 5;
-
-const tokenBudgetFromUsd = (usd: number) =>
-  Math.max(0, Math.floor((usd / TOKEN_EQ_COST_PER_1M_USD) * 1_000_000));
+const tokenBudgetFromUsd = (usd: number) => usdToCredits(usd);
 
 // Token system - direct token usage tracking
 // Stripe subscription plans configuration
@@ -608,7 +605,6 @@ export const checkTeamLimits = query({
 export const checkAIFeatureAccessByProject = internalQuery({
   args: { projectId: v.id("projects") },
   async handler(ctx, args) {
-    const identity = await ctx.auth.getUserIdentity();
     const project = await ctx.db.get(args.projectId);
     if (!project) {
       return {
@@ -637,7 +633,6 @@ export const checkAIFeatureAccessByProject = internalQuery({
 export const checkAIFeatureAccess = internalQuery({
   args: { teamId: v.id("teams") },
   async handler(ctx, args) {
-    const identity = await ctx.auth.getUserIdentity();
     const team = await ctx.db.get(args.teamId);
     if (!team) {
       return {

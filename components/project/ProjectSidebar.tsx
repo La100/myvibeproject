@@ -3,11 +3,12 @@
 import Link from "next/link";
 import NextImage from "next/image";
 import { useParams, usePathname, useRouter } from "next/navigation";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useMemo } from "react";
 import { useQuery } from "convex/react";
 import { useClerk, useUser } from "@clerk/nextjs";
 import { useProject } from "@/components/providers/ProjectProvider";
 import { apiAny } from "@/lib/convexApiAny";
+import { dedupeActivityLogActivities } from "@/lib/activityLogDeduplication";
 import {
   Sidebar,
   SidebarContent,
@@ -42,6 +43,7 @@ import {
   BellRing,
   FolderOpen,
   DraftingCompass,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -52,13 +54,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  CLIENT_NOTIFICATION_READ_EVENT,
-  getProjectClientNotificationsLastSeen,
-  getProjectClientNotificationsStorageKey,
-  isClientNotificationActivity,
-  markProjectClientNotificationsRead,
-} from "@/lib/projectClientNotifications";
+import { isClientNotificationActivity } from "@/lib/projectClientNotifications";
 
 function ProjectSidebarContent() {
   const params = useParams<{ projectSlug: string }>();
@@ -69,50 +65,15 @@ function ProjectSidebarContent() {
   const { signOut, openUserProfile } = useClerk();
   const { user } = useUser();
   const activities = useQuery(apiAny.activityLog.getForProject, { projectId: project._id });
-  const [lastSeenAt, setLastSeenAt] = useState(0);
 
   const clientNotifications = useMemo(
-    () => (activities ?? []).filter(isClientNotificationActivity),
+    () => dedupeActivityLogActivities((activities ?? []).filter(isClientNotificationActivity)),
     [activities],
   );
-  const latestClientNotificationAt = clientNotifications[0]?._creationTime ?? 0;
-  const isNotificationsPage = pathname.startsWith(`/organisation/projects/${params.projectSlug}/changelog`);
-
-  useEffect(() => {
-    setLastSeenAt(getProjectClientNotificationsLastSeen(String(project._id)));
-  }, [project._id]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const handleRead = (event: Event) => {
-      const customEvent = event as CustomEvent<{ projectId?: string; lastSeenAt?: number }>;
-      if (customEvent.detail?.projectId !== String(project._id)) return;
-      if (typeof customEvent.detail?.lastSeenAt !== "number") return;
-      setLastSeenAt((current) => Math.max(current, customEvent.detail!.lastSeenAt!));
-    };
-
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key !== getProjectClientNotificationsStorageKey(String(project._id))) return;
-      setLastSeenAt(getProjectClientNotificationsLastSeen(String(project._id)));
-    };
-
-    window.addEventListener(CLIENT_NOTIFICATION_READ_EVENT, handleRead as EventListener);
-    window.addEventListener("storage", handleStorage);
-    return () => {
-      window.removeEventListener(CLIENT_NOTIFICATION_READ_EVENT, handleRead as EventListener);
-      window.removeEventListener("storage", handleStorage);
-    };
-  }, [project._id]);
-
-  useEffect(() => {
-    if (!isNotificationsPage || latestClientNotificationAt === 0) return;
-    setLastSeenAt((current) => Math.max(current, latestClientNotificationAt));
-    markProjectClientNotificationsRead(String(project._id), latestClientNotificationAt);
-  }, [isNotificationsPage, latestClientNotificationAt, project._id]);
+  const lastReadAt = project.clientNotificationsLastReadAt ?? 0;
 
   const unreadClientNotifications = clientNotifications.filter(
-    (activity) => activity._creationTime > lastSeenAt,
+    (activity) => activity._creationTime > lastReadAt,
   ).length;
 
   const allNavItems = [
@@ -131,6 +92,7 @@ function ProjectSidebarContent() {
     { href: `/organisation/projects/${params.projectSlug}/notes`, label: "Notes", icon: StickyNote, key: "notes", group: "project" },
     { href: `/organisation/projects/${params.projectSlug}/contacts`, label: "Contacts", icon: Contact, key: "contacts", group: "project" },
     { href: `/organisation/projects/${params.projectSlug}/calendar`, label: "Calendar", icon: Calendar, key: "calendar", group: "project" },
+    { href: `/organisation/projects/${params.projectSlug}/payments`, label: "Payments", icon: Wallet, key: "payments", group: "project" },
     { href: `/organisation/projects/${params.projectSlug}/surveys`, label: "Surveys", icon: ClipboardList, key: "surveys", group: "project" },
     { href: `/organisation/projects/${params.projectSlug}/files`, label: "Files", icon: Files, key: "files", group: "project" },
     { href: `/organisation/projects/${params.projectSlug}/shopping-list`, label: "Shopping List", icon: ShoppingCart, key: "shopping_list", group: "architecture" },

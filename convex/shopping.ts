@@ -11,6 +11,30 @@ const getClientPortalActorName = (rawName?: string | null) => {
   return trimmed.length > 0 ? trimmed : "Client (portal)";
 };
 
+const normalizeClientPortalComment = (rawComment?: string | null) => {
+  const trimmed = typeof rawComment === "string" ? rawComment.trim() : "";
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+const stableStringify = (value: unknown): string => {
+  if (value === null || value === undefined) {
+    return String(value);
+  }
+
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringify(item)).join(",")}]`;
+  }
+
+  if (typeof value === "object") {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, entryValue]) => `${key}:${stableStringify(entryValue)}`)
+      .join(",")}}`;
+  }
+
+  return JSON.stringify(value);
+};
+
 const logClientPortalShoppingActivity = async (
   ctx: any,
   project: { _id: any; teamId: any },
@@ -18,6 +42,32 @@ const logClientPortalShoppingActivity = async (
   entityId: string,
   details: Record<string, unknown>
 ) => {
+  const recentActivities = await ctx.db
+    .query("activityLog")
+    .withIndex("by_entity", (q: any) => q.eq("entityId", entityId).eq("entityType", "shopping"))
+    .order("desc")
+    .take(10);
+  const normalizedDetails = stableStringify(details);
+  const isDuplicateRecentActivity = recentActivities.some((activity: any) => {
+    if (
+      activity.projectId !== project._id ||
+      activity.actionType !== actionType ||
+      typeof activity._creationTime !== "number"
+    ) {
+      return false;
+    }
+
+    if (Math.abs(Date.now() - activity._creationTime) > 5_000) {
+      return false;
+    }
+
+    return stableStringify((activity.details ?? {}) as Record<string, unknown>) === normalizedDetails;
+  });
+
+  if (isDuplicateRecentActivity) {
+    return;
+  }
+
   await ctx.db.insert("activityLog", {
     teamId: project.teamId,
     projectId: project._id,
@@ -195,6 +245,7 @@ export const getPublicShoppingListByAccessToken = query({
       showLabor: project.clientPanelPublishedSettings?.showLabor ?? false,
       showContacts: project.clientPanelPublishedSettings?.showContacts ?? false,
       showBudget: project.clientPanelPublishedSettings?.showBudget ?? false,
+      showPayments: project.clientPanelPublishedSettings?.showPayments ?? false,
       showNotes: project.clientPanelPublishedSettings?.showNotes ?? true,
       showSupplier: project.clientPanelPublishedSettings?.showSupplier ?? true,
       showPrice: project.clientPanelPublishedSettings?.showPrice ?? true,
@@ -320,6 +371,13 @@ export const getPublicShoppingListByAccessToken = query({
     const contactsForPortal = contacts
       .map((contact) => contact!)
       .sort((a, b) => a.name.localeCompare(b.name));
+    const payments = settings.showPayments
+      ? await ctx.db
+          .query("projectPayments")
+          .withIndex("by_project_and_order", (q) => q.eq("projectId", project._id))
+          .order("asc")
+          .collect()
+      : [];
 
     return {
       project: {
@@ -338,6 +396,29 @@ export const getPublicShoppingListByAccessToken = query({
       tasks: settings.showTasks ? tasksForPortal : [],
       labor: settings.showLabor ? laborForPortal : [],
       contacts: settings.showContacts ? contactsForPortal : [],
+      payments: settings.showPayments
+        ? payments
+            .filter((payment) => payment.status !== "void")
+            .map((payment) => ({
+              _id: payment._id,
+              title: payment.title,
+              description: payment.description,
+              amount: payment.amount,
+              currency: payment.currency,
+              dueDate: payment.dueDate,
+              status: payment.status,
+              stripeHostedInvoiceUrl: payment.stripeHostedInvoiceUrl,
+              stripeInvoiceNumber: payment.stripeInvoiceNumber,
+              paidAt: payment.paidAt,
+              isOverdue:
+                payment.status === "open" &&
+                typeof payment.dueDate === "number" &&
+                payment.dueDate < Date.now(),
+            }))
+        : [],
+      paymentsPortalAvailable:
+        settings.showPayments &&
+        !!(project.stripeProjectCustomerId || project.paymentCustomerEmail),
     };
   },
 });
@@ -510,8 +591,22 @@ export const setShoppingItemFeedbackByAccessToken = mutation({
 
     const customerDecisionUpdatedAt = Date.now();
     const actorName = getClientPortalActorName(args.respondentName);
-    const normalizedDecisionComment =
-      normalizedComment.length > 0 ? normalizedComment : null;
+    const normalizedDecisionComment = normalizeClientPortalComment(normalizedComment);
+    const previousDecision = basePanelItem.customerDecision ?? null;
+    const previousDecisionComment = normalizeClientPortalComment(
+      basePanelItem.customerDecisionComment ?? null,
+    );
+    const decisionChanged = previousDecision !== args.decision;
+    const commentChanged = previousDecisionComment !== normalizedDecisionComment;
+
+    if (!decisionChanged && !commentChanged) {
+      return {
+        success: true,
+        baseItemId,
+        decision: args.decision,
+        comment: normalizedDecisionComment,
+      };
+    }
 
     await ctx.db.patch(basePanelItem._id, {
       customerDecision: args.decision,
@@ -527,20 +622,21 @@ export const setShoppingItemFeedbackByAccessToken = mutation({
       updatedAt: customerDecisionUpdatedAt,
     });
 
-    await logClientPortalShoppingActivity(
-      ctx,
-      { _id: project._id, teamId: project.teamId },
-      "shopping.customer.feedback",
-      String(baseItemId),
-      {
-        actorName,
-        itemName: basePanelItem.name,
-        decision: args.decision,
-        comment: normalizedDecisionComment,
-      }
-    );
+    if (commentChanged && normalizedDecisionComment) {
+      await logClientPortalShoppingActivity(
+        ctx,
+        { _id: project._id, teamId: project.teamId },
+        "shopping.customer.feedback",
+        String(baseItemId),
+        {
+          actorName,
+          itemName: basePanelItem.name,
+          comment: normalizedDecisionComment,
+        }
+      );
+    }
 
-    if (args.decision === "accepted" || args.decision === "rejected") {
+    if (decisionChanged && (args.decision === "accepted" || args.decision === "rejected")) {
       await logClientPortalShoppingActivity(
         ctx,
         { _id: project._id, teamId: project.teamId },

@@ -1,45 +1,65 @@
-// Centralized AI pricing configuration
-// Token-based system - direct token usage tracking
+// Shared client-side display helpers for internal AI credits.
 
-// === API COSTS (what we pay) ===
-// GPT-5 Mini
-export const GPT_INPUT_COST_PER_1M = 1.25; // $1.25 per 1M input tokens
-export const GPT_OUTPUT_COST_PER_1M = 10.0; // $10 per 1M output tokens
+export const INTERNAL_CREDIT_COST_PER_1M_USD = 5;
 
-// Gemini 3 Pro Image (4K image)
-export const GEMINI_OUTPUT_COST_PER_1M = 30.0; // $30 per 1M output tokens (for images)
-export const GEMINI_4K_IMAGE_COST_USD = 0.06; // ~$0.06 per 4K image
+export const GPT_INPUT_COST_PER_1M = 1.75;
+export const GPT_OUTPUT_COST_PER_1M = 14.0;
 
-// === TOKEN EQUIVALENTS ===
-// For simplicity, we count 1 image generation as equivalent to tokens
-export const GEMINI_4K_IMAGE_TOKENS = 10000; // 10k tokens per 4K image
+export const GEMINI_FLASH_IMAGE_INPUT_COST_PER_1M = 0.3;
+export const GEMINI_FLASH_IMAGE_OUTPUT_COST_PER_1M = 30.0;
+export const GEMINI_FLASH_IMAGE_TYPICAL_OUTPUT_TOKENS = 1290;
 
-// === PLAN TOKENS ===
-// Direct token allocations per plan
-export const AI_PRO_MONTHLY_TOKENS = 5000000; // 5M tokens
-export const AI_SCALE_MONTHLY_TOKENS = 25000000; // 25M tokens
-export const PRO_MONTHLY_TOKENS = 5000000; // 5M tokens (same as AI Pro)
-export const ENTERPRISE_MONTHLY_TOKENS = 12500000; // 12.5M tokens
+export const AI_PRO_MONTHLY_TOKENS = 5000000;
+export const AI_SCALE_MONTHLY_TOKENS = 25000000;
+export const PRO_MONTHLY_TOKENS = 5000000;
+export const ENTERPRISE_MONTHLY_TOKENS = 12500000;
 
-// === HELPER FUNCTIONS ===
+export const usdToCredits = (usd: number): number => {
+  if (!Number.isFinite(usd) || usd <= 0) {
+    return 0;
+  }
 
-// Calculate GPT chat cost in USD (for reference/analytics)
-export const calculateGPTCostUSD = (inputTokens: number, outputTokens: number): number => {
-  const inputCost = (inputTokens / 1_000_000) * GPT_INPUT_COST_PER_1M;
-  const outputCost = (outputTokens / 1_000_000) * GPT_OUTPUT_COST_PER_1M;
+  return Math.max(
+    0,
+    Math.ceil((usd / INTERNAL_CREDIT_COST_PER_1M_USD) * 1_000_000)
+  );
+};
+
+export const calculateGPTCostUSD = (
+  inputTokens: number,
+  outputTokens: number
+): number => {
+  const inputCost = (Math.max(0, inputTokens) / 1_000_000) * GPT_INPUT_COST_PER_1M;
+  const outputCost = (Math.max(0, outputTokens) / 1_000_000) * GPT_OUTPUT_COST_PER_1M;
   return inputCost + outputCost;
 };
 
-// Calculate GPT chat cost in cents (for reference/analytics)
 export const calculateGPTCostCents = (inputTokens: number, outputTokens: number): number => {
   return Math.round(calculateGPTCostUSD(inputTokens, outputTokens) * 100);
 };
 
-// Format tokens for display (e.g., "5.2M tokens")
+export const calculateGeminiFlashImageCostUSD = (
+  inputTokens = 0,
+  outputTokens = GEMINI_FLASH_IMAGE_TYPICAL_OUTPUT_TOKENS
+): number => {
+  const normalizedOutputTokens =
+    outputTokens > 0 ? outputTokens : GEMINI_FLASH_IMAGE_TYPICAL_OUTPUT_TOKENS;
+
+  return (
+    (Math.max(0, inputTokens) / 1_000_000) * GEMINI_FLASH_IMAGE_INPUT_COST_PER_1M +
+    (normalizedOutputTokens / 1_000_000) * GEMINI_FLASH_IMAGE_OUTPUT_COST_PER_1M
+  );
+};
+
+export const GEMINI_FLASH_IMAGE_TYPICAL_CREDITS = usdToCredits(
+  calculateGeminiFlashImageCostUSD()
+);
+
 export const formatTokens = (tokens: number): string => {
   if (tokens >= 1_000_000) {
     return `${(tokens / 1_000_000).toFixed(1)}M`;
-  } else if (tokens >= 1_000) {
+  }
+  if (tokens >= 1_000) {
     return `${(tokens / 1_000).toFixed(1)}K`;
   }
   return tokens.toString();

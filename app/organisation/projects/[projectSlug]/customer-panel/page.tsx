@@ -21,6 +21,7 @@ const DEFAULT_CLIENT_PANEL_SETTINGS = {
   showLabor: false,
   showContacts: false,
   showBudget: false,
+  showPayments: false,
   showNotes: true,
   showSupplier: true,
   showPrice: true,
@@ -315,6 +316,22 @@ export default function CustomerPanelPage() {
                   id="show-budget"
                   checked={portalSettings.showBudget}
                   onCheckedChange={(checked) => handleToggleSetting("showBudget", checked)}
+                  disabled={isPublishingPortal}
+                />
+              </div>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <Label htmlFor="show-payments" className="font-medium">
+                    Payments
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Share Stripe installments and payment links.
+                  </p>
+                </div>
+                <Switch
+                  id="show-payments"
+                  checked={portalSettings.showPayments}
+                  onCheckedChange={(checked) => handleToggleSetting("showPayments", checked)}
                   disabled={isPublishingPortal}
                 />
               </div>

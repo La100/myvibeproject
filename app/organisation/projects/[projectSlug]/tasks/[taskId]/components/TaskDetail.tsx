@@ -170,7 +170,7 @@ export default function TaskDetail() {
                 onClick={() => router.back()}
                 className="text-muted-foreground hover:text-foreground"
               >
-                <ArrowLeft className="h-4 w-4 mr-1" />
+                <ArrowLeft className="mr-1 h-5 w-5 stroke-[2.4]" />
                 Back to tasks
               </Button>
               {task.priority && task.priority !== null && (

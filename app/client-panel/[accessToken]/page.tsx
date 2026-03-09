@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { useMutation, useQuery } from "convex/react";
-import { Banknote, CheckCircle2, ClipboardList, Download, ExternalLink, Send, Users, Wrench } from "lucide-react";
+import { useAction, useMutation, useQuery } from "convex/react";
+import { Banknote, CheckCircle2, ClipboardList, Download, ExternalLink, Send, Users, Wallet, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { Doc, Id } from "@/convex/_generated/dataModel";
 import { apiAny } from "@/lib/convexApiAny";
@@ -61,6 +61,19 @@ type PublicContact = {
   projectRole?: string;
   projectNotes?: string;
 };
+type PublicPayment = {
+  _id: string;
+  title: string;
+  description?: string;
+  amount: number;
+  currency: string;
+  dueDate?: number;
+  status: "draft" | "open" | "paid" | "void" | "uncollectible";
+  stripeHostedInvoiceUrl?: string;
+  stripeInvoiceNumber?: string;
+  paidAt?: number;
+  isOverdue?: boolean;
+};
 type PublicSurveyQuestion = {
   _id: Id<"surveyQuestions">;
   questionText: string;
@@ -117,6 +130,7 @@ const EMPTY_SURVEYS: PublicSurvey[] = [];
 const EMPTY_TASKS: PublicTask[] = [];
 const EMPTY_LABOR_ITEMS: PublicLaborItem[] = [];
 const EMPTY_CONTACTS: PublicContact[] = [];
+const EMPTY_PAYMENTS: PublicPayment[] = [];
 const DEFAULT_CLIENT_PANEL_SETTINGS = {
   showShoppingList: false,
   showFiles: false,
@@ -126,6 +140,7 @@ const DEFAULT_CLIENT_PANEL_SETTINGS = {
   showLabor: false,
   showContacts: false,
   showBudget: false,
+  showPayments: false,
   showNotes: true,
   showSupplier: true,
   showPrice: true,
@@ -333,6 +348,9 @@ export default function PublicClientPanelPage() {
   const selectAlternative = useMutation(apiAny.shopping.selectShoppingAlternativeByAccessToken);
   const setItemFeedback = useMutation(apiAny.shopping.setShoppingItemFeedbackByAccessToken);
   const submitPublicSurvey = useMutation(apiAny.surveys.submitPublicSurveyResponseByAccessToken);
+  const createPaymentsPortalSession = useAction(
+    apiAny.projectPaymentActions.createProjectCustomerPortalSessionByAccessToken,
+  );
   const publicSurveysData = useQuery(
     apiAny.surveys.getPublicSurveysByAccessToken,
     respondentKey && (panelData?.settings?.showSurveys ?? false)
@@ -352,6 +370,7 @@ export default function PublicClientPanelPage() {
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const [respondentName, setRespondentName] = useState("");
   const [selectedMoodboardFile, setSelectedMoodboardFile] = useState<ClientPanelFile | null>(null);
+  const [openingPaymentsPortal, setOpeningPaymentsPortal] = useState(false);
 
   const project = panelData?.project;
   const sections = (panelData?.sections as ClientPanelSection[] | undefined) ?? EMPTY_SECTIONS;
@@ -363,6 +382,8 @@ export default function PublicClientPanelPage() {
   const tasks = (panelData?.tasks as PublicTask[] | undefined) ?? EMPTY_TASKS;
   const laborItems = (panelData?.labor as PublicLaborItem[] | undefined) ?? EMPTY_LABOR_ITEMS;
   const contacts = (panelData?.contacts as PublicContact[] | undefined) ?? EMPTY_CONTACTS;
+  const payments = (panelData?.payments as PublicPayment[] | undefined) ?? EMPTY_PAYMENTS;
+  const paymentsPortalAvailable = Boolean(panelData?.paymentsPortalAvailable);
   const settings = panelData?.settings ?? DEFAULT_CLIENT_PANEL_SETTINGS;
 
   const currencySymbol = getCurrencySymbol(project?.currency);
@@ -511,6 +532,7 @@ export default function PublicClientPanelPage() {
     settings.showTasks ? { id: "portal-tasks", label: "Tasks", count: tasks.length } : null,
     settings.showLabor ? { id: "portal-labor", label: "Labor", count: laborItems.length } : null,
     settings.showContacts ? { id: "portal-contacts", label: "Contacts", count: contacts.length } : null,
+    settings.showPayments ? { id: "portal-payments", label: "Payments", count: payments.length } : null,
     settings.showBudget
       ? {
           id: "portal-budget",
@@ -531,6 +553,20 @@ export default function PublicClientPanelPage() {
         : sectionCards[0].id
     );
   }, [sectionCards]);
+
+  const handleOpenPaymentsPortal = async () => {
+    setOpeningPaymentsPortal(true);
+    try {
+      const result = await createPaymentsPortalSession({ accessToken });
+      window.open(result.url, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      toast.error("Could not open payment portal", {
+        description: (error as Error).message,
+      });
+    } finally {
+      setOpeningPaymentsPortal(false);
+    }
+  };
 
   const handleExportMaterialsPdf = async () => {
     if (!project || sectionSummaries.length === 0) {
@@ -1527,6 +1563,111 @@ export default function PublicClientPanelPage() {
             </div>
           ) : (
             <p className="text-sm text-[var(--ui-text-muted)]">No budget set for this project.</p>
+          )}
+        </div>
+      ) : null}
+
+      {settings.showPayments && activeSectionId === "portal-payments" ? (
+        <div className="mb-10 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-4 shadow-[0_24px_60px_rgba(20,20,20,0.08)] sm:rounded-[32px] sm:p-8">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 sm:mb-8 sm:gap-4">
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+              <h2 className="text-xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)] sm:text-2xl">
+                Payments
+              </h2>
+              <span className="inline-flex items-center justify-center rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-muted)]">
+                {payments.length} installments
+              </span>
+            </div>
+            {paymentsPortalAvailable ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void handleOpenPaymentsPortal()}
+                disabled={openingPaymentsPortal}
+              >
+                <ExternalLink className="mr-2 h-4 w-4" />
+                {openingPaymentsPortal ? "Opening..." : "Manage billing"}
+              </Button>
+            ) : null}
+          </div>
+
+          {payments.length === 0 ? (
+            <p className="text-sm text-[var(--ui-text-muted)]">No installments shared yet.</p>
+          ) : (
+            <div className="space-y-4">
+              {payments.map((payment) => (
+                <div
+                  key={payment._id}
+                  className="rounded-[18px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-5"
+                >
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Wallet className="h-4 w-4 text-[var(--ui-accent-brand)]" />
+                        <p className="text-base font-medium text-[var(--ui-text-strong)]">
+                          {payment.title}
+                        </p>
+                        <span
+                          className={`inline-flex items-center justify-center rounded-full border px-3 py-1 text-[10px] font-medium ${
+                            payment.status === "paid"
+                              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                              : payment.isOverdue
+                                ? "border-rose-200 bg-rose-50 text-rose-700"
+                                : "border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] text-[var(--ui-text-main)]"
+                          }`}
+                        >
+                          {payment.isOverdue ? "OVERDUE" : payment.status.toUpperCase()}
+                        </span>
+                        {payment.stripeInvoiceNumber ? (
+                          <span className="text-xs text-[var(--ui-text-muted)]">
+                            #{payment.stripeInvoiceNumber}
+                          </span>
+                        ) : null}
+                      </div>
+                      {payment.description ? (
+                        <p className="text-sm text-[var(--ui-text-muted)]">{payment.description}</p>
+                      ) : null}
+                      <div className="flex flex-wrap gap-4 text-sm text-[var(--ui-text-main)]">
+                        <span>{formatAmount(payment.amount, currencySymbol)}</span>
+                        <span>
+                          {payment.dueDate
+                            ? `Due ${new Date(payment.dueDate).toLocaleDateString()}`
+                            : "No due date"}
+                        </span>
+                        {payment.paidAt ? (
+                          <span>Paid {new Date(payment.paidAt).toLocaleDateString()}</span>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    {payment.stripeHostedInvoiceUrl && payment.status !== "paid" ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() =>
+                          window.open(payment.stripeHostedInvoiceUrl, "_blank", "noopener,noreferrer")
+                        }
+                      >
+                        Pay now
+                      </Button>
+                    ) : payment.stripeHostedInvoiceUrl ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          window.open(payment.stripeHostedInvoiceUrl, "_blank", "noopener,noreferrer")
+                        }
+                      >
+                        <CheckCircle2 className="mr-2 h-4 w-4" />
+                        View receipt
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       ) : null}

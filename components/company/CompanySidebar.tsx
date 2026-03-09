@@ -140,7 +140,7 @@ function CompanySidebarContent() {
                       className={`h-9 justify-start gap-2.5 rounded-xl border px-3 text-[13px] font-medium ${
                         isActive
                           ? "border-sidebar-border/80 bg-sidebar-accent/45 text-sidebar-foreground"
-                          : "border-transparent bg-transparent text-sidebar-foreground/82 hover:bg-transparent hover:text-sidebar-foreground"
+                          : "border-transparent bg-transparent text-sidebar-foreground hover:bg-transparent hover:text-sidebar-foreground"
                       }`}
                     >
                       <Link

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { formatDistanceToNow } from "date-fns";
 import { apiAny } from "@/lib/convexApiAny";
 import { useProject } from "@/components/providers/ProjectProvider";
@@ -10,10 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { BellRing, CheckCircle2, ClipboardList, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  isClientNotificationActivity,
-  markProjectClientNotificationsRead,
-} from "@/lib/projectClientNotifications";
+import { dedupeActivityLogActivities } from "@/lib/activityLogDeduplication";
+import { isClientNotificationActivity } from "@/lib/projectClientNotifications";
 
 type ProjectClientNotificationsProps = {
   enabled?: boolean;
@@ -31,22 +29,40 @@ export function ProjectClientNotifications({
   className,
 }: ProjectClientNotificationsProps) {
   const { project } = useProject();
+  const markClientNotificationsRead = useMutation(apiAny.projects.markClientNotificationsRead);
   const activities = useQuery(
     apiAny.activityLog.getForProject,
     enabled ? { projectId: project._id } : "skip",
   );
 
   const notifications = useMemo(
-    () => (activities ?? []).filter(isClientNotificationActivity),
+    () => {
+      const filtered = (activities ?? []).filter(isClientNotificationActivity);
+      return dedupeActivityLogActivities(filtered) as typeof filtered;
+    },
     [activities],
   );
+  const latestNotificationAt = notifications[0]?._creationTime ?? 0;
 
   useEffect(() => {
-    if (!enabled || notifications.length === 0) {
+    if (!enabled || latestNotificationAt === 0) {
       return;
     }
-    markProjectClientNotificationsRead(String(project._id), notifications[0]._creationTime);
-  }, [enabled, notifications, project._id]);
+    if ((project.clientNotificationsLastReadAt ?? 0) >= latestNotificationAt) {
+      return;
+    }
+
+    void markClientNotificationsRead({
+      projectId: project._id,
+      lastReadAt: latestNotificationAt,
+    });
+  }, [
+    enabled,
+    latestNotificationAt,
+    markClientNotificationsRead,
+    project._id,
+    project.clientNotificationsLastReadAt,
+  ]);
 
   if (!enabled) {
     return null;
