@@ -69,8 +69,14 @@ type PublicPayment = {
   currency: string;
   dueDate?: number;
   status: "draft" | "open" | "paid" | "void" | "uncollectible";
-  stripeHostedInvoiceUrl?: string;
-  stripeInvoiceNumber?: string;
+  invoiceNumber?: string;
+  hasInvoicePdf?: boolean;
+  paymentReference?: string;
+  bankAccountHolder?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankSwift?: string;
+  paymentInstructions?: string;
   paidAt?: number;
   isOverdue?: boolean;
 };
@@ -348,8 +354,8 @@ export default function PublicClientPanelPage() {
   const selectAlternative = useMutation(apiAny.shopping.selectShoppingAlternativeByAccessToken);
   const setItemFeedback = useMutation(apiAny.shopping.setShoppingItemFeedbackByAccessToken);
   const submitPublicSurvey = useMutation(apiAny.surveys.submitPublicSurveyResponseByAccessToken);
-  const createPaymentsPortalSession = useAction(
-    apiAny.projectPaymentActions.createProjectCustomerPortalSessionByAccessToken,
+  const getInvoiceDownloadUrl = useAction(
+    apiAny.projectPaymentActions.getProjectPaymentInvoiceDownloadUrlByAccessToken,
   );
   const publicSurveysData = useQuery(
     apiAny.surveys.getPublicSurveysByAccessToken,
@@ -370,7 +376,7 @@ export default function PublicClientPanelPage() {
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const [respondentName, setRespondentName] = useState("");
   const [selectedMoodboardFile, setSelectedMoodboardFile] = useState<ClientPanelFile | null>(null);
-  const [openingPaymentsPortal, setOpeningPaymentsPortal] = useState(false);
+  const [downloadingPaymentId, setDownloadingPaymentId] = useState<string | null>(null);
 
   const project = panelData?.project;
   const sections = (panelData?.sections as ClientPanelSection[] | undefined) ?? EMPTY_SECTIONS;
@@ -383,7 +389,6 @@ export default function PublicClientPanelPage() {
   const laborItems = (panelData?.labor as PublicLaborItem[] | undefined) ?? EMPTY_LABOR_ITEMS;
   const contacts = (panelData?.contacts as PublicContact[] | undefined) ?? EMPTY_CONTACTS;
   const payments = (panelData?.payments as PublicPayment[] | undefined) ?? EMPTY_PAYMENTS;
-  const paymentsPortalAvailable = Boolean(panelData?.paymentsPortalAvailable);
   const settings = panelData?.settings ?? DEFAULT_CLIENT_PANEL_SETTINGS;
 
   const currencySymbol = getCurrencySymbol(project?.currency);
@@ -554,17 +559,20 @@ export default function PublicClientPanelPage() {
     );
   }, [sectionCards]);
 
-  const handleOpenPaymentsPortal = async () => {
-    setOpeningPaymentsPortal(true);
+  const handleDownloadInvoice = async (paymentId: string) => {
+    setDownloadingPaymentId(paymentId);
     try {
-      const result = await createPaymentsPortalSession({ accessToken });
+      const result = await getInvoiceDownloadUrl({
+        accessToken,
+        installmentId: paymentId as Id<"projectPayments">,
+      });
       window.open(result.url, "_blank", "noopener,noreferrer");
     } catch (error) {
-      toast.error("Could not open payment portal", {
+      toast.error("Could not download invoice PDF", {
         description: (error as Error).message,
       });
     } finally {
-      setOpeningPaymentsPortal(false);
+      setDownloadingPaymentId(null);
     }
   };
 
@@ -1578,18 +1586,6 @@ export default function PublicClientPanelPage() {
                 {payments.length} installments
               </span>
             </div>
-            {paymentsPortalAvailable ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => void handleOpenPaymentsPortal()}
-                disabled={openingPaymentsPortal}
-              >
-                <ExternalLink className="mr-2 h-4 w-4" />
-                {openingPaymentsPortal ? "Opening..." : "Manage billing"}
-              </Button>
-            ) : null}
           </div>
 
           {payments.length === 0 ? (
@@ -1619,9 +1615,9 @@ export default function PublicClientPanelPage() {
                         >
                           {payment.isOverdue ? "OVERDUE" : payment.status.toUpperCase()}
                         </span>
-                        {payment.stripeInvoiceNumber ? (
+                        {payment.invoiceNumber ? (
                           <span className="text-xs text-[var(--ui-text-muted)]">
-                            #{payment.stripeInvoiceNumber}
+                            #{payment.invoiceNumber}
                           </span>
                         ) : null}
                       </div>
@@ -1639,29 +1635,57 @@ export default function PublicClientPanelPage() {
                           <span>Paid {new Date(payment.paidAt).toLocaleDateString()}</span>
                         ) : null}
                       </div>
+                      {payment.paymentReference ? (
+                        <p className="text-sm text-[var(--ui-text-muted)]">
+                          Transfer reference:{" "}
+                          <span className="font-medium text-[var(--ui-text-main)]">
+                            {payment.paymentReference}
+                          </span>
+                        </p>
+                      ) : null}
+                      {(payment.bankAccountNumber || payment.bankName) ? (
+                        <div className="rounded-[16px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-4 py-3 text-sm text-[var(--ui-text-main)]">
+                          <p className="font-medium">
+                            {payment.bankAccountHolder || "Bank transfer details"}
+                          </p>
+                          {payment.bankName ? (
+                            <p className="text-[var(--ui-text-muted)]">{payment.bankName}</p>
+                          ) : null}
+                          {payment.bankAccountNumber ? (
+                            <p className="mt-1 font-medium tracking-[0.02em]">
+                              {payment.bankAccountNumber}
+                            </p>
+                          ) : null}
+                          {payment.bankSwift ? (
+                            <p className="text-[var(--ui-text-muted)]">SWIFT: {payment.bankSwift}</p>
+                          ) : null}
+                          {payment.paymentInstructions ? (
+                            <p className="mt-2 text-[var(--ui-text-muted)]">
+                              {payment.paymentInstructions}
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </div>
 
-                    {payment.stripeHostedInvoiceUrl && payment.status !== "paid" ? (
+                    {payment.hasInvoicePdf ? (
                       <Button
                         type="button"
                         size="sm"
-                        onClick={() =>
-                          window.open(payment.stripeHostedInvoiceUrl, "_blank", "noopener,noreferrer")
-                        }
+                        variant={payment.status === "paid" ? "outline" : "default"}
+                        onClick={() => void handleDownloadInvoice(payment._id)}
+                        disabled={downloadingPaymentId === payment._id}
                       >
-                        Pay now
-                      </Button>
-                    ) : payment.stripeHostedInvoiceUrl ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          window.open(payment.stripeHostedInvoiceUrl, "_blank", "noopener,noreferrer")
-                        }
-                      >
-                        <CheckCircle2 className="mr-2 h-4 w-4" />
-                        View receipt
+                        {payment.status === "paid" ? (
+                          <CheckCircle2 className="mr-2 h-4 w-4" />
+                        ) : (
+                          <Download className="mr-2 h-4 w-4" />
+                        )}
+                        {downloadingPaymentId === payment._id
+                          ? "Opening..."
+                          : payment.status === "paid"
+                            ? "Download invoice"
+                            : "Download PDF"}
                       </Button>
                     ) : null}
                   </div>

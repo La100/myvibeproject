@@ -2,7 +2,6 @@
 
 import { v } from "convex/values";
 import { action } from "../../_generated/server";
-import { internal } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
 import { GoogleGenAI } from "@google/genai";
 import {
@@ -10,6 +9,7 @@ import {
   usdToCredits,
 } from "../billing";
 import { IMAGE_GENERATION_CONFIG } from "./config";
+const internalAny = require("../../_generated/api").internal as any;
 
 /**
  * Gemini Image Generation for Architectural Visualizations
@@ -77,12 +77,12 @@ export const generateVisualization = action({
     let aiAccess;
 
     if (args.projectId) {
-      aiAccess = await ctx.runQuery(internal.stripe.checkAIFeatureAccessByProject, {
+      aiAccess = await ctx.runQuery(internalAny.stripe.checkAIFeatureAccessByProject, {
         projectId: args.projectId,
       });
       // We still need teamId for later if not returned by checkAIFeatureAccessByProject (it isn't directly, but accessible via getContextInfo)
     } else if (args.teamId) {
-      aiAccess = await ctx.runQuery(internal.stripe.checkAIFeatureAccess, {
+      aiAccess = await ctx.runQuery(internalAny.stripe.checkAIFeatureAccess, {
         teamId: args.teamId,
       });
     } else {
@@ -117,7 +117,7 @@ export const generateVisualization = action({
 
         try {
           // Get signed URL for the file
-          const url: string | null = await ctx.runQuery(internal.ai.imageGen.helpers.getFileUrl, {
+          const url: string | null = await ctx.runQuery(internalAny.ai.imageGen.helpers.getFileUrl, {
             fileKey: storageKey,
           });
           
@@ -248,7 +248,7 @@ export const generateVisualization = action({
       } | null = null;
 
       try {
-        contextInfo = await ctx.runQuery(internal.ai.imageGen.helpers.getContextInfo, {
+        contextInfo = await ctx.runQuery(internalAny.ai.imageGen.helpers.getContextInfo, {
           projectId: args.projectId,
           teamId: args.teamId,
         });
@@ -257,7 +257,7 @@ export const generateVisualization = action({
           const identity = await ctx.auth.getUserIdentity();
           const userClerkId = identity?.subject || "anonymous";
 
-          await ctx.runMutation(internal.ai.usage.saveTokenUsage, {
+          await ctx.runMutation(internalAny.ai.usage.saveTokenUsage, {
             projectId: contextInfo.projectId,
             teamId: contextInfo.teamId,
             userClerkId,
@@ -323,7 +323,7 @@ export const generateVisualization = action({
           const fileKey = `${contextInfo.teamSlug}/${locationSlug}/ai-visualizations/${uuid}-${fileName}.${extension}`;
 
           // Generate upload URL
-          const uploadData: { url: string } = await ctx.runMutation(internal.ai.imageGen.helpers.generateR2UploadUrl, {
+          const uploadData: { url: string } = await ctx.runMutation(internalAny.ai.imageGen.helpers.generateR2UploadUrl, {
             key: fileKey,
           });
 
@@ -342,7 +342,7 @@ export const generateVisualization = action({
             imageStorageKey = fileKey;
 
             // Get signed URL for immediate display
-            const url: string | null = await ctx.runQuery(internal.ai.imageGen.helpers.getFileUrl, {
+            const url: string | null = await ctx.runQuery(internalAny.ai.imageGen.helpers.getFileUrl, {
               fileKey,
             });
             if (url) fileUrl = url;
@@ -351,7 +351,7 @@ export const generateVisualization = action({
             const identity = await ctx.auth.getUserIdentity();
             const userClerkId = identity?.subject || "anonymous";
 
-            const loggedGenerationId = await ctx.runMutation(internal.ai.imageGen.helpers.logImageGeneration, {
+            const loggedGenerationId = await ctx.runMutation(internalAny.ai.imageGen.helpers.logImageGeneration, {
               projectId: contextInfo.projectId,
               teamId: contextInfo.teamId,
               userClerkId,
@@ -375,7 +375,7 @@ export const generateVisualization = action({
 
             // Add model message to session if sessionId provided
             if (args.sessionId) {
-              await ctx.runMutation(internal.ai.visualizationSessions.addModelMessage, {
+              await ctx.runMutation(internalAny.ai.visualizationSessions.addModelMessage, {
                 sessionId: args.sessionId,
                 text: textResponse?.trim() || "Generated image.",
                 imageStorageKey: fileKey,
@@ -411,7 +411,7 @@ export const generateVisualization = action({
       
       // Log failed generation
       try {
-        const contextInfo = await ctx.runQuery(internal.ai.imageGen.helpers.getContextInfo, {
+        const contextInfo = await ctx.runQuery(internalAny.ai.imageGen.helpers.getContextInfo, {
           projectId: args.projectId,
           teamId: args.teamId,
         });
@@ -419,7 +419,7 @@ export const generateVisualization = action({
           const identity = await ctx.auth.getUserIdentity();
           const userClerkId = identity?.subject || "anonymous";
           
-          await ctx.runMutation(internal.ai.imageGen.helpers.logImageGeneration, {
+          await ctx.runMutation(internalAny.ai.imageGen.helpers.logImageGeneration, {
             projectId: contextInfo.projectId,
             teamId: contextInfo.teamId,
             userClerkId,
@@ -464,7 +464,7 @@ export const getUploadUrl = action({
       teamId: Id<"teams">;
       teamSlug: string;
       projectSlug?: string;
-    } | null = await ctx.runQuery(internal.ai.imageGen.helpers.getContextInfo, {
+    } | null = await ctx.runQuery(internalAny.ai.imageGen.helpers.getContextInfo, {
       projectId: args.projectId,
       teamId: args.teamId,
     });
@@ -480,7 +480,7 @@ export const getUploadUrl = action({
     const locationSlug = context.projectSlug || "global";
     const fileKey = `${context.teamSlug}/${locationSlug}/ai-visualizations/references/${uuid}-${baseName}.${extension}`;
 
-    const uploadData: { url: string } = await ctx.runMutation(internal.ai.imageGen.helpers.generateR2UploadUrl, {
+    const uploadData: { url: string } = await ctx.runMutation(internalAny.ai.imageGen.helpers.generateR2UploadUrl, {
       key: fileKey,
     });
 
@@ -517,17 +517,17 @@ export const getGallery = action({
     storageKey?: string;
     mimeType?: string;
   }>> => {
-    const images = await ctx.runQuery(internal.ai.imageGen.helpers.getGeneratedImagesGallery, {
+    const images = await ctx.runQuery(internalAny.ai.imageGen.helpers.getGeneratedImagesGallery, {
       projectId: args.projectId,
       teamId: args.teamId,
     });
 
     // Generate fresh URLs for all images
     const imagesWithUrls = await Promise.all(
-      images.map(async (img) => {
+      images.map(async (img: any) => {
         let url: string | null = null;
         if (img.storageKey) {
-          url = await ctx.runQuery(internal.ai.imageGen.helpers.getFileUrl, {
+          url = await ctx.runQuery(internalAny.ai.imageGen.helpers.getFileUrl, {
             fileKey: img.storageKey,
           });
         }
@@ -559,7 +559,7 @@ export const deleteGeneration = action({
   }),
   handler: async (ctx, args) => {
     try {
-      await ctx.runMutation(internal.ai.imageGen.helpers.deleteGeneratedImage, {
+      await ctx.runMutation(internalAny.ai.imageGen.helpers.deleteGeneratedImage, {
         generationId: args.generationId,
       });
       return { success: true };

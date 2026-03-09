@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import {
-  CalendarClock,
+  Banknote,
+  Building2,
+  CheckCircle2,
   Copy,
-  CreditCard,
-  ExternalLink,
+  Download,
   Mail,
   Plus,
   RefreshCw,
@@ -32,6 +33,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Id } from "@/convex/_generated/dataModel";
 import { apiAny } from "@/lib/convexApiAny";
 import { formatCurrency } from "@/lib/utils";
@@ -44,10 +46,44 @@ type Installment = {
   currency: string;
   dueDate?: number;
   status: "draft" | "open" | "paid" | "void" | "uncollectible";
-  stripeHostedInvoiceUrl?: string;
-  stripeInvoiceNumber?: string;
   paidAt?: number;
+  sentAt?: number;
   isOverdue?: boolean;
+  invoiceNumber?: string;
+  paymentReference?: string;
+  hasInvoicePdf?: boolean;
+};
+
+type BillingProfile = {
+  sellerName: string;
+  sellerEmail: string;
+  sellerPhone: string;
+  sellerTaxId: string;
+  sellerAddressLine1: string;
+  sellerAddressLine2: string;
+  sellerPostalCode: string;
+  sellerCity: string;
+  sellerCountry: string;
+  bankAccountHolder: string;
+  bankName: string;
+  bankAccountNumber: string;
+  bankSwift: string;
+  invoicePrefix: string;
+  paymentInstructions: string;
+  defaultPaymentTermDays: string;
+};
+
+type CustomerDetails = {
+  name: string;
+  companyName: string;
+  email: string;
+  phone: string;
+  taxId: string;
+  addressLine1: string;
+  addressLine2: string;
+  postalCode: string;
+  city: string;
+  country: string;
 };
 
 type InstallmentFormState = {
@@ -57,11 +93,56 @@ type InstallmentFormState = {
   dueDate: string;
 };
 
+type ProjectContactOption = {
+  _id: Id<"contacts">;
+  name: string;
+  companyName?: string;
+  email?: string;
+  phone?: string;
+  taxId?: string;
+  address?: string;
+  city?: string;
+  postalCode?: string;
+  country?: string;
+};
+
 const EMPTY_FORM: InstallmentFormState = {
   title: "",
   description: "",
   amount: "",
   dueDate: "",
+};
+
+const EMPTY_BILLING_PROFILE: BillingProfile = {
+  sellerName: "",
+  sellerEmail: "",
+  sellerPhone: "",
+  sellerTaxId: "",
+  sellerAddressLine1: "",
+  sellerAddressLine2: "",
+  sellerPostalCode: "",
+  sellerCity: "",
+  sellerCountry: "",
+  bankAccountHolder: "",
+  bankName: "",
+  bankAccountNumber: "",
+  bankSwift: "",
+  invoicePrefix: "FV",
+  paymentInstructions: "",
+  defaultPaymentTermDays: "14",
+};
+
+const EMPTY_CUSTOMER: CustomerDetails = {
+  name: "",
+  companyName: "",
+  email: "",
+  phone: "",
+  taxId: "",
+  addressLine1: "",
+  addressLine2: "",
+  postalCode: "",
+  city: "",
+  country: "",
 };
 
 const formatDateInput = (timestamp?: number) => {
@@ -105,38 +186,89 @@ const getStatusLabel = (installment: Installment) => {
   return installment.status.toUpperCase();
 };
 
+const buildContactAddress = (contact?: ProjectContactOption) => {
+  if (!contact) return EMPTY_CUSTOMER;
+
+  return {
+    name: contact.name?.trim() || "",
+    companyName: contact.companyName?.trim() || "",
+    email: contact.email?.trim() || "",
+    phone: contact.phone?.trim() || "",
+    taxId: contact.taxId?.trim() || "",
+    addressLine1: contact.address?.trim() || "",
+    addressLine2: "",
+    postalCode: contact.postalCode?.trim() || "",
+    city: contact.city?.trim() || "",
+    country: contact.country?.trim() || "",
+  };
+};
+
 export default function ProjectPaymentsView() {
   const { project, isLoading } = useProject();
   const paymentsData = useQuery(
     apiAny.projectPayments.getProjectPaymentsOverview,
     isLoading ? "skip" : { projectId: project._id },
   );
+  const projectContacts = useQuery(
+    apiAny.contacts.getProjectContacts,
+    isLoading ? "skip" : { projectId: project._id },
+  );
 
+  const updateTeamSettings = useMutation(apiAny.teams.updateTeamSettings);
   const updateCustomer = useMutation(apiAny.projectPayments.updateProjectPaymentCustomer);
   const createPayment = useMutation(apiAny.projectPayments.createProjectPayment);
   const updatePayment = useMutation(apiAny.projectPayments.updateProjectPayment);
   const deletePayment = useMutation(apiAny.projectPayments.deleteProjectPayment);
+  const setPaymentStatus = useMutation(apiAny.projectPayments.setProjectPaymentManualStatus);
 
   const createInvoice = useAction(apiAny.projectPaymentActions.createProjectPaymentInvoice);
   const sendInvoiceEmail = useAction(apiAny.projectPaymentActions.sendProjectPaymentInvoiceEmail);
-  const refreshInvoice = useAction(apiAny.projectPaymentActions.refreshProjectPaymentInvoice);
-  const cancelInvoice = useAction(apiAny.projectPaymentActions.cancelProjectPaymentInvoice);
-  const createCustomerPortal = useAction(apiAny.projectPaymentActions.createProjectCustomerPortalSession);
+  const downloadInvoiceUrl = useAction(apiAny.projectPaymentActions.getProjectPaymentInvoiceDownloadUrl);
 
-  const [customerName, setCustomerName] = useState("");
-  const [customerEmail, setCustomerEmail] = useState("");
+  const [billingProfile, setBillingProfile] = useState<BillingProfile>(EMPTY_BILLING_PROFILE);
+  const [customer, setCustomer] = useState<CustomerDetails>(EMPTY_CUSTOMER);
+  const [isSavingBillingProfile, setIsSavingBillingProfile] = useState(false);
   const [isSavingCustomer, setIsSavingCustomer] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingInstallment, setEditingInstallment] = useState<Installment | null>(null);
   const [form, setForm] = useState<InstallmentFormState>(EMPTY_FORM);
   const [submittingInstallment, setSubmittingInstallment] = useState(false);
   const [busyInstallmentId, setBusyInstallmentId] = useState<Id<"projectPayments"> | null>(null);
-  const [portalLoading, setPortalLoading] = useState(false);
 
   useEffect(() => {
     if (!paymentsData) return;
-    setCustomerName(paymentsData.customerName || "");
-    setCustomerEmail(paymentsData.customerEmail || "");
+
+    setBillingProfile({
+      sellerName: paymentsData.billingProfile?.sellerName || "",
+      sellerEmail: paymentsData.billingProfile?.sellerEmail || "",
+      sellerPhone: paymentsData.billingProfile?.sellerPhone || "",
+      sellerTaxId: paymentsData.billingProfile?.sellerTaxId || "",
+      sellerAddressLine1: paymentsData.billingProfile?.sellerAddressLine1 || "",
+      sellerAddressLine2: paymentsData.billingProfile?.sellerAddressLine2 || "",
+      sellerPostalCode: paymentsData.billingProfile?.sellerPostalCode || "",
+      sellerCity: paymentsData.billingProfile?.sellerCity || "",
+      sellerCountry: paymentsData.billingProfile?.sellerCountry || "",
+      bankAccountHolder: paymentsData.billingProfile?.bankAccountHolder || "",
+      bankName: paymentsData.billingProfile?.bankName || "",
+      bankAccountNumber: paymentsData.billingProfile?.bankAccountNumber || "",
+      bankSwift: paymentsData.billingProfile?.bankSwift || "",
+      invoicePrefix: paymentsData.billingProfile?.invoicePrefix || "FV",
+      paymentInstructions: paymentsData.billingProfile?.paymentInstructions || "",
+      defaultPaymentTermDays: String(paymentsData.billingProfile?.defaultPaymentTermDays || 14),
+    });
+
+    setCustomer({
+      name: paymentsData.customer?.name || "",
+      companyName: paymentsData.customer?.companyName || "",
+      email: paymentsData.customer?.email || "",
+      phone: paymentsData.customer?.phone || "",
+      taxId: paymentsData.customer?.taxId || "",
+      addressLine1: paymentsData.customer?.addressLine1 || "",
+      addressLine2: paymentsData.customer?.addressLine2 || "",
+      postalCode: paymentsData.customer?.postalCode || "",
+      city: paymentsData.customer?.city || "",
+      country: paymentsData.customer?.country || "",
+    });
   }, [paymentsData]);
 
   const installments = useMemo(
@@ -144,10 +276,7 @@ export default function ProjectPaymentsView() {
     [paymentsData],
   );
 
-  const visibleInstallments = installments.filter((installment) => installment.status !== "void");
-  const pendingInstallments = visibleInstallments.filter(
-    (installment) => installment.status === "draft" || installment.status === "open" || installment.isOverdue,
-  );
+  const primaryProjectContact = ((projectContacts || []) as ProjectContactOption[])[0];
 
   const openCreateDialog = () => {
     setEditingInstallment(null);
@@ -172,22 +301,50 @@ export default function ProjectPaymentsView() {
     setForm(EMPTY_FORM);
   };
 
+  const saveBillingDetails = async () => {
+    setIsSavingBillingProfile(true);
+    try {
+      await updateTeamSettings({
+        teamId: project.teamId,
+        billingProfile: {
+          ...billingProfile,
+          defaultPaymentTermDays: Number.parseInt(billingProfile.defaultPaymentTermDays || "14", 10),
+        },
+      });
+      toast.success("Organization billing profile updated");
+    } catch (error) {
+      toast.error("Could not update billing profile", {
+        description: (error as Error).message,
+      });
+    } finally {
+      setIsSavingBillingProfile(false);
+    }
+  };
+
   const saveCustomerDetails = async () => {
     setIsSavingCustomer(true);
     try {
       await updateCustomer({
         projectId: project._id,
-        customerName,
-        customerEmail,
+        customer,
       });
-      toast.success("Billing contact updated");
+      toast.success("Bill-to details updated");
     } catch (error) {
-      toast.error("Could not update billing contact", {
+      toast.error("Could not update customer details", {
         description: (error as Error).message,
       });
     } finally {
       setIsSavingCustomer(false);
     }
+  };
+
+  const applyPrimaryContact = () => {
+    if (!primaryProjectContact) {
+      toast.error("No project contact is assigned yet");
+      return;
+    }
+    setCustomer(buildContactAddress(primaryProjectContact));
+    toast.success("Filled customer details from the primary project contact");
   };
 
   const saveInstallment = async () => {
@@ -228,56 +385,44 @@ export default function ProjectPaymentsView() {
     }
   };
 
-  const copyInvoiceLink = async (url?: string) => {
-    if (!url) {
-      toast.error("No Stripe payment link available yet");
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(url);
-      toast.success("Stripe payment link copied");
-    } catch {
-      toast.error("Could not copy Stripe payment link");
-    }
-  };
-
   const runInstallmentAction = async (
     installmentId: Id<"projectPayments">,
-    actionName:
-      | "create"
-      | "send"
-      | "refresh"
-      | "cancel",
+    actionName: "issue" | "send" | "download" | "paid" | "open" | "void",
   ) => {
     setBusyInstallmentId(installmentId);
     try {
-      if (actionName === "create") {
-        const result = await createInvoice({ installmentId });
-        toast.success("Stripe payment link is ready");
-        if (result.url) {
-          await navigator.clipboard.writeText(result.url);
-          toast.success("Payment link copied");
-        }
+      if (actionName === "issue") {
+        await createInvoice({ installmentId });
+        toast.success("Invoice issued");
         return;
       }
 
       if (actionName === "send") {
         await sendInvoiceEmail({ installmentId });
-        toast.success("Stripe sent the invoice email");
+        toast.success("Invoice email sent");
         return;
       }
 
-      if (actionName === "refresh") {
-        await refreshInvoice({ installmentId });
-        toast.success("Stripe payment status refreshed");
+      if (actionName === "download") {
+        const result = await downloadInvoiceUrl({ installmentId });
+        window.open(result.url, "_blank", "noopener,noreferrer");
         return;
       }
 
-      await cancelInvoice({ installmentId });
-      toast.success("Stripe invoice voided");
+      await setPaymentStatus({
+        installmentId,
+        status: actionName,
+      });
+
+      toast.success(
+        actionName === "paid"
+          ? "Installment marked as paid"
+          : actionName === "open"
+            ? "Installment reopened"
+            : "Installment voided",
+      );
     } catch (error) {
-      toast.error("Stripe action failed", {
+      toast.error("Payment action failed", {
         description: (error as Error).message,
       });
     } finally {
@@ -299,17 +444,16 @@ export default function ProjectPaymentsView() {
     }
   };
 
-  const openCustomerPortal = async () => {
-    setPortalLoading(true);
+  const copyReference = async (value?: string) => {
+    if (!value) {
+      toast.error("No payment reference available yet");
+      return;
+    }
     try {
-      const result = await createCustomerPortal({ projectId: project._id });
-      window.open(result.url, "_blank", "noopener,noreferrer");
-    } catch (error) {
-      toast.error("Could not open Stripe customer portal", {
-        description: (error as Error).message,
-      });
-    } finally {
-      setPortalLoading(false);
+      await navigator.clipboard.writeText(value);
+      toast.success("Payment reference copied");
+    } catch {
+      toast.error("Could not copy payment reference");
     }
   };
 
@@ -327,7 +471,7 @@ export default function ProjectPaymentsView() {
         <ProjectPageHeader
           title="Payments"
           icon={<Wallet className="h-8 w-8 text-[var(--ui-accent-brand)]" />}
-          subtitle="Create Stripe installments for this project, share payment links, and track what is still due."
+          subtitle="Manage bank-transfer invoices, customer billing data, invoice PDFs, and manual payment reconciliation."
           actions={
             <Button type="button" onClick={openCreateDialog}>
               <Plus className="mr-2 h-4 w-4" />
@@ -371,119 +515,207 @@ export default function ProjectPaymentsView() {
           </Card>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[1.1fr_1.4fr]">
-          <Card className="bg-card/90">
+        {(!paymentsData.billingSetup?.sellerReady || !paymentsData.billingSetup?.customerReady) && (
+          <Alert>
+            <Building2 className="h-4 w-4" />
+            <AlertTitle>Invoice setup incomplete</AlertTitle>
+            <AlertDescription>
+              {paymentsData.billingSetup?.missingSellerFields?.length
+                ? `Seller profile is missing: ${paymentsData.billingSetup.missingSellerFields.join(", ")}. `
+                : ""}
+              {paymentsData.billingSetup?.missingCustomerFields?.length
+                ? `Customer details are missing: ${paymentsData.billingSetup.missingCustomerFields.join(", ")}.`
+                : ""}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <div className="grid gap-6 xl:grid-cols-2">
+          <Card className="bg-card/92">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <CreditCard className="h-4 w-4" />
-                Billing Contact
+                <Banknote className="h-4 w-4" />
+                Organization Billing Profile
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="payment-customer-name">Customer name</Label>
-                <Input
-                  id="payment-customer-name"
-                  value={customerName}
-                  onChange={(event) => setCustomerName(event.target.value)}
-                  placeholder="Acme HQ renovation"
-                />
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Seller name</Label>
+                  <Input value={billingProfile.sellerName} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerName: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Tax ID / NIP</Label>
+                  <Input value={billingProfile.sellerTaxId} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerTaxId: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Billing email</Label>
+                  <Input type="email" value={billingProfile.sellerEmail} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerEmail: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Phone</Label>
+                  <Input value={billingProfile.sellerPhone} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerPhone: e.target.value }))} />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Address line 1</Label>
+                  <Input value={billingProfile.sellerAddressLine1} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerAddressLine1: e.target.value }))} />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Address line 2</Label>
+                  <Input value={billingProfile.sellerAddressLine2} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerAddressLine2: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Postal code</Label>
+                  <Input value={billingProfile.sellerPostalCode} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerPostalCode: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>City</Label>
+                  <Input value={billingProfile.sellerCity} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerCity: e.target.value }))} />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Country</Label>
+                  <Input value={billingProfile.sellerCountry} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerCountry: e.target.value }))} />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="payment-customer-email">Billing email</Label>
-                <Input
-                  id="payment-customer-email"
-                  type="email"
-                  value={customerEmail}
-                  onChange={(event) => setCustomerEmail(event.target.value)}
-                  placeholder="finance@client.com"
-                />
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Account holder</Label>
+                  <Input value={billingProfile.bankAccountHolder} onChange={(e) => setBillingProfile((prev) => ({ ...prev, bankAccountHolder: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Bank name</Label>
+                  <Input value={billingProfile.bankName} onChange={(e) => setBillingProfile((prev) => ({ ...prev, bankName: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Bank account number / IBAN</Label>
+                  <Input value={billingProfile.bankAccountNumber} onChange={(e) => setBillingProfile((prev) => ({ ...prev, bankAccountNumber: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>SWIFT</Label>
+                  <Input value={billingProfile.bankSwift} onChange={(e) => setBillingProfile((prev) => ({ ...prev, bankSwift: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Invoice prefix</Label>
+                  <Input value={billingProfile.invoicePrefix} onChange={(e) => setBillingProfile((prev) => ({ ...prev, invoicePrefix: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Default due days</Label>
+                  <Input type="number" min="1" value={billingProfile.defaultPaymentTermDays} onChange={(e) => setBillingProfile((prev) => ({ ...prev, defaultPaymentTermDays: e.target.value }))} />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Payment instructions</Label>
+                  <Textarea rows={4} value={billingProfile.paymentInstructions} onChange={(e) => setBillingProfile((prev) => ({ ...prev, paymentInstructions: e.target.value }))} />
+                </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <Button type="button" onClick={saveCustomerDetails} disabled={isSavingCustomer}>
-                  {isSavingCustomer ? "Saving..." : "Save billing contact"}
+
+              <div className="flex justify-end">
+                <Button type="button" onClick={() => void saveBillingDetails()} disabled={isSavingBillingProfile}>
+                  {isSavingBillingProfile ? "Saving..." : "Save billing profile"}
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={openCustomerPortal}
-                  disabled={portalLoading || (!paymentsData.stripeCustomerId && !customerEmail.trim())}
-                >
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  {portalLoading ? "Opening..." : "Open Stripe portal"}
-                </Button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Stripe will use this contact for invoice emails, hosted payment links, and the customer portal.
-              </p>
             </CardContent>
           </Card>
 
-          <Card className="bg-card/90">
+          <Card className="bg-card/92">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <CalendarClock className="h-4 w-4" />
-                Due Soon
+                <Building2 className="h-4 w-4" />
+                Bill-To Customer
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {pendingInstallments.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No unpaid installments.</p>
-              ) : (
-                pendingInstallments.slice(0, 4).map((installment) => (
-                  <div
-                    key={installment._id}
-                    className="flex items-center justify-between rounded-xl border p-3"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate font-medium">{installment.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {installment.dueDate
-                          ? `Due ${new Date(installment.dueDate).toLocaleDateString()}`
-                          : "No due date"}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium">
-                        {formatCurrency(installment.amount, installment.currency)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">{getStatusLabel(installment)}</p>
-                    </div>
-                  </div>
-                ))
-              )}
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" onClick={applyPrimaryContact}>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Use primary project contact
+                </Button>
+                {primaryProjectContact ? (
+                  <Badge variant="outline">{primaryProjectContact.name}</Badge>
+                ) : null}
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Company name</Label>
+                  <Input value={customer.companyName} onChange={(e) => setCustomer((prev) => ({ ...prev, companyName: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Contact / buyer name</Label>
+                  <Input value={customer.name} onChange={(e) => setCustomer((prev) => ({ ...prev, name: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Billing email</Label>
+                  <Input type="email" value={customer.email} onChange={(e) => setCustomer((prev) => ({ ...prev, email: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Phone</Label>
+                  <Input value={customer.phone} onChange={(e) => setCustomer((prev) => ({ ...prev, phone: e.target.value }))} />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Tax ID / NIP</Label>
+                  <Input value={customer.taxId} onChange={(e) => setCustomer((prev) => ({ ...prev, taxId: e.target.value }))} />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Address line 1</Label>
+                  <Input value={customer.addressLine1} onChange={(e) => setCustomer((prev) => ({ ...prev, addressLine1: e.target.value }))} />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Address line 2</Label>
+                  <Input value={customer.addressLine2} onChange={(e) => setCustomer((prev) => ({ ...prev, addressLine2: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Postal code</Label>
+                  <Input value={customer.postalCode} onChange={(e) => setCustomer((prev) => ({ ...prev, postalCode: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>City</Label>
+                  <Input value={customer.city} onChange={(e) => setCustomer((prev) => ({ ...prev, city: e.target.value }))} />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Country</Label>
+                  <Input value={customer.country} onChange={(e) => setCustomer((prev) => ({ ...prev, country: e.target.value }))} />
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <Button type="button" onClick={() => void saveCustomerDetails()} disabled={isSavingCustomer}>
+                  {isSavingCustomer ? "Saving..." : "Save customer details"}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
 
         <Card className="bg-card/92">
           <CardHeader>
-            <CardTitle>Installments</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Wallet className="h-4 w-4" />
+              Installments & Invoices
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {installments.length === 0 ? (
-              <div className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
-                No installments yet. Create the first payment tranche and generate a Stripe link for it.
-              </div>
+              <p className="text-sm text-muted-foreground">
+                No installments yet. Create one and issue an invoice when the bank-transfer details are ready.
+              </p>
             ) : (
               installments.map((installment) => {
-                const isBusy = busyInstallmentId === installment._id;
                 const isDraft = installment.status === "draft";
-                const canOpenLink = !!installment.stripeHostedInvoiceUrl;
-                const canVoid =
-                  installment.status === "open" || installment.status === "uncollectible";
+                const isBusy = busyInstallmentId === installment._id;
+                const canVoid = installment.status !== "paid" && installment.status !== "void";
 
                 return (
-                  <div key={installment._id} className="rounded-2xl border bg-background/50 p-5">
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                      <div className="space-y-3">
+                  <div key={installment._id} className="rounded-2xl border bg-background/60 p-4">
+                    <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                      <div className="space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
                           <h3 className="text-lg font-medium">{installment.title}</h3>
                           <Badge variant="outline" className={getStatusBadgeClassName(installment)}>
                             {getStatusLabel(installment)}
                           </Badge>
-                          {installment.stripeInvoiceNumber ? (
-                            <Badge variant="outline">#{installment.stripeInvoiceNumber}</Badge>
+                          {installment.invoiceNumber ? (
+                            <Badge variant="outline">#{installment.invoiceNumber}</Badge>
                           ) : null}
                         </div>
                         {installment.description ? (
@@ -499,7 +731,15 @@ export default function ProjectPaymentsView() {
                           {installment.paidAt ? (
                             <span>Paid {new Date(installment.paidAt).toLocaleDateString()}</span>
                           ) : null}
+                          {installment.sentAt ? (
+                            <span>Emailed {new Date(installment.sentAt).toLocaleDateString()}</span>
+                          ) : null}
                         </div>
+                        {installment.paymentReference ? (
+                          <p className="text-sm text-muted-foreground">
+                            Transfer reference: <span className="font-medium text-foreground">{installment.paymentReference}</span>
+                          </p>
+                        ) : null}
                       </div>
 
                       <div className="flex flex-wrap gap-2">
@@ -512,10 +752,10 @@ export default function ProjectPaymentsView() {
                               type="button"
                               size="sm"
                               variant="outline"
-                              onClick={() => void runInstallmentAction(installment._id, "create")}
+                              onClick={() => void runInstallmentAction(installment._id, "issue")}
                               disabled={isBusy}
                             >
-                              {isBusy ? "Creating..." : "Create Stripe link"}
+                              {isBusy ? "Issuing..." : "Issue invoice"}
                             </Button>
                             <Button
                               type="button"
@@ -525,7 +765,7 @@ export default function ProjectPaymentsView() {
                               disabled={isBusy}
                             >
                               <Mail className="mr-2 h-4 w-4" />
-                              Send invoice
+                              Issue & email
                             </Button>
                             <Button
                               type="button"
@@ -544,50 +784,60 @@ export default function ProjectPaymentsView() {
                               type="button"
                               size="sm"
                               variant="outline"
-                              onClick={() => void copyInvoiceLink(installment.stripeHostedInvoiceUrl)}
-                              disabled={!canOpenLink}
+                              onClick={() => void runInstallmentAction(installment._id, "download")}
+                              disabled={isBusy || !installment.hasInvoicePdf}
                             >
-                              <Copy className="mr-2 h-4 w-4" />
-                              Copy link
+                              <Download className="mr-2 h-4 w-4" />
+                              Download PDF
                             </Button>
                             <Button
                               type="button"
                               size="sm"
                               variant="outline"
-                              onClick={() => window.open(installment.stripeHostedInvoiceUrl, "_blank", "noopener,noreferrer")}
-                              disabled={!canOpenLink}
+                              onClick={() => void runInstallmentAction(installment._id, "send")}
+                              disabled={isBusy}
                             >
-                              <ExternalLink className="mr-2 h-4 w-4" />
-                              Open Stripe
+                              <Mail className="mr-2 h-4 w-4" />
+                              Send email
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => void copyReference(installment.paymentReference)}
+                              disabled={!installment.paymentReference}
+                            >
+                              <Copy className="mr-2 h-4 w-4" />
+                              Copy reference
                             </Button>
                             {installment.status !== "paid" ? (
                               <Button
                                 type="button"
                                 size="sm"
                                 variant="outline"
-                                onClick={() => void runInstallmentAction(installment._id, "send")}
+                                onClick={() => void runInstallmentAction(installment._id, "paid")}
                                 disabled={isBusy}
                               >
-                                <Mail className="mr-2 h-4 w-4" />
-                                Re-send
+                                <CheckCircle2 className="mr-2 h-4 w-4" />
+                                Mark paid
                               </Button>
-                            ) : null}
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => void runInstallmentAction(installment._id, "refresh")}
-                              disabled={isBusy}
-                            >
-                              <RefreshCw className="mr-2 h-4 w-4" />
-                              Refresh
-                            </Button>
+                            ) : (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => void runInstallmentAction(installment._id, "open")}
+                                disabled={isBusy}
+                              >
+                                Reopen
+                              </Button>
+                            )}
                             {canVoid ? (
                               <Button
                                 type="button"
                                 size="sm"
                                 variant="destructive"
-                                onClick={() => void runInstallmentAction(installment._id, "cancel")}
+                                onClick={() => void runInstallmentAction(installment._id, "void")}
                                 disabled={isBusy}
                               >
                                 Void
@@ -610,7 +860,7 @@ export default function ProjectPaymentsView() {
           <DialogHeader>
             <DialogTitle>{editingInstallment ? "Edit installment" : "New installment"}</DialogTitle>
             <DialogDescription>
-              Draft installments stay local until you create a Stripe invoice and payment link.
+              Draft installments stay internal until you issue a bank-transfer invoice.
             </DialogDescription>
           </DialogHeader>
 
@@ -621,12 +871,24 @@ export default function ProjectPaymentsView() {
                 id="installment-title"
                 value={form.title}
                 onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
-                placeholder="Phase 1 deposit"
+                placeholder="Stage 1 deposit"
               />
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
+
+            <div className="space-y-2">
+              <Label htmlFor="installment-description">Description</Label>
+              <Textarea
+                id="installment-description"
+                value={form.description}
+                onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
+                placeholder="Optional note visible on the invoice"
+                rows={4}
+              />
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="installment-amount">Amount ({paymentsData?.currency || project.currency || "PLN"})</Label>
+                <Label htmlFor="installment-amount">Amount</Label>
                 <Input
                   id="installment-amount"
                   type="number"
@@ -634,9 +896,10 @@ export default function ProjectPaymentsView() {
                   step="0.01"
                   value={form.amount}
                   onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))}
-                  placeholder="2500.00"
+                  placeholder="0.00"
                 />
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="installment-due-date">Due date</Label>
                 <Input
@@ -647,16 +910,6 @@ export default function ProjectPaymentsView() {
                 />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="installment-description">Description</Label>
-              <Textarea
-                id="installment-description"
-                value={form.description}
-                onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
-                placeholder="What this tranche covers"
-                rows={4}
-              />
-            </div>
           </div>
 
           <DialogFooter>
@@ -664,7 +917,7 @@ export default function ProjectPaymentsView() {
               Cancel
             </Button>
             <Button type="button" onClick={() => void saveInstallment()} disabled={submittingInstallment}>
-              {submittingInstallment ? "Saving..." : editingInstallment ? "Save changes" : "Create draft"}
+              {submittingInstallment ? "Saving..." : editingInstallment ? "Save changes" : "Create installment"}
             </Button>
           </DialogFooter>
         </DialogContent>

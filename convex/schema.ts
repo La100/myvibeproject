@@ -1,5 +1,11 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import {
+  billingProfileValidator,
+  invoiceCustomerSnapshotValidator,
+  invoiceSellerSnapshotValidator,
+  paymentCustomerDetailsValidator,
+} from "./projectPaymentHelpers";
 
 // The schema is entirely optional.
 // You can delete this file (schema.ts) and the
@@ -82,6 +88,14 @@ export default defineSchema({
     // Simple AI tokens field - manually editable in dashboard
     aiTokens: v.optional(v.number()), // Total tokens available for this team
     timezone: v.optional(v.string()), // Team timezone (e.g. "Europe/Warsaw")
+    stripeConnectAccountId: v.optional(v.string()),
+    stripeConnectChargesEnabled: v.optional(v.boolean()),
+    stripeConnectPayoutsEnabled: v.optional(v.boolean()),
+    stripeConnectDetailsSubmitted: v.optional(v.boolean()),
+    stripeConnectOnboardingComplete: v.optional(v.boolean()),
+    stripeConnectAccountType: v.optional(v.union(v.literal("express"), v.literal("standard"))),
+    stripeConnectLastSyncedAt: v.optional(v.number()),
+    billingProfile: v.optional(billingProfileValidator),
   })
     .index("by_clerk_org", ["clerkOrgId"])
     .index("by_slug", ["slug"])
@@ -162,6 +176,7 @@ export default defineSchema({
     clientPanelDataUpdatedAt: v.optional(v.number()),
     paymentCustomerName: v.optional(v.string()),
     paymentCustomerEmail: v.optional(v.string()),
+    paymentCustomerDetails: v.optional(paymentCustomerDetailsValidator),
     stripeProjectCustomerId: v.optional(v.string()),
     // Custom AI assistant prompt override
     customAiPrompt: v.optional(v.string()),
@@ -529,8 +544,17 @@ export default defineSchema({
     sentAt: v.optional(v.number()),
     paidAt: v.optional(v.number()),
     lastStripeSyncAt: v.optional(v.number()),
+    invoiceNumber: v.optional(v.string()),
+    invoiceSequenceNumber: v.optional(v.number()),
+    invoiceIssuedAt: v.optional(v.number()),
+    invoicePdfStorageKey: v.optional(v.string()),
+    invoicePdfFileName: v.optional(v.string()),
+    paymentReference: v.optional(v.string()),
+    invoiceSellerSnapshot: v.optional(invoiceSellerSnapshotValidator),
+    invoiceCustomerSnapshot: v.optional(invoiceCustomerSnapshotValidator),
   })
     .index("by_project", ["projectId"])
+    .index("by_team", ["teamId"])
     .index("by_project_and_order", ["projectId", "order"])
     .index("by_stripe_invoice_id", ["stripeInvoiceId"]),
 

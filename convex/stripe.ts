@@ -343,6 +343,30 @@ export const updateTeamStripeCustomer = internalMutation({
   },
 });
 
+export const updateTeamStripeConnect = internalMutation({
+  args: {
+    teamId: v.id("teams"),
+    stripeConnectAccountId: v.string(),
+    stripeConnectAccountType: v.optional(v.union(v.literal("express"), v.literal("standard"))),
+    stripeConnectChargesEnabled: v.boolean(),
+    stripeConnectPayoutsEnabled: v.boolean(),
+    stripeConnectDetailsSubmitted: v.boolean(),
+    stripeConnectOnboardingComplete: v.boolean(),
+    stripeConnectLastSyncedAt: v.number(),
+  },
+  async handler(ctx, args) {
+    await ctx.db.patch(args.teamId, {
+      stripeConnectAccountId: args.stripeConnectAccountId,
+      stripeConnectAccountType: args.stripeConnectAccountType,
+      stripeConnectChargesEnabled: args.stripeConnectChargesEnabled,
+      stripeConnectPayoutsEnabled: args.stripeConnectPayoutsEnabled,
+      stripeConnectDetailsSubmitted: args.stripeConnectDetailsSubmitted,
+      stripeConnectOnboardingComplete: args.stripeConnectOnboardingComplete,
+      stripeConnectLastSyncedAt: args.stripeConnectLastSyncedAt,
+    });
+  },
+});
+
 // Internal mutation to sync team subscription from Stripe
 export const syncTeamSubscriptionFromStripe = internalMutation({
   args: {

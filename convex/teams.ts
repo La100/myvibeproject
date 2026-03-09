@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { query, mutation, internalQuery, internalAction } from "./_generated/server";
 import { Doc } from "./_generated/dataModel";
 import { r2 } from "./files";
+import { billingProfileValidator, normalizeBillingProfile } from "./projectPaymentHelpers";
 
 const buildPublicR2FileUrl = (key: string) => {
   const publicBaseUrl = (process.env.NEXT_PUBLIC_R2_PUBLIC_URL || process.env.R2_PUBLIC_URL || "")
@@ -279,6 +280,7 @@ export const getTeamSettingsByClerkOrg = query({
       imageUrl: team.imageUrl,
       currency: team.currency || "PLN",
       timezone: team.timezone,
+      billingProfile: team.billingProfile,
       userRole: teamMember.role,
     };
   }
@@ -849,6 +851,7 @@ export const updateTeamSettings = mutation({
       v.literal("MXN"), v.literal("KRW"), v.literal("SGD"), v.literal("HKD")
     )),
     timezone: v.optional(v.string()),
+    billingProfile: v.optional(v.union(billingProfileValidator, v.null())),
   },
   async handler(ctx, args) {
     const identity = await ctx.auth.getUserIdentity();
@@ -872,6 +875,7 @@ export const updateTeamSettings = mutation({
       currency?: typeof args.currency;
       timezone?: string;
       imageUrl?: string | undefined;
+      billingProfile?: ReturnType<typeof normalizeBillingProfile>;
     } = {};
 
     if (args.currency !== undefined) {
@@ -885,6 +889,10 @@ export const updateTeamSettings = mutation({
     if (Object.prototype.hasOwnProperty.call(args, "imageUrl")) {
       const normalizedImageUrl = args.imageUrl?.trim();
       patch.imageUrl = normalizedImageUrl || undefined;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(args, "billingProfile")) {
+      patch.billingProfile = normalizeBillingProfile(args.billingProfile);
     }
 
     if (Object.keys(patch).length > 0) {

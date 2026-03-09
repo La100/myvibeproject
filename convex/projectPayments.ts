@@ -1,6 +1,16 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { v } from "convex/values";
 import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
+import {
+  invoiceCustomerSnapshotValidator,
+  invoiceSellerSnapshotValidator,
+  normalizeBillingProfile,
+  normalizeOptionalEmail,
+  normalizeOptionalString,
+  normalizePaymentCustomerDetails,
+  paymentCustomerDetailsValidator,
+} from "./projectPaymentHelpers";
 
 const PROJECT_PAYMENT_STATUS = v.union(
   v.literal("draft"),
@@ -10,38 +20,14 @@ const PROJECT_PAYMENT_STATUS = v.union(
   v.literal("uncollectible"),
 );
 
+const PROJECT_PAYMENT_MANUAL_STATUS = v.union(
+  v.literal("open"),
+  v.literal("paid"),
+  v.literal("void"),
+  v.literal("uncollectible"),
+);
+
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-const normalizeOptionalString = (value?: string | null) => {
-  const trimmed = typeof value === "string" ? value.trim() : "";
-  return trimmed.length > 0 ? trimmed : undefined;
-};
-
-const toPublicInstallment = (installment: {
-  _id: Id<"projectPayments">;
-  _creationTime: number;
-  title: string;
-  description?: string;
-  amount: number;
-  currency: string;
-  dueDate?: number;
-  order: number;
-  status: "draft" | "open" | "paid" | "void" | "uncollectible";
-  stripeInvoiceId?: string;
-  stripeHostedInvoiceUrl?: string;
-  stripeInvoiceNumber?: string;
-  stripePaymentIntentId?: string;
-  sentAt?: number;
-  paidAt?: number;
-  lastStripeSyncAt?: number;
-  updatedAt: number;
-}) => ({
-  ...installment,
-  isOverdue:
-    installment.status === "open" &&
-    typeof installment.dueDate === "number" &&
-    installment.dueDate < Date.now(),
-});
 
 const getProjectPaymentManager = async (
   ctx: any,
@@ -90,6 +76,62 @@ const listInstallmentsForProject = async (ctx: any, projectId: Id<"projects">) =
   });
 };
 
+const resolveProjectCustomerDetails = (project: any) => {
+  const details = normalizePaymentCustomerDetails(project.paymentCustomerDetails);
+  return {
+    name: details?.name ?? project.paymentCustomerName ?? "",
+    companyName: details?.companyName ?? "",
+    email: details?.email ?? project.paymentCustomerEmail ?? "",
+    phone: details?.phone ?? "",
+    taxId: details?.taxId ?? "",
+    addressLine1: details?.addressLine1 ?? "",
+    addressLine2: details?.addressLine2 ?? "",
+    postalCode: details?.postalCode ?? "",
+    city: details?.city ?? "",
+    country: details?.country ?? "",
+  };
+};
+
+const buildBillingSetup = (billingProfile: ReturnType<typeof normalizeBillingProfile>, customer: ReturnType<typeof resolveProjectCustomerDetails>) => {
+  const missingSellerFields: string[] = [];
+  const missingCustomerFields: string[] = [];
+
+  if (!billingProfile?.sellerName) missingSellerFields.push("Seller name");
+  if (!billingProfile?.sellerAddressLine1) missingSellerFields.push("Seller address");
+  if (!billingProfile?.sellerCity) missingSellerFields.push("Seller city");
+  if (!billingProfile?.sellerCountry) missingSellerFields.push("Seller country");
+  if (!billingProfile?.bankAccountNumber) missingSellerFields.push("Bank account number");
+
+  if (!customer.name && !customer.companyName) missingCustomerFields.push("Customer name");
+  if (!customer.addressLine1) missingCustomerFields.push("Customer address");
+  if (!customer.city) missingCustomerFields.push("Customer city");
+  if (!customer.country) missingCustomerFields.push("Customer country");
+
+  return {
+    sellerReady: missingSellerFields.length === 0,
+    customerReady: missingCustomerFields.length === 0,
+    canEmailInvoices: !!customer.email && emailPattern.test(customer.email),
+    missingSellerFields,
+    missingCustomerFields,
+  };
+};
+
+const toPublicInstallment = (installment: any) => ({
+  ...installment,
+  invoiceNumber: installment.invoiceNumber || installment.stripeInvoiceNumber,
+  hasInvoicePdf: Boolean(installment.invoicePdfStorageKey),
+  isOverdue:
+    installment.status === "open" &&
+    typeof installment.dueDate === "number" &&
+    installment.dueDate < Date.now(),
+});
+
+const buildInvoiceNumber = (prefix: string | undefined, sequence: number, issuedAt: number) => {
+  const year = new Date(issuedAt).getFullYear();
+  const normalizedPrefix = normalizeOptionalString(prefix) || "FV";
+  return `${normalizedPrefix}/${year}/${String(sequence).padStart(4, "0")}`;
+};
+
 export const getProjectPaymentsOverview = query({
   args: {
     projectId: v.id("projects"),
@@ -101,7 +143,11 @@ export const getProjectPaymentsOverview = query({
     }
 
     const { project } = await getProjectPaymentManager(ctx as any, args.projectId, identity.subject);
+    const team: any = await ctx.db.get(project.teamId);
     const installments = await listInstallmentsForProject(ctx, args.projectId);
+    const billingProfile = normalizeBillingProfile(team?.billingProfile) || undefined;
+    const customer = resolveProjectCustomerDetails(project);
+    const billingSetup = buildBillingSetup(billingProfile, customer);
 
     const visibleInstallments = installments.filter((installment: any) => installment.status !== "void");
     const paidTotal = visibleInstallments
@@ -118,9 +164,9 @@ export const getProjectPaymentsOverview = query({
     ).length;
 
     return {
-      customerName: project.paymentCustomerName || "",
-      customerEmail: project.paymentCustomerEmail || "",
-      stripeCustomerId: project.stripeProjectCustomerId || null,
+      customer,
+      billingProfile: billingProfile || null,
+      billingSetup,
       currency: project.currency || "PLN",
       totals: {
         scheduled: visibleInstallments.reduce((sum: number, installment: any) => sum + installment.amount, 0),
@@ -137,8 +183,7 @@ export const getProjectPaymentsOverview = query({
 export const updateProjectPaymentCustomer = mutation({
   args: {
     projectId: v.id("projects"),
-    customerName: v.optional(v.string()),
-    customerEmail: v.optional(v.string()),
+    customer: v.optional(v.union(paymentCustomerDetailsValidator, v.null())),
   },
   async handler(ctx, args) {
     const identity = await ctx.auth.getUserIdentity();
@@ -148,21 +193,30 @@ export const updateProjectPaymentCustomer = mutation({
 
     await getProjectPaymentManager(ctx as any, args.projectId, identity.subject);
 
-    const customerName = normalizeOptionalString(args.customerName);
-    const customerEmail = normalizeOptionalString(args.customerEmail)?.toLowerCase();
+    const customer = normalizePaymentCustomerDetails(args.customer);
+    const customerEmail = customer?.email;
 
     if (customerEmail && !emailPattern.test(customerEmail)) {
       throw new Error("Enter a valid billing email address");
     }
 
     await ctx.db.patch(args.projectId, {
-      paymentCustomerName: customerName,
-      paymentCustomerEmail: customerEmail,
+      paymentCustomerName: customer?.name,
+      paymentCustomerEmail: customer?.email,
+      paymentCustomerDetails: customer,
     });
 
-    return {
-      customerName: customerName || "",
-      customerEmail: customerEmail || "",
+    return customer || {
+      name: "",
+      companyName: "",
+      email: "",
+      phone: "",
+      taxId: "",
+      addressLine1: "",
+      addressLine2: "",
+      postalCode: "",
+      city: "",
+      country: "",
     };
   },
 });
@@ -233,8 +287,8 @@ export const updateProjectPayment = mutation({
 
     await getProjectPaymentManager(ctx as any, installment.projectId, identity.subject);
 
-    if (installment.stripeInvoiceId) {
-      throw new Error("This installment is already synced with Stripe and can no longer be edited");
+    if (installment.invoiceNumber || installment.stripeInvoiceId) {
+      throw new Error("This installment already has an issued invoice and can no longer be edited");
     }
 
     const patch: Record<string, unknown> = {
@@ -286,11 +340,64 @@ export const deleteProjectPayment = mutation({
 
     await getProjectPaymentManager(ctx as any, installment.projectId, identity.subject);
 
-    if (installment.stripeInvoiceId) {
-      throw new Error("This installment is already synced with Stripe and cannot be deleted");
+    if (installment.invoiceNumber || installment.stripeInvoiceId) {
+      throw new Error("This installment already has an issued invoice and cannot be deleted");
     }
 
     await ctx.db.delete(args.installmentId);
+    return args.installmentId;
+  },
+});
+
+export const setProjectPaymentManualStatus = mutation({
+  args: {
+    installmentId: v.id("projectPayments"),
+    status: PROJECT_PAYMENT_MANUAL_STATUS,
+  },
+  async handler(ctx, args) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const installment = await ctx.db.get(args.installmentId);
+    if (!installment) {
+      throw new Error("Installment not found");
+    }
+
+    await getProjectPaymentManager(ctx as any, installment.projectId, identity.subject);
+
+    if (!installment.invoiceNumber && !installment.stripeInvoiceId) {
+      throw new Error("Issue the invoice before changing the payment status");
+    }
+
+    await ctx.db.patch(args.installmentId, {
+      status: args.status,
+      paidAt: args.status === "paid" ? Date.now() : undefined,
+      updatedAt: Date.now(),
+    });
+
+    return args.installmentId;
+  },
+});
+
+export const setProjectPaymentManualStatusInternal = internalMutation({
+  args: {
+    installmentId: v.id("projectPayments"),
+    status: PROJECT_PAYMENT_MANUAL_STATUS,
+  },
+  async handler(ctx, args) {
+    const installment = await ctx.db.get(args.installmentId);
+    if (!installment) {
+      throw new Error("Installment not found");
+    }
+
+    await ctx.db.patch(args.installmentId, {
+      status: args.status,
+      paidAt: args.status === "paid" ? Date.now() : undefined,
+      updatedAt: Date.now(),
+    });
+
     return args.installmentId;
   },
 });
@@ -316,17 +423,15 @@ export const getProjectPaymentsByAccessToken = query({
 
     const installments = await listInstallmentsForProject(ctx, project._id);
     return {
-      customerName: project.paymentCustomerName || "",
-      customerEmail: project.paymentCustomerEmail || "",
-      stripeCustomerId: project.stripeProjectCustomerId || null,
+      customer: resolveProjectCustomerDetails(project),
       installments: installments
-        .filter((installment: any) => installment.status !== "void")
+        .filter((installment: any) => installment.status !== "void" && installment.status !== "draft")
         .map(toPublicInstallment),
     };
   },
 });
 
-export const getInstallmentForStripeAction = internalQuery({
+export const getInstallmentForInvoiceAction = internalQuery({
   args: {
     installmentId: v.id("projectPayments"),
   },
@@ -341,7 +446,12 @@ export const getInstallmentForStripeAction = internalQuery({
       return null;
     }
 
-    return { installment, project };
+    const team = await ctx.db.get(project.teamId);
+    if (!team) {
+      return null;
+    }
+
+    return { installment, project, team };
   },
 });
 
@@ -362,6 +472,87 @@ export const getProjectForPortalAccess = internalQuery({
   },
 });
 
+export const assignInvoiceToProjectPayment = internalMutation({
+  args: {
+    installmentId: v.id("projectPayments"),
+    invoiceIssuedAt: v.number(),
+    invoicePrefix: v.optional(v.string()),
+    paymentReference: v.optional(v.string()),
+    invoiceSellerSnapshot: invoiceSellerSnapshotValidator,
+    invoiceCustomerSnapshot: invoiceCustomerSnapshotValidator,
+  },
+  returns: v.object({
+    invoiceNumber: v.string(),
+    invoiceSequenceNumber: v.number(),
+  }),
+  async handler(ctx, args) {
+    const installment = await ctx.db.get(args.installmentId);
+    if (!installment) {
+      throw new Error("Installment not found");
+    }
+
+    if (installment.invoiceNumber) {
+      return {
+        invoiceNumber: installment.invoiceNumber,
+        invoiceSequenceNumber: installment.invoiceSequenceNumber || 1,
+      };
+    }
+
+    const teamPayments = await ctx.db
+      .query("projectPayments")
+      .withIndex("by_team", (q) => q.eq("teamId", installment.teamId))
+      .collect();
+
+    const nextSequence =
+      teamPayments.reduce((max: number, payment: any) => Math.max(max, payment.invoiceSequenceNumber || 0), 0) + 1;
+    const invoiceNumber = buildInvoiceNumber(args.invoicePrefix, nextSequence, args.invoiceIssuedAt);
+
+    await ctx.db.patch(args.installmentId, {
+      invoiceNumber,
+      invoiceSequenceNumber: nextSequence,
+      invoiceIssuedAt: args.invoiceIssuedAt,
+      paymentReference: normalizeOptionalString(args.paymentReference) || invoiceNumber,
+      invoiceSellerSnapshot: normalizeBillingProfile(args.invoiceSellerSnapshot),
+      invoiceCustomerSnapshot: normalizePaymentCustomerDetails(args.invoiceCustomerSnapshot),
+      status: installment.status === "paid" ? "paid" : "open",
+      updatedAt: Date.now(),
+    });
+
+    return {
+      invoiceNumber,
+      invoiceSequenceNumber: nextSequence,
+    };
+  },
+});
+
+export const storeProjectPaymentInvoiceDocument = internalMutation({
+  args: {
+    installmentId: v.id("projectPayments"),
+    invoicePdfStorageKey: v.string(),
+    invoicePdfFileName: v.string(),
+  },
+  async handler(ctx, args) {
+    await ctx.db.patch(args.installmentId, {
+      invoicePdfStorageKey: args.invoicePdfStorageKey,
+      invoicePdfFileName: args.invoicePdfFileName,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+export const markProjectPaymentInvoiceSent = internalMutation({
+  args: {
+    installmentId: v.id("projectPayments"),
+    sentAt: v.number(),
+  },
+  async handler(ctx, args) {
+    await ctx.db.patch(args.installmentId, {
+      sentAt: args.sentAt,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
 export const setProjectStripeCustomer = internalMutation({
   args: {
     projectId: v.id("projects"),
@@ -373,7 +564,7 @@ export const setProjectStripeCustomer = internalMutation({
     await ctx.db.patch(args.projectId, {
       stripeProjectCustomerId: args.stripeProjectCustomerId,
       paymentCustomerName: normalizeOptionalString(args.paymentCustomerName),
-      paymentCustomerEmail: normalizeOptionalString(args.paymentCustomerEmail)?.toLowerCase(),
+      paymentCustomerEmail: normalizeOptionalEmail(args.paymentCustomerEmail),
     });
   },
 });

@@ -398,7 +398,7 @@ export const getPublicShoppingListByAccessToken = query({
       contacts: settings.showContacts ? contactsForPortal : [],
       payments: settings.showPayments
         ? payments
-            .filter((payment) => payment.status !== "void")
+            .filter((payment) => payment.status !== "void" && payment.status !== "draft")
             .map((payment) => ({
               _id: payment._id,
               title: payment.title,
@@ -407,8 +407,14 @@ export const getPublicShoppingListByAccessToken = query({
               currency: payment.currency,
               dueDate: payment.dueDate,
               status: payment.status,
-              stripeHostedInvoiceUrl: payment.stripeHostedInvoiceUrl,
-              stripeInvoiceNumber: payment.stripeInvoiceNumber,
+              invoiceNumber: payment.invoiceNumber || payment.stripeInvoiceNumber,
+              hasInvoicePdf: !!payment.invoicePdfStorageKey,
+              paymentReference: payment.paymentReference,
+              bankAccountHolder: payment.invoiceSellerSnapshot?.bankAccountHolder,
+              bankName: payment.invoiceSellerSnapshot?.bankName,
+              bankAccountNumber: payment.invoiceSellerSnapshot?.bankAccountNumber,
+              bankSwift: payment.invoiceSellerSnapshot?.bankSwift,
+              paymentInstructions: payment.invoiceSellerSnapshot?.paymentInstructions,
               paidAt: payment.paidAt,
               isOverdue:
                 payment.status === "open" &&
@@ -416,9 +422,7 @@ export const getPublicShoppingListByAccessToken = query({
                 payment.dueDate < Date.now(),
             }))
         : [],
-      paymentsPortalAvailable:
-        settings.showPayments &&
-        !!(project.stripeProjectCustomerId || project.paymentCustomerEmail),
+      paymentsPortalAvailable: false,
     };
   },
 });
