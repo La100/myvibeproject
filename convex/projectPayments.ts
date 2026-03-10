@@ -10,6 +10,7 @@ import {
   normalizeOptionalString,
   normalizePaymentCustomerDetails,
   paymentCustomerDetailsValidator,
+  resolveOrganizationBillingProfile,
 } from "./projectPaymentHelpers";
 
 const PROJECT_PAYMENT_STATUS = v.union(
@@ -92,7 +93,10 @@ const resolveProjectCustomerDetails = (project: any) => {
   };
 };
 
-const buildBillingSetup = (billingProfile: ReturnType<typeof normalizeBillingProfile>, customer: ReturnType<typeof resolveProjectCustomerDetails>) => {
+const buildBillingSetup = (
+  billingProfile: ReturnType<typeof resolveOrganizationBillingProfile>,
+  customer: ReturnType<typeof resolveProjectCustomerDetails>,
+) => {
   const missingSellerFields: string[] = [];
   const missingCustomerFields: string[] = [];
 
@@ -145,7 +149,7 @@ export const getProjectPaymentsOverview = query({
     const { project } = await getProjectPaymentManager(ctx as any, args.projectId, identity.subject);
     const team: any = await ctx.db.get(project.teamId);
     const installments = await listInstallmentsForProject(ctx, args.projectId);
-    const billingProfile = normalizeBillingProfile(team?.billingProfile) || undefined;
+    const billingProfile = resolveOrganizationBillingProfile(team?.billingProfile, team) || undefined;
     const customer = resolveProjectCustomerDetails(project);
     const billingSetup = buildBillingSetup(billingProfile, customer);
 

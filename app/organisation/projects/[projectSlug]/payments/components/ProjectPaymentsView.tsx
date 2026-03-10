@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import {
@@ -34,6 +35,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Id } from "@/convex/_generated/dataModel";
 import { apiAny } from "@/lib/convexApiAny";
 import { formatCurrency } from "@/lib/utils";
@@ -91,19 +93,6 @@ type InstallmentFormState = {
   description: string;
   amount: string;
   dueDate: string;
-};
-
-type ProjectContactOption = {
-  _id: Id<"contacts">;
-  name: string;
-  companyName?: string;
-  email?: string;
-  phone?: string;
-  taxId?: string;
-  address?: string;
-  city?: string;
-  postalCode?: string;
-  country?: string;
 };
 
 const EMPTY_FORM: InstallmentFormState = {
@@ -186,20 +175,23 @@ const getStatusLabel = (installment: Installment) => {
   return installment.status.toUpperCase();
 };
 
-const buildContactAddress = (contact?: ProjectContactOption) => {
-  if (!contact) return EMPTY_CUSTOMER;
+const buildCustomerFromProject = (project?: {
+  customer?: string;
+  location?: string;
+}) => {
+  if (!project) return EMPTY_CUSTOMER;
 
   return {
-    name: contact.name?.trim() || "",
-    companyName: contact.companyName?.trim() || "",
-    email: contact.email?.trim() || "",
-    phone: contact.phone?.trim() || "",
-    taxId: contact.taxId?.trim() || "",
-    addressLine1: contact.address?.trim() || "",
+    name: project.customer?.trim() || "",
+    companyName: "",
+    email: "",
+    phone: "",
+    taxId: "",
+    addressLine1: project.location?.trim() || "",
     addressLine2: "",
-    postalCode: contact.postalCode?.trim() || "",
-    city: contact.city?.trim() || "",
-    country: contact.country?.trim() || "",
+    postalCode: "",
+    city: "",
+    country: "",
   };
 };
 
@@ -207,10 +199,6 @@ export default function ProjectPaymentsView() {
   const { project, isLoading } = useProject();
   const paymentsData = useQuery(
     apiAny.projectPayments.getProjectPaymentsOverview,
-    isLoading ? "skip" : { projectId: project._id },
-  );
-  const projectContacts = useQuery(
-    apiAny.contacts.getProjectContacts,
     isLoading ? "skip" : { projectId: project._id },
   );
 
@@ -275,8 +263,18 @@ export default function ProjectPaymentsView() {
     () => ((paymentsData?.installments as Installment[] | undefined) ?? []),
     [paymentsData],
   );
-
-  const primaryProjectContact = ((projectContacts || []) as ProjectContactOption[])[0];
+  const draftInstallments = useMemo(
+    () => installments.filter((installment) => installment.status === "draft"),
+    [installments],
+  );
+  const issuedInstallments = useMemo(
+    () => installments.filter((installment) => installment.status !== "draft"),
+    [installments],
+  );
+  const projectClientDefaults = buildCustomerFromProject(project);
+  const hasProjectClientDefaults = Boolean(
+    projectClientDefaults.name || projectClientDefaults.addressLine1,
+  );
 
   const openCreateDialog = () => {
     setEditingInstallment(null);
@@ -338,13 +336,13 @@ export default function ProjectPaymentsView() {
     }
   };
 
-  const applyPrimaryContact = () => {
-    if (!primaryProjectContact) {
-      toast.error("No project contact is assigned yet");
+  const applyProjectClientDetails = () => {
+    if (!hasProjectClientDefaults) {
+      toast.error("No client details are saved in project settings yet");
       return;
     }
-    setCustomer(buildContactAddress(primaryProjectContact));
-    toast.success("Filled customer details from the primary project contact");
+    setCustomer(projectClientDefaults);
+    toast.success("Filled customer details from the project client data");
   };
 
   const saveInstallment = async () => {
@@ -457,6 +455,167 @@ export default function ProjectPaymentsView() {
     }
   };
 
+  const renderInstallmentList = (
+    list: Installment[],
+    emptyMessage: string,
+  ) => {
+    if (list.length === 0) {
+      return <p className="text-sm text-muted-foreground">{emptyMessage}</p>;
+    }
+
+    return list.map((installment) => {
+      const isDraft = installment.status === "draft";
+      const isBusy = busyInstallmentId === installment._id;
+      const canVoid = installment.status !== "paid" && installment.status !== "void";
+
+      return (
+        <div key={installment._id} className="rounded-2xl border bg-background/60 p-4">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-lg font-medium">{installment.title}</h3>
+                <Badge variant="outline" className={getStatusBadgeClassName(installment)}>
+                  {getStatusLabel(installment)}
+                </Badge>
+                {installment.invoiceNumber ? (
+                  <Badge variant="outline">#{installment.invoiceNumber}</Badge>
+                ) : null}
+              </div>
+              {installment.description ? (
+                <p className="text-sm text-muted-foreground">{installment.description}</p>
+              ) : null}
+              <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                <span>{formatCurrency(installment.amount, installment.currency)}</span>
+                <span>
+                  {installment.dueDate
+                    ? `Due ${new Date(installment.dueDate).toLocaleDateString()}`
+                    : "No due date"}
+                </span>
+                {installment.paidAt ? (
+                  <span>Paid {new Date(installment.paidAt).toLocaleDateString()}</span>
+                ) : null}
+                {installment.sentAt ? (
+                  <span>Emailed {new Date(installment.sentAt).toLocaleDateString()}</span>
+                ) : null}
+              </div>
+              {installment.paymentReference ? (
+                <p className="text-sm text-muted-foreground">
+                  Transfer reference:{" "}
+                  <span className="font-medium text-foreground">{installment.paymentReference}</span>
+                </p>
+              ) : null}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {isDraft ? (
+                <>
+                  <Button type="button" size="sm" onClick={() => openEditDialog(installment)}>
+                    Edit
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void runInstallmentAction(installment._id, "issue")}
+                    disabled={isBusy}
+                  >
+                    {isBusy ? "Issuing..." : "Issue invoice"}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void runInstallmentAction(installment._id, "send")}
+                    disabled={isBusy}
+                  >
+                    <Mail className="mr-2 h-4 w-4" />
+                    Issue & email
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => void removeDraftInstallment(installment._id)}
+                    disabled={isBusy}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void runInstallmentAction(installment._id, "download")}
+                    disabled={isBusy || !installment.hasInvoicePdf}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Download PDF
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void runInstallmentAction(installment._id, "send")}
+                    disabled={isBusy}
+                  >
+                    <Mail className="mr-2 h-4 w-4" />
+                    Send email
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void copyReference(installment.paymentReference)}
+                    disabled={!installment.paymentReference}
+                  >
+                    <Copy className="mr-2 h-4 w-4" />
+                    Copy reference
+                  </Button>
+                  {installment.status !== "paid" ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void runInstallmentAction(installment._id, "paid")}
+                      disabled={isBusy}
+                    >
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                      Mark paid
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void runInstallmentAction(installment._id, "open")}
+                      disabled={isBusy}
+                    >
+                      Reopen
+                    </Button>
+                  )}
+                  {canVoid ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => void runInstallmentAction(installment._id, "void")}
+                      disabled={isBusy}
+                    >
+                      Void
+                    </Button>
+                  ) : null}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    });
+  };
+
   if (isLoading || paymentsData === undefined) {
     return (
       <div className="flex min-h-[240px] items-center justify-center">
@@ -530,329 +689,216 @@ export default function ProjectPaymentsView() {
           </Alert>
         )}
 
-        <div className="grid gap-6 xl:grid-cols-2">
-          <Card className="bg-card/92">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Banknote className="h-4 w-4" />
-                Organization Billing Profile
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Seller name</Label>
-                  <Input value={billingProfile.sellerName} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerName: e.target.value }))} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Tax ID / NIP</Label>
-                  <Input value={billingProfile.sellerTaxId} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerTaxId: e.target.value }))} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Billing email</Label>
-                  <Input type="email" value={billingProfile.sellerEmail} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerEmail: e.target.value }))} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Phone</Label>
-                  <Input value={billingProfile.sellerPhone} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerPhone: e.target.value }))} />
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label>Address line 1</Label>
-                  <Input value={billingProfile.sellerAddressLine1} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerAddressLine1: e.target.value }))} />
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label>Address line 2</Label>
-                  <Input value={billingProfile.sellerAddressLine2} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerAddressLine2: e.target.value }))} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Postal code</Label>
-                  <Input value={billingProfile.sellerPostalCode} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerPostalCode: e.target.value }))} />
-                </div>
-                <div className="space-y-2">
-                  <Label>City</Label>
-                  <Input value={billingProfile.sellerCity} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerCity: e.target.value }))} />
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label>Country</Label>
-                  <Input value={billingProfile.sellerCountry} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerCountry: e.target.value }))} />
-                </div>
-              </div>
+        <Tabs defaultValue="schedule" className="space-y-6">
+          <TabsList className="grid h-auto w-full grid-cols-1 gap-2 rounded-2xl bg-[var(--ui-surface-soft)] p-2 md:grid-cols-3">
+            <TabsTrigger value="schedule">Installments</TabsTrigger>
+            <TabsTrigger value="invoices">Invoices</TabsTrigger>
+            <TabsTrigger value="invoice-setup">Invoice setup</TabsTrigger>
+          </TabsList>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Account holder</Label>
-                  <Input value={billingProfile.bankAccountHolder} onChange={(e) => setBillingProfile((prev) => ({ ...prev, bankAccountHolder: e.target.value }))} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Bank name</Label>
-                  <Input value={billingProfile.bankName} onChange={(e) => setBillingProfile((prev) => ({ ...prev, bankName: e.target.value }))} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Bank account number / IBAN</Label>
-                  <Input value={billingProfile.bankAccountNumber} onChange={(e) => setBillingProfile((prev) => ({ ...prev, bankAccountNumber: e.target.value }))} />
-                </div>
-                <div className="space-y-2">
-                  <Label>SWIFT</Label>
-                  <Input value={billingProfile.bankSwift} onChange={(e) => setBillingProfile((prev) => ({ ...prev, bankSwift: e.target.value }))} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Invoice prefix</Label>
-                  <Input value={billingProfile.invoicePrefix} onChange={(e) => setBillingProfile((prev) => ({ ...prev, invoicePrefix: e.target.value }))} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Default due days</Label>
-                  <Input type="number" min="1" value={billingProfile.defaultPaymentTermDays} onChange={(e) => setBillingProfile((prev) => ({ ...prev, defaultPaymentTermDays: e.target.value }))} />
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label>Payment instructions</Label>
-                  <Textarea rows={4} value={billingProfile.paymentInstructions} onChange={(e) => setBillingProfile((prev) => ({ ...prev, paymentInstructions: e.target.value }))} />
-                </div>
-              </div>
-
-              <div className="flex justify-end">
-                <Button type="button" onClick={() => void saveBillingDetails()} disabled={isSavingBillingProfile}>
-                  {isSavingBillingProfile ? "Saving..." : "Save billing profile"}
+          <TabsContent value="schedule" className="space-y-6">
+            <Card className="bg-card/92">
+              <CardHeader className="flex flex-row items-center justify-between gap-4">
+                <CardTitle className="flex items-center gap-2">
+                  <Wallet className="h-4 w-4" />
+                  Draft Installments
+                </CardTitle>
+                <Button type="button" onClick={openCreateDialog}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  New installment
                 </Button>
-              </div>
-            </CardContent>
-          </Card>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {renderInstallmentList(
+                  draftInstallments,
+                  "No draft installments yet. Create a draft and issue the invoice from the next tab when it is ready.",
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-          <Card className="bg-card/92">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Building2 className="h-4 w-4" />
-                Bill-To Customer
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-wrap gap-2">
-                <Button type="button" variant="outline" onClick={applyPrimaryContact}>
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Use primary project contact
-                </Button>
-                {primaryProjectContact ? (
-                  <Badge variant="outline">{primaryProjectContact.name}</Badge>
-                ) : null}
-              </div>
+          <TabsContent value="invoices" className="space-y-6">
+            <Card className="bg-card/92">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Banknote className="h-4 w-4" />
+                  Issued Invoices
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {renderInstallmentList(
+                  issuedInstallments,
+                  "No issued invoices yet. Issue a draft installment and it will appear here.",
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Company name</Label>
-                  <Input value={customer.companyName} onChange={(e) => setCustomer((prev) => ({ ...prev, companyName: e.target.value }))} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Contact / buyer name</Label>
-                  <Input value={customer.name} onChange={(e) => setCustomer((prev) => ({ ...prev, name: e.target.value }))} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Billing email</Label>
-                  <Input type="email" value={customer.email} onChange={(e) => setCustomer((prev) => ({ ...prev, email: e.target.value }))} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Phone</Label>
-                  <Input value={customer.phone} onChange={(e) => setCustomer((prev) => ({ ...prev, phone: e.target.value }))} />
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label>Tax ID / NIP</Label>
-                  <Input value={customer.taxId} onChange={(e) => setCustomer((prev) => ({ ...prev, taxId: e.target.value }))} />
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label>Address line 1</Label>
-                  <Input value={customer.addressLine1} onChange={(e) => setCustomer((prev) => ({ ...prev, addressLine1: e.target.value }))} />
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label>Address line 2</Label>
-                  <Input value={customer.addressLine2} onChange={(e) => setCustomer((prev) => ({ ...prev, addressLine2: e.target.value }))} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Postal code</Label>
-                  <Input value={customer.postalCode} onChange={(e) => setCustomer((prev) => ({ ...prev, postalCode: e.target.value }))} />
-                </div>
-                <div className="space-y-2">
-                  <Label>City</Label>
-                  <Input value={customer.city} onChange={(e) => setCustomer((prev) => ({ ...prev, city: e.target.value }))} />
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label>Country</Label>
-                  <Input value={customer.country} onChange={(e) => setCustomer((prev) => ({ ...prev, country: e.target.value }))} />
-                </div>
-              </div>
-
-              <div className="flex justify-end">
-                <Button type="button" onClick={() => void saveCustomerDetails()} disabled={isSavingCustomer}>
-                  {isSavingCustomer ? "Saving..." : "Save customer details"}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card className="bg-card/92">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Wallet className="h-4 w-4" />
-              Installments & Invoices
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {installments.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No installments yet. Create one and issue an invoice when the bank-transfer details are ready.
-              </p>
-            ) : (
-              installments.map((installment) => {
-                const isDraft = installment.status === "draft";
-                const isBusy = busyInstallmentId === installment._id;
-                const canVoid = installment.status !== "paid" && installment.status !== "void";
-
-                return (
-                  <div key={installment._id} className="rounded-2xl border bg-background/60 p-4">
-                    <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                      <div className="space-y-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-lg font-medium">{installment.title}</h3>
-                          <Badge variant="outline" className={getStatusBadgeClassName(installment)}>
-                            {getStatusLabel(installment)}
-                          </Badge>
-                          {installment.invoiceNumber ? (
-                            <Badge variant="outline">#{installment.invoiceNumber}</Badge>
-                          ) : null}
-                        </div>
-                        {installment.description ? (
-                          <p className="text-sm text-muted-foreground">{installment.description}</p>
-                        ) : null}
-                        <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                          <span>{formatCurrency(installment.amount, installment.currency)}</span>
-                          <span>
-                            {installment.dueDate
-                              ? `Due ${new Date(installment.dueDate).toLocaleDateString()}`
-                              : "No due date"}
-                          </span>
-                          {installment.paidAt ? (
-                            <span>Paid {new Date(installment.paidAt).toLocaleDateString()}</span>
-                          ) : null}
-                          {installment.sentAt ? (
-                            <span>Emailed {new Date(installment.sentAt).toLocaleDateString()}</span>
-                          ) : null}
-                        </div>
-                        {installment.paymentReference ? (
-                          <p className="text-sm text-muted-foreground">
-                            Transfer reference: <span className="font-medium text-foreground">{installment.paymentReference}</span>
-                          </p>
-                        ) : null}
-                      </div>
-
-                      <div className="flex flex-wrap gap-2">
-                        {isDraft ? (
-                          <>
-                            <Button type="button" size="sm" onClick={() => openEditDialog(installment)}>
-                              Edit
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => void runInstallmentAction(installment._id, "issue")}
-                              disabled={isBusy}
-                            >
-                              {isBusy ? "Issuing..." : "Issue invoice"}
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => void runInstallmentAction(installment._id, "send")}
-                              disabled={isBusy}
-                            >
-                              <Mail className="mr-2 h-4 w-4" />
-                              Issue & email
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => void removeDraftInstallment(installment._id)}
-                              disabled={isBusy}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
-                            </Button>
-                          </>
-                        ) : (
-                          <>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => void runInstallmentAction(installment._id, "download")}
-                              disabled={isBusy || !installment.hasInvoicePdf}
-                            >
-                              <Download className="mr-2 h-4 w-4" />
-                              Download PDF
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => void runInstallmentAction(installment._id, "send")}
-                              disabled={isBusy}
-                            >
-                              <Mail className="mr-2 h-4 w-4" />
-                              Send email
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => void copyReference(installment.paymentReference)}
-                              disabled={!installment.paymentReference}
-                            >
-                              <Copy className="mr-2 h-4 w-4" />
-                              Copy reference
-                            </Button>
-                            {installment.status !== "paid" ? (
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => void runInstallmentAction(installment._id, "paid")}
-                                disabled={isBusy}
-                              >
-                                <CheckCircle2 className="mr-2 h-4 w-4" />
-                                Mark paid
-                              </Button>
-                            ) : (
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => void runInstallmentAction(installment._id, "open")}
-                                disabled={isBusy}
-                              >
-                                Reopen
-                              </Button>
-                            )}
-                            {canVoid ? (
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => void runInstallmentAction(installment._id, "void")}
-                                disabled={isBusy}
-                              >
-                                Void
-                              </Button>
-                            ) : null}
-                          </>
-                        )}
-                      </div>
+          <TabsContent value="invoice-setup" className="space-y-6">
+            <div className="grid gap-6 xl:grid-cols-2">
+              <Card className="bg-card/92">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Banknote className="h-4 w-4" />
+                    Organization Billing Profile
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Seller data is shared across this organization and is also available in{" "}
+                    <Link href="/organisation/settings" className="font-medium text-foreground underline underline-offset-4">
+                      organization settings
+                    </Link>.
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Seller name</Label>
+                      <Input value={billingProfile.sellerName} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerName: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Tax ID / NIP</Label>
+                      <Input value={billingProfile.sellerTaxId} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerTaxId: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Billing email</Label>
+                      <Input type="email" value={billingProfile.sellerEmail} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerEmail: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Phone</Label>
+                      <Input value={billingProfile.sellerPhone} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerPhone: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label>Address line 1</Label>
+                      <Input value={billingProfile.sellerAddressLine1} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerAddressLine1: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label>Address line 2</Label>
+                      <Input value={billingProfile.sellerAddressLine2} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerAddressLine2: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Postal code</Label>
+                      <Input value={billingProfile.sellerPostalCode} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerPostalCode: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>City</Label>
+                      <Input value={billingProfile.sellerCity} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerCity: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label>Country</Label>
+                      <Input value={billingProfile.sellerCountry} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerCountry: e.target.value }))} />
                     </div>
                   </div>
-                );
-              })
-            )}
-          </CardContent>
-        </Card>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Account holder</Label>
+                      <Input value={billingProfile.bankAccountHolder} onChange={(e) => setBillingProfile((prev) => ({ ...prev, bankAccountHolder: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Bank name</Label>
+                      <Input value={billingProfile.bankName} onChange={(e) => setBillingProfile((prev) => ({ ...prev, bankName: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Bank account number / IBAN</Label>
+                      <Input value={billingProfile.bankAccountNumber} onChange={(e) => setBillingProfile((prev) => ({ ...prev, bankAccountNumber: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>SWIFT</Label>
+                      <Input value={billingProfile.bankSwift} onChange={(e) => setBillingProfile((prev) => ({ ...prev, bankSwift: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Invoice prefix</Label>
+                      <Input value={billingProfile.invoicePrefix} onChange={(e) => setBillingProfile((prev) => ({ ...prev, invoicePrefix: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Default due days</Label>
+                      <Input type="number" min="1" value={billingProfile.defaultPaymentTermDays} onChange={(e) => setBillingProfile((prev) => ({ ...prev, defaultPaymentTermDays: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label>Payment instructions</Label>
+                      <Textarea rows={4} value={billingProfile.paymentInstructions} onChange={(e) => setBillingProfile((prev) => ({ ...prev, paymentInstructions: e.target.value }))} />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end">
+                    <Button type="button" onClick={() => void saveBillingDetails()} disabled={isSavingBillingProfile}>
+                      {isSavingBillingProfile ? "Saving..." : "Save billing profile"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-card/92">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4" />
+                    Bill-To Customer
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" onClick={applyProjectClientDetails}>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Use project client details
+                    </Button>
+                    {projectClientDefaults.name ? (
+                      <Badge variant="outline">{projectClientDefaults.name}</Badge>
+                    ) : null}
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Company name</Label>
+                      <Input value={customer.companyName} onChange={(e) => setCustomer((prev) => ({ ...prev, companyName: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Contact / buyer name</Label>
+                      <Input value={customer.name} onChange={(e) => setCustomer((prev) => ({ ...prev, name: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Billing email</Label>
+                      <Input type="email" value={customer.email} onChange={(e) => setCustomer((prev) => ({ ...prev, email: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Phone</Label>
+                      <Input value={customer.phone} onChange={(e) => setCustomer((prev) => ({ ...prev, phone: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label>Tax ID / NIP</Label>
+                      <Input value={customer.taxId} onChange={(e) => setCustomer((prev) => ({ ...prev, taxId: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label>Address line 1</Label>
+                      <Input value={customer.addressLine1} onChange={(e) => setCustomer((prev) => ({ ...prev, addressLine1: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label>Address line 2</Label>
+                      <Input value={customer.addressLine2} onChange={(e) => setCustomer((prev) => ({ ...prev, addressLine2: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Postal code</Label>
+                      <Input value={customer.postalCode} onChange={(e) => setCustomer((prev) => ({ ...prev, postalCode: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>City</Label>
+                      <Input value={customer.city} onChange={(e) => setCustomer((prev) => ({ ...prev, city: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label>Country</Label>
+                      <Input value={customer.country} onChange={(e) => setCustomer((prev) => ({ ...prev, country: e.target.value }))} />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end">
+                    <Button type="button" onClick={() => void saveCustomerDetails()} disabled={isSavingCustomer}>
+                      {isSavingCustomer ? "Saving..." : "Save customer details"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

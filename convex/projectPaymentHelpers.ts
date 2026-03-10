@@ -94,6 +94,42 @@ export const normalizeBillingProfile = (
   return Object.values(normalized).some((field) => field !== undefined) ? normalized : undefined;
 };
 
+export const resolveOrganizationBillingProfile = (
+  value?: {
+    sellerName?: string | null;
+    sellerEmail?: string | null;
+    sellerPhone?: string | null;
+    sellerTaxId?: string | null;
+    sellerAddressLine1?: string | null;
+    sellerAddressLine2?: string | null;
+    sellerPostalCode?: string | null;
+    sellerCity?: string | null;
+    sellerCountry?: string | null;
+    bankAccountHolder?: string | null;
+    bankName?: string | null;
+    bankAccountNumber?: string | null;
+    bankSwift?: string | null;
+    invoicePrefix?: string | null;
+    paymentInstructions?: string | null;
+    defaultPaymentTermDays?: number | null;
+  } | null,
+  organization?: {
+    name?: string | null;
+  } | null,
+) => {
+  const normalized = normalizeBillingProfile(value);
+  const fallbackSellerName = normalizeOptionalString(organization?.name);
+
+  if (!normalized && !fallbackSellerName) {
+    return undefined;
+  }
+
+  return {
+    ...normalized,
+    sellerName: normalized?.sellerName ?? fallbackSellerName,
+  };
+};
+
 export const normalizePaymentCustomerDetails = (
   value?: {
     name?: string | null;

@@ -34,8 +34,47 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import { TimezonePicker } from "@/components/ui/timezone-picker";
 import { GEMINI_FLASH_IMAGE_TYPICAL_CREDITS, formatTokens } from "@/lib/aiPricing";
+
+type BillingProfileForm = {
+  sellerName: string;
+  sellerEmail: string;
+  sellerPhone: string;
+  sellerTaxId: string;
+  sellerAddressLine1: string;
+  sellerAddressLine2: string;
+  sellerPostalCode: string;
+  sellerCity: string;
+  sellerCountry: string;
+  bankAccountHolder: string;
+  bankName: string;
+  bankAccountNumber: string;
+  bankSwift: string;
+  invoicePrefix: string;
+  paymentInstructions: string;
+  defaultPaymentTermDays: string;
+};
+
+const EMPTY_BILLING_PROFILE: BillingProfileForm = {
+  sellerName: "",
+  sellerEmail: "",
+  sellerPhone: "",
+  sellerTaxId: "",
+  sellerAddressLine1: "",
+  sellerAddressLine2: "",
+  sellerPostalCode: "",
+  sellerCity: "",
+  sellerCountry: "",
+  bankAccountHolder: "",
+  bankName: "",
+  bankAccountNumber: "",
+  bankSwift: "",
+  invoicePrefix: "FV",
+  paymentInstructions: "",
+  defaultPaymentTermDays: "14",
+};
 
 export default function CompanySettings() {
   const router = useRouter();
@@ -74,8 +113,10 @@ export default function CompanySettings() {
   });
   const [organizationImagePreviewUrl, setOrganizationImagePreviewUrl] = useState("");
   const [organizationImageFile, setOrganizationImageFile] = useState<File | null>(null);
+  const [billingProfile, setBillingProfile] = useState<BillingProfileForm>(EMPTY_BILLING_PROFILE);
   const [savingOrganizationProfile, setSavingOrganizationProfile] = useState(false);
   const [savingPreferences, setSavingPreferences] = useState(false);
+  const [savingBillingProfile, setSavingBillingProfile] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
   const billingWindowEnsuredRef = useRef(false);
   const organizationImageInputRef = useRef<HTMLInputElement | null>(null);
@@ -122,6 +163,24 @@ export default function CompanySettings() {
       if (!organizationImageFile) {
         setOrganizationImagePreviewUrl(teamData.imageUrl || organization?.imageUrl || "");
       }
+      setBillingProfile({
+        sellerName: teamData.billingProfile?.sellerName || teamData.name || "",
+        sellerEmail: teamData.billingProfile?.sellerEmail || "",
+        sellerPhone: teamData.billingProfile?.sellerPhone || "",
+        sellerTaxId: teamData.billingProfile?.sellerTaxId || "",
+        sellerAddressLine1: teamData.billingProfile?.sellerAddressLine1 || "",
+        sellerAddressLine2: teamData.billingProfile?.sellerAddressLine2 || "",
+        sellerPostalCode: teamData.billingProfile?.sellerPostalCode || "",
+        sellerCity: teamData.billingProfile?.sellerCity || "",
+        sellerCountry: teamData.billingProfile?.sellerCountry || "",
+        bankAccountHolder: teamData.billingProfile?.bankAccountHolder || "",
+        bankName: teamData.billingProfile?.bankName || "",
+        bankAccountNumber: teamData.billingProfile?.bankAccountNumber || "",
+        bankSwift: teamData.billingProfile?.bankSwift || "",
+        invoicePrefix: teamData.billingProfile?.invoicePrefix || "FV",
+        paymentInstructions: teamData.billingProfile?.paymentInstructions || "",
+        defaultPaymentTermDays: String(teamData.billingProfile?.defaultPaymentTermDays || 14),
+      });
     }
   }, [teamData, organization?.imageUrl, organizationImageFile]);
 
@@ -329,6 +388,25 @@ export default function CompanySettings() {
       toast.error("Error opening billing portal");
     } finally {
       setPortalLoading(false);
+    }
+  };
+
+  const handleSaveBillingProfile = async () => {
+    setSavingBillingProfile(true);
+    try {
+      await updateTeamSettings({
+        teamId: teamData.teamId,
+        billingProfile: {
+          ...billingProfile,
+          defaultPaymentTermDays: Number.parseInt(billingProfile.defaultPaymentTermDays || "14", 10),
+        },
+      });
+      toast.success("Organization billing profile updated");
+    } catch (error) {
+      toast.error("Failed to update billing profile");
+      console.error(error);
+    } finally {
+      setSavingBillingProfile(false);
     }
   };
 
@@ -546,6 +624,117 @@ export default function CompanySettings() {
                     ))}
                   </div>
                 </div>
+              </div>
+
+              <div className="grid gap-6">
+                <div className="flex flex-col gap-1">
+                  <h2 className="text-lg font-medium">Invoicing Profile</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Seller details shared automatically across project invoices in this organization.
+                  </p>
+                </div>
+
+                <Card className="border-border/40 shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-base font-medium flex items-center gap-2">
+                      <CreditCard className="h-4 w-4 text-primary" />
+                      Organization Billing Profile
+                    </CardTitle>
+                    <CardDescription>
+                      These values prefill the seller section in project payments and invoices.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>Seller name</Label>
+                        <Input value={billingProfile.sellerName} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerName: e.target.value }))} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Tax ID / NIP</Label>
+                        <Input value={billingProfile.sellerTaxId} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerTaxId: e.target.value }))} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Billing email</Label>
+                        <Input type="email" value={billingProfile.sellerEmail} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerEmail: e.target.value }))} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Phone</Label>
+                        <Input value={billingProfile.sellerPhone} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerPhone: e.target.value }))} />
+                      </div>
+                      <div className="space-y-2 md:col-span-2">
+                        <Label>Address line 1</Label>
+                        <Input value={billingProfile.sellerAddressLine1} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerAddressLine1: e.target.value }))} />
+                      </div>
+                      <div className="space-y-2 md:col-span-2">
+                        <Label>Address line 2</Label>
+                        <Input value={billingProfile.sellerAddressLine2} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerAddressLine2: e.target.value }))} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Postal code</Label>
+                        <Input value={billingProfile.sellerPostalCode} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerPostalCode: e.target.value }))} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>City</Label>
+                        <Input value={billingProfile.sellerCity} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerCity: e.target.value }))} />
+                      </div>
+                      <div className="space-y-2 md:col-span-2">
+                        <Label>Country</Label>
+                        <Input value={billingProfile.sellerCountry} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerCountry: e.target.value }))} />
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>Account holder</Label>
+                        <Input value={billingProfile.bankAccountHolder} onChange={(e) => setBillingProfile((prev) => ({ ...prev, bankAccountHolder: e.target.value }))} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Bank name</Label>
+                        <Input value={billingProfile.bankName} onChange={(e) => setBillingProfile((prev) => ({ ...prev, bankName: e.target.value }))} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Bank account number / IBAN</Label>
+                        <Input value={billingProfile.bankAccountNumber} onChange={(e) => setBillingProfile((prev) => ({ ...prev, bankAccountNumber: e.target.value }))} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>SWIFT</Label>
+                        <Input value={billingProfile.bankSwift} onChange={(e) => setBillingProfile((prev) => ({ ...prev, bankSwift: e.target.value }))} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Invoice prefix</Label>
+                        <Input value={billingProfile.invoicePrefix} onChange={(e) => setBillingProfile((prev) => ({ ...prev, invoicePrefix: e.target.value }))} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Default due days</Label>
+                        <Input type="number" min="1" value={billingProfile.defaultPaymentTermDays} onChange={(e) => setBillingProfile((prev) => ({ ...prev, defaultPaymentTermDays: e.target.value }))} />
+                      </div>
+                      <div className="space-y-2 md:col-span-2">
+                        <Label>Payment instructions</Label>
+                        <Textarea rows={4} value={billingProfile.paymentInstructions} onChange={(e) => setBillingProfile((prev) => ({ ...prev, paymentInstructions: e.target.value }))} />
+                      </div>
+                    </div>
+                  </CardContent>
+                  <CardFooter className="bg-muted/30 border-t border-border/40 px-6 py-4 flex justify-between items-center">
+                    <p className="text-xs text-muted-foreground">
+                      Seller name defaults to the organization name until you override it here.
+                    </p>
+                    <Button
+                      onClick={handleSaveBillingProfile}
+                      disabled={savingBillingProfile}
+                      className="min-w-[140px]"
+                    >
+                      {savingBillingProfile ? (
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
+                      ) : (
+                        <>
+                          <Check className="h-4 w-4 mr-2" />
+                          Save Profile
+                        </>
+                      )}
+                    </Button>
+                  </CardFooter>
+                </Card>
               </div>
             </motion.div>
           </TabsContent>

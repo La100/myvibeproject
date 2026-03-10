@@ -2,7 +2,11 @@ import { v } from "convex/values";
 import { query, mutation, internalQuery, internalAction } from "./_generated/server";
 import { Doc } from "./_generated/dataModel";
 import { r2 } from "./files";
-import { billingProfileValidator, normalizeBillingProfile } from "./projectPaymentHelpers";
+import {
+  billingProfileValidator,
+  normalizeBillingProfile,
+  resolveOrganizationBillingProfile,
+} from "./projectPaymentHelpers";
 
 const buildPublicR2FileUrl = (key: string) => {
   const publicBaseUrl = (process.env.NEXT_PUBLIC_R2_PUBLIC_URL || process.env.R2_PUBLIC_URL || "")
@@ -280,7 +284,7 @@ export const getTeamSettingsByClerkOrg = query({
       imageUrl: team.imageUrl,
       currency: team.currency || "PLN",
       timezone: team.timezone,
-      billingProfile: team.billingProfile,
+      billingProfile: resolveOrganizationBillingProfile(team.billingProfile, team),
       userRole: teamMember.role,
     };
   }
