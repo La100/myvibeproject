@@ -148,11 +148,7 @@ export default function NewProjectPage() {
       origin: "general",
     });
 
-    if (!uploadData.publicUrl) {
-      throw new Error("Missing public URL for uploaded cover image");
-    }
-
-    return uploadData.publicUrl;
+    return uploadData.key;
   };
 
   const handleCreateProject = async (e: React.FormEvent) => {

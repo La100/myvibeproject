@@ -532,17 +532,13 @@ export function ShoppingListSection({
                 <div>
                   <div className="flex flex-col sm:flex-row items-start justify-between gap-4 mb-2">
                     <div className="flex items-start gap-4 flex-1 min-w-0 w-full">
-                      {item.imageUrl ? (
+                      {item.imageUrl && (
                         <div className="w-24 h-24 sm:w-20 sm:h-20 rounded-xl border border-[var(--ui-border-soft)] overflow-hidden flex-shrink-0 bg-[var(--ui-surface-soft)]">
                           <img 
                             src={item.imageUrl} 
                             alt={item.name}
                             className="w-full h-full object-cover"
                           />
-                        </div>
-                      ) : (
-                        <div className="w-24 h-24 sm:w-20 sm:h-20 rounded-xl border border-[var(--ui-border-soft)] overflow-hidden flex-shrink-0 bg-[var(--ui-surface-soft)] flex items-center justify-center text-[var(--ui-text-subtle)]">
-                           <span className="text-xs">No image</span>
                         </div>
                       )}
                       <div className="flex-1 min-w-0 py-1">

@@ -462,6 +462,7 @@ export const createProjectInOrg = mutation({
       assignedTo: [],
       taskStatusSettings: defaultStatusSettings,
       aiAutoConfirmCrud: false,
+      aiAssistantRuntime: "v1",
     });
 
     await ctx.runMutation(internalAny.activityLog.logActivity, {
@@ -556,7 +557,7 @@ export const markClientNotificationsRead = mutation({
 
     const { project } = await getProjectManagerMembership(ctx, args.projectId, identity.subject);
     const normalizedLastReadAt = Number.isFinite(args.lastReadAt)
-      ? Math.floor(args.lastReadAt)
+      ? args.lastReadAt
       : Date.now();
     const currentLastReadAt = project.clientNotificationsLastReadAt ?? 0;
 
@@ -695,6 +696,9 @@ export const updateProject = mutation({
     taskStatusSettings: v.optional(v.any()), // Allow any object for simplification
     customAiPrompt: v.optional(v.string()),
     aiAutoConfirmCrud: v.optional(v.boolean()),
+    aiAssistantRuntime: v.optional(
+      v.union(v.literal("v1"), v.literal("v2")),
+    ),
     telegramBotUsername: v.optional(v.string()),
     telegramBotToken: v.optional(v.string()),
     whatsappNumber: v.optional(v.string()),

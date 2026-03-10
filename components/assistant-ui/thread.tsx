@@ -29,7 +29,7 @@ import {
   Zap,
 } from "lucide-react";
 import NextImage from "next/image";
-import { useMemo, type FC, type ComponentProps, type ReactNode } from "react";
+import { useMemo, type FC, type ComponentProps, type PropsWithChildren, type ReactNode } from "react";
 
 type ThreadProps = {
   showWelcome?: boolean;
@@ -357,6 +357,31 @@ const MessageError: FC = () => {
   );
 };
 
+const ReasoningPart: FC = () => {
+  return (
+    <div className="rounded-xl border border-border/60 bg-muted/35 px-3 py-2 text-sm text-muted-foreground">
+      <MarkdownText />
+    </div>
+  );
+};
+
+const ReasoningGroup: FC<PropsWithChildren> = ({ children }) => {
+  return (
+    <details
+      open
+      className="mb-3 overflow-hidden rounded-2xl border border-border/70 bg-muted/20"
+    >
+      <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs font-medium tracking-[0.12em] text-muted-foreground uppercase [&::-webkit-details-marker]:hidden">
+        <Sparkles className="h-3.5 w-3.5" />
+        Thinking
+      </summary>
+      <div className="space-y-2 border-border/60 border-t px-3 py-3">
+        {children}
+      </div>
+    </details>
+  );
+};
+
 type AssistantMessageProps = {
   imageUrl?: string;
   fallback?: string;
@@ -416,6 +441,8 @@ const AssistantMessage: FC<AssistantMessageProps> = ({
           <MessagePrimitive.Parts
             components={{
               Text: MarkdownText,
+              Reasoning: ReasoningPart,
+              ReasoningGroup,
               tools: { Fallback: PendingAwareToolFallback },
             }}
           />

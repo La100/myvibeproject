@@ -1,12 +1,56 @@
 import { v } from "convex/values";
 import { createThread, listMessages } from "@convex-dev/agent";
 import { components } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 import { internalQuery, internalMutation, mutation, query } from "../_generated/server";
 import { ensureProjectAccess, ensureThreadAccess, requireIdentity } from "./access";
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const internalAny = require("../_generated/api").internal as any;
 
 function resolveAgentThreadId(thread: { threadId: string; agentThreadId?: string | undefined }) {
   return thread.agentThreadId ?? thread.threadId;
 }
+
+const mapPendingItems = (
+  calls: Array<{
+    _id: Id<"aiFunctionCalls">;
+    callId: string;
+    functionName: string;
+    arguments: string;
+    responseId: string;
+    status?: string;
+    result?: string;
+  }>
+) =>
+  calls.map((call) => {
+    let status = call.status;
+
+    // If replayed, recover the original status (confirmed/rejected) from the result JSON if possible
+    if (status === "replayed" && call.result) {
+      try {
+        const parsedResult = JSON.parse(call.result);
+        if (parsedResult.status === "confirmed" || parsedResult.status === "rejected") {
+          status = parsedResult.status;
+        } else {
+          // Default to confirmed if result exists but no explicit status in it
+          status = "confirmed";
+        }
+      } catch {
+        // If parse fails but result exists, assume confirmed
+        status = "confirmed";
+      }
+    }
+
+    return {
+      _id: call._id,
+      callId: call.callId,
+      functionName: call.functionName,
+      arguments: call.arguments,
+      responseId: call.responseId,
+      status,
+      result: call.result,
+    };
+  });
 
 export const updateThreadSummary = internalMutation({
   args: {
@@ -466,6 +510,35 @@ export const getPendingFunctionCalls = internalQuery({
   },
 });
 
+export const listPendingItemsInternal = internalQuery({
+  args: {
+    threadId: v.string(),
+    userClerkId: v.string(),
+  },
+  returns: v.array(v.object({
+    _id: v.id("aiFunctionCalls"),
+    callId: v.string(),
+    functionName: v.string(),
+    arguments: v.string(),
+    responseId: v.string(),
+    status: v.optional(v.string()),
+    result: v.optional(v.string()),
+  })),
+  handler: async (ctx, args) => {
+    const authorizedThread = await ensureThreadAccess(ctx, args.threadId, args.userClerkId);
+    if (!authorizedThread) {
+      return [];
+    }
+
+    const calls = await ctx.db
+      .query("aiFunctionCalls")
+      .withIndex("by_thread", (q) => q.eq("threadId", args.threadId))
+      .collect();
+
+    return mapPendingItems(calls);
+  },
+});
+
 // Get pending items for UI confirmation
 export const listPendingItems = query({
   args: {
@@ -492,35 +565,7 @@ export const listPendingItems = query({
       .withIndex("by_thread", (q) => q.eq("threadId", args.threadId))
       .collect();
 
-    return calls.map((call) => {
-      let status = call.status;
-
-      // If replayed, recover the original status (confirmed/rejected) from the result JSON if possible
-      if (status === "replayed" && call.result) {
-        try {
-          const parsedResult = JSON.parse(call.result);
-          if (parsedResult.status === "confirmed" || parsedResult.status === "rejected") {
-            status = parsedResult.status;
-          } else {
-            // Default to confirmed if result exists but no explicit status in it
-            status = "confirmed";
-          }
-        } catch {
-          // If parse fails but result exists, assume confirmed
-          status = "confirmed";
-        }
-      }
-
-      return {
-        _id: call._id,
-        callId: call.callId,
-        functionName: call.functionName,
-        arguments: call.arguments,
-        responseId: call.responseId,
-        status,
-        result: call.result,
-      };
-    });
+    return mapPendingItems(calls);
   },
 });
 
@@ -571,6 +616,13 @@ export const markFunctionCallsAsConfirmed = mutation({
       )
       .collect();
 
+    const resolvedEvents: Array<{
+      eventType: "tool.confirmed" | "tool.rejected";
+      role: "tool";
+      callId: string;
+      data: { status: "confirmed" | "rejected"; result?: string };
+    }> = [];
+
     for (const call of calls) {
       const result = args.results.find(r => r.callId === call.callId);
       if (result) {
@@ -587,8 +639,68 @@ export const markFunctionCallsAsConfirmed = mutation({
           result: result.result,
           confirmedAt: Date.now(),
         });
+
+        resolvedEvents.push({
+          eventType: newStatus === "confirmed" ? "tool.confirmed" : "tool.rejected",
+          role: "tool",
+          callId: call.callId,
+          data: {
+            status: newStatus,
+            result: result.result,
+          },
+        });
       }
     }
+
+    const v2Group = await ctx.db
+      .query("aiResponseGroups")
+      .withIndex("by_group_id", (q) => q.eq("groupId", args.responseId))
+      .unique();
+
+    if (v2Group) {
+      if (resolvedEvents.length > 0) {
+        await ctx.runMutation(internalAny.ai.v2.events.appendGroupEvents, {
+          groupId: v2Group.groupId,
+          events: resolvedEvents,
+        });
+      }
+
+      const remainingPendingCalls = await ctx.db
+        .query("aiFunctionCalls")
+        .withIndex("by_response_id", (q) => q.eq("responseId", args.responseId))
+        .filter((q) =>
+          q.and(
+            q.eq(q.field("threadId"), args.threadId),
+            q.eq(q.field("status"), "pending"),
+          ),
+        )
+        .collect();
+
+      if (remainingPendingCalls.length === 0) {
+        await ctx.runMutation(internalAny.ai.v2.events.appendGroupEvents, {
+          groupId: v2Group.groupId,
+          events: [
+            {
+              eventType: "turn.completed",
+              role: "system",
+              data: {
+                confirmationResolved: true,
+              },
+            },
+          ],
+        });
+        await ctx.runMutation(internalAny.ai.v2.groups.updateGroupStatus, {
+          groupId: v2Group.groupId,
+          status: "completed",
+        });
+      } else {
+        await ctx.runMutation(internalAny.ai.v2.groups.updateGroupStatus, {
+          groupId: v2Group.groupId,
+          status: "awaiting_confirmation",
+        });
+      }
+    }
+
     return null;
   },
 });

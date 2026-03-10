@@ -165,12 +165,6 @@ export const mergePersistentCallState = (
       let partsChanged = false;
       const normalizedParts: MessagePart[] = [];
       for (const part of parts) {
-        if (part.type === "reasoning") {
-          partsChanged = true;
-          hasUpdates = true;
-          continue;
-        }
-
         const normalizedPart = normalizeTextPart(part);
         if (!normalizedPart) {
           partsChanged = true;

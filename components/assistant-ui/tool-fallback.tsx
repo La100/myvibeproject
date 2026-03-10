@@ -21,6 +21,7 @@ import {
 import { cn } from "@/lib/utils";
 import { InlineConfirmationList } from "@/components/ai/assistant/ui/confirmations/InlineConfirmation";
 import type { PendingContentItem } from "@/components/ai/assistant/data/types";
+import { getInlineConfirmationScope } from "@/components/assistant-ui/tool-fallback-confirmation-scope";
 
 const ANIMATION_DURATION = 200;
 
@@ -377,16 +378,20 @@ const ToolFallbackImpl = ({
   const isCrudLikeResult =
     matchedPendingItemsByCallId.length > 0 ||
     !!fallbackPendingItem;
+  const inlineConfirmationScope = useMemo(
+    () => getInlineConfirmationScope(pendingItems, toolCallId),
+    [pendingItems, toolCallId],
+  );
 
   const itemsForInlineConfirmation = useMemo(() => {
-    if (matchedPendingItemsByCallId.length > 0) {
-      return matchedPendingItemsByCallId;
+    if (inlineConfirmationScope.items.length > 0) {
+      return inlineConfirmationScope.items;
     }
     if (!hasPendingItems && fallbackPendingItem) {
       return [fallbackPendingItem];
     }
     return [];
-  }, [matchedPendingItemsByCallId, hasPendingItems, fallbackPendingItem]);
+  }, [inlineConfirmationScope.items, hasPendingItems, fallbackPendingItem]);
 
   const showInlineConfirmation = itemsForInlineConfirmation.length > 0;
   const hasUnresolvedItemsInCard = itemsForInlineConfirmation.some(
@@ -434,6 +439,10 @@ const ToolFallbackImpl = ({
     }
     prevHadUnresolvedRef.current = false;
   }, [hasUnresolvedItemsInCard, showInlineConfirmation]);
+
+  if (inlineConfirmationScope.suppressToolFallback) {
+    return null;
+  }
 
   if (showInlineConfirmation) {
     return (

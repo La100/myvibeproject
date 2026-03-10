@@ -3,8 +3,8 @@
 import Link from "next/link";
 import NextImage from "next/image";
 import { useParams, usePathname, useRouter } from "next/navigation";
-import { Suspense, useMemo } from "react";
-import { useQuery } from "convex/react";
+import { Suspense, useEffect, useMemo, useRef } from "react";
+import { useMutation, useQuery } from "convex/react";
 import { useClerk, useUser } from "@clerk/nextjs";
 import { useProject } from "@/components/providers/ProjectProvider";
 import { apiAny } from "@/lib/convexApiAny";
@@ -61,31 +61,64 @@ function ProjectSidebarContent() {
   const pathname = usePathname();
   const router = useRouter();
   const { setOpenMobile } = useSidebar();
-  const { project } = useProject();
+  const { project, markClientNotificationsReadLocally } = useProject();
   const { signOut, openUserProfile } = useClerk();
   const { user } = useUser();
+  const markClientNotificationsRead = useMutation(apiAny.projects.markClientNotificationsRead);
   const activities = useQuery(apiAny.activityLog.getForProject, { projectId: project._id });
+  const notificationsHref = `/organisation/projects/${params.projectSlug}/changelog`;
+  const isNotificationsRouteActive = pathname.startsWith(notificationsHref);
+  const lastMarkedNotificationAtRef = useRef(0);
 
   const clientNotifications = useMemo(
     () => dedupeActivityLogActivities((activities ?? []).filter(isClientNotificationActivity)),
     [activities],
   );
   const lastReadAt = project.clientNotificationsLastReadAt ?? 0;
+  const latestNotificationAt = clientNotifications[0]?._creationTime ?? 0;
 
   const unreadClientNotifications = clientNotifications.filter(
     (activity) => activity._creationTime > lastReadAt,
   ).length;
+  const visibleNotificationCount = isNotificationsRouteActive ? 0 : unreadClientNotifications;
+
+  useEffect(() => {
+    if (!isNotificationsRouteActive || latestNotificationAt === 0) {
+      return;
+    }
+    if (lastReadAt >= latestNotificationAt) {
+      return;
+    }
+    if (lastMarkedNotificationAtRef.current >= latestNotificationAt) {
+      return;
+    }
+
+    lastMarkedNotificationAtRef.current = latestNotificationAt;
+    markClientNotificationsReadLocally(latestNotificationAt);
+
+    void markClientNotificationsRead({
+      projectId: project._id,
+      lastReadAt: latestNotificationAt,
+    });
+  }, [
+    isNotificationsRouteActive,
+    lastReadAt,
+    latestNotificationAt,
+    markClientNotificationsRead,
+    markClientNotificationsReadLocally,
+    project._id,
+  ]);
 
   const allNavItems = [
     { href: `/organisation/projects/${params.projectSlug}`, label: "Overview", icon: LayoutDashboard, key: "overview", group: "project" },
     { href: `/organisation/projects/${params.projectSlug}/customer-panel`, label: "Client Portal", icon: Eye, key: "customer_panel", group: "project" },
     {
-      href: `/organisation/projects/${params.projectSlug}/changelog`,
+      href: notificationsHref,
       label: "Notifications",
       icon: BellRing,
       key: "notifications",
       group: "project",
-      notificationCount: unreadClientNotifications,
+      notificationCount: visibleNotificationCount,
     },
     { href: `/organisation/projects/${params.projectSlug}/tasks`, label: "Tasks", icon: CheckSquare, key: "tasks", group: "architecture" },
     { href: `/organisation/projects/${params.projectSlug}/moodboard`, label: "Moodboard", icon: Image, key: "moodboard", group: "project" },

@@ -27,6 +27,7 @@ import {
   Calendar as CalendarIcon,
   Hammer,
   ChevronDown,
+  XCircle,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -58,7 +59,35 @@ export function ProjectChangelogSkeleton({ className }: { className?: string }) 
   return <Spinner className={cn("px-4 lg:px-0", className)} />;
 }
 
-const getActivityIcon = (actionType: string) => {
+const getShoppingDecisionState = (
+  actionType: string,
+  details: Record<string, unknown>,
+): "accepted" | "rejected" | null => {
+  if (
+    actionType !== "shopping.customer.decision" &&
+    actionType !== "shopping.customer.feedback"
+  ) {
+    return null;
+  }
+
+  const decision = details.decision;
+  if (decision === "accepted" || decision === "rejected") {
+    return decision;
+  }
+
+  return null;
+};
+
+const getActivityIcon = (actionType: string, details: Record<string, unknown> = {}) => {
+  const shoppingDecisionState = getShoppingDecisionState(actionType, details);
+  if (shoppingDecisionState === "accepted") {
+    return <CheckCircle2 className="h-4 w-4 text-emerald-600" />;
+  }
+
+  if (shoppingDecisionState === "rejected") {
+    return <XCircle className="h-4 w-4 text-rose-600" />;
+  }
+
   if (actionType.startsWith("task.")) {
     switch (actionType) {
       case "task.create":
@@ -106,7 +135,16 @@ const getActivityIcon = (actionType: string) => {
   return <Clock className="h-4 w-4 text-gray-600" />;
 };
 
-const getActivityColor = (actionType: string) => {
+const getActivityColor = (actionType: string, details: Record<string, unknown> = {}) => {
+  const shoppingDecisionState = getShoppingDecisionState(actionType, details);
+  if (shoppingDecisionState === "accepted") {
+    return "bg-emerald-50 border-emerald-200";
+  }
+
+  if (shoppingDecisionState === "rejected") {
+    return "bg-rose-50 border-rose-200";
+  }
+
   if (actionType.startsWith("task.")) {
     switch (actionType) {
       case "task.create":
@@ -153,6 +191,11 @@ const getActivityColor = (actionType: string) => {
 
   return "bg-gray-50 border-gray-200";
 };
+
+const getDecisionBadgeColor = (decision: "accepted" | "rejected") =>
+  decision === "accepted"
+    ? "border-emerald-200 bg-emerald-100 text-emerald-800"
+    : "border-rose-200 bg-rose-100 text-rose-800";
 
 const getActivityDescription = (actionType: string, details: Record<string, unknown>) => {
   if (actionType.startsWith("task.")) {
@@ -545,13 +588,17 @@ export function ProjectChangelog({
                       (typeof activity.details?.actorName === "string"
                         ? activity.details.actorName
                         : "Unknown User");
+                    const decisionState = getShoppingDecisionState(
+                      activity.actionType,
+                      activity.details ?? {},
+                    );
                     return (
                       <div
                         key={activity._id}
-                        className={`relative flex items-start space-x-3 p-4 rounded-lg border transition-all hover:shadow-md ${getActivityColor(activity.actionType)}`}
+                        className={`relative flex items-start space-x-3 rounded-lg border p-4 transition-all hover:shadow-md ${getActivityColor(activity.actionType, activity.details ?? {})}`}
                       >
                         <div className="flex-shrink-0 mt-1">
-                          {getActivityIcon(activity.actionType)}
+                          {getActivityIcon(activity.actionType, activity.details ?? {})}
                         </div>
 
                         <Avatar className="w-8 h-8 flex-shrink-0">
@@ -572,9 +619,19 @@ export function ProjectChangelog({
                               </span>
                             </div>
 
-                            <Badge variant="outline" className="text-xs flex-shrink-0">
-                              {getEntityTypeLabel(activity.actionType)}
-                            </Badge>
+                            <div className="flex flex-shrink-0 items-center gap-2">
+                              {decisionState ? (
+                                <Badge
+                                  variant="outline"
+                                  className={cn("text-xs capitalize", getDecisionBadgeColor(decisionState))}
+                                >
+                                  {decisionState}
+                                </Badge>
+                              ) : null}
+                              <Badge variant="outline" className="text-xs">
+                                {getEntityTypeLabel(activity.actionType)}
+                              </Badge>
+                            </div>
                           </div>
 
                           {(activity.actionType === "task.status.change" || activity.actionType === "task.status_change") && (

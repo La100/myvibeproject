@@ -90,6 +90,11 @@ const toThreadMessageLikeFromUI = (
       continue;
     }
 
+    if (type === "reasoning" && typeof part.text === "string") {
+      content.push({ type: "reasoning", text: part.text });
+      continue;
+    }
+
     if (type.startsWith("tool-result:")) {
       const toolCallId = type.replace("tool-result:", "");
       const toolName =

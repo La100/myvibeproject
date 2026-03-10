@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { formatDistanceToNow } from "date-fns";
 import { apiAny } from "@/lib/convexApiAny";
@@ -28,7 +28,7 @@ export function ProjectClientNotifications({
   showHeader = true,
   className,
 }: ProjectClientNotificationsProps) {
-  const { project } = useProject();
+  const { project, markClientNotificationsReadLocally } = useProject();
   const markClientNotificationsRead = useMutation(apiAny.projects.markClientNotificationsRead);
   const activities = useQuery(
     apiAny.activityLog.getForProject,
@@ -43,6 +43,7 @@ export function ProjectClientNotifications({
     [activities],
   );
   const latestNotificationAt = notifications[0]?._creationTime ?? 0;
+  const lastMarkedNotificationAtRef = useRef(0);
 
   useEffect(() => {
     if (!enabled || latestNotificationAt === 0) {
@@ -51,6 +52,12 @@ export function ProjectClientNotifications({
     if ((project.clientNotificationsLastReadAt ?? 0) >= latestNotificationAt) {
       return;
     }
+    if (lastMarkedNotificationAtRef.current >= latestNotificationAt) {
+      return;
+    }
+
+    lastMarkedNotificationAtRef.current = latestNotificationAt;
+    markClientNotificationsReadLocally(latestNotificationAt);
 
     void markClientNotificationsRead({
       projectId: project._id,
@@ -59,6 +66,7 @@ export function ProjectClientNotifications({
   }, [
     enabled,
     latestNotificationAt,
+    markClientNotificationsReadLocally,
     markClientNotificationsRead,
     project._id,
     project.clientNotificationsLastReadAt,
@@ -119,11 +127,22 @@ export function ProjectClientNotifications({
                   : "survey";
               const isDecision = activity.actionType === "shopping.customer.decision";
               const isAccepted = details.decision === "accepted";
+              const notificationTone = isDecision
+                ? isAccepted
+                  ? "border-emerald-200 bg-emerald-50/70"
+                  : "border-rose-200 bg-rose-50/70"
+                : "border-blue-200 bg-blue-50/60";
+              const statusTone = isAccepted
+                ? "border-emerald-200 bg-emerald-100 text-emerald-800"
+                : "border-rose-200 bg-rose-100 text-rose-800";
 
               return (
                 <div
                   key={activity._id}
-                  className="flex items-start justify-between gap-3 rounded-xl border bg-card/60 px-3 py-3"
+                  className={cn(
+                    "flex items-start justify-between gap-3 rounded-xl border px-3 py-3",
+                    notificationTone,
+                  )}
                 >
                   <div className="flex min-w-0 items-start gap-2">
                     {isDecision ? (
@@ -152,6 +171,11 @@ export function ProjectClientNotifications({
                     </p>
                   </div>
                   <div className="text-right text-xs text-muted-foreground">
+                    {isDecision ? (
+                      <Badge variant="outline" className={cn("mb-2 capitalize", statusTone)}>
+                        {isAccepted ? "accepted" : "rejected"}
+                      </Badge>
+                    ) : null}
                     <p>{formatDistanceToNow(new Date(activity._creationTime), { addSuffix: true })}</p>
                     <p>{new Date(activity._creationTime).toLocaleString()}</p>
                   </div>

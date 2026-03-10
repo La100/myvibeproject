@@ -182,6 +182,10 @@ export default defineSchema({
     customAiPrompt: v.optional(v.string()),
     // If true, CRUD tool calls from AI are auto-confirmed in the assistant UI
     aiAutoConfirmCrud: v.optional(v.boolean()),
+    // Assistant runtime selector for gradual migration from v1 to v2
+    aiAssistantRuntime: v.optional(
+      v.union(v.literal("v1"), v.literal("v2")),
+    ),
     // Messaging bot configuration (project-scoped assistant integration)
     telegramBotUsername: v.optional(v.string()), // Telegram bot username (without @)
     telegramBotToken: v.optional(v.string()), // Telegram bot token from @BotFather
@@ -1011,6 +1015,154 @@ export default defineSchema({
     .index("by_thread", ["threadId"])
     .index("by_thread_and_status", ["threadId", "status"])
     .index("by_response_id", ["responseId"]),
+
+  // Assistant V2 profiles - tenant-scoped assistant configuration.
+  aiAssistantProfiles: defineTable({
+    teamId: v.id("teams"),
+    displayName: v.optional(v.string()),
+    defaultModel: v.string(),
+    systemPrompt: v.optional(v.string()),
+    confirmationMode: v.union(
+      v.literal("always_ask"),
+      v.literal("auto_confirm"),
+    ),
+    memoryMode: v.union(
+      v.literal("thread_only"),
+      v.literal("project_summary"),
+      v.literal("hybrid"),
+    ),
+    enabledTools: v.array(
+      v.union(
+        v.literal("app"),
+        v.literal("web_search"),
+        v.literal("shell"),
+        v.literal("computer"),
+        v.literal("mcp"),
+        v.literal("files"),
+      ),
+    ),
+    featureFlags: v.array(
+      v.union(
+        v.literal("responses_api"),
+        v.literal("reasoning_summary"),
+        v.literal("group_confirmation"),
+        v.literal("shell"),
+        v.literal("computer_use"),
+        v.literal("event_replay"),
+      ),
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_team", ["teamId"]),
+
+  // Assistant V2 response groups - one assistant turn / execution batch.
+  aiResponseGroups: defineTable({
+    groupId: v.string(),
+    threadId: v.string(),
+    projectId: v.id("projects"),
+    teamId: v.id("teams"),
+    userClerkId: v.string(),
+    model: v.string(),
+    provider: v.string(),
+    status: v.union(
+      v.literal("running"),
+      v.literal("awaiting_confirmation"),
+      v.literal("completed"),
+      v.literal("failed"),
+      v.literal("aborted"),
+    ),
+    confirmationPolicy: v.union(
+      v.literal("none"),
+      v.literal("group"),
+      v.literal("item"),
+    ),
+    summary: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_group_id", ["groupId"])
+    .index("by_thread", ["threadId", "createdAt"])
+    .index("by_project", ["projectId", "createdAt"])
+    .index("by_team_and_status", ["teamId", "status"]),
+
+  // Assistant V2 event log - append-only timeline for rendering and replay.
+  aiEvents: defineTable({
+    groupId: v.string(),
+    threadId: v.string(),
+    projectId: v.id("projects"),
+    teamId: v.id("teams"),
+    sequence: v.number(),
+    eventType: v.union(
+      v.literal("turn.started"),
+      v.literal("message.user"),
+      v.literal("message.assistant.delta"),
+      v.literal("message.assistant.completed"),
+      v.literal("reasoning.summary.delta"),
+      v.literal("reasoning.summary.completed"),
+      v.literal("tool.called"),
+      v.literal("tool.output.delta"),
+      v.literal("tool.awaiting_confirmation"),
+      v.literal("tool.confirmed"),
+      v.literal("tool.rejected"),
+      v.literal("tool.completed"),
+      v.literal("tool.failed"),
+      v.literal("turn.awaiting_confirmation"),
+      v.literal("turn.completed"),
+      v.literal("turn.failed"),
+      v.literal("turn.aborted"),
+    ),
+    role: v.optional(
+      v.union(
+        v.literal("system"),
+        v.literal("user"),
+        v.literal("assistant"),
+        v.literal("tool"),
+      ),
+    ),
+    callId: v.optional(v.string()),
+    text: v.optional(v.string()),
+    data: v.optional(v.any()),
+    createdAt: v.number(),
+  })
+    .index("by_group_and_sequence", ["groupId", "sequence"])
+    .index("by_thread_and_sequence", ["threadId", "sequence"]),
+
+  // Assistant V2 tool executions - explicit lifecycle for tools in a response group.
+  aiToolExecutions: defineTable({
+    groupId: v.string(),
+    threadId: v.string(),
+    projectId: v.id("projects"),
+    teamId: v.id("teams"),
+    callId: v.string(),
+    toolName: v.string(),
+    toolKind: v.union(
+      v.literal("read"),
+      v.literal("write"),
+      v.literal("shell"),
+      v.literal("computer"),
+      v.literal("external"),
+    ),
+    confirmationRequired: v.boolean(),
+    status: v.union(
+      v.literal("called"),
+      v.literal("running"),
+      v.literal("awaiting_confirmation"),
+      v.literal("confirmed"),
+      v.literal("rejected"),
+      v.literal("completed"),
+      v.literal("failed"),
+      v.literal("cancelled"),
+    ),
+    args: v.string(),
+    result: v.optional(v.string()),
+    error: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_group", ["groupId"])
+    .index("by_call_id", ["callId"])
+    .index("by_thread_and_status", ["threadId", "status"]),
 
   // Messaging platform channels connected to assistants/projects.
   messagingChannels: defineTable({

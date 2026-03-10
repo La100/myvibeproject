@@ -14,7 +14,11 @@ const buildPublicR2FileUrl = (key: string) => {
   if (!publicBaseUrl) {
     return "";
   }
-  return `${publicBaseUrl}/${key}`;
+  const encodedKey = key
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+  return `${publicBaseUrl}/${encodedKey}`;
 };
 
 // Get team storage usage in bytes

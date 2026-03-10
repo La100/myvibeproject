@@ -12,6 +12,7 @@ type ProjectRecord = {
   _id: Id<"projects">;
   name: string;
   teamId: Id<"teams">;
+  aiAssistantRuntime?: "v1" | "v2";
 };
 
 type ThreadRecord = {

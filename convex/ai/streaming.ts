@@ -129,8 +129,9 @@ ${customPrompt}
 
 Apply these additional instructions when they do not conflict with the tool contract, safety, or confirmation rules above.`
         : defaultPrompt;
-      const pendingCallsForContext = (await ctx.runQuery(apiAny.ai.threads.listPendingItems, {
+      const pendingCallsForContext = (await ctx.runQuery(internalAny.ai.threads.listPendingItemsInternal, {
         threadId: providedThreadId,
+        userClerkId: args.userClerkId,
       })) as Array<{ status?: string; functionName: string }>;
       const unresolvedPendingCalls = pendingCallsForContext.filter(
         (call) => call.status === "pending",
@@ -359,6 +360,12 @@ Apply these additional instructions when they do not conflict with the tool cont
               ...toolResultMessages,
               { role: "user" as const, content: userMessageContent },
             ],
+            providerOptions: {
+              openai: {
+                reasoningEffort: "medium",
+                reasoningSummary: "auto",
+              },
+            },
             toolChoice: "auto" as const, // Allow AI to decide when to use tools
           },
           {
@@ -615,8 +622,9 @@ Apply these additional instructions when they do not conflict with the tool cont
           }
         }
 
-        const pendingCalls = await ctx.runQuery(apiAny.ai.threads.listPendingItems, {
+        const pendingCalls = await ctx.runQuery(internalAny.ai.threads.listPendingItemsInternal, {
           threadId: providedThreadId,
+          userClerkId: args.userClerkId,
         }) as Array<{ callId: string; status?: string; responseId: string; arguments?: string }>;
         const unresolvedPendingCalls = pendingCalls.filter(
           (call) => call.status === "pending",

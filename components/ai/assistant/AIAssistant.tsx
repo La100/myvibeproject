@@ -14,10 +14,11 @@ import { AISubscriptionWall, AIQuotaUpsellCard } from "@/components/ai/shared";
 import AssistantConversation from "@/components/assistant-ui/assistant-conversation";
 import type { UIMessage } from "@convex-dev/agent/react";
 import { toast } from "sonner";
+import AIAssistantV2Panel from "./AIAssistantV2Panel";
 
 const AIAssistant = () => {
   const { user } = useUser();
-  const { project, team, isLoading: isProjectContextLoading } = useProject();
+  const { project, team, teamMember, isLoading: isProjectContextLoading } = useProject();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -26,6 +27,7 @@ const AIAssistant = () => {
     typeof sessionParam === "string" && sessionParam.trim().length > 0
       ? sessionParam
       : undefined;
+  const isAssistantV2 = project?.aiAssistantRuntime === "v2";
 
   const aiAccess = useQuery(
     apiAny.stripe.checkTeamAIAccess,
@@ -60,6 +62,7 @@ const AIAssistant = () => {
   });
 
   useEffect(() => {
+    if (isAssistantV2) return;
     if (!pathname) return;
     const params = new URLSearchParams(searchParams.toString());
     const currentSession = params.get("session");
@@ -79,7 +82,7 @@ const AIAssistant = () => {
     const nextQuery = params.toString();
     const nextUrl = nextQuery ? `${pathname}?${nextQuery}` : pathname;
     router.replace(nextUrl, { scroll: false });
-  }, [pathname, router, searchParams, threadId]);
+  }, [isAssistantV2, pathname, router, searchParams, threadId]);
 
   const {
     pendingItems,
@@ -296,6 +299,19 @@ const AIAssistant = () => {
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="Loading" />
       </div>
+    );
+  }
+
+  if (isAssistantV2 && project?._id) {
+    return (
+      <AIAssistantV2Panel
+        canManageRuntime={teamMember?.role === "admin"}
+        initialThreadId={initialThreadIdFromUrl}
+        projectId={project._id}
+        projectName={project.name || "AI Assistant"}
+        runtime="v2"
+        teamSlug={team?.slug}
+      />
     );
   }
 

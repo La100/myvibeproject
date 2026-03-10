@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { mergePersistentCallState } from "../../components/ai/assistant/data/hooks/chatMessageTransform.ts";
 
-test("adds tool-result after confirmation and strips reasoning/thinking", () => {
+test("adds tool-result after confirmation and keeps reasoning summary visible", () => {
   const uiMessages: any[] = [
     {
       id: "m1",
@@ -35,7 +35,7 @@ test("adds tool-result after confirmation and strips reasoning/thinking", () => 
   assert.equal(merged?.length, 1);
 
   const parts = merged?.[0].parts as any[];
-  assert.equal(parts.some((p) => p.type === "reasoning"), false);
+  assert.equal(parts.some((p) => p.type === "reasoning" && p.text === "internal"), true);
   assert.equal(parts.some((p) => p.type === "text" && p.text === "Juz robie"), true);
 
   const toolResult = parts.find((p) => p.type === "tool-result:call-1");

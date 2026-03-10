@@ -8,7 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useOrganization } from "@clerk/nextjs";
 import { z } from "zod";
 import { toast } from "sonner";
-import { type LucideIcon, AlertTriangle, ImagePlus, Settings, Shield, Sparkles, Users } from "lucide-react";
+import { type LucideIcon, AlertTriangle, ImagePlus, Settings, Shield, Sparkles, Users, X } from "lucide-react";
 
 import { apiAny } from "@/lib/convexApiAny";
 import { Id } from "@/convex/_generated/dataModel";
@@ -439,6 +439,10 @@ function ProjectSettingsContent() {
             <TabsContent value="general" className="mt-0">
               <GeneralTab
                 projectId={project._id}
+                projectCoverImageUrl={project.coverImageUrl}
+                projectCoverImageDisplayUrl={
+                  (project as { coverImageDisplayUrl?: string }).coverImageDisplayUrl
+                }
                 responsibleOptions={responsibleOptions}
                 settingsForm={settingsForm}
                 onSettingsSubmit={onSettingsSubmit}
@@ -489,11 +493,15 @@ export default function ProjectSettings() {
 
 function GeneralTab({
   projectId,
+  projectCoverImageUrl,
+  projectCoverImageDisplayUrl,
   responsibleOptions,
   settingsForm,
   onSettingsSubmit,
 }: {
   projectId: Id<"projects">;
+  projectCoverImageUrl?: string;
+  projectCoverImageDisplayUrl?: string;
   responsibleOptions: Array<{ clerkUserId: string; label: string; email: string }>;
   settingsForm: UseFormReturn<z.infer<typeof settingsFormSchema>>;
   onSettingsSubmit: (values: z.infer<typeof settingsFormSchema>) => void;
@@ -503,13 +511,64 @@ function GeneralTab({
   const [uploadingCoverImage, setUploadingCoverImage] = useState(false);
   const [coverPreviewStatus, setCoverPreviewStatus] = useState<"empty" | "loading" | "ready" | "error">("empty");
   const coverFileInputRef = useRef<HTMLInputElement>(null);
-  const coverPreviewUrl = settingsForm.watch("coverImageUrl");
-  const normalizedCoverPreviewUrl = normalizeCoverImageUrl(coverPreviewUrl);
+  const localCoverPreviewUrlRef = useRef<string | null>(null);
+  const [localCoverPreviewUrl, setLocalCoverPreviewUrl] = useState<string | null>(null);
+  const [uploadedCoverPreviewUrl, setUploadedCoverPreviewUrl] = useState<string | null>(null);
+  const [coverPreviewCandidateIndex, setCoverPreviewCandidateIndex] = useState(0);
+  const [coverPreviewErrorMessage, setCoverPreviewErrorMessage] = useState<string | null>(null);
+  const coverImageValue = settingsForm.watch("coverImageUrl")?.trim() ?? "";
+  const normalizedCoverPreviewUrl = normalizeCoverImageUrl(coverImageValue);
+  const persistedCoverPreviewUrl =
+    normalizedCoverPreviewUrl ||
+    (coverImageValue && coverImageValue === (projectCoverImageUrl?.trim() ?? "")
+      ? projectCoverImageDisplayUrl || null
+      : null);
+  const coverPreviewCandidates = useMemo(() => {
+    const candidates = [
+      localCoverPreviewUrl,
+      uploadedCoverPreviewUrl,
+      persistedCoverPreviewUrl,
+    ].filter((value): value is string => Boolean(value));
+
+    return candidates.filter((value, index) => candidates.indexOf(value) === index);
+  }, [localCoverPreviewUrl, persistedCoverPreviewUrl, uploadedCoverPreviewUrl]);
+  const coverPreviewUrl = coverPreviewCandidates[coverPreviewCandidateIndex] ?? null;
   const hasUnsavedChanges = settingsForm.formState.isDirty;
   const hasCoverPreview = coverPreviewStatus === "ready";
 
+  const replaceLocalCoverPreviewUrl = (nextUrl: string | null) => {
+    if (localCoverPreviewUrlRef.current) {
+      URL.revokeObjectURL(localCoverPreviewUrlRef.current);
+    }
+    localCoverPreviewUrlRef.current = nextUrl;
+    setLocalCoverPreviewUrl(nextUrl);
+  };
+
   useEffect(() => {
-    if (!normalizedCoverPreviewUrl) {
+    return () => {
+      if (localCoverPreviewUrlRef.current) {
+        URL.revokeObjectURL(localCoverPreviewUrlRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (
+      localCoverPreviewUrlRef.current &&
+      coverImageValue &&
+      coverImageValue === (projectCoverImageUrl?.trim() ?? "")
+    ) {
+      replaceLocalCoverPreviewUrl(null);
+    }
+  }, [coverImageValue, projectCoverImageUrl]);
+
+  useEffect(() => {
+    setCoverPreviewCandidateIndex(0);
+    setCoverPreviewErrorMessage(null);
+  }, [coverPreviewCandidates]);
+
+  useEffect(() => {
+    if (!coverPreviewUrl) {
       setCoverPreviewStatus("empty");
       return;
     }
@@ -521,21 +580,26 @@ function GeneralTab({
     imageProbe.onload = () => {
       if (!cancelled) {
         setCoverPreviewStatus("ready");
+        setCoverPreviewErrorMessage(null);
       }
     };
     imageProbe.onerror = () => {
       if (!cancelled) {
+        if (coverPreviewCandidateIndex < coverPreviewCandidates.length - 1) {
+          setCoverPreviewCandidateIndex((current) => current + 1);
+          return;
+        }
         setCoverPreviewStatus("error");
       }
     };
-    imageProbe.src = normalizedCoverPreviewUrl;
+    imageProbe.src = coverPreviewUrl;
 
     return () => {
       cancelled = true;
       imageProbe.onload = null;
       imageProbe.onerror = null;
     };
-  }, [normalizedCoverPreviewUrl]);
+  }, [coverPreviewCandidateIndex, coverPreviewCandidates.length, coverPreviewUrl]);
 
   const handleCoverImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -544,6 +608,20 @@ function GeneralTab({
     if (!file.type.startsWith("image/")) {
       toast.error("Please select an image file");
       return;
+    }
+
+    const normalizedFileName = file.name.toLowerCase();
+    if (
+      file.type === "image/heic" ||
+      file.type === "image/heif" ||
+      normalizedFileName.endsWith(".heic") ||
+      normalizedFileName.endsWith(".heif")
+    ) {
+      setCoverPreviewErrorMessage(
+        "This HEIC/HEIF image may upload, but this browser cannot preview it reliably. Use JPG, PNG, or WebP for a visible cover."
+      );
+    } else {
+      setCoverPreviewErrorMessage(null);
     }
 
     setUploadingCoverImage(true);
@@ -576,11 +654,9 @@ function GeneralTab({
         origin: "general",
       });
 
-      if (!uploadData.publicUrl) {
-        throw new Error("Missing public URL for uploaded cover image");
-      }
-
-      settingsForm.setValue("coverImageUrl", uploadData.publicUrl, {
+      replaceLocalCoverPreviewUrl(URL.createObjectURL(file));
+      setUploadedCoverPreviewUrl(uploadData.publicUrl || null);
+      settingsForm.setValue("coverImageUrl", uploadData.key, {
         shouldDirty: true,
         shouldTouch: true,
       });
@@ -594,6 +670,19 @@ function GeneralTab({
       if (coverFileInputRef.current) {
         coverFileInputRef.current.value = "";
       }
+    }
+  };
+
+  const handleCoverImageRemove = () => {
+    replaceLocalCoverPreviewUrl(null);
+    setUploadedCoverPreviewUrl(null);
+    setCoverPreviewErrorMessage(null);
+    settingsForm.setValue("coverImageUrl", "", {
+      shouldDirty: true,
+      shouldTouch: true,
+    });
+    if (coverFileInputRef.current) {
+      coverFileInputRef.current.value = "";
     }
   };
 
@@ -721,40 +810,12 @@ function GeneralTab({
               <div className="mb-4 space-y-1">
                 <h3 className="text-sm font-semibold text-[var(--ui-text-main)]">Cover Image</h3>
                 <p className="text-xs text-[var(--ui-text-muted)]">
-                  Paste an image URL or upload directly to your project files.
+                  Upload an image from your device. No manual URL needed.
                 </p>
               </div>
 
               <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
                 <div className="space-y-3">
-                  <FormField
-                    control={settingsForm.control}
-                    name="coverImageUrl"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-sm font-medium">Cover Image URL</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="https://example.com/project-cover.jpg"
-                            {...field}
-                            className="h-10 w-full bg-[var(--ui-surface-base)]"
-                            onBlur={(event) => {
-                              field.onBlur();
-                              const normalizedUrl = normalizeCoverImageUrl(event.target.value);
-                              if (normalizedUrl && normalizedUrl !== field.value) {
-                                settingsForm.setValue("coverImageUrl", normalizedUrl, {
-                                  shouldDirty: true,
-                                  shouldTouch: true,
-                                });
-                              }
-                            }}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
                   <input
                     ref={coverFileInputRef}
                     type="file"
@@ -773,12 +834,29 @@ function GeneralTab({
                     <ImagePlus className="mr-2 h-4 w-4" />
                     {uploadingCoverImage ? "Uploading..." : "Upload image"}
                   </Button>
+
+                  {coverImageValue ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleCoverImageRemove}
+                      disabled={uploadingCoverImage}
+                    >
+                      <X className="mr-2 h-4 w-4" />
+                      Remove image
+                    </Button>
+                  ) : null}
+
+                  <p className="text-xs text-[var(--ui-text-muted)]">
+                    Pick a file and save the section to apply the new cover.
+                  </p>
                 </div>
 
                 <div className="overflow-hidden rounded-xl border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)]">
                   {hasCoverPreview ? (
                     <img
-                      src={normalizedCoverPreviewUrl ?? undefined}
+                      src={coverPreviewUrl ?? undefined}
                       alt="Project cover preview"
                       className="h-[184px] w-full object-cover"
                     />
@@ -787,8 +865,9 @@ function GeneralTab({
                       {coverPreviewStatus === "loading"
                         ? "Loading preview..."
                         : coverPreviewStatus === "error"
-                        ? "Could not load this image URL. Check filename characters and URL encoding."
-                        : "Add a valid image URL or upload an image to preview it here."}
+                        ? coverPreviewErrorMessage ||
+                          "Could not load this image. Upload a different file or remove it."
+                        : "Upload an image to preview it here."}
                     </div>
                   )}
                 </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, ReactNode, useEffect } from "react";
+import { createContext, useCallback, useContext, ReactNode, useEffect, useState } from "react";
 import { useQuery } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import { Doc } from "@/convex/_generated/dataModel";
@@ -13,9 +13,12 @@ interface ProjectContextType {
   team: Doc<"teams"> | null;
   teamMember: Doc<"teamMembers"> | null;
   isLoading: boolean;
+  markClientNotificationsReadLocally: (lastReadAt: number) => void;
 }
 
 const ProjectContext = createContext<ProjectContextType | null>(null);
+const getClientNotificationsStorageKey = (projectId: string) =>
+  `project-client-notifications-last-read:${projectId}`;
 
 export function ProjectProvider({ children }: { 
   children: ReactNode; 
@@ -24,6 +27,8 @@ export function ProjectProvider({ children }: {
   const params = useParams<{ projectSlug: string }>();
   const { organization, isLoaded } = useOrganization();
   const onboardingStatus = useQuery(apiAny.onboarding.getStatus);
+  const [localClientNotificationsLastReadAt, setLocalClientNotificationsLastReadAt] =
+    useState<number | null>(null);
 
   useEffect(() => {
     if (onboardingStatus === undefined || !onboardingStatus.authenticated) {
@@ -49,14 +54,75 @@ export function ProjectProvider({ children }: {
   const teamMember = useQuery(apiAny.teams.getCurrentUserTeamMember,
     project ? { teamId: project.teamId } : "skip"
   );
+  const projectId = project ? String(project._id) : null;
+  const serverClientNotificationsLastReadAt = project?.clientNotificationsLastReadAt ?? 0;
 
+  useEffect(() => {
+    if (!projectId) {
+      return;
+    }
+
+    const storageKey = getClientNotificationsStorageKey(projectId);
+    const storedValue = window.localStorage.getItem(storageKey);
+    const parsedValue = storedValue ? Number(storedValue) : 0;
+    const normalizedStoredValue = Number.isFinite(parsedValue) ? Math.max(0, parsedValue) : 0;
+
+    setLocalClientNotificationsLastReadAt(
+      Math.max(serverClientNotificationsLastReadAt, normalizedStoredValue),
+    );
+  }, [projectId, serverClientNotificationsLastReadAt]);
+
+  useEffect(() => {
+    if (!projectId || localClientNotificationsLastReadAt === null) {
+      return;
+    }
+
+    const storageKey = getClientNotificationsStorageKey(projectId);
+    const effectiveLastReadAt = Math.max(
+      serverClientNotificationsLastReadAt,
+      localClientNotificationsLastReadAt,
+    );
+
+    window.localStorage.setItem(storageKey, String(effectiveLastReadAt));
+
+    if (effectiveLastReadAt !== localClientNotificationsLastReadAt) {
+      setLocalClientNotificationsLastReadAt(effectiveLastReadAt);
+    }
+  }, [projectId, serverClientNotificationsLastReadAt, localClientNotificationsLastReadAt]);
+  
   const isLoading = !project || !team || teamMember === undefined;
+  const effectiveProject = project
+    ? {
+        ...project,
+        clientNotificationsLastReadAt: Math.max(
+          project.clientNotificationsLastReadAt ?? 0,
+          localClientNotificationsLastReadAt ?? 0,
+        ),
+      }
+    : project;
+
+  const markClientNotificationsReadLocally = useCallback((lastReadAt: number) => {
+    const normalizedLastReadAt = Number.isFinite(lastReadAt)
+      ? lastReadAt
+      : Date.now();
+    setLocalClientNotificationsLastReadAt((currentValue) => {
+      const nextValue = Math.max(currentValue ?? 0, normalizedLastReadAt);
+
+      if (projectId) {
+        const storageKey = getClientNotificationsStorageKey(projectId);
+        window.localStorage.setItem(storageKey, String(nextValue));
+      }
+
+      return nextValue;
+    });
+  }, [projectId]);
 
   const value: ProjectContextType = {
-    project: project!,
+    project: effectiveProject!,
     team: team || null,
     teamMember: teamMember || null,
     isLoading,
+    markClientNotificationsReadLocally,
   };
 
   // Don't render children until we have the basic project data

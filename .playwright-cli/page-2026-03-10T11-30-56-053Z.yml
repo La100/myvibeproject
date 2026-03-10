@@ -1,0 +1,206 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e59]:
+    - generic [ref=e194]:
+      - link "main street" [ref=e197] [cursor=pointer]:
+        - /url: /organisation
+        - img [ref=e198]
+        - generic [ref=e200]: main street
+      - generic [ref=e201]:
+        - generic [ref=e202]:
+          - generic [ref=e203]:
+            - generic [ref=e204]:
+              - img [ref=e205]
+              - generic [ref=e207]: Project
+            - list [ref=e208]:
+              - listitem [ref=e209]:
+                - link "Overview" [ref=e210] [cursor=pointer]:
+                  - /url: /organisation/projects/main-street
+                  - img [ref=e211]
+                  - generic [ref=e216]: Overview
+              - listitem [ref=e217]:
+                - link "Client Portal" [ref=e218] [cursor=pointer]:
+                  - /url: /organisation/projects/main-street/customer-panel
+                  - img [ref=e219]
+                  - generic [ref=e222]: Client Portal
+              - listitem [ref=e223]:
+                - link "Notifications 1" [ref=e224] [cursor=pointer]:
+                  - /url: /organisation/projects/main-street/changelog
+                  - img [ref=e225]
+                  - generic [ref=e230]: Notifications
+                  - generic [ref=e231]: "1"
+              - listitem [ref=e232]:
+                - link "Moodboard" [ref=e233] [cursor=pointer]:
+                  - /url: /organisation/projects/main-street/moodboard
+                  - img [ref=e234]
+                  - generic [ref=e238]: Moodboard
+              - listitem [ref=e239]:
+                - link "Notes" [ref=e240] [cursor=pointer]:
+                  - /url: /organisation/projects/main-street/notes
+                  - img [ref=e241]
+                  - generic [ref=e244]: Notes
+              - listitem [ref=e245]:
+                - link "Contacts" [ref=e246] [cursor=pointer]:
+                  - /url: /organisation/projects/main-street/contacts
+                  - img [ref=e247]
+                  - generic [ref=e251]: Contacts
+              - listitem [ref=e252]:
+                - link "Calendar" [ref=e253] [cursor=pointer]:
+                  - /url: /organisation/projects/main-street/calendar
+                  - img [ref=e254]
+                  - generic [ref=e256]: Calendar
+              - listitem [ref=e257]:
+                - link "Payments" [ref=e258] [cursor=pointer]:
+                  - /url: /organisation/projects/main-street/payments
+                  - img [ref=e259]
+                  - generic [ref=e262]: Payments
+              - listitem [ref=e263]:
+                - link "Surveys" [ref=e264] [cursor=pointer]:
+                  - /url: /organisation/projects/main-street/surveys
+                  - img [ref=e265]
+                  - generic [ref=e268]: Surveys
+              - listitem [ref=e269]:
+                - link "Files" [ref=e270] [cursor=pointer]:
+                  - /url: /organisation/projects/main-street/files
+                  - img [ref=e271]
+                  - generic [ref=e275]: Files
+              - listitem [ref=e276]:
+                - link "Estimations" [ref=e277] [cursor=pointer]:
+                  - /url: /organisation/projects/main-street/estimations
+                  - img [ref=e278]
+                  - generic [ref=e280]: Estimations
+          - generic [ref=e281]:
+            - generic [ref=e282]:
+              - img [ref=e283]
+              - generic [ref=e289]: Architecture
+            - list [ref=e290]:
+              - listitem [ref=e291]:
+                - link "Tasks" [ref=e292] [cursor=pointer]:
+                  - /url: /organisation/projects/main-street/tasks
+                  - img [ref=e293]
+                  - generic [ref=e296]: Tasks
+              - listitem [ref=e297]:
+                - link "Shopping List" [ref=e298] [cursor=pointer]:
+                  - /url: /organisation/projects/main-street/shopping-list
+                  - img [ref=e299]
+                  - generic [ref=e303]: Shopping List
+              - listitem [ref=e304]:
+                - link "Labor" [ref=e305] [cursor=pointer]:
+                  - /url: /organisation/projects/main-street/labor
+                  - img [ref=e306]
+                  - generic [ref=e310]: Labor
+        - link "AI Assistant" [ref=e313] [cursor=pointer]:
+          - /url: /organisation/projects/main-street/ai
+          - img [ref=e314]
+          - generic [ref=e316]: AI Assistant
+        - generic [ref=e317]:
+          - list [ref=e319]:
+            - listitem [ref=e320]:
+              - link "Settings" [ref=e321] [cursor=pointer]:
+                - /url: /organisation/projects/main-street/settings
+                - img [ref=e322]
+                - generic [ref=e325]: Settings
+            - listitem [ref=e326]:
+              - link "Help" [ref=e327] [cursor=pointer]:
+                - /url: /help
+                - img [ref=e328]
+                - generic [ref=e335]: Help
+          - button "Marcin Stola Marcin Stola stolamarcin@gmail.com" [ref=e337] [cursor=pointer]:
+            - img "Marcin Stola" [ref=e339]
+            - generic [ref=e340]:
+              - paragraph [ref=e341]: Marcin Stola
+              - paragraph [ref=e342]: stolamarcin@gmail.com
+            - img [ref=e343]
+    - main [ref=e60]:
+      - main [ref=e65]:
+        - generic [ref=e68]:
+          - generic [ref=e70]:
+            - generic [ref=e71]:
+              - img [ref=e73]
+              - heading "Project Overview" [level=1] [ref=e77]
+            - paragraph [ref=e78]: A summary of main street
+          - generic [ref=e79]:
+            - generic [ref=e80]:
+              - generic [ref=e82]:
+                - img [ref=e83]
+                - text: Total Project Cost
+              - generic [ref=e85]:
+                - generic [ref=e86]: 11443.71 zł
+                - paragraph [ref=e87]: Shopping List & Labor
+            - generic [ref=e88]:
+              - generic [ref=e90]:
+                - img [ref=e91]
+                - text: Shopping List Cost
+              - generic [ref=e95]:
+                - generic [ref=e96]: 3143.71 zł
+                - paragraph [ref=e97]: Net cost from all items
+            - generic [ref=e98]:
+              - generic [ref=e100]:
+                - img [ref=e101]
+                - text: Labor Cost
+              - generic [ref=e105]:
+                - generic [ref=e106]: 8300.00 zł
+                - paragraph [ref=e107]: Net cost from all labor items
+            - generic [ref=e108]:
+              - generic [ref=e110]:
+                - img [ref=e111]
+                - text: Project Status
+              - generic [ref=e116]: PLANNING
+            - generic [ref=e117]:
+              - generic [ref=e119]:
+                - img [ref=e120]
+                - text: Client
+              - generic [ref=e124]: Cinek
+            - generic [ref=e125]:
+              - generic [ref=e127]:
+                - img [ref=e128]
+                - text: Location
+              - generic [ref=e132]: Okrąg 3a, warsaw, 00-407
+            - generic [ref=e133]:
+              - generic [ref=e135]:
+                - img [ref=e136]
+                - text: Budget
+              - generic [ref=e138]:
+                - generic [ref=e139]: 60 000 zł
+                - paragraph [ref=e140]: Allocated budget
+            - generic [ref=e141]:
+              - generic [ref=e143]:
+                - img [ref=e144]
+                - text: Payments Collected
+              - generic [ref=e147]:
+                - generic [ref=e148]: 0,00 zł
+                - paragraph [ref=e149]: "Outstanding: 200,00 zł"
+            - generic [ref=e150]:
+              - generic [ref=e152]:
+                - img [ref=e153]
+                - text: Timeline
+              - generic [ref=e156]:
+                - generic [ref=e157]: "Start: 24.02.2026"
+                - generic [ref=e158]: "End: 6.03.2026"
+            - generic [ref=e159]:
+              - generic [ref=e161]:
+                - img [ref=e162]
+                - text: Cost vs Budget
+              - generic [ref=e166]:
+                - generic [ref=e167]:
+                  - generic [ref=e168]: "Spent:"
+                  - generic [ref=e169]: 11443.71 zł
+                - generic [ref=e170]:
+                  - generic [ref=e171]: "Budget:"
+                  - generic [ref=e172]: 60 000 zł
+                - generic [ref=e175]: 19.1% of budget used
+          - generic [ref=e176]:
+            - generic [ref=e178]: Project Description
+            - paragraph [ref=e180]: Klient
+          - generic [ref=e181]:
+            - generic [ref=e183]: Upcoming Installments
+            - generic [ref=e185]:
+              - generic [ref=e186]:
+                - paragraph [ref=e187]: Test
+                - paragraph [ref=e188]: Due 11.03.2026
+              - generic [ref=e189]:
+                - paragraph [ref=e190]: 200,00 zł
+                - paragraph [ref=e191]: open
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e54] [cursor=pointer]:
+    - img [ref=e55]
+  - alert [ref=e58]

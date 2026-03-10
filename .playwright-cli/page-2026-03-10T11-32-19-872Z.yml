@@ -1,0 +1,140 @@
+- generic [ref=e1]:
+  - generic [ref=e59]:
+    - generic [ref=e194]:
+      - link "main street" [ref=e197] [cursor=pointer]:
+        - /url: /organisation
+        - img [ref=e198]
+        - generic [ref=e200]: main street
+      - generic [ref=e201]:
+        - generic [ref=e202]:
+          - generic [ref=e203]:
+            - generic [ref=e204]:
+              - img [ref=e205]
+              - generic [ref=e207]: Project
+            - list [ref=e208]:
+              - listitem [ref=e209]:
+                - link "Overview" [ref=e210] [cursor=pointer]:
+                  - /url: /organisation/projects/main-street
+                  - img [ref=e211]
+                  - generic [ref=e216]: Overview
+              - listitem [ref=e217]:
+                - link "Client Portal" [ref=e218] [cursor=pointer]:
+                  - /url: /organisation/projects/main-street/customer-panel
+                  - img [ref=e219]
+                  - generic [ref=e222]: Client Portal
+              - listitem [ref=e223]:
+                - link "Notifications 1" [ref=e414] [cursor=pointer]:
+                  - /url: /organisation/projects/main-street/changelog
+                  - img [ref=e225]
+                  - generic [ref=e230]: Notifications
+                  - generic [ref=e415]: "1"
+              - listitem [ref=e232]:
+                - link "Moodboard" [ref=e233] [cursor=pointer]:
+                  - /url: /organisation/projects/main-street/moodboard
+                  - img [ref=e234]
+                  - generic [ref=e238]: Moodboard
+              - listitem [ref=e239]:
+                - link "Notes" [active] [ref=e240] [cursor=pointer]:
+                  - /url: /organisation/projects/main-street/notes
+                  - img [ref=e241]
+                  - generic [ref=e244]: Notes
+              - listitem [ref=e245]:
+                - link "Contacts" [ref=e246] [cursor=pointer]:
+                  - /url: /organisation/projects/main-street/contacts
+                  - img [ref=e247]
+                  - generic [ref=e251]: Contacts
+              - listitem [ref=e252]:
+                - link "Calendar" [ref=e253] [cursor=pointer]:
+                  - /url: /organisation/projects/main-street/calendar
+                  - img [ref=e254]
+                  - generic [ref=e256]: Calendar
+              - listitem [ref=e257]:
+                - link "Payments" [ref=e258] [cursor=pointer]:
+                  - /url: /organisation/projects/main-street/payments
+                  - img [ref=e259]
+                  - generic [ref=e262]: Payments
+              - listitem [ref=e263]:
+                - link "Surveys" [ref=e264] [cursor=pointer]:
+                  - /url: /organisation/projects/main-street/surveys
+                  - img [ref=e265]
+                  - generic [ref=e268]: Surveys
+              - listitem [ref=e269]:
+                - link "Files" [ref=e270] [cursor=pointer]:
+                  - /url: /organisation/projects/main-street/files
+                  - img [ref=e271]
+                  - generic [ref=e275]: Files
+              - listitem [ref=e276]:
+                - link "Estimations" [ref=e277] [cursor=pointer]:
+                  - /url: /organisation/projects/main-street/estimations
+                  - img [ref=e278]
+                  - generic [ref=e280]: Estimations
+          - generic [ref=e281]:
+            - generic [ref=e282]:
+              - img [ref=e283]
+              - generic [ref=e289]: Architecture
+            - list [ref=e290]:
+              - listitem [ref=e291]:
+                - link "Tasks" [ref=e292] [cursor=pointer]:
+                  - /url: /organisation/projects/main-street/tasks
+                  - img [ref=e293]
+                  - generic [ref=e296]: Tasks
+              - listitem [ref=e297]:
+                - link "Shopping List" [ref=e298] [cursor=pointer]:
+                  - /url: /organisation/projects/main-street/shopping-list
+                  - img [ref=e299]
+                  - generic [ref=e303]: Shopping List
+              - listitem [ref=e304]:
+                - link "Labor" [ref=e305] [cursor=pointer]:
+                  - /url: /organisation/projects/main-street/labor
+                  - img [ref=e306]
+                  - generic [ref=e310]: Labor
+        - link "AI Assistant" [ref=e313] [cursor=pointer]:
+          - /url: /organisation/projects/main-street/ai
+          - img [ref=e314]
+          - generic [ref=e316]: AI Assistant
+        - generic [ref=e317]:
+          - list [ref=e319]:
+            - listitem [ref=e320]:
+              - link "Settings" [ref=e321] [cursor=pointer]:
+                - /url: /organisation/projects/main-street/settings
+                - img [ref=e322]
+                - generic [ref=e325]: Settings
+            - listitem [ref=e326]:
+              - link "Help" [ref=e327] [cursor=pointer]:
+                - /url: /help
+                - img [ref=e328]
+                - generic [ref=e335]: Help
+          - button "Marcin Stola Marcin Stola stolamarcin@gmail.com" [ref=e337] [cursor=pointer]:
+            - img "Marcin Stola" [ref=e339]
+            - generic [ref=e340]:
+              - paragraph [ref=e341]: Marcin Stola
+              - paragraph [ref=e342]: stolamarcin@gmail.com
+            - img [ref=e343]
+    - main [ref=e60]:
+      - main [ref=e65]:
+        - generic [ref=e416]:
+          - generic [ref=e417]:
+            - generic [ref=e418]:
+              - generic [ref=e419]:
+                - img [ref=e421]
+                - heading "Notes" [level=1] [ref=e424]
+              - paragraph [ref=e425]: Manage project notes and documentation
+            - button "Add Note" [ref=e427] [cursor=pointer]:
+              - img
+              - text: Add Note
+          - generic [ref=e429] [cursor=pointer]:
+            - generic [ref=e431]:
+              - generic [ref=e432]: TEST – Sample note
+              - button [ref=e433]:
+                - img
+            - generic [ref=e434]:
+              - generic [ref=e435]: This is a test note.
+              - generic [ref=e436]:
+                - generic [ref=e437]:
+                  - img [ref=e439]
+                  - generic [ref=e440]: Marcin Stola
+                - generic [ref=e441]: Mar 10, 2026
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e54] [cursor=pointer]:
+    - img [ref=e55]
+  - alert [ref=e58]
