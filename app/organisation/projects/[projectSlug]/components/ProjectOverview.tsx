@@ -15,6 +15,8 @@ import {
   Target,
   Hammer,
   Wallet,
+  Flag,
+  AlertTriangle,
 } from "lucide-react";
 import { Suspense } from "react";
 import { Spinner } from "@/components/ui/spinner";
@@ -45,12 +47,20 @@ function ProjectOverviewContent() {
   const paymentsData = useQuery(apiAny.projectPayments.getProjectPaymentsOverview, {
     projectId: project._id,
   });
+  const milestonesSummary = useQuery(apiAny.projectMilestones.getProjectMilestonesSummary, {
+    projectId: project._id,
+  });
+  const budgetSummary = useQuery(apiAny.projectBudget.getProjectBudgetSummary, {
+    projectId: project._id,
+  });
 
   if (
     tasks === undefined ||
     shoppingListItems === undefined ||
     laborItems === undefined ||
-    paymentsData === undefined
+    paymentsData === undefined ||
+    milestonesSummary === undefined ||
+    budgetSummary === undefined
   ) {
     return <ProjectOverviewSkeleton />;
   }
@@ -250,6 +260,23 @@ function ProjectOverviewContent() {
             </Card>
           ) : null}
 
+          {milestonesSummary && milestonesSummary.total > 0 ? (
+            <Card className="bg-card/90">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Flag className="h-4 w-4" />
+                  Milestones
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{milestonesSummary.progress}%</div>
+                <p className="text-xs text-muted-foreground">
+                  {milestonesSummary.completed}/{milestonesSummary.total} stages completed
+                </p>
+              </CardContent>
+            </Card>
+          ) : null}
+
           {/* Project Dates */}
           {(project.startDate || project.endDate) && (
             <Card className="bg-card/90">
@@ -283,7 +310,7 @@ function ProjectOverviewContent() {
           )}
 
           {/* Project Cost vs Budget */}
-          {project.budget && (
+          {project.budget && budgetSummary && (
             <Card className="bg-card/90">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -294,35 +321,39 @@ function ProjectOverviewContent() {
               <CardContent>
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span>Spent:</span>
-                    <span className="font-semibold">{totalCost.toFixed(2)} {currencySymbol}</span>
+                    <span>Planned:</span>
+                    <span className="font-semibold">
+                      {formatCurrency(budgetSummary.plannedCost, budgetSummary.currency)}
+                    </span>
                   </div>
-                  {taxRate > 0 && (
-                    <>
-                      <div className="flex justify-between text-sm">
-                        <span>Net:</span>
-                        <span className="font-semibold">{netCost.toFixed(2)} {currencySymbol}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span>Tax ({taxRate}%):</span>
-                        <span className="font-semibold">{taxAmount.toFixed(2)} {currencySymbol}</span>
-                      </div>
-                    </>
-                  )}
+                  <div className="flex justify-between text-sm">
+                    <span>Committed:</span>
+                    <span className="font-semibold">
+                      {formatCurrency(budgetSummary.committedCost, budgetSummary.currency)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Actual:</span>
+                    <span className="font-semibold">
+                      {formatCurrency(budgetSummary.actualCost, budgetSummary.currency)}
+                    </span>
+                  </div>
                   <div className="flex justify-between text-sm">
                     <span>Budget:</span>
-                    <span className="font-semibold">{project.budget.toLocaleString()} {currencySymbol}</span>
+                    <span className="font-semibold">
+                      {formatCurrency(project.budget, budgetSummary.currency)}
+                    </span>
                   </div>
                   <div className="mt-2 h-2 w-full rounded-full bg-secondary/75">
                     <div
-                      className={`h-2 rounded-full transition-all ${(totalCost / project.budget) > 1 ? 'bg-red-500' :
-                          (totalCost / project.budget) > 0.8 ? 'bg-yellow-500' : 'bg-green-500'
+                      className={`h-2 rounded-full transition-all ${(budgetSummary.actualCost / project.budget) > 1 ? 'bg-red-500' :
+                          (budgetSummary.actualCost / project.budget) > 0.8 ? 'bg-yellow-500' : 'bg-green-500'
                         }`}
-                      style={{ width: `${Math.min((totalCost / project.budget) * 100, 100)}%` }}
+                      style={{ width: `${Math.min((budgetSummary.actualCost / project.budget) * 100, 100)}%` }}
                     ></div>
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {((totalCost / project.budget) * 100).toFixed(1)}% of budget used
+                    {((budgetSummary.actualCost / project.budget) * 100).toFixed(1)}% of budget used
                   </div>
                 </div>
               </CardContent>
@@ -369,6 +400,115 @@ function ProjectOverviewContent() {
                   </div>
                 </div>
               ))}
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {milestonesSummary?.nextMilestone ? (
+          <Card className="bg-card/92">
+            <CardHeader className="pb-4">
+              <CardTitle className="clean-title text-lg font-medium lg:text-xl">Next Milestone</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 px-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="font-medium">{milestonesSummary.nextMilestone.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Due{" "}
+                    {milestonesSummary.nextMilestone.plannedEndDate
+                      ? new Date(milestonesSummary.nextMilestone.plannedEndDate).toLocaleDateString()
+                      : "not set"}
+                  </p>
+                </div>
+                <Badge variant="outline">
+                  {milestonesSummary.nextMilestone.taskCount} linked tasks
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {budgetSummary ? (
+          <Card className="bg-card/92">
+            <CardHeader className="pb-4">
+              <CardTitle className="clean-title text-lg font-medium lg:text-xl">Budget vs Actual</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5 px-6">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-2xl border p-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Budget</p>
+                  <p className="mt-2 text-xl font-semibold">
+                    {formatCurrency(budgetSummary.budget, budgetSummary.currency)}
+                  </p>
+                </div>
+                <div className="rounded-2xl border p-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Planned</p>
+                  <p className="mt-2 text-xl font-semibold">
+                    {formatCurrency(budgetSummary.plannedCost, budgetSummary.currency)}
+                  </p>
+                </div>
+                <div className="rounded-2xl border p-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Committed</p>
+                  <p className="mt-2 text-xl font-semibold">
+                    {formatCurrency(budgetSummary.committedCost, budgetSummary.currency)}
+                  </p>
+                </div>
+                <div className="rounded-2xl border p-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Actual</p>
+                  <p className="mt-2 text-xl font-semibold">
+                    {formatCurrency(budgetSummary.actualCost, budgetSummary.currency)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-4 xl:grid-cols-2">
+                <div className="rounded-2xl border p-4">
+                  <p className="text-sm font-medium">Cost breakdown</p>
+                  <div className="mt-3 space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Materials actual</span>
+                      <span>{formatCurrency(budgetSummary.breakdown.shopping.actual, budgetSummary.currency)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Labor actual</span>
+                      <span>{formatCurrency(budgetSummary.breakdown.labor.actual, budgetSummary.currency)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Projected variance</span>
+                      <span>{formatCurrency(budgetSummary.projectedVariance, budgetSummary.currency)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border p-4">
+                  <p className="text-sm font-medium">Revenue coverage</p>
+                  <div className="mt-3 space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Accepted estimates</span>
+                      <span>{formatCurrency(budgetSummary.revenue.acceptedEstimations, budgetSummary.currency)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Scheduled payments</span>
+                      <span>{formatCurrency(budgetSummary.revenue.scheduledPayments, budgetSummary.currency)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Collected payments</span>
+                      <span>{formatCurrency(budgetSummary.revenue.collectedPayments, budgetSummary.currency)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {budgetSummary.alerts.length > 0 ? (
+                <div className="space-y-2">
+                  {budgetSummary.alerts.map((alert, index) => (
+                    <div key={index} className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                      <AlertTriangle className="h-4 w-4" />
+                      <span>{alert.label}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </CardContent>
           </Card>
         ) : null}

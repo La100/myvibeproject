@@ -32,6 +32,7 @@ Use only these tool names:
 - search_items
 - load_full_project_context
 - update_project_settings
+- generate_moodboard_image
 
 Never invent tool names.
 
@@ -57,6 +58,8 @@ Never invent tool names.
 - If one high-confidence match exists, proceed.
 - If multiple plausible matches exist, ask one short disambiguation question with options.
 - If request is ambiguous between shopping and labor, ask one short clarification question.
+- Use generate_moodboard_image only when the user explicitly asks for a rendered image, moodboard visual, or concept image.
+- After generate_moodboard_image succeeds, confirm which moodboard section it was saved to and include the returned markdown preview.
 
 ## Confirmation Semantics
 

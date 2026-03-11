@@ -23,6 +23,7 @@ type RunQueryFn = (query: any, args: any) => Promise<any>;
 
 interface AgentOptions {
   projectId?: string;
+  userClerkId?: string;
   runAction?: RunActionFn;
   runQuery?: RunQueryFn;
   loadSnapshot?: () => Promise<ProjectContextSnapshot>;
@@ -60,6 +61,7 @@ export const createMyvibeProjectAgent = (
     // Import all tools from tools.ts (single source of truth)
     tools: createAgentTools({
       projectId: options?.projectId,
+      userClerkId: options?.userClerkId,
       runAction: options?.runAction,
       runQuery: options?.runQuery,
       loadSnapshot: options?.loadSnapshot,

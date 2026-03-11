@@ -107,9 +107,17 @@ type CalendarEstimation = {
 
 type CalendarProjectMilestone = {
   _id: string;
-  type: "start" | "end";
+  type:
+    | "project_start"
+    | "project_end"
+    | "planned_start"
+    | "planned_end"
+    | "actual_start"
+    | "actual_end";
   title: string;
   timestamp: number;
+  status?: "planned" | "in_progress" | "at_risk" | "blocked" | "completed";
+  color?: string;
 };
 
 type EstimationDayEntry = {
@@ -189,6 +197,14 @@ const estimationStatusColors: Record<string, string> = {
   expired: "bg-amber-100 text-amber-700 border-amber-200",
 };
 
+const milestoneStatusColors: Record<string, string> = {
+  planned: "bg-slate-100 text-slate-700 border-slate-200",
+  in_progress: "bg-blue-100 text-blue-700 border-blue-200",
+  at_risk: "bg-amber-100 text-amber-700 border-amber-200",
+  blocked: "bg-rose-100 text-rose-700 border-rose-200",
+  completed: "bg-emerald-100 text-emerald-700 border-emerald-200",
+};
+
 // --- Helpers ---
 
 function dateToStr(date: Date): string {
@@ -206,6 +222,25 @@ function toMoney(value: number | undefined) {
     currency: "USD",
     maximumFractionDigits: 0,
   }).format(value);
+}
+
+function getMilestoneDateTypeLabel(type: CalendarProjectMilestone["type"]) {
+  switch (type) {
+    case "project_start":
+      return "Project start";
+    case "project_end":
+      return "Project deadline";
+    case "planned_start":
+      return "Planned start";
+    case "planned_end":
+      return "Planned deadline";
+    case "actual_start":
+      return "Actual start";
+    case "actual_end":
+      return "Completed";
+    default:
+      return "Milestone";
+  }
 }
 
 // --- Skeleton ---
@@ -535,7 +570,7 @@ export default function ProjectCalendar() {
             onClick={() => toggleType("project")}
           >
             <div className="h-2 w-2 rounded-full bg-rose-500" />
-            Project
+            Milestones
           </Button>
         </div>
       </div>
@@ -870,10 +905,22 @@ export default function ProjectCalendar() {
                           key={milestone._id}
                           className="p-2.5 rounded-lg bg-rose-50/50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30"
                         >
-                          <p className="text-sm font-medium">{milestone.title}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {milestone.type === "start" ? "Start" : "Deadline"}
-                          </p>
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium">{milestone.title}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {getMilestoneDateTypeLabel(milestone.type)}
+                              </p>
+                            </div>
+                            {milestone.status ? (
+                              <Badge
+                                variant="outline"
+                                className={cn("text-[10px] shrink-0", milestoneStatusColors[milestone.status])}
+                              >
+                                {milestone.status.replace(/_/g, " ")}
+                              </Badge>
+                            ) : null}
+                          </div>
                         </div>
                       ))}
                     </div>

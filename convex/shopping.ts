@@ -246,6 +246,7 @@ export const getPublicShoppingListByAccessToken = query({
       showContacts: project.clientPanelPublishedSettings?.showContacts ?? false,
       showBudget: project.clientPanelPublishedSettings?.showBudget ?? false,
       showPayments: project.clientPanelPublishedSettings?.showPayments ?? false,
+      showApprovals: project.clientPanelPublishedSettings?.showApprovals ?? false,
       showNotes: project.clientPanelPublishedSettings?.showNotes ?? true,
       showSupplier: project.clientPanelPublishedSettings?.showSupplier ?? true,
       showPrice: project.clientPanelPublishedSettings?.showPrice ?? true,

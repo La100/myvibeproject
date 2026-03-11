@@ -25,6 +25,7 @@ import type * as ai_confirmedActions_surveys from "../ai/confirmedActions/survey
 import type * as ai_confirmedActions_tasks from "../ai/confirmedActions/tasks.js";
 import type * as ai_files from "../ai/files.js";
 import type * as ai_helpers_contextBuilder from "../ai/helpers/contextBuilder.js";
+import type * as ai_helpers_debugLog from "../ai/helpers/debugLog.js";
 import type * as ai_helpers_fileProcessor from "../ai/helpers/fileProcessor.js";
 import type * as ai_helpers_functionCallHandler from "../ai/helpers/functionCallHandler.js";
 import type * as ai_helpers_streamResponseBuilder from "../ai/helpers/streamResponseBuilder.js";
@@ -74,7 +75,10 @@ import type * as notes from "../notes.js";
 import type * as notifications from "../notifications.js";
 import type * as onboarding from "../onboarding.js";
 import type * as productLibrary from "../productLibrary.js";
+import type * as projectApprovals from "../projectApprovals.js";
+import type * as projectBudget from "../projectBudget.js";
 import type * as projectDiagnostics from "../projectDiagnostics.js";
+import type * as projectMilestones from "../projectMilestones.js";
 import type * as projectPaymentActions from "../projectPaymentActions.js";
 import type * as projectPaymentHelpers from "../projectPaymentHelpers.js";
 import type * as projectPayments from "../projectPayments.js";
@@ -114,6 +118,7 @@ declare const fullApi: ApiFromModules<{
   "ai/confirmedActions/tasks": typeof ai_confirmedActions_tasks;
   "ai/files": typeof ai_files;
   "ai/helpers/contextBuilder": typeof ai_helpers_contextBuilder;
+  "ai/helpers/debugLog": typeof ai_helpers_debugLog;
   "ai/helpers/fileProcessor": typeof ai_helpers_fileProcessor;
   "ai/helpers/functionCallHandler": typeof ai_helpers_functionCallHandler;
   "ai/helpers/streamResponseBuilder": typeof ai_helpers_streamResponseBuilder;
@@ -163,7 +168,10 @@ declare const fullApi: ApiFromModules<{
   notifications: typeof notifications;
   onboarding: typeof onboarding;
   productLibrary: typeof productLibrary;
+  projectApprovals: typeof projectApprovals;
+  projectBudget: typeof projectBudget;
   projectDiagnostics: typeof projectDiagnostics;
+  projectMilestones: typeof projectMilestones;
   projectPaymentActions: typeof projectPaymentActions;
   projectPaymentHelpers: typeof projectPaymentHelpers;
   projectPayments: typeof projectPayments;
@@ -773,12 +781,17 @@ export declare const components: {
         "internal",
         {
           chunkContext?: { after: number; before: number };
-          embedding: Array<number>;
+          dimension?: number;
+          embedding?: Array<number>;
           filters: Array<{ name: string; value: any }>;
           limit: number;
           modelId: string;
           namespace: string;
+          searchType?: "vector" | "text" | "hybrid";
+          textQuery?: string;
+          textWeight?: number;
           vectorScoreThreshold?: number;
+          vectorWeight?: number;
         },
         {
           entries: Array<{
@@ -923,6 +936,7 @@ export declare const components: {
             vectors: Array<Array<number> | null>;
           };
           failPendingSteps?: boolean;
+          hideFromUserIdSearch?: boolean;
           messages: Array<{
             error?: string;
             fileIds?: Array<string>;
@@ -1525,6 +1539,22 @@ export declare const components: {
             >;
           }>;
         }
+      >;
+      cloneThread: FunctionReference<
+        "action",
+        "internal",
+        {
+          batchSize?: number;
+          copyUserIdForVectorSearch?: boolean;
+          excludeToolMessages?: boolean;
+          insertAtOrder?: number;
+          limit?: number;
+          sourceThreadId: string;
+          statuses?: Array<"pending" | "success" | "failed">;
+          targetThreadId: string;
+          upToAndIncludingMessageId?: string;
+        },
+        number
       >;
       deleteByIds: FunctionReference<
         "mutation",

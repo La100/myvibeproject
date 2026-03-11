@@ -143,7 +143,8 @@ export default function LaborListView() {
     }
 
     try {
-      const jsPDF = (await import('jspdf')).default;
+      const jsPdfModule = await import("jspdf");
+      const jsPDF = jsPdfModule.jsPDF ?? jsPdfModule.default;
       await import('jspdf-autotable');
 
       const doc = new jsPDF({

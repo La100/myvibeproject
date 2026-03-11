@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { Banknote, CheckCircle2, ClipboardList, Download, ExternalLink, Send, Users, Wallet, Wrench } from "lucide-react";
+import { Banknote, CheckCircle2, ClipboardList, Download, ExternalLink, Send, Users, Wallet, Wrench, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Doc, Id } from "@/convex/_generated/dataModel";
 import { apiAny } from "@/lib/convexApiAny";
@@ -80,6 +80,71 @@ type PublicPayment = {
   paidAt?: number;
   isOverdue?: boolean;
 };
+type PublicApproval = {
+  _id: Id<"projectApprovals">;
+  type:
+    | "material"
+    | "estimate"
+    | "visualization"
+    | "moodboard"
+    | "scope"
+    | "milestone"
+    | "payment"
+    | "other";
+  title: string;
+  description?: string;
+  status: "draft" | "sent" | "viewed" | "commented" | "approved" | "rejected" | "expired";
+  dueDate?: number;
+  currentVersion: number;
+  clientDecision?: "approved" | "rejected" | null;
+  clientComment?: string | null;
+  clientRespondentName?: string | null;
+  decidedAt?: number;
+  currentVersionRecord?: {
+    summary?: string;
+    details?: string;
+    items?: string[];
+    referenceIds?: string[];
+  } | null;
+};
+type PublicBudgetSummary = {
+  currency: string;
+  budget: number;
+  plannedCost: number;
+  committedCost: number;
+  actualCost: number;
+  variance: number;
+  projectedVariance: number;
+  utilizationPercent: number | null;
+  projectedUtilizationPercent: number | null;
+  breakdown: {
+    shopping: {
+      planned: number;
+      committed: number;
+      actual: number;
+    };
+    labor: {
+      planned: number;
+      committed: number;
+      actual: number;
+    };
+  };
+  revenue: {
+    acceptedEstimations: number;
+    pipelineEstimations: number;
+    scheduledPayments: number;
+    collectedPayments: number;
+    outstandingPayments: number;
+  };
+  milestones: {
+    count: number;
+    budgetAllocated: number;
+  };
+  alerts: Array<{
+    severity: "high" | "medium";
+    label: string;
+  }>;
+};
 type PublicSurveyQuestion = {
   _id: Id<"surveyQuestions">;
   questionText: string;
@@ -137,6 +202,7 @@ const EMPTY_TASKS: PublicTask[] = [];
 const EMPTY_LABOR_ITEMS: PublicLaborItem[] = [];
 const EMPTY_CONTACTS: PublicContact[] = [];
 const EMPTY_PAYMENTS: PublicPayment[] = [];
+const EMPTY_APPROVALS: PublicApproval[] = [];
 const DEFAULT_CLIENT_PANEL_SETTINGS = {
   showShoppingList: false,
   showFiles: false,
@@ -147,6 +213,7 @@ const DEFAULT_CLIENT_PANEL_SETTINGS = {
   showContacts: false,
   showBudget: false,
   showPayments: false,
+  showApprovals: false,
   showNotes: true,
   showSupplier: true,
   showPrice: true,
@@ -234,6 +301,18 @@ const getMaterialDecisionLabel = (decision: MaterialDecision) => {
   if (decision === "rejected") return "Rejected";
   return "Pending";
 };
+
+const approvalTypeLabel = (type: PublicApproval["type"]) =>
+  ({
+    material: "Material",
+    estimate: "Estimate",
+    visualization: "Visualization",
+    moodboard: "Moodboard",
+    scope: "Scope",
+    milestone: "Milestone",
+    payment: "Payment",
+    other: "Other",
+  })[type];
 
 const getOrCreatePublicRespondentKey = (accessToken: string) => {
   const storageKey = `client-panel-respondent:${accessToken}`;
@@ -357,6 +436,16 @@ export default function PublicClientPanelPage() {
   const getInvoiceDownloadUrl = useAction(
     apiAny.projectPaymentActions.getProjectPaymentInvoiceDownloadUrlByAccessToken,
   );
+  const publicApprovalsData = useQuery(
+    apiAny.projectApprovals.getPublicProjectApprovalsByAccessToken,
+    panelData?.settings?.showApprovals ? { accessToken } : "skip"
+  );
+  const publicBudgetSummaryData = useQuery(
+    apiAny.projectBudget.getPublicProjectBudgetSummaryByAccessToken,
+    panelData?.settings?.showBudget ? { accessToken } : "skip"
+  );
+  const respondToApproval = useMutation(apiAny.projectApprovals.respondToProjectApprovalByAccessToken);
+  const markApprovalViewed = useMutation(apiAny.projectApprovals.markProjectApprovalViewedByAccessToken);
   const publicSurveysData = useQuery(
     apiAny.surveys.getPublicSurveysByAccessToken,
     respondentKey && (panelData?.settings?.showSurveys ?? false)
@@ -377,6 +466,8 @@ export default function PublicClientPanelPage() {
   const [respondentName, setRespondentName] = useState("");
   const [selectedMoodboardFile, setSelectedMoodboardFile] = useState<ClientPanelFile | null>(null);
   const [downloadingPaymentId, setDownloadingPaymentId] = useState<string | null>(null);
+  const [approvalComments, setApprovalComments] = useState<Record<string, string>>({});
+  const [respondingApprovalId, setRespondingApprovalId] = useState<string | null>(null);
 
   const project = panelData?.project;
   const sections = (panelData?.sections as ClientPanelSection[] | undefined) ?? EMPTY_SECTIONS;
@@ -389,6 +480,9 @@ export default function PublicClientPanelPage() {
   const laborItems = (panelData?.labor as PublicLaborItem[] | undefined) ?? EMPTY_LABOR_ITEMS;
   const contacts = (panelData?.contacts as PublicContact[] | undefined) ?? EMPTY_CONTACTS;
   const payments = (panelData?.payments as PublicPayment[] | undefined) ?? EMPTY_PAYMENTS;
+  const approvals =
+    (publicApprovalsData?.approvals as PublicApproval[] | undefined) ?? EMPTY_APPROVALS;
+  const publicBudgetSummary = publicBudgetSummaryData as PublicBudgetSummary | null | undefined;
   const settings = panelData?.settings ?? DEFAULT_CLIENT_PANEL_SETTINGS;
 
   const currencySymbol = getCurrencySymbol(project?.currency);
@@ -448,6 +542,19 @@ export default function PublicClientPanelPage() {
       return next;
     });
   }, [items]);
+
+  useEffect(() => {
+    setApprovalComments((current) => {
+      const next = { ...current };
+      for (const approval of approvals) {
+        const approvalId = String(approval._id);
+        if (typeof next[approvalId] !== "string") {
+          next[approvalId] = approval.clientComment || "";
+        }
+      }
+      return next;
+    });
+  }, [approvals]);
 
   const baseItemsBySection = useMemo(() => {
     const baseItems = items.filter((item) => !item.alternativeToSourceItemId);
@@ -538,11 +645,12 @@ export default function PublicClientPanelPage() {
     settings.showLabor ? { id: "portal-labor", label: "Labor", count: laborItems.length } : null,
     settings.showContacts ? { id: "portal-contacts", label: "Contacts", count: contacts.length } : null,
     settings.showPayments ? { id: "portal-payments", label: "Payments", count: payments.length } : null,
+    settings.showApprovals ? { id: "portal-approvals", label: "Approvals", count: approvals.length } : null,
     settings.showBudget
       ? {
           id: "portal-budget",
           label: "Budget",
-          count: typeof project?.budget === "number" ? 1 : 0,
+          count: publicBudgetSummary ? 4 : typeof project?.budget === "number" ? 1 : 0,
         }
       : null,
   ].filter((section): section is { id: string; label: string; count: number } => !!section);
@@ -558,6 +666,22 @@ export default function PublicClientPanelPage() {
         : sectionCards[0].id
     );
   }, [sectionCards]);
+
+  useEffect(() => {
+    if (activeSectionId !== "portal-approvals") return;
+    if (!settings.showApprovals) return;
+    if (approvals.length === 0) return;
+
+    approvals
+      .filter((approval) => approval.status === "sent")
+      .forEach((approval) => {
+        void markApprovalViewed({
+          accessToken,
+          approvalId: approval._id,
+          respondentName: respondentName.trim() || undefined,
+        }).catch(() => undefined);
+      });
+  }, [accessToken, activeSectionId, approvals, markApprovalViewed, respondentName, settings.showApprovals]);
 
   const handleDownloadInvoice = async (paymentId: string) => {
     setDownloadingPaymentId(paymentId);
@@ -576,6 +700,41 @@ export default function PublicClientPanelPage() {
     }
   };
 
+  const handleRespondToApproval = async (
+    approval: PublicApproval,
+    decision: "approved" | "rejected"
+  ) => {
+    const cleanedRespondentName = respondentName.trim();
+    if (!cleanedRespondentName) {
+      toast.error(`Please enter who is making the decision for "${approval.title}".`);
+      return;
+    }
+
+    const approvalId = String(approval._id);
+    setRespondingApprovalId(approvalId);
+    try {
+      if (typeof window !== "undefined") {
+        const storageKey = `client-panel-respondent-name:${accessToken}`;
+        window.localStorage.setItem(storageKey, cleanedRespondentName);
+      }
+      await respondToApproval({
+        accessToken,
+        approvalId: approval._id,
+        decision,
+        comment: approvalComments[approvalId]?.trim() || null,
+        respondentName: cleanedRespondentName,
+        respondentKey: respondentKey || undefined,
+      });
+      toast.success(`Decision recorded for "${approval.title}"`);
+    } catch (error) {
+      toast.error("Failed to save decision", {
+        description: (error as Error).message,
+      });
+    } finally {
+      setRespondingApprovalId(null);
+    }
+  };
+
   const handleExportMaterialsPdf = async () => {
     if (!project || sectionSummaries.length === 0) {
       toast.info("No shopping list items available for export.");
@@ -584,7 +743,8 @@ export default function PublicClientPanelPage() {
 
     setIsExportingMaterialsPdf(true);
     try {
-      const jsPDF = (await import("jspdf")).default;
+      const jsPdfModule = await import("jspdf");
+      const jsPDF = jsPdfModule.jsPDF ?? jsPdfModule.default;
       await import("jspdf-autotable");
 
       const doc = new jsPDF({
@@ -1552,6 +1712,168 @@ export default function PublicClientPanelPage() {
         </div>
       ) : null}
 
+      {settings.showApprovals && activeSectionId === "portal-approvals" ? (
+        <div className="mb-10 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-4 shadow-[0_24px_60px_rgba(20,20,20,0.08)] sm:rounded-[32px] sm:p-8">
+          <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
+            <h2 className="text-xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)] sm:text-2xl">
+              Approvals
+            </h2>
+            <span className="inline-flex items-center justify-center rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-muted)]">
+              {approvals.length} requests
+            </span>
+          </div>
+
+          {approvals.length === 0 ? (
+            <p className="text-sm text-[var(--ui-text-muted)]">No approval requests shared yet.</p>
+          ) : (
+            <div className="space-y-5">
+              <div className="max-w-md space-y-2">
+                <Label htmlFor="approval-respondent-name" className="text-sm font-medium">
+                  Who is reviewing approvals?
+                </Label>
+                <Input
+                  id="approval-respondent-name"
+                  value={respondentName}
+                  onChange={(event) => setRespondentName(event.target.value)}
+                  placeholder="Your name"
+                />
+              </div>
+
+              {approvals.map((approval) => {
+                const approvalId = String(approval._id);
+                const canDecide =
+                  approval.status === "sent" ||
+                  approval.status === "viewed" ||
+                  approval.status === "commented";
+
+                return (
+                  <div
+                    key={approvalId}
+                    className="rounded-[20px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-5"
+                  >
+                    <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant="outline">{approvalTypeLabel(approval.type)}</Badge>
+                          <Badge
+                            variant="outline"
+                            className={
+                              approval.status === "approved"
+                                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                : approval.status === "rejected"
+                                  ? "border-rose-200 bg-rose-50 text-rose-700"
+                                  : approval.status === "commented"
+                                    ? "border-amber-200 bg-amber-50 text-amber-700"
+                                    : "border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] text-[var(--ui-text-main)]"
+                            }
+                          >
+                            {approval.status.toUpperCase()}
+                          </Badge>
+                          <Badge variant="secondary">v{approval.currentVersion}</Badge>
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-medium text-[var(--ui-text-strong)]">{approval.title}</h3>
+                          {approval.description ? (
+                            <p className="mt-1 text-sm text-[var(--ui-text-muted)]">{approval.description}</p>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      <div className="shrink-0 text-sm text-[var(--ui-text-muted)]">
+                        {approval.dueDate
+                          ? `Decision deadline: ${new Date(approval.dueDate).toLocaleDateString()}`
+                          : "No deadline"}
+                      </div>
+                    </div>
+
+                    {approval.currentVersionRecord?.summary ? (
+                      <div className="mt-4 rounded-[16px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-4 py-3 text-sm text-[var(--ui-text-main)]">
+                        {approval.currentVersionRecord.summary}
+                      </div>
+                    ) : null}
+
+                    {approval.currentVersionRecord?.details ? (
+                      <p className="mt-4 text-sm text-[var(--ui-text-muted)]">
+                        {approval.currentVersionRecord.details}
+                      </p>
+                    ) : null}
+
+                    {approval.currentVersionRecord?.items?.length ? (
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {approval.currentVersionRecord.items.map((item) => (
+                          <Badge key={item} variant="secondary">
+                            {item}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    {canDecide ? (
+                      <div className="mt-5 space-y-3 border-t border-[var(--ui-border-soft)] pt-4">
+                        <div className="space-y-2">
+                          <Label htmlFor={`approval-comment-${approvalId}`}>Comment for the project team</Label>
+                          <Textarea
+                            id={`approval-comment-${approvalId}`}
+                            value={approvalComments[approvalId] || ""}
+                            onChange={(event) =>
+                              setApprovalComments((current) => ({
+                                ...current,
+                                [approvalId]: event.target.value,
+                              }))
+                            }
+                            rows={3}
+                            placeholder="Add context, constraints or conditions for your decision..."
+                          />
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            onClick={() => void handleRespondToApproval(approval, "approved")}
+                            disabled={respondingApprovalId === approvalId}
+                          >
+                            <CheckCircle2 className="mr-2 h-4 w-4" />
+                            {respondingApprovalId === approvalId ? "Saving..." : "Approve"}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => void handleRespondToApproval(approval, "rejected")}
+                            disabled={respondingApprovalId === approvalId}
+                          >
+                            <XCircle className="mr-2 h-4 w-4" />
+                            Reject
+                          </Button>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {!canDecide && approval.clientDecision ? (
+                      <div className="mt-5 rounded-[16px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-4 py-3 text-sm text-[var(--ui-text-main)]">
+                        <div className="flex items-center gap-2 font-medium">
+                          {approval.clientDecision === "approved" ? (
+                            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                          ) : (
+                            <XCircle className="h-4 w-4 text-rose-600" />
+                          )}
+                          Decision: {approval.clientDecision}
+                        </div>
+                        <p className="mt-2 text-[var(--ui-text-muted)]">
+                          By {approval.clientRespondentName || "client"}
+                          {approval.decidedAt ? ` on ${new Date(approval.decidedAt).toLocaleString()}` : ""}
+                        </p>
+                        {approval.clientComment ? (
+                          <p className="mt-3">{approval.clientComment}</p>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : null}
+
       {settings.showBudget && activeSectionId === "portal-budget" ? (
         <div className="mb-10 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-4 shadow-[0_24px_60px_rgba(20,20,20,0.08)] sm:rounded-[32px] sm:p-8">
           <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
@@ -1559,7 +1881,198 @@ export default function PublicClientPanelPage() {
               Budget
             </h2>
           </div>
-          {typeof project.budget === "number" ? (
+          {publicBudgetSummary ? (
+            <div className="space-y-5">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-[16px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-5">
+                  <p className="text-sm text-[var(--ui-text-muted)]">Budget</p>
+                  <div className="mt-2 flex items-center gap-3">
+                    <Banknote className="h-5 w-5 text-[var(--ui-accent-brand)]" />
+                    <p className="text-xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)]">
+                      {formatAmount(publicBudgetSummary.budget, currencySymbol)}
+                    </p>
+                  </div>
+                </div>
+                <div className="rounded-[16px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-5">
+                  <p className="text-sm text-[var(--ui-text-muted)]">Planned cost</p>
+                  <p className="mt-2 text-xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)]">
+                    {formatAmount(publicBudgetSummary.plannedCost, currencySymbol)}
+                  </p>
+                  <p className="mt-1 text-xs text-[var(--ui-text-muted)]">
+                    {publicBudgetSummary.projectedUtilizationPercent ?? 0}% of budget
+                  </p>
+                </div>
+                <div className="rounded-[16px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-5">
+                  <p className="text-sm text-[var(--ui-text-muted)]">Committed cost</p>
+                  <p className="mt-2 text-xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)]">
+                    {formatAmount(publicBudgetSummary.committedCost, currencySymbol)}
+                  </p>
+                  <p className="mt-1 text-xs text-[var(--ui-text-muted)]">
+                    Approved and scheduled spend
+                  </p>
+                </div>
+                <div className="rounded-[16px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-5">
+                  <p className="text-sm text-[var(--ui-text-muted)]">Actual cost</p>
+                  <p className="mt-2 text-xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)]">
+                    {formatAmount(publicBudgetSummary.actualCost, currencySymbol)}
+                  </p>
+                  <p className="mt-1 text-xs text-[var(--ui-text-muted)]">
+                    {publicBudgetSummary.utilizationPercent ?? 0}% of budget used
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+                <div className="rounded-[18px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-base font-medium text-[var(--ui-text-strong)]">
+                        Budget balance
+                      </p>
+                      <p className="mt-1 text-sm text-[var(--ui-text-muted)]">
+                        Remaining budget against actual and projected spending.
+                      </p>
+                    </div>
+                    <div
+                      className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${
+                        publicBudgetSummary.variance < 0
+                          ? "border-rose-200 bg-rose-50 text-rose-700"
+                          : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                      }`}
+                    >
+                      {publicBudgetSummary.variance < 0 ? "Over budget" : "Within budget"}
+                    </div>
+                  </div>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-[14px] bg-[var(--ui-surface-soft)] px-4 py-3">
+                      <p className="text-xs uppercase tracking-[0.18em] text-[var(--ui-text-muted)]">
+                        Remaining now
+                      </p>
+                      <p className="mt-2 text-lg font-medium text-[var(--ui-text-strong)]">
+                        {formatAmount(publicBudgetSummary.variance, currencySymbol)}
+                      </p>
+                    </div>
+                    <div className="rounded-[14px] bg-[var(--ui-surface-soft)] px-4 py-3">
+                      <p className="text-xs uppercase tracking-[0.18em] text-[var(--ui-text-muted)]">
+                        Projected remaining
+                      </p>
+                      <p className="mt-2 text-lg font-medium text-[var(--ui-text-strong)]">
+                        {formatAmount(publicBudgetSummary.projectedVariance, currencySymbol)}
+                      </p>
+                    </div>
+                  </div>
+                  {publicBudgetSummary.alerts.length > 0 ? (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {publicBudgetSummary.alerts.map((alert) => (
+                        <span
+                          key={alert.label}
+                          className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${
+                            alert.severity === "high"
+                              ? "border-rose-200 bg-rose-50 text-rose-700"
+                              : "border-amber-200 bg-amber-50 text-amber-700"
+                          }`}
+                        >
+                          {alert.label}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-4 text-sm text-[var(--ui-text-muted)]">
+                      No active budget alerts.
+                    </p>
+                  )}
+                </div>
+
+                <div className="rounded-[18px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-5">
+                  <p className="text-base font-medium text-[var(--ui-text-strong)]">
+                    Revenue and collections
+                  </p>
+                  <div className="mt-4 space-y-3 text-sm">
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-[var(--ui-text-muted)]">Accepted estimations</span>
+                      <span className="font-medium text-[var(--ui-text-strong)]">
+                        {formatAmount(publicBudgetSummary.revenue.acceptedEstimations, currencySymbol)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-[var(--ui-text-muted)]">Scheduled payments</span>
+                      <span className="font-medium text-[var(--ui-text-strong)]">
+                        {formatAmount(publicBudgetSummary.revenue.scheduledPayments, currencySymbol)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-[var(--ui-text-muted)]">Collected payments</span>
+                      <span className="font-medium text-[var(--ui-text-strong)]">
+                        {formatAmount(publicBudgetSummary.revenue.collectedPayments, currencySymbol)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-[var(--ui-text-muted)]">Outstanding payments</span>
+                      <span className="font-medium text-[var(--ui-text-strong)]">
+                        {formatAmount(publicBudgetSummary.revenue.outstandingPayments, currencySymbol)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-[var(--ui-text-muted)]">Milestone allocation</span>
+                      <span className="font-medium text-[var(--ui-text-strong)]">
+                        {formatAmount(publicBudgetSummary.milestones.budgetAllocated, currencySymbol)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="rounded-[18px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-5">
+                  <p className="text-base font-medium text-[var(--ui-text-strong)]">Materials</p>
+                  <div className="mt-4 space-y-3 text-sm">
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-[var(--ui-text-muted)]">Planned</span>
+                      <span className="font-medium text-[var(--ui-text-strong)]">
+                        {formatAmount(publicBudgetSummary.breakdown.shopping.planned, currencySymbol)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-[var(--ui-text-muted)]">Committed</span>
+                      <span className="font-medium text-[var(--ui-text-strong)]">
+                        {formatAmount(publicBudgetSummary.breakdown.shopping.committed, currencySymbol)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-[var(--ui-text-muted)]">Actual</span>
+                      <span className="font-medium text-[var(--ui-text-strong)]">
+                        {formatAmount(publicBudgetSummary.breakdown.shopping.actual, currencySymbol)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-[18px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-5">
+                  <p className="text-base font-medium text-[var(--ui-text-strong)]">Labor</p>
+                  <div className="mt-4 space-y-3 text-sm">
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-[var(--ui-text-muted)]">Planned</span>
+                      <span className="font-medium text-[var(--ui-text-strong)]">
+                        {formatAmount(publicBudgetSummary.breakdown.labor.planned, currencySymbol)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-[var(--ui-text-muted)]">Committed</span>
+                      <span className="font-medium text-[var(--ui-text-strong)]">
+                        {formatAmount(publicBudgetSummary.breakdown.labor.committed, currencySymbol)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-[var(--ui-text-muted)]">Actual</span>
+                      <span className="font-medium text-[var(--ui-text-strong)]">
+                        {formatAmount(publicBudgetSummary.breakdown.labor.actual, currencySymbol)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : typeof project?.budget === "number" ? (
             <div className="rounded-[16px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-6">
               <p className="mb-2 text-sm text-[var(--ui-text-muted)]">Project budget</p>
               <div className="flex items-center gap-3">
@@ -1568,6 +2081,9 @@ export default function PublicClientPanelPage() {
                   {formatAmount(project.budget, currencySymbol)}
                 </p>
               </div>
+              <p className="mt-3 text-sm text-[var(--ui-text-muted)]">
+                Detailed project finance summary is not available yet.
+              </p>
             </div>
           ) : (
             <p className="text-sm text-[var(--ui-text-muted)]">No budget set for this project.</p>

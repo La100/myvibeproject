@@ -617,3 +617,36 @@ test("search_items uses runAction (not runQuery)", async () => {
   assert.equal(calls.runQuery, 0);
   assert.equal(parsed.total, 1);
 });
+
+test("generate_moodboard_image uses runAction and passes project context", async () => {
+  const createStreamingTools = await getCreateStreamingTools();
+  const calls: Array<Record<string, unknown>> = [];
+
+  const tools = createStreamingTools({
+    projectId: "project_1",
+    userClerkId: "user_123",
+    runAction: async (_actionRef: unknown, args: Record<string, unknown>) => {
+      calls.push(args);
+      return {
+        success: true,
+        sectionKey: "1",
+        sectionLabel: "CONCEPT",
+        model: "gemini-2.5-flash-image",
+        message: "Saved a new image to the CONCEPT moodboard section.",
+      };
+    },
+  });
+
+  const raw = await tools.generate_moodboard_image.execute({
+    prompt: "Warm minimal living room with travertine and oak",
+    section: "Concept",
+  });
+  const parsed = JSON.parse(raw);
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].projectId, "project_1");
+  assert.equal(calls[0].userClerkId, "user_123");
+  assert.equal(calls[0].section, "Concept");
+  assert.equal(parsed.success, true);
+  assert.equal(parsed.sectionLabel, "CONCEPT");
+});

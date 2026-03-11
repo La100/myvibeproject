@@ -37,6 +37,7 @@ import { AI_MODEL, calculateCost } from "./config";
 import { defaultPrompt } from "./prompt";
 import type { Id } from "../_generated/dataModel";
 import { buildFallbackResponseFromTools } from "./helpers/streamResponseBuilder";
+import { aiDebugLog } from "./helpers/debugLog";
 
 const AI_CREDITS_EXHAUSTED_MESSAGE =
   "You've run out of AI credits. Upgrade your plan or manage billing to continue.";
@@ -44,6 +45,7 @@ const AI_CREDITS_EXHAUSTED_MESSAGE =
 const READ_ONLY_TOOL_NAMES = new Set([
   "search_items",
   "load_full_project_context",
+  "generate_moodboard_image",
 ]);
 
 /**
@@ -74,7 +76,7 @@ export const internalDoStreaming = internalAction({
     const startTime = Date.now();
     const agentModeIdentifier = "convex_agent_stream";
 
-    console.log("🚀 [STREAMING START]", {
+    aiDebugLog("🚀 [STREAMING START]", {
       threadId: args.threadId,
       projectId: args.projectId,
       userClerkId: args.userClerkId,
@@ -90,7 +92,7 @@ export const internalDoStreaming = internalAction({
     try {
       const providedThreadId = args.threadId;
 
-      console.log("📝 [THREAD INFO]", {
+      aiDebugLog("📝 [THREAD INFO]", {
         providedThreadId,
       });
 
@@ -203,7 +205,7 @@ Apply these additional instructions when they do not conflict with the tool cont
         timezone
       );
 
-      console.log("📋 [SYSTEM INSTRUCTIONS]", {
+      aiDebugLog("📋 [SYSTEM INSTRUCTIONS]", {
         hasCustomPrompt,
         teamMembersCount: teamMembers.length,
         currentDate,
@@ -246,7 +248,7 @@ Apply these additional instructions when they do not conflict with the tool cont
         userMessageContent = result.content;
       }
 
-      console.log("📨 [USER MESSAGE]", {
+      aiDebugLog("📨 [USER MESSAGE]", {
         messageLength: userPrompt.length,
         hasMultipartContent: Array.isArray(userMessageContent),
         openaiFiles: args.openaiFiles?.length || 0,
@@ -257,16 +259,17 @@ Apply these additional instructions when they do not conflict with the tool cont
       // Create agent
       const agent = createMyvibeProjectAgent(systemInstructions, {
         projectId: args.projectId as string,
+        userClerkId: args.userClerkId,
         runAction: ctx.runAction,
         runQuery: ctx.runQuery,
         loadSnapshot: ensureSnapshot,
       });
 
-      console.log("🤖 [AGENT CREATED]");
+      aiDebugLog("🤖 [AGENT CREATED]");
 
       const agentThreadId = providedThreadId;
 
-      console.log("🔗 [FINAL THREAD ID]", {
+      aiDebugLog("🔗 [FINAL THREAD ID]", {
         agentThreadId,
         providedThreadId,
       });
@@ -275,7 +278,7 @@ Apply these additional instructions when they do not conflict with the tool cont
         projectId: args.projectId,
       }) as { allowed: boolean; message?: string };
 
-      console.log("🔐 [AI ACCESS CHECK]", {
+      aiDebugLog("🔐 [AI ACCESS CHECK]", {
         allowed: aiAccess.allowed,
         message: aiAccess.message,
       });
@@ -313,7 +316,7 @@ Apply these additional instructions when they do not conflict with the tool cont
 
       // Stream via Convex Agent (saves deltas for subscriptions)
 
-      console.log("🌊 [START STREAMING]", {
+      aiDebugLog("🌊 [START STREAMING]", {
         agentThreadId,
         userId: args.userClerkId,
       });
@@ -328,7 +331,7 @@ Apply these additional instructions when they do not conflict with the tool cont
       const replayedCallIds: string[] = [];
 
       if (replayCalls && replayCalls.length > 0) {
-        console.log("🔄 [REPLAY] Found calls to replay", { count: replayCalls.length });
+        aiDebugLog("🔄 [REPLAY] Found calls to replay", { count: replayCalls.length });
 
         const toolResults = replayCalls.map((call) => {
           replayedCallIds.push(call._id);
@@ -375,7 +378,7 @@ Apply these additional instructions when they do not conflict with the tool cont
             },
           },
         );
-        console.log("✅ [STREAMING INITIATED]");
+        aiDebugLog("✅ [STREAMING INITIATED]");
 
         // Mark calls as replayed to prevent duplicate processing
         if (replayedCallIds.length > 0) {
@@ -394,7 +397,7 @@ Apply these additional instructions when they do not conflict with the tool cont
       const totalInputTokens = (usage as any)?.inputTokens || (usage as any)?.promptTokens || 0;
       const totalOutputTokens = (usage as any)?.outputTokens || (usage as any)?.completionTokens || 0;
 
-      console.log("📊 [TOKEN USAGE]", {
+      aiDebugLog("📊 [TOKEN USAGE]", {
         inputTokens: totalInputTokens,
         outputTokens: totalOutputTokens,
         totalTokens: totalInputTokens + totalOutputTokens,
@@ -403,7 +406,7 @@ Apply these additional instructions when they do not conflict with the tool cont
       // Extract the latest text from steps (avoid concatenating duplicates)
       const steps = await response.steps;
 
-      console.log("🔄 [PROCESSING STEPS]", {
+      aiDebugLog("🔄 [PROCESSING STEPS]", {
         stepsCount: steps?.length || 0,
       });
 
@@ -455,7 +458,7 @@ Apply these additional instructions when they do not conflict with the tool cont
       if (steps && Array.isArray(steps)) {
         for (let i = 0; i < steps.length; i++) {
           const step = steps[i];
-          console.log(`📋 [STEP ${i + 1}/${steps.length}]`, {
+          aiDebugLog(`📋 [STEP ${i + 1}/${steps.length}]`, {
             hasToolCalls: !!step.toolCalls,
             toolCallsCount: step.toolCalls?.length || 0,
             toolNames: step.toolCalls?.map((tc: any) => tc.toolName || tc.name) || [],
@@ -495,7 +498,7 @@ Apply these additional instructions when they do not conflict with the tool cont
         shouldPersistSyntheticFallback = true;
       }
 
-      console.log("💬 [FINAL RESPONSE]", {
+      aiDebugLog("💬 [FINAL RESPONSE]", {
         responseLength: fullResponse.length,
         responsePreview: fullResponse.substring(0, 100) + (fullResponse.length > 100 ? "..." : ""),
         toolCallsCount: allToolCalls.length,
@@ -503,7 +506,7 @@ Apply these additional instructions when they do not conflict with the tool cont
 
       if (allToolCalls.length > 0) {
 
-        console.log("🔧 [PROCESSING TOOL CALLS]", {
+        aiDebugLog("🔧 [PROCESSING TOOL CALLS]", {
           toolCallsCount: allToolCalls.length,
           toolNames: allToolCalls.map((tc: any) => tc.toolName || tc.name).filter(Boolean),
         });
@@ -685,14 +688,14 @@ Apply these additional instructions when they do not conflict with the tool cont
         );
 
         if (replacedExistingPendingCall) {
-          console.log("♻️ [PENDING REFINED IN PLACE]", {
+          aiDebugLog("♻️ [PENDING REFINED IN PLACE]", {
             threadId: providedThreadId,
             replacedCallCount: 1,
           });
         } else if (actionFunctionCalls.length > 0) {
           const responseId = `resp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
-          console.log("💾 [SAVE FUNCTION CALLS]", {
+          aiDebugLog("💾 [SAVE FUNCTION CALLS]", {
             responseId,
             functionCallsCount: actionFunctionCalls.length,
             functionNames: actionFunctionCalls.map((fc) => fc.functionName),
@@ -707,7 +710,7 @@ Apply these additional instructions when they do not conflict with the tool cont
           });
         } else {
 
-          console.log("⚠️ [NO FUNCTION CALLS TO SAVE]", {
+          aiDebugLog("⚠️ [NO FUNCTION CALLS TO SAVE]", {
             allToolCallsCount: allToolCalls.length,
             message: "Tool calls did not generate pending items (read-only or parsing failed)",
           });
@@ -808,7 +811,7 @@ Apply these additional instructions when they do not conflict with the tool cont
 
       const responseTime = Date.now() - startTime;
 
-      console.log("📝 [UPDATE THREAD SUMMARY]", {
+      aiDebugLog("📝 [UPDATE THREAD SUMMARY]", {
         threadId: providedThreadId,
         responsePreview: fullResponse.substring(0, 50) + "...",
       });
@@ -821,7 +824,7 @@ Apply these additional instructions when they do not conflict with the tool cont
         messageCountDelta: 1,
       });
 
-      console.log("💰 [SAVE TOKEN USAGE]", {
+      aiDebugLog("💰 [SAVE TOKEN USAGE]", {
         inputTokens: tokenUsage.inputTokens,
         outputTokens: tokenUsage.outputTokens,
         totalTokens: tokenUsage.totalTokens,
@@ -850,7 +853,7 @@ Apply these additional instructions when they do not conflict with the tool cont
       });
 
       // Streaming completed
-      console.log("✅ [STREAMING COMPLETED]", {
+      aiDebugLog("✅ [STREAMING COMPLETED]", {
         threadId: providedThreadId,
         responseTimeMs: responseTime,
         success: true,

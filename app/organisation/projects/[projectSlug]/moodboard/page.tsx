@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useProject } from "@/components/providers/ProjectProvider";
 import { useMutation, useQuery } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
@@ -11,53 +11,17 @@ import { toast } from "sonner";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 
-// Mock data for demonstration - organized by rows
-const mockMoodboardRows = [
-  {
-    id: "1",
-    title: "CONCEPT",
-    images: [
-      {
-        id: "1",
-        url: "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&h=600&fit=crop",
-      },
-      {
-        id: "2",
-        url: "https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?w=600&h=400&fit=crop",
-      },
-      {
-        id: "3",
-        url: "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=400&h=500&fit=crop",
-      },
-      {
-        id: "4",
-        url: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=500&h=700&fit=crop",
-      },
-    ]
-  },
-  {
-    id: "2",
-    title: "DETAILS",
-    images: [
-      {
-        id: "5",
-        url: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=300&h=400&fit=crop",
-      },
-      {
-        id: "6",
-        url: "https://images.unsplash.com/photo-1613977257363-707ba9348227?w=600&h=500&fit=crop",
-      },
-      {
-        id: "7",
-        url: "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&h=300&fit=crop",
-      },
-      {
-        id: "8",
-        url: "https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?w=500&h=600&fit=crop",
-      },
-    ]
-  }
+const DEFAULT_MOODBOARD_ROWS = [
+  { id: "1", title: "CONCEPT" },
+  { id: "2", title: "DETAILS" },
 ];
+
+const formatMoodboardSectionLabel = (section: string) => {
+  const normalized = section.trim();
+  if (normalized === "1") return "CONCEPT";
+  if (normalized === "2") return "DETAILS";
+  return normalized.toUpperCase();
+};
 
 interface MoodboardImage {
   id: string;
@@ -67,7 +31,6 @@ interface MoodboardImage {
 interface MoodboardRow {
   id: string;
   title: string;
-  images: MoodboardImage[];
 }
 
 function MoodboardRowTitle({ title, isEditing, onEdit, onSave, onUpload, isUploading }: {
@@ -315,23 +278,81 @@ function MoodboardRow({ row, onUpdateTitle }: {
 
 export default function MoodboardPage() {
   const { project } = useProject();
-  const [rows, setRows] = useState<MoodboardRow[]>(mockMoodboardRows);
+  const savedSections = useQuery(
+    apiAny.files.getMoodboardSections,
+    project?._id ? { projectId: project._id } : "skip",
+  );
+  const [localRows, setLocalRows] = useState<MoodboardRow[]>([]);
+  const [titleOverrides, setTitleOverrides] = useState<Record<string, string>>({});
+
+  const persistedSectionIds = useMemo(
+    () => new Set(savedSections || []),
+    [savedSections],
+  );
+
+  const rows = useMemo(() => {
+    const merged: MoodboardRow[] = [];
+    const seen = new Set<string>();
+
+    for (const row of DEFAULT_MOODBOARD_ROWS) {
+      merged.push({
+        ...row,
+        title: titleOverrides[row.id] || row.title,
+      });
+      seen.add(row.id);
+    }
+
+    for (const section of savedSections || []) {
+      if (seen.has(section)) continue;
+      merged.push({
+        id: section,
+        title: titleOverrides[section] || formatMoodboardSectionLabel(section),
+      });
+      seen.add(section);
+    }
+
+    for (const row of localRows) {
+      if (seen.has(row.id)) continue;
+      merged.push({
+        ...row,
+        title: titleOverrides[row.id] || row.title,
+      });
+      seen.add(row.id);
+    }
+
+    return merged;
+  }, [localRows, savedSections, titleOverrides]);
 
   const handleUpdateTitle = (rowId: string, newTitle: string) => {
-    setRows(rows.map(row =>
-      row.id === rowId ? { ...row, title: newTitle } : row
-    ));
+    const trimmedTitle = newTitle.trim();
+    if (!trimmedTitle) return;
+
+    setLocalRows((currentRows) =>
+      currentRows.map((row) => {
+        if (row.id !== rowId) return row;
+        const canRenameSectionKey =
+          row.id !== "1" && row.id !== "2" && !persistedSectionIds.has(row.id);
+
+        return canRenameSectionKey
+          ? { id: trimmedTitle, title: trimmedTitle.toUpperCase() }
+          : { ...row, title: trimmedTitle.toUpperCase() };
+      }),
+    );
+
+    setTitleOverrides((current) => ({
+      ...current,
+      [rowId]: trimmedTitle.toUpperCase(),
+    }));
   };
 
-
-
   const handleAddRow = () => {
+    const nextIndex = rows.length + 1;
+    const sectionLabel = `SECTION ${nextIndex}`;
     const newRow: MoodboardRow = {
-      id: Date.now().toString(),
-      title: "NEW SECTION",
-      images: []
+      id: sectionLabel,
+      title: sectionLabel,
     };
-    setRows([...rows, newRow]);
+    setLocalRows((currentRows) => [...currentRows, newRow]);
   };
 
   return (

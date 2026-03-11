@@ -44,6 +44,7 @@ import {
   FolderOpen,
   DraftingCompass,
   Wallet,
+  Flag,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -121,6 +122,7 @@ function ProjectSidebarContent() {
       notificationCount: visibleNotificationCount,
     },
     { href: `/organisation/projects/${params.projectSlug}/tasks`, label: "Tasks", icon: CheckSquare, key: "tasks", group: "architecture" },
+    { href: `/organisation/projects/${params.projectSlug}/milestones`, label: "Milestones", icon: Flag, key: "milestones", group: "project" },
     { href: `/organisation/projects/${params.projectSlug}/moodboard`, label: "Moodboard", icon: Image, key: "moodboard", group: "project" },
     { href: `/organisation/projects/${params.projectSlug}/notes`, label: "Notes", icon: StickyNote, key: "notes", group: "project" },
     { href: `/organisation/projects/${params.projectSlug}/contacts`, label: "Contacts", icon: Contact, key: "contacts", group: "project" },

@@ -101,13 +101,25 @@ export const listProjectTasks = query({
       tasks.map(async (task) => {
         let assignedToName: string | undefined;
         let assignedToImageUrl: string | undefined;
+        let milestoneName: string | undefined;
         if (task.assignedTo) {
           const user = await ctx.db.query("users").withIndex("by_clerk_user_id", (q) => q.eq("clerkUserId", task.assignedTo!)).unique();
           if (user) { assignedToName = user.name; assignedToImageUrl = user.imageUrl; }
         }
+        if (task.milestoneId) {
+          const milestone = await ctx.db.get(task.milestoneId);
+          milestoneName = milestone?.name;
+        }
         const createdByUser = await ctx.db.query("users").withIndex("by_clerk_user_id", (q) => q.eq("clerkUserId", task.createdBy)).unique();
         const commentCount = (await ctx.db.query("comments").withIndex("by_task", q => q.eq("taskId", task._id)).collect()).length;
-        return { ...task, assignedToName, assignedToImageUrl, createdByName: createdByUser?.name, commentCount };
+        return {
+          ...task,
+          assignedToName,
+          assignedToImageUrl,
+          createdByName: createdByUser?.name,
+          commentCount,
+          milestoneName,
+        };
       })
     );
   },
@@ -197,6 +209,7 @@ export const listProjectTasksInternal = internalQuery({
         ),
       ),
       assignedTo: v.optional(v.union(v.string(), v.null())),
+      milestoneId: v.optional(v.union(v.id("projectMilestones"), v.null())),
       createdBy: v.string(),
       startDate: v.optional(v.number()),
       endDate: v.optional(v.number()),
@@ -247,6 +260,7 @@ export const getTaskInternal = internalQuery({
         ),
       ),
       assignedTo: v.optional(v.union(v.string(), v.null())),
+      milestoneId: v.optional(v.union(v.id("projectMilestones"), v.null())),
       createdBy: v.string(),
       startDate: v.optional(v.number()),
       endDate: v.optional(v.number()),
@@ -355,6 +369,7 @@ export const createTask = mutation({
     status: v.union(v.literal("todo"), v.literal("in_progress"), v.literal("review"), v.literal("done")),
     priority: v.optional(v.union(v.literal("low"), v.literal("medium"), v.literal("high"), v.literal("urgent"))),
     assignedTo: v.optional(v.union(v.string(), v.null())),
+    milestoneId: v.optional(v.union(v.id("projectMilestones"), v.null())),
     startDate: v.optional(v.number()),
     endDate: v.optional(v.number()),
     tags: v.optional(v.array(v.string())),
@@ -374,6 +389,7 @@ export const createTask = mutation({
       status: args.status,
       priority: args.priority,
       assignedTo: args.assignedTo,
+      milestoneId: args.milestoneId,
       createdBy: identity.subject,
       startDate: args.startDate,
       endDate: args.endDate,
@@ -404,6 +420,7 @@ export const updateTask = mutation({
     status: v.optional(v.union(v.literal("todo"), v.literal("in_progress"), v.literal("review"), v.literal("done"))),
     priority: v.optional(v.union(v.literal("low"), v.literal("medium"), v.literal("high"), v.literal("urgent"), v.null())),
     assignedTo: v.optional(v.union(v.string(), v.null())),
+    milestoneId: v.optional(v.union(v.id("projectMilestones"), v.null())),
     startDate: v.optional(v.number()),
     endDate: v.optional(v.number()),
     tags: v.optional(v.array(v.string())),

@@ -4,6 +4,7 @@ import { mutation, query, internalMutation, internalQuery } from "./_generated/s
 import { v } from "convex/values";
 import { SUBSCRIPTION_PLANS } from "./stripe";
 import { Id } from "./_generated/dataModel";
+import { aiDebugLog } from "./ai/helpers/debugLog";
 
 export const r2 = new R2(components.r2);
 
@@ -142,12 +143,12 @@ export const { generateUploadUrl, syncMetadata } = r2.clientApi({
     }
     
     // Można dodać dodatkowe sprawdzenia uprawnień
-    console.log(`User ${identity.subject} is uploading to bucket ${bucket}`);
+    aiDebugLog(`User ${identity.subject} is uploading to bucket ${bucket}`);
   },
   
   onUpload: async (_ctx, key) => {
     // Logika wykonywana po upload - możemy utworzyć rekord w bazie
-    console.log(`File uploaded with key: ${key}`);
+    aiDebugLog(`File uploaded with key: ${key}`);
   },
 });
 
@@ -911,6 +912,118 @@ export const getMoodboardImagesBySection = query({
     );
 
     return filesWithUrls;
+  },
+});
+
+export const getMoodboardSections = query({
+  args: {
+    projectId: v.id("projects"),
+  },
+  returns: v.array(v.string()),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+
+    const project = await ctx.db.get(args.projectId);
+    if (!project) return [];
+
+    const hasAccess = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
+      )
+      .unique();
+
+    if (!hasAccess || !hasAccess.isActive) return [];
+
+    const files = await ctx.db
+      .query("files")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .filter((q) => q.neq(q.field("moodboardSection"), undefined))
+      .collect();
+
+    return [...new Set(
+      files
+        .map((file) => file.moodboardSection?.trim())
+        .filter((section): section is string => Boolean(section))
+    )].sort((a, b) => a.localeCompare(b));
+  },
+});
+
+export const saveGeneratedMoodboardImageInternal = internalMutation({
+  args: {
+    projectId: v.id("projects"),
+    fileKey: v.string(),
+    fileName: v.string(),
+    mimeType: v.string(),
+    fileSize: v.optional(v.number()),
+    moodboardSection: v.string(),
+    uploadedBy: v.string(),
+    aiPrompt: v.optional(v.string()),
+    generationId: v.optional(v.id("aiGeneratedImages")),
+  },
+  returns: v.id("files"),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    const existingFile = await ctx.db
+      .query("files")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .filter((q) => q.eq(q.field("storageId"), args.fileKey))
+      .unique();
+
+    if (existingFile) {
+      if (args.generationId) {
+        await ctx.db.patch(args.generationId, { savedToFiles: true });
+      }
+      return existingFile._id;
+    }
+
+    const rootFolders = await ctx.db
+      .query("folders")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .filter((q) => q.eq(q.field("parentFolderId"), undefined))
+      .collect();
+
+    const existingMoodboardFolder = rootFolders.find(
+      (folder) => folder.name.trim().toLowerCase() === "moodboard"
+    );
+
+    const folderId =
+      existingMoodboardFolder?._id ??
+      (await ctx.db.insert("folders", {
+        name: "Moodboard",
+        teamId: project.teamId,
+        projectId: args.projectId,
+        createdBy: args.uploadedBy,
+      }));
+
+    const fileId = await ctx.db.insert("files", {
+      name: args.fileName,
+      teamId: project.teamId,
+      projectId: args.projectId,
+      folderId,
+      fileType: args.mimeType.startsWith("image/") ? "image" : "other",
+      storageId: args.fileKey,
+      size: args.fileSize || 0,
+      mimeType: args.mimeType,
+      uploadedBy: args.uploadedBy,
+      version: 1,
+      isLatest: true,
+      origin: "ai",
+      moodboardSection: args.moodboardSection.trim(),
+      aiPrompt: args.aiPrompt,
+      showInClientPortal: true,
+    });
+
+    if (args.generationId) {
+      await ctx.db.patch(args.generationId, { savedToFiles: true });
+    }
+
+    return fileId;
   },
 });
 

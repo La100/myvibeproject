@@ -7,6 +7,8 @@
  * to the language model. PDFs are handled natively by the agent via file URLs.
  */
 
+import { aiDebugLog } from "./debugLog";
+
 export const processFileForAI = async (
   file: any,
   fileUrl: string,
@@ -23,61 +25,9 @@ export const processFileForAI = async (
     file.name.endsWith(".xlsm");
 
   if (isExcelFile) {
-    console.log("📊 Processing spreadsheet for preview...");
-    try {
-      const fileResponse = await fetch(fileUrl);
-      if (!fileResponse.ok) {
-        throw new Error(`Failed to download spreadsheet: ${fileResponse.status}`);
-      }
-
-      const fileBuffer = await fileResponse.arrayBuffer();
-      const xlsxModule = await import("xlsx");
-      const XLSX = (xlsxModule as any).default ?? xlsxModule;
-      const workbook = XLSX.read(Buffer.from(fileBuffer), { type: "buffer" });
-
-      if (!workbook.SheetNames?.length) {
-        augmentedMessage = `${userMessage}\n\n📎 ATTACHED EXCEL: "${file.name}" (no sheets detected).`;
-        return augmentedMessage;
-      }
-
-      const maxSheets = 3;
-      const maxRowsPerSheet = 40;
-      const sheetSummaries = workbook.SheetNames.slice(0, maxSheets).map((sheetName: string) => {
-        const sheet = workbook.Sheets[sheetName];
-        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false }) as any[][];
-        const renderedRows = rows
-          .map((row) =>
-            (row ?? [])
-              .map((cell) =>
-                typeof cell === "string" ? cell : cell === null || cell === undefined ? "" : String(cell),
-              )
-              .join("\t"),
-          )
-          .filter((line: string) => line.trim().length > 0);
-
-        const preview = renderedRows.slice(0, maxRowsPerSheet).join("\n");
-        const truncatedRowsNotice =
-          renderedRows.length > maxRowsPerSheet
-            ? `\n...[${renderedRows.length - maxRowsPerSheet} more rows truncated]`
-            : "";
-
-        return `[Sheet: ${sheetName}]\n${preview || "(empty sheet)"}${truncatedRowsNotice}`;
-      });
-
-      const truncatedSheetNotice =
-        workbook.SheetNames.length > maxSheets
-          ? `\n...[${workbook.SheetNames.length - maxSheets} more sheet(s) truncated]`
-          : "";
-
-      augmentedMessage = `${userMessage}\n\n[EXCEL PREVIEW: ${file.name} - ${workbook.SheetNames.length} sheet(s)]\n${sheetSummaries.join(
-        "\n\n",
-      )}${truncatedSheetNotice}`;
-      return augmentedMessage;
-    } catch (error) {
-      console.error("Failed to process spreadsheet content:", error);
-      augmentedMessage = `${userMessage}\n\n📎 ATTACHED EXCEL: "${file.name}" (${file.mimeType}) — unable to read contents automatically.`;
-      return augmentedMessage;
-    }
+    aiDebugLog("📊 Spreadsheet attached for AI context:", file.name);
+    augmentedMessage = `${userMessage}\n\n📎 ATTACHED SPREADSHEET: "${file.name}" (${file.mimeType}) — spreadsheet preview is disabled in production hardening mode. Ask the user to export CSV or describe the rows they want analyzed.`;
+    return augmentedMessage;
   }
 
   // Handle text-like files
@@ -125,13 +75,13 @@ export const getFileUrl = async (
     const fileUrl = await r2.getUrl(file.storageId as string, {
       expiresIn: 60 * 60 * 2, // 2 hours
     });
-    console.log(`🔗 Generated R2 signed URL for file: ${file.name}`);
+    aiDebugLog(`🔗 Generated R2 signed URL for file: ${file.name}`);
     return fileUrl;
   } catch (error) {
     console.error("Failed to get R2 signed URL:", error);
     try {
       const fileUrl = await ctx.storage.getUrl(file.storageId);
-      console.log(`🔗 Using Convex storage URL fallback: ${file.name}`);
+      aiDebugLog(`🔗 Using Convex storage URL fallback: ${file.name}`);
       return fileUrl;
     } catch (fallbackError) {
       console.error("Both R2 and Convex storage URL generation failed:", fallbackError);

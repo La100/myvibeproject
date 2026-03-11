@@ -43,6 +43,7 @@ const taskFormSchema = z.object({
     priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
     status: z.enum(["todo", "in_progress", "review", "done"]).optional(),
     assignedTo: z.string().nullable().optional(),
+    milestoneId: z.string().nullable().optional(),
     startDate: z.date().optional(),
     endDate: z.date().optional(),
 });
@@ -53,12 +54,13 @@ interface TaskFormProps {
     projectId: Id<"projects">;
     teamId: Id<"teams">;
     teamMembers: { clerkUserId: string; name: string; }[];
+    milestones?: { _id: Id<"projectMilestones">; name: string }[];
     task?: Doc<"tasks">;
     onTaskCreated?: () => void;
     setIsOpen: (isOpen: boolean) => void;
 }
   
-export default function TaskForm({ projectId, teamId, teamMembers, task, onTaskCreated, setIsOpen }: TaskFormProps) {
+export default function TaskForm({ projectId, teamId, teamMembers, milestones = [], task, onTaskCreated, setIsOpen }: TaskFormProps) {
     const [singleDayTask, setSingleDayTask] = useState(false);
     const [isAllDay, setIsAllDay] = useState(false);
     const [startTime, setStartTime] = useState("09:00");
@@ -77,6 +79,7 @@ export default function TaskForm({ projectId, teamId, teamMembers, task, onTaskC
             priority: task.priority as TaskFormValues["priority"],
             status: task.status as TaskFormValues["status"],
             assignedTo: task.assignedTo || undefined,
+            milestoneId: task.milestoneId || undefined,
             startDate: task.startDate ? new Date(task.startDate) : undefined,
             endDate: task.endDate ? new Date(task.endDate) : undefined,
           }
@@ -86,6 +89,7 @@ export default function TaskForm({ projectId, teamId, teamMembers, task, onTaskC
             priority: undefined,
             status: "todo",
             assignedTo: "",
+            milestoneId: "",
             startDate: undefined,
             endDate: undefined,
           },
@@ -102,6 +106,7 @@ export default function TaskForm({ projectId, teamId, teamMembers, task, onTaskC
             priority: task.priority as TaskFormValues["priority"],
             status: task.status as TaskFormValues["status"],
             assignedTo: task.assignedTo || undefined,
+            milestoneId: task.milestoneId || undefined,
             startDate: startDate,
             endDate: endDate,
         });
@@ -146,6 +151,7 @@ export default function TaskForm({ projectId, teamId, teamMembers, task, onTaskC
           priority: undefined,
           status: "todo",
           assignedTo: "",
+          milestoneId: "",
           startDate: undefined,
           endDate: undefined,
         });
@@ -206,6 +212,7 @@ export default function TaskForm({ projectId, teamId, teamMembers, task, onTaskC
             priority: values.priority,
             status: values.status || "todo",
             assignedTo: values.assignedTo,
+            milestoneId: values.milestoneId || null,
             startDate: startDateTimestamp,
             endDate: endDateTimestamp,
         };
@@ -317,6 +324,31 @@ export default function TaskForm({ projectId, teamId, teamMembers, task, onTaskC
                             {teamMembers?.map((member) => (
                                 <SelectItem key={member.clerkUserId} value={member.clerkUserId}>
                                     {member.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                        </Select>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="milestoneId"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Milestone</FormLabel>
+                        <Select onValueChange={(value) => field.onChange(value === "none" ? undefined : value)} value={field.value || "none"}>
+                        <FormControl>
+                            <SelectTrigger>
+                            <SelectValue placeholder="Select milestone" />
+                            </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                            <SelectItem value="none">No milestone</SelectItem>
+                            {milestones.map((milestone) => (
+                                <SelectItem key={milestone._id} value={milestone._id}>
+                                    {milestone.name}
                                 </SelectItem>
                             ))}
                         </SelectContent>

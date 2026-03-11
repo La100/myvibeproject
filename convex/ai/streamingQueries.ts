@@ -17,6 +17,7 @@ import { paginationOptsValidator } from "convex/server";
 import { createThread, vStreamArgs, listUIMessages, syncStreams } from "@convex-dev/agent";
 import type { SyncStreamsReturnValue } from "@convex-dev/agent";
 import { ensureProjectAccess, ensureThreadAccess, requireIdentity } from "./access";
+import { aiDebugLog } from "./helpers/debugLog";
 
 /**
  * Query for useUIMessages hook - the main streaming query
@@ -139,7 +140,7 @@ export const initiateStreaming = mutation({
     success: v.boolean(),
   }),
   handler: async (ctx, args) => {
-    console.log("🎯 [MUTATION] initiateStreaming called:", {
+    aiDebugLog("🎯 [MUTATION] initiateStreaming called:", {
       hasThreadId: !!args.threadId,
       projectId: args.projectId,
       promptLength: args.prompt.length,
@@ -154,11 +155,11 @@ export const initiateStreaming = mutation({
     const identity = await requireIdentity(ctx);
     const userClerkId = identity.subject;
 
-    console.log("👤 [MUTATION] User authenticated:", userClerkId);
+    aiDebugLog("👤 [MUTATION] User authenticated:", userClerkId);
 
     const { project } = await ensureProjectAccess(ctx, args.projectId, userClerkId);
 
-    console.log("📁 [MUTATION] Project found:", {
+    aiDebugLog("📁 [MUTATION] Project found:", {
       projectName: project.name,
       teamId: project.teamId,
     });
@@ -168,13 +169,13 @@ export const initiateStreaming = mutation({
     let threadId = args.threadId?.trim();
 
     if (!threadId) {
-      console.log("🆕 [MUTATION] Creating new thread");
+      aiDebugLog("🆕 [MUTATION] Creating new thread");
       const agentThreadId = await createThread(ctx, components.agent, {
         userId: userClerkId,
         title: threadTitle,
       });
 
-      console.log("💾 [MUTATION] Inserting new thread document:", {
+      aiDebugLog("💾 [MUTATION] Inserting new thread document:", {
         agentThreadId,
         title: threadTitle,
       });
@@ -195,7 +196,7 @@ export const initiateStreaming = mutation({
 
       threadId = agentThreadId;
     } else {
-      console.log("🔄 [MUTATION] Using existing thread:", threadId);
+      aiDebugLog("🔄 [MUTATION] Using existing thread:", threadId);
       if (!threadId) {
         throw new Error("Missing thread ID");
       }
@@ -205,7 +206,7 @@ export const initiateStreaming = mutation({
       const existingThread = authorizedThread?.thread ?? null;
 
       if (!existingThread) {
-        console.log("⚠️ [MUTATION] Unknown thread ID supplied, creating a fresh thread");
+        aiDebugLog("⚠️ [MUTATION] Unknown thread ID supplied, creating a fresh thread");
         const agentThreadId = await createThread(ctx, components.agent, {
           userId: userClerkId,
           title: threadTitle,
@@ -256,7 +257,7 @@ export const initiateStreaming = mutation({
       throw new Error("Missing thread ID");
     }
 
-    console.log("📅 [MUTATION] Scheduling streaming action:", {
+    aiDebugLog("📅 [MUTATION] Scheduling streaming action:", {
       threadId,
       promptLength: args.prompt.length,
     });
@@ -275,7 +276,7 @@ export const initiateStreaming = mutation({
       openaiFiles: args.openaiFiles,
     });
 
-    console.log("✅ [MUTATION] Streaming action scheduled successfully:", threadId);
+    aiDebugLog("✅ [MUTATION] Streaming action scheduled successfully:", threadId);
 
     return {
       threadId,
@@ -301,7 +302,7 @@ export const abortStreamByOrder = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    console.log(`🛑 Abort requested for thread ${args.threadId}, order ${args.order}`);
+    aiDebugLog(`🛑 Abort requested for thread ${args.threadId}, order ${args.order}`);
 
     // Mark the thread as having an abort request
     const thread = await ctx.db
@@ -369,7 +370,7 @@ export const abortStream = mutation({
       throw new Error("Thread not found or unauthorized");
     }
 
-    console.log(`🛑 User requested abort for thread ${args.threadId}`);
+    aiDebugLog(`🛑 User requested abort for thread ${args.threadId}`);
 
     const resolvedAgentThreadId = thread.agentThreadId ?? thread.threadId;
 

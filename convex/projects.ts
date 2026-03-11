@@ -111,6 +111,7 @@ const clientPanelDisplaySettingsValidator = {
   showContacts: v.optional(v.boolean()),
   showBudget: v.optional(v.boolean()),
   showPayments: v.optional(v.boolean()),
+  showApprovals: v.optional(v.boolean()),
   showNotes: v.optional(v.boolean()),
   showSupplier: v.optional(v.boolean()),
   showPrice: v.optional(v.boolean()),
@@ -126,6 +127,7 @@ const defaultClientPanelDisplaySettings = {
   showContacts: false,
   showBudget: false,
   showPayments: false,
+  showApprovals: false,
   showNotes: true,
   showSupplier: true,
   showPrice: true,
@@ -145,6 +147,7 @@ const getResolvedClientPanelDisplaySettings = (
   showContacts: settings?.showContacts ?? defaultClientPanelDisplaySettings.showContacts,
   showBudget: settings?.showBudget ?? defaultClientPanelDisplaySettings.showBudget,
   showPayments: settings?.showPayments ?? defaultClientPanelDisplaySettings.showPayments,
+  showApprovals: settings?.showApprovals ?? defaultClientPanelDisplaySettings.showApprovals,
   showNotes: settings?.showNotes ?? defaultClientPanelDisplaySettings.showNotes,
   showSupplier: settings?.showSupplier ?? defaultClientPanelDisplaySettings.showSupplier,
   showPrice: settings?.showPrice ?? defaultClientPanelDisplaySettings.showPrice,
@@ -1073,6 +1076,19 @@ export const getClientPanelConfiguration = query({
         (item) => typeof item.comment === "string" && item.comment.trim().length > 0
       ).length,
     };
+    const approvals = await ctx.db
+      .query("projectApprovals")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+    const approvalSummary = {
+      total: approvals.length,
+      pendingCount: approvals.filter((approval) =>
+        approval.status === "sent" || approval.status === "viewed" || approval.status === "commented"
+      ).length,
+      approvedCount: approvals.filter((approval) => approval.status === "approved").length,
+      rejectedCount: approvals.filter((approval) => approval.status === "rejected").length,
+      draftCount: approvals.filter((approval) => approval.status === "draft").length,
+    };
 
     return {
       accessToken: project.clientPanelAccessToken || null,
@@ -1085,6 +1101,7 @@ export const getClientPanelConfiguration = query({
       fileCount,
       productFeedback,
       feedbackSummary,
+      approvalSummary,
     };
   },
 });

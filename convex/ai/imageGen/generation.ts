@@ -9,6 +9,10 @@ import {
   usdToCredits,
 } from "../billing";
 import { IMAGE_GENERATION_CONFIG } from "./config";
+import { aiDebugLog } from "../helpers/debugLog";
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const apiAny = require("../../_generated/api").api as any;
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
 const internalAny = require("../../_generated/api").internal as any;
 
 /**
@@ -35,6 +39,48 @@ const referenceImageValidator = v.object({
   mimeType: v.string(),
   name: v.string(),
 });
+
+const DEFAULT_MOODBOARD_SECTION_KEY = "1";
+const DEFAULT_MOODBOARD_SECTION_LABEL = "CONCEPT";
+
+const normalizeMoodboardSection = (section?: string) => {
+  const normalized = section?.trim();
+  if (!normalized) {
+    return {
+      key: DEFAULT_MOODBOARD_SECTION_KEY,
+      label: DEFAULT_MOODBOARD_SECTION_LABEL,
+    };
+  }
+
+  const lower = normalized.toLowerCase();
+  if (["1", "concept", "concepts", "inspiration"].includes(lower)) {
+    return {
+      key: DEFAULT_MOODBOARD_SECTION_KEY,
+      label: DEFAULT_MOODBOARD_SECTION_LABEL,
+    };
+  }
+
+  if (["2", "detail", "details", "materials", "finishes"].includes(lower)) {
+    return {
+      key: "2",
+      label: "DETAILS",
+    };
+  }
+
+  return {
+    key: normalized,
+    label: normalized.toUpperCase(),
+  };
+};
+
+const buildMoodboardFileName = (sectionLabel: string, mimeType?: string) => {
+  const extension = (mimeType || "image/png").split("/")[1] || "png";
+  const baseName = sectionLabel
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return `${baseName || "moodboard"}-${Date.now()}.${extension}`;
+};
 
 export const generateVisualization = action({
   args: {
@@ -211,16 +257,16 @@ export const generateVisualization = action({
 
       // Log usage information
       const usageMetadata = response.usageMetadata;
-      console.log("=== GEMINI IMAGE GENERATION (Chat Mode) ===");
-      console.log("Model:", IMAGE_GENERATION_CONFIG.MODEL_ID);
-      console.log("User prompt:", args.prompt);
-      console.log("History length:", args.history?.length || 0, "messages");
-      console.log("Reference images:", args.referenceImages?.length || 0);
-      console.log("Duration:", duration, "ms");
-      console.log("Prompt tokens:", usageMetadata?.promptTokenCount || "N/A");
-      console.log("Response tokens:", usageMetadata?.candidatesTokenCount || "N/A");
-      console.log("Total tokens:", usageMetadata?.totalTokenCount || "N/A");
-      console.log("============================================");
+      aiDebugLog("=== GEMINI IMAGE GENERATION (Chat Mode) ===");
+      aiDebugLog("Model:", IMAGE_GENERATION_CONFIG.MODEL_ID);
+      aiDebugLog("User prompt:", args.prompt);
+      aiDebugLog("History length:", args.history?.length || 0, "messages");
+      aiDebugLog("Reference images:", args.referenceImages?.length || 0);
+      aiDebugLog("Duration:", duration, "ms");
+      aiDebugLog("Prompt tokens:", usageMetadata?.promptTokenCount || "N/A");
+      aiDebugLog("Response tokens:", usageMetadata?.candidatesTokenCount || "N/A");
+      aiDebugLog("Total tokens:", usageMetadata?.totalTokenCount || "N/A");
+      aiDebugLog("============================================");
 
       if (!response.candidates || response.candidates.length === 0) {
         return {
@@ -304,8 +350,8 @@ export const generateVisualization = action({
 
       // Log image info
       const imageSizeKB = Math.round((imageBase64.length * 3) / 4 / 1024);
-      console.log("Generated image size:", imageSizeKB, "KB");
-      console.log("Image MIME type:", mimeType);
+      aiDebugLog("Generated image size:", imageSizeKB, "KB");
+      aiDebugLog("Image MIME type:", mimeType);
 
       // --- AUTO-UPLOAD TO STORAGE ---
       let imageStorageKey: string | undefined;
@@ -444,6 +490,110 @@ export const generateVisualization = action({
   },
 });
 
+export const generateMoodboardImageForAssistant = action({
+  args: {
+    prompt: v.string(),
+    projectId: v.id("projects"),
+    section: v.optional(v.string()),
+    userClerkId: v.optional(v.string()),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    imageUrl: v.optional(v.string()),
+    fileId: v.optional(v.id("files")),
+    fileName: v.optional(v.string()),
+    sectionKey: v.string(),
+    sectionLabel: v.string(),
+    model: v.string(),
+    markdown: v.optional(v.string()),
+    message: v.optional(v.string()),
+    error: v.optional(v.string()),
+  }),
+  handler: async (ctx, args): Promise<{
+    success: boolean;
+    imageUrl?: string;
+    fileId?: Id<"files">;
+    fileName?: string;
+    sectionKey: string;
+    sectionLabel: string;
+    model: string;
+    markdown?: string;
+    message?: string;
+    error?: string;
+  }> => {
+    const section = normalizeMoodboardSection(args.section);
+
+    const generation = await ctx.runAction(
+      apiAny.ai.imageGen.generation.generateVisualization,
+      {
+        prompt: args.prompt,
+        projectId: args.projectId,
+      },
+    );
+
+    if (!generation?.success) {
+      return {
+        success: false,
+        sectionKey: section.key,
+        sectionLabel: section.label,
+        model: IMAGE_GENERATION_CONFIG.MODEL_ID,
+        error: generation?.error || "Image generation failed",
+      };
+    }
+
+    if (!generation.imageStorageKey) {
+      return {
+        success: false,
+        sectionKey: section.key,
+        sectionLabel: section.label,
+        model: IMAGE_GENERATION_CONFIG.MODEL_ID,
+        error: "Generated image is missing a storage key",
+      };
+    }
+
+    const fileName = buildMoodboardFileName(section.label, generation.mimeType);
+    const imageByteSize = generation.imageBase64
+      ? Buffer.from(generation.imageBase64, "base64").length
+      : undefined;
+
+    const fileId = await ctx.runMutation(
+      internalAny.files.saveGeneratedMoodboardImageInternal,
+      {
+        projectId: args.projectId,
+        fileKey: generation.imageStorageKey,
+        fileName,
+        mimeType: generation.mimeType || "image/png",
+        fileSize: imageByteSize,
+        moodboardSection: section.key,
+        uploadedBy: args.userClerkId || "assistant",
+        aiPrompt: args.prompt,
+        generationId: generation.generationId,
+      },
+    );
+
+    const imageUrl =
+      generation.fileUrl ||
+      (await ctx.runQuery(internalAny.ai.imageGen.helpers.getFileUrl, {
+        fileKey: generation.imageStorageKey,
+      })) ||
+      undefined;
+
+    return {
+      success: true,
+      imageUrl,
+      fileId,
+      fileName,
+      sectionKey: section.key,
+      sectionLabel: section.label,
+      model: IMAGE_GENERATION_CONFIG.MODEL_ID,
+      markdown: imageUrl
+        ? `![${section.label} moodboard image](${imageUrl})`
+        : undefined,
+      message: `Saved a new image to the ${section.label} moodboard section.`,
+    };
+  },
+});
+
 /**
  * Generate upload URL for reference images (public action)
  */
@@ -524,7 +674,13 @@ export const getGallery = action({
 
     // Generate fresh URLs for all images
     const imagesWithUrls = await Promise.all(
-      images.map(async (img: any) => {
+      images.map(async (img: {
+        _id: Id<"aiGeneratedImages">;
+        _creationTime: number;
+        prompt: string;
+        storageKey?: string;
+        mimeType?: string;
+      }) => {
         let url: string | null = null;
         if (img.storageKey) {
           url = await ctx.runQuery(internalAny.ai.imageGen.helpers.getFileUrl, {

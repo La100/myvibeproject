@@ -74,6 +74,8 @@ type KanbanTask = {
   assignedTo: string | null | undefined;
   assignedToName: string | undefined;
   assignedToImageUrl: string | undefined;
+  milestoneId?: Id<"projectMilestones"> | null;
+  milestoneName?: string;
   tags: string[] | undefined;
   commentCount: number;
 };
@@ -90,6 +92,8 @@ type TaskWithDetails = {
   assignedTo?: string | null;
   assignedToName?: string;
   assignedToImageUrl?: string;
+  milestoneId?: Id<"projectMilestones"> | null;
+  milestoneName?: string;
   tags?: string[];
   commentCount: number;
 };
@@ -155,6 +159,9 @@ export default function TasksView() {
   const teamMembers = useQuery(apiAny.teams.getTeamMembers, {
     teamId: project.teamId,
   }) as TeamMemberWithUser[] | undefined;
+  const milestones = useQuery(apiAny.projectMilestones.listProjectMilestones, {
+    projectId: project._id,
+  }) as Array<{ _id: Id<"projectMilestones">; name: string }> | undefined;
 
   const tasks = useQuery(apiAny.tasks.listProjectTasks, {
     projectId: project._id,
@@ -213,6 +220,8 @@ export default function TasksView() {
     assignedTo: task.assignedTo,
     assignedToName: task.assignedToName,
     assignedToImageUrl: task.assignedToImageUrl,
+    milestoneId: task.milestoneId,
+    milestoneName: task.milestoneName,
     tags: task.tags,
     commentCount: task.commentCount,
   })) || [], [tasksToDisplay]);
@@ -372,6 +381,7 @@ export default function TasksView() {
               projectId={project._id}
               teamId={project.teamId}
               teamMembers={teamMembers || []}
+              milestones={milestones}
               setIsOpen={setIsTaskFormOpen}
               onTaskCreated={() => {
                 // Optionally refetch tasks or handle UI update
@@ -454,6 +464,11 @@ export default function TasksView() {
                       <Link href={`/organisation/projects/${params.projectSlug}/tasks/${task._id}`}>
                         {task.title}
                       </Link>
+                      {task.milestoneName ? (
+                        <div className="mt-1">
+                          <Badge variant="secondary">{task.milestoneName}</Badge>
+                        </div>
+                      ) : null}
                     </TableCell>
                     <TableCell>
                       <Badge style={{ 
@@ -555,6 +570,14 @@ function TaskCardContent({ task, projectSlug }: { task: KanbanTask, projectSlug:
       {task.description && (
         <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{task.description}</p>
       )}
+
+      {task.milestoneName ? (
+        <div className="mb-3">
+          <Badge variant="secondary" className="text-xs">
+            {task.milestoneName}
+          </Badge>
+        </div>
+      ) : null}
 
       {(task.startDate || task.endDate) && (
         <div className="flex items-center gap-1 text-xs text-muted-foreground mb-3">

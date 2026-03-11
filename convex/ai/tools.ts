@@ -266,6 +266,17 @@ export const loadFullProjectContextSchema = z.object({
   reason: z.string().optional().describe("Why you need the full context"),
 });
 
+export const generateMoodboardImageSchema = z.object({
+  prompt: z
+    .string()
+    .min(8)
+    .describe("Detailed prompt for the moodboard image to generate"),
+  section: z
+    .string()
+    .optional()
+    .describe("Moodboard section name, for example Concept, Details, Kitchen, or Materials"),
+});
+
 // ============================================
 // AI SDK TOOLS (for streaming)
 // ============================================
@@ -273,6 +284,7 @@ export const loadFullProjectContextSchema = z.object({
 // Types for tool options
 interface StreamingToolOptions {
   projectId?: string;
+  userClerkId?: string;
   runAction?: RunActionFn;
   runQuery?: RunQueryFn;
   loadSnapshot?: () => Promise<ProjectContextSnapshot>;
@@ -1047,6 +1059,39 @@ export function createStreamingTools(options?: StreamingToolOptions) {
           console.error("Error loading full project context:", error);
           return JSON.stringify({
             error: "Failed to load full project context",
+            details: (error as Error).message,
+          });
+        }
+      },
+    },
+
+    generate_moodboard_image: {
+      description: "Generate a moodboard image with the Gemini image model and save it directly to the current project's moodboard. Use this only when the user explicitly asks to create or render a moodboard image, concept image, or visual. After a successful result, reply with a short confirmation and include the returned markdown image preview.",
+      inputSchema: generateMoodboardImageSchema,
+      execute: async (args: z.infer<typeof generateMoodboardImageSchema>) => {
+        if (!options?.projectId || !options?.runAction) {
+          return JSON.stringify({
+            error: "Moodboard image generation is unavailable without active project context",
+          });
+        }
+
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+          const apiModule = require("../_generated/api") as { api: any };
+          const result = await options.runAction(
+            apiModule.api.ai.imageGen.generation.generateMoodboardImageForAssistant,
+            {
+              projectId: options.projectId as Id<"projects">,
+              prompt: args.prompt,
+              section: args.section,
+              userClerkId: options.userClerkId,
+            },
+          );
+          return JSON.stringify(result);
+        } catch (error) {
+          console.error("Failed to generate moodboard image:", error);
+          return JSON.stringify({
+            error: "Failed to generate moodboard image",
             details: (error as Error).message,
           });
         }

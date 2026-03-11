@@ -5,6 +5,7 @@ import { action } from "../../_generated/server";
 import { internal } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
 import { GoogleGenAI } from "@google/genai";
+import { aiDebugLog } from "../helpers/debugLog";
 
 /**
  * Video Generation using Google Veo 3.1 model
@@ -66,11 +67,11 @@ export const generateVideo = action({
       const ai = new GoogleGenAI({ apiKey });
       const startTime = Date.now();
 
-      console.log("=== VEO VIDEO GENERATION ===");
-      console.log("Model:", VIDEO_GENERATION_CONFIG.MODEL_ID);
-      console.log("Prompt:", args.prompt);
-      console.log("Has source image:", !!(args.sourceImageBase64 || args.sourceImageStorageKey));
-      console.log("Aspect Ratio:", args.aspectRatio || "default");
+      aiDebugLog("=== VEO VIDEO GENERATION ===");
+      aiDebugLog("Model:", VIDEO_GENERATION_CONFIG.MODEL_ID);
+      aiDebugLog("Prompt:", args.prompt);
+      aiDebugLog("Has source image:", !!(args.sourceImageBase64 || args.sourceImageStorageKey));
+      aiDebugLog("Aspect Ratio:", args.aspectRatio || "default");
 
       // Resolve source image if provided via storage key
       let imageData: { base64: string; mimeType: string } | undefined;
@@ -131,12 +132,12 @@ export const generateVideo = action({
         });
       }
 
-      console.log("Video generation started, polling for completion...");
+      aiDebugLog("Video generation started, polling for completion...");
 
       // Poll for completion
       let pollCount = 0;
       while (!operation.done && pollCount < VIDEO_GENERATION_CONFIG.MAX_POLL_ATTEMPTS) {
-        console.log(`Polling attempt ${pollCount + 1}...`);
+        aiDebugLog(`Polling attempt ${pollCount + 1}...`);
         await new Promise((resolve) => setTimeout(resolve, VIDEO_GENERATION_CONFIG.POLL_INTERVAL_MS));
         
         operation = await ai.operations.getVideosOperation({
@@ -147,7 +148,7 @@ export const generateVideo = action({
       }
 
       const duration = Date.now() - startTime;
-      console.log("Duration:", duration, "ms");
+      aiDebugLog("Duration:", duration, "ms");
 
       if (!operation.done) {
         return {
@@ -177,7 +178,7 @@ export const generateVideo = action({
       }
 
       const videoFile = generatedVideos[0].video;
-      console.log("Video generated successfully!");
+      aiDebugLog("Video generated successfully!");
 
       // Get project info for storage path
       const projectInfo: {
@@ -211,7 +212,7 @@ export const generateVideo = action({
           throw new Error("Could not find video URI in response");
         }
 
-        console.log("Fetching video from:", videoUri);
+        aiDebugLog("Fetching video from:", videoUri);
         
         // Fetch the video content from Google's servers
         // The URL requires API key authentication
@@ -229,7 +230,7 @@ export const generateVideo = action({
         const videoArrayBuffer = await videoResponse.arrayBuffer();
         const videoBuffer = Buffer.from(videoArrayBuffer);
         const videoSize = videoBuffer.length;
-        console.log("Downloaded video size:", Math.round(videoSize / 1024), "KB");
+        aiDebugLog("Downloaded video size:", Math.round(videoSize / 1024), "KB");
 
         // Upload to R2
         const uploadData: { url: string } = await ctx.runMutation(internal.ai.imageGen.helpers.generateR2UploadUrl, {
@@ -264,8 +265,8 @@ export const generateVideo = action({
           fileKey,
         });
 
-        console.log("Video uploaded to storage successfully!");
-        console.log("============================================");
+        aiDebugLog("Video uploaded to storage successfully!");
+        aiDebugLog("============================================");
 
         return {
           success: true,

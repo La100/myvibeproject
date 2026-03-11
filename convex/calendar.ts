@@ -468,7 +468,7 @@ export const getProjectCalendarData = query({
 
     const { startTimestamp, endTimestamp } = monthRangeFromKey(args.month);
 
-    const [project, allTasks, allShoppingItems, allLaborItems, allSurveys, allNotes, allEstimations] =
+    const [project, allTasks, allShoppingItems, allLaborItems, allSurveys, allNotes, allEstimations, allMilestones] =
       await Promise.all([
         ctx.db.get(args.projectId),
         ctx.db.query("tasks").withIndex("by_project", (q: any) => q.eq("projectId", args.projectId)).collect(),
@@ -482,6 +482,10 @@ export const getProjectCalendarData = query({
         ctx.db
           .query("costEstimations")
           .withIndex("by_project", (q: any) => q.eq("projectId", args.projectId))
+          .collect(),
+        ctx.db
+          .query("projectMilestones")
+          .withIndex("by_project_and_order", (q: any) => q.eq("projectId", args.projectId))
           .collect(),
       ]);
 
@@ -599,15 +603,23 @@ export const getProjectCalendarData = query({
 
     const projectMilestones: Array<{
       _id: string;
-      type: "start" | "end";
+      type:
+        | "project_start"
+        | "project_end"
+        | "planned_start"
+        | "planned_end"
+        | "actual_start"
+        | "actual_end";
       title: string;
       timestamp: number;
+      status?: "planned" | "in_progress" | "at_risk" | "blocked" | "completed";
+      color?: string;
     }> = [];
 
     if (project?.startDate && project.startDate >= startTimestamp && project.startDate <= endTimestamp) {
       projectMilestones.push({
         _id: `${project._id}-start`,
-        type: "start",
+        type: "project_start",
         title: "Project start",
         timestamp: project.startDate,
       });
@@ -616,10 +628,56 @@ export const getProjectCalendarData = query({
     if (project?.endDate && project.endDate >= startTimestamp && project.endDate <= endTimestamp) {
       projectMilestones.push({
         _id: `${project._id}-end`,
-        type: "end",
+        type: "project_end",
         title: "Project deadline",
         timestamp: project.endDate,
       });
+    }
+
+    for (const milestone of allMilestones) {
+      const milestoneDates = [
+        {
+          key: "planned-start",
+          type: "planned_start" as const,
+          label: `${milestone.name} planned start`,
+          timestamp: milestone.plannedStartDate,
+        },
+        {
+          key: "planned-end",
+          type: "planned_end" as const,
+          label: `${milestone.name} deadline`,
+          timestamp: milestone.plannedEndDate,
+        },
+        {
+          key: "actual-start",
+          type: "actual_start" as const,
+          label: `${milestone.name} actual start`,
+          timestamp: milestone.actualStartDate,
+        },
+        {
+          key: "actual-end",
+          type: "actual_end" as const,
+          label: `${milestone.name} completed`,
+          timestamp: milestone.actualEndDate,
+        },
+      ];
+
+      for (const milestoneDate of milestoneDates) {
+        if (
+          typeof milestoneDate.timestamp === "number" &&
+          milestoneDate.timestamp >= startTimestamp &&
+          milestoneDate.timestamp <= endTimestamp
+        ) {
+          projectMilestones.push({
+            _id: `${milestone._id}-${milestoneDate.key}`,
+            type: milestoneDate.type,
+            title: milestoneDate.label,
+            timestamp: milestoneDate.timestamp,
+            status: milestone.status,
+            color: milestone.color,
+          });
+        }
+      }
     }
 
     return {
