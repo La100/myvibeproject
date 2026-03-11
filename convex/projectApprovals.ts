@@ -1,6 +1,15 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
+import {
+  buildApprovalDecisionArtifacts,
+  buildApprovalSummary,
+  buildApprovalUpdateArtifacts,
+  buildApprovalVersionRecord,
+  buildApprovalViewedPatch,
+  buildCreateApprovalRecord,
+  filterVisibleApprovals,
+} from "../lib/projectApprovals";
 const internalAny = require("./_generated/api").internal as any;
 
 const approvalTypeValidator = v.union(
@@ -85,20 +94,25 @@ const createVersion = async (
     createdBy: string;
   },
 ) =>
-  await ctx.db.insert("projectApprovalVersions", {
-    approvalId: args.approvalId,
-    projectId: args.projectId,
-    teamId: args.teamId,
-    version: args.version,
-    title: args.title,
-    summary: args.summary,
-    details: args.details,
-    items: args.items,
-    referenceIds: args.referenceIds,
-    dueDate: args.dueDate,
-    createdBy: args.createdBy,
-    createdAt: Date.now(),
-  });
+  await ctx.db.insert(
+    "projectApprovalVersions",
+    buildApprovalVersionRecord(
+      {
+        approvalId: String(args.approvalId),
+        projectId: String(args.projectId),
+        teamId: String(args.teamId),
+        version: args.version,
+        title: args.title,
+        summary: args.summary,
+        details: args.details,
+        items: args.items,
+        referenceIds: args.referenceIds,
+        dueDate: args.dueDate,
+        createdBy: args.createdBy,
+      },
+      Date.now(),
+    ) as any,
+  );
 
 export const listProjectApprovals = query({
   args: {
@@ -127,13 +141,7 @@ export const listProjectApprovals = query({
 
     return {
       items,
-      summary: {
-        total: items.length,
-        pending: items.filter((item) => ["sent", "viewed", "commented"].includes(item.status)).length,
-        approved: items.filter((item) => item.status === "approved").length,
-        rejected: items.filter((item) => item.status === "rejected").length,
-        drafts: items.filter((item) => item.status === "draft").length,
-      },
+      summary: buildApprovalSummary(items),
     };
   },
 });
@@ -159,37 +167,36 @@ export const createProjectApproval = mutation({
 
     const { project } = await getProjectMembership(ctx, args.projectId, identity.subject);
     const now = Date.now();
-    const title = args.title.trim();
-
-    const approvalId = await ctx.db.insert("projectApprovals", {
-      projectId: args.projectId,
-      teamId: project.teamId,
-      type: args.type,
-      title,
-      description: args.description?.trim() || undefined,
-      status: args.sendNow ? "sent" : "draft",
-      dueDate: args.dueDate ?? undefined,
-      currentVersion: 1,
-      requesterUserId: identity.subject,
-      sentAt: args.sendNow ? now : undefined,
-      latestVersionSummary: args.summary?.trim() || undefined,
-      latestVersionDetails: args.details?.trim() || undefined,
-      latestVersionItems: args.items?.filter(Boolean) || undefined,
-      latestVersionReferenceIds: args.referenceIds?.filter(Boolean) || undefined,
-      updatedAt: now,
-    });
+    const approvalRecord = buildCreateApprovalRecord(
+      {
+        projectId: String(args.projectId),
+        teamId: String(project.teamId),
+        type: args.type,
+        title: args.title,
+        description: args.description,
+        summary: args.summary,
+        details: args.details,
+        items: args.items,
+        referenceIds: args.referenceIds,
+        dueDate: args.dueDate,
+        sendNow: args.sendNow,
+        requesterUserId: identity.subject,
+      },
+      now,
+    );
+    const approvalId = await ctx.db.insert("projectApprovals", approvalRecord as any);
 
     await createVersion(ctx, {
       approvalId,
       projectId: args.projectId,
       teamId: project.teamId,
       version: 1,
-      title,
-      summary: args.summary?.trim() || undefined,
-      details: args.details?.trim() || undefined,
-      items: args.items?.filter(Boolean) || undefined,
-      referenceIds: args.referenceIds?.filter(Boolean) || undefined,
-      dueDate: args.dueDate ?? undefined,
+      title: approvalRecord.title,
+      summary: approvalRecord.latestVersionSummary,
+      details: approvalRecord.latestVersionDetails,
+      items: approvalRecord.latestVersionItems,
+      referenceIds: approvalRecord.latestVersionReferenceIds,
+      dueDate: approvalRecord.dueDate,
       createdBy: identity.subject,
     });
 
@@ -197,7 +204,7 @@ export const createProjectApproval = mutation({
       teamId: project.teamId,
       projectId: args.projectId,
       actionType: "approval.create",
-      details: { title, type: args.type, sent: Boolean(args.sendNow) },
+      details: { title: approvalRecord.title, type: args.type, sent: Boolean(args.sendNow) },
       entityId: String(approvalId),
       entityType: "approval",
     });
@@ -232,65 +239,40 @@ export const updateProjectApproval = mutation({
 
     const { project } = await getProjectMembership(ctx, approval.projectId, identity.subject);
     const version = await getCurrentVersion(ctx, approval);
-    const nextVersion = approval.currentVersion + 1;
-    const nextTitle = args.title?.trim() || approval.title;
-    const nextSummary =
-      args.summary !== undefined ? args.summary?.trim() || undefined : approval.latestVersionSummary;
-    const nextDetails =
-      args.details !== undefined ? args.details?.trim() || undefined : approval.latestVersionDetails;
-    const nextItems = args.items !== undefined ? args.items.filter(Boolean) : approval.latestVersionItems;
-    const nextReferenceIds =
-      args.referenceIds !== undefined ? args.referenceIds.filter(Boolean) : approval.latestVersionReferenceIds;
-    const nextDueDate = args.dueDate !== undefined ? args.dueDate ?? undefined : approval.dueDate;
-    const nextStatus = args.sendNow ? "sent" : "draft";
     const now = Date.now();
+    const artifacts = buildApprovalUpdateArtifacts(
+      {
+        ...approval,
+        _id: String(approval._id),
+      },
+      args,
+      now,
+    );
 
     await createVersion(ctx, {
       approvalId: args.approvalId,
       projectId: approval.projectId,
       teamId: approval.teamId,
-      version: nextVersion,
-      title: nextTitle,
-      summary: nextSummary,
-      details: nextDetails,
-      items: nextItems,
-      referenceIds: nextReferenceIds,
-      dueDate: nextDueDate,
+      version: artifacts.versionRecord.version,
+      title: artifacts.versionRecord.title,
+      summary: artifacts.versionRecord.summary,
+      details: artifacts.versionRecord.details,
+      items: artifacts.versionRecord.items,
+      referenceIds: artifacts.versionRecord.referenceIds,
+      dueDate: artifacts.versionRecord.dueDate,
       createdBy: identity.subject,
     });
 
-    await ctx.db.patch(args.approvalId, {
-      type: args.type ?? approval.type,
-      title: nextTitle,
-      description:
-        args.description !== undefined ? args.description?.trim() || undefined : approval.description,
-      dueDate: nextDueDate,
-      currentVersion: nextVersion,
-      status: nextStatus,
-      sentAt: args.sendNow ? now : approval.sentAt,
-      viewedAt: undefined,
-      decidedAt: undefined,
-      lastCommentAt: undefined,
-      clientDecision: undefined,
-      clientComment: undefined,
-      clientRespondentName: undefined,
-      clientRespondentKey: undefined,
-      resolvedVersion: undefined,
-      latestVersionSummary: nextSummary,
-      latestVersionDetails: nextDetails,
-      latestVersionItems: nextItems,
-      latestVersionReferenceIds: nextReferenceIds,
-      updatedAt: now,
-    });
+    await ctx.db.patch(args.approvalId, artifacts.patch);
 
     await ctx.runMutation(internalAny.activityLog.logActivity, {
       teamId: project.teamId,
       projectId: approval.projectId,
       actionType: "approval.update",
       details: {
-        title: nextTitle,
+        title: artifacts.patch.title,
         previousVersion: version?.version || approval.currentVersion,
-        currentVersion: nextVersion,
+        currentVersion: artifacts.versionRecord.version,
         sent: Boolean(args.sendNow),
       },
       entityId: String(args.approvalId),
@@ -361,7 +343,7 @@ export const getPublicProjectApprovalsByAccessToken = query({
       .order("desc")
       .collect();
 
-    const visibleApprovals = approvals.filter((approval) => approval.status !== "draft");
+    const visibleApprovals = filterVisibleApprovals(approvals);
 
     return {
       approvals: await Promise.all(
@@ -400,13 +382,17 @@ export const markProjectApprovalViewedByAccessToken = mutation({
       throw new Error("Approval not found");
     }
 
-    if (approval.status === "sent") {
-      await ctx.db.patch(args.approvalId, {
-        status: "viewed",
-        viewedAt: approval.viewedAt || Date.now(),
-        updatedAt: Date.now(),
-        clientRespondentName: args.respondentName?.trim() || approval.clientRespondentName,
-      });
+    const patch = buildApprovalViewedPatch(
+      {
+        ...approval,
+        _id: String(approval._id),
+      },
+      args.respondentName,
+      Date.now(),
+    );
+
+    if (patch) {
+      await ctx.db.patch(args.approvalId, patch);
     }
 
     return { success: true };
@@ -443,41 +429,32 @@ export const respondToProjectApprovalByAccessToken = mutation({
     }
 
     const now = Date.now();
-    const nextStatus = args.decision === "approved" ? "approved" : "rejected";
-    const normalizedComment = args.comment?.trim() || undefined;
+    const artifacts = buildApprovalDecisionArtifacts(
+      {
+        ...approval,
+        _id: String(approval._id),
+      },
+      {
+        decision: args.decision,
+        comment: args.comment,
+        respondentName: args.respondentName,
+        respondentKey: args.respondentKey,
+      },
+      now,
+    );
 
-    await ctx.db.patch(args.approvalId, {
-      status: nextStatus,
-      viewedAt: approval.viewedAt || now,
-      decidedAt: now,
-      lastCommentAt: normalizedComment ? now : approval.lastCommentAt,
-      clientDecision: args.decision,
-      clientComment: normalizedComment,
-      clientRespondentName: args.respondentName?.trim() || approval.clientRespondentName,
-      clientRespondentKey: args.respondentKey?.trim() || approval.clientRespondentKey,
-      resolvedVersion: approval.currentVersion,
-      updatedAt: now,
-    });
+    await ctx.db.patch(args.approvalId, artifacts.patch);
 
     await ctx.db.insert("activityLog", {
       teamId: project.teamId,
       projectId: project._id,
-      userId: args.respondentKey?.trim() || "client_portal",
-      actionType: "approval.client_decision",
-      details: {
-        title: approval.title,
-        decision: args.decision,
-        comment: normalizedComment || null,
-        respondentName: args.respondentName?.trim() || null,
-      },
+      userId: artifacts.activity.userId,
+      actionType: artifacts.activity.actionType,
+      details: artifacts.activity.details,
       entityId: String(args.approvalId),
       entityType: "approval",
     });
 
-    return {
-      success: true,
-      status: nextStatus,
-      decidedAt: now,
-    };
+    return artifacts.response;
   },
 });

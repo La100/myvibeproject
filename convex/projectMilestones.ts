@@ -1,6 +1,14 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { Doc, Id } from "./_generated/dataModel";
+import { Id } from "./_generated/dataModel";
+import {
+  buildCreateMilestoneRecord,
+  buildMilestonePatch,
+  buildMilestoneViewModel,
+  buildProjectMilestonesSummary,
+  getMilestoneTaskUpdates,
+  sortMilestones,
+} from "../lib/projectMilestones";
 const internalAny = require("./_generated/api").internal as any;
 
 const milestoneStatusValidator = v.union(
@@ -55,14 +63,6 @@ const resolveMilestoneOwner = async (ctx: any, ownerClerkUserId?: string | null)
   };
 };
 
-const sortMilestones = (milestones: Array<Doc<"projectMilestones">>) =>
-  [...milestones].sort((left, right) => {
-    if (left.order !== right.order) {
-      return left.order - right.order;
-    }
-    return left._creationTime - right._creationTime;
-  });
-
 export const listProjectMilestones = query({
   args: {
     projectId: v.id("projects"),
@@ -87,38 +87,21 @@ export const listProjectMilestones = query({
 
     return await Promise.all(
       orderedMilestones.map(async (milestone) => {
-        const linkedTasks = tasks.filter((task) => task.milestoneId === milestone._id);
-        const completedTasks = linkedTasks.filter((task) => task.status === "done");
         const owner = await resolveMilestoneOwner(ctx, milestone.ownerClerkUserId ?? null);
-        const plannedEndDate = milestone.plannedEndDate ?? null;
-        const isOverdue =
-          milestone.status !== "completed" &&
-          typeof plannedEndDate === "number" &&
-          plannedEndDate < Date.now();
 
-        return {
-          ...milestone,
+        return buildMilestoneViewModel(
+          {
+            ...milestone,
+            _id: String(milestone._id),
+          },
+          tasks.map((task) => ({
+            ...task,
+            _id: String(task._id),
+            milestoneId: task.milestoneId ? String(task.milestoneId) : null,
+          })),
           owner,
-          taskCount: linkedTasks.length,
-          completedTaskCount: completedTasks.length,
-          openTaskCount: linkedTasks.length - completedTasks.length,
-          tasks: linkedTasks
-            .sort((left, right) => {
-              const leftDate = left.endDate || left.startDate || Number.MAX_SAFE_INTEGER;
-              const rightDate = right.endDate || right.startDate || Number.MAX_SAFE_INTEGER;
-              if (leftDate !== rightDate) return leftDate - rightDate;
-              return left.title.localeCompare(right.title);
-            })
-            .map((task) => ({
-              _id: task._id,
-              title: task.title,
-              status: task.status,
-              priority: task.priority ?? null,
-              endDate: task.endDate,
-              assignedTo: task.assignedTo ?? null,
-            })),
-          isOverdue,
-        };
+          Date.now(),
+        );
       }),
     );
   },
@@ -141,40 +124,15 @@ export const getProjectMilestonesSummary = query({
       ctx.db.query("tasks").withIndex("by_project", (q) => q.eq("projectId", args.projectId)).collect(),
     ]);
 
-    if (milestones.length === 0) {
-      return {
-        total: 0,
-        completed: 0,
-        atRisk: 0,
-        blocked: 0,
-        progress: 0,
-        nextMilestone: null,
-      };
-    }
-
-    const orderedMilestones = sortMilestones(milestones);
-    const completed = orderedMilestones.filter((milestone) => milestone.status === "completed").length;
-    const atRisk = orderedMilestones.filter((milestone) => milestone.status === "at_risk").length;
-    const blocked = orderedMilestones.filter((milestone) => milestone.status === "blocked").length;
-    const nextMilestone = orderedMilestones.find((milestone) => milestone.status !== "completed") || null;
-    const aggregateProgress = Math.round(
-      orderedMilestones.reduce((sum, milestone) => sum + Math.max(0, Math.min(100, milestone.progress || 0)), 0) /
-        Math.max(orderedMilestones.length, 1),
+    return buildProjectMilestonesSummary(
+      milestones.map((milestone) => ({
+        ...milestone,
+        _id: String(milestone._id),
+      })),
+      tasks.map((task) => ({
+        milestoneId: task.milestoneId ? String(task.milestoneId) : null,
+      })),
     );
-
-    return {
-      total: orderedMilestones.length,
-      completed,
-      atRisk,
-      blocked,
-      progress: aggregateProgress,
-      nextMilestone: nextMilestone
-        ? {
-            ...nextMilestone,
-            taskCount: tasks.filter((task) => task.milestoneId === nextMilestone._id).length,
-          }
-        : null,
-    };
   },
 });
 
@@ -209,25 +167,30 @@ export const createProjectMilestone = mutation({
 
     const order =
       milestones.length > 0 ? Math.max(...milestones.map((milestone) => milestone.order)) + 1 : 0;
-    const milestoneId = await ctx.db.insert("projectMilestones", {
-      projectId: args.projectId,
-      teamId: project.teamId,
-      name: args.name.trim(),
-      description: args.description?.trim() || undefined,
-      order,
-      status: args.status || "planned",
-      ownerClerkUserId: args.ownerClerkUserId ?? undefined,
-      plannedStartDate: args.plannedStartDate ?? undefined,
-      plannedEndDate: args.plannedEndDate ?? undefined,
-      actualStartDate: args.actualStartDate ?? undefined,
-      actualEndDate: args.actualEndDate ?? undefined,
-      progress: Math.max(0, Math.min(100, Math.round(args.progress ?? 0))),
-      blockedReason: args.blockedReason?.trim() || undefined,
-      budgetAmount: args.budgetAmount ?? undefined,
-      color: args.color?.trim() || undefined,
-      createdBy: identity.subject,
-      updatedAt: Date.now(),
-    });
+    const milestoneId = await ctx.db.insert(
+      "projectMilestones",
+      buildCreateMilestoneRecord(
+        {
+          projectId: String(args.projectId),
+          teamId: String(project.teamId),
+          name: args.name,
+          description: args.description,
+          order,
+          status: args.status,
+          ownerClerkUserId: args.ownerClerkUserId,
+          plannedStartDate: args.plannedStartDate,
+          plannedEndDate: args.plannedEndDate,
+          actualStartDate: args.actualStartDate,
+          actualEndDate: args.actualEndDate,
+          progress: args.progress,
+          blockedReason: args.blockedReason,
+          budgetAmount: args.budgetAmount,
+          color: args.color,
+          createdBy: identity.subject,
+        },
+        Date.now(),
+      ) as any,
+    );
 
     if (args.taskIds?.length) {
       for (const taskId of args.taskIds) {
@@ -282,44 +245,7 @@ export const updateProjectMilestone = mutation({
     }
 
     const { project } = await getProjectMembership(ctx, milestone.projectId, identity.subject);
-    const patch: Record<string, unknown> = { updatedAt: Date.now() };
-
-    if (args.name !== undefined) {
-      patch.name = args.name.trim();
-    }
-    if (args.description !== undefined) {
-      patch.description = args.description?.trim() || undefined;
-    }
-    if (args.status !== undefined) {
-      patch.status = args.status;
-    }
-    if (args.ownerClerkUserId !== undefined) {
-      patch.ownerClerkUserId = args.ownerClerkUserId ?? undefined;
-    }
-    if (args.plannedStartDate !== undefined) {
-      patch.plannedStartDate = args.plannedStartDate ?? undefined;
-    }
-    if (args.plannedEndDate !== undefined) {
-      patch.plannedEndDate = args.plannedEndDate ?? undefined;
-    }
-    if (args.actualStartDate !== undefined) {
-      patch.actualStartDate = args.actualStartDate ?? undefined;
-    }
-    if (args.actualEndDate !== undefined) {
-      patch.actualEndDate = args.actualEndDate ?? undefined;
-    }
-    if (args.progress !== undefined) {
-      patch.progress = Math.max(0, Math.min(100, Math.round(args.progress)));
-    }
-    if (args.blockedReason !== undefined) {
-      patch.blockedReason = args.blockedReason?.trim() || undefined;
-    }
-    if (args.budgetAmount !== undefined) {
-      patch.budgetAmount = args.budgetAmount ?? undefined;
-    }
-    if (args.color !== undefined) {
-      patch.color = args.color?.trim() || undefined;
-    }
+    const patch = buildMilestonePatch(args, Date.now());
 
     await ctx.db.patch(args.milestoneId, patch);
 
@@ -329,20 +255,18 @@ export const updateProjectMilestone = mutation({
         .withIndex("by_project", (q) => q.eq("projectId", milestone.projectId))
         .collect();
 
-      const desiredTaskIds = new Set(args.taskIds.map((taskId) => String(taskId)));
+      const updates = getMilestoneTaskUpdates(
+        projectTasks.map((task) => ({
+          _id: String(task._id),
+          milestoneId: task.milestoneId ? String(task.milestoneId) : null,
+        })),
+        String(args.milestoneId),
+        args.taskIds.map(String),
+        Date.now(),
+      );
 
-      for (const task of projectTasks) {
-        if (task.milestoneId === args.milestoneId && !desiredTaskIds.has(String(task._id))) {
-          await ctx.db.patch(task._id, {
-            milestoneId: null,
-            updatedAt: Date.now(),
-          });
-        } else if (desiredTaskIds.has(String(task._id)) && task.milestoneId !== args.milestoneId) {
-          await ctx.db.patch(task._id, {
-            milestoneId: args.milestoneId,
-            updatedAt: Date.now(),
-          });
-        }
+      for (const update of updates) {
+        await ctx.db.patch(update.taskId as any, update.patch);
       }
     }
 

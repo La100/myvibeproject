@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
+import { summarizeProjectBudget } from "../lib/projectBudgetSummary";
 
 const getProjectMembership = async (ctx: any, projectId: Id<"projects">, clerkUserId: string) => {
   const project = await ctx.db.get(projectId);
@@ -45,97 +46,21 @@ const buildProjectBudgetSummary = async (
     ctx.db.query("projectMilestones").withIndex("by_project", (q: any) => q.eq("projectId", project._id)).collect(),
   ]);
 
-  const shoppingPlanned = shoppingItems.reduce((sum: number, item: any) => sum + (item.totalPrice || 0), 0);
-  const shoppingCommitted = shoppingItems
-    .filter((item: any) => item.realizationStatus !== "PLANNED" && item.realizationStatus !== "CANCELLED")
-    .reduce((sum: number, item: any) => sum + (item.totalPrice || 0), 0);
-  const shoppingActual = shoppingItems
-    .filter((item: any) => item.realizationStatus === "DELIVERED" || item.realizationStatus === "COMPLETED")
-    .reduce((sum: number, item: any) => sum + (item.totalPrice || 0), 0);
-
-  const now = Date.now();
-  const laborPlanned = laborItems.reduce((sum: number, item: any) => sum + (item.totalPrice || 0), 0);
-  const laborCommitted = laborItems
-    .filter((item: any) => typeof item.startDate === "number" || typeof item.endDate === "number")
-    .reduce((sum: number, item: any) => sum + (item.totalPrice || 0), 0);
-  const laborActual = laborItems
-    .filter((item: any) => typeof item.endDate === "number" && item.endDate <= now)
-    .reduce((sum: number, item: any) => sum + (item.totalPrice || 0), 0);
-
-  const plannedCost = shoppingPlanned + laborPlanned;
-  const committedCost = shoppingCommitted + laborCommitted;
-  const actualCost = shoppingActual + laborActual;
-  const budget = project.budget || 0;
-  const variance = budget - actualCost;
-  const projectedVariance = budget - plannedCost;
-
-  const acceptedEstimations = estimations.filter((estimation: any) => estimation.status === "accepted");
-  const sentEstimations = estimations.filter((estimation: any) => estimation.status === "sent");
-  const acceptedRevenue = acceptedEstimations.reduce(
-    (sum: number, estimation: any) => sum + (estimation.grossTotal || estimation.netTotal || 0),
-    0,
-  );
-  const pipelineRevenue = sentEstimations.reduce(
-    (sum: number, estimation: any) => sum + (estimation.grossTotal || estimation.netTotal || 0),
-    0,
-  );
-
-  const visiblePayments = payments.filter((payment: any) => payment.status !== "void");
-  const scheduledRevenue = visiblePayments.reduce((sum: number, payment: any) => sum + payment.amount, 0);
-  const collectedRevenue = visiblePayments
-    .filter((payment: any) => payment.status === "paid")
-    .reduce((sum: number, payment: any) => sum + payment.amount, 0);
-  const outstandingRevenue = visiblePayments
-    .filter((payment: any) => payment.status === "draft" || payment.status === "open")
-    .reduce((sum: number, payment: any) => sum + payment.amount, 0);
-
-  const milestoneBudget = milestones.reduce((sum: number, milestone: any) => sum + (milestone.budgetAmount || 0), 0);
-
-  return {
-    currency: project.currency || "PLN",
-    budget,
-    plannedCost,
-    committedCost,
-    actualCost,
-    variance,
-    projectedVariance,
-    utilizationPercent: budget > 0 ? Math.round((actualCost / budget) * 100) : null,
-    projectedUtilizationPercent: budget > 0 ? Math.round((plannedCost / budget) * 100) : null,
-    breakdown: {
-      shopping: {
-        planned: shoppingPlanned,
-        committed: shoppingCommitted,
-        actual: shoppingActual,
+  return summarizeProjectBudget(
+    {
+      project: {
+        _id: String(project._id),
+        budget: project.budget,
+        currency: project.currency,
       },
-      labor: {
-        planned: laborPlanned,
-        committed: laborCommitted,
-        actual: laborActual,
-      },
+      shoppingItems,
+      laborItems,
+      estimations,
+      payments,
+      milestones,
     },
-    revenue: {
-      acceptedEstimations: acceptedRevenue,
-      pipelineEstimations: pipelineRevenue,
-      scheduledPayments: scheduledRevenue,
-      collectedPayments: collectedRevenue,
-      outstandingPayments: outstandingRevenue,
-    },
-    milestones: {
-      count: milestones.length,
-      budgetAllocated: milestoneBudget,
-    },
-    alerts: [
-      budget > 0 && actualCost > budget
-        ? { severity: "high", label: "Actual cost exceeds budget" }
-        : null,
-      budget > 0 && plannedCost > budget
-        ? { severity: "medium", label: "Projected cost exceeds budget" }
-        : null,
-      outstandingRevenue > 0 && collectedRevenue < actualCost
-        ? { severity: "medium", label: "Collected payments are below current actual cost" }
-        : null,
-    ].filter(Boolean),
-  };
+    Date.now(),
+  );
 };
 
 export const getProjectBudgetSummary = query({
