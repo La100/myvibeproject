@@ -42,7 +42,7 @@ export const SUBSCRIPTION_PLANS = {
     hasAdvancedFeatures: true,
     hasAIFeatures: true,
     price: 39,
-    aiMonthlyTokens: 5000000, // 5M tokens monthly
+    aiMonthlyTokens: 2340000, // 60k credits per $1
   },
   ai_scale: {
     id: "ai_scale",
@@ -53,7 +53,7 @@ export const SUBSCRIPTION_PLANS = {
     hasAdvancedFeatures: true,
     hasAIFeatures: true,
     price: 99,
-    aiMonthlyTokens: 25000000, // 25M tokens monthly
+    aiMonthlyTokens: 5940000, // 60k credits per $1
   },
   pro: {
     id: "pro",
@@ -64,7 +64,7 @@ export const SUBSCRIPTION_PLANS = {
     hasAdvancedFeatures: true,
     hasAIFeatures: true,
     price: 49,
-    aiMonthlyTokens: 5000000, // 5M tokens (same as AI Pro)
+    aiMonthlyTokens: 2940000, // 60k credits per $1
   },
   enterprise: {
     id: "enterprise",
@@ -75,7 +75,7 @@ export const SUBSCRIPTION_PLANS = {
     hasAdvancedFeatures: true,
     hasAIFeatures: true,
     price: 199,
-    aiMonthlyTokens: 12500000, // 12.5M tokens monthly
+    aiMonthlyTokens: 11940000, // 60k credits per $1
   },
 } as const;
 

@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState } from 'react';
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
 import { useOrganization } from "@clerk/nextjs";
 import { apiAny } from "@/lib/convexApiAny";
@@ -17,12 +19,12 @@ import {
 } from "@/components/ui/select";
 import { Search, Plus, Grid, List, Package, ShoppingCart } from "lucide-react";
 import { ProductModal } from "./components/ProductModal";
-import { AddProductModal } from "./components/AddProductModal";
 import { AddToProjectModal } from "./components/AddToProjectModal";
 import { formatCurrency } from "@/lib/utils";
 import { EmptyState } from "@/components/ui/empty-state";
 
 export default function ProductLibraryPage() {
+  const router = useRouter();
   const { organization } = useOrganization();
   const team = useQuery(
     apiAny.teams.getTeamByClerkOrg,
@@ -33,7 +35,6 @@ export default function ProductLibraryPage() {
   const [selectedSupplier, setSelectedSupplier] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectedProduct, setSelectedProduct] = useState<{ _id: string; name: string; brand?: string; model?: string; sku?: string; supplierSku?: string; dimensions?: string; weight?: number; material?: string; color?: string; unitPrice?: number; supplier?: string; category?: string; tags: string[]; description?: string; notes?: string; creatorName?: string; _creationTime: number; imageUrl?: string; productLink?: string; } | null>(null);
-  const [showAddModal, setShowAddModal] = useState(false);
   const [showAddToProjectModal, setShowAddToProjectModal] = useState<{ _id: string; name: string; brand?: string; imageUrl?: string; } | null>(null);
 
   // Queries
@@ -126,9 +127,11 @@ export default function ProductLibraryPage() {
           <Package className="h-6 w-6" />
           <h1 className="text-2xl font-bold">Product Library</h1>
         </div>
-        <Button onClick={() => setShowAddModal(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Product
+        <Button asChild>
+          <Link href="/organisation/product-library/new">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Product
+          </Link>
         </Button>
       </div>
 
@@ -207,7 +210,7 @@ export default function ProductLibraryPage() {
             description="Add products once, then access them across Programa without repetitive data entry"
             action={{
               label: "Add a Product",
-              onClick: () => setShowAddModal(true),
+              onClick: () => router.push("/organisation/product-library/new"),
               icon: Plus,
             }}
           />
@@ -230,14 +233,6 @@ export default function ProductLibraryPage() {
           product={selectedProduct}
           onClose={() => setSelectedProduct(null)}
           teamCurrency={team?.currency || 'USD'}
-          teamId={team._id}
-        />
-      )}
-
-      {/* Add Product Modal */}
-      {showAddModal && team && (
-        <AddProductModal
-          onClose={() => setShowAddModal(false)}
           teamId={team._id}
         />
       )}

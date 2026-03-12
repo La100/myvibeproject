@@ -2,17 +2,17 @@
 
 export const INTERNAL_CREDIT_COST_PER_1M_USD = 5;
 
-export const GPT_INPUT_COST_PER_1M = 1.75;
-export const GPT_OUTPUT_COST_PER_1M = 14.0;
+export const GPT_INPUT_COST_PER_1M = 2.5;
+export const GPT_OUTPUT_COST_PER_1M = 15.0;
 
 export const GEMINI_FLASH_IMAGE_INPUT_COST_PER_1M = 0.3;
 export const GEMINI_FLASH_IMAGE_OUTPUT_COST_PER_1M = 30.0;
 export const GEMINI_FLASH_IMAGE_TYPICAL_OUTPUT_TOKENS = 1290;
 
-export const AI_PRO_MONTHLY_TOKENS = 5000000;
-export const AI_SCALE_MONTHLY_TOKENS = 25000000;
-export const PRO_MONTHLY_TOKENS = 5000000;
-export const ENTERPRISE_MONTHLY_TOKENS = 12500000;
+export const AI_PRO_MONTHLY_TOKENS = 2340000;
+export const AI_SCALE_MONTHLY_TOKENS = 5940000;
+export const PRO_MONTHLY_TOKENS = 2940000;
+export const ENTERPRISE_MONTHLY_TOKENS = 11940000;
 
 export const usdToCredits = (usd: number): number => {
   if (!Number.isFinite(usd) || usd <= 0) {

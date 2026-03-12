@@ -178,7 +178,7 @@ function UserAttachmentPreview({
   };
   localAttachments?: Array<{
     name: string;
-    size: number;
+    size?: number;
     type: string;
     previewUrl?: string;
   }>;
@@ -209,9 +209,11 @@ function UserAttachmentPreview({
               <span className="text-xs font-medium max-w-[120px] truncate">
                 {attachment.name}
               </span>
-              <span className="text-[10px] text-muted-foreground">
-                {(attachment.size / 1024 / 1024).toFixed(1)} MB
-              </span>
+              {typeof attachment.size === "number" && attachment.size > 0 && (
+                <span className="text-[10px] text-muted-foreground">
+                  {(attachment.size / 1024 / 1024).toFixed(1)} MB
+                </span>
+              )}
             </div>
           </div>
         ))}
@@ -258,7 +260,7 @@ type PreviewMessageProps = {
   };
   localAttachments?: Array<{
     name: string;
-    size: number;
+    size?: number;
     type: string;
     previewUrl?: string;
   }>;
@@ -396,10 +398,10 @@ export const PurePreviewMessage = ({
           )}
 
           {!isUser && mediaImageUrl && (
-            <div className="max-w-full space-y-2">
+            <div className="flex max-w-full flex-col gap-2">
               <div
                 className={cn(
-                  "relative overflow-hidden rounded-2xl border border-border/50 bg-muted/20 shadow-sm transition-shadow",
+                  "relative w-fit max-w-full overflow-hidden rounded-2xl border border-border/50 bg-muted/20 shadow-sm transition-shadow",
                   onImageClick ? "cursor-zoom-in hover:shadow-md" : "",
                 )}
                 onClick={() => {
@@ -413,7 +415,7 @@ export const PurePreviewMessage = ({
                 <img
                   src={mediaImageUrl}
                   alt={resolvedMessageText || messageText || "Generated image"}
-                  className="max-h-[60vh] w-full object-contain"
+                  className="block h-auto max-h-[60vh] w-auto max-w-full object-contain"
                 />
               </div>
 

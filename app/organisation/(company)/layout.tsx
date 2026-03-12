@@ -67,8 +67,22 @@ export default function CompanyLayout({
       "/organisation/team": "Team",
       "/organisation/reports": "Reports",
       "/organisation/product-library": "Product Library",
+      "/organisation/product-library/new": "Add Product",
       "/organisation/visualizations": "Visualizations",
     };
+
+    const routeBreadcrumbs: Record<string, { label: string; href: string }[]> = {
+      "/organisation/product-library/new": [
+        { label: "Projects", href: "/organisation" },
+        { label: "Product Library", href: "/organisation/product-library" },
+        { label: "Add Product", href: "/organisation/product-library/new" },
+      ],
+    };
+
+    const explicitBreadcrumbs = routeBreadcrumbs[pathname];
+    if (explicitBreadcrumbs) {
+      return explicitBreadcrumbs;
+    }
 
     const crumbs: { label: string; href: string }[] = [];
 

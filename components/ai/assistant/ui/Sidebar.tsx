@@ -36,6 +36,10 @@ interface ChatSidebarProps {
   currentThreadId?: string;
   onThreadSelect: (threadId: string) => void;
   onNewChat: () => void;
+  title?: string;
+  newChatLabel?: string;
+  emptyStateTitle?: string;
+  emptyStateDescription?: string;
 }
 
 export function ChatSidebar({
@@ -47,9 +51,11 @@ export function ChatSidebar({
   currentThreadId,
   onThreadSelect,
   onNewChat,
+  title = "Project chats",
+  newChatLabel = "New Chat",
+  emptyStateTitle = "No chats yet",
+  emptyStateDescription = "Start a new conversation to get help with your project.",
 }: ChatSidebarProps) {
-
-
   return (
     <aside
       className={cn(
@@ -66,7 +72,7 @@ export function ChatSidebar({
         <div className="flex items-center justify-between p-4 pb-2">
           <div className="flex items-center gap-2">
             <MessageSquare className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-semibold">Project chats</h2>
+            <h2 className="text-sm font-semibold">{title}</h2>
           </div>
           <Button
             variant="ghost"
@@ -87,7 +93,7 @@ export function ChatSidebar({
             size="sm"
           >
             <Plus className="mr-2 h-4 w-4" />
-            New Chat
+            {newChatLabel}
           </Button>
 
         </div>
@@ -144,8 +150,8 @@ export function ChatSidebar({
               <div className="bg-muted/50 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-3">
                 <MessageSquare className="h-5 w-5 text-muted-foreground" />
               </div>
-              <p className="text-sm font-medium">No chats yet</p>
-              <p className="text-xs text-muted-foreground mt-1">Start a new conversation to get help with your project.</p>
+              <p className="text-sm font-medium">{emptyStateTitle}</p>
+              <p className="text-xs text-muted-foreground mt-1">{emptyStateDescription}</p>
             </div>
           )}
         </ScrollArea>

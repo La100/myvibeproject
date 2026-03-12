@@ -1,7 +1,65 @@
 import { v } from "convex/values";
-import { mutation, query, internalMutation } from "../_generated/server";
 
-// Create a new visualization session
+import type { Id } from "../_generated/dataModel";
+import { internalMutation, mutation, query } from "../_generated/server";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { r2 } from "../files";
+
+const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24;
+const SESSION_TITLE_MAX_LENGTH = 60;
+
+const buildSessionTitle = (input?: string) => {
+  const trimmed = input?.trim();
+  if (!trimmed) return undefined;
+
+  return trimmed.length > SESSION_TITLE_MAX_LENGTH
+    ? `${trimmed.slice(0, SESSION_TITLE_MAX_LENGTH)}...`
+    : trimmed;
+};
+
+const getSignedVisualizationUrls = async (storageKeys: string[]) => {
+  const uniqueKeys = [...new Set(storageKeys)];
+  const entries = await Promise.all(
+    uniqueKeys.map(async (storageKey) => {
+      try {
+        const url = await r2.getUrl(storageKey, { expiresIn: SIGNED_URL_TTL_SECONDS });
+        return [storageKey, url] as const;
+      } catch (error) {
+        console.error("Failed to generate URL for image:", error);
+        return [storageKey, null] as const;
+      }
+    })
+  );
+
+  return new Map(entries);
+};
+
+const getOwnedSessionOrNull = async (
+  ctx: QueryCtx | MutationCtx,
+  sessionId: Id<"aiVisualizationSessions">,
+  userClerkId: string
+) => {
+  const session = await ctx.db.get(sessionId);
+  if (!session || session.userClerkId !== userClerkId) {
+    return null;
+  }
+
+  return session;
+};
+
+const getOwnedSessionOrThrow = async (
+  ctx: MutationCtx,
+  sessionId: Id<"aiVisualizationSessions">,
+  userClerkId: string
+) => {
+  const session = await getOwnedSessionOrNull(ctx, sessionId, userClerkId);
+  if (!session) {
+    throw new Error("Unauthorized");
+  }
+
+  return session;
+};
+
 export const createSession = mutation({
   args: {
     teamId: v.id("teams"),
@@ -12,29 +70,18 @@ export const createSession = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
 
-    const userClerkId = identity.subject;
-    const now = Date.now();
-
-    // Generate title from first prompt (truncate to 60 chars)
-    const title = args.initialPrompt
-      ? args.initialPrompt.slice(0, 60) + (args.initialPrompt.length > 60 ? "..." : "")
-      : undefined;
-
-    const sessionId = await ctx.db.insert("aiVisualizationSessions", {
+    return ctx.db.insert("aiVisualizationSessions", {
       teamId: args.teamId,
       projectId: args.projectId,
-      userClerkId,
-      title,
-      lastMessageAt: now,
+      userClerkId: identity.subject,
+      title: buildSessionTitle(args.initialPrompt),
+      lastMessageAt: Date.now(),
       messageCount: 0,
       imageCount: 0,
     });
-
-    return sessionId;
   },
 });
 
-// Get all sessions for a team/user
 export const listSessions = query({
   args: {
     teamId: v.id("teams"),
@@ -43,21 +90,16 @@ export const listSessions = query({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return [];
 
-    const userClerkId = identity.subject;
-
-    const sessions = await ctx.db
+    return ctx.db
       .query("aiVisualizationSessions")
       .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", args.teamId).eq("userClerkId", userClerkId)
+        q.eq("teamId", args.teamId).eq("userClerkId", identity.subject)
       )
       .order("desc")
       .collect();
-
-    return sessions;
   },
 });
 
-// Get a single session with its messages
 export const getSession = query({
   args: {
     sessionId: v.id("aiVisualizationSessions"),
@@ -66,21 +108,10 @@ export const getSession = query({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return null;
 
-    const session = await ctx.db.get(args.sessionId);
-    if (!session) return null;
-
-    // Verify user owns this session
-    if (session.userClerkId !== identity.subject) return null;
-
-    return session;
+    return getOwnedSessionOrNull(ctx, args.sessionId, identity.subject);
   },
 });
 
-import { r2 } from "../files";
-
-// ... existing imports ...
-
-// Get messages for a session
 export const getSessionMessages = query({
   args: {
     sessionId: v.id("aiVisualizationSessions"),
@@ -89,8 +120,8 @@ export const getSessionMessages = query({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return [];
 
-    const session = await ctx.db.get(args.sessionId);
-    if (!session || session.userClerkId !== identity.subject) return [];
+    const session = await getOwnedSessionOrNull(ctx, args.sessionId, identity.subject);
+    if (!session) return [];
 
     const messages = await ctx.db
       .query("aiVisualizationMessages")
@@ -98,30 +129,34 @@ export const getSessionMessages = query({
       .order("asc")
       .collect();
 
-    // Generate fresh signed URLs for images
-    const messagesWithUrls = await Promise.all(
-      messages.map(async (msg) => {
-        if (msg.imageStorageKey) {
-          try {
-            const url = await r2.getUrl(msg.imageStorageKey, {
-              expiresIn: 60 * 60 * 24, // 24 hours
-            });
-            if (url) {
-              return { ...msg, imageUrl: url };
-            }
-          } catch (error) {
-            console.error("Failed to generate URL for image:", error);
-          }
-        }
-        return msg;
-      })
+    const storageKeys = messages.flatMap((message) =>
+      [
+        ...(message.imageStorageKey ? [message.imageStorageKey] : []),
+        ...(message.referenceImages?.map((image) => image.storageKey) ?? []),
+      ]
     );
+    const signedUrls = await getSignedVisualizationUrls(storageKeys);
 
-    return messagesWithUrls;
+    return messages.map((message) => {
+      const referenceImages = message.referenceImages?.map((image) => ({
+        ...image,
+        imageUrl: signedUrls.get(image.storageKey) || undefined,
+      }));
+
+      if (!message.imageStorageKey) {
+        return referenceImages ? { ...message, referenceImages } : message;
+      }
+
+      const imageUrl = signedUrls.get(message.imageStorageKey) || message.imageUrl;
+      return {
+        ...message,
+        ...(referenceImages ? { referenceImages } : {}),
+        ...(imageUrl ? { imageUrl } : {}),
+      };
+    });
   },
 });
 
-// Add a user message to session
 export const addUserMessage = mutation({
   args: {
     sessionId: v.id("aiVisualizationSessions"),
@@ -140,14 +175,9 @@ export const addUserMessage = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
 
-    const session = await ctx.db.get(args.sessionId);
-    if (!session) throw new Error("Session not found");
-    if (session.userClerkId !== identity.subject) throw new Error("Unauthorized");
-
-    // Get current message count
+    const session = await getOwnedSessionOrThrow(ctx, args.sessionId, identity.subject);
     const messageIndex = session.messageCount;
 
-    // Add the message
     const messageId = await ctx.db.insert("aiVisualizationMessages", {
       sessionId: args.sessionId,
       teamId: session.teamId,
@@ -157,19 +187,16 @@ export const addUserMessage = mutation({
       referenceImages: args.referenceImages,
     });
 
-    // Update session
     await ctx.db.patch(args.sessionId, {
       messageCount: messageIndex + 1,
       lastMessageAt: Date.now(),
-      // Set title from first message if not set
-      ...(session.title ? {} : { title: args.text.slice(0, 60) + (args.text.length > 60 ? "..." : "") }),
+      ...(session.title ? {} : { title: buildSessionTitle(args.text) }),
     });
 
     return { messageId, messageIndex };
   },
 });
 
-// Add a model response to session (called after generation)
 export const addModelMessage = internalMutation({
   args: {
     sessionId: v.id("aiVisualizationSessions"),
@@ -184,8 +211,6 @@ export const addModelMessage = internalMutation({
     if (!session) throw new Error("Session not found");
 
     const messageIndex = session.messageCount;
-
-    // Add the message
     const messageId = await ctx.db.insert("aiVisualizationMessages", {
       sessionId: args.sessionId,
       teamId: session.teamId,
@@ -198,7 +223,6 @@ export const addModelMessage = internalMutation({
       generationId: args.generationId,
     });
 
-    // Update session with preview
     await ctx.db.patch(args.sessionId, {
       messageCount: messageIndex + 1,
       lastMessageAt: Date.now(),
@@ -211,7 +235,6 @@ export const addModelMessage = internalMutation({
   },
 });
 
-// Delete a session and all its messages
 export const deleteSession = mutation({
   args: {
     sessionId: v.id("aiVisualizationSessions"),
@@ -220,28 +243,20 @@ export const deleteSession = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
 
-    const session = await ctx.db.get(args.sessionId);
-    if (!session) throw new Error("Session not found");
-    if (session.userClerkId !== identity.subject) throw new Error("Unauthorized");
+    await getOwnedSessionOrThrow(ctx, args.sessionId, identity.subject);
 
-    // Delete all messages in session
     const messages = await ctx.db
       .query("aiVisualizationMessages")
       .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
       .collect();
 
-    for (const message of messages) {
-      await ctx.db.delete(message._id);
-    }
-
-    // Delete the session
+    await Promise.all(messages.map((message) => ctx.db.delete(message._id)));
     await ctx.db.delete(args.sessionId);
 
     return { success: true };
   },
 });
 
-// Update session title
 export const updateSessionTitle = mutation({
   args: {
     sessionId: v.id("aiVisualizationSessions"),
@@ -251,10 +266,7 @@ export const updateSessionTitle = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
 
-    const session = await ctx.db.get(args.sessionId);
-    if (!session) throw new Error("Session not found");
-    if (session.userClerkId !== identity.subject) throw new Error("Unauthorized");
-
+    await getOwnedSessionOrThrow(ctx, args.sessionId, identity.subject);
     await ctx.db.patch(args.sessionId, {
       title: args.title,
     });
@@ -263,7 +275,6 @@ export const updateSessionTitle = mutation({
   },
 });
 
-// Get session history formatted for generation API
 export const getSessionHistory = query({
   args: {
     sessionId: v.id("aiVisualizationSessions"),
@@ -272,8 +283,8 @@ export const getSessionHistory = query({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return [];
 
-    const session = await ctx.db.get(args.sessionId);
-    if (!session || session.userClerkId !== identity.subject) return [];
+    const session = await getOwnedSessionOrNull(ctx, args.sessionId, identity.subject);
+    if (!session) return [];
 
     const messages = await ctx.db
       .query("aiVisualizationMessages")
@@ -281,12 +292,11 @@ export const getSessionHistory = query({
       .order("asc")
       .collect();
 
-    // Format for generation API
-    return messages.map((msg) => ({
-      role: msg.role,
-      text: msg.text,
-      imageStorageKey: msg.imageStorageKey,
-      imageMimeType: msg.imageMimeType,
+    return messages.map((message) => ({
+      role: message.role,
+      text: message.text,
+      imageStorageKey: message.imageStorageKey,
+      imageMimeType: message.imageMimeType,
     }));
   },
 });
