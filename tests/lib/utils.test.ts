@@ -47,7 +47,10 @@ const installDocumentStub = () => {
 };
 
 test("cn merges class names and tailwind conflicts", () => {
-  assert.equal(cn("px-2", false && "hidden", "px-4", "font-bold"), "px-4 font-bold");
+  assert.equal(
+    cn("px-2", false && "hidden", "px-4", "font-bold"),
+    "px-4 font-bold",
+  );
 });
 
 test("htmlToPlainText strips html, decodes entities and truncates words", () => {
@@ -62,6 +65,24 @@ test("htmlToPlainText strips html, decodes entities and truncates words", () => 
     assert.equal(value, "Hello & world...");
   } finally {
     restore();
+  }
+});
+
+test("htmlToPlainText falls back when document is unavailable", () => {
+  const originalDocument = (globalThis as { document?: unknown }).document;
+  delete (globalThis as { document?: unknown }).document;
+
+  try {
+    const value = htmlToPlainText(
+      "<p>Hello &amp; <strong>world</strong> from <em>Myvibe</em></p>",
+      4,
+    );
+
+    assert.equal(value, "Hello & world from...");
+  } finally {
+    if (originalDocument !== undefined) {
+      (globalThis as { document?: unknown }).document = originalDocument;
+    }
   }
 });
 
@@ -86,7 +107,7 @@ test("getTaskPreview prefers rich text content over description", () => {
 test("getTaskPreview falls back to trimmed description", () => {
   const preview = getTaskPreview(
     {
-      description: "Raz dwa trzy cztery",
+      description: "  Raz   dwa trzy cztery  ",
     },
     3,
   );

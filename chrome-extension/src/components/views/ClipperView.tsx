@@ -1,21 +1,21 @@
-import { useEffect, useMemo, useState } from "react"
-import type { Product, Project, Team } from "../../types"
-import { CONFIG } from "../../config"
-import { ACTIONS, isObjectMessage } from "../../lib/messages"
-import { authenticatedFetch } from "../../lib/auth"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { Product, Project, Team } from "../../types";
+import { CONFIG } from "../../config";
+import { ACTIONS, isObjectMessage } from "../../lib/messages";
+import { authenticatedFetch } from "../../lib/auth";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ScrollArea } from "@/components/ui/scroll-area"
+} from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   ArrowLeft,
   Camera,
@@ -27,127 +27,141 @@ import {
   ShoppingCart,
   Store,
   X,
-} from "lucide-react"
+} from "lucide-react";
 
 interface ClipperViewProps {
-  team: Team
-  project: Project
-  onBack: () => void
-  showToast: (message: string, type?: "success" | "error" | "info") => void
+  team: Team;
+  project: Project;
+  onBack: () => void;
+  showToast: (message: string, type?: "success" | "error" | "info") => void;
 }
 
 interface DetectResponse {
-  success: boolean
-  product?: Partial<Product>
-  error?: string
+  success: boolean;
+  product?: Partial<Product>;
+  error?: string;
 }
 
 interface PickerActivationResponse {
-  success?: boolean
-  count?: number
-  error?: string
+  success?: boolean;
+  count?: number;
+  error?: string;
 }
 
-const NO_SECTION_VALUE = "__none"
-const NO_ALTERNATIVE_VALUE = "__no_alternative"
+const NO_SECTION_VALUE = "__none";
+const NO_ALTERNATIVE_VALUE = "__no_alternative";
 
 type ShoppingListItemOption = {
-  _id: string
-  name: string
-  alternativeToItemId?: string | null
-}
+  _id: string;
+  name: string;
+  alternativeToItemId?: string | null;
+};
 
 function isSupportedUrl(url?: string): boolean {
-  return Boolean(url && /^https?:\/\//.test(url))
+  return Boolean(url && /^https?:\/\//.test(url));
 }
 
 function parseNumber(value?: string): number | null {
-  if (!value) return null
+  if (!value) return null;
 
-  const cleaned = value.replace(/\s+/g, "").replace(/[^\d.,]/g, "")
-  if (!cleaned) return null
+  const cleaned = value.replace(/\s+/g, "").replace(/[^\d.,]/g, "");
+  if (!cleaned) return null;
 
-  let normalized = cleaned
-  const commaCount = (cleaned.match(/,/g) ?? []).length
-  const dotCount = (cleaned.match(/\./g) ?? []).length
+  let normalized = cleaned;
+  const commaCount = (cleaned.match(/,/g) ?? []).length;
+  const dotCount = (cleaned.match(/\./g) ?? []).length;
 
   if (commaCount > 0 && dotCount > 0) {
     if (cleaned.lastIndexOf(",") > cleaned.lastIndexOf(".")) {
-      normalized = cleaned.replace(/\./g, "").replace(",", ".")
+      normalized = cleaned.replace(/\./g, "").replace(",", ".");
     } else {
-      normalized = cleaned.replace(/,/g, "")
+      normalized = cleaned.replace(/,/g, "");
     }
   } else if (commaCount > 0) {
     if (commaCount > 1) {
-      normalized = cleaned.replace(/,/g, "")
+      normalized = cleaned.replace(/,/g, "");
     } else {
-      const [whole = "", fraction = ""] = cleaned.split(",")
+      const [whole = "", fraction = ""] = cleaned.split(",");
       normalized =
         fraction.length === 3 && whole.length > 0
           ? `${whole}${fraction}`
-          : cleaned.replace(",", ".")
+          : cleaned.replace(",", ".");
     }
   } else if (dotCount > 1) {
-    normalized = cleaned.replace(/\./g, "")
+    normalized = cleaned.replace(/\./g, "");
   }
 
-  const parsed = Number.parseFloat(normalized)
-  return Number.isFinite(parsed) ? parsed : null
+  const parsed = Number.parseFloat(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
-const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => {
-  const [sections, setSections] = useState(project.sections ?? [])
-  const [shoppingItems, setShoppingItems] = useState<ShoppingListItemOption[]>([])
-  const [selectedSection, setSelectedSection] = useState(NO_SECTION_VALUE)
-  const [selectedAlternativeToItemId, setSelectedAlternativeToItemId] = useState(
-    NO_ALTERNATIVE_VALUE,
-  )
-  const [product, setProduct] = useState<Partial<Product>>({ quantity: 1 })
-  const [isLoading, setIsLoading] = useState(false)
-  const [isDetecting, setIsDetecting] = useState(false)
-  const [isImagePickerActive, setIsImagePickerActive] = useState(false)
-  const [isScreenshotPickerActive, setIsScreenshotPickerActive] = useState(false)
+const ClipperView = ({
+  team,
+  project,
+  onBack,
+  showToast,
+}: ClipperViewProps) => {
+  const [sections, setSections] = useState(project.sections ?? []);
+  const [shoppingItems, setShoppingItems] = useState<ShoppingListItemOption[]>(
+    [],
+  );
+  const [selectedSection, setSelectedSection] = useState(NO_SECTION_VALUE);
+  const [selectedAlternativeToItemId, setSelectedAlternativeToItemId] =
+    useState(NO_ALTERNATIVE_VALUE);
+  const [product, setProduct] = useState<Partial<Product>>({ quantity: 1 });
+  const [isLoading, setIsLoading] = useState(false);
+  const [isDetecting, setIsDetecting] = useState(false);
+  const [isImagePickerActive, setIsImagePickerActive] = useState(false);
+  const [isScreenshotPickerActive, setIsScreenshotPickerActive] =
+    useState(false);
 
-  const isIframeMode = useMemo(() => window.self !== window.top, [])
+  const isIframeMode = useMemo(() => window.self !== window.top, []);
 
-  const handleProductChange = (field: keyof Product, value: string | number) => {
-    setProduct((prev) => ({ ...prev, [field]: value }))
-  }
+  const handleProductChange = (
+    field: keyof Product,
+    value: string | number,
+  ) => {
+    setProduct((prev) => ({ ...prev, [field]: value }));
+  };
 
-  const getActiveTab = async (): Promise<chrome.tabs.Tab | null> => {
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
-    return tabs[0] ?? null
-  }
+  const getActiveTab =
+    useCallback(async (): Promise<chrome.tabs.Tab | null> => {
+      const tabs = await chrome.tabs.query({
+        active: true,
+        currentWindow: true,
+      });
+      return tabs[0] ?? null;
+    }, []);
 
-  const sendMessageToActiveTab = async <T,>(
-    payload: unknown,
-    timeoutMs = 10000,
-  ): Promise<T> => {
-    const tab = await getActiveTab()
-    if (!tab?.id) {
-      throw new Error("Active tab unavailable")
-    }
+  const sendMessageToActiveTab = useCallback(
+    async <T,>(payload: unknown, timeoutMs = 10000): Promise<T> => {
+      const tab = await getActiveTab();
+      if (!tab?.id) {
+        throw new Error("Active tab unavailable");
+      }
 
-    return new Promise<T>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error("Tab communication timeout"))
-      }, timeoutMs)
+      return new Promise<T>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error("Tab communication timeout"));
+        }, timeoutMs);
 
-      chrome.tabs.sendMessage(tab.id as number, payload, (response: T) => {
-        clearTimeout(timeout)
+        chrome.tabs.sendMessage(tab.id as number, payload, (response: T) => {
+          clearTimeout(timeout);
 
-        const runtimeError = chrome.runtime.lastError
-        if (runtimeError) {
-          reject(new Error(runtimeError.message))
-          return
-        }
+          const runtimeError = chrome.runtime.lastError;
+          if (runtimeError) {
+            reject(new Error(runtimeError.message));
+            return;
+          }
 
-        resolve(response)
-      })
-    })
-  }
+          resolve(response);
+        });
+      });
+    },
+    [getActiveTab],
+  );
 
-  const refreshSections = async () => {
+  const refreshSections = useCallback(async () => {
     try {
       const response = await authenticatedFetch(
         `${CONFIG.API_BASE}/clipper?teamId=${encodeURIComponent(team._id)}&projectId=${encodeURIComponent(project._id)}`,
@@ -155,42 +169,44 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
         {
           retryOnAuthFailure: true,
         },
-      )
+      );
 
       if (!response.ok) {
-        return
+        return;
       }
 
       const data = (await response.json()) as {
-        sections?: Team["projects"][number]["sections"]
-        items?: ShoppingListItemOption[]
-      }
+        sections?: Team["projects"][number]["sections"];
+        items?: ShoppingListItemOption[];
+      };
 
-      setSections(Array.isArray(data.sections) ? data.sections : [])
-      setShoppingItems(Array.isArray(data.items) ? data.items : [])
+      setSections(Array.isArray(data.sections) ? data.sections : []);
+      setShoppingItems(Array.isArray(data.items) ? data.items : []);
     } catch {
       // Non-blocking: keep currently available sections.
     }
-  }
+  }, [project._id, team._id]);
 
-  const detectProductFromPage = async () => {
-    setIsDetecting(true)
+  const detectProductFromPage = useCallback(async () => {
+    setIsDetecting(true);
 
     try {
-      const tab = await getActiveTab()
+      const tab = await getActiveTab();
       if (!tab?.id || !isSupportedUrl(tab.url)) {
-        showToast("Product detection works only on http/https pages.", "info")
-        return
+        showToast("Product detection works only on http/https pages.", "info");
+        return;
       }
 
-      await sendMessageToActiveTab<{ status: "ready" }>({ action: ACTIONS.PING })
+      await sendMessageToActiveTab<{ status: "ready" }>({
+        action: ACTIONS.PING,
+      });
 
       const response = await sendMessageToActiveTab<DetectResponse>({
         action: ACTIONS.DETECT_PRODUCT,
-      })
+      });
 
       if (!response.success || !response.product) {
-        return
+        return;
       }
 
       setProduct((prev) => ({
@@ -208,135 +224,163 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
           extractDomain(tab.url ?? "") ??
           prev.supplier ??
           "",
-        catalogNumber: response.product?.catalogNumber ?? prev.catalogNumber ?? "",
+        catalogNumber:
+          response.product?.catalogNumber ?? prev.catalogNumber ?? "",
         // Notes stay manual-only: never auto-fill from page detection.
         notes: prev.notes ?? "",
         imageUrl: response.product?.imageUrl ?? prev.imageUrl ?? "",
         quantity: prev.quantity ?? 1,
-      }))
+      }));
     } catch {
       // Non-blocking: user can fill fields manually.
     } finally {
-      setIsDetecting(false)
+      setIsDetecting(false);
     }
-  }
+  }, [getActiveTab, sendMessageToActiveTab, showToast]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: refresh should run when selected project/team changes
   useEffect(() => {
-    void refreshSections()
-    void detectProductFromPage()
-  }, [project._id, team._id])
+    void refreshSections();
+    void detectProductFromPage();
+  }, [detectProductFromPage, refreshSections]);
+
+  useEffect(() => {
+    setSelectedSection((current) =>
+      current === NO_SECTION_VALUE ||
+      sections.some((section) => section._id === current)
+        ? current
+        : NO_SECTION_VALUE,
+    );
+  }, [sections]);
+
+  useEffect(() => {
+    setSelectedAlternativeToItemId((current) =>
+      current === NO_ALTERNATIVE_VALUE ||
+      shoppingItems.some(
+        (item) => item._id === current && !item.alternativeToItemId,
+      )
+        ? current
+        : NO_ALTERNATIVE_VALUE,
+    );
+  }, [shoppingItems]);
 
   useEffect(() => {
     const runtimeMessageListener = (message: unknown) => {
-      if (!isObjectMessage(message)) return
+      if (!isObjectMessage(message)) return;
 
       if (message.action === ACTIONS.IMAGE_SELECTED) {
-        const incoming = message as { imageUrl?: string }
-        if (typeof incoming.imageUrl === "string" && incoming.imageUrl.length > 0) {
-          setProduct((prev) => ({ ...prev, imageUrl: incoming.imageUrl }))
-          setIsImagePickerActive(false)
-          setIsScreenshotPickerActive(false)
-          showToast("Image updated.", "success")
+        const incoming = message as { imageUrl?: string };
+        if (
+          typeof incoming.imageUrl === "string" &&
+          incoming.imageUrl.length > 0
+        ) {
+          setProduct((prev) => ({ ...prev, imageUrl: incoming.imageUrl }));
+          setIsImagePickerActive(false);
+          setIsScreenshotPickerActive(false);
+          showToast("Image updated.", "success");
         }
       }
-    }
+    };
 
-    chrome.runtime.onMessage.addListener(runtimeMessageListener)
+    chrome.runtime.onMessage.addListener(runtimeMessageListener);
 
     return () => {
-      chrome.runtime.onMessage.removeListener(runtimeMessageListener)
-    }
-  }, [showToast])
+      chrome.runtime.onMessage.removeListener(runtimeMessageListener);
+    };
+  }, [showToast]);
 
   const handleOpenProductLink = () => {
     if (!product.productLink) {
-      return
+      return;
     }
 
-    void chrome.tabs.create({ url: product.productLink })
-  }
+    void chrome.tabs.create({ url: product.productLink });
+  };
 
   const handleImagePicker = async () => {
-    if (isImagePickerActive || isScreenshotPickerActive) return
+    if (isImagePickerActive || isScreenshotPickerActive) return;
 
     try {
       const response = await sendMessageToActiveTab<PickerActivationResponse>({
         action: ACTIONS.ENABLE_IMAGE_PICKER,
-      })
+      });
 
       if (!response?.success) {
-        setIsImagePickerActive(false)
-        setIsScreenshotPickerActive(false)
-        showToast("No selectable images found on this page.", "info")
-        return
+        setIsImagePickerActive(false);
+        setIsScreenshotPickerActive(false);
+        showToast("No selectable images found on this page.", "info");
+        return;
       }
 
-      setIsImagePickerActive(true)
-      setIsScreenshotPickerActive(false)
-      showToast("Click an image on the page to select it.", "info")
+      setIsImagePickerActive(true);
+      setIsScreenshotPickerActive(false);
+      showToast("Click an image on the page to select it.", "info");
     } catch {
-      setIsImagePickerActive(false)
-      setIsScreenshotPickerActive(false)
-      showToast("Could not start image picker on this page.", "error")
+      setIsImagePickerActive(false);
+      setIsScreenshotPickerActive(false);
+      showToast("Could not start image picker on this page.", "error");
     }
-  }
+  };
 
   const handleScreenshotPicker = async () => {
-    if (isScreenshotPickerActive || isImagePickerActive) return
+    if (isScreenshotPickerActive || isImagePickerActive) return;
 
     try {
       const response = await sendMessageToActiveTab<PickerActivationResponse>({
         action: ACTIONS.ENABLE_SCREENSHOT_PICKER,
-      })
+      });
 
       if (!response?.success) {
-        setIsScreenshotPickerActive(false)
-        setIsImagePickerActive(false)
-        showToast(response?.error ?? "Could not start area capture.", "error")
-        return
+        setIsScreenshotPickerActive(false);
+        setIsImagePickerActive(false);
+        showToast(response?.error ?? "Could not start area capture.", "error");
+        return;
       }
 
-      setIsScreenshotPickerActive(true)
-      setIsImagePickerActive(false)
-      showToast("Drag on the page to capture an area.", "info")
+      setIsScreenshotPickerActive(true);
+      setIsImagePickerActive(false);
+      showToast("Drag on the page to capture an area.", "info");
     } catch {
-      setIsScreenshotPickerActive(false)
-      setIsImagePickerActive(false)
-      showToast("Could not start area capture on this page.", "error")
+      setIsScreenshotPickerActive(false);
+      setIsImagePickerActive(false);
+      showToast("Could not start area capture on this page.", "error");
     }
-  }
+  };
 
   const handleCloseIframe = async () => {
     try {
-      await sendMessageToActiveTab({ action: ACTIONS.CLOSE_IFRAME_POPUP }, 3000)
+      await sendMessageToActiveTab(
+        { action: ACTIONS.CLOSE_IFRAME_POPUP },
+        3000,
+      );
     } catch {
       // If message failed, user can still close manually.
     }
-  }
+  };
 
   const handleSave = async () => {
     if (!product.name?.trim()) {
-      showToast("Product name is required.", "error")
-      return
+      showToast("Product name is required.", "error");
+      return;
     }
 
-    setIsLoading(true)
+    setIsLoading(true);
 
     try {
-      const quantity = Number(product.quantity ?? 1)
-      const unitPriceNumber = parseNumber(product.price)
-      const totalPrice = unitPriceNumber ? unitPriceNumber * quantity : null
+      const quantity = Number(product.quantity ?? 1);
+      const unitPriceNumber = parseNumber(product.price);
+      const totalPrice =
+        unitPriceNumber !== null ? unitPriceNumber * quantity : undefined;
 
       const body = {
         name: product.name.trim(),
         projectId: project._id,
-        sectionId: selectedSection === NO_SECTION_VALUE ? undefined : selectedSection,
+        sectionId:
+          selectedSection === NO_SECTION_VALUE ? undefined : selectedSection,
         alternativeToItemId:
           selectedAlternativeToItemId === NO_ALTERNATIVE_VALUE
             ? undefined
             : selectedAlternativeToItemId,
-        unitPrice: unitPriceNumber ?? 0,
+        unitPrice: unitPriceNumber ?? undefined,
         quantity,
         totalPrice,
         supplier: product.supplier?.trim() || undefined,
@@ -346,7 +390,7 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
         imageUrl: product.imageUrl?.trim() || undefined,
         priority: "medium",
         realizationStatus: "PLANNED",
-      }
+      };
 
       const response = await authenticatedFetch(
         `${CONFIG.API_BASE}/clipper`,
@@ -360,26 +404,26 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
         {
           retryOnAuthFailure: true,
         },
-      )
+      );
 
       if (!response.ok) {
         if (response.status === 401) {
-          throw new Error("Session expired. Please sign in again.")
+          throw new Error("Session expired. Please sign in again.");
         }
 
-        const errorPayload = (await response.json().catch(() => null)) as
-          | { message?: string }
-          | null
+        const errorPayload = (await response.json().catch(() => null)) as {
+          message?: string;
+        } | null;
 
-        throw new Error(errorPayload?.message ?? "Failed to save product")
+        throw new Error(errorPayload?.message ?? "Failed to save product");
       }
 
-      showToast("Product added to shopping list.", "success")
+      showToast("Product added to shopping list.", "success");
 
       if (isIframeMode) {
-        await handleCloseIframe()
+        await handleCloseIframe();
       } else {
-        window.close()
+        window.close();
       }
     } catch (error) {
       const message =
@@ -387,12 +431,12 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
           ? error.message === "AUTH_REQUIRED"
             ? "Session expired. Please sign in again."
             : error.message
-          : "Unknown error"
-      showToast(message, "error")
+          : "Unknown error";
+      showToast(message, "error");
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <div className="flex h-full flex-col px-4 pb-4 pt-5">
@@ -446,7 +490,6 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
             )}
           </div>
         </div>
-
       </div>
 
       <ScrollArea className="vp-scrollbar flex-1 pr-1">
@@ -479,7 +522,9 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
                   disabled={isImagePickerActive || isScreenshotPickerActive}
                 >
                   <ImagePlus className="mr-2 h-4 w-4" />
-                  {isImagePickerActive ? "Image picker active" : "Pick existing"}
+                  {isImagePickerActive
+                    ? "Image picker active"
+                    : "Pick existing"}
                 </Button>
 
                 <Button
@@ -490,7 +535,9 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
                   disabled={isScreenshotPickerActive || isImagePickerActive}
                 >
                   <Camera className="mr-2 h-4 w-4" />
-                  {isScreenshotPickerActive ? "Area picker active" : "Capture area"}
+                  {isScreenshotPickerActive
+                    ? "Area picker active"
+                    : "Capture area"}
                 </Button>
               </div>
             </CardContent>
@@ -506,7 +553,9 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
                 <Input
                   id="product-name"
                   value={product.name ?? ""}
-                  onChange={(event) => handleProductChange("name", event.target.value)}
+                  onChange={(event) =>
+                    handleProductChange("name", event.target.value)
+                  }
                   placeholder="e.g. Ceramic tiles"
                 />
               </div>
@@ -517,7 +566,9 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
                   <Input
                     id="product-price"
                     value={product.price ?? ""}
-                    onChange={(event) => handleProductChange("price", event.target.value)}
+                    onChange={(event) =>
+                      handleProductChange("price", event.target.value)
+                    }
                     placeholder="0.00"
                   />
                 </div>
@@ -530,11 +581,11 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
                     min="1"
                     value={product.quantity ?? 1}
                     onChange={(event) => {
-                      const next = Number.parseInt(event.target.value, 10)
+                      const next = Number.parseInt(event.target.value, 10);
                       handleProductChange(
                         "quantity",
                         Number.isFinite(next) && next > 0 ? next : 1,
-                      )
+                      );
                     }}
                   />
                 </div>
@@ -542,12 +593,17 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
 
               <div className="space-y-1.5">
                 <Label>Shopping list section</Label>
-                <Select value={selectedSection} onValueChange={setSelectedSection}>
+                <Select
+                  value={selectedSection}
+                  onValueChange={setSelectedSection}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Uncategorized (default)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={NO_SECTION_VALUE}>Uncategorized (default)</SelectItem>
+                    <SelectItem value={NO_SECTION_VALUE}>
+                      Uncategorized (default)
+                    </SelectItem>
                     {sections.map((section) => (
                       <SelectItem key={section._id} value={section._id}>
                         {section.name}
@@ -594,7 +650,9 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
                   <Input
                     id="product-link"
                     value={product.productLink ?? ""}
-                    onChange={(event) => handleProductChange("productLink", event.target.value)}
+                    onChange={(event) =>
+                      handleProductChange("productLink", event.target.value)
+                    }
                     placeholder="https://..."
                     className="rounded-r-none"
                   />
@@ -617,7 +675,9 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
                   <Input
                     id="product-supplier"
                     value={product.supplier ?? ""}
-                    onChange={(event) => handleProductChange("supplier", event.target.value)}
+                    onChange={(event) =>
+                      handleProductChange("supplier", event.target.value)
+                    }
                     placeholder="Supplier name"
                   />
                 </div>
@@ -641,7 +701,9 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
                   id="product-notes"
                   rows={3}
                   value={product.notes ?? ""}
-                  onChange={(event) => handleProductChange("notes", event.target.value)}
+                  onChange={(event) =>
+                    handleProductChange("notes", event.target.value)
+                  }
                   placeholder="Additional details"
                   className="resize-none"
                 />
@@ -672,15 +734,15 @@ const ClipperView = ({ team, project, onBack, showToast }: ClipperViewProps) => 
         </Button>
       </div>
     </div>
-  )
-}
+  );
+};
 
 function extractDomain(url: string): string | undefined {
   try {
-    return new URL(url).hostname.replace(/^www\./, "")
+    return new URL(url).hostname.replace(/^www\./, "");
   } catch {
-    return undefined
+    return undefined;
   }
 }
 
-export default ClipperView
+export default ClipperView;

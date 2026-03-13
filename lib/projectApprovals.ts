@@ -57,6 +57,24 @@ export type ApprovalVersionRecord = {
   createdAt: number;
 };
 
+type ApprovalVersionInput = Omit<
+  ApprovalVersionRecord,
+  | "createdAt"
+  | "title"
+  | "summary"
+  | "details"
+  | "items"
+  | "referenceIds"
+  | "dueDate"
+> & {
+  title: string;
+  summary?: string | null;
+  details?: string | null;
+  items?: string[];
+  referenceIds?: string[];
+  dueDate?: number | null;
+};
+
 export type ApprovalCreateInput = {
   projectId: string;
   teamId: string;
@@ -88,13 +106,13 @@ const normalizeText = (value?: string | null) => value?.trim() || undefined;
 
 const normalizeList = (values?: string[]) => {
   if (!values) return undefined;
-  const normalized = values
-    .map((value) => value.trim())
-    .filter(Boolean);
+  const normalized = values.map((value) => value.trim()).filter(Boolean);
   return normalized.length > 0 ? normalized : undefined;
 };
 
-export function filterVisibleApprovals<T extends { status: string }>(approvals: T[]) {
+export function filterVisibleApprovals<T extends { status: string }>(
+  approvals: T[],
+) {
   return approvals.filter((approval) => approval.status !== "draft");
 }
 
@@ -134,13 +152,7 @@ export function buildCreateApprovalRecord(
 }
 
 export function buildApprovalVersionRecord(
-  input: Omit<ApprovalVersionRecord, "createdAt" | "title"> & {
-    title: string;
-    summary?: string | null;
-    details?: string | null;
-    items?: string[];
-    referenceIds?: string[];
-  },
+  input: ApprovalVersionInput,
   now: number = Date.now(),
 ): ApprovalVersionRecord {
   return {
@@ -153,7 +165,7 @@ export function buildApprovalVersionRecord(
     details: normalizeText(input.details),
     items: normalizeList(input.items),
     referenceIds: normalizeList(input.referenceIds),
-    dueDate: input.dueDate,
+    dueDate: input.dueDate ?? undefined,
     createdBy: input.createdBy,
     createdAt: now,
   };
@@ -170,23 +182,23 @@ export function buildApprovalUpdateArtifacts(
   const nextSummary =
     input.summary !== undefined
       ? normalizeText(input.summary)
-      : approval.latestVersionSummary ?? undefined;
+      : (approval.latestVersionSummary ?? undefined);
   const nextDetails =
     input.details !== undefined
       ? normalizeText(input.details)
-      : approval.latestVersionDetails ?? undefined;
+      : (approval.latestVersionDetails ?? undefined);
   const nextItems =
     input.items !== undefined
       ? normalizeList(input.items)
-      : approval.latestVersionItems ?? undefined;
+      : (approval.latestVersionItems ?? undefined);
   const nextReferenceIds =
     input.referenceIds !== undefined
       ? normalizeList(input.referenceIds)
-      : approval.latestVersionReferenceIds ?? undefined;
+      : (approval.latestVersionReferenceIds ?? undefined);
   const nextDueDate =
     input.dueDate !== undefined
-      ? input.dueDate ?? undefined
-      : approval.dueDate ?? undefined;
+      ? (input.dueDate ?? undefined)
+      : (approval.dueDate ?? undefined);
 
   return {
     nextVersion,
@@ -205,11 +217,11 @@ export function buildApprovalUpdateArtifacts(
       description:
         input.description !== undefined
           ? normalizeText(input.description)
-          : approval.description ?? undefined,
+          : (approval.description ?? undefined),
       dueDate: nextDueDate,
       currentVersion: nextVersion,
       status: nextStatus,
-      sentAt: input.sendNow ? now : approval.sentAt ?? undefined,
+      sentAt: input.sendNow ? now : (approval.sentAt ?? undefined),
       viewedAt: undefined,
       decidedAt: undefined,
       lastCommentAt: undefined,
@@ -241,7 +253,9 @@ export function buildApprovalViewedPatch(
     viewedAt: approval.viewedAt || now,
     updatedAt: now,
     clientRespondentName:
-      normalizeText(respondentName) || approval.clientRespondentName || undefined,
+      normalizeText(respondentName) ||
+      approval.clientRespondentName ||
+      undefined,
   };
 }
 
@@ -274,7 +288,7 @@ export function buildApprovalDecisionArtifacts(
       decidedAt: now,
       lastCommentAt: normalizedComment
         ? now
-        : approval.lastCommentAt ?? undefined,
+        : (approval.lastCommentAt ?? undefined),
       clientDecision: input.decision,
       clientComment: normalizedComment,
       clientRespondentName: normalizedRespondentName,

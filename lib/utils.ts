@@ -1,8 +1,44 @@
-import { type ClassValue, clsx } from "clsx"
-import { twMerge } from "tailwind-merge"
+import { type ClassValue, clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
 
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
+  return twMerge(clsx(inputs));
+}
+
+const FALLBACK_HTML_ENTITIES: Record<string, string> = {
+  "&nbsp;": " ",
+  "&amp;": "&",
+  "&lt;": "<",
+  "&gt;": ">",
+  "&quot;": '"',
+  "&#39;": "'",
+};
+
+function decodeHtmlEntities(value: string): string {
+  if (typeof document !== "undefined") {
+    const textarea = document.createElement("textarea");
+    textarea.innerHTML = value;
+    return textarea.value;
+  }
+
+  return value.replace(
+    /&(nbsp|amp|lt|gt|quot|#39);/g,
+    (entity) => FALLBACK_HTML_ENTITIES[entity] ?? entity,
+  );
+}
+
+function truncateWords(value: string, maxWords: number): string {
+  const normalized = value.trim().replace(/\s+/g, " ");
+  if (!normalized) {
+    return "";
+  }
+
+  const words = normalized.split(" ");
+  if (words.length <= maxWords) {
+    return normalized;
+  }
+
+  return `${words.slice(0, maxWords).join(" ")}...`;
 }
 
 /**
@@ -10,76 +46,66 @@ export function cn(...inputs: ClassValue[]) {
  * Removes HTML tags and limits to specified number of words
  */
 export function htmlToPlainText(html: string, maxWords: number = 20): string {
-  if (!html) return '';
-  
-  // Remove HTML tags
-  const plainText = html.replace(/<[^>]*>/g, '');
-  
-  // Decode HTML entities
-  const textarea = document.createElement('textarea');
-  textarea.innerHTML = plainText;
-  const decodedText = textarea.value;
-  
-  // Split into words and limit
-  const words = decodedText.trim().split(/\s+/);
-  if (words.length <= maxWords) {
-    return decodedText;
-  }
-  
-  return words.slice(0, maxWords).join(' ') + '...';
+  if (!html) return "";
+
+  const plainText = html.replace(/<[^>]*>/g, " ");
+  const decodedText = decodeHtmlEntities(plainText);
+  return truncateWords(decodedText, maxWords);
 }
 
 /**
  * Gets task preview text - uses content (rich text) if available, falls back to description
  */
-export function getTaskPreview(task: { content?: string; description?: string }, maxWords: number = 20): string {
+export function getTaskPreview(
+  task: { content?: string; description?: string },
+  maxWords: number = 20,
+): string {
   if (task.content) {
     return htmlToPlainText(task.content, maxWords);
   }
-  
+
   if (task.description) {
-    const words = task.description.trim().split(/\s+/);
-    if (words.length <= maxWords) {
-      return task.description;
-    }
-    return words.slice(0, maxWords).join(' ') + '...';
+    return truncateWords(task.description, maxWords);
   }
-  
-  return '';
+
+  return "";
 }
 
 /**
  * Format currency amount with proper symbol and locale
  */
-export function formatCurrency(amount: number, currencyCode: string = 'USD'): string {
+export function formatCurrency(
+  amount: number,
+  currencyCode: string = "USD",
+): string {
   const currencyMap: Record<string, { symbol: string; locale: string }> = {
-    'USD': { symbol: '$', locale: 'en-US' },
-    'EUR': { symbol: '€', locale: 'de-DE' },
-    'PLN': { symbol: 'zł', locale: 'pl-PL' },
-    'GBP': { symbol: '£', locale: 'en-GB' },
-    'CAD': { symbol: 'C$', locale: 'en-CA' },
-    'AUD': { symbol: 'A$', locale: 'en-AU' },
-    'JPY': { symbol: '¥', locale: 'ja-JP' },
-    'CHF': { symbol: 'CHF', locale: 'de-CH' },
-    'SEK': { symbol: 'kr', locale: 'sv-SE' },
-    'NOK': { symbol: 'kr', locale: 'nb-NO' },
-    'DKK': { symbol: 'kr', locale: 'da-DK' },
-    'CZK': { symbol: 'Kč', locale: 'cs-CZ' },
-    'HUF': { symbol: 'Ft', locale: 'hu-HU' },
-    'CNY': { symbol: '¥', locale: 'zh-CN' },
-    'INR': { symbol: '₹', locale: 'en-IN' },
-    'BRL': { symbol: 'R$', locale: 'pt-BR' },
-    'MXN': { symbol: '$', locale: 'es-MX' },
-    'KRW': { symbol: '₩', locale: 'ko-KR' },
-    'SGD': { symbol: 'S$', locale: 'en-SG' },
-    'HKD': { symbol: 'HK$', locale: 'en-HK' },
+    USD: { symbol: "$", locale: "en-US" },
+    EUR: { symbol: "€", locale: "de-DE" },
+    PLN: { symbol: "zł", locale: "pl-PL" },
+    GBP: { symbol: "£", locale: "en-GB" },
+    CAD: { symbol: "C$", locale: "en-CA" },
+    AUD: { symbol: "A$", locale: "en-AU" },
+    JPY: { symbol: "¥", locale: "ja-JP" },
+    CHF: { symbol: "CHF", locale: "de-CH" },
+    SEK: { symbol: "kr", locale: "sv-SE" },
+    NOK: { symbol: "kr", locale: "nb-NO" },
+    DKK: { symbol: "kr", locale: "da-DK" },
+    CZK: { symbol: "Kč", locale: "cs-CZ" },
+    HUF: { symbol: "Ft", locale: "hu-HU" },
+    CNY: { symbol: "¥", locale: "zh-CN" },
+    INR: { symbol: "₹", locale: "en-IN" },
+    BRL: { symbol: "R$", locale: "pt-BR" },
+    MXN: { symbol: "$", locale: "es-MX" },
+    KRW: { symbol: "₩", locale: "ko-KR" },
+    SGD: { symbol: "S$", locale: "en-SG" },
+    HKD: { symbol: "HK$", locale: "en-HK" },
   };
 
-  const currency = currencyMap[currencyCode] || currencyMap['USD'];
-  
+  const currency = currencyMap[currencyCode] || currencyMap["USD"];
+
   try {
     return new Intl.NumberFormat(currency.locale, {
-      style: 'currency',
+      style: "currency",
       currency: currencyCode,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
@@ -87,7 +113,7 @@ export function formatCurrency(amount: number, currencyCode: string = 'USD'): st
   } catch {
     // Fallback to simple format if Intl.NumberFormat fails
     // Put currency after amount for all currencies, but use $ as fallback symbol
-    const fallbackSymbol = currency.symbol || '$';
+    const fallbackSymbol = currency.symbol || "$";
     return `${amount.toFixed(2)} ${fallbackSymbol}`;
   }
 }
