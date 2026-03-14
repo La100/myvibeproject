@@ -570,7 +570,7 @@ export default function NewProjectPage() {
               className="w-full h-11 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_8px_30px_rgba(44,42,37,0.15)]"
               onClick={() => {
                 setShowUpgradeDialog(false);
-                router.push("/organisation/settings?tab=subscription");
+                router.push("/organisation/subscription");
               }}
             >
               <Sparkles className="mr-2 h-4 w-4" />

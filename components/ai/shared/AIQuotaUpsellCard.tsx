@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useAction } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
 import type { Id } from "@/convex/_generated/dataModel";
 import { apiAny } from "@/lib/convexApiAny";
@@ -30,6 +30,7 @@ export function AIQuotaUpsellCard({
   className,
 }: AIQuotaUpsellCardProps) {
   const router = useRouter();
+  const subscription = useQuery(apiAny.stripe.getTeamSubscription, { teamId });
   const createCheckoutSession = useAction(apiAny.stripeActions.createCheckoutSession);
   const createBillingPortalSession = useAction(apiAny.stripeActions.createBillingPortalSession);
 
@@ -37,21 +38,26 @@ export function AIQuotaUpsellCard({
 
   const isFreePlan = currentPlan === "free";
   const canOpenPortal = !!subscriptionStatus && subscriptionStatus !== "canceled";
+  const aiPriceId = subscription?.checkoutPlans?.ai ?? null;
   const resolvedMessage =
     message && message.trim().length > 0
       ? message.replace(/contact your administrator\.?/i, "Open Billing to upgrade and continue.")
       : "AI credits are exhausted.";
 
   const handleUpgrade = async () => {
-    const priceId = process.env.NEXT_PUBLIC_STRIPE_AI_PRICE_ID;
-    if (!priceId) {
+    if (subscription === undefined) {
+      toast.error("Loading billing configuration. Try again in a moment.");
+      return;
+    }
+
+    if (!aiPriceId) {
       toast.error("Billing is not configured yet. Please open Settings > Billing.");
       return;
     }
 
     setPendingAction("checkout");
     try {
-      const result = await createCheckoutSession({ teamId, priceId });
+      const result = await createCheckoutSession({ teamId, priceId: aiPriceId });
       if (!result.url) {
         toast.error("Could not open checkout.");
         return;
@@ -153,7 +159,7 @@ export function AIQuotaUpsellCard({
           <Button
             variant="outline"
             className="h-9"
-            onClick={() => router.push("/organisation/settings")}
+            onClick={() => router.push("/organisation/subscription")}
             disabled={isBusy}
           >
             Open billing settings

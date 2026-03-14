@@ -5,8 +5,14 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { useAuth, useOrganizationList } from "@clerk/nextjs";
 import { apiAny } from "@/lib/convexApiAny";
+import {
+  currencyOptions,
+  detectBrowserCurrency,
+  isCurrencyCode,
+  type CurrencyCode,
+} from "@/lib/onboardingPreferences";
 import { toast } from "sonner";
-import { Bot, Building2, Clock3, Coins, Sparkles } from "lucide-react";
+import { Bot, Building2, Clock3, Coins, LocateFixed, Sparkles } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,51 +21,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TimezonePicker } from "@/components/ui/timezone-picker";
-
-type CurrencyCode =
-  | "USD"
-  | "EUR"
-  | "PLN"
-  | "GBP"
-  | "CAD"
-  | "AUD"
-  | "JPY"
-  | "CHF"
-  | "SEK"
-  | "NOK"
-  | "DKK"
-  | "CZK"
-  | "HUF"
-  | "CNY"
-  | "INR"
-  | "BRL"
-  | "MXN"
-  | "KRW"
-  | "SGD"
-  | "HKD";
-
-const currencyOptions: Array<{ code: CurrencyCode; label: string }> = [
-  { code: "USD", label: "US Dollar ($)" },
-  { code: "EUR", label: "Euro (EUR)" },
-  { code: "PLN", label: "Polish Zloty (PLN)" },
-  { code: "GBP", label: "British Pound (GBP)" },
-  { code: "CAD", label: "Canadian Dollar (CAD)" },
-  { code: "AUD", label: "Australian Dollar (AUD)" },
-  { code: "JPY", label: "Japanese Yen (JPY)" },
-  { code: "CHF", label: "Swiss Franc (CHF)" },
-  { code: "SEK", label: "Swedish Krona (SEK)" },
-  { code: "NOK", label: "Norwegian Krone (NOK)" },
-  { code: "DKK", label: "Danish Krone (DKK)" },
-  { code: "CZK", label: "Czech Koruna (CZK)" },
-  { code: "HUF", label: "Hungarian Forint (HUF)" },
-  { code: "CNY", label: "Chinese Yuan (CNY)" },
-  { code: "INR", label: "Indian Rupee (INR)" },
-  { code: "BRL", label: "Brazilian Real (BRL)" },
-  { code: "MXN", label: "Mexican Peso (MXN)" },
-  { code: "KRW", label: "South Korean Won (KRW)" },
-  { code: "SGD", label: "Singapore Dollar (SGD)" },
-  { code: "HKD", label: "Hong Kong Dollar (HKD)" },
-];
 
 const detectTimezone = (): string => {
   if (typeof window === "undefined") {
@@ -109,8 +70,17 @@ export default function OnboardingPage() {
     }
 
     const activeOrganization = onboardingStatus.activeOrganization;
-    const currentCurrency = activeOrganization?.currency as CurrencyCode | undefined;
-    const currentTimezone = activeOrganization?.timezone || detectTimezone();
+    const currentTimezone =
+      activeOrganization?.timezone ||
+      onboardingStatus.profile.preferredTimezone ||
+      detectTimezone();
+    const currentCurrency =
+      (isCurrencyCode(activeOrganization?.currency) && activeOrganization.currency) ||
+      (isCurrencyCode(onboardingStatus.profile.preferredCurrency) && onboardingStatus.profile.preferredCurrency) ||
+      detectBrowserCurrency({
+        countryCode: onboardingStatus.profile.countryCode,
+        timezone: currentTimezone,
+      });
 
     setOrganizationCurrency(currentCurrency || "USD");
     setOrganizationTimezone(currentTimezone);
@@ -134,6 +104,14 @@ export default function OnboardingPage() {
   const activeOrganization = onboardingStatus?.activeOrganization ?? null;
   const canUpdateOrganization = Boolean(activeOrganization?.canUpdateTeamSettings);
   const canSubmit = Boolean(activeOrganization) && (!canUpdateOrganization || organizationTimezone.trim().length > 0);
+  const detectOrganizationCurrency = () => {
+    setOrganizationCurrency(
+      detectBrowserCurrency({
+        countryCode: onboardingStatus?.profile.countryCode,
+        timezone: organizationTimezone,
+      }),
+    );
+  };
 
   const ensureMembershipWithRetry = async (organizationId: string, orgName?: string) => {
     let lastError: unknown;
@@ -348,21 +326,33 @@ export default function OnboardingPage() {
                   <Coins className="h-4 w-4 inline mr-2" />
                   Organization currency
                 </Label>
-                <Select
-                  value={organizationCurrency}
-                  onValueChange={(value) => setOrganizationCurrency(value as CurrencyCode)}
-                >
-                  <SelectTrigger id="currency" className="w-[360px] max-w-full">
-                    <SelectValue placeholder="Select currency" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {currencyOptions.map((currency) => (
-                      <SelectItem key={currency.code} value={currency.code}>
-                        {currency.code} - {currency.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex max-w-full gap-2">
+                  <Select
+                    value={organizationCurrency}
+                    onValueChange={(value) => setOrganizationCurrency(value as CurrencyCode)}
+                  >
+                    <SelectTrigger id="currency" className="w-[360px] max-w-full flex-1">
+                      <SelectValue placeholder="Select currency" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {currencyOptions.map((currency) => (
+                        <SelectItem key={currency.code} value={currency.code}>
+                          {currency.code} - {currency.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={detectOrganizationCurrency}
+                  >
+                    <LocateFixed className="h-4 w-4" />
+                    <span className="sr-only">Detect currency</span>
+                  </Button>
+                </div>
               </div>
             )}
 

@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   Settings,
+  CreditCard,
   Users,
   FolderOpen,
   BarChart3,
@@ -69,8 +70,9 @@ function CompanySidebarContent() {
     { href: "/organisation/reports", label: "Reports", icon: BarChart3, allowedRoles: ["admin", "member"] },
   ];
   const footerItems = [
-    { href: "/organisation/settings", label: "Settings", icon: Settings },
-    { href: "/help", label: "Help", icon: LifeBuoy },
+    { href: "/organisation/settings", label: "Settings", icon: Settings, isActive: pathname === "/organisation/settings" },
+    { href: "/organisation/subscription", label: "Subscription", icon: CreditCard, isActive: pathname === "/organisation/subscription" },
+    { href: "/help", label: "Help", icon: LifeBuoy, isActive: pathname.startsWith("/help") },
   ];
 
   const userInitial =
@@ -78,6 +80,7 @@ function CompanySidebarContent() {
     user?.firstName?.charAt(0) ||
     user?.primaryEmailAddress?.emailAddress?.charAt(0) ||
     "U";
+  const organizationName = organization?.name || team?.name || "Loading...";
   const organizationImageUrl = team?.imageUrl || organization?.imageUrl;
 
   // Filter navigation items based on user role
@@ -112,9 +115,12 @@ function CompanySidebarContent() {
               </div>
             )}
           </div>
-          <div className="flex flex-col min-w-0">
-            <h2 className="truncate text-[17px] font-semibold tracking-tight leading-none text-sidebar-foreground">
-              {organization?.name || team?.name || "Loading..."}
+          <div className="min-w-0 flex-1">
+            <h2
+              title={organizationName}
+              className="line-clamp-2 max-w-full overflow-hidden text-[17px] font-semibold leading-[1.08] tracking-tight text-sidebar-foreground [overflow-wrap:anywhere]"
+            >
+              {organizationName}
             </h2>
             <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-sidebar-foreground/72 leading-none">
               Company Space
@@ -166,7 +172,7 @@ function CompanySidebarContent() {
           <SidebarGroupContent className="pt-2">
             <SidebarMenu className="gap-1">
               {footerItems.map((item) => {
-                const isActive = pathname.startsWith(item.href);
+                const isActive = item.isActive;
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton

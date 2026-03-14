@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation, query } from "../_generated/server";
-import { getBillingWindow, SUBSCRIPTION_PLANS } from "../stripe";
+import { getBillingWindow, getEffectiveLimits, SUBSCRIPTION_PLANS } from "../stripe";
 
 // ====== TOKEN USAGE TRACKING ======
 
@@ -52,12 +52,7 @@ export const saveTokenUsage = internalMutation({
     const team = await ctx.db.get(args.teamId);
     if (team) {
       const plan = (team.subscriptionPlan || "free") as keyof typeof SUBSCRIPTION_PLANS;
-      const defaultPlanTokens = SUBSCRIPTION_PLANS[plan]?.aiMonthlyTokens ?? 0;
-      const storedPlanTokens = team.subscriptionLimits?.aiMonthlyTokens;
-      const planTokens =
-        plan === "free"
-          ? defaultPlanTokens
-          : (storedPlanTokens ?? defaultPlanTokens);
+      const planTokens = Math.max(0, getEffectiveLimits(team)?.aiMonthlyTokens ?? 0);
       const currentBalance =
         typeof team.aiTokens === "number"
           ? (

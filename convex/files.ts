@@ -2,7 +2,7 @@ import { R2 } from "@convex-dev/r2";
 import { components } from "./_generated/api";
 import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
-import { SUBSCRIPTION_PLANS } from "./stripe";
+import { getEffectiveLimits } from "./stripe";
 import { Id } from "./_generated/dataModel";
 import { aiDebugLog } from "./ai/helpers/debugLog";
 
@@ -61,8 +61,7 @@ export const getTeamStorageUsage = query({
       totalBytes += files.reduce((sum, file) => sum + (file.size || 0), 0);
     }
 
-    const plan = (team.subscriptionPlan || "free") as keyof typeof SUBSCRIPTION_PLANS;
-    const limits = team.subscriptionLimits || SUBSCRIPTION_PLANS[plan];
+    const limits = getEffectiveLimits(team);
     const limitGB = limits.maxStorageGB;
     const limitBytes = limitGB * 1024 * 1024 * 1024;
 
@@ -109,8 +108,7 @@ export const checkStorageLimit = internalQuery({
       totalBytes += files.reduce((sum, file) => sum + (file.size || 0), 0);
     }
 
-    const plan = (team.subscriptionPlan || "free") as keyof typeof SUBSCRIPTION_PLANS;
-    const limits = team.subscriptionLimits || SUBSCRIPTION_PLANS[plan];
+    const limits = getEffectiveLimits(team);
     const limitBytes = limits.maxStorageGB * 1024 * 1024 * 1024;
 
     const newTotal = totalBytes + (args.additionalBytes || 0);
@@ -204,8 +202,7 @@ export const generateUploadUrlWithCustomKey = mutation({
       totalBytes += files.reduce((sum, file) => sum + (file.size || 0), 0);
     }
 
-    const plan = (team.subscriptionPlan || "free") as keyof typeof SUBSCRIPTION_PLANS;
-    const limits = team.subscriptionLimits || SUBSCRIPTION_PLANS[plan];
+    const limits = getEffectiveLimits(team);
     const limitBytes = limits.maxStorageGB * 1024 * 1024 * 1024;
     const newTotal = totalBytes + (args.fileSize || 0);
 

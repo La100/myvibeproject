@@ -1,5 +1,5 @@
 import CompanySettings from "@/components/company/CompanySettings";
 
 export default function SettingsPage() {
-  return <CompanySettings />;
+  return <CompanySettings mode="settings" />;
 }

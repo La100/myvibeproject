@@ -14,6 +14,25 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-11-17.clover",
 });
 
+const getBaseUrl = () => (process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3001").replace(/\/+$/, "");
+const getBillingSettingsUrl = (checkoutState?: "success" | "canceled") => {
+  const billingUrl = new URL("/organisation/subscription", getBaseUrl());
+  if (checkoutState) {
+    billingUrl.searchParams.set("checkout", checkoutState);
+  }
+  return billingUrl.toString();
+};
+
+type StripeTeamRecord = {
+  name: string;
+  stripeCustomerId?: string | null;
+  subscriptionStatus?: string | null;
+};
+
+type TeamMembershipRecord = {
+  role?: string | null;
+};
+
 // Public action to create checkout session with promotion codes support
 export const createCheckoutSession = action({
   args: {
@@ -28,21 +47,23 @@ export const createCheckoutSession = action({
     if (!identity) {
       throw new Error("Not authenticated");
     }
+    const runQuery = ctx.runQuery as (query: unknown, args: unknown) => Promise<unknown>;
 
-    // Get team info
-    const team: any = await ctx.runQuery(internal.stripe.getTeamForStripe, {
+    // Convex query reference types can exceed TS instantiation depth inside actions.
+    // @ts-ignore
+    const team = await runQuery(internal.stripe.getTeamForStripe as unknown, {
       teamId: args.teamId,
-    });
+    }) as StripeTeamRecord | null;
 
     if (!team) {
       throw new Error("Team not found");
     }
 
     // Check if user is admin of this team
-    const membership: any = await ctx.runQuery(internal.teams.getTeamMemberByClerkId, {
+    const membership = await runQuery(internal.teams.getTeamMemberByClerkId as unknown, {
       teamId: args.teamId,
       clerkUserId: identity.subject,
-    });
+    }) as TeamMembershipRecord | null;
 
     if (!membership || membership.role !== "admin") {
       throw new Error("Only admins can manage subscriptions");
@@ -63,8 +84,6 @@ export const createCheckoutSession = action({
       });
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-
     // Create checkout session using direct Stripe SDK (supports allow_promotion_codes)
     const session = await stripe.checkout.sessions.create({
       customer: customer.customerId,
@@ -75,8 +94,8 @@ export const createCheckoutSession = action({
           quantity: 1,
         },
       ],
-      success_url: `${baseUrl}/${team.slug}/settings?success=true`,
-      cancel_url: `${baseUrl}/${team.slug}/settings?canceled=true`,
+      success_url: getBillingSettingsUrl("success"),
+      cancel_url: getBillingSettingsUrl("canceled"),
       allow_promotion_codes: true,
       subscription_data: {
         metadata: {
@@ -103,11 +122,12 @@ export const createBillingPortalSession = action({
     if (!identity) {
       throw new Error("Not authenticated");
     }
+    const runQuery = ctx.runQuery as (query: unknown, args: unknown) => Promise<unknown>;
 
     // Get team info
-    const team: any = await ctx.runQuery(internal.stripe.getTeamForStripe, {
+    const team = await runQuery(internal.stripe.getTeamForStripe as unknown, {
       teamId: args.teamId,
-    });
+    }) as StripeTeamRecord | null;
 
     if (!team) {
       throw new Error("Team not found");
@@ -118,21 +138,19 @@ export const createBillingPortalSession = action({
     }
 
     // Check if user is admin of this team
-    const membership: any = await ctx.runQuery(internal.teams.getTeamMemberByClerkId, {
+    const membership = await runQuery(internal.teams.getTeamMemberByClerkId as unknown, {
       teamId: args.teamId,
       clerkUserId: identity.subject,
-    });
+    }) as TeamMembershipRecord | null;
 
     if (!membership || membership.role !== "admin") {
       throw new Error("Only admins can manage subscriptions");
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-
     // Create portal session using component
     const session = await stripeClient.createCustomerPortalSession(ctx, {
       customerId: team.stripeCustomerId,
-      returnUrl: `${baseUrl}/${team.slug}/settings`,
+      returnUrl: getBillingSettingsUrl(),
     });
 
     return { url: session.url };
@@ -163,11 +181,12 @@ export const ensureSubscriptionSynced = action({
     if (!identity) {
       return { synced: false };
     }
+    const runQuery = ctx.runQuery as (query: unknown, args: unknown) => Promise<unknown>;
 
     // Get team info
-    const team: any = await ctx.runQuery(internal.stripe.getTeamForStripe, {
+    const team = await runQuery(internal.stripe.getTeamForStripe as unknown, {
       teamId: args.teamId,
-    });
+    }) as StripeTeamRecord | null;
 
     if (!team || !team.stripeCustomerId) {
       return { synced: false };

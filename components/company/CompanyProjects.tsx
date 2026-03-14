@@ -14,7 +14,14 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { cn } from "@/lib/utils";
 
 type ProjectStatus = "active" | "planning" | "on_hold" | "completed" | "cancelled";
@@ -44,9 +51,10 @@ export default function CompanyProjects() {
   );
 
   const projectGridClass = "grid grid-cols-1 justify-items-start gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4";
+  const hasProjects = filteredProjects.length > 0;
 
   return (
-    <div className="space-y-6">
+    <div className="flex min-h-[calc(100dvh-10rem)] flex-col gap-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <h1 className="clean-title text-4xl font-medium tracking-tight">Projects</h1>
 
@@ -72,9 +80,9 @@ export default function CompanyProjects() {
         </div>
       </div>
 
-      <div className={projectGridClass}>
-        {projects === undefined ? null : filteredProjects.length > 0 ? (
-          filteredProjects.map((project, index) => (
+      {projects === undefined ? null : hasProjects ? (
+        <div className={projectGridClass}>
+          {filteredProjects.map((project, index) => (
             <motion.div
               key={project._id}
               className="w-full md:max-w-[30rem] xl:max-w-none"
@@ -99,35 +107,50 @@ export default function CompanyProjects() {
                 onHover={() => router.prefetch(`/organisation/projects/${project.slug}`)}
               />
             </motion.div>
-          ))
-        ) : (
-          <div className="col-span-full">
-            <EmptyState
-              icon={FolderOpen}
-              title={searchQuery ? "No matching projects" : "No projects yet"}
-              description={
-                searchQuery
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-1 items-center justify-center">
+          <Empty className="mx-auto w-full max-w-2xl border-dashed py-24 md:py-28">
+            <EmptyHeader className="max-w-xl gap-3">
+              <EmptyMedia
+                variant="icon"
+                className="mb-3 size-14 rounded-2xl [&_svg:not([class*='size-'])]:size-8"
+              >
+                <FolderOpen strokeWidth={1.5} />
+              </EmptyMedia>
+              <EmptyTitle className="text-2xl font-semibold tracking-tight md:text-3xl">
+                {searchQuery ? "No matching projects" : "No projects yet"}
+              </EmptyTitle>
+              <EmptyDescription className="max-w-lg text-base/relaxed md:text-lg/relaxed">
+                {searchQuery
                   ? "Try a different search phrase or create a new project."
-                  : "Create your first project to start collaborating with your team and clients."
-              }
-              className="py-20"
-              action={{
-                label: "Create Project",
-                onClick: () => router.push("/organisation/projects/new"),
-                icon: Plus,
-              }}
-              secondaryAction={
-                searchQuery
-                  ? {
-                      label: "Clear search",
-                      onClick: () => setSearchQuery(""),
-                    }
-                  : undefined
-              }
-            />
-          </div>
-        )}
-      </div>
+                  : "Create your first project to start collaborating with your team and clients."}
+              </EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent className="flex-row flex-wrap justify-center gap-3 text-base">
+              <Button
+                onClick={() => router.push("/organisation/projects/new")}
+                size="lg"
+                className="h-12 rounded-xl px-6 text-base"
+              >
+                <Plus className="h-5 w-5" />
+                Create Project
+              </Button>
+              {searchQuery ? (
+                <Button
+                  onClick={() => setSearchQuery("")}
+                  variant="outline"
+                  size="lg"
+                  className="h-12 rounded-xl px-6 text-base"
+                >
+                  Clear search
+                </Button>
+              ) : null}
+            </EmptyContent>
+          </Empty>
+        </div>
+      )}
     </div>
   );
 }

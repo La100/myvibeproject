@@ -57,11 +57,16 @@ export function AISubscriptionWall({ teamId }: AISubscriptionWallProps) {
   const createCheckoutSession = useAction(apiAny.stripeActions.createCheckoutSession);
 
   const handleSubscribe = async () => {
-    const priceId = process.env.NEXT_PUBLIC_STRIPE_AI_PRICE_ID;
+    const priceId = subscription?.checkoutPlans?.ai ?? null;
+
+    if (subscription === undefined) {
+      toast.error("Loading billing configuration. Try again in a moment.");
+      return;
+    }
 
     if (!priceId) {
       toast.error("Stripe price ID not configured. Please contact support.");
-      console.error("NEXT_PUBLIC_STRIPE_AI_PRICE_ID is not set");
+      console.error("STRIPE_AI_PRICE_ID is not set");
       return;
     }
 

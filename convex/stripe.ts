@@ -3,6 +3,12 @@ import { query, mutation, internalMutation, internalQuery } from "./_generated/s
 import { components } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { usdToCredits } from "./ai/billing";
+import {
+  AI_PRO_MONTHLY_TOKENS,
+  AI_SCALE_MONTHLY_TOKENS,
+  PRO_MONTHLY_TOKENS,
+  ENTERPRISE_MONTHLY_TOKENS,
+} from "../lib/aiPricing";
 
 const DEFAULT_BILLING_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 const FREE_TRIAL_AI_BUDGET_USD = 1;
@@ -37,23 +43,23 @@ export const SUBSCRIPTION_PLANS = {
     id: "ai",
     name: "AI Pro",
     maxProjects: 20,
-    maxTeamMembers: 25,
+    maxTeamMembers: 2,
     maxStorageGB: 50,
     hasAdvancedFeatures: true,
     hasAIFeatures: true,
     price: 39,
-    aiMonthlyTokens: 2340000, // 60k credits per $1
+    aiMonthlyTokens: AI_PRO_MONTHLY_TOKENS, // 60k credits per $1
   },
   ai_scale: {
     id: "ai_scale",
     name: "AI Scale",
-    maxProjects: 20,
-    maxTeamMembers: 25,
-    maxStorageGB: 50,
+    maxProjects: 75,
+    maxTeamMembers: 100,
+    maxStorageGB: 250,
     hasAdvancedFeatures: true,
     hasAIFeatures: true,
     price: 99,
-    aiMonthlyTokens: 5940000, // 60k credits per $1
+    aiMonthlyTokens: AI_SCALE_MONTHLY_TOKENS, // ~91k credits per $1, 34% better value vs AI Pro
   },
   pro: {
     id: "pro",
@@ -64,7 +70,7 @@ export const SUBSCRIPTION_PLANS = {
     hasAdvancedFeatures: true,
     hasAIFeatures: true,
     price: 49,
-    aiMonthlyTokens: 2940000, // 60k credits per $1
+    aiMonthlyTokens: PRO_MONTHLY_TOKENS, // 60k credits per $1
   },
   enterprise: {
     id: "enterprise",
@@ -75,11 +81,11 @@ export const SUBSCRIPTION_PLANS = {
     hasAdvancedFeatures: true,
     hasAIFeatures: true,
     price: 199,
-    aiMonthlyTokens: 11940000, // 60k credits per $1
+    aiMonthlyTokens: ENTERPRISE_MONTHLY_TOKENS, // 60k credits per $1
   },
 } as const;
 
-function getEffectiveLimits(team: any) {
+export function getEffectiveLimits(team: any) {
   const plan = (team.subscriptionPlan || "free") as keyof typeof SUBSCRIPTION_PLANS;
   const defaultLimits = SUBSCRIPTION_PLANS[plan];
   const storedLimits = team.subscriptionLimits;
@@ -101,7 +107,17 @@ function getEffectiveLimits(team: any) {
     };
   }
 
-  return storedLimits || defaultLimits;
+  if (plan === "enterprise") {
+    return {
+      ...defaultLimits,
+      ...(storedLimits || {}),
+    };
+  }
+
+  return {
+    ...(storedLimits || {}),
+    ...defaultLimits,
+  };
 }
 
 export function getBillingWindow(team: any) {
@@ -318,6 +334,10 @@ export const getTeamSubscription = query({
       cancelAtPeriodEnd: team.cancelAtPeriodEnd || false,
       limits: subscriptionLimits,
       planDetails: SUBSCRIPTION_PLANS[plan] || SUBSCRIPTION_PLANS.free,
+      checkoutPlans: {
+        ai: process.env.STRIPE_AI_PRICE_ID || null,
+        ai_scale: process.env.STRIPE_AI_SCALE_PRICE_ID || null,
+      },
     };
   },
 });

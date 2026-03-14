@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { query, mutation, internalQuery, internalAction } from "./_generated/server";
 import { Doc } from "./_generated/dataModel";
 import { r2 } from "./files";
+import { getEffectiveLimits } from "./stripe";
 import {
   billingProfileValidator,
   normalizeBillingProfile,
@@ -1010,11 +1011,7 @@ export const getTeamResourceUsage = query({
     const membersUsed = members.length;
 
     // Get limits from subscription
-    const plan = (team.subscriptionPlan || "free") as "free" | "basic" | "ai" | "ai_scale" | "pro" | "enterprise";
-    const limits = team.subscriptionLimits || {
-      maxProjects: plan === "free" ? 3 : plan === "basic" ? 10 : plan === "ai" || plan === "ai_scale" ? 20 : plan === "pro" ? 50 : 999,
-      maxTeamMembers: plan === "free" ? 1 : plan === "basic" ? 15 : plan === "ai" || plan === "ai_scale" ? 25 : plan === "pro" ? 50 : 999,
-    };
+    const limits = getEffectiveLimits(team);
 
     const projectsLimit = limits.maxProjects;
     const membersLimit = limits.maxTeamMembers;
