@@ -1,7 +1,14 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const PORT = 3101;
-const BASE_URL = `http://127.0.0.1:${PORT}`;
+const BASE_URL = `http://localhost:${PORT}`;
+const AUTH_STATE_PATH = "playwright/.auth/user.json";
+const baseUse = {
+  baseURL: BASE_URL,
+  trace: "retain-on-failure" as const,
+  screenshot: "only-on-failure" as const,
+  video: "retain-on-failure" as const,
+};
 
 export default defineConfig({
   testDir: "./tests/browser",
@@ -10,28 +17,26 @@ export default defineConfig({
   expect: {
     timeout: 5_000,
   },
-  use: {
-    baseURL: BASE_URL,
-    trace: "retain-on-failure",
-    screenshot: "only-on-failure",
-    video: "retain-on-failure",
-  },
+  use: baseUse,
   projects: [
     {
-      name: "chromium",
-      use: {
-        ...devices["Desktop Chrome"],
-      },
+      name: "setup",
+      testMatch: /auth\.setup\.ts/,
+      use: baseUse,
     },
     {
-      name: "mobile-chromium",
+      name: "app-chromium",
+      testMatch: /app-auth\.spec\.ts/,
+      dependencies: ["setup"],
       use: {
-        ...devices["Pixel 7"],
+        ...devices["Desktop Chrome"],
+        ...baseUse,
+        storageState: AUTH_STATE_PATH,
       },
     },
   ],
   webServer: {
-    command: `pnpm exec next start -p ${PORT}`,
+    command: `E2E_AUTH_BYPASS=1 pnpm exec next start -p ${PORT}`,
     port: PORT,
     reuseExistingServer: false,
     timeout: 120_000,

@@ -155,14 +155,14 @@ export const getProjectAssistantRuntime = query({
     projectId: v.id("projects"),
   },
   returns: v.object({
-    runtime: v.union(v.literal("v1"), v.literal("v2")),
+    runtime: v.literal("v2"),
     teamId: v.id("teams"),
   }),
   handler: async (ctx, args) => {
     const identity = await requireIdentity(ctx);
     const { project } = await ensureProjectAccess(ctx, args.projectId, identity.subject);
     return {
-      runtime: project.aiAssistantRuntime || "v1",
+      runtime: "v2" as const,
       teamId: project.teamId,
     };
   },
@@ -171,11 +171,11 @@ export const getProjectAssistantRuntime = query({
 export const setProjectAssistantRuntime = mutation({
   args: {
     projectId: v.id("projects"),
-    runtime: v.union(v.literal("v1"), v.literal("v2")),
+    runtime: v.literal("v2"),
   },
   returns: v.object({
     projectId: v.id("projects"),
-    runtime: v.union(v.literal("v1"), v.literal("v2")),
+    runtime: v.literal("v2"),
   }),
   handler: async (ctx, args) => {
     const identity = await requireIdentity(ctx);
@@ -190,12 +190,12 @@ export const setProjectAssistantRuntime = mutation({
     }
 
     await ctx.db.patch(project._id, {
-      aiAssistantRuntime: args.runtime,
+      aiAssistantRuntime: "v2",
     });
 
     return {
       projectId: project._id,
-      runtime: args.runtime,
+      runtime: "v2" as const,
     };
   },
 });

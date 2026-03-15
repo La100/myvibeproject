@@ -15,6 +15,11 @@ import {
   buildSystemInstructions,
   getCurrentDateTime,
 } from "../helpers/contextBuilder";
+import {
+  prepareMessageWithFile,
+  prepareMessageWithFiles,
+  prepareMessageWithOpenAIFiles,
+} from "../files";
 import { buildFallbackResponseFromTools } from "../helpers/streamResponseBuilder";
 import { defaultPrompt } from "../prompt";
 import { createStreamingTools } from "../tools";
@@ -172,15 +177,29 @@ export const runResponseGroup = internalAction({
   args: {
     groupId: v.string(),
     message: v.string(),
+    fileId: v.optional(v.union(v.id("files"), v.string())),
+    fileIds: v.optional(v.array(v.union(v.id("files"), v.string()))),
+    openaiFiles: v.optional(
+      v.array(
+        v.object({
+          fileId: v.string(),
+          fileName: v.string(),
+          fileType: v.optional(v.string()),
+          fileSize: v.optional(v.number()),
+        }),
+      ),
+    ),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const startedAt = Date.now();
     let runtimeContext: RuntimeContext | null = null;
     let finalSummary = "";
+    let partialAssistantText = "";
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
     let wasSuccessful = false;
+    let wasAborted = false;
 
     const queue: Array<{
       eventType:
@@ -195,6 +214,7 @@ export const runResponseGroup = internalAction({
         | "tool.failed"
         | "turn.awaiting_confirmation"
         | "turn.completed"
+        | "turn.aborted"
         | "turn.failed";
       role?: "assistant" | "tool" | "system";
       callId?: string;
@@ -214,6 +234,61 @@ export const runResponseGroup = internalAction({
       queue.push(event);
       if (queue.length >= 20) {
         await flushEvents();
+      }
+    };
+
+    const isAbortRequested = async () => {
+      const state = await ctx.runQuery(internalAny.ai.v2.groups.getGroupAbortState, {
+        groupId: args.groupId,
+      });
+      return state.abortRequested || state.status === "aborted";
+    };
+
+    const abortCurrentRun = async (stream?: { abort?: () => void; controller?: AbortController | null }) => {
+      wasAborted = true;
+      if (stream?.abort) {
+        stream.abort();
+      } else {
+        stream?.controller?.abort();
+      }
+
+      const partialText = partialAssistantText.trim();
+      finalSummary = partialText || "Response stopped by user.";
+
+      if (partialText.length > 0) {
+        await pushEvent({
+          eventType: "message.assistant.completed",
+          role: "assistant",
+          text: partialText,
+          data: { aborted: true, partial: true },
+        });
+      }
+
+      await pushEvent({
+        eventType: "turn.aborted",
+        role: "system",
+        data: {
+          inputTokens: totalInputTokens,
+          outputTokens: totalOutputTokens,
+          reason: "user_requested",
+        },
+      });
+      await flushEvents();
+
+      await ctx.runMutation(internalAny.ai.v2.groups.updateGroupStatus, {
+        groupId: args.groupId,
+        status: "aborted",
+        summary: finalSummary,
+      });
+
+      if (runtimeContext?.group.threadId) {
+        await ctx.runMutation(internalAny.ai.threads.updateThreadSummary, {
+          threadId: runtimeContext.group.threadId,
+          lastMessageAt: Date.now(),
+          lastMessagePreview: finalSummary,
+          lastMessageRole: "assistant",
+          messageCountDelta: 1,
+        });
       }
     };
 
@@ -355,16 +430,44 @@ export const runResponseGroup = internalAction({
         content: entry.text,
       }));
 
+      let userMessageContent: any = args.message;
+      if (args.openaiFiles && args.openaiFiles.length > 0) {
+        const result = await prepareMessageWithOpenAIFiles({
+          openaiFiles: args.openaiFiles,
+          baseMessage: args.message,
+        });
+        userMessageContent = result.content;
+      } else if (args.fileIds && args.fileIds.length > 0) {
+        const result = await prepareMessageWithFiles({
+          ctx,
+          fileIds: args.fileIds as string[],
+          baseMessage: args.message,
+        });
+        userMessageContent = result.content;
+      } else if (args.fileId) {
+        const result = await prepareMessageWithFile({
+          ctx,
+          fileId: args.fileId as string,
+          baseMessage: args.message,
+        });
+        userMessageContent = result.content;
+      }
+
       let previousResponseId: string | undefined;
       let currentInput: any = [
         ...historyInput,
-        { role: "user", content: args.message },
+        { role: "user", content: userMessageContent },
       ];
       let hadPendingWrites = false;
       const fallbackToolCalls: Array<{ name?: string; args?: unknown }> = [];
       const fallbackToolResults: Array<{ output?: unknown }> = [];
 
       for (let iteration = 0; iteration < MAX_RESPONSE_ITERATIONS; iteration += 1) {
+        if (await isAbortRequested()) {
+          await abortCurrentRun();
+          return null;
+        }
+
         const stream = client.responses.stream({
           model: runtimeContext.profile.defaultModel || "gpt-5.4",
           instructions: systemInstructions,
@@ -392,6 +495,7 @@ export const runResponseGroup = internalAction({
           switch (event.type) {
             case "response.output_text.delta":
               if (event.delta) {
+                partialAssistantText += event.delta;
                 await pushEvent({
                   eventType: "message.assistant.delta",
                   role: "assistant",
@@ -429,6 +533,11 @@ export const runResponseGroup = internalAction({
               break;
             default:
               break;
+          }
+
+          if (await isAbortRequested()) {
+            await abortCurrentRun(stream as any);
+            return null;
           }
         }
 
@@ -470,6 +579,11 @@ export const runResponseGroup = internalAction({
         }> = [];
 
         for (const functionCall of functionCalls) {
+          if (await isAbortRequested()) {
+            await abortCurrentRun(stream as any);
+            return null;
+          }
+
           const callId = functionCall.call_id || functionCall.id;
           const functionName = functionCall.name;
           const rawArguments = functionCall.arguments || "{}";
@@ -637,6 +751,10 @@ export const runResponseGroup = internalAction({
       });
       wasSuccessful = true;
     } catch (error) {
+      if (wasAborted) {
+        return null;
+      }
+
       const errorMessage = formatErrorMessage(error);
       finalSummary = finalSummary || `Assistant v2 failed: ${errorMessage}`;
 
@@ -675,6 +793,10 @@ export const runResponseGroup = internalAction({
           totalInputTokens,
           totalOutputTokens,
         );
+        const billableTokens = wasSuccessful ? usdToCredits(estimatedCostUsd) : 0;
+        const estimatedCostCents = wasSuccessful
+          ? Math.round(estimatedCostUsd * 100)
+          : 0;
 
         await ctx.runMutation(internalAny.ai.usage.saveTokenUsage, {
           projectId: runtimeContext.group.projectId,
@@ -687,9 +809,9 @@ export const runResponseGroup = internalAction({
           inputTokens: totalInputTokens,
           outputTokens: totalOutputTokens,
           totalTokens,
-          billableTokens: usdToCredits(estimatedCostUsd),
+          billableTokens,
           mode: "v2",
-          estimatedCostCents: Math.round(estimatedCostUsd * 100),
+          estimatedCostCents,
           responseTimeMs: Date.now() - startedAt,
           success: wasSuccessful,
           errorMessage: finalSummary.startsWith("Assistant v2 failed:")

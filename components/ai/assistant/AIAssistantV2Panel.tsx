@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Bot, Clock3, Loader2, PanelLeftDashed, Sparkles } from "lucide-react";
+import { useUser } from "@clerk/nextjs";
+import { Bot, Clock3, Loader2, Paperclip, RotateCcw, Sparkles, Square, X } from "lucide-react";
 import { toast } from "sonner";
 
 import type { Id } from "@/convex/_generated/dataModel";
@@ -11,7 +12,8 @@ import { apiAny } from "@/lib/convexApiAny";
 import { cn } from "@/lib/utils";
 import type { ChatHistoryEntry } from "@/components/ai/assistant/data/types";
 import { InlineConfirmationList } from "@/components/ai/assistant/ui/confirmations/InlineConfirmation";
-import { usePendingItems } from "@/components/ai/assistant/data/hooks";
+import { useFileUpload, usePendingItems } from "@/components/ai/assistant/data/hooks";
+import { AIQuotaUpsellCard } from "@/components/ai/shared";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -24,23 +26,21 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
-type AssistantRuntime = "v1" | "v2";
 
 type Props = {
-  canManageRuntime: boolean;
   initialThreadId?: string;
   projectId: Id<"projects">;
   projectName: string;
-  runtime: AssistantRuntime;
+  teamId: Id<"teams">;
   teamSlug?: string;
+  aiAccess: {
+    hasAccess: boolean;
+    currentPlan?: string;
+    subscriptionStatus?: string | null;
+    message?: string;
+    remainingTokens?: number;
+  };
+  autoConfirmCrud: boolean;
 };
 
 function formatTimestamp(timestamp: number) {
@@ -67,13 +67,15 @@ function getEventVariant(eventType: string) {
 }
 
 export default function AIAssistantV2Panel({
-  canManageRuntime,
   initialThreadId,
   projectId,
   projectName,
-  runtime,
+  teamId,
   teamSlug,
+  aiAccess,
+  autoConfirmCrud,
 }: Props) {
+  const { user } = useUser();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -81,9 +83,10 @@ export default function AIAssistantV2Panel({
   const [draft, setDraft] = useState("");
   const [threadId, setThreadId] = useState<string | undefined>(initialThreadId);
   const [selectedGroupId, setSelectedGroupId] = useState<string | undefined>();
-  const [seedStubEvents, setSeedStubEvents] = useState(false);
   const [isSending, setIsSending] = useState(false);
-  const [isSwitchingRuntime, setIsSwitchingRuntime] = useState(false);
+  const [isStopping, setIsStopping] = useState(false);
+  const [isSavingAutoConfirmCrud, setIsSavingAutoConfirmCrud] = useState(false);
+  const [autoConfirmEnabled, setAutoConfirmEnabled] = useState(autoConfirmCrud);
   const [, setChatHistory] = useState<ChatHistoryEntry[]>([]);
 
   const profile = useQuery(apiAny.ai.v2.profiles.getTeamAssistantProfile, {
@@ -100,24 +103,38 @@ export default function AIAssistantV2Panel({
       : "skip",
   );
 
-  const startExperimentalTurn = useMutation(apiAny.ai.v2.groups.startExperimentalTurn);
-  const setProjectAssistantRuntime = useMutation(
-    apiAny.ai.v2.profiles.setProjectAssistantRuntime,
-  );
+  const startTurn = useMutation(apiAny.ai.v2.groups.startTurn);
+  const requestGroupAbort = useMutation(apiAny.ai.v2.groups.requestGroupAbort);
+  const updateProject = useMutation(apiAny.projects.updateProject);
+  const clearAllThreadsForUser = useMutation(apiAny.ai.threads.clearAllThreadsForUser);
   const {
     pendingItems,
     handleConfirmItem,
     handleRejectItem,
     handleEditItem,
+    handleRejectAll,
     handleUpdatePendingItem,
     isBulkProcessing,
+    resetPendingState,
   } = usePendingItems({
     projectId,
     teamSlug,
     threadId,
-    autoConfirmCrud: false,
+    autoConfirmCrud: autoConfirmEnabled,
     setChatHistory,
   });
+  const {
+    selectedFiles,
+    setSelectedFiles,
+    handleFileSelect,
+    handleRemoveFile,
+    handleAttachmentClick,
+    fileInputRef,
+  } = useFileUpload();
+
+  useEffect(() => {
+    setAutoConfirmEnabled(autoConfirmCrud);
+  }, [autoConfirmCrud]);
 
   useEffect(() => {
     if (!threadId && initialThreadId) {
@@ -220,111 +237,198 @@ export default function AIAssistantV2Panel({
     [handleUpdatePendingItem, resolveScopedItemRef],
   );
 
-  const handleRuntimeChange = useCallback(
-    async (nextRuntime: AssistantRuntime) => {
-      if (nextRuntime === runtime) return;
-
-      setIsSwitchingRuntime(true);
-      try {
-        await setProjectAssistantRuntime({
-          projectId,
-          runtime: nextRuntime,
-        });
-        toast.success(
-          nextRuntime === "v2"
-            ? "Assistant runtime switched to v2"
-            : "Assistant runtime switched to v1",
-        );
-      } catch (error) {
-        console.error("Failed to update assistant runtime:", error);
-        toast.error("Failed to change assistant runtime");
-      } finally {
-        setIsSwitchingRuntime(false);
-      }
-    },
-    [projectId, runtime, setProjectAssistantRuntime],
-  );
-
   const handleStartTurn = useCallback(async () => {
+    if (
+      !aiAccess.hasAccess &&
+      ((aiAccess.remainingTokens ?? 0) === 0 ||
+        (aiAccess.message || "").toLowerCase().includes("exhaust"))
+    ) {
+      toast.error("AI credits exhausted. Upgrade your plan or manage billing to continue.");
+      return;
+    }
+
     const message = draft.trim();
-    if (!message) {
-      toast.error("Enter a prompt for the v2 runtime");
+    if (!message && selectedFiles.length === 0) {
+      toast.error("Enter a message for the assistant");
       return;
     }
 
     setIsSending(true);
     try {
-      const result = await startExperimentalTurn({
+      const unresolvedPendingCount = pendingItems.filter(
+        (item) => item.status !== "confirmed" && item.status !== "rejected",
+      ).length;
+      if (unresolvedPendingCount > 0) {
+        await handleRejectAll();
+        toast.info(
+          unresolvedPendingCount === 1
+            ? "Previous pending action was auto-cancelled before sending your new message."
+            : `${unresolvedPendingCount} pending actions were auto-cancelled before sending your new message.`,
+        );
+      }
+
+      let openaiFiles:
+        | Array<{
+            fileId: string;
+            fileName: string;
+            fileType?: string;
+            fileSize?: number;
+          }>
+        | undefined;
+      if (selectedFiles.length > 0) {
+        openaiFiles = await Promise.all(
+          selectedFiles.map(async (file) => {
+            const formData = new FormData();
+            formData.append("projectId", String(projectId));
+            formData.append("file", file);
+
+            const response = await fetch("/api/ai/files", {
+              method: "POST",
+              body: formData,
+            });
+
+            if (!response.ok) {
+              const errorText = await response.text();
+              throw new Error(errorText || "OpenAI file upload failed");
+            }
+
+            return (await response.json()) as {
+              fileId: string;
+              fileName: string;
+              fileType?: string;
+              fileSize?: number;
+            };
+          }),
+        );
+      }
+
+      const fileLabel =
+        selectedFiles.length > 0
+          ? `Attached: ${selectedFiles.map((file) => file.name).join(", ")}`
+          : "";
+
+      const result = await startTurn({
         projectId,
         threadId,
-        message,
-        title: `${projectName} Assistant v2`,
+        message: message || fileLabel,
+        title: `${projectName} Assistant`,
         confirmationPolicy: "group",
-        seedStubEvents,
+        openaiFiles,
       });
 
       setThreadId(result.threadId);
       setSelectedGroupId(result.groupId);
       setDraft("");
-      toast.success(
-        seedStubEvents
-          ? "Experimental v2 turn stored with stub assistant events"
-          : "Experimental v2 turn stored",
-      );
+      setSelectedFiles([]);
     } catch (error) {
-      console.error("Failed to start experimental v2 turn:", error);
-      toast.error("Failed to start experimental turn");
+      console.error("Failed to start assistant turn:", error);
+      toast.error("Failed to send message");
     } finally {
       setIsSending(false);
     }
-  }, [draft, projectId, projectName, seedStubEvents, startExperimentalTurn, threadId]);
+  }, [
+    aiAccess.hasAccess,
+    aiAccess.message,
+    aiAccess.remainingTokens,
+    draft,
+    handleRejectAll,
+    pendingItems,
+    projectId,
+    projectName,
+    selectedFiles,
+    setSelectedFiles,
+    startTurn,
+    threadId,
+  ]);
+
+  const handleResetChat = useCallback(async () => {
+    if (!user?.id) return;
+
+    try {
+      await clearAllThreadsForUser({
+        projectId,
+        userClerkId: user.id,
+      });
+      setThreadId(undefined);
+      setSelectedGroupId(undefined);
+      setDraft("");
+      setSelectedFiles([]);
+      resetPendingState();
+    } catch (error) {
+      console.error("Failed to reset AI threads:", error);
+      toast.error("Failed to reset conversation");
+    }
+  }, [clearAllThreadsForUser, projectId, resetPendingState, setSelectedFiles, user?.id]);
+
+  const handleToggleAutoConfirmCrud = useCallback(async (checked: boolean) => {
+    const previous = autoConfirmEnabled;
+    setAutoConfirmEnabled(checked);
+    setIsSavingAutoConfirmCrud(true);
+    try {
+      await updateProject({
+        projectId,
+        aiAutoConfirmCrud: checked,
+      });
+      toast.success(
+        checked
+          ? "Auto-confirm ON — AI actions are applied automatically"
+          : "Auto-confirm OFF — AI actions require your approval",
+      );
+    } catch (error) {
+      setAutoConfirmEnabled(previous);
+      console.error("Failed to update aiAutoConfirmCrud:", error);
+      toast.error("Failed to save confirmation mode");
+    } finally {
+      setIsSavingAutoConfirmCrud(false);
+    }
+  }, [autoConfirmEnabled, projectId, updateProject]);
+
+  const isQuotaBlocked =
+    !aiAccess.hasAccess &&
+    ((aiAccess.remainingTokens ?? 0) === 0 ||
+      (aiAccess.message || "").toLowerCase().includes("exhaust"));
+  const canStopSelectedGroup =
+    Boolean(selectedGroupId) && selectedGroup?.status === "running" && !selectedGroup?.abortRequestedAt;
+
+  const handleStopTurn = useCallback(async () => {
+    if (!threadId || !selectedGroupId) return;
+
+    setIsStopping(true);
+    try {
+      const result = await requestGroupAbort({
+        threadId,
+        groupId: selectedGroupId,
+      });
+      if (result.requested) {
+        toast.success("Stop requested");
+      }
+    } catch (error) {
+      console.error("Failed to request assistant stop:", error);
+      toast.error("Failed to stop response");
+    } finally {
+      setIsStopping(false);
+    }
+  }, [requestGroupAbort, selectedGroupId, threadId]);
 
   return (
     <div className="flex h-[calc(100vh-4rem)] w-full min-w-0 flex-col gap-4 overflow-hidden p-4 text-foreground xl:p-6">
       <Card className="border-border/70 bg-background/90 shadow-soft-lg">
-        <CardHeader className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge className="gap-1" variant="default">
-                <Sparkles className="size-3" />
-                Assistant v2
-              </Badge>
-              <Badge variant="outline">Experimental runtime</Badge>
-              {threadId ? <Badge variant="secondary">Thread {threadId}</Badge> : null}
-            </div>
-            <div>
-              <CardTitle className="text-xl tracking-tight">
-                New runtime sandbox for {projectName}
-              </CardTitle>
-              <CardDescription className="max-w-3xl pt-1">
-                This panel writes to the new response-group and event-log model. It is the
-                staging ground before the live OpenAI Responses orchestrator replaces v1.
-              </CardDescription>
-            </div>
+        <CardHeader className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge className="gap-1" variant="default">
+              <Sparkles className="size-3" />
+              Assistant
+            </Badge>
+            <Badge variant="outline">Responses runtime</Badge>
+            {threadId ? <Badge variant="secondary">Thread {threadId}</Badge> : null}
           </div>
-
-          <div className="flex flex-col gap-2 sm:min-w-56">
-            <Label htmlFor="assistant-runtime-select">Project runtime</Label>
-            <Select
-              disabled={!canManageRuntime || isSwitchingRuntime}
-              value={runtime}
-              onValueChange={(value) => {
-                void handleRuntimeChange(value as AssistantRuntime);
-              }}
-            >
-              <SelectTrigger id="assistant-runtime-select" className="w-full">
-                <SelectValue placeholder="Select runtime" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="v1">v1 legacy runtime</SelectItem>
-                <SelectItem value="v2">v2 event runtime</SelectItem>
-              </SelectContent>
-            </Select>
-            {!canManageRuntime ? (
-              <p className="text-xs text-muted-foreground">
-                Only admins can switch the runtime for this project.
-              </p>
-            ) : null}
+          <div>
+            <CardTitle className="text-xl tracking-tight">
+              {projectName}
+            </CardTitle>
+            <CardDescription className="max-w-3xl pt-1">
+              Unified assistant flow backed by response groups, event history, and confirmation-aware tools.
+            </CardDescription>
           </div>
         </CardHeader>
       </Card>
@@ -334,48 +438,117 @@ export default function AIAssistantV2Panel({
           <Card className="border-border/70 bg-background/90 shadow-soft-md">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
-                <PanelLeftDashed className="size-4" />
-                Send an experimental turn
+                New message
               </CardTitle>
               <CardDescription>
-                Store a new v2 turn in Convex and inspect the generated event timeline.
+                Send a turn and inspect the runtime timeline as it completes.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {isQuotaBlocked ? (
+                <AIQuotaUpsellCard
+                  teamId={teamId}
+                  currentPlan={aiAccess.currentPlan}
+                  subscriptionStatus={aiAccess.subscriptionStatus ?? null}
+                  message={aiAccess.message}
+                  remainingTokens={aiAccess.remainingTokens ?? 0}
+                />
+              ) : null}
+
               <div className="space-y-2">
-                <Label htmlFor="assistant-v2-prompt">Prompt</Label>
+                <Label htmlFor="assistant-prompt">Message</Label>
                 <Textarea
-                  id="assistant-v2-prompt"
+                  id="assistant-prompt"
                   className="min-h-32 resize-y"
-                  placeholder="Plan the next renovation workflow and show how v2 stores the turn."
+                  placeholder="Plan the next project steps and note any actions that need confirmation."
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
                 />
               </div>
 
+              <div className="space-y-3">
+                <input
+                  ref={fileInputRef}
+                  className="hidden"
+                  type="file"
+                  multiple
+                  onChange={handleFileSelect}
+                />
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    disabled={isSending}
+                    type="button"
+                    variant="outline"
+                    onClick={handleAttachmentClick}
+                  >
+                    <Paperclip className="size-4" />
+                    Attach files
+                  </Button>
+                </div>
+                {selectedFiles.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedFiles.map((file, index) => (
+                      <Badge key={`${file.name}-${index}`} variant="secondary" className="gap-2">
+                        {file.name}
+                        <button
+                          type="button"
+                          aria-label={`Remove ${file.name}`}
+                          onClick={() => handleRemoveFile(index)}
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
               <div className="flex items-center justify-between rounded-xl border border-border/70 bg-muted/20 px-3 py-3">
                 <div className="space-y-1">
-                  <Label htmlFor="assistant-v2-stub">Seed stub assistant events</Label>
+                  <Label htmlFor="assistant-auto-confirm">Auto-confirm actions</Label>
                   <p className="text-xs text-muted-foreground">
-                    Keeps the UI end-to-end for now by adding reasoning and assistant events.
+                    Apply assistant CRUD actions automatically instead of asking for approval.
                   </p>
                 </div>
                 <Switch
-                  id="assistant-v2-stub"
-                  checked={seedStubEvents}
-                  onCheckedChange={setSeedStubEvents}
+                  id="assistant-auto-confirm"
+                  checked={autoConfirmEnabled}
+                  disabled={isSavingAutoConfirmCrud}
+                  onCheckedChange={(checked) => {
+                    void handleToggleAutoConfirmCrud(checked);
+                  }}
                 />
               </div>
 
               <div className="flex flex-wrap gap-2">
                 <Button
-                  disabled={isSending}
+                  disabled={isSending || isQuotaBlocked}
                   onClick={() => {
                     void handleStartTurn();
                   }}
                 >
                   {isSending ? <Loader2 className="size-4 animate-spin" /> : <Bot className="size-4" />}
-                  Start v2 turn
+                  Send
+                </Button>
+                <Button
+                  disabled={!canStopSelectedGroup || isStopping}
+                  variant="outline"
+                  onClick={() => {
+                    void handleStopTurn();
+                  }}
+                >
+                  {isStopping ? <Loader2 className="size-4 animate-spin" /> : <Square className="size-4" />}
+                  Stop
+                </Button>
+                <Button
+                  disabled={!threadId}
+                  variant="outline"
+                  onClick={() => {
+                    void handleResetChat();
+                  }}
+                >
+                  <RotateCcw className="size-4" />
+                  Reset chat
                 </Button>
                 <Button
                   disabled={!threadId}
@@ -383,9 +556,11 @@ export default function AIAssistantV2Panel({
                   onClick={() => {
                     setThreadId(undefined);
                     setSelectedGroupId(undefined);
+                    setDraft("");
+                    resetPendingState();
                   }}
                 >
-                  New thread
+                  New local thread
                 </Button>
               </div>
             </CardContent>
@@ -393,9 +568,9 @@ export default function AIAssistantV2Panel({
 
           <Card className="border-border/70 bg-background/90 shadow-soft-md">
             <CardHeader>
-              <CardTitle className="text-base">Tenant assistant profile</CardTitle>
+              <CardTitle className="text-base">Assistant profile</CardTitle>
               <CardDescription>
-                Team-scoped defaults that the v2 runtime will inherit.
+                Team-scoped defaults inherited by the runtime.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -467,13 +642,13 @@ export default function AIAssistantV2Panel({
             <CardHeader>
               <CardTitle className="text-base">Response groups</CardTitle>
               <CardDescription>
-                Each v2 assistant turn is tracked as one response group.
+                Each assistant turn is tracked as one response group.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {!threadId ? (
                 <p className="text-sm text-muted-foreground">
-                  Start a v2 turn to create the first thread and response group.
+                  Send a message to create the first thread and response group.
                 </p>
               ) : groups === undefined ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -531,12 +706,15 @@ export default function AIAssistantV2Panel({
                   <Badge variant={getStatusVariant(selectedGroup.status)}>
                     {selectedGroup.status}
                   </Badge>
+                  {selectedGroup.abortRequestedAt ? (
+                    <Badge variant="secondary">stopping</Badge>
+                  ) : null}
                   <Badge variant="outline">{selectedGroup.groupId}</Badge>
                 </>
               ) : null}
             </div>
             <CardDescription>
-              Stream-ready event log for text, reasoning, tools, and confirmation state.
+              Event log for text, reasoning, tool calls, and confirmation state.
             </CardDescription>
             {selectedGroup?.summary ? (
               <div className="rounded-xl border border-border/70 bg-muted/15 px-3 py-3 text-sm">

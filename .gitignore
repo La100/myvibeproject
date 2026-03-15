@@ -13,6 +13,7 @@
 # testing
 /coverage
 /test-results
+playwright/.auth/
 /.playwright-cli/*.log
 /.playwright-cli/*.yml
 

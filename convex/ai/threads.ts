@@ -11,6 +11,26 @@ function resolveAgentThreadId(thread: { threadId: string; agentThreadId?: string
   return thread.agentThreadId ?? thread.threadId;
 }
 
+async function deleteV2ThreadArtifacts(ctx: any, threadId: string) {
+  const groups = await ctx.db
+    .query("aiResponseGroups")
+    .withIndex("by_thread", (q: any) => q.eq("threadId", threadId))
+    .collect();
+
+  for (const group of groups) {
+    const events = await ctx.db
+      .query("aiEvents")
+      .withIndex("by_group_and_sequence", (q: any) => q.eq("groupId", group.groupId))
+      .collect();
+
+    for (const event of events) {
+      await ctx.db.delete(event._id);
+    }
+
+    await ctx.db.delete(group._id);
+  }
+}
+
 const mapPendingItems = (
   calls: Array<{
     _id: Id<"aiFunctionCalls">;
@@ -333,6 +353,8 @@ export const clearThreadForUser = mutation({
       await ctx.db.delete(call._id);
     }
 
+    await deleteV2ThreadArtifacts(ctx, args.threadId);
+
     const agentThreadId = resolveAgentThreadId(thread);
     if (agentThreadId) {
       await ctx.scheduler.runAfter(0, components.agent.threads.deleteAllForThreadIdAsync, {
@@ -386,6 +408,8 @@ export const clearPreviousThreadsForUser = mutation({
       for (const call of functionCalls) {
         await ctx.db.delete(call._id);
       }
+
+      await deleteV2ThreadArtifacts(ctx, thread.threadId);
 
       const agentThreadId = resolveAgentThreadId(thread);
       if (agentThreadId) {
@@ -743,6 +767,8 @@ export const clearAllThreadsForUser = mutation({
         await ctx.db.delete(call._id);
       }
 
+      await deleteV2ThreadArtifacts(ctx, thread.threadId);
+
       const agentThreadId = resolveAgentThreadId(thread);
       if (agentThreadId) {
         await ctx.runMutation(components.agent.threads.deleteAllForThreadIdAsync, {
@@ -788,6 +814,8 @@ export const clearThreadInternal = internalMutation({
     for (const call of functionCalls) {
       await ctx.db.delete(call._id);
     }
+
+    await deleteV2ThreadArtifacts(ctx, args.threadId);
 
     const agentThreadId = resolveAgentThreadId(thread);
     if (agentThreadId) {

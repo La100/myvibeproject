@@ -154,30 +154,12 @@ export const handleTelegramMessage = internalAction({
                     messageId: args.messageId,
                 });
 
-                // Use the project owner's web UI thread so messages appear in the UI chat
-                const threadId = await ctx.runMutation(internalAny.ai.threads.getProjectThreadInternal, {
-                    projectId: args.projectId,
-                    userClerkId: project.createdBy,
-                    title: "Assistant Chat",
-                });
-
-                if (!channel.threadId || channel.threadId !== threadId) {
-                    await ctx.runMutation(internalAny.messaging.channels.updateChannelThreadId, {
-                        channelId: channel._id,
-                        threadId,
-                    });
-                }
-
-                await ctx.runAction(internalAny.ai.streaming.internalDoStreaming, {
+                const response = await runTelegramAssistantTurn(ctx, {
+                    channel,
                     message: baseMessage,
                     projectId: args.projectId,
-                    userClerkId: project.createdBy,
-                    threadId,
+                    projectOwnerClerkId: project.createdBy,
                     fileId,
-                });
-
-                const response = await ctx.runQuery(internalAny.ai.threads.getLatestAssistantMessageText, {
-                    threadId,
                 });
 
                 if (response) {
@@ -314,9 +296,15 @@ async function resetTelegramThread(
         projectId: projectId as any,
     });
 
+    const freshThreadId = await ctx.runMutation(internalAny.ai.threads.getProjectThreadInternal, {
+        projectId: projectId as any,
+        userClerkId: projectOwnerClerkId,
+        title: "Assistant Chat",
+    });
+
     await ctx.runMutation(internalAny.messaging.channels.updateChannelThreadId, {
         channelId: channel._id,
-        threadId,
+        threadId: freshThreadId,
     });
 
     await sendTelegramMessageDirect(
@@ -455,37 +443,15 @@ async function processRegularMessage(
     );
     if (!canProceed) return;
 
-    const systemUserId = projectOwnerClerkId;
-
     try {
         // Send typing indicator
         await sendTelegramTyping(chatId, botToken);
 
-        // Use the project owner's web UI thread so messages appear in the UI chat
-        const threadId = await ctx.runMutation(internalAny.ai.threads.getProjectThreadInternal, {
-            projectId: channel.projectId,
-            userClerkId: projectOwnerClerkId,
-            title: "Assistant Chat",
-        });
-
-        if (!channel.threadId || channel.threadId !== threadId) {
-            await ctx.runMutation(internalAny.messaging.channels.updateChannelThreadId, {
-                channelId: channel._id,
-                threadId,
-            });
-        }
-
-        // Call AI streaming
-        await ctx.runAction(internalAny.ai.streaming.internalDoStreaming, {
+        const response = await runTelegramAssistantTurn(ctx, {
+            channel,
             message: text,
             projectId: channel.projectId,
-            userClerkId: systemUserId,
-            threadId,
-        });
-
-        // Get the AI response
-        const response = await ctx.runQuery(internalAny.ai.threads.getLatestAssistantMessageText, {
-            threadId,
+            projectOwnerClerkId,
         });
 
         if (response) {
@@ -501,6 +467,43 @@ async function processRegularMessage(
             botToken
         );
     }
+}
+
+async function runTelegramAssistantTurn(
+    ctx: any,
+    args: {
+        channel: any;
+        message: string;
+        projectId: string;
+        projectOwnerClerkId: string;
+        fileId?: string;
+    },
+): Promise<string | null> {
+    const turn = await ctx.runMutation(internalAny.ai.v2.groups.startTurnInternal, {
+        projectId: args.projectId as any,
+        threadId: args.channel.threadId,
+        userClerkId: args.projectOwnerClerkId,
+        message: args.message,
+        title: "Assistant Chat",
+        confirmationPolicy: "group",
+    });
+
+    if (!args.channel.threadId || args.channel.threadId !== turn.threadId) {
+        await ctx.runMutation(internalAny.messaging.channels.updateChannelThreadId, {
+            channelId: args.channel._id,
+            threadId: turn.threadId,
+        });
+    }
+
+    await ctx.runAction(internalAny.ai.v2.runtime.runResponseGroup, {
+        groupId: turn.groupId,
+        message: args.message,
+        fileId: args.fileId,
+    });
+
+    return await ctx.runQuery(internalAny.ai.v2.events.getLatestAssistantMessageForGroup, {
+        groupId: turn.groupId,
+    });
 }
 
 async function enforceFreeTelegramMessageLimit(

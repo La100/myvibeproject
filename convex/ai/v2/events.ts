@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalMutation, query } from "../../_generated/server";
+import { internalMutation, internalQuery, query } from "../../_generated/server";
 import { ensureThreadAccess, requireIdentity } from "../access";
 
 const eventTypeValidator = v.union(
@@ -140,5 +140,43 @@ export const listGroupEvents = query({
       data: event.data,
       createdAt: event.createdAt,
     }));
+  },
+});
+
+export const getLatestAssistantMessageForGroup = internalQuery({
+  args: {
+    groupId: v.string(),
+  },
+  returns: v.union(v.null(), v.string()),
+  handler: async (ctx, args) => {
+    const group = await ctx.db
+      .query("aiResponseGroups")
+      .withIndex("by_group_id", (q) => q.eq("groupId", args.groupId))
+      .unique();
+
+    if (!group) {
+      return null;
+    }
+
+    const events = await ctx.db
+      .query("aiEvents")
+      .withIndex("by_group_and_sequence", (q) => q.eq("groupId", args.groupId))
+      .collect();
+
+    const latestAssistantEvent = events
+      .slice()
+      .reverse()
+      .find(
+        (event) =>
+          event.eventType === "message.assistant.completed" &&
+          typeof event.text === "string" &&
+          event.text.trim().length > 0,
+      );
+
+    if (latestAssistantEvent?.text) {
+      return latestAssistantEvent.text;
+    }
+
+    return group.summary ?? null;
   },
 });

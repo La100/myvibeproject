@@ -465,7 +465,7 @@ export const createProjectInOrg = mutation({
       assignedTo: [],
       taskStatusSettings: defaultStatusSettings,
       aiAutoConfirmCrud: false,
-      aiAssistantRuntime: "v1",
+      aiAssistantRuntime: "v2",
     });
 
     await ctx.runMutation(internalAny.activityLog.logActivity, {

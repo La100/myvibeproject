@@ -1173,6 +1173,7 @@ export default defineSchema({
       v.literal("item"),
     ),
     summary: v.optional(v.string()),
+    abortRequestedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
