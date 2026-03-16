@@ -75,9 +75,9 @@ export function AuthShell({
             <Image
               src="/logo.svg"
               alt="Myvibe project"
-              width={520}
-              height={128}
-              className="h-10 w-auto"
+              width={1136}
+              height={1136}
+              className="size-16"
             />
           </Link>
           <p className="mb-10 text-center text-base text-muted-foreground">AI assistant workspace.</p>

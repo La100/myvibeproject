@@ -1,5 +1,5 @@
 import { R2 } from "@convex-dev/r2";
-import { components } from "./_generated/api";
+import { components, internal } from "./_generated/api";
 import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { getEffectiveLimits } from "./stripe";
@@ -242,8 +242,6 @@ const resolveFileType = (mimeType: string) => {
   if (mimeType.includes("dwg") || mimeType.includes("dxf")) return "drawing";
   return "other";
 };
-const checkStorageLimitRef = { _name: "files:checkStorageLimit" } as const;
-
 const getProjectAccessForUser = async (ctx: any, projectId: Id<"projects">, actorUserId: string) => {
   const project = await ctx.db.get(projectId) as any;
   if (!project) {
@@ -286,7 +284,7 @@ export const generateUploadUrlWithCustomKeyInternal = internalMutation({
     const team = await ctx.db.get(project.teamId) as any;
     if (!team) throw new Error("Team not found");
 
-    const storageCheck = await ctx.runQuery(checkStorageLimitRef as any, {
+    const storageCheck = await ctx.runQuery(internal.files.checkStorageLimit, {
       teamId: project.teamId,
       additionalBytes: args.fileSize,
     });

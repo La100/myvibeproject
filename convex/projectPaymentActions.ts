@@ -1,12 +1,10 @@
 "use node";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import fs from "node:fs";
-import path from "node:path";
-import { jsPDF } from "jspdf";
 import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { r2 } from "./files";
+import { generateInvoicePdf, sanitizeFileName, type InvoicePdfInput } from "../lib/invoicePdf";
 import {
   normalizeBillingProfile,
   normalizeOptionalEmail,
@@ -28,13 +26,6 @@ type InvoicePayload = {
 
 type BillingProfile = NonNullable<ReturnType<typeof normalizeBillingProfile>>;
 type CustomerDetails = NonNullable<ReturnType<typeof normalizePaymentCustomerDetails>>;
-
-let regularFontBase64: string | null = null;
-let boldFontBase64: string | null = null;
-
-const PDF_FONT_FAMILY = "ArialUnicode";
-const PDF_FONT_REGULAR = "Arial.ttf";
-const PDF_FONT_BOLD = "Arial-Bold.ttf";
 const BASE_URL = (process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3001").replace(/\/+$/, "");
 // Keep generated refs runtime-loaded here to avoid deep TS instantiation.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -50,16 +41,8 @@ const escapeHtml = (value: string) =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
-const sanitizeFileName = (value: string) =>
-  value
-    .normalize("NFKD")
-    .replace(/[^\w\s-]/g, "")
-    .trim()
-    .replace(/\s+/g, "-")
-    .toLowerCase();
-
 const formatAmount = (amount: number, currency: string) =>
-  new Intl.NumberFormat("pl-PL", {
+  new Intl.NumberFormat("en-US", {
     style: "currency",
     currency,
     minimumFractionDigits: 2,
@@ -68,7 +51,7 @@ const formatAmount = (amount: number, currency: string) =>
 
 const formatDate = (timestamp?: number) => {
   if (!timestamp) return "-";
-  return new Intl.DateTimeFormat("pl-PL", {
+  return new Intl.DateTimeFormat("en-US", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -187,164 +170,51 @@ const loadInvoicePayload = async (ctx: any, installmentId: any): Promise<Invoice
   return payload as InvoicePayload;
 };
 
-const loadFontBase64 = (fileName: string) => {
-  const absolutePath = path.join(process.cwd(), "public", "fonts", fileName);
-  return fs.readFileSync(absolutePath).toString("base64");
-};
-
-const ensurePdfFonts = (doc: jsPDF) => {
-  if (!regularFontBase64) {
-    regularFontBase64 = loadFontBase64(PDF_FONT_REGULAR);
-  }
-  if (!boldFontBase64) {
-    boldFontBase64 = loadFontBase64(PDF_FONT_BOLD);
-  }
-
-  doc.addFileToVFS(PDF_FONT_REGULAR, regularFontBase64);
-  doc.addFont(PDF_FONT_REGULAR, PDF_FONT_FAMILY, "normal");
-  doc.addFileToVFS(PDF_FONT_BOLD, boldFontBase64);
-  doc.addFont(PDF_FONT_BOLD, PDF_FONT_FAMILY, "bold");
-  doc.setFont(PDF_FONT_FAMILY, "normal");
-};
-
-const writeMultiline = (doc: jsPDF, value: string, x: number, y: number, maxWidth: number) => {
-  const lines = doc.splitTextToSize(value, maxWidth);
-  doc.text(lines, x, y);
-  return y + lines.length * 5;
-};
-
-const generateInvoicePdf = (payload: InvoicePayload) => {
+const buildInvoicePdfInput = (payload: InvoicePayload): InvoicePdfInput => {
   const { installment, project } = payload;
   const billingProfile = getBillingProfile(payload.team, installment);
   const customer = getInvoiceCustomerDetails(project, installment);
   const invoiceNumber = installment.invoiceNumber;
-  const paymentReference = installment.paymentReference || invoiceNumber;
-  const issuedAt = installment.invoiceIssuedAt || installment.updatedAt || Date.now();
 
-  if (!invoiceNumber) {
-    throw new Error("Invoice number not assigned");
-  }
-
-  const doc = new jsPDF({
-    format: "a4",
-    unit: "mm",
-  });
-  ensurePdfFonts(doc);
-
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const margin = 18;
-  const rightColumnX = 118;
-  let y = 20;
-
-  doc.setFont(PDF_FONT_FAMILY, "bold");
-  doc.setFontSize(22);
-  doc.text("Faktura VAT", margin, y);
-  doc.setFontSize(11);
-  doc.setFont(PDF_FONT_FAMILY, "normal");
-  doc.text(`Nr ${invoiceNumber}`, margin, y + 8);
-
-  doc.setFont(PDF_FONT_FAMILY, "bold");
-  doc.text("Data wystawienia", rightColumnX, y);
-  doc.setFont(PDF_FONT_FAMILY, "normal");
-  doc.text(formatDate(issuedAt), rightColumnX, y + 6);
-  doc.setFont(PDF_FONT_FAMILY, "bold");
-  doc.text("Termin płatności", rightColumnX, y + 16);
-  doc.setFont(PDF_FONT_FAMILY, "normal");
-  doc.text(formatDate(installment.dueDate), rightColumnX, y + 22);
-
-  y = 52;
-  doc.setDrawColor(220, 220, 220);
-  doc.line(margin, y, pageWidth - margin, y);
-  y += 10;
-
-  doc.setFont(PDF_FONT_FAMILY, "bold");
-  doc.setFontSize(12);
-  doc.text("Sprzedawca", margin, y);
-  doc.text("Nabywca", rightColumnX, y);
-  y += 7;
-
-  doc.setFont(PDF_FONT_FAMILY, "normal");
-  doc.setFontSize(10);
-  const sellerBlock = [
-    billingProfile.sellerName,
-    ...buildAddressBlock({
-      addressLine1: billingProfile.sellerAddressLine1,
-      addressLine2: billingProfile.sellerAddressLine2,
-      postalCode: billingProfile.sellerPostalCode,
-      city: billingProfile.sellerCity,
-      country: billingProfile.sellerCountry,
-    }),
-    billingProfile.sellerTaxId ? `NIP: ${billingProfile.sellerTaxId}` : undefined,
-    billingProfile.sellerEmail ? `Email: ${billingProfile.sellerEmail}` : undefined,
-    billingProfile.sellerPhone ? `Tel: ${billingProfile.sellerPhone}` : undefined,
-  ].filter(Boolean) as string[];
-  const customerBlock = [
-    customer.companyName || customer.name,
-    customer.companyName && customer.name ? customer.name : undefined,
-    ...buildAddressBlock(customer),
-    customer.taxId ? `NIP: ${customer.taxId}` : undefined,
-    customer.email ? `Email: ${customer.email}` : undefined,
-    customer.phone ? `Tel: ${customer.phone}` : undefined,
-  ].filter(Boolean) as string[];
-
-  doc.text(sellerBlock, margin, y);
-  doc.text(customerBlock, rightColumnX, y);
-  y += Math.max(sellerBlock.length, customerBlock.length) * 5 + 8;
-
-  doc.setDrawColor(220, 220, 220);
-  doc.line(margin, y, pageWidth - margin, y);
-  y += 8;
-
-  doc.setFillColor(42, 42, 42);
-  doc.setTextColor(255, 255, 255);
-  doc.rect(margin, y, pageWidth - margin * 2, 8, "F");
-  doc.setFont(PDF_FONT_FAMILY, "bold");
-  doc.text("Opis", margin + 3, y + 5.4);
-  doc.text("Kwota", pageWidth - margin - 3, y + 5.4, { align: "right" });
-  doc.setTextColor(25, 25, 25);
-  doc.setFont(PDF_FONT_FAMILY, "normal");
-  y += 13;
-
-  const lineDescription = installment.description?.trim()
-    ? `${installment.title} - ${installment.description.trim()}`
-    : installment.title;
-  y = writeMultiline(doc, lineDescription, margin + 2, y, 120);
-  doc.text(formatAmount(installment.amount, installment.currency), pageWidth - margin - 2, y - 5, { align: "right" });
-  doc.line(margin, y + 2, pageWidth - margin, y + 2);
-  y += 12;
-
-  doc.setFont(PDF_FONT_FAMILY, "bold");
-  doc.text("Do zapłaty", pageWidth - margin - 45, y);
-  doc.text(formatAmount(installment.amount, installment.currency), pageWidth - margin - 2, y, { align: "right" });
-  y += 12;
-
-  doc.setFont(PDF_FONT_FAMILY, "bold");
-  doc.text("Dane do przelewu", margin, y);
-  y += 6;
-  doc.setFont(PDF_FONT_FAMILY, "normal");
-  const bankLines = [
-    billingProfile.bankAccountHolder || billingProfile.sellerName,
-    billingProfile.bankName,
-    billingProfile.bankAccountNumber ? `Nr konta: ${billingProfile.bankAccountNumber}` : undefined,
-    billingProfile.bankSwift ? `SWIFT: ${billingProfile.bankSwift}` : undefined,
-    `Tytuł przelewu: ${paymentReference}`,
-  ].filter(Boolean) as string[];
-  doc.text(bankLines, margin, y);
-
-  const notes = [
-    billingProfile.paymentInstructions,
-    installment.sentAt ? `Wysłano klientowi: ${formatDate(installment.sentAt)}` : undefined,
-    installment.paidAt ? `Opłacono: ${formatDate(installment.paidAt)}` : undefined,
-  ].filter(Boolean).join("\n");
-  if (notes) {
-    y += bankLines.length * 5 + 6;
-    doc.setFont(PDF_FONT_FAMILY, "bold");
-    doc.text("Uwagi", margin, y);
-    doc.setFont(PDF_FONT_FAMILY, "normal");
-    writeMultiline(doc, notes, margin, y + 6, pageWidth - margin * 2);
-  }
-
-  return Buffer.from(doc.output("arraybuffer"));
+  return {
+    invoiceNumber,
+    issuedAt: installment.invoiceIssuedAt || installment.updatedAt || Date.now(),
+    dueDate: installment.dueDate,
+    amount: installment.amount,
+    currency: installment.currency,
+    lineText: installment.description?.trim()
+      ? `${installment.title} - ${installment.description.trim()}`
+      : installment.title,
+    paymentReference: installment.paymentReference || invoiceNumber,
+    seller: {
+      name: billingProfile.sellerName ?? payload.team.name ?? "Seller",
+      addressLines: buildAddressBlock({
+        addressLine1: billingProfile.sellerAddressLine1,
+        addressLine2: billingProfile.sellerAddressLine2,
+        postalCode: billingProfile.sellerPostalCode,
+        city: billingProfile.sellerCity,
+        country: billingProfile.sellerCountry,
+      }),
+      taxId: billingProfile.sellerTaxId,
+      email: billingProfile.sellerEmail,
+      phone: billingProfile.sellerPhone,
+      bankAccountHolder: billingProfile.bankAccountHolder || billingProfile.sellerName,
+      bankName: billingProfile.bankName,
+      bankAccountNumber: billingProfile.bankAccountNumber,
+      bankSwift: billingProfile.bankSwift,
+      paymentInstructions: billingProfile.paymentInstructions,
+    },
+    customer: {
+      name: customer.companyName || customer.name || project.paymentCustomerName || project.customer || project.name,
+      extraName: customer.companyName && customer.name ? customer.name : undefined,
+      addressLines: buildAddressBlock(customer),
+      taxId: customer.taxId,
+      email: customer.email,
+      phone: customer.phone,
+    },
+    sentAt: installment.sentAt,
+    paidAt: installment.paidAt,
+  };
 };
 
 const uploadInvoicePdf = async (
@@ -457,7 +327,7 @@ const ensureInvoiceDocument = async (
   if (!payload.installment.invoicePdfStorageKey) {
     const safeInvoiceNumber = sanitizeFileName(payload.installment.invoiceNumber || "invoice");
     const fileName = `invoice-${safeInvoiceNumber}.pdf`;
-    const pdfBuffer = generateInvoicePdf(payload);
+    const pdfBuffer = generateInvoicePdf(buildInvoicePdfInput(payload));
     await uploadInvoicePdf(ctx, payload, actorUserId, fileName, pdfBuffer);
     payload = await loadInvoicePayload(ctx, installmentId);
   }
@@ -484,29 +354,29 @@ const buildInvoiceEmail = async (payload: InvoicePayload) => {
 
   return {
     to: email,
-    subject: `Faktura ${invoiceNumber} - ${payload.project.name}`,
+    subject: `Invoice ${invoiceNumber} - ${payload.project.name}`,
     text:
-      `Dzien dobry,\n\n` +
-      `w zalaczeniu przesylamy fakture ${invoiceNumber} dla projektu "${payload.project.name}".\n` +
-      `Kwota: ${amount}\n` +
-      `Termin platnosci: ${dueDate}\n` +
-      `Numer konta: ${accountNumber}\n` +
-      `Tytul przelewu: ${paymentReference}\n\n` +
-      (downloadUrl ? `Pobierz PDF: ${downloadUrl}\n\n` : "") +
-      `Pozdrawiamy,\n${billingProfile.sellerName}`,
+      `Hello,\n\n` +
+      `Please find invoice ${invoiceNumber} for the project "${payload.project.name}" attached.\n` +
+      `Amount: ${amount}\n` +
+      `Due date: ${dueDate}\n` +
+      `Account number: ${accountNumber}\n` +
+      `Transfer reference: ${paymentReference}\n\n` +
+      (downloadUrl ? `Download PDF: ${downloadUrl}\n\n` : "") +
+      `Best regards,\n${billingProfile.sellerName}`,
     html:
-      `<p>Dzień dobry,</p>` +
-      `<p>W załączeniu przesyłamy fakturę <strong>${escapeHtml(invoiceNumber)}</strong> dla projektu <strong>${escapeHtml(payload.project.name)}</strong>.</p>` +
+      `<p>Hello,</p>` +
+      `<p>Please find invoice <strong>${escapeHtml(invoiceNumber)}</strong> for the project <strong>${escapeHtml(payload.project.name)}</strong> attached.</p>` +
       `<p>` +
-      `Kwota: <strong>${escapeHtml(amount)}</strong><br />` +
-      `Termin płatności: <strong>${escapeHtml(dueDate)}</strong><br />` +
-      `Numer konta: <strong>${escapeHtml(accountNumber)}</strong><br />` +
-      `Tytuł przelewu: <strong>${escapeHtml(paymentReference)}</strong>` +
+      `Amount: <strong>${escapeHtml(amount)}</strong><br />` +
+      `Due date: <strong>${escapeHtml(dueDate)}</strong><br />` +
+      `Account number: <strong>${escapeHtml(accountNumber)}</strong><br />` +
+      `Transfer reference: <strong>${escapeHtml(paymentReference)}</strong>` +
       `</p>` +
       (downloadUrl
-        ? `<p><a href="${escapeHtml(downloadUrl)}">Pobierz fakturę PDF</a></p>`
+        ? `<p><a href="${escapeHtml(downloadUrl)}">Download invoice PDF</a></p>`
         : "") +
-      `<p>Pozdrawiamy,<br />${escapeHtml(billingProfile.sellerName || payload.team.name)}</p>`,
+      `<p>Best regards,<br />${escapeHtml(billingProfile.sellerName || payload.team.name)}</p>`,
   };
 };
 
@@ -523,7 +393,7 @@ const issueInvoice = async (
 
   if (options?.sendEmail) {
     const email = await buildInvoiceEmail(ready);
-    const pdfBuffer = generateInvoicePdf(ready);
+    const pdfBuffer = generateInvoicePdf(buildInvoicePdfInput(ready));
     await sendResendEmail({
       ...email,
       attachmentName: ready.installment.invoicePdfFileName || `invoice-${ready.installment.invoiceNumber}.pdf`,

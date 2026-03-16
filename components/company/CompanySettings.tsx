@@ -1301,7 +1301,7 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
               </div>
             </div>
 
-            <div className="grid gap-6">
+            <div id="organization-billing-profile" className="grid gap-6 scroll-mt-24">
               <div className="flex flex-col gap-1">
                 <h2 className="text-lg font-medium">Invoicing Profile</h2>
                 <p className="text-sm text-muted-foreground">

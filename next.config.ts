@@ -72,6 +72,15 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      {
+        source: "/organisation/projects/:projectSlug/milestones",
+        destination: "/organisation/projects/:projectSlug",
+        permanent: false,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

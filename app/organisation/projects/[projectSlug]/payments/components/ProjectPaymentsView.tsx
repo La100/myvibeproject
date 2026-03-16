@@ -30,6 +30,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+  InputGroupText,
+} from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -271,6 +277,17 @@ export default function ProjectPaymentsView() {
     () => installments.filter((installment) => installment.status !== "draft"),
     [installments],
   );
+  const invoiceSetupReady = Boolean(
+    paymentsData?.billingSetup?.sellerReady && paymentsData?.billingSetup?.customerReady,
+  );
+  const invoiceSetupIssues =
+    (paymentsData?.billingSetup?.missingSellerFields?.length ?? 0) +
+    (paymentsData?.billingSetup?.missingCustomerFields?.length ?? 0);
+  const paymentTabTriggerClassName =
+    "group h-auto w-full flex-none justify-start rounded-[18px] border border-transparent px-4 py-3 text-left text-[var(--ui-text-main)] shadow-none transition-all duration-200 hover:border-[var(--ui-border-soft)] hover:bg-[var(--ui-surface-base)]/70 hover:text-[var(--ui-text-strong)] data-[state=active]:border-[var(--ui-border-soft)] data-[state=active]:bg-[var(--ui-surface-base)] data-[state=active]:text-[var(--ui-text-strong)] data-[state=active]:shadow-[0_18px_34px_-28px_rgba(0,0,0,0.7)]";
+  const paymentTabBadgeClassName =
+    "border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-[var(--ui-text-main)]";
+  const activeCurrency = paymentsData?.currency || project.currency || "PLN";
   const projectClientDefaults = buildCustomerFromProject(project);
   const hasProjectClientDefaults = Boolean(
     projectClientDefaults.name || projectClientDefaults.addressLine1,
@@ -348,7 +365,7 @@ export default function ProjectPaymentsView() {
   const saveInstallment = async () => {
     const parsedAmount = Number.parseFloat(form.amount);
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      toast.error("Enter a valid installment amount");
+      toast.error("Enter a valid invoice amount");
       return;
     }
 
@@ -362,7 +379,7 @@ export default function ProjectPaymentsView() {
           amount: parsedAmount,
           dueDate: parseDateInput(form.dueDate) ?? null,
         });
-        toast.success("Installment updated");
+        toast.success("Invoice updated");
       } else {
         await createPayment({
           projectId: project._id,
@@ -371,11 +388,11 @@ export default function ProjectPaymentsView() {
           amount: parsedAmount,
           dueDate: parseDateInput(form.dueDate) ?? null,
         });
-        toast.success("Installment created");
+        toast.success("Invoice created");
       }
       resetDialog();
     } catch (error) {
-      toast.error("Could not save installment", {
+      toast.error("Could not save invoice", {
         description: (error as Error).message,
       });
     } finally {
@@ -414,10 +431,10 @@ export default function ProjectPaymentsView() {
 
       toast.success(
         actionName === "paid"
-          ? "Installment marked as paid"
+          ? "Invoice marked as paid"
           : actionName === "open"
-            ? "Installment reopened"
-            : "Installment voided",
+            ? "Invoice reopened"
+            : "Invoice voided",
       );
     } catch (error) {
       toast.error("Payment action failed", {
@@ -432,9 +449,9 @@ export default function ProjectPaymentsView() {
     setBusyInstallmentId(installmentId);
     try {
       await deletePayment({ installmentId });
-      toast.success("Draft installment deleted");
+      toast.success("Draft invoice deleted");
     } catch (error) {
-      toast.error("Could not delete installment", {
+      toast.error("Could not delete invoice", {
         description: (error as Error).message,
       });
     } finally {
@@ -634,7 +651,7 @@ export default function ProjectPaymentsView() {
           actions={
             <Button type="button" onClick={openCreateDialog}>
               <Plus className="mr-2 h-4 w-4" />
-              New installment
+              New invoice
             </Button>
           }
         />
@@ -689,11 +706,85 @@ export default function ProjectPaymentsView() {
           </Alert>
         )}
 
-        <Tabs defaultValue="schedule" className="space-y-6">
-          <TabsList className="grid h-auto w-full grid-cols-1 gap-2 rounded-2xl bg-[var(--ui-surface-soft)] p-2 md:grid-cols-3">
-            <TabsTrigger value="schedule">Installments</TabsTrigger>
-            <TabsTrigger value="invoices">Invoices</TabsTrigger>
-            <TabsTrigger value="invoice-setup">Invoice setup</TabsTrigger>
+        <Tabs defaultValue="schedule" className="w-full gap-6">
+          <TabsList className="grid h-auto w-full grid-cols-1 gap-2 rounded-[26px] border border-[var(--ui-border-soft)] bg-[linear-gradient(135deg,color-mix(in_oklab,var(--ui-surface-soft)_82%,white_18%)_0%,color-mix(in_oklab,var(--ui-surface-base)_72%,var(--ui-surface-soft)_28%)_100%)] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.72),0_18px_40px_-34px_rgba(15,15,15,0.42)] md:grid-cols-3">
+            <TabsTrigger
+              value="schedule"
+              className={paymentTabTriggerClassName}
+            >
+              <span className="flex w-full items-center gap-3">
+                <span className="inline-flex size-10 items-center justify-center rounded-[14px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] text-[var(--ui-text-muted)] transition-colors duration-200 group-data-[state=active]:bg-[color-mix(in_oklab,var(--ui-accent-brand)_12%,white_88%)] group-data-[state=active]:text-[var(--ui-accent-brand)]">
+                  <Wallet className="size-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold">Draft invoices</span>
+                  <span className="mt-0.5 block text-[11px] leading-snug text-[var(--ui-text-muted)]">
+                    Create and prepare invoices before issuing
+                  </span>
+                </span>
+                <Badge
+                  variant="outline"
+                  className={paymentTabBadgeClassName}
+                >
+                  {draftInstallments.length}
+                </Badge>
+              </span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="invoices"
+              className={paymentTabTriggerClassName}
+            >
+              <span className="flex w-full items-center gap-3">
+                <span className="inline-flex size-10 items-center justify-center rounded-[14px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] text-[var(--ui-text-muted)] transition-colors duration-200 group-data-[state=active]:bg-[color-mix(in_oklab,var(--ui-accent-copper)_13%,white_87%)] group-data-[state=active]:text-[var(--ui-accent-copper)]">
+                  <Banknote className="size-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold">Issued invoices</span>
+                  <span className="mt-0.5 block text-[11px] leading-snug text-[var(--ui-text-muted)]">
+                    Sent invoices and payment history
+                  </span>
+                </span>
+                <Badge
+                  variant="outline"
+                  className={paymentTabBadgeClassName}
+                >
+                  {issuedInstallments.length}
+                </Badge>
+              </span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="invoice-setup"
+              className={paymentTabTriggerClassName}
+            >
+              <span className="flex w-full items-center gap-3">
+                <span className="inline-flex size-10 items-center justify-center rounded-[14px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] text-[var(--ui-text-muted)] transition-colors duration-200 group-data-[state=active]:bg-[color-mix(in_oklab,var(--ui-accent-indigo)_12%,white_88%)] group-data-[state=active]:text-[var(--ui-accent-indigo)]">
+                  <Building2 className="size-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold">Invoice setup</span>
+                  <span className="mt-0.5 block text-[11px] leading-snug text-[var(--ui-text-muted)]">
+                    Seller profile and bill-to details
+                  </span>
+                </span>
+                <Badge
+                  variant="outline"
+                  className={
+                    invoiceSetupReady
+                      ? "border-[color-mix(in_oklab,var(--ui-accent-brand)_30%,white_70%)] bg-[color-mix(in_oklab,var(--ui-accent-brand)_12%,white_88%)] text-[var(--ui-accent-brand)]"
+                      : "border-[color-mix(in_oklab,var(--ui-accent-copper)_28%,white_72%)] bg-[color-mix(in_oklab,var(--ui-accent-copper)_12%,white_88%)] text-[var(--ui-accent-copper)]"
+                  }
+                >
+                  {invoiceSetupReady ? (
+                    <>
+                      <CheckCircle2 className="size-3" />
+                      Ready
+                    </>
+                  ) : (
+                    `${invoiceSetupIssues} missing`
+                  )}
+                </Badge>
+              </span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="schedule" className="space-y-6">
@@ -701,17 +792,17 @@ export default function ProjectPaymentsView() {
               <CardHeader className="flex flex-row items-center justify-between gap-4">
                 <CardTitle className="flex items-center gap-2">
                   <Wallet className="h-4 w-4" />
-                  Draft Installments
+                  Draft invoices
                 </CardTitle>
                 <Button type="button" onClick={openCreateDialog}>
                   <Plus className="mr-2 h-4 w-4" />
-                  New installment
+                  New invoice
                 </Button>
               </CardHeader>
               <CardContent className="space-y-4">
                 {renderInstallmentList(
                   draftInstallments,
-                  "No draft installments yet. Create a draft and issue the invoice from the next tab when it is ready.",
+                  "No draft invoices yet. Create one here and issue it from the next tab when it is ready.",
                 )}
               </CardContent>
             </Card>
@@ -728,7 +819,7 @@ export default function ProjectPaymentsView() {
               <CardContent className="space-y-4">
                 {renderInstallmentList(
                   issuedInstallments,
-                  "No issued invoices yet. Issue a draft installment and it will appear here.",
+                  "No issued invoices yet. Issue a draft invoice and it will appear here.",
                 )}
               </CardContent>
             </Card>
@@ -744,7 +835,12 @@ export default function ProjectPaymentsView() {
                   </CardTitle>
                   <p className="text-sm text-muted-foreground">
                     Seller data is shared across this organization and is also available in{" "}
-                    <Link href="/organisation/settings" className="font-medium text-foreground underline underline-offset-4">
+                    <Link
+                      href="/organisation/settings#organization-billing-profile"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-foreground underline underline-offset-4"
+                    >
                       organization settings
                     </Link>.
                   </p>
@@ -904,9 +1000,9 @@ export default function ProjectPaymentsView() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-[560px]">
           <DialogHeader>
-            <DialogTitle>{editingInstallment ? "Edit installment" : "New installment"}</DialogTitle>
+            <DialogTitle>{editingInstallment ? "Edit invoice" : "New invoice"}</DialogTitle>
             <DialogDescription>
-              Draft installments stay internal until you issue a bank-transfer invoice.
+              Draft invoices stay internal until you issue a bank-transfer invoice.
             </DialogDescription>
           </DialogHeader>
 
@@ -935,15 +1031,20 @@ export default function ProjectPaymentsView() {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="installment-amount">Amount</Label>
-                <Input
-                  id="installment-amount"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.amount}
-                  onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))}
-                  placeholder="0.00"
-                />
+                <InputGroup>
+                  <InputGroupInput
+                    id="installment-amount"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.amount}
+                    onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))}
+                    placeholder="0.00"
+                  />
+                  <InputGroupAddon align="inline-end">
+                    <InputGroupText>{activeCurrency}</InputGroupText>
+                  </InputGroupAddon>
+                </InputGroup>
               </div>
 
               <div className="space-y-2">
@@ -963,7 +1064,7 @@ export default function ProjectPaymentsView() {
               Cancel
             </Button>
             <Button type="button" onClick={() => void saveInstallment()} disabled={submittingInstallment}>
-              {submittingInstallment ? "Saving..." : editingInstallment ? "Save changes" : "Create installment"}
+              {submittingInstallment ? "Saving..." : editingInstallment ? "Save changes" : "Create invoice"}
             </Button>
           </DialogFooter>
         </DialogContent>

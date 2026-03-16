@@ -33,13 +33,13 @@ export function Navbar() {
     >
       <div
         className={cn(
-          "mx-auto flex h-14 items-center justify-between px-6 transition-all duration-300",
+          "mx-auto flex items-center justify-between px-6 transition-all duration-300",
           scrolled
-            ? "max-w-5xl rounded-full border border-border/50 bg-background/85 backdrop-blur-xl shadow-lg shadow-black/[0.06]"
-            : "max-w-[1440px] sm:px-10"
+            ? "h-16 max-w-5xl rounded-full border border-border/50 bg-background/85 backdrop-blur-xl shadow-lg shadow-black/[0.06]"
+            : "h-24 max-w-[1440px] sm:px-10"
         )}
       >
-        <Logo />
+        <Logo className={scrolled ? "size-10 sm:size-11" : "size-12 sm:size-14"} />
 
         <nav className="hidden items-center gap-7 md:flex">
           {navLinks.map((link) => (

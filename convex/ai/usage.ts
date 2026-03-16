@@ -4,6 +4,24 @@ import { getBillingWindow, getEffectiveLimits, SUBSCRIPTION_PLANS } from "../str
 
 // ====== TOKEN USAGE TRACKING ======
 
+const getTeamTokenBalance = (team: {
+  subscriptionPlan?: string;
+  aiTokens?: number;
+}) => {
+  const plan = (team.subscriptionPlan || "free") as keyof typeof SUBSCRIPTION_PLANS;
+  const planTokens = Math.max(0, getEffectiveLimits(team)?.aiMonthlyTokens ?? 0);
+
+  if (typeof team.aiTokens !== "number") {
+    return Math.max(0, planTokens);
+  }
+
+  if (plan === "free") {
+    return Math.min(Math.max(0, team.aiTokens), Math.max(0, planTokens));
+  }
+
+  return Math.max(0, team.aiTokens);
+};
+
 /**
  * Save AI token usage statistics
  * Called internally after each AI request
@@ -51,21 +69,59 @@ export const saveTokenUsage = internalMutation({
     // Decrement aiTokens from team. If balance was never initialized, seed from plan limit first.
     const team = await ctx.db.get(args.teamId);
     if (team) {
-      const plan = (team.subscriptionPlan || "free") as keyof typeof SUBSCRIPTION_PLANS;
-      const planTokens = Math.max(0, getEffectiveLimits(team)?.aiMonthlyTokens ?? 0);
-      const currentBalance =
-        typeof team.aiTokens === "number"
-          ? (
-              plan === "free"
-                ? Math.min(Math.max(0, team.aiTokens), Math.max(0, planTokens))
-                : Math.max(0, team.aiTokens)
-            )
-          : Math.max(0, planTokens);
+      const currentBalance = getTeamTokenBalance(team);
       const newBalance = Math.max(0, currentBalance - billableTokens);
       await ctx.db.patch(args.teamId, { aiTokens: newBalance });
     }
 
     return usageId;
+  },
+});
+
+export const refundTokenUsage = internalMutation({
+  args: {
+    usageId: v.id("aiTokenUsage"),
+    errorMessage: v.string(),
+  },
+  returns: v.object({
+    refunded: v.boolean(),
+    refundedTokens: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const usage = await ctx.db.get(args.usageId);
+    if (!usage) {
+      return { refunded: false, refundedTokens: 0 };
+    }
+
+    const refundedTokens = Math.max(0, usage.billableTokens ?? usage.totalTokens);
+    const existingError = usage.errorMessage?.trim();
+    const nextErrorMessage = existingError
+      ? `${existingError} | Refunded: ${args.errorMessage}`
+      : `Refunded: ${args.errorMessage}`;
+
+    await ctx.db.patch(args.usageId, {
+      billableTokens: 0,
+      estimatedCostCents: 0,
+      success: false,
+      errorMessage: nextErrorMessage,
+    });
+
+    if (refundedTokens <= 0) {
+      return { refunded: false, refundedTokens: 0 };
+    }
+
+    const team = await ctx.db.get(usage.teamId);
+    if (team) {
+      const currentBalance = getTeamTokenBalance(team);
+      await ctx.db.patch(usage.teamId, {
+        aiTokens: currentBalance + refundedTokens,
+      });
+    }
+
+    return {
+      refunded: true,
+      refundedTokens,
+    };
   },
 });
 

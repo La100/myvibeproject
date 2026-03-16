@@ -285,6 +285,7 @@ export const generateVisualization = action({
       );
       const estimatedCostCents = Math.round(estimatedCostUsd * 100);
       const billableTokens = usdToCredits(estimatedCostUsd);
+      let usageRecordId: Id<"aiTokenUsage"> | undefined;
 
       let contextInfo: {
         teamId: Id<"teams">;
@@ -298,31 +299,8 @@ export const generateVisualization = action({
           projectId: args.projectId,
           teamId: args.teamId,
         });
-
-        if (contextInfo) {
-          const identity = await ctx.auth.getUserIdentity();
-          const userClerkId = identity?.subject || "anonymous";
-
-          await ctx.runMutation(internalAny.ai.usage.saveTokenUsage, {
-            projectId: contextInfo.projectId,
-            teamId: contextInfo.teamId,
-            userClerkId,
-            model: IMAGE_GENERATION_CONFIG.MODEL_ID,
-            feature: "visualizations",
-            requestType: "other",
-            inputTokens,
-            outputTokens,
-            totalTokens,
-            billableTokens,
-            contextSize: args.history?.length || 0,
-            mode: "visualization",
-            estimatedCostCents,
-            responseTimeMs: duration,
-            success: true,
-          });
-        }
       } catch (error) {
-        console.error("Failed to log visualization token usage:", error);
+        console.error("Failed to resolve visualization storage context:", error);
       }
 
       // Extract image and text from response
@@ -348,6 +326,39 @@ export const generateVisualization = action({
         };
       }
 
+      if (!contextInfo) {
+        return {
+          success: false,
+          error: "Generated image could not be stored because the team or project context was not found.",
+          textResponse,
+        };
+      }
+
+      const identity = await ctx.auth.getUserIdentity();
+      const userClerkId = identity?.subject || "anonymous";
+
+      try {
+        usageRecordId = await ctx.runMutation(internalAny.ai.usage.saveTokenUsage, {
+          projectId: contextInfo.projectId,
+          teamId: contextInfo.teamId,
+          userClerkId,
+          model: IMAGE_GENERATION_CONFIG.MODEL_ID,
+          feature: "visualizations",
+          requestType: "other",
+          inputTokens,
+          outputTokens,
+          totalTokens,
+          billableTokens,
+          contextSize: args.history?.length || 0,
+          mode: "visualization",
+          estimatedCostCents,
+          responseTimeMs: duration,
+          success: true,
+        });
+      } catch (error) {
+        console.error("Failed to log visualization token usage:", error);
+      }
+
       // Log image info
       const imageSizeKB = Math.round((imageBase64.length * 3) / 4 / 1024);
       aiDebugLog("Generated image size:", imageSizeKB, "KB");
@@ -357,88 +368,109 @@ export const generateVisualization = action({
       let imageStorageKey: string | undefined;
       let fileUrl: string | undefined;
       let generationId: Id<"aiGeneratedImages"> | undefined;
+      let sessionMessageSaved = !args.sessionId;
+      let deliveryError: string | undefined;
+
+      const refundUsageIfNeeded = async (reason: string) => {
+        if (!usageRecordId) return true;
+        try {
+          await ctx.runMutation(internalAny.ai.usage.refundTokenUsage, {
+            usageId: usageRecordId,
+            errorMessage: reason,
+          });
+          return true;
+        } catch (refundError) {
+          console.error("Failed to refund visualization token usage:", refundError);
+          return false;
+        }
+      };
 
       try {
-        if (contextInfo) {
-          const binaryData = Buffer.from(imageBase64, "base64");
-          const extension = (mimeType || "image/png").split("/")[1] || "png";
-          const uuid = crypto.randomUUID();
-          const fileName = `generated-${Date.now()}`;
-          // Use "global" folder if no project slug
-          const locationSlug = contextInfo.projectSlug || "global";
-          const fileKey = `${contextInfo.teamSlug}/${locationSlug}/ai-visualizations/${uuid}-${fileName}.${extension}`;
+        const binaryData = Buffer.from(imageBase64, "base64");
+        const extension = (mimeType || "image/png").split("/")[1] || "png";
+        const uuid = crypto.randomUUID();
+        const fileName = `generated-${Date.now()}`;
+        const locationSlug = contextInfo.projectSlug || "global";
+        const fileKey = `${contextInfo.teamSlug}/${locationSlug}/ai-visualizations/${uuid}-${fileName}.${extension}`;
 
-          // Generate upload URL
-          const uploadData: { url: string } = await ctx.runMutation(internalAny.ai.imageGen.helpers.generateR2UploadUrl, {
-            key: fileKey,
+        const uploadData: { url: string } = await ctx.runMutation(internalAny.ai.imageGen.helpers.generateR2UploadUrl, {
+          key: fileKey,
+        });
+
+        const uploadResponse = await fetch(uploadData.url, {
+          method: "PUT",
+          body: binaryData,
+          headers: {
+            "Content-Type": mimeType || "image/png",
+          },
+        });
+
+        if (!uploadResponse.ok) {
+          deliveryError = `Failed to upload generated image (${uploadResponse.status}).`;
+        } else {
+          imageStorageKey = fileKey;
+
+          const url: string | null = await ctx.runQuery(internalAny.ai.imageGen.helpers.getFileUrl, {
+            fileKey,
+          });
+          if (url) fileUrl = url;
+
+          const loggedGenerationId = await ctx.runMutation(internalAny.ai.imageGen.helpers.logImageGeneration, {
+            projectId: contextInfo.projectId,
+            teamId: contextInfo.teamId,
+            userClerkId,
+            sessionId: args.sessionId,
+            prompt: args.prompt,
+            model: IMAGE_GENERATION_CONFIG.MODEL_ID,
+            storageKey: fileKey,
+            fileUrl: url || undefined,
+            mimeType: mimeType || "image/png",
+            sizeBytes: binaryData.length,
+            durationMs: duration,
+            promptTokens: usageMetadata?.promptTokenCount,
+            responseTokens: usageMetadata?.candidatesTokenCount,
+            totalTokens,
+            billableTokens,
+            estimatedCostCents,
+            referenceImageCount: args.referenceImages?.length || 0,
+            textResponse,
+            success: true,
           });
 
-          // Upload to R2
-          const uploadResponse = await fetch(uploadData.url, {
-            method: "PUT",
-            body: binaryData,
-            headers: {
-              "Content-Type": mimeType || "image/png",
-            },
-          });
+          generationId = loggedGenerationId;
 
-          if (uploadResponse.ok) {
-            // Only store the key for chat context - don't create file record yet
-            // File record will be created only when user clicks "Save"
-            imageStorageKey = fileKey;
-
-            // Get signed URL for immediate display
-            const url: string | null = await ctx.runQuery(internalAny.ai.imageGen.helpers.getFileUrl, {
-              fileKey,
-            });
-            if (url) fileUrl = url;
-
-            // Log successful generation to database
-            const identity = await ctx.auth.getUserIdentity();
-            const userClerkId = identity?.subject || "anonymous";
-
-            const loggedGenerationId = await ctx.runMutation(internalAny.ai.imageGen.helpers.logImageGeneration, {
-              projectId: contextInfo.projectId,
-              teamId: contextInfo.teamId,
-              userClerkId,
+          if (args.sessionId) {
+            await ctx.runMutation(internalAny.ai.visualizationSessions.addModelMessage, {
               sessionId: args.sessionId,
-              prompt: args.prompt,
-              model: IMAGE_GENERATION_CONFIG.MODEL_ID,
-              storageKey: fileKey,
-              fileUrl: url || undefined,
-              mimeType: mimeType || "image/png",
-              sizeBytes: binaryData.length,
-              durationMs: duration,
-              promptTokens: usageMetadata?.promptTokenCount,
-              responseTokens: usageMetadata?.candidatesTokenCount,
-              totalTokens,
-              billableTokens,
-              estimatedCostCents,
-              referenceImageCount: args.referenceImages?.length || 0,
-              textResponse,
-              success: true,
+              text: textResponse?.trim() || "Generated image.",
+              imageStorageKey: fileKey,
+              imageMimeType: mimeType || "image/png",
+              imageUrl: url || undefined,
+              generationId: loggedGenerationId,
             });
-
-            // Add model message to session if sessionId provided
-            if (args.sessionId) {
-              await ctx.runMutation(internalAny.ai.visualizationSessions.addModelMessage, {
-                sessionId: args.sessionId,
-                text: textResponse?.trim() || "Generated image.",
-                imageStorageKey: fileKey,
-                imageMimeType: mimeType || "image/png",
-                imageUrl: url || undefined,
-                generationId: loggedGenerationId,
-              });
-            }
-
-            // Store for return
-            generationId = loggedGenerationId;
-          } else {
-            console.error("Failed to auto-upload generated image:", uploadResponse.status);
+            sessionMessageSaved = true;
           }
         }
       } catch (uploadError) {
         console.error("Error auto-uploading generated image:", uploadError);
+        deliveryError = (uploadError as Error).message || "Generated image could not be stored.";
+      }
+
+      const wasDelivered =
+        Boolean(imageStorageKey && generationId) &&
+        (!args.sessionId || sessionMessageSaved);
+
+      if (!wasDelivered) {
+        const errorMessage =
+          deliveryError || "Generated image could not be stored.";
+        const refundCompleted = await refundUsageIfNeeded(errorMessage);
+        return {
+          success: false,
+          error: refundCompleted
+            ? `${errorMessage} No AI credits were charged.`
+            : `${errorMessage} AI credits may need manual correction.`,
+          textResponse,
+        };
       }
 
       // If we have a fileUrl, don't return base64 to avoid exceeding 1MB response limit
