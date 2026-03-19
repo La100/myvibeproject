@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { useMutation, useQuery, useAction } from "convex/react";
+import { useEffect, useState } from "react";
+import { useMutation, useQuery } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
-import { Id, Doc } from "@/convex/_generated/dataModel";
+import { Id } from "@/convex/_generated/dataModel";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -15,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { Trash2, Tags, User, Loader2, Wand2 } from "lucide-react";
+import { Trash2, Tags, User, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
@@ -71,14 +72,99 @@ interface TaskDetailSidebarProps {
 export default function TaskDetailSidebar({ task, project, onDelete }: TaskDetailSidebarProps) {
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const [tagsInput, setTagsInput] = useState(task.tags?.join(", ") || "");
-  const [aiMessage, setAiMessage] = useState("");
-  const [isParsing, setIsParsing] = useState(false);
+  const [isAllDay, setIsAllDay] = useState(true);
+  const [startTime, setStartTime] = useState("09:00");
+  const [endTime, setEndTime] = useState("");
+  const [hasEndTime, setHasEndTime] = useState(false);
 
   const updateTask = useMutation(apiAny.tasks.updateTask);
   const deleteTask = useMutation(apiAny.tasks.deleteTask);
-  const generateTaskDetails = useAction(apiAny.tasks.generateTaskDetailsFromPrompt);
   
   const teamMembers = useQuery(apiAny.teams.getTeamMembers, { teamId: task.teamId });
+
+  useEffect(() => {
+    const startDate = task.startDate ? new Date(task.startDate) : undefined;
+    const endDate = task.endDate ? new Date(task.endDate) : undefined;
+    const hasStartTimeValue =
+      Boolean(startDate) &&
+      (startDate!.getHours() !== 0 || startDate!.getMinutes() !== 0);
+    const hasEndTimeValue =
+      Boolean(endDate) &&
+      (endDate!.getHours() !== 0 || endDate!.getMinutes() !== 0);
+
+    setIsAllDay(!(hasStartTimeValue || hasEndTimeValue));
+
+    if (hasStartTimeValue && startDate) {
+      setStartTime(
+        `${String(startDate.getHours()).padStart(2, "0")}:${String(startDate.getMinutes()).padStart(2, "0")}`,
+      );
+    } else {
+      setStartTime("09:00");
+    }
+
+    if (hasEndTimeValue && endDate) {
+      const nextEndTime = `${String(endDate.getHours()).padStart(2, "0")}:${String(endDate.getMinutes()).padStart(2, "0")}`;
+      const nextStartTime = startDate
+        ? `${String(startDate.getHours()).padStart(2, "0")}:${String(startDate.getMinutes()).padStart(2, "0")}`
+        : "";
+
+      if (!hasStartTimeValue || nextEndTime !== nextStartTime) {
+        setHasEndTime(true);
+        setEndTime(nextEndTime);
+      } else {
+        setHasEndTime(false);
+        setEndTime("");
+      }
+    } else {
+      setHasEndTime(false);
+      setEndTime("");
+    }
+  }, [task.startDate, task.endDate]);
+
+  const timestampWithTime = (date: Date, timeValue?: string) => {
+    const nextDate = new Date(date);
+    if (!timeValue) {
+      nextDate.setHours(0, 0, 0, 0);
+      return nextDate.getTime();
+    }
+
+    const [hours, minutes] = timeValue.split(":").map(Number);
+    nextDate.setHours(hours, minutes, 0, 0);
+    return nextDate.getTime();
+  };
+
+  const getStartTimestamp = (
+    date: Date,
+    options?: { allDay?: boolean; startTimeValue?: string },
+  ) => {
+    const allDay = options?.allDay ?? isAllDay;
+    const nextStartTime = options?.startTimeValue ?? startTime;
+
+    if (allDay) {
+      return timestampWithTime(date);
+    }
+    return timestampWithTime(date, nextStartTime);
+  };
+
+  const getEndTimestamp = (
+    date: Date,
+    options?: {
+      allDay?: boolean;
+      startTimeValue?: string;
+      endTimeValue?: string;
+      hasEndTimeValue?: boolean;
+    },
+  ) => {
+    const allDay = options?.allDay ?? isAllDay;
+    const nextStartTime = options?.startTimeValue ?? startTime;
+    const nextEndTime = options?.endTimeValue ?? endTime;
+    const nextHasEndTime = options?.hasEndTimeValue ?? hasEndTime;
+
+    if (allDay) {
+      return timestampWithTime(date);
+    }
+    return timestampWithTime(date, nextHasEndTime && nextEndTime ? nextEndTime : nextStartTime);
+  };
 
   const handleUpdate = async (field: string, value: string | string[] | number | undefined | null) => {
     setIsUpdating(field);
@@ -96,57 +182,12 @@ export default function TaskDetailSidebar({ task, project, onDelete }: TaskDetai
     }
   };
 
-  const handleAiParse = async () => {
-    if (!aiMessage) return;
-    setIsParsing(true);
-    try {
-        const timezoneOffsetInMinutes = new Date().getTimezoneOffset();
-        const result = await generateTaskDetails({ 
-            prompt: aiMessage, 
-            projectId: task.projectId,
-            timezoneOffsetInMinutes,
-            taskId: task._id
-        });
-
-        // Prepare a payload with only the fields returned by the AI
-        const updatePayload: Partial<Doc<"tasks">> = {};
-        if (result.title) updatePayload.title = result.title;
-        if (result.description) updatePayload.description = result.description;
-        if (result.hasOwnProperty('priority')) updatePayload.priority = result.priority;
-        if (result.status) updatePayload.status = result.status;
-        if (result.assignedTo) updatePayload.assignedTo = result.assignedTo;
-        if (result.tags) updatePayload.tags = result.tags;
-
-        if (result.startDate) {
-            updatePayload.startDate = new Date(result.startDate).getTime();
-        }
-        if (result.endDate) {
-            updatePayload.endDate = new Date(result.endDate).getTime();
-        }
-        
-        if (Object.keys(updatePayload).length > 0) {
-            await updateTask({
-              taskId: task._id,
-              ...updatePayload,
-            });
-            toast.success("Task updated with AI!");
-        }
-        setAiMessage("");
-
-    } catch (error) {
-        toast.error("AI parsing failed.");
-        console.error(error);
-    } finally {
-        setIsParsing(false);
-    }
-  };
-
   const handleStartDateUpdate = async (date: Date | undefined) => {
     setIsUpdating('startDate');
      try {
       await updateTask({
         taskId: task._id,
-        startDate: date?.getTime(),
+        startDate: date ? getStartTimestamp(date) : undefined,
       });
       toast.success("Start date updated");
     } catch (error) {
@@ -162,7 +203,7 @@ export default function TaskDetailSidebar({ task, project, onDelete }: TaskDetai
      try {
       await updateTask({
         taskId: task._id,
-        endDate: date?.getTime(),
+        endDate: date ? getEndTimestamp(date) : undefined,
       });
       toast.success("End date updated");
     } catch (error) {
@@ -188,6 +229,98 @@ export default function TaskDetailSidebar({ task, project, onDelete }: TaskDetai
     }
   };
 
+  const handleAllDayChange = async (checked: boolean) => {
+    setIsAllDay(checked);
+
+    if (!task.startDate && !task.endDate) {
+      return;
+    }
+
+    setIsUpdating("dateTime");
+    try {
+      await updateTask({
+        taskId: task._id,
+        startDate: task.startDate
+          ? getStartTimestamp(new Date(task.startDate), { allDay: checked })
+          : undefined,
+        endDate: task.endDate
+          ? getEndTimestamp(new Date(task.endDate), { allDay: checked })
+          : undefined,
+      });
+      toast.success(checked ? "Time removed" : "Time enabled");
+    } catch (error) {
+      setIsAllDay(!checked);
+      toast.error("Error updating time settings");
+      console.error(error);
+    } finally {
+      setIsUpdating(null);
+    }
+  };
+
+  const handleStartTimeUpdate = async (value: string) => {
+    if (!task.startDate) return;
+
+    setIsUpdating("startTime");
+    try {
+      const payload: {
+        taskId: Id<"tasks">;
+        startDate: number;
+        endDate?: number;
+      } = {
+        taskId: task._id,
+        startDate: timestampWithTime(new Date(task.startDate), value),
+      };
+
+      if (task.endDate && !hasEndTime) {
+        payload.endDate = timestampWithTime(new Date(task.endDate), value);
+      }
+
+      await updateTask(payload);
+      toast.success("Start time updated");
+    } catch (error) {
+      toast.error("Error updating start time");
+      console.error(error);
+    } finally {
+      setIsUpdating(null);
+    }
+  };
+
+  const handleEndTimeUpdate = async (value: string) => {
+    if (!task.endDate) return;
+
+    setIsUpdating("endTime");
+    try {
+      await updateTask({
+        taskId: task._id,
+        endDate: timestampWithTime(new Date(task.endDate), value),
+      });
+      toast.success("End time updated");
+    } catch (error) {
+      toast.error("Error updating end time");
+      console.error(error);
+    } finally {
+      setIsUpdating(null);
+    }
+  };
+
+  const handleHasEndTimeChange = async (checked: boolean) => {
+    setHasEndTime(checked);
+
+    if (checked && !endTime) {
+      const [hours, minutes] = startTime.split(":").map(Number);
+      const endHour = (hours + 1) % 24;
+      setEndTime(
+        `${String(endHour).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`,
+      );
+      return;
+    }
+
+    if (!checked && task.endDate) {
+      await handleEndTimeUpdate(startTime);
+      setEndTime("");
+    }
+  };
+
   
 
   const assignedMember = teamMembers?.find((m: TeamMemberWithUser) => m.clerkUserId === task.assignedTo);
@@ -199,36 +332,6 @@ export default function TaskDetailSidebar({ task, project, onDelete }: TaskDetai
         <p className="text-sm text-muted-foreground">Edit fields directly</p>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="space-y-2">
-            <Label className="text-sm font-medium">Quick Edit with AI</Label>
-            <div className="flex flex-col sm:flex-row gap-2">
-                <Input 
-                    value={aiMessage}
-                    onChange={(e) => setAiMessage(e.target.value)}
-                    placeholder="e.g., change priority to high"
-                    disabled={isParsing}
-                    className="flex-1"
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            if (!isParsing && aiMessage) {
-                                handleAiParse();
-                            }
-                        }
-                    }}
-                />
-                <Button 
-                    onClick={handleAiParse} 
-                    disabled={isParsing || !aiMessage}
-                    className="w-full sm:w-auto shrink-0"
-                >
-                    {isParsing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-                </Button>
-            </div>
-        </div>
-        
-        <div className="h-px bg-border" />
-
         {/* Status */}
         <div>
           <Label className="text-sm font-medium">Status</Label>
@@ -339,6 +442,83 @@ export default function TaskDetailSidebar({ task, project, onDelete }: TaskDetai
             <div className="flex items-center mt-1 text-sm text-muted-foreground">
               <Loader2 className="h-3 w-3 animate-spin mr-1" />
               Updating...
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-3 rounded-lg border p-4">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="task-all-day" className="text-sm font-medium cursor-pointer">
+              All day
+            </Label>
+            <Checkbox
+              id="task-all-day"
+              checked={isAllDay}
+              disabled={isUpdating === "dateTime"}
+              onCheckedChange={(checked) => handleAllDayChange(Boolean(checked))}
+            />
+          </div>
+
+          {isUpdating === "dateTime" && (
+            <div className="flex items-center text-sm text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin mr-1" />
+              Updating...
+            </div>
+          )}
+
+          {!isAllDay && (
+            <div className="space-y-3">
+              <div className={hasEndTime ? "grid grid-cols-1 gap-3 sm:grid-cols-2" : "grid grid-cols-1"}>
+                <div>
+                  <Label className="text-sm text-muted-foreground">Start Time</Label>
+                  <Input
+                    type="time"
+                    value={startTime}
+                    disabled={!task.startDate || isUpdating === "startTime"}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    onBlur={(e) => handleStartTimeUpdate(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        e.currentTarget.blur();
+                      }
+                    }}
+                    className="mt-1"
+                  />
+                </div>
+
+                {hasEndTime && (
+                  <div>
+                    <Label className="text-sm text-muted-foreground">End Time</Label>
+                    <Input
+                      type="time"
+                      value={endTime}
+                      disabled={!task.endDate || isUpdating === "endTime"}
+                      onChange={(e) => setEndTime(e.target.value)}
+                      onBlur={(e) => handleEndTimeUpdate(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          e.currentTarget.blur();
+                        }
+                      }}
+                      className="mt-1"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="task-has-end-time"
+                  checked={hasEndTime}
+                  disabled={!task.endDate}
+                  onCheckedChange={(checked) => handleHasEndTimeChange(Boolean(checked))}
+                />
+                <Label htmlFor="task-has-end-time" className="text-sm font-normal cursor-pointer">
+                  Specify end time
+                </Label>
+              </div>
             </div>
           )}
         </div>

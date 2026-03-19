@@ -39,7 +39,15 @@ export function Navbar() {
             : "h-24 max-w-[1440px] sm:px-10"
         )}
       >
-        <Logo className={scrolled ? "size-10 sm:size-11" : "size-12 sm:size-14"} />
+        <Logo
+          className={scrolled ? "size-11 sm:size-[3.25rem]" : "size-12 sm:size-[3.5rem]"}
+          showWordmark
+          wordmarkClassName={
+            scrolled
+              ? "text-[1.28rem] sm:text-[1.5rem]"
+              : "text-[1.4rem] sm:text-[1.72rem]"
+          }
+        />
 
         <nav className="hidden items-center gap-7 md:flex">
           {navLinks.map((link) => (

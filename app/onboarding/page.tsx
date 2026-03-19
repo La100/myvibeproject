@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { useAuth, useOrganizationList } from "@clerk/nextjs";
 import { apiAny } from "@/lib/convexApiAny";
@@ -31,13 +31,15 @@ const detectTimezone = (): string => {
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export default function OnboardingPage() {
+function OnboardingContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isLoaded: isAuthLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });
   const onboardingStatus = useQuery(apiAny.onboarding.getStatus);
   const completeOnboarding = useMutation(apiAny.onboarding.completeOnboarding);
   const ensureCurrentUserTeamMembership = useMutation(apiAny.teamMembership.ensureCurrentUserTeamMembership);
   const { createOrganization, setActive, isLoaded: organizationListLoaded } = useOrganizationList();
+  const isForcedOrganizationSetup = searchParams.get("mode") === "organization";
 
   const [isSaving, setIsSaving] = useState(false);
   const [isCreatingOrganization, setIsCreatingOrganization] = useState(false);
@@ -63,7 +65,7 @@ export default function OnboardingPage() {
     if (!isSignedIn) {
       return;
     }
-    if (onboardingStatus.completed && onboardingStatus.activeOrganization) {
+    if (!isForcedOrganizationSetup && onboardingStatus.completed && onboardingStatus.activeOrganization) {
       setInitialized(true);
       router.replace("/dashboard");
       return;
@@ -85,7 +87,7 @@ export default function OnboardingPage() {
     setOrganizationCurrency(currentCurrency || "USD");
     setOrganizationTimezone(currentTimezone);
     setInitialized(true);
-  }, [initialized, isSignedIn, onboardingStatus, router]);
+  }, [initialized, isForcedOrganizationSetup, isSignedIn, onboardingStatus, router]);
 
   useEffect(() => {
     if (!isSignedIn || !onboardingStatus || onboardingStatus.activeOrganization || organizationName) {
@@ -181,6 +183,7 @@ export default function OnboardingPage() {
         return;
       }
       toast.success("Organization created.");
+      router.replace("/onboarding?mode=organization");
     } catch (error) {
       console.error(error);
       toast.error("Could not create organization.");
@@ -238,7 +241,7 @@ export default function OnboardingPage() {
     );
   }
 
-  if (onboardingStatus.completed && activeOrganization) {
+  if (!isForcedOrganizationSetup && onboardingStatus.completed && activeOrganization) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center space-y-4">
@@ -258,11 +261,13 @@ export default function OnboardingPage() {
               <div className="space-y-2">
                 <Badge variant="secondary" className="w-fit">
                   <Sparkles className="h-3 w-3 mr-1" />
-                  Organization Setup
+                  {isForcedOrganizationSetup ? "Organization Re-Setup" : "Organization Setup"}
                 </Badge>
                 <CardTitle className="text-2xl">Set up your organization workspace</CardTitle>
                 <CardDescription>
-                  Configure team defaults for architectural project management.
+                  {isForcedOrganizationSetup
+                    ? "Update team defaults for the currently active organization."
+                    : "Configure team defaults for architectural project management."}
                 </CardDescription>
               </div>
               <Bot className="h-8 w-8 text-primary" />
@@ -385,5 +390,22 @@ export default function OnboardingPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center space-y-4">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent mx-auto" />
+            <p className="text-sm text-muted-foreground">Preparing onboarding...</p>
+          </div>
+        </div>
+      }
+    >
+      <OnboardingContent />
+    </Suspense>
   );
 }

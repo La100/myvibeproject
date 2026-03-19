@@ -3,7 +3,6 @@ import { components } from "./_generated/api";
 import handleClerkWebhook from "./clerk";
 import { registerRoutes } from "@convex-dev/stripe";
 import type Stripe from "stripe";
-import { telegramWebhook } from "./messaging/telegram";
 
 const http = httpRouter();
 const internalAny = require("./_generated/api").internal as any;
@@ -13,15 +12,6 @@ const getInvoicePaymentIntentId = (invoice: Stripe.Invoice) => {
   if (!paymentIntent) return undefined;
   return typeof paymentIntent === "string" ? paymentIntent : paymentIntent.id;
 };
-
-// Telegram webhook (assistant integration)
-http.route({
-  path: "/telegram/webhook",
-  method: "POST",
-  handler: telegramWebhook,
-});
-
-
 
 http.route({
   path: "/clerk",

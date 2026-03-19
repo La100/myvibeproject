@@ -26,7 +26,11 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-16">
           <div className="md:col-span-1">
             <div className="mb-5">
-              <Logo />
+              <Logo
+                className="size-12 sm:size-14"
+                showWordmark
+                wordmarkClassName="text-[1.45rem] sm:text-[1.8rem]"
+              />
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed">
               Run architectural projects with AI-powered workflows.

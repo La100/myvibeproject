@@ -187,19 +187,13 @@ export default defineSchema({
     aiAssistantRuntime: v.optional(
       v.union(v.literal("v1"), v.literal("v2")),
     ),
-    // Messaging bot configuration (project-scoped assistant integration)
-    telegramBotUsername: v.optional(v.string()), // Telegram bot username (without @)
-    telegramBotToken: v.optional(v.string()), // Telegram bot token from @BotFather
-    telegramWebhookSecret: v.optional(v.string()), // Secret validated by Telegram webhook
-    whatsappNumber: v.optional(v.string()), // Reserved for WhatsApp integration
   })
     .index("by_team", ["teamId"])
     .index("by_team_and_slug", ["teamId", "slug"])
     .index("by_project_id", ["projectId"])
     .index("by_status", ["status"])
     .index("by_created_by", ["createdBy"])
-    .index("by_client_panel_access_token", ["clientPanelAccessToken"])
-    .index("by_telegram_webhook_secret", ["telegramWebhookSecret"]),
+    .index("by_client_panel_access_token", ["clientPanelAccessToken"]),
 
   projectMilestones: defineTable({
     projectId: v.id("projects"),
@@ -1259,56 +1253,5 @@ export default defineSchema({
     .index("by_group", ["groupId"])
     .index("by_call_id", ["callId"])
     .index("by_thread_and_status", ["threadId", "status"]),
-
-  // Messaging platform channels connected to assistants/projects.
-  messagingChannels: defineTable({
-    teamId: v.id("teams"),
-    projectId: v.id("projects"),
-    platform: v.union(v.literal("telegram"), v.literal("whatsapp")),
-    externalUserId: v.string(), // Telegram chat ID / external platform user ID
-    userClerkId: v.optional(v.string()), // Internal user who approved pairing
-    threadId: v.optional(v.string()), // AI thread bound to this channel
-    isActive: v.boolean(),
-    lastMessageAt: v.optional(v.number()),
-    metadata: v.optional(v.any()),
-  })
-    .index("by_team", ["teamId"])
-    .index("by_project", ["projectId"])
-    .index("by_platform_and_external_id", ["platform", "externalUserId"])
-    .index("by_user", ["userClerkId"]),
-
-  // Temporary pairing tokens.
-  messagingPairingTokens: defineTable({
-    token: v.string(),
-    projectId: v.id("projects"),
-    teamId: v.id("teams"),
-    userClerkId: v.string(),
-    platform: v.union(v.literal("telegram"), v.literal("whatsapp")),
-    expiresAt: v.number(),
-    usedAt: v.optional(v.number()),
-    usedByExternalId: v.optional(v.string()),
-  })
-    .index("by_token", ["token"])
-    .index("by_project_and_platform", ["projectId", "platform"])
-    .index("by_user", ["userClerkId"]),
-
-  // Pending pairing requests awaiting approval in assistant settings.
-  messagingPairingRequests: defineTable({
-    projectId: v.id("projects"),
-    platform: v.union(v.literal("telegram"), v.literal("whatsapp")),
-    externalUserId: v.string(),
-    pairingCode: v.string(),
-    metadata: v.optional(v.any()),
-    status: v.union(v.literal("pending"), v.literal("approved"), v.literal("rejected")),
-    createdAt: v.number(),
-    resolvedAt: v.optional(v.number()),
-    resolvedBy: v.optional(v.string()),
-  })
-    .index("by_project", ["projectId"])
-    .index("by_code", ["pairingCode"])
-    .index("by_external_id", ["platform", "externalUserId"]),
-
-
-
 
 });

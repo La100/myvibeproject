@@ -1,10 +1,12 @@
 import { R2 } from "@convex-dev/r2";
-import { components, internal } from "./_generated/api";
+import { components } from "./_generated/api";
 import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { getEffectiveLimits } from "./stripe";
 import { Id } from "./_generated/dataModel";
 import { aiDebugLog } from "./ai/helpers/debugLog";
+
+const internalAny = require("./_generated/api").internal as any;
 
 export const r2 = new R2(components.r2);
 
@@ -263,7 +265,7 @@ const getProjectAccessForUser = async (ctx: any, projectId: Id<"projects">, acto
   return { project, membership };
 };
 
-// Internal upload URL generator used by Telegram attachment ingestion.
+// Internal upload URL generator for server-side project file ingestion.
 export const generateUploadUrlWithCustomKeyInternal = internalMutation({
   args: {
     projectId: v.id("projects"),
@@ -284,7 +286,7 @@ export const generateUploadUrlWithCustomKeyInternal = internalMutation({
     const team = await ctx.db.get(project.teamId) as any;
     if (!team) throw new Error("Team not found");
 
-    const storageCheck = await ctx.runQuery(internal.files.checkStorageLimit, {
+    const storageCheck = await ctx.runQuery(internalAny.files.checkStorageLimit, {
       teamId: project.teamId,
       additionalBytes: args.fileSize,
     });
@@ -304,7 +306,7 @@ export const generateUploadUrlWithCustomKeyInternal = internalMutation({
   },
 });
 
-// Internal file record creation used by Telegram attachment ingestion.
+// Internal file record creation for server-side project file ingestion.
 export const createFileRecordInternal = internalMutation({
   args: {
     projectId: v.id("projects"),

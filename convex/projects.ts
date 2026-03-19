@@ -605,69 +605,6 @@ export const getProjectByIdInternal = internalQuery({
   },
 });
 
-// Resolve project by Telegram webhook secret sent in header.
-export const getProjectByTelegramWebhookSecret = internalQuery({
-  args: { telegramWebhookSecret: v.string() },
-  async handler(ctx, args) {
-    return await ctx.db
-      .query("projects")
-      .withIndex("by_telegram_webhook_secret", (q) =>
-        q.eq("telegramWebhookSecret", args.telegramWebhookSecret)
-      )
-      .first();
-  },
-});
-
-// Internal entrypoint for assistant/tools to configure Telegram credentials.
-export const updateProjectTelegramConfigInternal = internalMutation({
-  args: {
-    projectId: v.id("projects"),
-    actorUserId: v.string(),
-    telegramBotToken: v.string(),
-    telegramBotUsername: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const project = await ctx.db.get(args.projectId);
-    if (!project) {
-      throw new Error("Project not found");
-    }
-
-    const membership = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", project.teamId).eq("clerkUserId", args.actorUserId)
-      )
-      .filter((q) => q.eq(q.field("isActive"), true))
-      .first();
-
-    if (!membership || (membership.role !== "admin" && membership.role !== "member")) {
-      throw new Error("Not authorized");
-    }
-
-    const isTokenUpdated = args.telegramBotToken !== project.telegramBotToken;
-    const shouldRotateTelegramSecret =
-      !!args.telegramBotToken &&
-      (!project.telegramWebhookSecret || isTokenUpdated);
-    const telegramWebhookSecret = shouldRotateTelegramSecret
-      ? generateTelegramWebhookSecret()
-      : project.telegramWebhookSecret;
-
-    await ctx.db.patch(args.projectId, {
-      telegramBotToken: args.telegramBotToken,
-      ...(args.telegramBotUsername ? { telegramBotUsername: args.telegramBotUsername } : {}),
-      ...(shouldRotateTelegramSecret ? { telegramWebhookSecret } : {}),
-    });
-
-    if (isTokenUpdated || shouldRotateTelegramSecret) {
-      await ctx.scheduler.runAfter(0, internalAny.messaging.telegramActions.setTelegramWebhook, {
-        projectId: args.projectId,
-      });
-    }
-
-    return { success: true };
-  },
-});
-
 export const updateProject = mutation({
   args: {
     projectId: v.id("projects"),
@@ -702,9 +639,6 @@ export const updateProject = mutation({
     aiAssistantRuntime: v.optional(
       v.union(v.literal("v1"), v.literal("v2")),
     ),
-    telegramBotUsername: v.optional(v.string()),
-    telegramBotToken: v.optional(v.string()),
-    whatsappNumber: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -713,7 +647,6 @@ export const updateProject = mutation({
     const {
       projectId,
       name,
-      telegramBotToken,
       coverImageUrl,
       responsibleClerkUserId,
       taxEnabled,
@@ -732,16 +665,6 @@ export const updateProject = mutation({
     //   throw new Error("You don't have permission to update this project.");
     // }
 
-    const telegramTokenProvided = Object.prototype.hasOwnProperty.call(args, "telegramBotToken");
-    const isTokenUpdated =
-      telegramTokenProvided && telegramBotToken !== existingProject.telegramBotToken;
-    const shouldRotateTelegramSecret =
-      !!((telegramTokenProvided ? telegramBotToken : existingProject.telegramBotToken)) &&
-      (!existingProject.telegramWebhookSecret || isTokenUpdated);
-    const telegramWebhookSecret = shouldRotateTelegramSecret
-      ? generateTelegramWebhookSecret()
-      : existingProject.telegramWebhookSecret;
-    const telegramTokenPatch = telegramTokenProvided ? { telegramBotToken } : {};
     const coverImageProvided = Object.prototype.hasOwnProperty.call(args, "coverImageUrl");
     const normalizedCoverImageUrl = coverImageProvided ? coverImageUrl?.trim() : undefined;
     const coverImagePatch = coverImageProvided
@@ -816,45 +739,25 @@ export const updateProject = mutation({
       await ctx.db.patch(projectId, {
         name,
         slug,
-        ...telegramTokenPatch,
         ...coverImagePatch,
         ...taxPatch,
         ...responsiblePatch,
-        ...(shouldRotateTelegramSecret ? { telegramWebhookSecret } : {}),
         ...rest,
       });
-
-      if (isTokenUpdated || shouldRotateTelegramSecret) {
-        await ctx.scheduler.runAfter(0, internalAny.messaging.telegramActions.setTelegramWebhook, {
-          projectId,
-        });
-      }
 
       return { slug };
     } else {
       await ctx.db.patch(projectId, {
-        ...telegramTokenPatch,
         ...coverImagePatch,
         ...taxPatch,
         ...responsiblePatch,
-        ...(shouldRotateTelegramSecret ? { telegramWebhookSecret } : {}),
         ...rest,
       });
-
-      if (isTokenUpdated || shouldRotateTelegramSecret) {
-        await ctx.scheduler.runAfter(0, internalAny.messaging.telegramActions.setTelegramWebhook, {
-          projectId,
-        });
-      }
 
       return { slug: existingProject.slug };
     }
   }
 });
-
-function generateTelegramWebhookSecret(): string {
-  return crypto.randomUUID().replace(/-/g, "");
-}
 
 export const listTeamProjects = query({
   args: { teamId: v.id("teams") },
@@ -1291,15 +1194,6 @@ export const deleteProject = mutation({
       throw new Error("Insufficient permissions to delete this project. Only admin can delete projects.");
     }
 
-    // Unregister Telegram webhook before deleting the project.
-    if (project.telegramBotToken) {
-      await ctx.scheduler.runAfter(
-        0,
-        internalAny.messaging.telegramActions.deleteTelegramWebhook,
-        { botToken: project.telegramBotToken }
-      );
-    }
-
     // Delete all tasks associated with the project
     const tasks = await ctx.db
       .query("tasks")
@@ -1327,35 +1221,6 @@ export const deleteProject = mutation({
     const allComments = [...projectComments, ...taskComments];
     const commentDeletionPromises = allComments.map(comment => ctx.db.delete(comment._id));
     await Promise.all(commentDeletionPromises);
-
-    // Delete messaging channels and pairing artifacts.
-    const messagingChannels = await ctx.db
-      .query("messagingChannels")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .collect();
-    await Promise.all(messagingChannels.map((channel) => ctx.db.delete(channel._id)));
-
-    const pairingRequests = await ctx.db
-      .query("messagingPairingRequests")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .collect();
-    await Promise.all(pairingRequests.map((request) => ctx.db.delete(request._id)));
-
-    const pairingTokensTelegram = await ctx.db
-      .query("messagingPairingTokens")
-      .withIndex("by_project_and_platform", (q) =>
-        q.eq("projectId", args.projectId).eq("platform", "telegram")
-      )
-      .collect();
-    const pairingTokensWhatsapp = await ctx.db
-      .query("messagingPairingTokens")
-      .withIndex("by_project_and_platform", (q) =>
-        q.eq("projectId", args.projectId).eq("platform", "whatsapp")
-      )
-      .collect();
-    await Promise.all(
-      [...pairingTokensTelegram, ...pairingTokensWhatsapp].map((token) => ctx.db.delete(token._id))
-    );
 
     // Delete all folders related to the project
     const projectFolders = await ctx.db

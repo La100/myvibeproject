@@ -870,6 +870,11 @@
 }
 
 .gradient-text-animated {
+  display: inline-block;
+  overflow: visible;
+  line-height: 1.05;
+  padding: 0.06em 0.04em 0.1em 0;
+  margin: -0.06em -0.04em -0.1em 0;
   background: linear-gradient(
     135deg,
     var(--ui-gradient-start) 0%,

@@ -7,7 +7,7 @@ import { Loader2 } from "lucide-react";
 
 import { apiAny } from "@/lib/convexApiAny";
 import { AISubscriptionWall } from "@/components/ai/shared";
-import AIAssistantV2Panel from "./AIAssistantV2Panel";
+import AIAssistantChatKitPanel from "./AIAssistantChatKitPanel";
 
 const AIAssistant = () => {
   const { project, team, isLoading: isProjectContextLoading } = useProject();
@@ -48,14 +48,12 @@ const AIAssistant = () => {
   }
 
   return (
-    <AIAssistantV2Panel
+    <AIAssistantChatKitPanel
       initialThreadId={initialThreadIdFromUrl}
       projectId={project._id}
       projectName={project.name || "AI Assistant"}
       teamId={team._id}
-      teamSlug={team?.slug}
-      aiAccess={aiAccess}
-      autoConfirmCrud={Boolean(project.aiAutoConfirmCrud)}
+      teamSlug={team.slug}
     />
   );
 };

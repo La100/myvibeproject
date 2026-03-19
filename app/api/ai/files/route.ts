@@ -83,12 +83,37 @@ function isSupportedFile(mimeType: string): boolean {
   return false;
 }
 
+function extractFirstFile(formData: FormData): File | null {
+  for (const value of formData.values()) {
+    if (value instanceof File) {
+      return value;
+    }
+  }
+  return null;
+}
+
 type ConvexQueryClient = {
   query: (
     ref: FunctionReference<"query">,
     args: Record<string, unknown>,
   ) => Promise<unknown>;
 };
+
+function extractProjectSlugFromReferer(request: NextRequest): string | null {
+  const referer = request.headers.get("referer");
+  if (!referer) return null;
+
+  try {
+    const url = new URL(referer);
+    const segments = url.pathname.split("/").filter(Boolean);
+    const projectsIndex = segments.findIndex((segment) => segment === "projects");
+    if (projectsIndex === -1) return null;
+    const projectSlug = segments[projectsIndex + 1];
+    return projectSlug?.trim() || null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Upload assistant attachments directly to OpenAI Files API.
@@ -97,14 +122,11 @@ type ConvexQueryClient = {
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
-    const fileValue = formData.get("file");
-    const projectId = formData.get("projectId");
+    const fileValue = formData.get("file") ?? extractFirstFile(formData);
+    const rawProjectId = formData.get("projectId");
 
     if (!(fileValue instanceof File)) {
       return NextResponse.json({ error: "Missing file" }, { status: 400 });
-    }
-    if (typeof projectId !== "string" || projectId.trim().length === 0) {
-      return NextResponse.json({ error: "Missing projectId" }, { status: 400 });
     }
 
     if (fileValue.size <= 0) {
@@ -125,7 +147,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { getToken } = await auth();
+    const { getToken, orgId } = await auth();
     const token = await getToken({ template: "convex" });
     if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -138,30 +160,47 @@ export async function POST(request: NextRequest) {
     const getProjectRef = {
       _name: "projects:getProject",
     } as unknown as FunctionReference<"query">;
+    const getProjectBySlugInClerkOrgRef = {
+      _name: "projects:getProjectBySlugInClerkOrg",
+    } as unknown as FunctionReference<"query">;
     const getCurrentUserTeamMemberRef = {
       _name: "teams:getCurrentUserTeamMember",
     } as unknown as FunctionReference<"query">;
 
     const convexQueryClient = convex as unknown as ConvexQueryClient;
+    const providedProjectId =
+      typeof rawProjectId === "string" && rawProjectId.trim().length > 0
+        ? rawProjectId.trim()
+        : null;
 
-    const project = (await convexQueryClient.query(getProjectRef, {
-      projectId,
-    })) as { teamId?: string } | null;
-    if (!project?.teamId) {
-      return NextResponse.json({ error: "Project not found" }, { status: 404 });
-    }
+    if (providedProjectId) {
+      const project = (await convexQueryClient.query(getProjectRef, {
+        projectId: providedProjectId,
+      })) as { _id?: string; teamId?: string } | null;
+      if (!project?.teamId) {
+        return NextResponse.json({ error: "Project not found" }, { status: 404 });
+      }
 
-    const membership = (await convexQueryClient.query(getCurrentUserTeamMemberRef, {
-      teamId: project.teamId,
-    })) as
-      | { isActive?: boolean; role?: "admin" | "member" }
-      | null;
-    if (
-      !membership ||
-      membership.isActive === false ||
-      (membership.role !== "admin" && membership.role !== "member")
-    ) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      const membership = (await convexQueryClient.query(getCurrentUserTeamMemberRef, {
+        teamId: project.teamId,
+      })) as
+        | { isActive?: boolean; role?: "admin" | "member" }
+        | null;
+      if (
+        !membership ||
+        membership.isActive === false ||
+        (membership.role !== "admin" && membership.role !== "member")
+      ) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    } else if (orgId) {
+      const projectSlug = extractProjectSlugFromReferer(request);
+      if (projectSlug) {
+        await convexQueryClient.query(getProjectBySlugInClerkOrgRef, {
+          clerkOrgId: orgId,
+          projectSlug,
+        });
+      }
     }
 
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });

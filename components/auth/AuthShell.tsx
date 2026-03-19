@@ -75,8 +75,8 @@ export function AuthShell({
             <Image
               src="/logo.svg"
               alt="Myvibe project"
-              width={1136}
-              height={1136}
+              width={1024}
+              height={1024}
               className="size-16"
             />
           </Link>

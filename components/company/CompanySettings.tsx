@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useEffect, useRef, useCallback, type ChangeEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useOrganization } from "@clerk/nextjs";
@@ -158,6 +159,10 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
   const billingWindowEnsuredRef = useRef(false);
   const organizationImageInputRef = useRef<HTMLInputElement | null>(null);
   const organizationImageObjectUrlRef = useRef<string | null>(null);
+  const organizationHasImage = organization?.hasImage ?? false;
+  const resolvedOrganizationImageUrl = organizationHasImage
+    ? (teamData?.imageUrl || organization?.imageUrl || "")
+    : "";
 
   useEffect(() => {
     if (shouldRedirectToSubscription) {
@@ -204,7 +209,7 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
         timezone: teamData.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
       });
       if (!organizationImageFile) {
-        setOrganizationImagePreviewUrl(teamData.imageUrl || organization?.imageUrl || "");
+        setOrganizationImagePreviewUrl(resolvedOrganizationImageUrl);
       }
       setBillingProfile({
         sellerName: teamData.billingProfile?.sellerName || teamData.name || "",
@@ -225,7 +230,7 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
         defaultPaymentTermDays: String(teamData.billingProfile?.defaultPaymentTermDays || 14),
       });
     }
-  }, [teamData, organization?.imageUrl, organizationImageFile]);
+  }, [teamData, organizationImageFile, resolvedOrganizationImageUrl]);
 
   useEffect(() => {
     return () => {
@@ -420,7 +425,7 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
         URL.revokeObjectURL(organizationImageObjectUrlRef.current);
         organizationImageObjectUrlRef.current = null;
       }
-      setOrganizationImagePreviewUrl(teamData.imageUrl || organization?.imageUrl || "");
+      setOrganizationImagePreviewUrl(resolvedOrganizationImageUrl);
       setOrganizationImageFile(null);
     } finally {
       setSavingOrganizationProfile(false);
@@ -1152,7 +1157,7 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
               <Card className="border-border/40 shadow-sm overflow-hidden">
                 <CardContent className="space-y-4 p-6">
                   <div className="flex items-center gap-4 rounded-lg border border-border/40 bg-muted/20 p-4">
-                    <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-border/40 bg-background">
+                    <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-border/40 bg-background">
                       {organizationImagePreviewUrl.trim() ? (
                         <img
                           src={organizationImagePreviewUrl}
@@ -1160,9 +1165,12 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center text-primary">
-                          <ImageIcon className="h-5 w-5" />
-                        </div>
+                        <Image
+                          src="/logo.svg"
+                          alt="Myvibe Project"
+                          fill
+                          className="object-contain p-2"
+                        />
                       )}
                     </div>
                     <div className="min-w-0 flex-1 space-y-3">
@@ -1198,7 +1206,11 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                     <Input value={organization?.name || "No active organization"} readOnly />
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <Button type="button" variant="outline" onClick={() => router.replace("/onboarding")}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => router.replace("/onboarding?mode=organization")}
+                    >
                       Re-run organization onboarding
                     </Button>
                   </div>

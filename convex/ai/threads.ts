@@ -215,7 +215,7 @@ export const getProjectThreadInternal = internalMutation({
   },
 });
 
-// Internal helper: resolve latest assistant message text for Telegram responses.
+// Internal helper: resolve the latest assistant message text for external delivery.
 export const getLatestAssistantMessageText = internalQuery({
   args: {
     threadId: v.string(),

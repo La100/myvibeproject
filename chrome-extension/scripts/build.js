@@ -28,13 +28,14 @@ copyFileSync(
     join(distDir, 'manifest.json')
 )
 
-// Copy icons from original extension
-// console.log('🎨 Copying icons...')
-// const originalIconsDir = join(rootDir, '..', '..', 'chrome-extension', 'icons')
-// copyFileSync(
-//     join(originalIconsDir, 'icon.svg'),
-//     join(iconsDir, 'icon.svg')
-// )
+// Copy extension icons referenced by manifest.json
+console.log('🎨 Copying icons...')
+for (const iconName of ['icon16.png', 'icon32.png', 'icon48.png', 'icon128.png']) {
+    copyFileSync(
+        join(rootDir, 'icons', iconName),
+        join(iconsDir, iconName)
+    )
+}
 
 console.log('✅ Build completed successfully!')
 console.log('📁 Extension files are in:', distDir)
