@@ -72,12 +72,6 @@ const ensurePdfFonts = (doc: jsPDF) => {
   doc.setFont(PDF_FONT_FAMILY, "normal");
 };
 
-const writeMultiline = (doc: jsPDF, value: string, x: number, y: number, maxWidth: number) => {
-  const lines = doc.splitTextToSize(value, maxWidth);
-  doc.text(lines, x, y);
-  return y + lines.length * 5;
-};
-
 const toPartyLines = (party: InvoicePdfParty) =>
   [
     party.name,
@@ -109,54 +103,6 @@ type PdfColor = readonly [number, number, number];
 const setTextColor = (doc: jsPDF, color: PdfColor) => doc.setTextColor(color[0], color[1], color[2]);
 const setFillColor = (doc: jsPDF, color: PdfColor) => doc.setFillColor(color[0], color[1], color[2]);
 const setDrawColor = (doc: jsPDF, color: PdfColor) => doc.setDrawColor(color[0], color[1], color[2]);
-
-const drawRoundedPanel = (
-  doc: jsPDF,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  options: {
-    fill: PdfColor;
-    stroke?: PdfColor;
-    radius?: number;
-  },
-) => {
-  setFillColor(doc, options.fill);
-  if (options.stroke) {
-    setDrawColor(doc, options.stroke);
-    doc.roundedRect(x, y, width, height, options.radius ?? 4, options.radius ?? 4, "FD");
-    return;
-  }
-  doc.roundedRect(x, y, width, height, options.radius ?? 4, options.radius ?? 4, "F");
-};
-
-const drawSectionLabel = (doc: jsPDF, label: string, x: number, y: number, color: PdfColor = PDF_COLORS.inkMuted) => {
-  doc.setFont(PDF_FONT_FAMILY, "bold");
-  doc.setFontSize(8);
-  setTextColor(doc, color);
-  doc.text(label.toUpperCase(), x, y);
-};
-
-const drawMetric = (
-  doc: jsPDF,
-  label: string,
-  value: string,
-  x: number,
-  y: number,
-  width: number,
-  options?: { align?: "left" | "right"; valueColor?: PdfColor; valueSize?: number },
-) => {
-  const align = options?.align ?? "left";
-  drawSectionLabel(doc, label, x, y);
-  doc.setFont(PDF_FONT_FAMILY, "bold");
-  doc.setFontSize(options?.valueSize ?? 11);
-  setTextColor(doc, options?.valueColor ?? PDF_COLORS.ink);
-  doc.text(value, align === "right" ? x + width : x, y + 7, {
-    align,
-    maxWidth: width,
-  });
-};
 
 const getInvoiceStatus = (input: InvoicePdfInput) => {
   if (input.paidAt) {

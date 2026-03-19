@@ -23,7 +23,6 @@ import {
   Clock3,
   HardDrive,
   FolderOpen,
-  ImageIcon,
   Upload,
   ArrowRight,
   Loader2,
