@@ -3,6 +3,11 @@ import { auth } from "@clerk/nextjs/server";
 
 const DEFAULT_OPENAI_BASE_URL = "https://api.openai.com";
 
+type ChatKitSessionRequest = {
+  projectId?: string;
+  teamId?: string;
+};
+
 function getWorkflowId() {
   return (
     process.env.OPENAI_CHATKIT_WORKFLOW_ID?.trim() ||
@@ -13,6 +18,14 @@ function getWorkflowId() {
 
 function getApiKey() {
   return process.env.OPENAI_API_KEY?.trim() || null;
+}
+
+function normalizeScopeValue(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function buildScopedUserId(userId: string, teamId: string, projectId: string) {
+  return `clerk:${userId}:team:${teamId}:project:${projectId}`;
 }
 
 function extractErrorMessage(payload: unknown, fallback: string) {
@@ -37,11 +50,22 @@ function extractErrorMessage(payload: unknown, fallback: string) {
   return fallback;
 }
 
-export async function POST() {
+export async function POST(request: Request) {
   const { userId } = await auth();
 
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const body = (await request.json().catch(() => null)) as ChatKitSessionRequest | null;
+  const projectId = normalizeScopeValue(body?.projectId);
+  const teamId = normalizeScopeValue(body?.teamId);
+
+  if (!projectId || !teamId) {
+    return NextResponse.json(
+      { error: "Missing ChatKit scope. Expected projectId and teamId." },
+      { status: 400 },
+    );
   }
 
   const apiKey = getApiKey();
@@ -78,7 +102,7 @@ export async function POST() {
       cache: "no-store",
       body: JSON.stringify({
         workflow: { id: workflowId },
-        user: `clerk:${userId}`,
+        user: buildScopedUserId(userId, teamId, projectId),
       }),
     });
   } catch (error) {

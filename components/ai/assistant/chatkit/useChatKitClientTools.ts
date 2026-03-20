@@ -4,6 +4,10 @@ import { useCallback } from "react";
 import { useConvex } from "convex/react";
 
 import type { Id } from "@/convex/_generated/dataModel";
+import {
+  buildCreateSurveyPayload,
+  buildUpdateSurveyPayload,
+} from "@/lib/assistant/chatkitSurveyPayload";
 import { apiAny } from "@/lib/convexApiAny";
 
 type ToolCall = {
@@ -82,33 +86,6 @@ function asShoppingStatus(
   return undefined;
 }
 
-function asSurveyQuestionType(
-  value: unknown,
-):
-  | "text_short"
-  | "text_long"
-  | "multiple_choice"
-  | "single_choice"
-  | "rating"
-  | "yes_no"
-  | "number"
-  | "file"
-  | undefined {
-  if (
-    value === "text_short" ||
-    value === "text_long" ||
-    value === "multiple_choice" ||
-    value === "single_choice" ||
-    value === "rating" ||
-    value === "yes_no" ||
-    value === "number" ||
-    value === "file"
-  ) {
-    return value;
-  }
-  return undefined;
-}
-
 function asTimestamp(value: unknown): number | undefined {
   const direct = asNumber(value);
   if (direct !== undefined) return direct;
@@ -117,40 +94,6 @@ function asTimestamp(value: unknown): number | undefined {
   if (!text) return undefined;
   const parsed = Date.parse(text);
   return Number.isFinite(parsed) ? parsed : undefined;
-}
-
-function asRecordArray(value: unknown): Array<Record<string, unknown>> | undefined {
-  if (!Array.isArray(value)) return undefined;
-  const normalized = value.filter(
-    (entry): entry is Record<string, unknown> =>
-      typeof entry === "object" && entry !== null && !Array.isArray(entry),
-  );
-  return normalized.length > 0 ? normalized : undefined;
-}
-
-function extractSurveyQuestions(value: unknown) {
-  const items = asRecordArray(value);
-  if (!items) return undefined;
-
-  const questions = items
-    .map((item) => {
-      const questionText = asNonEmptyString(item.questionText) ?? asNonEmptyString(item.title);
-      const questionType =
-        asSurveyQuestionType(item.questionType) ?? asSurveyQuestionType(item.type);
-
-      return {
-        questionId: asNonEmptyString(item.questionId),
-        operation: asNonEmptyString(item.operation) as "create" | "edit" | "delete" | undefined,
-        questionText,
-        questionType,
-        options: asStringArray(item.options),
-        isRequired: asBoolean(item.isRequired),
-        order: asNumber(item.order),
-      };
-    })
-    .filter((item) => item.questionText || item.questionId || item.operation);
-
-  return questions.length > 0 ? questions : undefined;
 }
 
 function extractTaskTitle(params: Record<string, unknown>): string | undefined {
@@ -1016,9 +959,7 @@ export function useChatKitClientTools({
           }
 
           case "create_survey": {
-            const title =
-              asNonEmptyString(params.title) ??
-              asNonEmptyString(params.name);
+            const { title, surveyData } = buildCreateSurveyPayload(params);
             if (!title) {
               return {
                 ok: false,
@@ -1028,15 +969,7 @@ export function useChatKitClientTools({
 
             const result = await convex.action(apiAny.ai.confirmedActions.createConfirmedSurvey, {
               projectId,
-              surveyData: {
-                title,
-                description: asNonEmptyString(params.description),
-                isRequired: asBoolean(params.isRequired),
-                allowMultipleResponses: asBoolean(params.allowMultipleResponses),
-                startDate: asNonEmptyString(params.startDate),
-                endDate: asNonEmptyString(params.endDate),
-                questions: extractSurveyQuestions(params.questions),
-              },
+              surveyData: surveyData!,
             });
 
             return {
@@ -1049,7 +982,7 @@ export function useChatKitClientTools({
           }
 
           case "update_survey": {
-            const surveyId = asNonEmptyString(params.surveyId);
+            const { surveyId, updates } = buildUpdateSurveyPayload(params);
             if (!surveyId) {
               return {
                 ok: false,
@@ -1060,15 +993,7 @@ export function useChatKitClientTools({
             const result = await convex.action(apiAny.ai.confirmedActions.editConfirmedSurvey, {
               projectId,
               surveyId,
-              updates: {
-                title: asNonEmptyString(params.title),
-                description: asNonEmptyString(params.description),
-                isRequired: asBoolean(params.isRequired),
-                allowMultipleResponses: asBoolean(params.allowMultipleResponses),
-                startDate: asNonEmptyString(params.startDate),
-                endDate: asNonEmptyString(params.endDate),
-                questions: extractSurveyQuestions(params.questions),
-              },
+              updates: updates!,
             });
 
             return {

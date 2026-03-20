@@ -72,11 +72,7 @@ export default function AIAssistantChatKitPanel({
   });
 
   const getClientSecret = useMemo(
-    () => async (currentClientSecret: string | null) => {
-      if (currentClientSecret) {
-        return currentClientSecret;
-      }
-
+    () => async () => {
       setIsBootstrapping(true);
       setBootError(null);
 
@@ -87,7 +83,10 @@ export default function AIAssistantChatKitPanel({
             "Content-Type": "application/json",
           },
           cache: "no-store",
-          body: "{}",
+          body: JSON.stringify({
+            projectId,
+            teamId,
+          }),
         });
 
         const payload = (await response.json().catch(() => ({}))) as {
@@ -111,7 +110,7 @@ export default function AIAssistantChatKitPanel({
         setIsBootstrapping(false);
       }
     },
-    [],
+    [projectId, teamId],
   );
 
   const chatkit = useChatKit({

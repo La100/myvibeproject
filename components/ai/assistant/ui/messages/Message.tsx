@@ -1,7 +1,6 @@
 "use client";
 
-import { memo, useMemo } from "react";
-import { z } from "zod";
+import { memo } from "react";
 import type { UIMessage } from "@convex-dev/agent/react";
 import { useQuery } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
@@ -9,162 +8,13 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { MessageContent } from "@/components/ai/primitives/message";
 import { MessageResponse } from "@/components/ai/primitives/message";
-import { InlineConfirmationList } from "../confirmations/InlineConfirmation";
-import type { PendingContentItem, PendingContentType } from "../../data/types";
 import { Download, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const toolResultDataSchema = z.record(z.unknown());
-const titleChangeSchema = z.object({
-  taskId: z.string().optional(),
-  currentTitle: z.string().optional(),
-  originalTitle: z.string().optional(),
-  newTitle: z.string(),
-});
-const pendingActionSchema = z.object({
-  type: z.string(),
-  operation: z.enum(["create", "edit", "delete", "bulk_create", "bulk_edit"]),
-  data: toolResultDataSchema,
-  status: z.string().optional(),
-  outcome: z.unknown().optional(),
-  updates: toolResultDataSchema.optional(),
-  originalItem: toolResultDataSchema.optional(),
-  selection: toolResultDataSchema.optional(),
-  titleChanges: z.array(titleChangeSchema).optional(),
-}).passthrough();
-
-const bulkTasksSchema = z.object({
-  type: z.literal("task"),
-  operation: z.literal("bulk_create"),
-  data: z.object({
-    tasks: z.array(toolResultDataSchema),
-  }),
-});
-
-const bulkNotesSchema = z.object({
-  type: z.literal("note"),
-  operation: z.literal("bulk_create"),
-  data: z.object({
-    notes: z.array(toolResultDataSchema),
-  }),
-});
-
-const bulkShoppingSchema = z.object({
-  type: z.string(),
-  operation: z.literal("bulk_create"),
-  data: z.object({
-    items: z.array(toolResultDataSchema),
-  }),
-});
-
-function safeParseToolResult(result: string): z.infer<typeof pendingActionSchema> | null {
-  try {
-    const parsed = JSON.parse(result);
-    const validated = pendingActionSchema.safeParse(parsed);
-    return validated.success ? validated.data : null;
-  } catch {
-    return null;
-  }
-}
-
-function toPendingContentType(type: string): PendingContentType {
-  return type as PendingContentType;
-}
 
 type UIMessagePart = NonNullable<UIMessage["parts"]>[number];
 
 const hasText = (part: UIMessagePart): part is UIMessagePart & { text: string } =>
   typeof (part as { text?: unknown }).text === "string";
-
-function extractPendingItemsFromMessage(message: UIMessage): PendingContentItem[] {
-  const items: PendingContentItem[] = [];
-  if (!message.parts) return items;
-
-  for (const part of message.parts) {
-    if (part.type.startsWith("tool-result:")) {
-      const resultPart = part as { type: string; result?: string };
-      if (!resultPart.result) continue;
-
-      const parsed = safeParseToolResult(resultPart.result);
-      if (!parsed) continue;
-
-      // Skip if the tool result contains an error
-      const hasError = typeof parsed === "object" && parsed !== null && "error" in parsed;
-      if (hasError) continue;
-
-      if (parsed.type && parsed.operation && parsed.data) {
-        const callId = part.type.replace("tool-result:", "");
-        const status =
-          parsed.status === "confirmed" || parsed.status === "rejected"
-            ? parsed.status
-            : undefined;
-
-        if (parsed.operation === "bulk_create") {
-          const bulkTasks = bulkTasksSchema.safeParse(parsed);
-          if (bulkTasks.success) {
-            for (const task of bulkTasks.data.data.tasks) {
-              items.push({
-                type: "task",
-                operation: "create",
-                data: task as Record<string, unknown>,
-                functionCall: { callId, functionName: "", arguments: "" },
-                status,
-              });
-            }
-            continue;
-          }
-
-          const bulkNotes = bulkNotesSchema.safeParse(parsed);
-          if (bulkNotes.success) {
-            for (const note of bulkNotes.data.data.notes) {
-              items.push({
-                type: "note",
-                operation: "create",
-                data: note as Record<string, unknown>,
-                functionCall: { callId, functionName: "", arguments: "" },
-                status,
-              });
-            }
-            continue;
-          }
-
-          const bulkShopping = bulkShoppingSchema.safeParse(parsed);
-          if (bulkShopping.success) {
-            for (const item of bulkShopping.data.data.items) {
-              items.push({
-                type: "shopping",
-                operation: "create",
-                data: item as Record<string, unknown>,
-                functionCall: { callId, functionName: "", arguments: "" },
-                status,
-              });
-            }
-            continue;
-          }
-        }
-
-        items.push({
-          type: toPendingContentType(parsed.type),
-          operation: parsed.operation,
-          data: parsed.data,
-          updates: parsed.updates as Record<string, unknown>,
-          originalItem: parsed.originalItem as Record<string, unknown>,
-          selection: parsed.selection as Record<string, unknown>,
-          titleChanges: parsed.titleChanges as Array<{
-            taskId?: string;
-            currentTitle?: string;
-            originalTitle?: string;
-            newTitle: string;
-          }>,
-          functionCall: { callId, functionName: "", arguments: "" },
-          status,
-        });
-      }
-    }
-  }
-
-  return items;
-}
 
 function UserAttachmentPreview({
   metadata,
@@ -264,13 +114,6 @@ type PreviewMessageProps = {
     type: string;
     previewUrl?: string;
   }>;
-  onConfirmItem?: (index: number | string) => Promise<void>;
-  onRejectItem?: (index: number | string) => void | Promise<void>;
-  onEditItem?: (index: number | string) => void;
-  onConfirmAll?: () => Promise<void>;
-  onRejectAll?: () => void | Promise<void>;
-  onUpdateItem?: (index: number | string, updates: Partial<PendingContentItem>) => void;
-  isProcessing?: boolean;
   mediaImageUrl?: string;
   onImageClick?: (payload: { url: string; prompt: string }) => void;
   onDownloadImage?: (url: string) => void;
@@ -282,19 +125,11 @@ export const PurePreviewMessage = ({
   isLoading,
   metadata,
   localAttachments,
-  pendingItems,
-  onConfirmItem,
-  onRejectItem,
-  onEditItem,
-  onConfirmAll,
-  onRejectAll,
-  onUpdateItem,
-  isProcessing,
   mediaImageUrl,
   onImageClick,
   onDownloadImage,
   hideGeneratedPlaceholderText = false,
-}: PreviewMessageProps & { pendingItems?: PendingContentItem[] }) => {
+}: PreviewMessageProps) => {
   const isUser = message.role === "user";
   const textFromParts =
     message.parts?.find(
@@ -306,53 +141,9 @@ export const PurePreviewMessage = ({
     hideGeneratedPlaceholderText && messageText.trim() === "Generated image."
       ? ""
       : messageText;
-
-  // Extract items and merge with local pending state for optimistic updates
-  const inlineItems = useMemo(() => {
-    const items = extractPendingItemsFromMessage(message);
-    if (!pendingItems || pendingItems.length === 0) return items;
-
-    const pendingStatusesByCallId = new Map<
-      string,
-      Array<PendingContentItem["status"]>
-    >();
-    for (const pendingItem of pendingItems) {
-      const callId = pendingItem.functionCall?.callId;
-      if (!callId) continue;
-
-      const existing = pendingStatusesByCallId.get(callId);
-      if (existing) {
-        existing.push(pendingItem.status);
-      } else {
-        pendingStatusesByCallId.set(callId, [pendingItem.status]);
-      }
-    }
-
-    const callOccurrence = new Map<string, number>();
-
-    return items.map((item) => {
-      const callId = item.functionCall?.callId;
-      if (!callId) return item;
-
-      const occurrence = callOccurrence.get(callId) ?? 0;
-      callOccurrence.set(callId, occurrence + 1);
-
-      const localStatus = pendingStatusesByCallId.get(callId)?.[occurrence];
-      if (localStatus === "confirmed" || localStatus === "rejected") {
-        return {
-          ...item,
-          status: localStatus,
-        };
-      }
-      return item;
-    });
-  }, [message, pendingItems]);
-
-  const hasConfirmations = inlineItems.length > 0 && !isLoading;
   const hasVisibleAssistantContent =
     resolvedMessageText.trim().length > 0 ||
-    Boolean(mediaImageUrl) ||
-    hasConfirmations;
+    Boolean(mediaImageUrl);
 
   if (!isUser && !isLoading && !hasVisibleAssistantContent) {
     return null;
@@ -435,19 +226,6 @@ export const PurePreviewMessage = ({
                 </Button>
               )}
             </div>
-          )}
-
-          {hasConfirmations && onConfirmItem && onRejectItem && (
-            <InlineConfirmationList
-              items={inlineItems}
-              onConfirmItem={onConfirmItem}
-              onRejectItem={onRejectItem}
-              onEditItem={onEditItem}
-              onConfirmAll={onConfirmAll}
-              onRejectAll={onRejectAll}
-              onUpdateItem={onUpdateItem}
-              isProcessing={isProcessing}
-            />
           )}
         </div>
 
