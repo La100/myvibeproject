@@ -39,6 +39,8 @@ import type * as ai_imageGeneration from "../ai/imageGeneration.js";
 import type * as ai_longContextQueries from "../ai/longContextQueries.js";
 import type * as ai_prompt from "../ai/prompt.js";
 import type * as ai_search from "../ai/search.js";
+import type * as ai_streaming from "../ai/streaming.js";
+import type * as ai_streamingQueries from "../ai/streamingQueries.js";
 import type * as ai_threads from "../ai/threads.js";
 import type * as ai_tools from "../ai/tools.js";
 import type * as ai_types from "../ai/types.js";
@@ -124,6 +126,8 @@ declare const fullApi: ApiFromModules<{
   "ai/longContextQueries": typeof ai_longContextQueries;
   "ai/prompt": typeof ai_prompt;
   "ai/search": typeof ai_search;
+  "ai/streaming": typeof ai_streaming;
+  "ai/streamingQueries": typeof ai_streamingQueries;
   "ai/threads": typeof ai_threads;
   "ai/tools": typeof ai_tools;
   "ai/types": typeof ai_types;

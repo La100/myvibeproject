@@ -884,16 +884,28 @@ export function createStreamingTools(options?: StreamingToolOptions) {
           });
         }
 
+        const originalItemRecord =
+          originalItem && typeof originalItem === "object"
+            ? (originalItem as Record<string, unknown>)
+            : null;
+        const isMoodboardFile =
+          args.type === "note" &&
+          !!originalItemRecord &&
+          typeof originalItemRecord.storageId === "string" &&
+          typeof originalItemRecord.moodboardSection === "string";
+        const resolvedType = isMoodboardFile ? "moodboard" : getOperationType(args.type);
         const isSectionType =
           args.type === "shoppingSection" || args.type === "laborSection";
 
         return JSON.stringify({
-          type: getOperationType(args.type),
+          type: resolvedType,
           operation: "delete",
           data: {
             itemId: args.itemId,
+            fileId: isMoodboardFile ? args.itemId : undefined,
             sectionId: isSectionType ? args.itemId : undefined,
             name: args.name || originalItem?.title || originalItem?.name,
+            moodboardSection: isMoodboardFile ? originalItemRecord?.moodboardSection : undefined,
             reason: args.reason,
           },
           originalItem: originalItem || { _id: args.itemId, title: args.name, name: args.name },
