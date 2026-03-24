@@ -73,6 +73,37 @@ const toText = (content: ThreadMessageLike["content"]) => {
 
 const normalizeText = (text: string) => text.trim().replace(/\s+/g, " ");
 
+const toAttachmentFromUIPart = (
+  part: Record<string, unknown>,
+  fallbackId: string,
+): NonNullable<ThreadMessageLike["attachments"]>[number] | null => {
+  if (part.type !== "file" || typeof part.url !== "string") {
+    return null;
+  }
+
+  const mediaType =
+    typeof part.mediaType === "string" && part.mediaType.length > 0
+      ? part.mediaType
+      : "application/octet-stream";
+  const filename =
+    typeof part.filename === "string" && part.filename.length > 0
+      ? part.filename
+      : "Attachment";
+
+  const content = mediaType.startsWith("image/")
+    ? [{ type: "image" as const, image: part.url, mediaType }]
+    : [{ type: "file" as const, data: part.url, filename, mimeType: mediaType }];
+
+  return {
+    id: fallbackId,
+    type: mediaType.startsWith("image/") ? "image" : "file",
+    name: filename,
+    contentType: mediaType,
+    status: { type: "complete" },
+    content,
+  };
+};
+
 const toThreadMessageLikeFromUI = (
   msg: UIMessage,
   status?: "running" | "complete",
@@ -80,6 +111,7 @@ const toThreadMessageLikeFromUI = (
   const role = (msg.role ?? "assistant") as ThreadRole;
   const parts = Array.isArray(msg.parts) ? (msg.parts as Array<Record<string, unknown>>) : [];
   const content: ThreadContentPart[] = [];
+  const attachments: Array<NonNullable<ThreadMessageLike["attachments"]>[number]> = [];
   const record = msg as unknown as Record<string, unknown>;
   const messageId =
     (typeof record.key === "string" && record.key) ||
@@ -90,6 +122,17 @@ const toThreadMessageLikeFromUI = (
     const type = String(part.type ?? "");
     if (type === "text" && typeof part.text === "string") {
       content.push({ type: "text", text: part.text });
+      continue;
+    }
+
+    if (type === "file") {
+      const attachment = toAttachmentFromUIPart(
+        part,
+        `${messageId ?? "msg"}-att-${attachments.length}`,
+      );
+      if (attachment) {
+        attachments.push(attachment);
+      }
       continue;
     }
 
@@ -159,6 +202,7 @@ const toThreadMessageLikeFromUI = (
     id: messageId,
     role,
     content,
+    attachments: attachments.length > 0 ? attachments : undefined,
     metadata: { custom: {} },
   };
 };
@@ -262,6 +306,16 @@ export default function AssistantConversation({
   useEffect(() => {
     if (isBooting) return;
     const focusInput = () => {
+      const activeElement = document.activeElement;
+      if (
+        activeElement instanceof HTMLInputElement ||
+        activeElement instanceof HTMLTextAreaElement ||
+        activeElement instanceof HTMLSelectElement ||
+        activeElement instanceof HTMLButtonElement ||
+        activeElement?.closest("[contenteditable='true']")
+      ) {
+        return;
+      }
       const input = document.getElementById("assistant-chat-input") as HTMLTextAreaElement | null;
       input?.focus();
     };
@@ -348,8 +402,10 @@ export default function AssistantConversation({
         setHasSubmittedMessage(true);
       }
 
+      let optimisticMessageId: string | undefined;
       if (ENABLE_OPTIMISTIC_USER_MESSAGE && hasDraftContent) {
         const optimisticMessage = makeLocalMessage("user", promptText, message.attachments);
+        optimisticMessageId = optimisticMessage.id;
         optimisticMetaRef.current = {
           normalizedText: normalizeText(promptText),
           serverUserCountAtSend: serverUserCount,
@@ -357,7 +413,17 @@ export default function AssistantConversation({
         setOptimisticMessages((prev) => [...prev, optimisticMessage]);
       }
 
-      await onSendRef.current({ text: promptText, files });
+      try {
+        await onSendRef.current({ text: promptText, files });
+      } catch (error) {
+        if (optimisticMessageId) {
+          optimisticMetaRef.current = null;
+          setOptimisticMessages((prev) =>
+            prev.filter((entry) => entry.id !== optimisticMessageId),
+          );
+        }
+        throw error;
+      }
     },
     [serverUserCount],
   );

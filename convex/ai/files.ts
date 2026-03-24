@@ -1,19 +1,33 @@
  "use node";
 
-import { api } from "../_generated/api";
 import type { ActionCtx } from "../_generated/server";
+import { makeFunctionReference } from "convex/server";
 import { getFileUrl, processFileForAI } from "./helpers/fileProcessor";
+import { toOpenAIFileContentPart } from "./openaiFileParts";
 
 type MessageContentPart =
   | { type: "text"; text: string }
   | { type: "image"; image: string; mediaType?: string }
-  | { type: "file"; data: string; mediaType: string };
+  | { type: "file"; data: string; mimeType: string };
 
 type PrepareFileMessageArgs = {
   ctx: ActionCtx;
   fileId: string;
   baseMessage: string;
 };
+
+type StoredFileRecord = {
+  name?: string;
+  mimeType?: string;
+  size?: number;
+  storageId?: string;
+};
+
+const getFileByIdQueryRef = makeFunctionReference<
+  "query",
+  { fileId: string },
+  StoredFileRecord | null
+>("files:getFileById");
 
 export type FileMetadataForHistory = {
   fileId: string;
@@ -45,14 +59,14 @@ export async function prepareMessageWithFile({
   let content: MessageContentPart[] = [{ type: "text", text: message }];
 
   try {
-    const file = await ctx.runQuery(api.files.getFileById, { fileId: fileId as any });
+    const file = await ctx.runQuery(getFileByIdQueryRef, { fileId });
     if (!file) {
       return { message, content };
     }
 
     const fileMetadata: FileMetadataForHistory = {
       fileId,
-      fileName: file.name,
+      fileName: file.name ?? fileId,
       fileType: file.mimeType ?? undefined,
       fileSize: typeof file.size === "number" ? file.size : undefined,
     };
@@ -80,7 +94,7 @@ export async function prepareMessageWithFile({
     if (isPdf) {
       // Pass PDF URL directly to agent - let OpenAI handle it natively
       content = [
-        { type: "file", data: fileUrl, mediaType: file.mimeType || "application/pdf" },
+        { type: "file", data: fileUrl, mimeType: file.mimeType || "application/pdf" },
         { type: "text", text: message || `User attached PDF: ${file.name}` },
       ];
       message = message || `User attached PDF: ${file.name}`;
@@ -112,10 +126,9 @@ export async function prepareMessageWithFile({
     }
 
     // For other file types, pass URL as file type
-    // Ensure we always provide a mediaType (required by FilePart)
-    const mediaType = file.mimeType || "application/octet-stream";
+    const mimeType = file.mimeType || "application/octet-stream";
     content = [
-      { type: "file", data: fileUrl, mediaType },
+      { type: "file", data: fileUrl, mimeType },
       { type: "text", text: message || `User attached file: ${file.name}` },
     ];
     message = message || `User attached file: ${file.name}`;
@@ -137,7 +150,7 @@ export async function prepareMessageWithFiles({
   baseMessage: string;
 }): Promise<PreparedFileMessage> {
   let message = baseMessage;
-  let content: MessageContentPart[] = [];
+  const content: MessageContentPart[] = [];
   const filesMetadata: FileMetadataForHistory[] = [];
 
   const appendToMessage = (text: string) => {
@@ -146,14 +159,14 @@ export async function prepareMessageWithFiles({
 
   for (const fileId of fileIds) {
     try {
-      const file = await ctx.runQuery(api.files.getFileById, { fileId: fileId as any });
+      const file = await ctx.runQuery(getFileByIdQueryRef, { fileId });
       if (!file) {
         continue;
       }
 
       const fileMetadata: FileMetadataForHistory = {
         fileId,
-        fileName: file.name,
+        fileName: file.name ?? fileId,
         fileType: file.mimeType ?? undefined,
         fileSize: typeof file.size === "number" ? file.size : undefined,
       };
@@ -180,7 +193,7 @@ export async function prepareMessageWithFiles({
         content.push({
           type: "file",
           data: fileUrl,
-          mediaType: file.mimeType || "application/pdf",
+          mimeType: file.mimeType || "application/pdf",
         });
         continue;
       }
@@ -206,9 +219,9 @@ export async function prepareMessageWithFiles({
         continue;
       }
 
-      const mediaType = file.mimeType || "application/octet-stream";
+      const mimeType = file.mimeType || "application/octet-stream";
       appendToMessage(`User attached file: ${file.name}`);
-      content.push({ type: "file", data: fileUrl, mediaType });
+      content.push({ type: "file", data: fileUrl, mimeType });
     } catch (error) {
       console.error("Failed to prepare AI message with file:", error);
       appendToMessage(`[User attached file: ${fileId} - processing failed, please ask for specific content.]`);
@@ -248,30 +261,10 @@ export async function prepareMessageWithOpenAIFiles({
   };
 
   for (const file of openaiFiles) {
-    const fileType = file.fileType || "application/octet-stream";
-    const isImage = fileType.startsWith("image/");
-    const normalizedMediaType = isImage ? fileType : "application/pdf";
-    const readableName = file.fileName || file.fileId;
-
-    if (isImage) {
-      appendToMessage(`User attached image: ${readableName} (${fileType})`);
-    } else {
-      appendToMessage(`User attached file: ${readableName} (${fileType})`);
-    }
-
-    // File IDs from OpenAI are passed directly to the model as input_file/input_image.
-    content.push({
-      type: "file",
-      data: file.fileId,
-      mediaType: normalizedMediaType,
-    });
-
-    filesMetadata.push({
-      fileId: file.fileId,
-      fileName: readableName,
-      fileType: fileType,
-      fileSize: typeof file.fileSize === "number" ? file.fileSize : undefined,
-    });
+    const { contentPart, description, metadata } = toOpenAIFileContentPart(file);
+    appendToMessage(description);
+    content.push(contentPart);
+    filesMetadata.push(metadata);
   }
 
   if (content.length === 0) {

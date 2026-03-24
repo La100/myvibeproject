@@ -75,6 +75,35 @@ export const internalDoStreaming = internalAction({
   handler: async (ctx, args) => {
     const startTime = Date.now();
     const agentModeIdentifier = "convex_agent_stream";
+    const providedThreadId = args.threadId;
+
+    const getThreadRuntimeState = async () =>
+      (await ctx.runQuery(internalAny.ai.threads.getThreadRuntimeState, {
+        threadId: providedThreadId,
+      })) as { abortedAt?: number } | null;
+
+    const wasAborted = async () => {
+      const runtimeState = await getThreadRuntimeState();
+      return Boolean(runtimeState?.abortedAt && runtimeState.abortedAt >= startTime);
+    };
+
+    const persistAssistantMessage = async (content: string) => {
+      await ctx.runMutation(components.agent.messages.addMessages, {
+        threadId: providedThreadId,
+        userId: args.userClerkId,
+        messages: [
+          {
+            message: {
+              role: "assistant",
+              content,
+            },
+            text: content,
+            status: "success",
+            finishReason: "stop",
+          },
+        ],
+      });
+    };
 
     console.log("🚀 [STREAMING START]", {
       threadId: args.threadId,
@@ -90,8 +119,6 @@ export const internalDoStreaming = internalAction({
     });
 
     try {
-      const providedThreadId = args.threadId;
-
       console.log("📝 [THREAD INFO]", {
         providedThreadId,
       });
@@ -224,7 +251,7 @@ Apply these additional instructions when they do not conflict with the tool cont
         | Array<
           | { type: "text"; text: string }
           | { type: "image"; image: string; mediaType?: string }
-          | { type: "file"; data: string; mediaType: string }
+          | { type: "file"; data: string; mimeType: string }
         > = userPrompt;
       if (args.openaiFiles && args.openaiFiles.length > 0) {
         const result = await prepareMessageWithOpenAIFiles({
@@ -262,6 +289,7 @@ Apply these additional instructions when they do not conflict with the tool cont
       // Create agent
       const agent = createMyvibeProjectAgent(systemInstructions, {
         projectId: args.projectId as string,
+        userClerkId: args.userClerkId,
         runAction: ctx.runAction,
         runQuery: ctx.runQuery,
         loadSnapshot: ensureSnapshot,
@@ -293,6 +321,15 @@ Apply these additional instructions when they do not conflict with the tool cont
           threadId: agentThreadId,
           userId: args.userClerkId,
           messages: [
+            {
+              message: {
+                role: "user",
+                content: userMessageContent,
+              },
+              text: userPrompt,
+              status: "success",
+              finishReason: "stop",
+            },
             {
               message: {
                 role: "assistant",
@@ -375,16 +412,16 @@ Apply these additional instructions when they do not conflict with the tool cont
           },
         );
         console.log("✅ [STREAMING INITIATED]");
-
-        // Mark calls as replayed to prevent duplicate processing
-        if (replayedCallIds.length > 0) {
-          await ctx.runMutation(internalAny.ai.threads.markFunctionCallsAsReplayed, {
-            callIds: replayedCallIds as any,
-          });
-        }
       } catch (err) {
         console.error("❌ [STREAMING FAILED]", err);
         throw err;
+      }
+
+      if (await wasAborted()) {
+        console.log("🛑 [STREAMING ABORTED] Skipping post-stream side effects", {
+          threadId: providedThreadId,
+        });
+        return null;
       }
 
       // Get final result - need to extract from steps when tools are used
@@ -778,20 +815,12 @@ Apply these additional instructions when they do not conflict with the tool cont
       }
 
       if (shouldPersistSyntheticFallback) {
-        await ctx.runMutation(components.agent.messages.addMessages, {
-          threadId: agentThreadId,
-          userId: args.userClerkId,
-          messages: [
-            {
-              message: {
-                role: "assistant",
-                content: fullResponse,
-              },
-              text: fullResponse,
-              status: "success",
-              finishReason: "stop",
-            },
-          ],
+        await persistAssistantMessage(fullResponse);
+      }
+
+      if (replayedCallIds.length > 0) {
+        await ctx.runMutation(internalAny.ai.threads.markFunctionCallsAsReplayed, {
+          callIds: replayedCallIds as any,
         });
       }
 
@@ -865,6 +894,31 @@ Apply these additional instructions when they do not conflict with the tool cont
         stack: error instanceof Error ? error.stack : undefined,
         threadId: args.threadId,
       });
+
+      if (!(await wasAborted())) {
+        const failureMessage =
+          "I ran into an error while generating a response. Please try again.";
+
+        try {
+          await persistAssistantMessage(failureMessage);
+          await ctx.runMutation(internalAny.ai.threads.updateThreadSummary, {
+            threadId: providedThreadId,
+            lastMessageAt: Date.now(),
+            lastMessagePreview: failureMessage,
+            lastMessageRole: "assistant",
+            messageCountDelta: 1,
+          });
+        } catch (persistError) {
+          console.error("❌ [STREAMING ERROR PERSIST FAILED]", {
+            error:
+              persistError instanceof Error
+                ? persistError.message
+                : String(persistError),
+            threadId: args.threadId,
+          });
+        }
+      }
+
       return null;
     }
   },

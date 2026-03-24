@@ -37,6 +37,7 @@ import type * as ai_imageGen_helpers from "../ai/imageGen/helpers.js";
 import type * as ai_imageGen_videoGeneration from "../ai/imageGen/videoGeneration.js";
 import type * as ai_imageGeneration from "../ai/imageGeneration.js";
 import type * as ai_longContextQueries from "../ai/longContextQueries.js";
+import type * as ai_openaiFileParts from "../ai/openaiFileParts.js";
 import type * as ai_prompt from "../ai/prompt.js";
 import type * as ai_search from "../ai/search.js";
 import type * as ai_streaming from "../ai/streaming.js";
@@ -118,6 +119,7 @@ declare const fullApi: ApiFromModules<{
   "ai/imageGen/videoGeneration": typeof ai_imageGen_videoGeneration;
   "ai/imageGeneration": typeof ai_imageGeneration;
   "ai/longContextQueries": typeof ai_longContextQueries;
+  "ai/openaiFileParts": typeof ai_openaiFileParts;
   "ai/prompt": typeof ai_prompt;
   "ai/search": typeof ai_search;
   "ai/streaming": typeof ai_streaming;

@@ -239,11 +239,13 @@ export const initiateStreaming = mutation({
           lastMessageRole: "user";
           messageCount: number;
           title?: string;
+          abortedAt?: undefined;
         } = {
           lastMessageAt: Date.now(),
           lastMessagePreview: args.prompt,
           lastMessageRole: "user",
           messageCount: Math.max(0, (existingThread.messageCount ?? 0) + 1),
+          abortedAt: undefined,
         };
         if (titlePatch !== undefined) {
           threadUpdates.title = titlePatch;

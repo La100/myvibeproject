@@ -24,6 +24,10 @@ import {
   areValuesEqual,
 } from "./pendingItemsHelpers";
 import { createConfirmSingleItem } from "./pendingItemsConfirm";
+import {
+  findPendingItemIndex,
+  isResolvedPendingItem,
+} from "./pendingItemsState";
 
 interface UsePendingItemsProps {
   projectId: Id<"projects"> | undefined;
@@ -486,14 +490,7 @@ export const usePendingItems = ({
   );
   // Handlers - Helper functions defined first to avoid ReferenceErrors
   const handleConfirmItem = useCallback(async (indexOrCallId: number | string) => {
-    // Resolve index if callId is passed
-    let index = typeof indexOrCallId === 'number' ? indexOrCallId : -1;
-    if (typeof indexOrCallId === 'string') {
-      index = pendingItems.findIndex(i => i.clientId === indexOrCallId);
-      if (index === -1) {
-        index = pendingItems.findIndex(i => i.functionCall?.callId === indexOrCallId);
-      }
-    }
+    const index = findPendingItemIndex(pendingItems, indexOrCallId);
 
     // If not found in pending items, we might be clicking a "retry" on a historical item
     // For now, we only support confirming current pending items.
@@ -504,6 +501,9 @@ export const usePendingItems = ({
     }
 
     const item = pendingItems[index];
+    if (isResolvedPendingItem(item)) {
+      return;
+    }
     const callId = item.functionCall?.callId;
     const siblingItems = callId
       ? pendingItems.filter((entry) => entry.functionCall?.callId === callId)
@@ -577,14 +577,7 @@ export const usePendingItems = ({
   }, [pendingItems, threadId, confirmSingleItem, markFunctionCallsAsConfirmed, scheduleResolvedRemoval]);
 
   const handleRejectItem = useCallback(async (indexOrCallId: number | string) => {
-    // Resolve index
-    let index = typeof indexOrCallId === 'number' ? indexOrCallId : -1;
-    if (typeof indexOrCallId === 'string') {
-      index = pendingItems.findIndex(i => i.clientId === indexOrCallId);
-      if (index === -1) {
-        index = pendingItems.findIndex(i => i.functionCall?.callId === indexOrCallId);
-      }
-    }
+    const index = findPendingItemIndex(pendingItems, indexOrCallId);
 
     if (index === -1) {
       console.warn("Item not found in pending items");
@@ -592,6 +585,9 @@ export const usePendingItems = ({
     }
 
     const item = pendingItems[index];
+    if (isResolvedPendingItem(item)) {
+      return;
+    }
     const callId = item.functionCall?.callId;
     const siblingItems = callId
       ? pendingItems.filter((entry) => entry.functionCall?.callId === callId)
@@ -648,12 +644,15 @@ export const usePendingItems = ({
   }, [pendingItems, threadId, markFunctionCallsAsConfirmed, setChatHistory, scheduleResolvedRemoval]);
 
   const handleRejectAll = useCallback(async () => {
-    const itemsToReject = [...pendingItems];
+    const itemsToReject = pendingItems.filter((item) => !isResolvedPendingItem(item));
+    if (itemsToReject.length === 0) {
+      return;
+    }
     const resolvedIds = itemsToReject.map((item) => item.clientId).filter(Boolean) as string[];
     setPendingItems((prev) =>
       prev.map((item) => ({
         ...item,
-        status: "rejected",
+        status: isResolvedPendingItem(item) ? item.status : "rejected",
       }))
     );
     setShowConfirmationGrid(false);
@@ -793,6 +792,12 @@ export const usePendingItems = ({
   }, [editingItemIndex]);
 
   const handleConfirmAll = useCallback(async () => {
+    const itemsToConfirm = pendingItems.filter((item) => !isResolvedPendingItem(item));
+    if (itemsToConfirm.length === 0) {
+      autoConfirmBatchKeyRef.current = null;
+      return;
+    }
+
     setIsBulkProcessing(true);
     try {
       const confirmedClientIds = new Set<string>();
@@ -801,7 +806,7 @@ export const usePendingItems = ({
       const resultsByResponseId = new Map<string, { callId: string; result: string }[]>();
       const createdItemsDetails: string[] = [];
 
-      for (const item of pendingItems) {
+      for (const item of itemsToConfirm) {
         try {
           const result = await confirmSingleItem(item);
           if (!result.success) {
@@ -886,6 +891,10 @@ export const usePendingItems = ({
         toast.error(`Failed to create all ${failureCount} items`);
       }
 
+      if (failureCount > 0) {
+        autoConfirmBatchKeyRef.current = null;
+      }
+
       setPendingItems((prev) =>
         prev.map((item) =>
           item.clientId && confirmedClientIds.has(item.clientId)
@@ -896,6 +905,7 @@ export const usePendingItems = ({
       setShowConfirmationGrid(false);
       Array.from(confirmedClientIds).forEach((id) => scheduleResolvedRemoval(id));
     } catch {
+      autoConfirmBatchKeyRef.current = null;
       toast.error("Failed to process items");
     } finally {
       setIsBulkProcessing(false);
@@ -942,13 +952,7 @@ export const usePendingItems = ({
 
 
   const handleEditItem = useCallback((indexOrCallId: number | string) => {
-    const index = typeof indexOrCallId === "number"
-      ? indexOrCallId
-      : (() => {
-        const byClientId = pendingItems.findIndex((item) => item.clientId === indexOrCallId);
-        if (byClientId !== -1) return byClientId;
-        return pendingItems.findIndex((item) => item.functionCall?.callId === indexOrCallId);
-      })();
+    const index = findPendingItemIndex(pendingItems, indexOrCallId);
 
     if (index < 0) return;
     setEditingItemIndex(index);
@@ -967,13 +971,7 @@ export const usePendingItems = ({
 
   const handleUpdatePendingItem = useCallback((indexOrCallId: number | string, updates: Partial<PendingItem>) => {
     setPendingItems((prev) => {
-      let index = typeof indexOrCallId === 'number' ? indexOrCallId : -1;
-      if (typeof indexOrCallId === 'string') {
-        index = prev.findIndex(i => i.clientId === indexOrCallId);
-        if (index === -1) {
-          index = prev.findIndex(i => i.functionCall?.callId === indexOrCallId);
-        }
-      }
+      const index = findPendingItemIndex(prev, indexOrCallId);
 
       if (index >= 0 && index < prev.length) {
         const currentItem = prev[index];

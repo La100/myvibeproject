@@ -94,7 +94,6 @@ const AIAssistant = () => {
     handleConfirmItem,
     handleRejectItem,
     handleEditItem,
-    handleRejectAll,
     handleUpdatePendingItem,
     isBulkProcessing,
     resetPendingState,
@@ -148,18 +147,6 @@ const AIAssistant = () => {
         return;
       }
 
-      const unresolvedPendingCount = pendingItems.filter(
-        (item) => item.status !== "confirmed" && item.status !== "rejected",
-      ).length;
-      if (unresolvedPendingCount > 0) {
-        await handleRejectAll();
-        toast.info(
-          unresolvedPendingCount === 1
-            ? "Previous pending action was auto-cancelled before sending your new message."
-            : `${unresolvedPendingCount} pending actions were auto-cancelled before sending your new message.`,
-        );
-      }
-
       const fileLabel = payload.files.length > 0
         ? `📎 Attached: ${payload.files.map((file) => file.name).join(", ")}`
         : "";
@@ -189,8 +176,6 @@ const AIAssistant = () => {
     },
     [
       isQuotaBlocked,
-      pendingItems,
-      handleRejectAll,
       sendMessageWithFile,
     ],
   );

@@ -537,6 +537,32 @@ export const listPendingItemsInternal = internalQuery({
   },
 });
 
+export const getThreadRuntimeState = internalQuery({
+  args: {
+    threadId: v.string(),
+  },
+  returns: v.union(
+    v.null(),
+    v.object({
+      abortedAt: v.optional(v.number()),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const thread = await ctx.db
+      .query("aiThreads")
+      .withIndex("by_thread_id", (q) => q.eq("threadId", args.threadId))
+      .unique();
+
+    if (!thread) {
+      return null;
+    }
+
+    return {
+      abortedAt: thread.abortedAt,
+    };
+  },
+});
+
 // Get pending items for UI confirmation
 export const listPendingItems = query({
   args: {

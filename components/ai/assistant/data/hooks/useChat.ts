@@ -295,20 +295,31 @@ export const useAIChat = ({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
 
-  const handleStopResponse = useCallback(async () => {
-    if (threadId) {
-      try {
-        const result = await abortStreamMutation({ threadId });
-        if (result.success) {
-          toast.info("Response stopped");
-        }
-      } catch (error) {
-        console.error("Failed to abort stream:", error);
+  const abortThreadStream = useCallback(async (
+    threadIdToAbort: string | undefined,
+    { notify }: { notify: boolean },
+  ) => {
+    if (!threadIdToAbort) return false;
+
+    try {
+      const result = await abortStreamMutation({ threadId: threadIdToAbort });
+      if (result.success && notify) {
+        toast.info("Response stopped");
+      }
+      return result.success;
+    } catch (error) {
+      console.error("Failed to abort stream:", error);
+      if (notify) {
         toast.error("Failed to stop response");
       }
+      return false;
     }
+  }, [abortStreamMutation]);
+
+  const handleStopResponse = useCallback(async () => {
+    await abortThreadStream(threadId, { notify: true });
     resetPendingRequestState(true);
-  }, [threadId, abortStreamMutation, resetPendingRequestState]);
+  }, [threadId, abortThreadStream, resetPendingRequestState]);
 
   // Handle escape key to stop response
   useEffect(() => {
@@ -327,15 +338,24 @@ export const useAIChat = ({
     if (selectedThreadId === threadId) {
       return;
     }
+    const activeThreadId = threadId;
+    if (activeThreadId && (isStreaming || isLoading)) {
+      void abortThreadStream(activeThreadId, { notify: false });
+    }
+    resetPendingRequestState();
     setThreadId(selectedThreadId);
     resetConversationState();
-  }, [threadId, resetConversationState]);
+  }, [threadId, isLoading, isStreaming, abortThreadStream, resetConversationState, resetPendingRequestState]);
 
   const handleNewChat = useCallback(() => {
+    const activeThreadId = threadId;
+    if (activeThreadId && (isStreaming || isLoading)) {
+      void abortThreadStream(activeThreadId, { notify: false });
+    }
     resetPendingRequestState();
     setThreadId(undefined);
     resetConversationState();
-  }, [resetConversationState, resetPendingRequestState]);
+  }, [threadId, isLoading, isStreaming, abortThreadStream, resetConversationState, resetPendingRequestState]);
 
   const handleClearChat = useCallback(async () => {
     if (!threadId || !projectId || !userClerkId) return;
