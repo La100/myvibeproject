@@ -23,7 +23,7 @@ const Logo = ({
       aria-label="Myvibe Project"
     >
       <Image
-        src="/logo.svg"
+        src="/logo.png"
         alt="Myvibe Project"
         width={1024}
         height={1024}

@@ -1165,7 +1165,7 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                         />
                       ) : (
                         <Image
-                          src="/logo.svg"
+                          src="/logo.png"
                           alt="Myvibe Project"
                           fill
                           className="object-contain p-2"
