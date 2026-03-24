@@ -12,6 +12,8 @@ import { useChat } from "./data/hooks";
 import { usePendingItems } from "./data/hooks";
 import { AISubscriptionWall, AIQuotaUpsellCard } from "@/components/ai/shared";
 import AssistantConversation from "@/components/assistant-ui/assistant-conversation";
+import ChatSidebar from "@/components/ai/assistant/ui/Sidebar";
+import { ASSISTANT_AT_COMMANDS } from "@/components/ai/assistant/config";
 import type { UIMessage } from "@convex-dev/agent/react";
 import { toast } from "sonner";
 
@@ -24,8 +26,7 @@ const AIAssistant = () => {
   const sessionParam = searchParams.get("session");
   const initialThreadIdFromUrl =
     typeof sessionParam === "string" &&
-    sessionParam.trim().length > 0 &&
-    !sessionParam.startsWith("v2_thread_")
+    sessionParam.trim().length > 0
       ? sessionParam
       : undefined;
 
@@ -35,7 +36,6 @@ const AIAssistant = () => {
   );
 
   const updateProject = useMutation(apiAny.projects.updateProject);
-  const clearAllThreadsForUser = useMutation(apiAny.ai.threads.clearAllThreadsForUser);
 
   const projectAutoConfirmCrud = Boolean((project as { aiAutoConfirmCrud?: boolean } | null)?.aiAutoConfirmCrud);
   const [autoConfirmCrud, setAutoConfirmCrud] = useState(projectAutoConfirmCrud);
@@ -49,10 +49,16 @@ const AIAssistant = () => {
     setChatHistory,
     isLoading,
     threadId,
+    showHistory,
+    setShowHistory,
+    threadList,
+    isThreadListLoading,
+    hasThreads,
     chatIsLoading,
     handleSendMessage: sendMessageWithFile,
     handleStopResponse,
     handleNewChat,
+    handleThreadSelect,
     uiMessages,
     isStreaming,
   } = useChat({
@@ -100,31 +106,15 @@ const AIAssistant = () => {
     setChatHistory,
   });
 
-  const handleResetChat = useCallback(async () => {
-    // Optimistic reset to avoid stale-thread flicker while backend cleanup runs.
+  const handleStartNewChat = useCallback(() => {
     handleNewChat();
     resetPendingState();
+  }, [handleNewChat, resetPendingState]);
 
-    if (!project?._id || !user?.id) {
-      return;
-    }
-
-    try {
-      await clearAllThreadsForUser({
-        projectId: project._id,
-        userClerkId: user.id,
-      });
-    } catch (error) {
-      console.error("Failed to clear AI threads during reset:", error);
-      toast.error("Failed to reset conversation");
-    }
-  }, [
-    clearAllThreadsForUser,
-    handleNewChat,
-    project?._id,
-    resetPendingState,
-    user?.id,
-  ]);
+  const handleSelectThread = useCallback((selectedThreadId: string) => {
+    resetPendingState();
+    handleThreadSelect(selectedThreadId);
+  }, [handleThreadSelect, resetPendingState]);
 
   const isQuotaBlocked = !!(
     aiAccess &&
@@ -141,7 +131,20 @@ const AIAssistant = () => {
       }
 
       const trimmedMessage = payload.text.trim();
-      if (!trimmedMessage && payload.files.length === 0) {
+      const expandedMessage = (() => {
+        const match = trimmedMessage.match(/^@([a-z-]+)\b\s*/i);
+        if (!match) return trimmedMessage;
+
+        const command = ASSISTANT_AT_COMMANDS.find(
+          (item) => item.id === match[1].toLowerCase(),
+        );
+        if (!command) return trimmedMessage;
+
+        const rest = trimmedMessage.slice(match[0].length).trim();
+        return rest ? `${command.promptPrefix} ${rest}` : command.promptPrefix;
+      })();
+
+      if (!expandedMessage && payload.files.length === 0) {
         return;
       }
 
@@ -181,7 +184,7 @@ const AIAssistant = () => {
           }
           return await response.json();
         },
-        trimmedMessage || fileLabel,
+        expandedMessage || fileLabel,
       );
     },
     [
@@ -303,31 +306,51 @@ const AIAssistant = () => {
 
   return (
     <div className="relative flex h-[calc(100vh-4rem)] w-full min-w-0 flex-col overflow-hidden text-foreground">
-      <AssistantConversation
-        className="flex-1 min-h-0"
-        showHeader
-        title={project?.name || "AI Assistant"}
-        assistantFallback={(project?.name || "A").charAt(0)}
-        uiMessages={conversationMessages}
-        isLoading={isLoading}
-        isStreaming={isStreaming}
-        chatIsLoading={chatIsLoading}
-        onSend={handleConversationSend}
-        onStop={handleStopResponse}
-        onReset={handleResetChat}
-        userImageUrl={user?.imageUrl || undefined}
-        userFallback={userFallback}
-        composerBanner={quotaBanner}
-        pendingItems={pendingItems}
-        onConfirmItem={handleConfirmItem}
-        onRejectItem={handleRejectItem}
-        onEditItem={handleEditItem}
-        onUpdateItem={handleUpdatePendingItem}
-        isProcessing={isBulkProcessing}
-        confirmationMode={autoConfirmCrud ? "auto_confirm" : "always_ask"}
-        onConfirmationModeChange={handleConversationModeChange}
-        isModeUpdating={isSavingAutoConfirmCrud}
-      />
+      <div className="flex min-h-0 flex-1">
+        <AssistantConversation
+          className="flex-1 min-h-0"
+          showHeader
+          title={project?.name || "AI Assistant"}
+          assistantFallback={(project?.name || "A").charAt(0)}
+          showHistoryToggle
+          isHistoryVisible={showHistory}
+          onHistoryToggle={() => setShowHistory((current) => !current)}
+          uiMessages={conversationMessages}
+          isLoading={isLoading}
+          isStreaming={isStreaming}
+          chatIsLoading={chatIsLoading}
+          onSend={handleConversationSend}
+          onStop={handleStopResponse}
+          onReset={handleStartNewChat}
+          userImageUrl={user?.imageUrl || undefined}
+          userFallback={userFallback}
+          composerBanner={quotaBanner}
+          pendingItems={pendingItems}
+          onConfirmItem={handleConfirmItem}
+          onRejectItem={handleRejectItem}
+          onEditItem={handleEditItem}
+          onUpdateItem={handleUpdatePendingItem}
+          isProcessing={isBulkProcessing}
+          confirmationMode={autoConfirmCrud ? "auto_confirm" : "always_ask"}
+          onConfirmationModeChange={handleConversationModeChange}
+          isModeUpdating={isSavingAutoConfirmCrud}
+        />
+        <ChatSidebar
+          showHistory={showHistory}
+          setShowHistory={setShowHistory}
+          isDisabled={isLoading || isStreaming}
+          isThreadListLoading={isThreadListLoading}
+          hasThreads={hasThreads}
+          threadList={threadList}
+          currentThreadId={threadId}
+          onThreadSelect={handleSelectThread}
+          onNewChat={handleStartNewChat}
+          title="Conversation history"
+          newChatLabel="New conversation"
+          emptyStateTitle="No previous conversations"
+          emptyStateDescription="Start a new conversation and it will appear here."
+        />
+      </div>
     </div>
   );
 };

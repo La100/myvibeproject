@@ -53,6 +53,51 @@ export const QUICK_PROMPTS: QuickPrompt[] = [
   },
 ];
 
+export const ASSISTANT_AT_COMMANDS = [
+  {
+    id: "create-task",
+    label: "Create task",
+    description: "Add a new task to the project.",
+    promptPrefix: "Create a task:",
+  },
+  {
+    id: "create-shopping-item",
+    label: "Create shopping item",
+    description: "Add a material or product to the shopping list.",
+    promptPrefix: "Create a shopping list item:",
+  },
+  {
+    id: "create-note",
+    label: "Create note",
+    description: "Save a project note.",
+    promptPrefix: "Create a note:",
+  },
+  {
+    id: "create-contact",
+    label: "Create contact",
+    description: "Add a contractor, supplier, or other contact.",
+    promptPrefix: "Create a contact:",
+  },
+  {
+    id: "create-survey",
+    label: "Create survey",
+    description: "Prepare a survey or questionnaire.",
+    promptPrefix: "Create a survey:",
+  },
+  {
+    id: "update-project-settings",
+    label: "Update project settings",
+    description: "Change project name, budget, location, or status.",
+    promptPrefix: "Update the project settings:",
+  },
+  {
+    id: "project-status",
+    label: "Project status",
+    description: "Summarize progress, blockers, and next steps.",
+    promptPrefix: "Give me a project status update:",
+  },
+] as const;
+
 // ==================== TOOL NAME MAPPINGS ====================
 
 export const TOOL_NAME_MAPPING: Record<string, { type: PendingItemType; operation: 'create' | 'edit' | 'delete' | 'bulk_edit' | 'bulk_create' }> = {

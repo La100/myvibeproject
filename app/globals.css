@@ -290,6 +290,15 @@
     background-attachment: fixed;
   }
 
+  body:has(.ai-chat-page) {
+    background-image: none;
+    background-attachment: scroll;
+  }
+
+  .ai-chat-page {
+    background: var(--background);
+  }
+
   /* Global cursor pointer for interactive elements */
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),

@@ -10,6 +10,7 @@
 import React, { memo } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import {
   Loader2,
   ChevronDown,
@@ -338,7 +339,7 @@ export function InlineConfirmationList({
   return (
     <div className="space-y-3">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
           {(() => {
             const allConfirmed = visibleItems.every(({ item }) => {
@@ -365,10 +366,34 @@ export function InlineConfirmationList({
           )}
         </div>
 
-        {unresolvedItems.length > 1 && onConfirmAll && onRejectAll && !visibleItems.every(({ item }) => {
-          const approvalState = getApprovalState(item);
-          return item.status === "confirmed" || approvalState === "output-available";
-        }) && (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+          {onConfirmationModeChange && (
+            <label className="flex items-center gap-3 rounded-full border border-border/70 bg-background px-3 py-1.5">
+              <Switch
+                checked={confirmationMode === "auto_confirm"}
+                disabled={isProcessing || isModeUpdating}
+                aria-label="Toggle CRUD auto-confirm"
+                onCheckedChange={(checked) => {
+                  void onConfirmationModeChange(checked ? "auto_confirm" : "always_ask");
+                }}
+              />
+              <span className="text-xs font-medium text-foreground">
+                Auto CRUD
+              </span>
+              <span className="text-[11px] text-muted-foreground">
+                {isModeUpdating
+                  ? "Saving..."
+                  : confirmationMode === "auto_confirm"
+                    ? "On"
+                    : "Off"}
+              </span>
+            </label>
+          )}
+
+          {unresolvedItems.length > 1 && onConfirmAll && onRejectAll && !visibleItems.every(({ item }) => {
+            const approvalState = getApprovalState(item);
+            return item.status === "confirmed" || approvalState === "output-available";
+          }) && (
             <div className="flex gap-2">
               <Button
                 size="sm"
@@ -390,6 +415,7 @@ export function InlineConfirmationList({
               </Button>
             </div>
           )}
+        </div>
       </div>
 
       {/* Slider container */}

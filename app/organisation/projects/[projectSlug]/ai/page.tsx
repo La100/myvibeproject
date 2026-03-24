@@ -2,7 +2,10 @@ import AIAssistant from "@/components/ai/assistant/AIAssistant";
 
 const AIPage = () => {
   return (
-    <div className="h-full min-h-0 -m-4 xl:-m-8">
+    <div
+      className="ai-chat-page h-full min-h-0 -m-4 bg-background xl:-m-8"
+      style={{ backgroundImage: "none" }}
+    >
       <AIAssistant />
     </div>
   );

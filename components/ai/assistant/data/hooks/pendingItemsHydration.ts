@@ -91,8 +91,20 @@ const toPendingItem = (call: PendingFunctionCall): PendingItem | null => {
   };
 };
 
+const stableSerialize = (value: unknown): string => {
+  if (value === null || value === undefined) return String(value);
+  if (typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => stableSerialize(entry)).join(",")}]`;
+  }
+
+  const record = value as Record<string, unknown>;
+  const sortedKeys = Object.keys(record).sort();
+  return `{${sortedKeys.map((key) => `${JSON.stringify(key)}:${stableSerialize(record[key])}`).join(",")}}`;
+};
+
 const ensureClientIds = (items: PendingItem[]) => {
-  const perCallCounters = new Map<string, number>();
+  const perSignatureCounters = new Map<string, number>();
   let fallbackCounter = 0;
 
   return items.map((item) => {
@@ -102,12 +114,21 @@ const ensureClientIds = (items: PendingItem[]) => {
 
     const callId = item.functionCall?.callId;
     if (callId) {
-      const current = perCallCounters.get(callId) ?? 0;
-      perCallCounters.set(callId, current + 1);
+      const stableSignature = stableSerialize({
+        type: item.type,
+        operation: item.operation,
+        data: item.data,
+        updates: item.updates,
+        originalItem: item.originalItem,
+        selection: item.selection,
+        titleChanges: item.titleChanges,
+      });
+      const signatureKey = `${callId}:${stableSignature}`;
+      const signatureIndex = perSignatureCounters.get(signatureKey) ?? 0;
+      perSignatureCounters.set(signatureKey, signatureIndex + 1);
       return {
         ...item,
-        // Stable across re-ordering of different function calls.
-        clientId: `${callId}:${current}`,
+        clientId: `${signatureKey}:${signatureIndex}`,
       };
     }
 

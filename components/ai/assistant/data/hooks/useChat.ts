@@ -44,7 +44,7 @@ interface UseAIChatReturn {
   threadId: string | undefined;
   setThreadId: (id: string | undefined) => void;
   showHistory: boolean;
-  setShowHistory: (show: boolean) => void;
+  setShowHistory: React.Dispatch<React.SetStateAction<boolean>>;
   isStreaming: boolean;
 
   // Computed
@@ -53,7 +53,7 @@ interface UseAIChatReturn {
     title: string;
     lastMessageAt?: number;
     lastMessagePreview?: string;
-    lastMessageRole?: string;
+    lastMessageRole?: "user" | "assistant";
     messageCount: number;
   }>;
   isThreadListLoading: boolean;
@@ -112,10 +112,6 @@ export const useAIChat = ({
   const [chatHistory, setChatHistory] = useState<ChatHistoryEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [threadId, setThreadId] = useState<string | undefined>(normalizedInitialThreadId);
-  const [isInitializingThread, setIsInitializingThread] = useState(
-    Boolean(projectId && userClerkId && !normalizedInitialThreadId),
-  );
-  const [autoInitThread, setAutoInitThread] = useState(true);
   const [showHistory, setShowHistory] = useState(false);
   const [currentMode, setCurrentMode] = useState<'full' | 'recent' | null>(null);
   const [sessionTokens, setSessionTokens] = useState<SessionTokens>({ total: 0, cost: 0 });
@@ -127,8 +123,6 @@ export const useAIChat = ({
     setCurrentMode(null);
   }, []);
 
-  const getThreadMutation = useMutation(apiAny.ai.threads.getProjectThread);
-
   // Reset local chat state when project/user context changes.
   useEffect(() => {
     const nextContext = projectId && userClerkId
@@ -138,44 +132,8 @@ export const useAIChat = ({
     contextRef.current = nextContext;
 
     setThreadId(normalizedInitialThreadId);
-    setIsInitializingThread(Boolean(nextContext && !normalizedInitialThreadId));
-    setAutoInitThread(!normalizedInitialThreadId);
     resetConversationState();
   }, [projectId, userClerkId, normalizedInitialThreadId, resetConversationState]);
-
-  // Initialize the project thread in a simple, deterministic way.
-  useEffect(() => {
-    let cancelled = false;
-
-    const initThread = async () => {
-      if (!autoInitThread) {
-        setIsInitializingThread(false);
-        return;
-      }
-      if (!projectId || !userClerkId) {
-        setIsInitializingThread(false);
-        return;
-      }
-      if (threadId) return;
-      try {
-        const id = await getThreadMutation({ projectId, userClerkId });
-        if (!cancelled) {
-          setThreadId(id);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setIsInitializingThread(false);
-          console.error("Failed to init thread", error);
-        }
-      }
-    };
-
-    void initThread();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [autoInitThread, projectId, userClerkId, threadId, getThreadMutation]);
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -207,8 +165,6 @@ export const useAIChat = ({
     if (!hasInitialThreadChanged) return;
     if (!normalizedInitialThreadId) return;
     if (normalizedInitialThreadId === threadId) return;
-    setAutoInitThread(false);
-    setIsInitializingThread(false);
     setThreadId(normalizedInitialThreadId);
     resetConversationState();
   }, [
@@ -224,6 +180,10 @@ export const useAIChat = ({
   // - For new threads: subscribe anyway (optimistic updates will work)
   // - For existing threads: always subscribe
   const shouldSubscribe = Boolean(threadId);
+  const threadListQuery = useQuery(
+    apiAny.ai.threads.listThreadsForUser,
+    projectId && userClerkId ? { projectId, userClerkId } : "skip"
+  );
 
   // List persistent function calls (pending + confirmed/rejected)
   const persistentFunctionCalls = useQuery(
@@ -250,26 +210,6 @@ export const useAIChat = ({
 
   const streamingStatus = shouldSubscribe ? streamingHookResult.status : "Exhausted";
   const loadMoreMessages = streamingHookResult.loadMore;
-  const hasHydratedMessages = (uiMessages?.length ?? 0) > 0;
-
-  useEffect(() => {
-    if (!isInitializingThread) return;
-    if (!projectId || !userClerkId) {
-      setIsInitializingThread(false);
-      return;
-    }
-    if (!threadId) return;
-    if (streamingStatus !== "LoadingFirstPage" || hasHydratedMessages) {
-      setIsInitializingThread(false);
-    }
-  }, [
-    hasHydratedMessages,
-    isInitializingThread,
-    projectId,
-    streamingStatus,
-    threadId,
-    userClerkId,
-  ]);
 
   // Streaming mutation
   const initiateStreamingMutation = useMutation(
@@ -283,12 +223,17 @@ export const useAIChat = ({
   const clearThread = useMutation(apiAny.ai.threads.clearThreadForUser);
   const clearPreviousThreads = useMutation(apiAny.ai.threads.clearPreviousThreadsForUser);
 
-  // History UI is intentionally disabled; we keep only the active thread.
-  const threadList: UseAIChatReturn["threadList"] = [];
-  const isThreadListLoading = false;
-  const hasThreads = false;
-  const previousThreadsCount = 0;
-  const mobileSelectValue = "";
+  const threadList = useMemo<UseAIChatReturn["threadList"]>(
+    () => threadListQuery ?? [],
+    [threadListQuery],
+  );
+  const isThreadListLoading =
+    projectId !== undefined &&
+    userClerkId !== undefined &&
+    threadListQuery === undefined;
+  const hasThreads = threadList.length > 0;
+  const previousThreadsCount = threadList.length;
+  const mobileSelectValue = threadId ?? "new";
 
   // Check if any message is currently streaming
   const isStreaming = useMemo(() => {
@@ -301,8 +246,7 @@ export const useAIChat = ({
     return !hasUIMessages && !isLoading && !isStreaming;
   }, [uiMessages, isLoading, isStreaming]);
 
-  const chatIsLoading =
-    isInitializingThread || (shouldSubscribe && streamingStatus === "LoadingFirstPage");
+  const chatIsLoading = shouldSubscribe && streamingStatus === "LoadingFirstPage";
   const messageMetadataByIndex = useMemo(() => new Map<number, {
     fileId?: string;
     fileName?: string;
@@ -389,7 +333,6 @@ export const useAIChat = ({
 
   const handleNewChat = useCallback(() => {
     resetPendingRequestState();
-    setAutoInitThread(false);
     setThreadId(undefined);
     resetConversationState();
   }, [resetConversationState, resetPendingRequestState]);
@@ -404,7 +347,6 @@ export const useAIChat = ({
       // Optimistic clear: immediately detach from the current thread so stale
       // messages do not flash while backend mutation is in flight.
       resetPendingRequestState();
-      setAutoInitThread(false);
       resetConversationState();
       setThreadId(undefined);
 
@@ -460,19 +402,6 @@ export const useAIChat = ({
     }) => Promise<OpenAIUploadedFile>,
     promptOverride?: string
   ) => {
-    let currentThreadId = threadId;
-    if (!currentThreadId && projectId && userClerkId) {
-      try {
-        currentThreadId = await getThreadMutation({ projectId, userClerkId });
-        setAutoInitThread(true);
-        setThreadId(currentThreadId);
-      } catch (error) {
-        console.error("Failed to get thread ID", error);
-        toast.error("Failed to start conversation");
-        return;
-      }
-    }
-
     const promptText = (promptOverride ?? message).trim();
     if (
       !projectId ||
@@ -492,6 +421,7 @@ export const useAIChat = ({
 
     const userMessage = promptText;
     const hasFiles = selectedFiles.length > 0;
+    const currentThreadId = threadId;
 
     setIsLoading(true);
 
@@ -558,7 +488,6 @@ export const useAIChat = ({
     initiateStreamingMutation,
     isLoading,
     isStreaming,
-    getThreadMutation,
     uiMessagesLength,
     resetPendingRequestState,
   ]);

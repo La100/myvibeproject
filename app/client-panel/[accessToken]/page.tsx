@@ -1264,14 +1264,6 @@ export default function PublicClientPanelPage() {
                               </a>
                             </div>
 
-                            <div className="border-t border-[var(--ui-border-soft)]/60 px-3 py-2">
-                              <p className="truncate text-sm font-medium text-[var(--ui-text-strong)]">
-                                {file.name}
-                              </p>
-                              <p className="mt-0.5 text-xs text-[var(--ui-text-muted)]">
-                                {formatFileSize(file.size)}
-                              </p>
-                            </div>
                           </div>
                         );
                       })}
@@ -1293,7 +1285,6 @@ export default function PublicClientPanelPage() {
                   alt={selectedMoodboardFile.name}
                   className="max-h-[88vh] w-auto max-w-full object-contain"
                 />
-                <p className="mt-3 text-center text-xs text-white/80">{selectedMoodboardFile.name}</p>
               </div>
             </div>
           ) : null}

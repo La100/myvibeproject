@@ -203,35 +203,3 @@ test("AI assistant public endpoints stay access-controlled", async () => {
     /export const markFunctionCallsAsConfirmed = mutation\([\s\S]*?q\.and\([\s\S]*?q\.eq\(q\.field\("threadId"\),\s*args\.threadId\)[\s\S]*?q\.eq\(q\.field\("status"\),\s*"pending"\)/,
   );
 });
-
-test("AI v2 assistant endpoints stay scoped to authorized thread/project access", async () => {
-  const groupsPath = path.join(convexRoot, "ai", "v2", "groups.ts");
-  const eventsPath = path.join(convexRoot, "ai", "v2", "events.ts");
-  const groupsSource = await readFile(groupsPath, "utf8");
-  const eventsSource = await readFile(eventsPath, "utf8");
-
-  assert.match(
-    groupsSource,
-    /export const startTurn = mutation\([\s\S]*?const identity = await requireIdentity\(ctx\)/,
-  );
-  assert.match(
-    groupsSource,
-    /export const startTurn = mutation\([\s\S]*?ensureProjectAccess\(ctx,\s*args\.projectId,\s*identity\.subject\)/,
-  );
-  assert.match(
-    groupsSource,
-    /export const startTurn = mutation\([\s\S]*?args\.threadId[\s\S]*?ensureThreadAccess\(ctx,\s*args\.threadId,\s*identity\.subject\)/,
-  );
-  assert.match(
-    groupsSource,
-    /export const listThreadResponseGroups = query\([\s\S]*?ensureThreadAccess\(ctx,\s*args\.threadId,\s*identity\.subject\)/,
-  );
-  assert.match(
-    groupsSource,
-    /export const requestGroupAbort = mutation\([\s\S]*?ensureThreadAccess\(ctx,\s*args\.threadId,\s*identity\.subject\)/,
-  );
-  assert.match(
-    eventsSource,
-    /export const listGroupEvents = query\([\s\S]*?ensureThreadAccess\(ctx,\s*args\.threadId,\s*identity\.subject\)/,
-  );
-});

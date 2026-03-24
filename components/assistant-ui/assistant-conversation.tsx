@@ -5,7 +5,7 @@ import type { AppendMessage, Attachment, ThreadMessageLike } from "@assistant-ui
 import { AssistantRuntimeProvider, useExternalStoreRuntime } from "@assistant-ui/react";
 import type { AttachmentAdapter } from "@assistant-ui/react";
 import type { UIMessage } from "@convex-dev/agent/react";
-import { Loader2, RotateCcw } from "lucide-react";
+import { History, Loader2, Plus } from "lucide-react";
 import type { PendingContentItem } from "@/components/ai/assistant/data/types";
 
 import { Thread } from "@/components/assistant-ui/thread";
@@ -31,6 +31,9 @@ type AssistantConversationProps = {
   showHeader?: boolean;
   assistantImageUrl?: string;
   assistantFallback?: string;
+  showHistoryToggle?: boolean;
+  isHistoryVisible?: boolean;
+  onHistoryToggle?: () => void;
   uiMessages: UIMessage[];
   isLoading: boolean;
   isStreaming: boolean;
@@ -187,6 +190,9 @@ export default function AssistantConversation({
   showHeader = true,
   assistantImageUrl,
   assistantFallback,
+  showHistoryToggle = false,
+  isHistoryVisible = false,
+  onHistoryToggle,
   uiMessages,
   isLoading,
   isStreaming,
@@ -233,6 +239,13 @@ export default function AssistantConversation({
       setIsResetting(false);
     }
   }, [chatIsLoading, isResetting, uiMessages.length]);
+
+  useEffect(() => {
+    if (chatIsLoading || isLoading || isStreaming) return;
+    if (uiMessages.length > 0 || optimisticMessages.length > 0) return;
+    optimisticMetaRef.current = null;
+    setHasSubmittedMessage(false);
+  }, [chatIsLoading, isLoading, isStreaming, optimisticMessages.length, uiMessages.length]);
 
   const effectiveUiMessages = useMemo(
     () => (isResetting ? [] : uiMessages),
@@ -473,17 +486,30 @@ export default function AssistantConversation({
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <div className={cn("flex h-full min-h-0 w-full flex-col", className)}>
+      <div className={cn("relative flex h-full min-h-0 w-full flex-col", className)}>
         {showHeader && (
-          <div className="flex items-center justify-end px-4 py-2">
+          <div className="pointer-events-none absolute top-4 right-4 z-20 flex items-center justify-end gap-2">
+            <div className="pointer-events-auto hidden md:flex items-center">
+              {showHistoryToggle && onHistoryToggle ? (
+                <TooltipIconButton
+                  tooltip={isHistoryVisible ? "Hide conversation history" : "Show conversation history"}
+                  variant={isHistoryVisible ? "secondary" : "outline"}
+                  className="h-10 w-10 rounded-full bg-background"
+                  onClick={onHistoryToggle}
+                  disabled={isStreaming || isLoading}
+                >
+                  <History className="h-5 w-5" />
+                </TooltipIconButton>
+              ) : null}
+            </div>
             <TooltipIconButton
-              tooltip="Reset chat"
-              variant="ghost"
-              className="h-10 w-10 rounded-full"
+              tooltip="Start new conversation"
+              variant="outline"
+              className="pointer-events-auto h-10 w-10 rounded-full bg-background"
               onClick={handleReset}
               disabled={isStreaming || isLoading}
             >
-              <RotateCcw className="h-5 w-5" />
+              <Plus className="h-5 w-5" />
             </TooltipIconButton>
           </div>
         )}

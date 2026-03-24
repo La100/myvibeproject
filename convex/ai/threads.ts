@@ -4,31 +4,9 @@ import { components } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalQuery, internalMutation, mutation, query } from "../_generated/server";
 import { ensureProjectAccess, ensureThreadAccess, requireIdentity } from "./access";
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const internalAny = require("../_generated/api").internal as any;
 
 function resolveAgentThreadId(thread: { threadId: string; agentThreadId?: string | undefined }) {
   return thread.agentThreadId ?? thread.threadId;
-}
-
-async function deleteV2ThreadArtifacts(ctx: any, threadId: string) {
-  const groups = await ctx.db
-    .query("aiResponseGroups")
-    .withIndex("by_thread", (q: any) => q.eq("threadId", threadId))
-    .collect();
-
-  for (const group of groups) {
-    const events = await ctx.db
-      .query("aiEvents")
-      .withIndex("by_group_and_sequence", (q: any) => q.eq("groupId", group.groupId))
-      .collect();
-
-    for (const event of events) {
-      await ctx.db.delete(event._id);
-    }
-
-    await ctx.db.delete(group._id);
-  }
 }
 
 const mapPendingItems = (
@@ -353,8 +331,6 @@ export const clearThreadForUser = mutation({
       await ctx.db.delete(call._id);
     }
 
-    await deleteV2ThreadArtifacts(ctx, args.threadId);
-
     const agentThreadId = resolveAgentThreadId(thread);
     if (agentThreadId) {
       await ctx.scheduler.runAfter(0, components.agent.threads.deleteAllForThreadIdAsync, {
@@ -408,8 +384,6 @@ export const clearPreviousThreadsForUser = mutation({
       for (const call of functionCalls) {
         await ctx.db.delete(call._id);
       }
-
-      await deleteV2ThreadArtifacts(ctx, thread.threadId);
 
       const agentThreadId = resolveAgentThreadId(thread);
       if (agentThreadId) {
@@ -676,55 +650,6 @@ export const markFunctionCallsAsConfirmed = mutation({
       }
     }
 
-    const v2Group = await ctx.db
-      .query("aiResponseGroups")
-      .withIndex("by_group_id", (q) => q.eq("groupId", args.responseId))
-      .unique();
-
-    if (v2Group) {
-      if (resolvedEvents.length > 0) {
-        await ctx.runMutation(internalAny.ai.v2.events.appendGroupEvents, {
-          groupId: v2Group.groupId,
-          events: resolvedEvents,
-        });
-      }
-
-      const remainingPendingCalls = await ctx.db
-        .query("aiFunctionCalls")
-        .withIndex("by_response_id", (q) => q.eq("responseId", args.responseId))
-        .filter((q) =>
-          q.and(
-            q.eq(q.field("threadId"), args.threadId),
-            q.eq(q.field("status"), "pending"),
-          ),
-        )
-        .collect();
-
-      if (remainingPendingCalls.length === 0) {
-        await ctx.runMutation(internalAny.ai.v2.events.appendGroupEvents, {
-          groupId: v2Group.groupId,
-          events: [
-            {
-              eventType: "turn.completed",
-              role: "system",
-              data: {
-                confirmationResolved: true,
-              },
-            },
-          ],
-        });
-        await ctx.runMutation(internalAny.ai.v2.groups.updateGroupStatus, {
-          groupId: v2Group.groupId,
-          status: "completed",
-        });
-      } else {
-        await ctx.runMutation(internalAny.ai.v2.groups.updateGroupStatus, {
-          groupId: v2Group.groupId,
-          status: "awaiting_confirmation",
-        });
-      }
-    }
-
     return null;
   },
 });
@@ -766,8 +691,6 @@ export const clearAllThreadsForUser = mutation({
       for (const call of functionCalls) {
         await ctx.db.delete(call._id);
       }
-
-      await deleteV2ThreadArtifacts(ctx, thread.threadId);
 
       const agentThreadId = resolveAgentThreadId(thread);
       if (agentThreadId) {
@@ -814,8 +737,6 @@ export const clearThreadInternal = internalMutation({
     for (const call of functionCalls) {
       await ctx.db.delete(call._id);
     }
-
-    await deleteV2ThreadArtifacts(ctx, args.threadId);
 
     const agentThreadId = resolveAgentThreadId(thread);
     if (agentThreadId) {

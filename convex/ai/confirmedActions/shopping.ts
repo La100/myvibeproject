@@ -6,8 +6,24 @@
 
 import { action } from "../../_generated/server";
 import { v } from "convex/values";
-import { api } from "../../_generated/api";
+import { makeFunctionReference } from "convex/server";
+import type { Id } from "../../_generated/dataModel";
 import { ensureProjectAccess } from "./helpers";
+
+const createShoppingListItemMutationRef =
+  makeFunctionReference<"mutation">("shopping:createShoppingListItem");
+const createShoppingListSectionMutationRef =
+  makeFunctionReference<"mutation">("shopping:createShoppingListSection");
+const getShoppingListItemQueryRef =
+  makeFunctionReference<"query">("shopping:getShoppingListItem");
+const updateShoppingListItemMutationRef =
+  makeFunctionReference<"mutation">("shopping:updateShoppingListItem");
+const updateShoppingListSectionMutationRef =
+  makeFunctionReference<"mutation">("shopping:updateShoppingListSection");
+const deleteShoppingListItemMutationRef =
+  makeFunctionReference<"mutation">("shopping:deleteShoppingListItem");
+const deleteShoppingListSectionMutationRef =
+  makeFunctionReference<"mutation">("shopping:deleteShoppingListSection");
 
 export const createConfirmedShoppingItem = action({
   args: {
@@ -39,7 +55,7 @@ export const createConfirmedShoppingItem = action({
         buyBeforeNumber = new Date(args.itemData.buyBefore).getTime();
       }
 
-      const itemId: any = await ctx.runMutation(api.shopping.createShoppingListItem, {
+      const itemId = await ctx.runMutation(createShoppingListItemMutationRef, {
         projectId: args.projectId,
         name: args.itemData.name,
         quantity: args.itemData.quantity,
@@ -83,7 +99,7 @@ export const createConfirmedShoppingSection = action({
     try {
       await ensureProjectAccess(ctx, args.projectId, true);
 
-      const sectionId: any = await ctx.runMutation(api.shopping.createShoppingListSection, {
+      const sectionId = await ctx.runMutation(createShoppingListSectionMutationRef, {
         name: args.sectionData.name,
         projectId: args.projectId,
       });
@@ -130,7 +146,7 @@ export const editConfirmedShoppingItem = action({
   }),
   handler: async (ctx, args) => {
     try {
-      const item = await ctx.runQuery(api.shopping.getShoppingListItem, { itemId: args.itemId });
+      const item = await ctx.runQuery(getShoppingListItemQueryRef, { itemId: args.itemId });
       if (!item) {
         throw new Error("Shopping item not found");
       }
@@ -144,7 +160,7 @@ export const editConfirmedShoppingItem = action({
         buyBeforeNumber = new Date(args.updates.buyBefore).getTime();
       }
 
-      await ctx.runMutation(api.shopping.updateShoppingListItem, {
+      await ctx.runMutation(updateShoppingListItemMutationRef, {
         itemId: args.itemId,
         name: args.updates.name,
         notes: args.updates.notes,
@@ -189,15 +205,18 @@ export const editConfirmedShoppingSection = action({
   }),
   handler: async (ctx, args) => {
     try {
-      const db = (ctx as any).db;
-      const section = db ? await db.get(args.sectionId) : null;
+      const db = (ctx as { db?: { get: (id: unknown) => Promise<unknown> } }).db;
+      const section = (db ? await db.get(args.sectionId) : null) as {
+        projectId: unknown;
+        name?: string;
+      } | null;
       if (!section) {
         throw new Error("Shopping section not found");
       }
 
-      await ensureProjectAccess(ctx, section.projectId, true);
+      await ensureProjectAccess(ctx, section.projectId as Id<"projects">, true);
 
-      await ctx.runMutation(api.shopping.updateShoppingListSection, {
+      await ctx.runMutation(updateShoppingListSectionMutationRef, {
         sectionId: args.sectionId,
         name: args.updates.name ?? section.name,
       });
@@ -226,13 +245,13 @@ export const deleteConfirmedShoppingItem = action({
   }),
   handler: async (ctx, args) => {
     try {
-      const item = await ctx.runQuery(api.shopping.getShoppingListItem, { itemId: args.itemId });
+      const item = await ctx.runQuery(getShoppingListItemQueryRef, { itemId: args.itemId });
       if (!item) {
         throw new Error("Shopping item not found");
       }
       await ensureProjectAccess(ctx, item.projectId, true);
 
-      await ctx.runMutation(api.shopping.deleteShoppingListItem, {
+      await ctx.runMutation(deleteShoppingListItemMutationRef, {
         itemId: args.itemId,
       });
 
@@ -259,15 +278,17 @@ export const deleteConfirmedShoppingSection = action({
   }),
   handler: async (ctx, args) => {
     try {
-      const db = (ctx as any).db;
-      const section = db ? await db.get(args.sectionId) : null;
+      const db = (ctx as { db?: { get: (id: unknown) => Promise<unknown> } }).db;
+      const section = (db ? await db.get(args.sectionId) : null) as {
+        projectId: unknown;
+      } | null;
       if (!section) {
         throw new Error("Shopping section not found");
       }
 
-      await ensureProjectAccess(ctx, section.projectId, true);
+      await ensureProjectAccess(ctx, section.projectId as Id<"projects">, true);
 
-      await ctx.runMutation(api.shopping.deleteShoppingListSection, {
+      await ctx.runMutation(deleteShoppingListSectionMutationRef, {
         sectionId: args.sectionId,
       });
 
@@ -283,12 +304,6 @@ export const deleteConfirmedShoppingSection = action({
     }
   },
 });
-
-
-
-
-
-
 
 
 

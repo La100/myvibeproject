@@ -30,6 +30,7 @@ export interface ThreadListItem {
 interface ChatSidebarProps {
   showHistory: boolean;
   setShowHistory: (show: boolean) => void;
+  isDisabled?: boolean;
   isThreadListLoading: boolean;
   hasThreads: boolean;
   threadList: ThreadListItem[];
@@ -45,6 +46,7 @@ interface ChatSidebarProps {
 export function ChatSidebar({
   showHistory,
   setShowHistory,
+  isDisabled = false,
   isThreadListLoading,
   hasThreads,
   threadList,
@@ -59,14 +61,16 @@ export function ChatSidebar({
   return (
     <aside
       className={cn(
-        "hidden shrink-0 flex-col border-l border-border/50 overflow-hidden transition-[width] duration-300 ease-out md:flex md:sticky md:self-start md:top-4 md:h-full",
-        showHistory ? "w-80" : "w-0"
+        "hidden md:flex md:absolute md:top-4 md:right-4 md:bottom-4 z-30 w-80 flex-col overflow-hidden rounded-[1.75rem] border border-border/60 bg-background shadow-none transition-all duration-300 ease-out",
+        showHistory
+          ? "translate-x-0 opacity-100"
+          : "pointer-events-none translate-x-6 opacity-0"
       )}
     >
       <div
         className={cn(
           "flex flex-col h-full transition-all duration-200 ease-out",
-          showHistory ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4 pointer-events-none"
+          showHistory ? "opacity-100 translate-x-0" : "opacity-0 translate-x-2 pointer-events-none"
         )}
       >
         <div className="flex items-center justify-between p-4 pb-2">
@@ -79,6 +83,7 @@ export function ChatSidebar({
             size="icon"
             className="h-8 w-8 text-muted-foreground hover:text-foreground"
             onClick={() => setShowHistory(false)}
+            disabled={isDisabled}
           >
             <X className="h-4 w-4" />
             <span className="sr-only">Close sidebar</span>
@@ -91,6 +96,7 @@ export function ChatSidebar({
             className="w-full justify-start pl-3"
             variant="outline"
             size="sm"
+            disabled={isDisabled}
           >
             <Plus className="mr-2 h-4 w-4" />
             {newChatLabel}
@@ -133,6 +139,7 @@ export function ChatSidebar({
                       isActive ? "bg-secondary" : "text-muted-foreground hover:text-foreground"
                     )}
                     onClick={() => onThreadSelect(thread.threadId)}
+                    disabled={isDisabled}
                   >
                     <div className="flex w-full justify-between items-baseline gap-2">
                       <span className="font-medium text-sm truncate">{thread.title}</span>
