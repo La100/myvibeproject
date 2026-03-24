@@ -508,6 +508,12 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
   const remainingCredits = aiAccess?.remainingTokens ?? 0;
   const totalCredits = aiAccess?.totalTokens ?? remainingCredits;
   const usedCredits = usageBreakdown?.totalTokens ?? Math.max(0, totalCredits - remainingCredits);
+  const creditBreakdownItems = [
+    { key: "assistant", label: "AI Assistant", icon: Sparkles, color: "text-blue-500", barColor: "bg-blue-500" },
+    { key: "visualizations", label: "Visualizations", icon: BarChart3, color: "text-emerald-500", barColor: "bg-emerald-500" },
+    { key: "other", label: "Other", icon: AlertCircle, color: "text-amber-500", barColor: "bg-amber-500" },
+  ] as const;
+  const visibleCreditBreakdownItems = creditBreakdownItems.filter((item) => (usageBreakdown?.byFeature?.[item.key] || 0) > 0);
   const usagePercent = totalCredits > 0 ? Math.min(100, Math.round((usedCredits / totalCredits) * 100)) : 0;
   const currentPlanKey = subscription?.subscriptionPlan || "free";
   const planStatus = subscription?.subscriptionStatus;
@@ -1096,29 +1102,20 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                     </span>
                   </div>
                   <div className="h-2 w-full overflow-hidden rounded-full bg-muted/30 flex">
-                    {[
-                      { key: "assistant", color: "bg-blue-500" },
-                      { key: "visualizations", color: "bg-emerald-500" },
-                      { key: "other", color: "bg-amber-500" },
-                    ].map((segment) => {
+                    {visibleCreditBreakdownItems.map((segment) => {
                       const tokens = usageBreakdown?.byFeature?.[segment.key] || 0;
                       const percent = usedCredits > 0 ? (tokens / usedCredits) * 100 : 0;
-                      if (percent <= 0) return null;
                       return (
                         <div
                           key={segment.key}
-                          className={segment.color}
+                          className={segment.barColor}
                           style={{ width: `${percent}%` }}
                         />
                       );
                     })}
                   </div>
                   <div className="space-y-3">
-                    {[
-                      { key: "assistant", label: "AI Assistant", icon: Sparkles, color: "text-blue-500" },
-                      { key: "visualizations", label: "Visualizations", icon: BarChart3, color: "text-emerald-500" },
-                      { key: "other", label: "Other", icon: AlertCircle, color: "text-amber-500" },
-                    ].map((item) => {
+                    {visibleCreditBreakdownItems.map((item) => {
                       const tokens = usageBreakdown?.byFeature?.[item.key] || 0;
                       const percent = usedCredits > 0 ? (tokens / usedCredits) * 100 : 0;
                       const Icon = item.icon;
