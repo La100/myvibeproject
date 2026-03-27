@@ -133,7 +133,7 @@ function ProjectSidebarContent() {
     { href: `/organisation/projects/${params.projectSlug}/estimations`, label: "Estimations", icon: Calculator, key: "estimations", group: "project" },
   ];
 
-  const aiItem = { href: `/organisation/projects/${params.projectSlug}/ai`, label: "AI Assistant", icon: Sparkles, key: "ai" };
+  const aiItem = { href: `/organisation/projects/${params.projectSlug}/ai`, label: "AI", icon: Sparkles, key: "ai" };
   const settingsItem = { href: `/organisation/projects/${params.projectSlug}/settings`, label: "Settings", icon: Settings, key: "settings" };
 
   const projectNavItems = allNavItems.filter((item) => item.group === "project");

@@ -246,7 +246,12 @@ export const sanitizeContactData = (data: Record<string, unknown>): ContactInput
 export const formatShoppingSectionDisplay = (item: PendingItem): PendingItem => {
   if (item.type !== "shoppingSection") return item;
 
-  const name = (item.data?.name as string) || (item.originalItem?.name as string) || "Shopping Section";
+  const name =
+    (item.data?.name as string) ||
+    (item.data?.sectionName as string) ||
+    (item.originalItem?.name as string) ||
+    (item.originalItem?.sectionName as string) ||
+    "Shopping Section";
   const originalName = item.originalItem?.name as string | undefined;
 
   return {
@@ -292,8 +297,19 @@ export const normalizePendingItems = (items: PendingItem[]): PendingItem[] =>
         const hasBulkLabor = Array.isArray(data.items) && finalType === "labor";
         const hasBulkSurveys = Array.isArray(data.surveys) || (Array.isArray(data.items) && finalType === "survey");
         const hasBulkContacts = Array.isArray(data.contacts) || (Array.isArray(data.items) && finalType === "contact");
+        const hasBulkShoppingSections = Array.isArray(data.items) && finalType === "shoppingSection";
+        const hasBulkLaborSections = Array.isArray(data.items) && finalType === "laborSection";
 
-        if (hasBulkTasks || hasBulkNotes || hasBulkShopping || hasBulkLabor || hasBulkSurveys || hasBulkContacts) {
+        if (
+          hasBulkTasks ||
+          hasBulkNotes ||
+          hasBulkShopping ||
+          hasBulkLabor ||
+          hasBulkSurveys ||
+          hasBulkContacts ||
+          hasBulkShoppingSections ||
+          hasBulkLaborSections
+        ) {
           return {
             ...item,
             type: finalType,
@@ -653,7 +669,12 @@ export const normalizePendingItems = (items: PendingItem[]): PendingItem[] =>
     }
 
     if (item.type === "laborSection") {
-      const name = (item.data?.name as string) || (item.originalItem?.name as string) || "Labor Section";
+      const name =
+        (item.data?.name as string) ||
+        (item.data?.sectionName as string) ||
+        (item.originalItem?.name as string) ||
+        (item.originalItem?.sectionName as string) ||
+        "Labor Section";
       const originalName = item.originalItem?.name as string | undefined;
 
       return {

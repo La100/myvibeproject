@@ -8,7 +8,7 @@ import { action } from "../../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../../_generated/dataModel";
 import { makeFunctionReference } from "convex/server";
-import { ensureProjectAccess } from "./helpers";
+import { ensureProjectAccess, parseOptionalDateToMillis } from "./helpers";
 
 const getSurveyQueryRef = makeFunctionReference<"query">("surveys:getSurvey");
 const createSurveyMutationRef = makeFunctionReference<"mutation">("surveys:createSurvey");
@@ -47,14 +47,14 @@ export const createConfirmedSurvey = action({
     try {
       await ensureProjectAccess(ctx, args.projectId, true);
 
-      let startDateNumber: number | undefined;
-      let endDateNumber: number | undefined;
-      if (args.surveyData.startDate) {
-        startDateNumber = new Date(args.surveyData.startDate).getTime();
-      }
-      if (args.surveyData.endDate) {
-        endDateNumber = new Date(args.surveyData.endDate).getTime();
-      }
+      const startDateNumber = parseOptionalDateToMillis(
+        args.surveyData.startDate,
+        "survey startDate",
+      );
+      const endDateNumber = parseOptionalDateToMillis(
+        args.surveyData.endDate,
+        "survey endDate",
+      );
 
       const surveyId: any = await ctx.runMutation(createSurveyMutationRef, {
         projectId: args.projectId,
@@ -151,14 +151,14 @@ export const editConfirmedSurvey = action({
 
       await ensureProjectAccess(ctx, args.projectId ?? survey.projectId, true);
 
-      let startDateNumber: number | undefined;
-      let endDateNumber: number | undefined;
-      if (args.updates.startDate) {
-        startDateNumber = new Date(args.updates.startDate).getTime();
-      }
-      if (args.updates.endDate) {
-        endDateNumber = new Date(args.updates.endDate).getTime();
-      }
+      const startDateNumber = parseOptionalDateToMillis(
+        args.updates.startDate,
+        "survey startDate",
+      );
+      const endDateNumber = parseOptionalDateToMillis(
+        args.updates.endDate,
+        "survey endDate",
+      );
 
       await ctx.runMutation(updateSurveyMutationRef, {
         surveyId: args.surveyId,
@@ -311,7 +311,7 @@ export const editConfirmedSurvey = action({
 export const deleteConfirmedSurvey = action({
   args: {
     surveyId: v.id("surveys"),
-    title: v.string(),
+    title: v.optional(v.string()),
     reason: v.optional(v.string()),
   },
   returns: v.object({
@@ -330,9 +330,14 @@ export const deleteConfirmedSurvey = action({
         surveyId: args.surveyId,
       });
 
+      const resolvedTitle =
+        (typeof args.title === "string" && args.title.trim().length > 0
+          ? args.title.trim()
+          : survey.title) || "Survey";
+
       return {
         success: true,
-        message: `Survey "${args.title}" deleted successfully`,
+        message: `Survey "${resolvedTitle}" deleted successfully`,
       };
     } catch (error) {
       return {
@@ -342,7 +347,6 @@ export const deleteConfirmedSurvey = action({
     }
   },
 });
-
 
 
 

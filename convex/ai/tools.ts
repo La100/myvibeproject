@@ -93,6 +93,8 @@ const shoppingFields = z.object({
   catalogNumber: z.string().optional().describe("Product catalog/model number"),
   sectionId: z.string().optional().describe("Shopping list section ID"),
   sectionName: z.string().optional().describe("Shopping list section name"),
+  alternativeToItemId: z.string().optional().describe("Optional base shopping item ID when this item is an alternative option for another item"),
+  selectedAlternativeItemId: z.string().optional().describe("Optional selected alternative item ID stored on the base shopping item"),
 }).passthrough();
 
 const laborFields = z.object({
@@ -151,7 +153,8 @@ const contactFields = z.object({
 }).passthrough();
 
 const sectionFields = z.object({
-  name: z.string().describe("Section name"),
+  name: z.string().describe("Section name. Mandatory for shoppingSection/laborSection confirmation cards. If sectionName exists, copy the same value into name."),
+  sectionName: z.string().optional().describe("Optional section name alias. When provided, it should match name."),
 }).passthrough();
 
 const projectStatusEnum = z.enum([
@@ -186,7 +189,19 @@ export const createItemSchema = z.object({
 
 export const createMultipleItemsSchema = z.object({
   type: itemTypeEnum.describe("Type of items to create"),
-  items: z.array(z.union([taskFields, noteFields, shoppingFields, laborFields, surveyFields, contactFields])).describe("Array of items to create"),
+  items: z
+    .array(
+      z.union([
+        taskFields,
+        noteFields,
+        shoppingFields,
+        laborFields,
+        surveyFields,
+        contactFields,
+        sectionFields,
+      ]),
+    )
+    .describe("Array of items to create"),
 });
 
 const updatableTaskFields = taskFields.partial().passthrough();
@@ -430,6 +445,14 @@ function normalizePrimaryField(
   const aliasField = requiredField === "title" ? "name" : "title";
   const primaryValue = data[requiredField];
   const aliasValue = data[aliasField];
+  const sectionNameValue =
+    requiredField === "name" && typeof data.sectionName === "string"
+      ? data.sectionName
+      : undefined;
+  const extraAliasValue =
+    requiredField === "name" && typeof data.section === "string"
+      ? data.section
+      : undefined;
 
   if (typeof primaryValue === "string") {
     const trimmed = primaryValue.trim();
@@ -443,6 +466,22 @@ function normalizePrimaryField(
     const trimmedAlias = aliasValue.trim();
     if (trimmedAlias.length > 0) {
       data[requiredField] = trimmedAlias;
+      return data;
+    }
+  }
+
+  if (typeof sectionNameValue === "string") {
+    const trimmedSectionName = sectionNameValue.trim();
+    if (trimmedSectionName.length > 0) {
+      data[requiredField] = trimmedSectionName;
+      return data;
+    }
+  }
+
+  if (typeof extraAliasValue === "string") {
+    const trimmedSection = extraAliasValue.trim();
+    if (trimmedSection.length > 0) {
+      data[requiredField] = trimmedSection;
     }
   }
 

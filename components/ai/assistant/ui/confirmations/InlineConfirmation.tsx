@@ -10,17 +10,15 @@
 import React, { memo } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import {
   Loader2,
-  ChevronDown,
-  ChevronUp,
 } from "lucide-react";
 import type { PendingContentItem } from "../../data/types";
 import {
   extractBulkCreateEntries,
   getApprovalState,
   getCanonicalType,
+  shouldHideSectionCard,
   shouldRenderByState,
 } from "./helpers";
 import { InlineCreationForm } from "./InlineCreationForm";
@@ -40,6 +38,7 @@ interface ConfirmationCardProps {
   confirmationMode?: "always_ask" | "auto_confirm";
   onConfirmationModeChange?: (mode: "always_ask" | "auto_confirm") => void | Promise<void>;
   isModeUpdating?: boolean;
+  showActions?: boolean;
 }
 
 export const ConfirmationCard = memo(function ConfirmationCard({
@@ -48,6 +47,7 @@ export const ConfirmationCard = memo(function ConfirmationCard({
   onConfirm,
   onReject,
   onUpdate,
+  showActions = true,
 }: ConfirmationCardProps) {
   const canonicalType = getCanonicalType(item.type);
   const supportedTypes = [
@@ -85,6 +85,7 @@ export const ConfirmationCard = memo(function ConfirmationCard({
       onConfirm={onConfirm}
       onReject={onReject}
       onUpdate={onUpdate}
+      showActions={showActions}
     />
   );
 });
@@ -122,7 +123,6 @@ export function InlineConfirmationList({
   onConfirmationModeChange,
   isModeUpdating = false,
 }: InlineConfirmationListProps) {
-  const [currentIndex, setCurrentIndex] = React.useState(0);
   const [showResolvedDetails, setShowResolvedDetails] = React.useState(false);
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const noopUpdate: NonNullable<InlineConfirmationListProps["onUpdateItem"]> =
@@ -131,27 +131,186 @@ export function InlineConfirmationList({
       // Keep the full inline form layout without mutating shared source payload.
     }, []);
 
+  const getSectionNameFromRecord = React.useCallback(
+    (value: unknown): string | undefined => {
+      if (!value || typeof value !== "object" || Array.isArray(value)) {
+        return undefined;
+      }
+
+      const record = value as Record<string, unknown>;
+      const candidates = [
+        record.sectionName,
+        record.name,
+        record.title,
+        record.section,
+        (record.sectionData as Record<string, unknown> | undefined)?.sectionName,
+        (record.sectionData as Record<string, unknown> | undefined)?.name,
+        (record.data as Record<string, unknown> | undefined)?.sectionName,
+        (record.data as Record<string, unknown> | undefined)?.name,
+      ];
+
+      for (const candidate of candidates) {
+        if (typeof candidate === "string" && candidate.trim().length > 0) {
+          return candidate.trim();
+        }
+      }
+
+      return undefined;
+    },
+    [],
+  );
+
+  const inferSharedSectionName = React.useCallback(
+    (type: "shopping" | "labor") => {
+      const sectionType = type === "shopping" ? "shoppingSection" : "laborSection";
+      const matchingSections = items.filter((entry) => entry.type === sectionType);
+      if (matchingSections.length !== 1) return undefined;
+
+      const sectionData = (matchingSections[0]?.data ?? {}) as Record<string, unknown>;
+      const candidates = [
+        sectionData.name,
+        sectionData.sectionName,
+        sectionData.title,
+        (sectionData.sectionData as Record<string, unknown> | undefined)?.name,
+        (sectionData.sectionData as Record<string, unknown> | undefined)?.sectionName,
+        (sectionData.data as Record<string, unknown> | undefined)?.name,
+        (sectionData.data as Record<string, unknown> | undefined)?.sectionName,
+      ];
+
+      for (const candidate of candidates) {
+        if (typeof candidate === "string" && candidate.trim().length > 0) {
+          return candidate.trim();
+        }
+      }
+
+      return undefined;
+    },
+    [items],
+  );
+
+  const referencedSectionNames = React.useMemo(() => {
+    const shopping = new Set<string>();
+    const labor = new Set<string>();
+
+    for (const item of items) {
+      const canonicalType = getCanonicalType(item.type);
+      if (canonicalType !== "shopping" && canonicalType !== "labor") {
+        continue;
+      }
+
+      const bulkEntries = extractBulkCreateEntries(item);
+      const candidates =
+        bulkEntries.length > 0 ? bulkEntries : [((item.data ?? {}) as Record<string, unknown>)];
+
+      for (const candidate of candidates) {
+        const sectionName = getSectionNameFromRecord(candidate);
+        if (!sectionName) continue;
+
+        if (canonicalType === "shopping") {
+          shopping.add(sectionName);
+        } else {
+          labor.add(sectionName);
+        }
+      }
+    }
+
+    return { shopping, labor };
+  }, [getSectionNameFromRecord, items]);
+
+  const shoppingItemsExist = React.useMemo(
+    () => items.some((entry) => getCanonicalType(entry.type) === "shopping"),
+    [items],
+  );
+  const laborItemsExist = React.useMemo(
+    () => items.some((entry) => getCanonicalType(entry.type) === "labor"),
+    [items],
+  );
+
+  const hiddenSectionMeta = React.useMemo(() => {
+    const shoppingSectionName = shoppingItemsExist ? inferSharedSectionName("shopping") : undefined;
+    const laborSectionName = laborItemsExist ? inferSharedSectionName("labor") : undefined;
+
+    return {
+      shopping: shoppingItemsExist && !!shoppingSectionName ? shoppingSectionName : undefined,
+      labor: laborItemsExist && !!laborSectionName ? laborSectionName : undefined,
+    };
+  }, [inferSharedSectionName, laborItemsExist, shoppingItemsExist]);
+
   const displayItems = items.flatMap((item, index) => {
     const bulkEntries = extractBulkCreateEntries(item);
     if (bulkEntries.length <= 1) {
-      return [{ item, index, key: `${index}`, fromBulk: false }];
+      const canonicalType = getCanonicalType(item.type);
+      const inferredSectionName =
+        canonicalType === "shopping" || canonicalType === "labor"
+          ? inferSharedSectionName(canonicalType)
+          : undefined;
+      const currentData = (item.data ?? {}) as Record<string, unknown>;
+      const normalizedItem =
+        inferredSectionName &&
+        typeof currentData.sectionName !== "string"
+          ? {
+              ...item,
+              data: {
+                ...currentData,
+                sectionName: inferredSectionName,
+              },
+            }
+          : item;
+
+      const normalizedData = (normalizedItem.data ?? {}) as Record<string, unknown>;
+      const sectionCardName = getSectionNameFromRecord(normalizedData);
+
+      const shouldHideCurrentSectionCard = shouldHideSectionCard({
+        canonicalType,
+        sectionCardName,
+        referencedSectionNames,
+        hiddenSectionMeta,
+      });
+
+      return [{
+        item: normalizedItem,
+        index,
+        key: `${index}`,
+        fromBulk: false,
+        hidden: shouldHideCurrentSectionCard,
+      }];
     }
 
-    return bulkEntries.map((entry, entryIndex) => ({
-      item: {
-        ...item,
-        operation: "create" as const,
-        data: entry,
-        clientId: item.clientId ? `${item.clientId}::${entryIndex}` : undefined,
-      },
-      index,
-      key: `${index}-${entryIndex}`,
-      fromBulk: true,
-    }));
+    return bulkEntries.map((entry, entryIndex) => {
+      const canonicalType = getCanonicalType(item.type);
+      const inferredSectionName =
+        canonicalType === "shopping" || canonicalType === "labor"
+          ? inferSharedSectionName(canonicalType)
+          : undefined;
+      const normalizedEntry =
+        inferredSectionName && typeof entry.sectionName !== "string"
+          ? { ...entry, sectionName: inferredSectionName }
+          : entry;
+      const sectionCardName = getSectionNameFromRecord(normalizedEntry);
+      const hidden = shouldHideSectionCard({
+        canonicalType,
+        sectionCardName,
+        referencedSectionNames,
+        hiddenSectionMeta,
+      });
+
+      return {
+        item: {
+          ...item,
+          operation: "create" as const,
+          data: normalizedEntry,
+          clientId: item.clientId ? `${item.clientId}::${entryIndex}` : undefined,
+        },
+        index,
+        key: `${index}-${entryIndex}`,
+        fromBulk: true,
+        hidden,
+      };
+    });
   });
 
   const visibleItems = displayItems
-    .filter(({ item }) => shouldRenderByState(getApprovalState(item)));
+    .filter(({ item, hidden }) => !hidden && shouldRenderByState(getApprovalState(item)));
 
   if (visibleItems.length === 0) return null;
 
@@ -166,11 +325,6 @@ export function InlineConfirmationList({
       approvalState === "approval-responded"
     );
   });
-
-  const safeCurrentIndex =
-    unresolvedItems.length === 0
-      ? 0
-      : Math.min(currentIndex, unresolvedItems.length - 1);
 
   const allResolved = unresolvedItems.length === 0;
   if (allResolved) {
@@ -319,29 +473,19 @@ export function InlineConfirmationList({
     );
   }
 
-  const showSlider = unresolvedItems.length > 1;
-  const canGoBack = safeCurrentIndex > 0;
-  const canGoForward = safeCurrentIndex < unresolvedItems.length - 1;
-
-  const goToIndex = (index: number) => {
-    if (unresolvedItems.length === 0) return;
-    const clampedIndex = Math.max(0, Math.min(index, unresolvedItems.length - 1));
-    setCurrentIndex(clampedIndex);
-    if (scrollRef.current) {
-      const cardWidth = scrollRef.current.clientWidth;
-      scrollRef.current.scrollTo({
-        left: cardWidth * clampedIndex,
-        behavior: "smooth",
-      });
-    }
-  };
+  const showRow = unresolvedItems.length > 1;
+  const hiddenSectionLabels = [
+    hiddenSectionMeta.shopping ? `shopping section "${hiddenSectionMeta.shopping}"` : null,
+    hiddenSectionMeta.labor ? `labor section "${hiddenSectionMeta.labor}"` : null,
+  ].filter(Boolean) as string[];
 
   return (
     <div className="space-y-3">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
-          {(() => {
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            {(() => {
             const allConfirmed = visibleItems.every(({ item }) => {
               const approvalState = getApprovalState(item);
               return item.status === "confirmed" || approvalState === "output-available";
@@ -355,41 +499,24 @@ export function InlineConfirmationList({
                 }
               </span>
             );
-          })()}
-          {isProcessing && (
-            <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-          )}
-          {showSlider && (
-            <span className="text-xs text-muted-foreground">
-              ({safeCurrentIndex + 1}/{unresolvedItems.length})
-            </span>
-          )}
+            })()}
+            {isProcessing && (
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+            )}
+            {showRow && (
+              <span className="text-xs text-muted-foreground">
+                ({unresolvedItems.length} in batch)
+              </span>
+            )}
+          </div>
+          {hiddenSectionLabels.length > 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Includes: {hiddenSectionLabels.join(" • ")}
+            </p>
+          ) : null}
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-          {onConfirmationModeChange && (
-            <label className="flex items-center gap-3 rounded-full border border-border/70 bg-background px-3 py-1.5">
-              <Switch
-                checked={confirmationMode === "auto_confirm"}
-                disabled={isProcessing || isModeUpdating}
-                aria-label="Toggle CRUD auto-confirm"
-                onCheckedChange={(checked) => {
-                  void onConfirmationModeChange(checked ? "auto_confirm" : "always_ask");
-                }}
-              />
-              <span className="text-xs font-medium text-foreground">
-                Auto CRUD
-              </span>
-              <span className="text-[11px] text-muted-foreground">
-                {isModeUpdating
-                  ? "Saving..."
-                  : confirmationMode === "auto_confirm"
-                    ? "On"
-                    : "Off"}
-              </span>
-            </label>
-          )}
-
           {unresolvedItems.length > 1 && onConfirmAll && onRejectAll && !visibleItems.every(({ item }) => {
             const approvalState = getApprovalState(item);
             return item.status === "confirmed" || approvalState === "output-available";
@@ -411,105 +538,45 @@ export function InlineConfirmationList({
                 disabled={isProcessing}
               >
                 {isProcessing && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
-                Accept All
+                Confirm All
               </Button>
             </div>
           )}
         </div>
       </div>
 
-      {/* Slider container */}
-      <div className="relative">
-        {/* Navigation arrows */}
-        {showSlider && (
-          <>
-            <Button
-              variant="outline"
-              size="icon"
-              className={cn(
-                "absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 z-10 h-8 w-8 rounded-full shadow-md bg-background",
-                !canGoBack && "opacity-50 cursor-not-allowed"
-              )}
-              onClick={() => canGoBack && goToIndex(safeCurrentIndex - 1)}
-              disabled={!canGoBack || isProcessing}
-            >
-              <ChevronUp className="h-4 w-4 -rotate-90" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              className={cn(
-                "absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 z-10 h-8 w-8 rounded-full shadow-md bg-background",
-                !canGoForward && "opacity-50 cursor-not-allowed"
-              )}
-              onClick={() => canGoForward && goToIndex(safeCurrentIndex + 1)}
-              disabled={!canGoForward || isProcessing}
-            >
-              <ChevronDown className="h-4 w-4 -rotate-90" />
-            </Button>
-          </>
+      <div
+        ref={scrollRef}
+        className={cn(
+          "flex gap-3 overflow-x-auto pb-2",
+          showRow ? "items-stretch" : "block",
+          "[&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
         )}
-
-        {/* Cards slider */}
-        <div
-          ref={scrollRef}
-          className={cn(
-            "flex gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2",
-            showSlider ? "px-2" : "",
-            // Hide scrollbar
-            "[&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-          )}
-          onScroll={(e) => {
-            const container = e.currentTarget;
-            const cardWidth = container.clientWidth;
-            const newIndex = Math.round(container.scrollLeft / cardWidth);
-            if (newIndex !== safeCurrentIndex) {
-              setCurrentIndex(newIndex);
-            }
-          }}
-        >
-          {unresolvedItems.map(({ item, index: originalIndex, key, fromBulk }) => (
-            <div
-              key={key}
-              className={cn(
-                "flex-shrink-0 snap-center",
-                showSlider ? "w-[calc(100%-16px)]" : "w-full"
-              )}
-            >
-              <ConfirmationCard
-                item={item}
-                index={originalIndex}
-                onConfirm={onConfirmItem}
-                onReject={onRejectItem}
-                onEdit={fromBulk ? undefined : onEditItem}
-                onUpdate={fromBulk ? noopUpdate : onUpdateItem}
-                isProcessing={isProcessing}
-                confirmationMode={confirmationMode}
-                onConfirmationModeChange={onConfirmationModeChange}
-                isModeUpdating={isModeUpdating}
-              />
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Dots indicator */}
-      {showSlider && (
-        <div className="flex justify-center gap-1.5">
-          {unresolvedItems.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => goToIndex(index)}
-              className={cn(
-                "w-2 h-2 rounded-full transition-all",
-                index === safeCurrentIndex
-                  ? "bg-primary w-4"
-                  : "bg-muted-foreground/30 hover:bg-muted-foreground/50"
-              )}
+      >
+        {unresolvedItems.map(({ item, index: originalIndex, key, fromBulk }) => (
+          <div
+            key={key}
+            className={cn(
+              "min-w-0",
+              showRow ? "w-[min(26rem,calc(100vw-7rem))] shrink-0" : "w-full"
+            )}
+          >
+            <ConfirmationCard
+              item={item}
+              index={originalIndex}
+              onConfirm={onConfirmItem}
+              onReject={onRejectItem}
+              onEdit={fromBulk ? undefined : onEditItem}
+              onUpdate={fromBulk ? noopUpdate : onUpdateItem}
+              isProcessing={isProcessing}
+              confirmationMode={confirmationMode}
+              onConfirmationModeChange={onConfirmationModeChange}
+              isModeUpdating={isModeUpdating}
+              showActions={!showRow}
             />
-          ))}
-        </div>
-      )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

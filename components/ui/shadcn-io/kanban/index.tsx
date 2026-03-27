@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import {
   DndContext,
+  DragOverlay,
   rectIntersection,
   useDraggable,
   useDroppable,
@@ -11,9 +12,12 @@ import {
   TouchSensor,
   useSensor,
   useSensors,
+  type DragStartEvent,
+  type DragCancelEvent,
 } from '@dnd-kit/core';
 import { restrictToWindowEdges, restrictToFirstScrollableAncestor } from '@dnd-kit/modifiers';
 import type { DragEndEvent, Modifier } from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
 import type { ReactNode } from 'react';
 
 export type { DragEndEvent } from '@dnd-kit/core';
@@ -50,7 +54,7 @@ export const KanbanBoard = ({ id, children, className }: KanbanBoardProps) => {
   return (
     <div
       className={cn(
-        'flex h-full min-h-40 flex-col gap-2 rounded-md border bg-secondary p-2 text-xs shadow-sm outline outline-2 transition-all',
+        'flex h-full min-h-40 flex-col gap-2 rounded-md border bg-secondary p-2 text-xs shadow-sm outline outline-2 transition-colors',
         isOver ? 'outline-primary' : 'outline-transparent',
         className
       )}
@@ -82,18 +86,23 @@ export const KanbanCard = ({
       data: { index, parent },
     });
 
+  const style = isDragging
+    ? {
+        opacity: 0.2,
+      }
+    : {
+        transform: transform ? CSS.Translate.toString(transform) : undefined,
+        willChange: transform ? 'transform' : undefined,
+      };
+
   return (
     <Card
       className={cn(
-        'rounded-md p-3 shadow-sm',
+        'rounded-md p-3 shadow-sm touch-none',
         isDragging && 'cursor-grabbing',
         className
       )}
-      style={{
-        transform: transform
-          ? `translateX(${transform.x}px) translateY(${transform.y}px)`
-          : 'none',
-      }}
+      style={style}
       {...listeners}
       {...attributes}
       ref={setNodeRef}
@@ -137,13 +146,19 @@ export const KanbanHeader = (props: KanbanHeaderProps) =>
 
 export type KanbanProviderProps = {
   children: ReactNode;
+  dragOverlay?: ReactNode;
   onDragEnd: (event: DragEndEvent) => void;
+  onDragStart?: (event: DragStartEvent) => void;
+  onDragCancel?: (event: DragCancelEvent) => void;
   className?: string;
 };
 
 export const KanbanProvider = ({
   children,
+  dragOverlay,
   onDragEnd,
+  onDragStart,
+  onDragCancel,
   className,
 }: KanbanProviderProps) => {
   const mouseSensor = useSensor(MouseSensor, {
@@ -165,6 +180,8 @@ export const KanbanProvider = ({
     <DndContext
       sensors={sensors}
       collisionDetection={rectIntersection}
+      onDragStart={onDragStart}
+      onDragCancel={onDragCancel}
       onDragEnd={onDragEnd}
       modifiers={[restrictToViewport]}
       autoScroll={false}
@@ -174,6 +191,9 @@ export const KanbanProvider = ({
       >
         {children}
       </div>
+      <DragOverlay dropAnimation={null}>
+        {dragOverlay}
+      </DragOverlay>
     </DndContext>
   );
 };

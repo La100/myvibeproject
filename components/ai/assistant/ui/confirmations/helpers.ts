@@ -55,6 +55,7 @@ export function getTitle(item: PendingContentItem): string {
   return (
     (data?.title as string) ||
     (data?.name as string) ||
+    (data?.sectionName as string) ||
     (data?.questionText as string) ||
     "Untitled"
   );
@@ -130,4 +131,36 @@ export function extractBulkCreateEntries(
   }
 
   return [];
+}
+
+export function shouldHideSectionCard(params: {
+  canonicalType: string;
+  sectionCardName?: string;
+  referencedSectionNames: { shopping: Set<string>; labor: Set<string> };
+  hiddenSectionMeta: { shopping?: string; labor?: string };
+}): boolean {
+  const {
+    canonicalType,
+    sectionCardName,
+    referencedSectionNames,
+    hiddenSectionMeta,
+  } = params;
+
+  if (canonicalType === "shoppingSection") {
+    return (
+      (!!sectionCardName && referencedSectionNames.shopping.has(sectionCardName)) ||
+      (!!hiddenSectionMeta.shopping &&
+        (!sectionCardName || sectionCardName === hiddenSectionMeta.shopping))
+    );
+  }
+
+  if (canonicalType === "laborSection") {
+    return (
+      (!!sectionCardName && referencedSectionNames.labor.has(sectionCardName)) ||
+      (!!hiddenSectionMeta.labor &&
+        (!sectionCardName || sectionCardName === hiddenSectionMeta.labor))
+    );
+  }
+
+  return false;
 }

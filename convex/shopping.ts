@@ -781,6 +781,85 @@ export const updateShoppingListItem = mutation({
     const item = await ctx.db.get(itemId);
     if (!item) throw new Error("Item not found");
 
+    const projectItems = await ctx.db
+      .query("shoppingListItems")
+      .withIndex("by_project", (q) => q.eq("projectId", item.projectId))
+      .collect();
+    const projectItemsById = new Map(
+      projectItems.map((projectItem) => [String(projectItem._id), projectItem]),
+    );
+    const hasAlternativeToItemId = Object.prototype.hasOwnProperty.call(
+      updates,
+      "alternativeToItemId",
+    );
+    const hasSelectedAlternativeItemId = Object.prototype.hasOwnProperty.call(
+      updates,
+      "selectedAlternativeItemId",
+    );
+    const finalAlternativeToItemId = hasAlternativeToItemId
+      ? updates.alternativeToItemId ?? null
+      : item.alternativeToItemId ?? null;
+    const finalSelectedAlternativeItemId = hasSelectedAlternativeItemId
+      ? updates.selectedAlternativeItemId ?? null
+      : item.selectedAlternativeItemId ?? null;
+    const itemIdString = String(itemId);
+    const finalAlternativeToItemIdString = finalAlternativeToItemId
+      ? String(finalAlternativeToItemId)
+      : null;
+    const finalSelectedAlternativeItemIdString = finalSelectedAlternativeItemId
+      ? String(finalSelectedAlternativeItemId)
+      : null;
+    const itemHasChildren = projectItems.some(
+      (projectItem) => String(projectItem.alternativeToItemId ?? "") === itemIdString,
+    );
+    const itemIsSelectedInAnotherGroup = projectItems.some(
+      (projectItem) =>
+        projectItem._id !== item._id &&
+        String(projectItem.selectedAlternativeItemId ?? "") === itemIdString,
+    );
+
+    if (finalAlternativeToItemIdString) {
+      if (finalAlternativeToItemIdString === itemIdString) {
+        throw new Error("An item cannot be an alternative of itself");
+      }
+
+      const alternativeTarget = projectItemsById.get(finalAlternativeToItemIdString);
+      if (!alternativeTarget) {
+        throw new Error("Alternative target not found in this project");
+      }
+
+      if (alternativeTarget.alternativeToItemId) {
+        throw new Error("Alternative groups cannot nest");
+      }
+
+      if (itemHasChildren) {
+        throw new Error("Items with alternatives cannot be turned into alternatives");
+      }
+
+      if (itemIsSelectedInAnotherGroup) {
+        throw new Error("Items selected in another alternative group cannot be turned into alternatives");
+      }
+    }
+
+    if (finalSelectedAlternativeItemIdString) {
+      if (finalAlternativeToItemIdString) {
+        throw new Error("Alternative items cannot store a selected option");
+      }
+
+      const selectedAlternativeTarget = projectItemsById.get(finalSelectedAlternativeItemIdString);
+      if (!selectedAlternativeTarget) {
+        throw new Error("Selected alternative not found in this project");
+      }
+
+      const isValidSelection =
+        finalSelectedAlternativeItemIdString === itemIdString ||
+        String(selectedAlternativeTarget.alternativeToItemId ?? "") === itemIdString;
+
+      if (!isValidSelection) {
+        throw new Error("Selected option does not belong to this alternative group");
+      }
+    }
+
     let totalPrice = item.totalPrice;
     const quantity = updates.quantity ?? item.quantity;
     const unitPrice = updates.unitPrice ?? item.unitPrice;
@@ -796,6 +875,20 @@ export const updateShoppingListItem = mutation({
     };
 
     await ctx.db.patch(itemId, patch);
+
+    const previousParentId = item.alternativeToItemId ? String(item.alternativeToItemId) : null;
+    if (previousParentId && previousParentId !== finalAlternativeToItemIdString) {
+      const previousParent = projectItemsById.get(previousParentId);
+      if (
+        previousParent &&
+        String(previousParent.selectedAlternativeItemId ?? "") === itemIdString
+      ) {
+        await ctx.db.patch(previousParent._id, {
+          selectedAlternativeItemId: null,
+          updatedAt: Date.now(),
+        });
+      }
+    }
 
     await ctx.runMutation(internalAny.activityLog.logActivity, {
       teamId: item.teamId,

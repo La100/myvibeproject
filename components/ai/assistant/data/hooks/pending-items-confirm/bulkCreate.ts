@@ -203,6 +203,8 @@ export async function confirmBulkCreateItem(
               category?: string;
               unitPrice?: number;
               sectionId?: Id<'shoppingListSections'>;
+              alternativeToItemId?: Id<'shoppingListItems'>;
+              selectedAlternativeItemId?: Id<'shoppingListItems'>;
             },
           });
 
@@ -402,9 +404,15 @@ export async function confirmBulkCreateItem(
         ? (rawData.items as Array<Record<string, unknown>>)
         : [];
       const namesFromItems = rawItems
-        .map((entry) => (typeof entry.name === "string" ? entry.name.trim() : ""))
+        .map((entry) =>
+          getFirstNonEmptyString(entry.name, entry.sectionName, entry.title) ?? "",
+        )
         .filter((name) => name.length > 0);
-      const singleName = typeof rawData.name === "string" ? rawData.name.trim() : "";
+      const singleName = getFirstNonEmptyString(
+        rawData.name,
+        rawData.sectionName,
+        rawData.title,
+      ) ?? "";
       const sectionNames = Array.from(new Set(
         (namesFromItems.length > 0 ? namesFromItems : [singleName]).filter((name) => name.length > 0)
       ));
@@ -443,9 +451,15 @@ export async function confirmBulkCreateItem(
         ? (rawData.items as Array<Record<string, unknown>>)
         : [];
       const namesFromItems = rawItems
-        .map((entry) => (typeof entry.name === "string" ? entry.name.trim() : ""))
+        .map((entry) =>
+          getFirstNonEmptyString(entry.name, entry.sectionName, entry.title) ?? "",
+        )
         .filter((name) => name.length > 0);
-      const singleName = typeof rawData.name === "string" ? rawData.name.trim() : "";
+      const singleName = getFirstNonEmptyString(
+        rawData.name,
+        rawData.sectionName,
+        rawData.title,
+      ) ?? "";
       const sectionNames = Array.from(new Set(
         (namesFromItems.length > 0 ? namesFromItems : [singleName]).filter((name) => name.length > 0)
       ));

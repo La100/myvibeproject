@@ -20,6 +20,18 @@ import {
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 
+const sanitizeDisplayName = (value?: string | null) => {
+  if (!value) return undefined
+  const normalized = value
+    .split(/\s+/)
+    .map((part) => part.trim())
+    .filter((part) => part && part.toLowerCase() !== "null")
+    .join(" ")
+    .trim()
+
+  return normalized || undefined
+}
+
 export function TaskForm({
   data,
   onUpdate,
@@ -165,7 +177,8 @@ export function TaskForm({
             }
             onUpdate({
               assignedTo: value,
-              assignedToName: selected?.name || selected?.email,
+              assignedToName:
+                sanitizeDisplayName(selected?.name) || selected?.email,
             })
           }}
         >
@@ -176,7 +189,7 @@ export function TaskForm({
             <SelectItem value="unassigned">Unassigned</SelectItem>
             {teamMembers?.map((member) => (
               <SelectItem key={member.clerkUserId} value={member.clerkUserId}>
-                {member.name || member.email || "Unknown"}
+                {sanitizeDisplayName(member.name) || member.email || "Unknown"}
               </SelectItem>
             ))}
           </SelectContent>
@@ -200,13 +213,13 @@ export function TaskForm({
       <div className="grid gap-4 md:grid-cols-2">
         <Field>
           <FieldLabel>Start Time</FieldLabel>
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <Popover>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
                   className={cn(
-                    "w-full justify-start text-left font-normal",
+                    "w-full justify-start text-left font-normal sm:flex-1",
                     !startDate && "text-muted-foreground"
                   )}
                 >
@@ -224,19 +237,19 @@ export function TaskForm({
               type="time"
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
-              className="w-28"
+              className="w-full sm:w-28"
             />
           </div>
         </Field>
         <Field>
           <FieldLabel>End Time</FieldLabel>
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <Popover>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
                   className={cn(
-                    "w-full justify-start text-left font-normal",
+                    "w-full justify-start text-left font-normal sm:flex-1",
                     !endDate && "text-muted-foreground"
                   )}
                 >
@@ -254,7 +267,7 @@ export function TaskForm({
               type="time"
               value={endTime}
               onChange={(e) => setEndTime(e.target.value)}
-              className="w-28"
+              className="w-full sm:w-28"
             />
           </div>
         </Field>

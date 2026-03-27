@@ -97,31 +97,70 @@ export const listProjectTasks = query({
       });
     }
 
-    return await Promise.all(
-      tasks.map(async (task) => {
-        let assignedToName: string | undefined;
-        let assignedToImageUrl: string | undefined;
-        let milestoneName: string | undefined;
-        if (task.assignedTo) {
-          const user = await ctx.db.query("users").withIndex("by_clerk_user_id", (q) => q.eq("clerkUserId", task.assignedTo!)).unique();
-          if (user) { assignedToName = user.name; assignedToImageUrl = user.imageUrl; }
-        }
-        if (task.milestoneId) {
-          const milestone = await ctx.db.get(task.milestoneId);
-          milestoneName = milestone?.name;
-        }
-        const createdByUser = await ctx.db.query("users").withIndex("by_clerk_user_id", (q) => q.eq("clerkUserId", task.createdBy)).unique();
-        const commentCount = (await ctx.db.query("comments").withIndex("by_task", q => q.eq("taskId", task._id)).collect()).length;
-        return {
-          ...task,
-          assignedToName,
-          assignedToImageUrl,
-          createdByName: createdByUser?.name,
-          commentCount,
-          milestoneName,
-        };
-      })
+    const userIds = Array.from(
+      new Set(
+        tasks.flatMap((task) => {
+          const ids = [task.createdBy];
+          if (task.assignedTo) ids.push(task.assignedTo);
+          return ids;
+        })
+      )
     );
+
+    const milestoneIds = Array.from(
+      new Set(
+        tasks
+          .map((task) => task.milestoneId)
+          .filter((milestoneId): milestoneId is Id<"projectMilestones"> => Boolean(milestoneId))
+      )
+    );
+
+    const [users, milestones, projectComments] = await Promise.all([
+      Promise.all(
+        userIds.map(async (userId) => [
+          userId,
+          await ctx.db
+            .query("users")
+            .withIndex("by_clerk_user_id", (q) => q.eq("clerkUserId", userId))
+            .unique(),
+        ] as const)
+      ),
+      Promise.all(
+        milestoneIds.map(async (milestoneId) => [
+          milestoneId,
+          await ctx.db.get(milestoneId),
+        ] as const)
+      ),
+      ctx.db
+        .query("comments")
+        .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+        .collect(),
+    ]);
+
+    const usersByClerkId = new Map(users);
+    const milestonesById = new Map(milestones);
+    const commentCountByTaskId = new Map<string, number>();
+
+    for (const comment of projectComments) {
+      if (!comment.taskId) continue;
+      const taskId = comment.taskId as string;
+      commentCountByTaskId.set(taskId, (commentCountByTaskId.get(taskId) ?? 0) + 1);
+    }
+
+    return tasks.map((task) => {
+      const assignedUser = task.assignedTo ? usersByClerkId.get(task.assignedTo) : undefined;
+      const createdByUser = usersByClerkId.get(task.createdBy);
+      const milestone = task.milestoneId ? milestonesById.get(task.milestoneId) : undefined;
+
+      return {
+        ...task,
+        assignedToName: assignedUser?.name,
+        assignedToImageUrl: assignedUser?.imageUrl,
+        createdByName: createdByUser?.name,
+        commentCount: commentCountByTaskId.get(task._id as string) ?? 0,
+        milestoneName: milestone?.name,
+      };
+    });
   },
 });
 

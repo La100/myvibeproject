@@ -48,6 +48,57 @@ const READ_ONLY_TOOL_NAMES = new Set([
   "load_full_project_context",
 ]);
 
+const DELETE_INTENT_PATTERN =
+  /\b(delete|remove|usu[nń]|skasuj|wywal|wyrzu[cć]|usunac|usunąć)\b/i;
+
+const parseJsonSafely = <T>(value: unknown): T | null => {
+  if (typeof value !== "string") {
+    return (value && typeof value === "object" ? value : null) as T | null;
+  }
+
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return null;
+  }
+};
+
+const inferDeleteTargetType = (
+  toolCall: unknown,
+  parsedResult: Record<string, unknown> | null,
+) => {
+  const callRecord =
+    toolCall && typeof toolCall === "object"
+      ? (toolCall as Record<string, unknown>)
+      : null;
+  const rawArgs =
+    callRecord?.args ??
+    callRecord?.input ??
+    callRecord?.arguments;
+  const parsedArgs = parseJsonSafely<Record<string, unknown>>(rawArgs);
+
+  const candidates = [
+    parsedArgs?.type,
+    parsedResult?.type,
+    parsedResult?.itemType,
+  ];
+
+  for (const candidate of candidates) {
+    if (
+      candidate === "task" ||
+      candidate === "note" ||
+      candidate === "shopping" ||
+      candidate === "labor" ||
+      candidate === "survey" ||
+      candidate === "contact"
+    ) {
+      return candidate;
+    }
+  }
+
+  return null;
+};
+
 /**
  * Internal action that does the actual streaming work
  * Called by scheduler from initializeStreaming mutation - runs in background
@@ -751,8 +802,8 @@ Apply these additional instructions when they do not conflict with the tool cont
             message: "Tool calls did not generate pending items (read-only or parsing failed)",
           });
 
-          // Heuristic: if user asked to delete and search_items returned shopping matches, auto-stage delete.
-          const userAskedToDelete = /\b(delete|remove)\b/i.test(args.message);
+          // Heuristic: if user asked to delete and search_items returned matches, auto-stage delete.
+          const userAskedToDelete = DELETE_INTENT_PATTERN.test(args.message);
           const onlyItemSearch =
             allToolCalls.length === 1 &&
             (allToolCalls[0]?.toolName || allToolCalls[0]?.name) === "search_items";
@@ -760,21 +811,23 @@ Apply these additional instructions when they do not conflict with the tool cont
           if (userAskedToDelete && onlyItemSearch && allToolResults.length === 1) {
             const rawResult = allToolResults[0]?.result || allToolResults[0]?.output || allToolResults[0];
             try {
-              const parsed = typeof rawResult === "string" ? JSON.parse(rawResult) : rawResult;
+              const parsed = parseJsonSafely<Record<string, unknown>>(rawResult);
               const items = Array.isArray(parsed?.items) ? parsed.items : [];
+              const inferredType = inferDeleteTargetType(allToolCalls[0], parsed);
 
-              // If many items, stage individual delete calls so UI can show bulk grid
-              if (items.length > 1) {
+              // If many items, stage individual delete calls so UI can show bulk grid.
+              if (inferredType && items.length > 1) {
                 const responseId = `resp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
                 const functionCalls = items.map((item: any, idx: number) => {
                   const itemId = item?.id || item?._id || `unknown_${idx}`;
+                  const itemName = item?.name || item?.title;
                   return {
                     callId: `auto_delete_${itemId}`,
                     functionName: "delete_item",
                     arguments: JSON.stringify({
-                      type: "shopping",
+                      type: inferredType,
                       operation: "delete",
-                      data: { itemId, name: item?.name },
+                      data: { itemId, name: itemName },
                     }),
                   };
                 });
@@ -785,18 +838,19 @@ Apply these additional instructions when they do not conflict with the tool cont
                   responseId,
                   functionCalls,
                 });
-              } else {
+              } else if (inferredType) {
                 const firstItem = items[0];
                 const itemId = firstItem?.id || firstItem?._id;
                 if (itemId) {
+                  const itemName = firstItem?.name || firstItem?.title;
                   const responseId = `resp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
                   const autoCall = {
                     callId: `auto_delete_${itemId}`,
                     functionName: "delete_item",
                     arguments: JSON.stringify({
-                      type: "shopping",
+                      type: inferredType,
                       operation: "delete",
-                      data: { itemId, name: firstItem?.name },
+                      data: { itemId, name: itemName },
                     }),
                   };
                   await ctx.runMutation(internalAny.ai.threads.saveFunctionCalls, {

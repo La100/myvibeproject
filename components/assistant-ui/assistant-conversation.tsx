@@ -554,13 +554,13 @@ export default function AssistantConversation({
     <AssistantRuntimeProvider runtime={runtime}>
       <div className={cn("relative flex h-full min-h-0 w-full flex-col", className)}>
         {showHeader && (
-          <div className="pointer-events-none absolute top-4 right-4 z-20 flex items-center justify-end gap-2">
+          <div className="pointer-events-none absolute top-4 right-4 z-20 flex items-center justify-end gap-2 md:top-5 md:right-5">
             <div className="pointer-events-auto hidden md:flex items-center">
               {showHistoryToggle && onHistoryToggle ? (
                 <TooltipIconButton
                   tooltip={isHistoryVisible ? "Hide conversation history" : "Show conversation history"}
                   variant={isHistoryVisible ? "secondary" : "outline"}
-                  className="h-10 w-10 rounded-full bg-background"
+                  className="h-11 w-11 rounded-2xl border-border bg-background"
                   onClick={onHistoryToggle}
                   disabled={isStreaming || isLoading}
                 >
@@ -571,7 +571,7 @@ export default function AssistantConversation({
             <TooltipIconButton
               tooltip="Start new conversation"
               variant="outline"
-              className="pointer-events-auto h-10 w-10 rounded-full bg-background"
+              className="pointer-events-auto h-11 w-11 rounded-2xl border-border bg-background"
               onClick={handleReset}
               disabled={isStreaming || isLoading}
             >

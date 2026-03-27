@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import { useUser } from "@clerk/nextjs";
@@ -34,16 +34,11 @@ const AIAssistant = () => {
     apiAny.stripe.checkTeamAIAccess,
     team?._id ? { teamId: team._id } : "skip",
   );
-
   const updateProject = useMutation(apiAny.projects.updateProject);
-
-  const projectAutoConfirmCrud = Boolean((project as { aiAutoConfirmCrud?: boolean } | null)?.aiAutoConfirmCrud);
-  const [autoConfirmCrud, setAutoConfirmCrud] = useState(projectAutoConfirmCrud);
-  const [isSavingAutoConfirmCrud, setIsSavingAutoConfirmCrud] = useState(false);
-
-  useEffect(() => {
-    setAutoConfirmCrud(projectAutoConfirmCrud);
-  }, [projectAutoConfirmCrud]);
+  const [confirmationMode, setConfirmationMode] = useState<"always_ask" | "auto_confirm">(
+    "always_ask",
+  );
+  const [isModeUpdating, setIsModeUpdating] = useState(false);
 
   const {
     setChatHistory,
@@ -101,9 +96,14 @@ const AIAssistant = () => {
     projectId: project?._id,
     teamSlug: team?.slug,
     threadId,
-    autoConfirmCrud,
+    autoConfirmCrud: confirmationMode === "auto_confirm",
     setChatHistory,
   });
+
+  useEffect(() => {
+    if (!project) return;
+    setConfirmationMode(project.aiAutoConfirmCrud ? "auto_confirm" : "always_ask");
+  }, [project]);
 
   const handleStartNewChat = useCallback(() => {
     handleNewChat();
@@ -180,43 +180,40 @@ const AIAssistant = () => {
     ],
   );
 
-  const handleToggleAutoConfirmCrud = useCallback(async (checked: boolean) => {
-    if (!project?._id) return;
-
-    const previous = autoConfirmCrud;
-    setAutoConfirmCrud(checked);
-    setIsSavingAutoConfirmCrud(true);
-    try {
-      await updateProject({
-        projectId: project._id,
-        aiAutoConfirmCrud: checked,
-      });
-      toast.success(
-        checked
-          ? "Auto-confirm ON — AI actions are applied automatically"
-          : "Auto-confirm OFF — AI actions require your approval",
-      );
-    } catch (error) {
-      setAutoConfirmCrud(previous);
-      console.error("Failed to update aiAutoConfirmCrud:", error);
-      toast.error("Failed to save confirmation mode");
-    } finally {
-      setIsSavingAutoConfirmCrud(false);
-    }
-  }, [autoConfirmCrud, project?._id, updateProject]);
-
-  const handleConversationModeChange = useCallback(
-    (mode: "always_ask" | "auto_confirm") => {
-      void handleToggleAutoConfirmCrud(mode === "auto_confirm");
-    },
-    [handleToggleAutoConfirmCrud],
-  );
-
   const userFallback =
     user?.fullName?.charAt(0) ||
     user?.firstName?.charAt(0) ||
     user?.primaryEmailAddress?.emailAddress?.charAt(0) ||
     "U";
+
+  const handleConfirmationModeChange = useCallback(
+    async (nextMode: "always_ask" | "auto_confirm") => {
+      if (!project?._id) return;
+
+      const previousMode = confirmationMode;
+      setConfirmationMode(nextMode);
+      setIsModeUpdating(true);
+
+      try {
+        await updateProject({
+          projectId: project._id,
+          aiAutoConfirmCrud: nextMode === "auto_confirm",
+        });
+        toast.success(
+          nextMode === "auto_confirm"
+            ? "Auto mode enabled"
+            : "Manual confirmation enabled",
+        );
+      } catch (error) {
+        setConfirmationMode(previousMode);
+        console.error("Failed to update AI confirmation mode:", error);
+        toast.error("Failed to save AI confirmation mode");
+      } finally {
+        setIsModeUpdating(false);
+      }
+    },
+    [confirmationMode, project, updateProject],
+  );
 
   const quotaBlockedAssistantMessage = useMemo(() => {
     if (!isQuotaBlocked) return null;
@@ -270,6 +267,40 @@ const AIAssistant = () => {
       />
     ) : null;
 
+  const assistantThemeStyle = useMemo(
+    () =>
+      ({
+        "--background": "#FFFFFF",
+        "--foreground": "#111111",
+        "--card": "#FFFFFF",
+        "--card-foreground": "#111111",
+        "--popover": "#FFFFFF",
+        "--popover-foreground": "#111111",
+        "--primary": "#111111",
+        "--primary-foreground": "#FFFFFF",
+        "--secondary": "#F5F5F5",
+        "--secondary-foreground": "#111111",
+        "--muted": "#F5F5F5",
+        "--muted-foreground": "#737373",
+        "--accent": "#F5F5F5",
+        "--accent-foreground": "#111111",
+        "--destructive": "#DC2626",
+        "--destructive-foreground": "#FFFFFF",
+        "--border": "#E5E5E5",
+        "--input": "#E5E5E5",
+        "--ring": "#D4D4D4",
+        "--sidebar": "#FCFCFC",
+        "--sidebar-foreground": "#111111",
+        "--sidebar-primary": "#111111",
+        "--sidebar-primary-foreground": "#FFFFFF",
+        "--sidebar-accent": "#F5F5F5",
+        "--sidebar-accent-foreground": "#111111",
+        "--sidebar-border": "#E5E5E5",
+        "--sidebar-ring": "#D4D4D4",
+      }) as CSSProperties,
+    [],
+  );
+
   if (aiAccess !== undefined && !aiAccess.hasAccess && team?._id) {
     if (!isQuotaBlocked) {
       return <AISubscriptionWall teamId={team._id} teamSlug={team.slug} />;
@@ -290,10 +321,17 @@ const AIAssistant = () => {
   }
 
   return (
-    <div className="relative flex h-[calc(100vh-4rem)] w-full min-w-0 flex-col overflow-hidden text-foreground">
+    <div
+      className="relative flex h-[calc(100vh-4rem)] w-full min-w-0 flex-col overflow-hidden rounded-[1.75rem] border border-border bg-background text-foreground"
+      style={assistantThemeStyle}
+    >
       <div className="flex min-h-0 flex-1">
         <AssistantConversation
-          className="flex-1 min-h-0"
+          className={
+            showHistory
+              ? "flex-1 min-h-0 md:pl-[26.75rem]"
+              : "flex-1 min-h-0"
+          }
           showHeader
           title={project?.name || "AI Assistant"}
           assistantFallback={(project?.name || "A").charAt(0)}
@@ -316,9 +354,9 @@ const AIAssistant = () => {
           onEditItem={handleEditItem}
           onUpdateItem={handleUpdatePendingItem}
           isProcessing={isBulkProcessing}
-          confirmationMode={autoConfirmCrud ? "auto_confirm" : "always_ask"}
-          onConfirmationModeChange={handleConversationModeChange}
-          isModeUpdating={isSavingAutoConfirmCrud}
+          confirmationMode={confirmationMode}
+          onConfirmationModeChange={handleConfirmationModeChange}
+          isModeUpdating={isModeUpdating}
         />
         <ChatSidebar
           showHistory={showHistory}

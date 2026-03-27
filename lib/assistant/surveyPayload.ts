@@ -75,10 +75,16 @@ function extractSurveyQuestions(value: unknown) {
       const questionText = asNonEmptyString(item.questionText) ?? asNonEmptyString(item.title);
       const questionType =
         asSurveyQuestionType(item.questionType) ?? asSurveyQuestionType(item.type);
+      const questionId = asNonEmptyString(item.questionId);
+      const operation = asNonEmptyString(item.operation) as
+        | "create"
+        | "edit"
+        | "delete"
+        | undefined;
 
       return {
-        questionId: asNonEmptyString(item.questionId),
-        operation: asNonEmptyString(item.operation) as "create" | "edit" | "delete" | undefined,
+        questionId,
+        operation,
         questionText,
         questionType,
         options: asStringArray(item.options),
@@ -86,7 +92,11 @@ function extractSurveyQuestions(value: unknown) {
         order: asNumber(item.order),
       };
     })
-    .filter((item) => item.questionText || item.questionId || item.operation);
+    .filter((item) => {
+      const hasIdentity = Boolean(item.questionId || item.operation);
+      const hasCompleteCreateData = Boolean(item.questionText && item.questionType);
+      return hasIdentity || hasCompleteCreateData;
+    });
 
   return questions.length > 0 ? questions : undefined;
 }

@@ -19,6 +19,21 @@ const buildPublicR2FileUrl = (key: string) => {
   return `${publicBaseUrl}/${key}`;
 };
 
+const sanitizeUserDisplayName = (value?: string | null) => {
+  if (!value) {
+    return undefined;
+  }
+
+  const normalized = value
+    .split(/\s+/)
+    .map((part) => part.trim())
+    .filter((part) => part && part.toLowerCase() !== "null")
+    .join(" ")
+    .trim();
+
+  return normalized || undefined;
+};
+
 export const listUserTeams = query({
   args: {},
   handler: async (ctx) => {
@@ -415,7 +430,7 @@ export const getTeamMembers = query({
           .unique();
         return {
           ...member,
-          name: user?.name ?? "User without name",
+          name: sanitizeUserDisplayName(user?.name) ?? "User without name",
           email: user?.email ?? "No email",
           imageUrl: user?.imageUrl,
         };

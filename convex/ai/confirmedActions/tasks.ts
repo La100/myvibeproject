@@ -7,7 +7,7 @@
 import { action } from "../../_generated/server";
 import { v } from "convex/values";
 import { api } from "../../_generated/api";
-import { ensureProjectAccess } from "./helpers";
+import { ensureProjectAccess, parseOptionalDateToMillis } from "./helpers";
 
 export const createConfirmedTask = action({
   args: {
@@ -33,14 +33,14 @@ export const createConfirmedTask = action({
     try {
       const { project } = await ensureProjectAccess(ctx, args.projectId, true);
 
-      let startDateNumber: number | undefined;
-      let endDateNumber: number | undefined;
-      if (args.taskData.startDate) {
-        startDateNumber = new Date(args.taskData.startDate).getTime();
-      }
-      if (args.taskData.endDate) {
-        endDateNumber = new Date(args.taskData.endDate).getTime();
-      }
+      const startDateNumber = parseOptionalDateToMillis(
+        args.taskData.startDate,
+        "task startDate",
+      );
+      const endDateNumber = parseOptionalDateToMillis(
+        args.taskData.endDate,
+        "task endDate",
+      );
 
       const taskId: any = await ctx.runMutation(api.tasks.createTask, {
         projectId: args.projectId,
@@ -101,14 +101,14 @@ export const editConfirmedTask = action({
       }
       await ensureProjectAccess(ctx, args.projectId ?? task.projectId, true);
 
-      let startDateNumber: number | undefined;
-      let endDateNumber: number | undefined;
-      if (args.updates.startDate) {
-        startDateNumber = new Date(args.updates.startDate).getTime();
-      }
-      if (args.updates.endDate) {
-        endDateNumber = new Date(args.updates.endDate).getTime();
-      }
+      const startDateNumber = parseOptionalDateToMillis(
+        args.updates.startDate,
+        "task startDate",
+      );
+      const endDateNumber = parseOptionalDateToMillis(
+        args.updates.endDate,
+        "task endDate",
+      );
 
       await ctx.runMutation(api.tasks.updateTask, {
         taskId: args.taskId,
@@ -169,7 +169,6 @@ export const deleteConfirmedTask = action({
     }
   },
 });
-
 
 
 

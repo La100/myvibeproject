@@ -586,6 +586,59 @@ test("delete_item includes sectionId for section deletions", async () => {
   assert.equal(parsed.data.name, "Sciany");
 });
 
+test("delete_item maps moodboard notes to moodboard payload", async () => {
+  const createStreamingTools = await getCreateStreamingTools();
+  const tools = createStreamingTools({
+    projectId: "project_1",
+    runQuery: async (_queryRef: unknown, args: { itemId: string }) => ({
+      _id: args.itemId,
+      projectId: "project_1",
+      title: "Inspiracja 01",
+      storageId: "storage_1",
+      moodboardSection: "Concept",
+    }),
+  });
+
+  const raw = await tools.delete_item.execute({
+    type: "note",
+    itemId: "note_1",
+  });
+  const parsed = JSON.parse(raw);
+
+  assert.equal(parsed.operation, "delete");
+  assert.equal(parsed.type, "moodboard");
+  assert.equal(parsed.data.fileId, "note_1");
+  assert.equal(parsed.data.moodboardSection, "Concept");
+  assert.equal(parsed.data.name, "Inspiracja 01");
+});
+
+test("update_project_settings trims values and rejects too-short name", async () => {
+  const createStreamingTools = await getCreateStreamingTools();
+  const tools = createStreamingTools({ projectId: "project_1" });
+
+  const invalidRaw = await tools.update_project_settings.execute({
+    name: "a",
+  });
+  const invalidParsed = JSON.parse(invalidRaw);
+
+  assert.equal(invalidParsed.error, "Project name must be at least 2 characters");
+
+  const raw = await tools.update_project_settings.execute({
+    name: "  Mieszkanie Mokotow  ",
+    description: "  Etap 2  ",
+    customer: "  Jan Kowalski  ",
+    location: "  Warszawa  ",
+  });
+  const parsed = JSON.parse(raw);
+
+  assert.equal(parsed.operation, "edit");
+  assert.equal(parsed.type, "projectSettings");
+  assert.equal(parsed.updates.name, "Mieszkanie Mokotow");
+  assert.equal(parsed.updates.description, "Etap 2");
+  assert.equal(parsed.updates.customer, "Jan Kowalski");
+  assert.equal(parsed.updates.location, "Warszawa");
+});
+
 test("search_items uses runAction (not runQuery)", async () => {
   const createStreamingTools = await getCreateStreamingTools();
   const calls = { runAction: 0, runQuery: 0 };

@@ -17,6 +17,17 @@ const internalRefs = {
   updateInvitationStatus: internalAny.myFunctions.updateInvitationStatus,
 };
 
+const normalizeClerkName = (
+  firstName?: string | null,
+  lastName?: string | null,
+) => {
+  const parts = [firstName, lastName]
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value && value.toLowerCase() !== "null"));
+
+  return parts.length > 0 ? parts.join(" ") : undefined;
+};
+
 const handleClerkWebhook = httpAction(async (ctx, request) => {
   const event = await validateRequest(request);
   if (!event) {
@@ -82,7 +93,7 @@ const handleClerkWebhook = httpAction(async (ctx, request) => {
         await ctx.runMutation(internalRefs.createOrUpdateUser, {
             clerkUserId: event.data.id,
             email: event.data.email_addresses[0].email_address,
-            name: event.data.first_name + " " + event.data.last_name,
+            name: normalizeClerkName(event.data.first_name, event.data.last_name),
             imageUrl: event.data.image_url,
         });
         break;
@@ -90,7 +101,7 @@ const handleClerkWebhook = httpAction(async (ctx, request) => {
         await ctx.runMutation(internalRefs.createOrUpdateUser, {
             clerkUserId: event.data.id,
             email: event.data.email_addresses[0].email_address,
-            name: event.data.first_name + " " + event.data.last_name,
+            name: normalizeClerkName(event.data.first_name, event.data.last_name),
             imageUrl: event.data.image_url,
         });
         break;

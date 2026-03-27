@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import { toast } from "sonner";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, memo } from "react";
 import { LayoutGrid, List, ChevronsUpDown, X, MessageSquare, ListTodo, Plus } from "lucide-react";
 import Link from "next/link";
 import TaskForm from "./TaskForm";
@@ -40,6 +40,7 @@ import {
   KanbanHeader,
   type DragEndEvent,
 } from '@/components/ui/shadcn-io/kanban';
+import type { DragStartEvent, DragCancelEvent } from '@dnd-kit/core';
 import { Spinner } from '@/components/ui/spinner';
 import { format } from 'date-fns';
 
@@ -78,6 +79,54 @@ type KanbanTask = {
   milestoneName?: string;
   tags: string[] | undefined;
   commentCount: number;
+};
+
+const areTagsEqual = (a?: string[], b?: string[]) => {
+  if (a === b) return true;
+  if (!a || !b) return a === b;
+  if (a.length !== b.length) return false;
+  return a.every((tag, index) => tag === b[index]);
+};
+
+const isSameKanbanTask = (a: KanbanTask, b: KanbanTask) =>
+  a.id === b.id &&
+  a.name === b.name &&
+  a.column === b.column &&
+  a.title === b.title &&
+  a.description === b.description &&
+  a.content === b.content &&
+  a.priority === b.priority &&
+  a.startDate === b.startDate &&
+  a.endDate === b.endDate &&
+  a.status === b.status &&
+  a.assignedTo === b.assignedTo &&
+  a.assignedToName === b.assignedToName &&
+  a.assignedToImageUrl === b.assignedToImageUrl &&
+  a.milestoneId === b.milestoneId &&
+  a.milestoneName === b.milestoneName &&
+  a.commentCount === b.commentCount &&
+  areTagsEqual(a.tags, b.tags);
+
+const reconcileKanbanTasks = (previous: KanbanTask[], next: KanbanTask[]) => {
+  if (previous.length === 0) return next;
+
+  const previousById = new Map(previous.map((task) => [task.id, task]));
+  let changed = previous.length !== next.length;
+
+  const reconciled = next.map((task) => {
+    const existing = previousById.get(task.id);
+    if (!existing) {
+      changed = true;
+      return task;
+    }
+    if (isSameKanbanTask(existing, task)) {
+      return existing;
+    }
+    changed = true;
+    return task;
+  });
+
+  return changed ? reconciled : previous;
 };
 
 type TaskWithDetails = {
@@ -138,6 +187,7 @@ export default function TasksView() {
   const params = useParams<{ projectSlug: string }>();
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
   const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
+  const [activeDragTaskId, setActiveDragTaskId] = useState<Id<"tasks"> | null>(null);
   
   const [filters, setFilters] = useState<{
     searchQuery: string;
@@ -229,7 +279,7 @@ export default function TasksView() {
   const [localKanbanTasks, setLocalKanbanTasks] = useState<KanbanTask[]>(kanbanTasks);
 
   useEffect(() => {
-    setLocalKanbanTasks(kanbanTasks);
+    setLocalKanbanTasks((previous) => reconcileKanbanTasks(previous, kanbanTasks));
   }, [kanbanTasks]);
 
   const tagsOptions = useMemo(() => {
@@ -255,6 +305,7 @@ export default function TasksView() {
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
+    setActiveDragTaskId(null);
     if (!over) return;
 
     const cardId = active.id as string;
@@ -268,7 +319,7 @@ export default function TasksView() {
     if (task && task.column !== columnId) {
       setLocalKanbanTasks(prev => {
         return prev.map(t =>
-          t.id === cardId ? { ...t, column: columnId } : t
+          t.id === cardId ? { ...t, column: columnId, status: columnId } : t
         );
       });
 
@@ -283,12 +334,24 @@ export default function TasksView() {
         // Revert optimistic update on failure
         setLocalKanbanTasks(prev => {
            return prev.map(t =>
-            t.id === cardId ? { ...t, column: task.column } : t
+            t.id === cardId ? { ...t, column: task.column, status: task.status } : t
           );
         });
       }
     }
   };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveDragTaskId(event.active.id as Id<"tasks">);
+  };
+
+  const handleDragCancel = (_event: DragCancelEvent) => {
+    setActiveDragTaskId(null);
+  };
+
+  const activeDragTask = activeDragTaskId
+    ? localKanbanTasks.find((task) => task.id === activeDragTaskId) ?? null
+    : null;
 
   const isFiltered = filters.searchQuery !== "" || filters.status.length > 0 || filters.priority.length > 0 || filters.assignedTo.length > 0 || filters.tags.length > 0;
 
@@ -404,7 +467,16 @@ export default function TasksView() {
             }}
           />
         ) : viewMode === "kanban" ? (
-          <KanbanProvider onDragEnd={handleDragEnd}>
+          <KanbanProvider
+            onDragStart={handleDragStart}
+            onDragCancel={handleDragCancel}
+            onDragEnd={handleDragEnd}
+            dragOverlay={
+              activeDragTask ? (
+                <TaskDragPreview task={activeDragTask} />
+              ) : null
+            }
+          >
             <div className="grid flex-grow grid-cols-1 gap-4 items-start md:grid-cols-2 lg:grid-cols-4">
               {statusOptions.map((status) => (
                 <KanbanBoard id={status.value} key={status.value}>
@@ -528,7 +600,7 @@ export default function TasksView() {
   );
 }
 
-function TaskCardContent({ task, projectSlug }: { task: KanbanTask, projectSlug: string }) {
+const TaskCardContent = memo(function TaskCardContent({ task, projectSlug }: { task: KanbanTask, projectSlug: string }) {
   const priority = getPriorityDisplay(task.priority);
 
   // Priority accent colors
@@ -628,4 +700,24 @@ function TaskCardContent({ task, projectSlug }: { task: KanbanTask, projectSlug:
       </div>
     </div>
   );
-} 
+});
+
+function TaskDragPreview({ task }: { task: KanbanTask }) {
+  const priority = getPriorityDisplay(task.priority);
+
+  return (
+    <div className="w-[340px] rounded-lg border bg-card px-4 py-3 shadow-lg">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="truncate text-sm font-semibold">{task.title}</div>
+          {task.description ? (
+            <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">{task.description}</div>
+          ) : null}
+        </div>
+        {task.priority ? (
+          <Badge className={`${priority.color} shrink-0 text-xs`}>{priority.label}</Badge>
+        ) : null}
+      </div>
+    </div>
+  );
+}

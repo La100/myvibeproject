@@ -132,7 +132,7 @@ function extractPendingItemsFromMessage(message: UIMessage): PendingContentItem[
           if (bulkShopping.success) {
             for (const item of bulkShopping.data.data.items) {
               items.push({
-                type: "shopping",
+                type: toPendingContentType(parsed.type),
                 operation: "create",
                 data: item as Record<string, unknown>,
                 functionCall: { callId, functionName: "", arguments: "" },

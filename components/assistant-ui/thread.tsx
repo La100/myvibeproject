@@ -20,7 +20,7 @@ import {
   useAssistantApi,
   useAuiState,
 } from "@assistant-ui/react";
-import { ArrowDownIcon, ArrowUpIcon, SquareIcon } from "lucide-react";
+import { ArrowDownIcon, ArrowUpIcon, Loader2, Sparkles, SquareIcon } from "lucide-react";
 import {
   useEffect,
   useMemo,
@@ -112,12 +112,12 @@ export const Thread: FC<ThreadProps> = ({
     <ThreadPrimitive.Root
       className="aui-root aui-thread-root @container flex h-full min-h-0 w-full flex-col bg-background"
       style={{
-        ["--thread-max-width" as string]: "44rem",
+        ["--thread-max-width" as string]: "72rem",
       }}
     >
       <ThreadPrimitive.Viewport
         turnAnchor="top"
-        className="aui-thread-viewport relative flex min-h-0 flex-1 flex-col overflow-x-auto overflow-y-scroll scroll-smooth px-4 pt-4"
+        className="aui-thread-viewport relative flex min-h-0 flex-1 flex-col overflow-x-auto overflow-y-scroll scroll-smooth px-4 pt-5 md:px-6 md:pt-5"
       >
         <AuiIf condition={({ thread }) => showWelcome && thread.isEmpty}>
           <ThreadWelcome />
@@ -125,12 +125,15 @@ export const Thread: FC<ThreadProps> = ({
 
         <ThreadPrimitive.Messages components={messageComponents} />
 
-        <ThreadPrimitive.ViewportFooter className="aui-thread-viewport-footer sticky bottom-0 mx-auto mt-auto flex w-full max-w-(--thread-max-width) flex-col gap-4 overflow-visible bg-background pb-4 md:pb-6">
+        <ThreadPrimitive.ViewportFooter className="aui-thread-viewport-footer sticky bottom-0 mx-auto mt-auto flex w-full max-w-(--thread-max-width) flex-col gap-5 overflow-visible bg-background pb-5 md:pb-7">
           <ThreadScrollToBottom />
           {composerBanner}
           <Composer
             inputDisabled={inputDisabled}
             inputPlaceholder={inputPlaceholder}
+            confirmationMode={confirmationMode}
+            onConfirmationModeChange={onConfirmationModeChange}
+            isModeUpdating={isModeUpdating}
           />
         </ThreadPrimitive.ViewportFooter>
       </ThreadPrimitive.Viewport>
@@ -144,7 +147,7 @@ const ThreadScrollToBottom: FC = () => {
       <TooltipIconButton
         tooltip="Scroll to bottom"
         variant="outline"
-        className="aui-thread-scroll-to-bottom absolute -top-12 z-10 self-center rounded-full p-4 disabled:invisible"
+        className="aui-thread-scroll-to-bottom absolute -top-14 z-10 self-center rounded-full p-4 disabled:invisible"
       >
         <ArrowDownIcon className="size-4" />
       </TooltipIconButton>
@@ -154,13 +157,13 @@ const ThreadScrollToBottom: FC = () => {
 
 const ThreadWelcome: FC = () => {
   return (
-    <div className="aui-thread-welcome-root mx-auto my-auto flex w-full max-w-(--thread-max-width) grow flex-col justify-end gap-5 pb-4">
-      <div className="aui-thread-welcome-center flex w-full grow flex-col justify-center px-2">
-        <div className="aui-thread-welcome-message flex w-full flex-col justify-center gap-2">
-          <h1 className="aui-thread-welcome-message-inner fade-in slide-in-from-bottom-1 animate-in fill-mode-both font-semibold text-2xl tracking-tight duration-200 sm:text-3xl">
+    <div className="aui-thread-welcome-root mx-auto my-auto flex w-full max-w-[72rem] grow flex-col justify-end gap-7 pb-5">
+      <div className="aui-thread-welcome-center flex w-full grow flex-col justify-center px-2 md:px-4">
+        <div className="aui-thread-welcome-message mx-auto flex w-full max-w-[26rem] flex-col justify-center gap-2 text-center">
+          <h1 className="aui-thread-welcome-message-inner fade-in slide-in-from-bottom-1 animate-in fill-mode-both font-semibold text-4xl tracking-tight duration-200 sm:text-5xl">
             Hello there!
           </h1>
-          <p className="aui-thread-welcome-message-inner fade-in slide-in-from-bottom-1 animate-in text-lg text-muted-foreground delay-75 duration-200 sm:text-xl">
+          <p className="aui-thread-welcome-message-inner fade-in slide-in-from-bottom-1 animate-in text-2xl text-muted-foreground delay-75 duration-200 sm:text-[2.1rem] sm:leading-[1.15]">
             How can I help you today?
           </p>
         </div>
@@ -172,18 +175,18 @@ const ThreadWelcome: FC = () => {
 
 const ThreadSuggestions: FC = () => {
   return (
-    <div className="aui-thread-welcome-suggestions grid w-full gap-3 px-2 md:grid-cols-2">
+    <div className="aui-thread-welcome-suggestions mx-auto grid w-full max-w-[72rem] gap-3 px-2 md:grid-cols-2 md:px-4">
       {WELCOME_SUGGESTIONS.map((suggestion, index) => (
         <ThreadPrimitive.Suggestion
           key={`${suggestion.title}-${index}`}
           prompt={suggestion.prompt}
-          className="aui-thread-welcome-suggestion fade-in slide-in-from-bottom-2 animate-in fill-mode-both inline-flex h-auto w-full flex-col items-start gap-1.5 rounded-[1.75rem] border border-border/70 bg-background px-6 py-5 text-left transition-all hover:border-border hover:bg-muted/30"
+          className="aui-thread-welcome-suggestion fade-in slide-in-from-bottom-2 animate-in fill-mode-both inline-flex min-h-28 w-full flex-col items-start justify-center gap-1.5 rounded-[2rem] border border-border/80 bg-background px-7 py-5 text-left transition-all hover:border-border hover:bg-muted/30"
           style={{ animationDelay: `${index * 75}ms` }}
         >
-          <span className="aui-thread-welcome-suggestion-text-1 text-lg font-medium tracking-tight text-foreground">
+          <span className="aui-thread-welcome-suggestion-text-1 text-[1.05rem] font-semibold tracking-tight text-foreground">
             {suggestion.title}
           </span>
-          <span className="aui-thread-welcome-suggestion-text-2 text-base leading-relaxed text-muted-foreground">
+          <span className="aui-thread-welcome-suggestion-text-2 text-[0.95rem] leading-relaxed text-muted-foreground">
             {suggestion.description}
           </span>
         </ThreadPrimitive.Suggestion>
@@ -195,22 +198,33 @@ const ThreadSuggestions: FC = () => {
 const Composer: FC<{
   inputDisabled?: boolean;
   inputPlaceholder?: string;
+  confirmationMode?: "always_ask" | "auto_confirm";
+  onConfirmationModeChange?: (mode: "always_ask" | "auto_confirm") => void | Promise<void>;
+  isModeUpdating?: boolean;
 }> = ({
   inputDisabled = false,
   inputPlaceholder,
+  confirmationMode = "always_ask",
+  onConfirmationModeChange,
+  isModeUpdating = false,
 }) => {
   const resolvedPlaceholder =
     inputPlaceholder ?? "Send a message...";
 
   return (
     <ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
-      <ComposerPrimitive.AttachmentDropzone className="aui-composer-attachment-dropzone flex w-full flex-col rounded-[1.75rem] border border-border/80 bg-background px-2 pt-2 shadow-none outline-none transition-shadow has-[textarea:focus-visible]:border-ring has-[textarea:focus-visible]:ring-2 has-[textarea:focus-visible]:ring-ring/20 data-[dragging=true]:border-ring data-[dragging=true]:border-dashed data-[dragging=true]:bg-accent/40">
+      <ComposerPrimitive.AttachmentDropzone className="aui-composer-attachment-dropzone flex w-full flex-col rounded-[2rem] border border-border/80 bg-background px-3 pt-3 shadow-none outline-none transition-shadow has-[textarea:focus-visible]:border-ring has-[textarea:focus-visible]:ring-2 has-[textarea:focus-visible]:ring-ring/20 data-[dragging=true]:border-ring data-[dragging=true]:border-dashed data-[dragging=true]:bg-accent/40">
         <ComposerAttachments />
         <ComposerInputWithCommands
           inputDisabled={inputDisabled}
           placeholder={resolvedPlaceholder}
         />
-        <ComposerAction inputDisabled={inputDisabled} />
+        <ComposerAction
+          inputDisabled={inputDisabled}
+          confirmationMode={confirmationMode}
+          onConfirmationModeChange={onConfirmationModeChange}
+          isModeUpdating={isModeUpdating}
+        />
       </ComposerPrimitive.AttachmentDropzone>
     </ComposerPrimitive.Root>
   );
@@ -355,7 +369,7 @@ const ComposerInputWithCommands: FC<{
         id="assistant-chat-input"
         ref={inputRef}
         placeholder={placeholder}
-        className="aui-composer-input min-h-[5.5rem] w-full resize-none bg-transparent px-4 pt-3 pb-2 text-base text-foreground caret-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-0"
+        className="aui-composer-input min-h-[6.75rem] w-full resize-none bg-transparent px-5 pt-4 pb-3 text-lg text-foreground caret-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-0"
         rows={3}
         autoFocus
         aria-label="Message input"
@@ -375,16 +389,52 @@ const ComposerInputWithCommands: FC<{
 
 const ComposerAction: FC<{
   inputDisabled?: boolean;
+  confirmationMode?: "always_ask" | "auto_confirm";
+  onConfirmationModeChange?: (mode: "always_ask" | "auto_confirm") => void | Promise<void>;
+  isModeUpdating?: boolean;
 }> = ({
   inputDisabled = false,
+  confirmationMode = "always_ask",
+  onConfirmationModeChange,
+  isModeUpdating = false,
 }) => {
+  const isAutoMode = confirmationMode === "auto_confirm";
+
   return (
-    <div className="aui-composer-action-wrapper relative mx-2 mb-2 flex items-center justify-between">
-      <ComposerAddAttachment disabled={inputDisabled} />
+    <div className="aui-composer-action-wrapper relative mx-2 mb-2 flex items-center justify-between md:mx-3 md:mb-3">
+      <div className="flex items-center gap-2">
+        <ComposerAddAttachment disabled={inputDisabled} />
+        {onConfirmationModeChange ? (
+          <button
+            type="button"
+            className={`inline-flex h-10 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors ${
+              isAutoMode
+                ? "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                : "border-border bg-background text-muted-foreground hover:bg-muted"
+            }`}
+            onClick={() =>
+              void onConfirmationModeChange(
+                isAutoMode ? "always_ask" : "auto_confirm",
+              )
+            }
+            disabled={inputDisabled || isModeUpdating}
+            aria-pressed={isAutoMode}
+            aria-label={isAutoMode ? "Disable auto mode" : "Enable auto mode"}
+            title={isAutoMode ? "Disable auto mode" : "Enable auto mode"}
+          >
+            {isModeUpdating ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Sparkles className="size-4" />
+            )}
+            <span>Auto mode {isAutoMode ? "On" : "Off"}</span>
+          </button>
+        ) : null}
+      </div>
       <AuiIf condition={({ thread }) => !thread.isRunning}>
         <ComposerPrimitive.Send
           type="submit"
-          className="aui-composer-send inline-flex size-10 items-center justify-center rounded-full bg-foreground/40 text-background transition-colors hover:bg-foreground/55 disabled:opacity-50"
+          className="aui-composer-send inline-flex size-11 items-center justify-center rounded-full bg-foreground/40 text-background transition-colors hover:bg-foreground/55 disabled:opacity-50"
           aria-label="Send message"
           title="Send message"
           disabled={inputDisabled}
@@ -396,7 +446,7 @@ const ComposerAction: FC<{
       <AuiIf condition={({ thread }) => thread.isRunning}>
         <ComposerPrimitive.Cancel
           type="button"
-          className="aui-composer-cancel inline-flex size-10 items-center justify-center rounded-full bg-foreground/40 text-background transition-colors hover:bg-foreground/55 disabled:opacity-50"
+          className="aui-composer-cancel inline-flex size-11 items-center justify-center rounded-full bg-foreground/40 text-background transition-colors hover:bg-foreground/55 disabled:opacity-50"
           aria-label="Stop generating"
           title="Stop generating"
         >

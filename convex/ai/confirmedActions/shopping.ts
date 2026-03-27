@@ -8,7 +8,7 @@ import { action } from "../../_generated/server";
 import { v } from "convex/values";
 import { makeFunctionReference } from "convex/server";
 import type { Id } from "../../_generated/dataModel";
-import { ensureProjectAccess } from "./helpers";
+import { ensureProjectAccess, parseOptionalDateToMillis } from "./helpers";
 
 const createShoppingListItemMutationRef =
   makeFunctionReference<"mutation">("shopping:createShoppingListItem");
@@ -39,6 +39,8 @@ export const createConfirmedShoppingItem = action({
       unitPrice: v.optional(v.number()),
       totalPrice: v.optional(v.number()),
       sectionId: v.optional(v.id("shoppingListSections")),
+      alternativeToItemId: v.optional(v.id("shoppingListItems")),
+      selectedAlternativeItemId: v.optional(v.id("shoppingListItems")),
     }),
   },
   returns: v.object({
@@ -50,10 +52,10 @@ export const createConfirmedShoppingItem = action({
     try {
       await ensureProjectAccess(ctx, args.projectId, true);
 
-      let buyBeforeNumber: number | undefined;
-      if (args.itemData.buyBefore) {
-        buyBeforeNumber = new Date(args.itemData.buyBefore).getTime();
-      }
+      const buyBeforeNumber = parseOptionalDateToMillis(
+        args.itemData.buyBefore,
+        "shopping buyBefore",
+      );
 
       const itemId = await ctx.runMutation(createShoppingListItemMutationRef, {
         projectId: args.projectId,
@@ -67,6 +69,8 @@ export const createConfirmedShoppingItem = action({
         unitPrice: args.itemData.unitPrice,
         realizationStatus: "PLANNED",
         sectionId: args.itemData.sectionId,
+        alternativeToItemId: args.itemData.alternativeToItemId,
+        selectedAlternativeItemId: args.itemData.selectedAlternativeItemId,
       });
 
       return {
@@ -135,6 +139,8 @@ export const editConfirmedShoppingItem = action({
       dimensions: v.optional(v.string()),
       quantity: v.optional(v.number()),
       unitPrice: v.optional(v.number()),
+      alternativeToItemId: v.optional(v.union(v.id("shoppingListItems"), v.null())),
+      selectedAlternativeItemId: v.optional(v.union(v.id("shoppingListItems"), v.null())),
       realizationStatus: v.optional(v.union(v.literal("PLANNED"), v.literal("ORDERED"), v.literal("IN_TRANSIT"), v.literal("DELIVERED"), v.literal("COMPLETED"), v.literal("CANCELLED"))),
       sectionId: v.optional(v.union(v.id("shoppingListSections"), v.null())),
       assignedTo: v.optional(v.string()),
@@ -174,6 +180,8 @@ export const editConfirmedShoppingItem = action({
         dimensions: args.updates.dimensions,
         quantity: args.updates.quantity,
         unitPrice: args.updates.unitPrice,
+        alternativeToItemId: args.updates.alternativeToItemId,
+        selectedAlternativeItemId: args.updates.selectedAlternativeItemId,
         realizationStatus: args.updates.realizationStatus,
         sectionId: args.updates.sectionId,
         assignedTo: args.updates.assignedTo,
@@ -304,8 +312,6 @@ export const deleteConfirmedShoppingSection = action({
     }
   },
 });
-
-
 
 
 

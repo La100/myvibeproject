@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { getFirstNonEmptyString } from "@/components/ai/assistant/data/hooks/pendingItemsHelpers"
 
 import {
   Field,
@@ -16,10 +17,28 @@ export function SectionForm({
   onUpdate: (u: Record<string, unknown>) => void
   type: string
 }) {
-  const [name, setName] = useState(String(data.name || ""))
+  const resolvedInitialName = getFirstNonEmptyString(
+    data.name,
+    data.sectionName,
+    data.title,
+    data.section,
+    (data.sectionData as Record<string, unknown> | undefined)?.name,
+    (data.sectionData as Record<string, unknown> | undefined)?.sectionName,
+    (data.sectionData as Record<string, unknown> | undefined)?.title,
+    (data.sectionData as Record<string, unknown> | undefined)?.section,
+    (data.data as Record<string, unknown> | undefined)?.name,
+    (data.data as Record<string, unknown> | undefined)?.sectionName,
+    (data.data as Record<string, unknown> | undefined)?.title,
+    (data.data as Record<string, unknown> | undefined)?.section,
+  ) ?? "";
+  const [name, setName] = useState(resolvedInitialName)
 
   useEffect(() => {
-    onUpdate({ name })
+    setName(resolvedInitialName)
+  }, [resolvedInitialName])
+
+  useEffect(() => {
+    onUpdate({ name, sectionName: name })
   }, [name, onUpdate])
 
   return (

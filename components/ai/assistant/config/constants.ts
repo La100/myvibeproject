@@ -117,6 +117,8 @@ export const ALLOWED_SHOPPING_FIELDS = [
   "unitPrice",
   "totalPrice",
   "sectionId",
+  "alternativeToItemId",
+  "selectedAlternativeItemId",
 ] as const;
 
 // ==================== CONTACT TYPES ====================

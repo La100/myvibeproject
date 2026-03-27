@@ -5,6 +5,12 @@ export type ShoppingAlternativeItem = {
   selectedAlternativeItemId?: string | null;
 };
 
+export type ShoppingAlternativeGroup<T extends ShoppingAlternativeItem> = {
+  baseItem: T;
+  options: T[];
+  selectedItemId: string;
+};
+
 type AlternativeSelection = {
   groupedIds: Set<string>;
   selectedIds: Set<string>;
@@ -12,11 +18,11 @@ type AlternativeSelection = {
 
 const toKey = (value: string | null | undefined) => (value ? String(value) : null);
 
-export function buildAlternativeSelection<T extends ShoppingAlternativeItem>(
+export function buildAlternativeGroups<T extends ShoppingAlternativeItem>(
   items: T[],
-): AlternativeSelection {
+): ShoppingAlternativeGroup<T>[] {
   const byId = new Map(items.map((item) => [String(item._id), item]));
-  const childrenByParentId = new Map<string, string[]>();
+  const childrenByParentId = new Map<string, T[]>();
 
   for (const item of items) {
     const parentId = toKey(item.alternativeToItemId);
@@ -24,12 +30,12 @@ export function buildAlternativeSelection<T extends ShoppingAlternativeItem>(
       continue;
     }
     const current = childrenByParentId.get(parentId) ?? [];
-    current.push(String(item._id));
+    current.push(item);
     childrenByParentId.set(parentId, current);
   }
 
+  const groups: ShoppingAlternativeGroup<T>[] = [];
   const groupedIds = new Set<string>();
-  const selectedIds = new Set<string>();
 
   for (const item of items) {
     const itemId = String(item._id);
@@ -40,23 +46,48 @@ export function buildAlternativeSelection<T extends ShoppingAlternativeItem>(
       continue;
     }
 
-    const memberIds = [itemId, ...(childrenByParentId.get(itemId) ?? [])];
+    const options = [item, ...(childrenByParentId.get(itemId) ?? [])];
+    const memberIds = options.map((option) => String(option._id));
+    const selectedOptionId = toKey(item.selectedAlternativeItemId);
+    const selectedId =
+      selectedOptionId && memberIds.includes(selectedOptionId) ? selectedOptionId : itemId;
+
     for (const memberId of memberIds) {
       groupedIds.add(memberId);
     }
 
-    const selectedOptionId = toKey(item.selectedAlternativeItemId);
-    const selectedId =
-      selectedOptionId && memberIds.includes(selectedOptionId) ? selectedOptionId : itemId;
-    selectedIds.add(selectedId);
+    groups.push({
+      baseItem: item,
+      options,
+      selectedItemId: selectedId,
+    });
   }
 
   for (const item of items) {
     const itemId = String(item._id);
     if (!groupedIds.has(itemId)) {
-      groupedIds.add(itemId);
-      selectedIds.add(itemId);
+      groups.push({
+        baseItem: item,
+        options: [item],
+        selectedItemId: itemId,
+      });
     }
+  }
+
+  return groups;
+}
+
+export function buildAlternativeSelection<T extends ShoppingAlternativeItem>(
+  items: T[],
+): AlternativeSelection {
+  const groupedIds = new Set<string>();
+  const selectedIds = new Set<string>();
+
+  for (const group of buildAlternativeGroups(items)) {
+    for (const option of group.options) {
+      groupedIds.add(String(option._id));
+    }
+    selectedIds.add(group.selectedItemId);
   }
 
   return { groupedIds, selectedIds };
@@ -87,4 +118,3 @@ export function calculateShoppingTotal<T extends ShoppingAlternativeItem>(
     return sum + (item.totalPrice || 0);
   }, 0);
 }
-

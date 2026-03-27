@@ -64,6 +64,21 @@ export const ensureTeamMembership = async (ctx: any, teamId: Id<"teams">) => {
   return { identity, membership };
 };
 
+export const parseOptionalDateToMillis = (
+  value: string | undefined,
+  fieldName: string,
+) => {
+  if (!value) {
+    return undefined;
+  }
+
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) {
+    throw new Error(`Invalid ${fieldName}: ${value}`);
+  }
+
+  return timestamp;
+};
 
 
 

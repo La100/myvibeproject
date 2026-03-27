@@ -47,7 +47,7 @@ export function AuthShell({
         <div className="p-4 sm:p-6 lg:h-full lg:p-8">
           <div className="relative min-h-[320px] overflow-hidden rounded-[28px] border border-border/60 bg-background shadow-soft-lg sm:min-h-[420px] lg:min-h-[calc(100vh-4rem)]">
             <Image
-              src="/visualization-1773318760233.png"
+              src="/auth-image.jpg"
               alt="Myvibe project visualization"
               fill
               priority

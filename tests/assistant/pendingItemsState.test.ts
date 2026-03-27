@@ -53,6 +53,41 @@ test("findPendingItemIndex falls back to function call id lookup", () => {
   assert.equal(findPendingItemIndex(items, "call_bulk"), 0);
 });
 
+test("findPendingItemIndex returns -1 for invalid numeric and empty string lookups", () => {
+  const items = [makePendingItem()];
+
+  assert.equal(findPendingItemIndex(items, -1), -1);
+  assert.equal(findPendingItemIndex(items, 5), -1);
+  assert.equal(findPendingItemIndex(items, ""), -1);
+});
+
+test("findPendingItemIndex prefers clientId before function call id", () => {
+  const items = [
+    makePendingItem({
+      clientId: "shared_id",
+      functionCall: {
+        callId: "call_first",
+        functionName: "create_item",
+        arguments: "{}",
+      },
+    }),
+    makePendingItem({
+      clientId: "other_id",
+      functionCall: {
+        callId: "shared_id",
+        functionName: "create_item",
+        arguments: "{}",
+      },
+    }),
+  ];
+
+  assert.equal(findPendingItemIndex(items, "shared_id"), 0);
+});
+
+test("normalizePendingLookupId leaves plain ids unchanged", () => {
+  assert.equal(normalizePendingLookupId("call_123"), "call_123");
+});
+
 test("isResolvedPendingItem only treats confirmed and rejected items as resolved", () => {
   assert.equal(isResolvedPendingItem(makePendingItem({ status: "confirmed" })), true);
   assert.equal(isResolvedPendingItem(makePendingItem({ status: "rejected" })), true);

@@ -19,6 +19,7 @@ import {
   getLabel,
   normalizeType,
 } from "./forms";
+import { getFirstNonEmptyString } from "@/components/ai/assistant/data/hooks/pendingItemsHelpers";
 
 interface InlineCreationFormProps {
   item: PendingContentItem;
@@ -26,6 +27,7 @@ interface InlineCreationFormProps {
   onConfirm: (index: number | string) => Promise<void>;
   onReject: (index: number | string) => void | Promise<void>;
   onUpdate: (index: number | string, updates: Partial<PendingContentItem>) => void;
+  showActions?: boolean;
 }
 
 export function InlineCreationForm({
@@ -34,6 +36,7 @@ export function InlineCreationForm({
   onConfirm,
   onReject,
   onUpdate,
+  showActions = true,
 }: InlineCreationFormProps) {
   const { project } = useProject();
   const projectCurrency =
@@ -91,12 +94,49 @@ export function InlineCreationForm({
     return payloadData;
   })();
 
-  const data = baseData;
+  const data = (() => {
+    if (type === "shoppingSection" || type === "laborSection") {
+      const nestedCandidate = (
+        [
+          baseData.data,
+          baseData.sectionData,
+          baseData.itemData,
+          baseData.item,
+          baseData.section,
+        ].find((value) => !!value && typeof value === "object" && !Array.isArray(value)) ??
+        {}
+      ) as Record<string, unknown>;
+      const sectionName = getFirstNonEmptyString(
+        baseData.name,
+        baseData.sectionName,
+        baseData.title,
+        baseData.section,
+        nestedCandidate.name,
+        nestedCandidate.sectionName,
+        nestedCandidate.title,
+        nestedCandidate.section,
+      );
+      if (sectionName) {
+        return {
+          ...baseData,
+          ...nestedCandidate,
+          name: sectionName,
+          sectionName,
+        };
+      }
+    }
+    return baseData;
+  })();
   const title = typeof data.title === "string" ? data.title : undefined;
   const name = typeof data.name === "string" ? data.name : undefined;
+  const sectionName = typeof data.sectionName === "string" ? data.sectionName : undefined;
   const description = typeof data.description === "string" ? data.description : undefined;
   const content = typeof data.content === "string" ? data.content : undefined;
-  const displayTitle = title || name || "Untitled";
+  const displayTitle =
+    title ||
+    name ||
+    sectionName ||
+    (type === "shoppingSection" || type === "laborSection" ? "New section" : "Untitled");
   const displayDescription = description || content;
   const teamMembers = useQuery(
     apiAny.teams.getTeamMembers,
@@ -121,7 +161,7 @@ export function InlineCreationForm({
   };
 
   return (
-    <div className="w-full max-w-xl mx-auto bg-card rounded-xl border border-border/70 shadow-sm overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[48vh]">
+    <div className="flex h-full w-full min-w-0 flex-col overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm animate-in fade-in zoom-in-95 duration-200 max-h-[48vh]">
       <div className="px-4 py-2.5 border-b border-border/70 bg-card flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <div className={cn("w-2 h-2 rounded-full", getDotColor(type))} />
@@ -163,25 +203,27 @@ export function InlineCreationForm({
         )}
       </div>
 
-      <div className="flex items-center justify-end px-4 py-2.5 bg-card border-t border-border/70">
-        <div className="flex items-center gap-2.5">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onReject(item.clientId ?? item.functionCall?.callId ?? index)}
-            className="text-muted-foreground hover:text-foreground h-8 px-3 hover:bg-muted/30"
-          >
-            Cancel
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleConfirm}
-            className="bg-foreground text-background hover:bg-foreground/90 h-8 px-4 shadow-sm font-medium"
-          >
-            {operationVerb} {getLabel(type)}
-          </Button>
+      {showActions && (
+        <div className="flex items-center justify-end px-4 py-2.5 bg-card border-t border-border/70">
+          <div className="flex items-center gap-2.5">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onReject(item.clientId ?? item.functionCall?.callId ?? index)}
+              className="text-muted-foreground hover:text-foreground h-8 px-3 hover:bg-muted/30"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleConfirm}
+              className="bg-foreground text-background hover:bg-foreground/90 h-8 px-4 shadow-sm font-medium"
+            >
+              {operationVerb} {getLabel(type)}
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

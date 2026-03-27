@@ -19,8 +19,15 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
-import { InlineConfirmationList } from "@/components/ai/assistant/ui/confirmations/InlineConfirmation";
 import type { PendingContentItem } from "@/components/ai/assistant/data/types";
+import { InlineConfirmationList } from "@/components/ai/assistant/ui/confirmations/InlineConfirmation";
+import {
+  getInlineConfirmationScope,
+} from "@/components/assistant-ui/tool-fallback-confirmation-scope";
+import {
+  resolveInlineConfirmationItems,
+  toPendingItemsFromResult,
+} from "@/components/assistant-ui/tool-fallback-helpers";
 
 const ANIMATION_DURATION = 200;
 
@@ -233,60 +240,6 @@ function ToolFallbackResult({
   );
 }
 
-function toPendingItemFromResult(
-  toolCallId: string,
-  result: unknown,
-): PendingContentItem | null {
-  let normalizedResult: unknown = result;
-  for (let i = 0; i < 2 && typeof normalizedResult === "string"; i += 1) {
-    try {
-      normalizedResult = JSON.parse(normalizedResult);
-    } catch {
-      return null;
-    }
-  }
-
-  if (!normalizedResult || typeof normalizedResult !== "object") return null;
-
-  const parsed = normalizedResult as Record<string, unknown>;
-  const type = parsed.type;
-  const operation = parsed.operation;
-  const data = parsed.data;
-  const status = parsed.status;
-
-  if (
-    typeof type !== "string" ||
-    !["create", "edit", "delete", "bulk_create", "bulk_edit"].includes(String(operation)) ||
-    !data ||
-    typeof data !== "object"
-  ) {
-    return null;
-  }
-
-  const normalizedStatus =
-    status === "confirmed" || status === "rejected" ? status : undefined;
-
-  return {
-    type: type as PendingContentItem["type"],
-    operation: operation as PendingContentItem["operation"],
-    data: data as Record<string, unknown>,
-    status: normalizedStatus,
-    updates:
-      parsed.updates && typeof parsed.updates === "object"
-        ? (parsed.updates as Record<string, unknown>)
-        : undefined,
-    originalItem:
-      parsed.originalItem && typeof parsed.originalItem === "object"
-        ? (parsed.originalItem as Record<string, unknown>)
-        : undefined,
-    functionCall: {
-      callId: toolCallId,
-      functionName: "",
-      arguments: "",
-    },
-  };
-}
-
 export interface ToolFallbackProps extends ToolCallMessagePartProps {
   pendingItems?: PendingContentItem[];
   onConfirmItem?: (index: number | string) => Promise<void>;
@@ -369,24 +322,25 @@ const ToolFallbackImpl = ({
         : [],
     [pendingItems, toolCallId],
   );
-  const hasPendingItems = (pendingItems?.length ?? 0) > 0;
-  const fallbackPendingItem = useMemo(
-    () => (toolCallId ? toPendingItemFromResult(toolCallId, result) : null),
+  const fallbackPendingItems = useMemo(
+    () => (toolCallId ? toPendingItemsFromResult(toolCallId, result) : []),
     [toolCallId, result],
   );
   const isCrudLikeResult =
     matchedPendingItemsByCallId.length > 0 ||
-    !!fallbackPendingItem;
+    fallbackPendingItems.length > 0;
+  const inlineConfirmationScope = useMemo(
+    () => getInlineConfirmationScope(pendingItems, toolCallId),
+    [pendingItems, toolCallId],
+  );
 
   const itemsForInlineConfirmation = useMemo(() => {
-    if (matchedPendingItemsByCallId.length > 0) {
-      return matchedPendingItemsByCallId;
-    }
-    if (!hasPendingItems && fallbackPendingItem) {
-      return [fallbackPendingItem];
-    }
-    return [];
-  }, [matchedPendingItemsByCallId, hasPendingItems, fallbackPendingItem]);
+    return resolveInlineConfirmationItems({
+      inlineConfirmationScope,
+      matchedPendingItemsByCallId,
+      fallbackPendingItems,
+    });
+  }, [fallbackPendingItems, inlineConfirmationScope, matchedPendingItemsByCallId]);
 
   const showInlineConfirmation = itemsForInlineConfirmation.length > 0;
   const hasUnresolvedItemsInCard = itemsForInlineConfirmation.some(
@@ -435,6 +389,10 @@ const ToolFallbackImpl = ({
     prevHadUnresolvedRef.current = false;
   }, [hasUnresolvedItemsInCard, showInlineConfirmation]);
 
+  if (inlineConfirmationScope.suppressToolFallback) {
+    return null;
+  }
+
   if (showInlineConfirmation) {
     return (
       <div className="px-0 pt-2">
@@ -457,6 +415,10 @@ const ToolFallbackImpl = ({
         />
       </div>
     );
+  }
+
+  if (isCrudLikeResult) {
+    return null;
   }
 
   return (

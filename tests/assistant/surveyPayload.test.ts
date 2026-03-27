@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   buildCreateSurveyPayload,
   buildUpdateSurveyPayload,
-} from "../../lib/assistant/chatkitSurveyPayload.ts";
+} from "../../lib/assistant/surveyPayload.ts";
 
 const interiorDesignQuestions = [
   {
@@ -111,4 +111,76 @@ test("buildUpdateSurveyPayload keeps surveyId and question create operations", (
   assert.equal(result.updates?.questions?.every((question) => question.operation === "create"), true);
   assert.equal(result.updates?.questions?.[4]?.questionType, "rating");
   assert.equal(result.updates?.questions?.[7]?.questionType, "number");
+});
+
+test("buildCreateSurveyPayload trims blanks and drops incomplete questions", () => {
+  const result = buildCreateSurveyPayload({
+    name: "  Ankieta wykonawcza  ",
+    description: "   ",
+    isRequired: "true",
+    allowMultipleResponses: "false",
+    questions: [
+      {
+        title: "  Jak oceniasz postep?  ",
+        type: "rating",
+        options: ["  ", "5", " 4 "],
+        isRequired: "true",
+        order: "2",
+      },
+      {
+        questionText: "Bez typu powinno wypasc",
+      },
+      {
+        questionId: "question_existing",
+        operation: "delete",
+      },
+    ],
+  });
+
+  assert.equal(result.title, "Ankieta wykonawcza");
+  assert.equal(result.surveyData?.description, undefined);
+  assert.equal(result.surveyData?.isRequired, true);
+  assert.equal(result.surveyData?.allowMultipleResponses, false);
+  assert.equal(result.surveyData?.questions?.length, 2);
+  assert.equal(result.surveyData?.questions?.[0]?.questionText, "Jak oceniasz postep?");
+  assert.equal(result.surveyData?.questions?.[0]?.questionType, "rating");
+  assert.deepEqual(result.surveyData?.questions?.[0]?.options, ["5", "4"]);
+  assert.equal(result.surveyData?.questions?.[0]?.order, 2);
+  assert.equal(result.surveyData?.questions?.[1]?.questionId, "question_existing");
+  assert.equal(result.surveyData?.questions?.[1]?.operation, "delete");
+});
+
+test("buildUpdateSurveyPayload returns undefined updates for blank surveyId", () => {
+  const result = buildUpdateSurveyPayload({
+    surveyId: "   ",
+    title: "Nie powinno wejsc",
+  });
+
+  assert.equal(result.surveyId, undefined);
+  assert.equal(result.updates, undefined);
+});
+
+test("buildUpdateSurveyPayload keeps aliased question fields for identified updates", () => {
+  const result = buildUpdateSurveyPayload({
+    surveyId: "survey_test_456",
+    questions: [
+      {
+        questionId: "question_1",
+        title: "  Nowe pytanie  ",
+        type: "single_choice",
+        options: [" A ", "B"],
+        isRequired: "false",
+        order: "3",
+      },
+    ],
+  });
+
+  assert.equal(result.surveyId, "survey_test_456");
+  assert.equal(result.updates?.questions?.length, 1);
+  assert.equal(result.updates?.questions?.[0]?.questionId, "question_1");
+  assert.equal(result.updates?.questions?.[0]?.questionText, "Nowe pytanie");
+  assert.equal(result.updates?.questions?.[0]?.questionType, "single_choice");
+  assert.deepEqual(result.updates?.questions?.[0]?.options, ["A", "B"]);
+  assert.equal(result.updates?.questions?.[0]?.isRequired, false);
+  assert.equal(result.updates?.questions?.[0]?.order, 3);
 });

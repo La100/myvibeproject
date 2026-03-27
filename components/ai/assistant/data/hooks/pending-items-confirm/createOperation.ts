@@ -106,12 +106,21 @@ export async function confirmCreateItem(
           category?: string;
           unitPrice?: number;
           sectionId?: Id<"shoppingListSections">;
+          alternativeToItemId?: Id<"shoppingListItems">;
+          selectedAlternativeItemId?: Id<"shoppingListItems">;
         },
       });
       break;
     }
     case 'shoppingSection': {
-      const targetSectionName = resolveSectionName((item.data as Record<string, unknown>)?.name);
+      const rawSectionData = item.data as Record<string, unknown>;
+      const targetSectionName = resolveSectionName(
+        getFirstNonEmptyString(
+          rawSectionData?.name,
+          rawSectionData?.sectionName,
+          rawSectionData?.title,
+        ),
+      );
       if (!targetSectionName) {
         result = {
           success: false,
@@ -194,7 +203,12 @@ export async function confirmCreateItem(
       break;
     }
     case 'laborSection': {
-      const targetSectionName = getFirstNonEmptyString((item.data as Record<string, unknown>)?.name);
+      const rawSectionData = item.data as Record<string, unknown>;
+      const targetSectionName = getFirstNonEmptyString(
+        rawSectionData?.name,
+        rawSectionData?.sectionName,
+        rawSectionData?.title,
+      );
       if (!targetSectionName) {
         result = {
           success: false,

@@ -61,10 +61,10 @@ export function ChatSidebar({
   return (
     <aside
       className={cn(
-        "hidden md:flex md:absolute md:top-4 md:right-4 md:bottom-4 z-30 w-80 flex-col overflow-hidden rounded-[1.75rem] border border-border/60 bg-background shadow-none transition-all duration-300 ease-out",
+        "hidden md:flex md:absolute md:top-4 md:left-4 md:bottom-4 z-30 w-[25.5rem] flex-col overflow-hidden rounded-[1.75rem] border border-border/70 bg-background shadow-none transition-all duration-300 ease-out",
         showHistory
           ? "translate-x-0 opacity-100"
-          : "pointer-events-none translate-x-6 opacity-0"
+          : "pointer-events-none -translate-x-6 opacity-0"
       )}
     >
       <div
@@ -73,15 +73,15 @@ export function ChatSidebar({
           showHistory ? "opacity-100 translate-x-0" : "opacity-0 translate-x-2 pointer-events-none"
         )}
       >
-        <div className="flex items-center justify-between p-4 pb-2">
+        <div className="flex items-center justify-between p-5 pb-3">
           <div className="flex items-center gap-2">
             <MessageSquare className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-semibold">{title}</h2>
+            <h2 className="text-base font-semibold">{title}</h2>
           </div>
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            className="h-9 w-9 rounded-xl text-muted-foreground hover:text-foreground"
             onClick={() => setShowHistory(false)}
             disabled={isDisabled}
           >
@@ -90,15 +90,15 @@ export function ChatSidebar({
           </Button>
         </div>
 
-        <div className="px-4 pb-4">
+        <div className="px-5 pb-5">
           <Button
             onClick={onNewChat}
-            className="w-full justify-start pl-3"
+            className="h-14 w-full justify-start rounded-2xl px-5 text-[1.05rem]"
             variant="outline"
-            size="sm"
+            size="default"
             disabled={isDisabled}
           >
-            <Plus className="mr-2 h-4 w-4" />
+            <Plus className="mr-2 h-5 w-5" />
             {newChatLabel}
           </Button>
 
@@ -113,7 +113,7 @@ export function ChatSidebar({
               <span className="text-xs">Loading history...</span>
             </div>
           ) : hasThreads ? (
-            <div className="flex flex-col p-2 gap-1">
+            <div className="flex flex-col gap-1.5 p-3">
               {threadList.map((thread) => {
                 const isActive = thread.threadId === currentThreadId;
                 const previewRaw = (thread.lastMessagePreview ?? "").replace(/\s+/g, " ").trim();
@@ -135,17 +135,19 @@ export function ChatSidebar({
                     key={thread.threadId}
                     variant={isActive ? "secondary" : "ghost"}
                     className={cn(
-                      "w-full justify-start h-auto py-3 px-3 flex-col items-start gap-1",
-                      isActive ? "bg-secondary" : "text-muted-foreground hover:text-foreground"
+                      "h-auto w-full items-start justify-start rounded-2xl px-4 py-3.5 text-left",
+                      isActive
+                        ? "bg-secondary text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
                     )}
                     onClick={() => onThreadSelect(thread.threadId)}
                     disabled={isDisabled}
                   >
                     <div className="flex w-full justify-between items-baseline gap-2">
-                      <span className="font-medium text-sm truncate">{thread.title}</span>
-                      <span className="text-[10px] text-muted-foreground shrink-0 whitespace-nowrap">{relativeTime}</span>
+                      <span className="truncate text-sm font-medium">{thread.title}</span>
+                      <span className="shrink-0 whitespace-nowrap text-[11px] text-muted-foreground">{relativeTime}</span>
                     </div>
-                    <span className="text-xs text-muted-foreground line-clamp-1 text-left w-full font-normal opacity-90">
+                    <span className="line-clamp-1 w-full text-left text-[13px] font-normal text-muted-foreground opacity-90">
                       {preview}
                     </span>
                   </Button>
@@ -153,12 +155,12 @@ export function ChatSidebar({
               })}
             </div>
           ) : (
-            <div className="p-8 text-center">
-              <div className="bg-muted/50 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-3">
+            <div className="p-10 text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted/50">
                 <MessageSquare className="h-5 w-5 text-muted-foreground" />
               </div>
               <p className="text-sm font-medium">{emptyStateTitle}</p>
-              <p className="text-xs text-muted-foreground mt-1">{emptyStateDescription}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{emptyStateDescription}</p>
             </div>
           )}
         </ScrollArea>

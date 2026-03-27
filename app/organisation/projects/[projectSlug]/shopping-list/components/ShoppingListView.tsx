@@ -19,9 +19,12 @@ import { AddItemForm } from './AddItemForm';
 import { ShoppingListSection } from './ShoppingListSection';
 import { ExportModal } from './ExportModal';
 import { ProjectPageLayout } from '@/components/project/ProjectPageLayout';
-import { ProjectPageHeader } from '@/components/project/ProjectPageHeader';
-import { ShoppingCart, PlusIcon, DownloadIcon } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
+import { DownloadIcon, PlusIcon, SearchIcon, XIcon } from 'lucide-react';
 
 type ShoppingListItem = Doc<"shoppingListItems"> & {
   alternativeToItemId?: Id<"shoppingListItems"> | null;
@@ -174,6 +177,11 @@ export function ShoppingListViewSkeleton() {
 export default function ShoppingListView() {
   const [isPending] = useTransition();
   const [showMainAddForm, setShowMainAddForm] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | ShoppingListItem["realizationStatus"]>('all');
+  const [priorityFilter, setPriorityFilter] = useState<'all' | NonNullable<ShoppingListItem["priority"]>>('all');
+  const [sectionFilter, setSectionFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
   const { project } = useProject();
 
@@ -209,32 +217,107 @@ export default function ShoppingListView() {
 
   const currencySymbol = project.currency === "EUR" ? "€" : project.currency === "PLN" ? "zł" : "$";
 
-  // Group items by section
   const sectionMap = new Map(sections.map(s => [s._id, s.name]));
-  const itemsBySection = items.reduce((acc, item) => {
-    const sectionName = item.sectionId ? sectionMap.get(item.sectionId) || 'No Category' : 'No Category';
+  const resolveSectionName = (item: ShoppingListItem) =>
+    item.sectionId ? sectionMap.get(item.sectionId) || 'No Category' : 'No Category';
+
+  const hasItemsWithoutSection = items.some(item => !item.sectionId);
+
+  const availableCategories = Array.from(
+    new Set(
+      items
+        .map((item) => item.category?.trim())
+        .filter((value): value is string => !!value),
+    ),
+  ).sort((a, b) => a.localeCompare(b));
+
+  const availableSections = Array.from(
+    new Set([
+      ...sections.map((section) => section.name),
+      ...(hasItemsWithoutSection ? ['No Category'] : []),
+    ]),
+  ).sort((a, b) => {
+    if (a === 'No Category') return 1;
+    if (b === 'No Category') return -1;
+    return a.localeCompare(b);
+  });
+
+  const normalizedSearchQuery = searchQuery.trim().toLocaleLowerCase();
+
+  const filteredItems = items.filter((item) => {
+    const sectionName = resolveSectionName(item);
+    const categoryName = item.category?.trim() || '';
+    const matchesSearch =
+      normalizedSearchQuery.length === 0 ||
+      [
+        item.name,
+        item.notes,
+        item.supplier,
+        item.category,
+        item.catalogNumber,
+        item.dimensions,
+        item.productLink,
+        sectionName,
+      ]
+        .filter((value): value is string => !!value)
+        .some((value) => value.toLocaleLowerCase().includes(normalizedSearchQuery));
+
+    const matchesStatus = statusFilter === 'all' || item.realizationStatus === statusFilter;
+    const matchesPriority = priorityFilter === 'all' || item.priority === priorityFilter;
+    const matchesSection = sectionFilter === 'all' || sectionName === sectionFilter;
+    const matchesCategory = categoryFilter === 'all' || categoryName === categoryFilter;
+
+    return matchesSearch && matchesStatus && matchesPriority && matchesSection && matchesCategory;
+  });
+
+  const hasActiveFilters =
+    normalizedSearchQuery.length > 0 ||
+    statusFilter !== 'all' ||
+    priorityFilter !== 'all' ||
+    sectionFilter !== 'all' ||
+    categoryFilter !== 'all';
+
+  const visibleItemsBySection = filteredItems.reduce((acc, item) => {
+    const sectionName = resolveSectionName(item);
     if (!acc[sectionName]) acc[sectionName] = [];
     acc[sectionName].push(item);
     return acc;
   }, {} as Record<string, ShoppingListItem[]>);
 
-  sections.forEach(section => {
-    if (!itemsBySection[section.name]) {
-      itemsBySection[section.name] = [];
-    }
-  });
+  if (!hasActiveFilters) {
+    sections.forEach(section => {
+      if (!visibleItemsBySection[section.name]) {
+        visibleItemsBySection[section.name] = [];
+      }
+    });
 
-  const hasItemsWithoutSection = items.some(item => !item.sectionId);
-  if (!hasItemsWithoutSection && itemsBySection['No Category']) {
-    delete itemsBySection['No Category'];
+    if (!hasItemsWithoutSection && visibleItemsBySection['No Category']) {
+      delete visibleItemsBySection['No Category'];
+    }
   }
 
-  const sectionTotals = Object.entries(itemsBySection).map(([section, sectionItems]) => {
+  const sortedVisibleSections = Object.entries(visibleItemsBySection)
+    .sort(([a], [b]) => {
+      if (a === 'No Category') return 1;
+      if (b === 'No Category') return -1;
+      return a.localeCompare(b);
+    });
+
+  const sectionTotals = sortedVisibleSections.map(([section, sectionItems]) => {
     const total = calculateShoppingTotal(sectionItems);
     return { section, total, itemCount: sectionItems.length };
   });
 
   const grandTotal = calculateShoppingTotal(items);
+  const visibleGrandTotal = calculateShoppingTotal(filteredItems);
+
+  const resetFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('all');
+    setPriorityFilter('all');
+    setSectionFilter('all');
+    setCategoryFilter('all');
+  };
 
   // Handlers
   const handleCreateSection = async (name: string) => {
@@ -729,40 +812,193 @@ export default function ShoppingListView() {
           isPending={isPending}
         />
 
-        {/* Header */}
-        <ProjectPageHeader
-          title="Shopping List"
-          icon={<ShoppingCart className="h-8 w-8" />}
-          tags={
-            <>
-              <span className="inline-flex items-center gap-2 rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-4 py-2 text-sm font-medium text-[var(--ui-accent-brand)]">
-                {project.name}
-              </span>
-              <span className="inline-flex items-center gap-2 rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-4 py-2 text-sm font-medium text-[var(--ui-text-main)]">
-                Total: {grandTotal.toFixed(2)} {currencySymbol}
-              </span>
-            </>
-          }
-          actions={
-            <>
-              <Button
-                onClick={() => setShowMainAddForm(!showMainAddForm)}
-                className="rounded-lg bg-[var(--ui-action-bg)] px-6 text-[var(--primary-foreground)] shadow-[0_14px_36px_rgba(14,14,14,0.18)] hover:bg-[var(--ui-action-hover)] transition-transform hover:-translate-y-0.5"
-              >
-                <PlusIcon className="h-4 w-4 mr-2" />
-                Add Product
-              </Button>
-              <Button
-                onClick={() => setIsExportModalOpen(true)}
-                variant="outline"
-                className="rounded-lg border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-6 text-[var(--ui-text-strong)] shadow-sm hover:bg-[var(--ui-surface-base)]/90 hover:-translate-y-0.5 transition-all"
-              >
-                <DownloadIcon className="h-4 w-4 mr-2" />
-                Export
-              </Button>
-            </>
-          }
-        />
+        <div className="sticky top-3 z-20 mb-8">
+          <div className="rounded-[28px] border border-[var(--ui-border-soft)] bg-[color:color-mix(in_srgb,var(--ui-surface-base)_88%,white)] p-4 shadow-[0_26px_70px_rgba(20,20,20,0.10)] backdrop-blur-xl sm:p-6">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="outline" className="border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-[var(--ui-accent-brand)]">
+                    {project.name}
+                  </Badge>
+                  <Badge variant="secondary" className="bg-[var(--ui-surface-soft)] text-[var(--ui-text-main)]">
+                    Showing {filteredItems.length} / {items.length} items
+                  </Badge>
+                  <Badge variant="outline" className="border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-[var(--ui-text-main)]">
+                    Total: {grandTotal.toFixed(2)} {currencySymbol}
+                  </Badge>
+                  {hasActiveFilters && (
+                    <Badge variant="outline" className="border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] text-[var(--ui-text-main)]">
+                      Visible: {visibleGrandTotal.toFixed(2)} {currencySymbol}
+                    </Badge>
+                  )}
+                </div>
+                <p className="max-w-3xl text-sm text-[var(--ui-text-muted)]">
+                  Search products and narrow the list by status, priority, section, and category.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                {hasActiveFilters && (
+                  <Button
+                    onClick={resetFilters}
+                    variant="ghost"
+                    className="rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-[var(--ui-text-main)] hover:bg-[var(--ui-surface-soft)]"
+                  >
+                    <XIcon data-icon="inline-start" />
+                    Clear filters
+                  </Button>
+                )}
+                <Button
+                  onClick={() => setShowMainAddForm(!showMainAddForm)}
+                  className="rounded-full bg-[var(--ui-action-bg)] px-6 text-[var(--primary-foreground)] shadow-[0_14px_36px_rgba(14,14,14,0.18)] hover:bg-[var(--ui-action-hover)]"
+                >
+                  <PlusIcon data-icon="inline-start" />
+                  Add Product
+                </Button>
+                <Button
+                  onClick={() => setIsExportModalOpen(true)}
+                  variant="outline"
+                  className="rounded-full border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-6 text-[var(--ui-text-strong)] hover:bg-[var(--ui-surface-soft)]"
+                >
+                  <DownloadIcon data-icon="inline-start" />
+                  Export
+                </Button>
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-3 xl:grid-cols-[minmax(0,1.5fr)_repeat(4,minmax(0,0.8fr))]">
+              <div className="relative">
+                <SearchIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ui-text-muted)]" />
+                <Input
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search by product, supplier, notes, category..."
+                  className="h-11 rounded-2xl border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] pl-10"
+                />
+              </div>
+
+              <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as 'all' | ShoppingListItem["realizationStatus"])}>
+                <SelectTrigger className="h-11 w-full rounded-2xl border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)]">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All statuses</SelectItem>
+                  <SelectItem value="PLANNED">Planned</SelectItem>
+                  <SelectItem value="ORDERED">Ordered</SelectItem>
+                  <SelectItem value="IN_TRANSIT">In Transit</SelectItem>
+                  <SelectItem value="DELIVERED">Delivered</SelectItem>
+                  <SelectItem value="COMPLETED">Completed</SelectItem>
+                  <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={priorityFilter} onValueChange={(value) => setPriorityFilter(value as 'all' | NonNullable<ShoppingListItem["priority"]>)}>
+                <SelectTrigger className="h-11 w-full rounded-2xl border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)]">
+                  <SelectValue placeholder="Priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All priorities</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="urgent">Urgent</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={sectionFilter} onValueChange={setSectionFilter}>
+                <SelectTrigger className="h-11 w-full rounded-2xl border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)]">
+                  <SelectValue placeholder="Section" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All sections</SelectItem>
+                  {availableSections.map((sectionName) => (
+                    <SelectItem key={sectionName} value={sectionName}>
+                      {sectionName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="h-11 w-full rounded-2xl border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)]">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All categories</SelectItem>
+                  {availableCategories.map((categoryName) => (
+                    <SelectItem key={categoryName} value={categoryName}>
+                      {categoryName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {availableSections.length > 0 && (
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <span className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--ui-text-muted)]">
+                  Sections
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={sectionFilter === 'all' ? 'secondary' : 'outline'}
+                  className="rounded-full"
+                  onClick={() => setSectionFilter('all')}
+                >
+                  All
+                </Button>
+                {availableSections.map((sectionName) => (
+                  <Button
+                    key={sectionName}
+                    type="button"
+                    size="sm"
+                    variant={sectionFilter === sectionName ? 'secondary' : 'outline'}
+                    className={cn(
+                      'rounded-full',
+                      sectionFilter === sectionName && 'border-transparent bg-[var(--ui-surface-soft)] text-[var(--ui-text-strong)]',
+                    )}
+                    onClick={() => setSectionFilter(sectionName)}
+                  >
+                    {sectionName}
+                  </Button>
+                ))}
+              </div>
+            )}
+
+            {availableCategories.length > 0 && (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--ui-text-muted)]">
+                  Categories
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={categoryFilter === 'all' ? 'secondary' : 'outline'}
+                  className="rounded-full"
+                  onClick={() => setCategoryFilter('all')}
+                >
+                  All
+                </Button>
+                {availableCategories.map((categoryName) => (
+                  <Button
+                    key={categoryName}
+                    type="button"
+                    size="sm"
+                    variant={categoryFilter === categoryName ? 'secondary' : 'outline'}
+                    className={cn(
+                      'rounded-full',
+                      categoryFilter === categoryName && 'border-transparent bg-[var(--ui-surface-soft)] text-[var(--ui-text-strong)]',
+                    )}
+                    onClick={() => setCategoryFilter(categoryName)}
+                  >
+                    {categoryName}
+                  </Button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* Main Add Product Form */}
         {showMainAddForm && (
@@ -790,13 +1026,23 @@ export default function ShoppingListView() {
         />
 
         {/* Shopping List Sections */}
-        {Object.entries(itemsBySection)
-          .sort(([a], [b]) => {
-            if (a === 'No Category') return 1;
-            if (b === 'No Category') return -1;
-            return a.localeCompare(b);
-          })
-          .map(([sectionName, sectionItems]) => {
+        {sortedVisibleSections.length === 0 && (
+          <div className="mb-10 rounded-[32px] border border-dashed border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-10 text-center shadow-[0_24px_60px_rgba(20,20,20,0.05)]">
+            <p className="text-base font-medium text-[var(--ui-text-strong)]">No products match the current filters.</p>
+            <p className="mt-2 text-sm text-[var(--ui-text-muted)]">
+              Adjust the search or clear the filters to see the full list again.
+            </p>
+            <Button
+              onClick={resetFilters}
+              variant="outline"
+              className="mt-4 rounded-full border-[var(--ui-border-soft)]"
+            >
+              Reset filters
+            </Button>
+          </div>
+        )}
+
+        {sortedVisibleSections.map(([sectionName, sectionItems]) => {
             // Find the section ID for this section name
             const section = sections.find(s => s.name === sectionName);
             const sectionId = section?._id;
@@ -821,16 +1067,26 @@ export default function ShoppingListView() {
         {/* Grand Total */}
         <div className="mt-12 rounded-[32px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-8 shadow-[0_24px_60px_rgba(20,20,20,0.08)]">
           <div className="space-y-4">
-            {sectionTotals.map(({ section, total }) => (
+            {sectionTotals.map(({ section, total, itemCount }) => (
               <div key={section} className="flex justify-between items-center text-base text-[var(--ui-text-main)]">
-                <span className="font-medium">{section}</span>
+                <span className="font-medium">{section} <span className="text-[var(--ui-text-muted)]">({itemCount})</span></span>
                 <span>{total.toFixed(2)} {currencySymbol}</span>
               </div>
             ))}
             <div className="border-t border-[var(--ui-border-soft)] pt-4 flex justify-between items-center">
-              <span className="text-xl font-medium font-[var(--font-display-serif)]">Grand Total</span>
-              <span className="text-2xl font-medium font-[var(--font-display-serif)]">{grandTotal.toFixed(2)} {currencySymbol}</span>
+              <span className="text-xl font-medium font-[var(--font-display-serif)]">
+                {hasActiveFilters ? 'Filtered Total' : 'Grand Total'}
+              </span>
+              <span className="text-2xl font-medium font-[var(--font-display-serif)]">
+                {hasActiveFilters ? visibleGrandTotal.toFixed(2) : grandTotal.toFixed(2)} {currencySymbol}
+              </span>
             </div>
+            {hasActiveFilters && (
+              <div className="flex justify-between items-center text-sm text-[var(--ui-text-muted)]">
+                <span>Full list total</span>
+                <span>{grandTotal.toFixed(2)} {currencySymbol}</span>
+              </div>
+            )}
           </div>
         </div>
       </ProjectPageLayout>
