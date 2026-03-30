@@ -8,7 +8,7 @@ import { toOpenAIFileContentPart } from "./openaiFileParts";
 type MessageContentPart =
   | { type: "text"; text: string }
   | { type: "image"; image: string; mediaType?: string }
-  | { type: "file"; data: string; mimeType: string };
+  | { type: "file"; data: string; mediaType: string };
 
 type PrepareFileMessageArgs = {
   ctx: ActionCtx;
@@ -94,7 +94,7 @@ export async function prepareMessageWithFile({
     if (isPdf) {
       // Pass PDF URL directly to agent - let OpenAI handle it natively
       content = [
-        { type: "file", data: fileUrl, mimeType: file.mimeType || "application/pdf" },
+        { type: "file", data: fileUrl, mediaType: file.mimeType || "application/pdf" },
         { type: "text", text: message || `User attached PDF: ${file.name}` },
       ];
       message = message || `User attached PDF: ${file.name}`;
@@ -128,7 +128,7 @@ export async function prepareMessageWithFile({
     // For other file types, pass URL as file type
     const mimeType = file.mimeType || "application/octet-stream";
     content = [
-      { type: "file", data: fileUrl, mimeType },
+      { type: "file", data: fileUrl, mediaType: mimeType },
       { type: "text", text: message || `User attached file: ${file.name}` },
     ];
     message = message || `User attached file: ${file.name}`;
@@ -193,7 +193,7 @@ export async function prepareMessageWithFiles({
         content.push({
           type: "file",
           data: fileUrl,
-          mimeType: file.mimeType || "application/pdf",
+          mediaType: file.mimeType || "application/pdf",
         });
         continue;
       }
@@ -221,7 +221,7 @@ export async function prepareMessageWithFiles({
 
       const mimeType = file.mimeType || "application/octet-stream";
       appendToMessage(`User attached file: ${file.name}`);
-      content.push({ type: "file", data: fileUrl, mimeType });
+      content.push({ type: "file", data: fileUrl, mediaType: mimeType });
     } catch (error) {
       console.error("Failed to prepare AI message with file:", error);
       appendToMessage(`[User attached file: ${fileId} - processing failed, please ask for specific content.]`);

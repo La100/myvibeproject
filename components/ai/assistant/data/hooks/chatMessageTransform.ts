@@ -27,6 +27,37 @@ const parseJson = <T>(value: string): T | null => {
   }
 };
 
+const areJsonValuesEqual = (a: unknown, b: unknown): boolean => {
+  if (Object.is(a, b)) return true;
+
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false;
+    return a.every((item, index) => areJsonValuesEqual(item, b[index]));
+  }
+
+  if (
+    typeof a === "object" &&
+    a !== null &&
+    typeof b === "object" &&
+    b !== null &&
+    !Array.isArray(a) &&
+    !Array.isArray(b)
+  ) {
+    const aRecord = a as Record<string, unknown>;
+    const bRecord = b as Record<string, unknown>;
+    const aKeys = Object.keys(aRecord);
+    const bKeys = Object.keys(bRecord);
+
+    if (aKeys.length !== bKeys.length) return false;
+
+    return aKeys.every(
+      (key) => key in bRecord && areJsonValuesEqual(aRecord[key], bRecord[key]),
+    );
+  }
+
+  return false;
+};
+
 const stripThinking = (text: string) => {
   if (!text.includes("<thinking>")) return text;
   const withoutBlocks = text.replace(/<thinking>[\s\S]*?<\/thinking>/g, "");
@@ -104,28 +135,59 @@ export const mergePersistentCallState = (
         const persistentCall = callMap.get(callId);
         const partWithResult = part as ToolResultPart;
         if (!persistentCall?.status || !partWithResult.result) {
-          return part;
+          if (!persistentCall?.arguments || !partWithResult.result) {
+            return part;
+          }
+
+          const currentResult = parseJson<Record<string, unknown>>(
+            partWithResult.result,
+          );
+          const nextArguments = parseJson<Record<string, unknown>>(
+            persistentCall.arguments,
+          );
+
+          if (!currentResult || !nextArguments) {
+            return part;
+          }
+
+          if (areJsonValuesEqual(currentResult, nextArguments)) {
+            return part;
+          }
+
+          hasUpdates = true;
+          return {
+            ...part,
+            result: JSON.stringify(nextArguments),
+          } as MessagePart;
         }
 
         const currentResult = parseJson<Record<string, unknown>>(
           partWithResult.result,
         );
-        if (!currentResult || currentResult.status === persistentCall.status) {
+        const nextArguments = parseJson<Record<string, unknown>>(
+          persistentCall.arguments,
+        );
+        if (!currentResult || !nextArguments) {
+          return part;
+        }
+
+        const outcome = persistentCall.result
+          ? parseJson<unknown>(persistentCall.result)
+          : undefined;
+        const nextResult = {
+          ...nextArguments,
+          status: persistentCall.status,
+          outcome,
+        };
+
+        if (areJsonValuesEqual(currentResult, nextResult)) {
           return part;
         }
 
         hasUpdates = true;
-        const outcome = persistentCall.result
-          ? parseJson<unknown>(persistentCall.result)
-          : undefined;
-
         return {
           ...part,
-          result: JSON.stringify({
-            ...currentResult,
-            status: persistentCall.status,
-            outcome,
-          }),
+          result: JSON.stringify(nextResult),
         } as MessagePart;
       });
 

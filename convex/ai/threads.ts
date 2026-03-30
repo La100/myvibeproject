@@ -4,51 +4,24 @@ import { components } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalQuery, internalMutation, mutation, query } from "../_generated/server";
 import { ensureProjectAccess, ensureThreadAccess, requireIdentity } from "./access";
+import type { ThreadWorkflowContext } from "./helpers/workflowRuntime";
+
+const workflowContextValidator = v.object({
+  workflowId: v.string(),
+  stepId: v.string(),
+  previousResponses: v.optional(
+    v.array(
+      v.object({
+        stepId: v.string(),
+        response: v.string(),
+      }),
+    ),
+  ),
+});
 
 function resolveAgentThreadId(thread: { threadId: string; agentThreadId?: string | undefined }) {
   return thread.agentThreadId ?? thread.threadId;
 }
-
-const mapPendingItems = (
-  calls: Array<{
-    _id: Id<"aiFunctionCalls">;
-    callId: string;
-    functionName: string;
-    arguments: string;
-    responseId: string;
-    status?: string;
-    result?: string;
-  }>
-) =>
-  calls.map((call) => {
-    let status = call.status;
-
-    // If replayed, recover the original status (confirmed/rejected) from the result JSON if possible
-    if (status === "replayed" && call.result) {
-      try {
-        const parsedResult = JSON.parse(call.result);
-        if (parsedResult.status === "confirmed" || parsedResult.status === "rejected") {
-          status = parsedResult.status;
-        } else {
-          // Default to confirmed if result exists but no explicit status in it
-          status = "confirmed";
-        }
-      } catch {
-        // If parse fails but result exists, assume confirmed
-        status = "confirmed";
-      }
-    }
-
-    return {
-      _id: call._id,
-      callId: call.callId,
-      functionName: call.functionName,
-      arguments: call.arguments,
-      responseId: call.responseId,
-      status,
-      result: call.result,
-    };
-  });
 
 export const updateThreadSummary = internalMutation({
   args: {
@@ -145,6 +118,61 @@ export const getProjectThread = mutation({
     });
 
     return threadId;
+  },
+});
+
+export const setThreadWorkflowContext = mutation({
+  args: {
+    threadId: v.string(),
+    projectId: v.id("projects"),
+    userClerkId: v.string(),
+    workflowContext: workflowContextValidator,
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await requireIdentity(ctx);
+    if (identity.subject !== args.userClerkId) {
+      throw new Error("Forbidden");
+    }
+
+    const authorizedThread = await ensureThreadAccess(ctx, args.threadId, identity.subject);
+    const thread = authorizedThread?.thread;
+    if (!thread || thread.projectId !== args.projectId) {
+      throw new Error("Thread not found");
+    }
+
+    await ctx.db.patch(thread._id, {
+      workflowContext: args.workflowContext,
+    });
+
+    return null;
+  },
+});
+
+export const clearThreadWorkflowContext = mutation({
+  args: {
+    threadId: v.string(),
+    projectId: v.id("projects"),
+    userClerkId: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await requireIdentity(ctx);
+    if (identity.subject !== args.userClerkId) {
+      throw new Error("Forbidden");
+    }
+
+    const authorizedThread = await ensureThreadAccess(ctx, args.threadId, identity.subject);
+    const thread = authorizedThread?.thread;
+    if (!thread || thread.projectId !== args.projectId) {
+      throw new Error("Thread not found");
+    }
+
+    await ctx.db.patch(thread._id, {
+      workflowContext: undefined,
+    });
+
+    return null;
   },
 });
 
@@ -322,15 +350,6 @@ export const clearThreadForUser = mutation({
       throw new Error("Thread does not belong to this project or user");
     }
 
-    const functionCalls = await ctx.db
-      .query("aiFunctionCalls")
-      .withIndex("by_thread", (q) => q.eq("threadId", args.threadId))
-      .collect();
-
-    for (const call of functionCalls) {
-      await ctx.db.delete(call._id);
-    }
-
     const agentThreadId = resolveAgentThreadId(thread);
     if (agentThreadId) {
       await ctx.scheduler.runAfter(0, components.agent.threads.deleteAllForThreadIdAsync, {
@@ -376,15 +395,6 @@ export const clearPreviousThreadsForUser = mutation({
     );
 
     for (const thread of threadsToRemove) {
-      const functionCalls = await ctx.db
-        .query("aiFunctionCalls")
-        .withIndex("by_thread", (q) => q.eq("threadId", thread.threadId))
-        .collect();
-
-      for (const call of functionCalls) {
-        await ctx.db.delete(call._id);
-      }
-
       const agentThreadId = resolveAgentThreadId(thread);
       if (agentThreadId) {
         await ctx.runMutation(components.agent.threads.deleteAllForThreadIdAsync, {
@@ -413,19 +423,7 @@ export const saveFunctionCalls = internalMutation({
     })),
   },
   returns: v.null(),
-  handler: async (ctx, args) => {
-    for (const call of args.functionCalls) {
-      await ctx.db.insert("aiFunctionCalls", {
-        threadId: args.threadId,
-        projectId: args.projectId,
-        responseId: args.responseId,
-        callId: call.callId,
-        functionName: call.functionName,
-        arguments: call.arguments,
-        status: "pending",
-        createdAt: Date.now(),
-      });
-    }
+  handler: async (_ctx, _args) => {
     return null;
   },
 });
@@ -440,28 +438,22 @@ export const replacePendingFunctionCall = internalMutation({
     arguments: v.string(),
   },
   returns: v.null(),
-  handler: async (ctx, args) => {
-    const calls = await ctx.db
-      .query("aiFunctionCalls")
-      .withIndex("by_response_id", (q) => q.eq("responseId", args.responseId))
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("threadId"), args.threadId),
-          q.eq(q.field("callId"), args.callId),
-          q.eq(q.field("status"), "pending"),
-        )
-      )
-      .collect();
-
-    for (const call of calls) {
-      await ctx.db.patch(call._id, {
-        functionName: args.functionName,
-        arguments: args.arguments,
-        createdAt: Date.now(),
-      });
-    }
-
+  handler: async (_ctx, _args) => {
     return null;
+  },
+});
+
+export const supersedePendingFunctionCalls = internalMutation({
+  args: {
+    threadId: v.string(),
+    excludedCallIds: v.optional(v.array(v.string())),
+    reason: v.optional(v.string()),
+  },
+  returns: v.object({
+    supersededCount: v.number(),
+  }),
+  handler: async (_ctx, _args) => {
+    return { supersededCount: 0 };
   },
 });
 
@@ -471,40 +463,15 @@ export const getPendingFunctionCalls = internalQuery({
     threadId: v.string(),
   },
   returns: v.array(v.object({
-    _id: v.id("aiFunctionCalls"),
+    _id: v.string(),
     callId: v.string(),
     functionName: v.string(),
     arguments: v.string(),
     result: v.optional(v.string()),
     status: v.optional(v.string()),
   })),
-  handler: async (ctx, args) => {
-    const confirmed = await ctx.db
-      .query("aiFunctionCalls")
-      .withIndex("by_thread_and_status", (q) =>
-        q.eq("threadId", args.threadId).eq("status", "confirmed")
-      )
-      .collect();
-
-    const rejected = await ctx.db
-      .query("aiFunctionCalls")
-      .withIndex("by_thread_and_status", (q) =>
-        q.eq("threadId", args.threadId).eq("status", "rejected")
-      )
-      .collect();
-
-    const calls = [...confirmed, ...rejected];
-    // Sort by creation time to maintain order
-    calls.sort((a, b) => a._creationTime - b._creationTime);
-
-    return calls.map(call => ({
-      _id: call._id,
-      callId: call.callId,
-      functionName: call.functionName,
-      arguments: call.arguments,
-      result: call.result,
-      status: call.status,
-    }));
+  handler: async (_ctx, _args) => {
+    return [];
   },
 });
 
@@ -514,7 +481,7 @@ export const listPendingItemsInternal = internalQuery({
     userClerkId: v.string(),
   },
   returns: v.array(v.object({
-    _id: v.id("aiFunctionCalls"),
+    _id: v.string(),
     callId: v.string(),
     functionName: v.string(),
     arguments: v.string(),
@@ -527,13 +494,7 @@ export const listPendingItemsInternal = internalQuery({
     if (!authorizedThread) {
       return [];
     }
-
-    const calls = await ctx.db
-      .query("aiFunctionCalls")
-      .withIndex("by_thread", (q) => q.eq("threadId", args.threadId))
-      .collect();
-
-    return mapPendingItems(calls);
+    return [];
   },
 });
 
@@ -545,6 +506,7 @@ export const getThreadRuntimeState = internalQuery({
     v.null(),
     v.object({
       abortedAt: v.optional(v.number()),
+      workflowContext: v.optional(workflowContextValidator),
     }),
   ),
   handler: async (ctx, args) => {
@@ -559,6 +521,7 @@ export const getThreadRuntimeState = internalQuery({
 
     return {
       abortedAt: thread.abortedAt,
+      workflowContext: thread.workflowContext as ThreadWorkflowContext | undefined,
     };
   },
 });
@@ -569,7 +532,7 @@ export const listPendingItems = query({
     threadId: v.string(),
   },
   returns: v.array(v.object({
-    _id: v.id("aiFunctionCalls"),
+    _id: v.string(),
     callId: v.string(),
     functionName: v.string(),
     arguments: v.string(),
@@ -583,28 +546,17 @@ export const listPendingItems = query({
     if (!authorizedThread) {
       return [];
     }
-
-    const calls = await ctx.db
-      .query("aiFunctionCalls")
-      .withIndex("by_thread", (q) => q.eq("threadId", args.threadId))
-      .collect();
-
-    return mapPendingItems(calls);
+    return [];
   },
 });
 
 // Mark function calls as replayed
 export const markFunctionCallsAsReplayed = internalMutation({
   args: {
-    callIds: v.array(v.id("aiFunctionCalls")),
+    callIds: v.array(v.string()),
   },
   returns: v.null(),
-  handler: async (ctx, args) => {
-    for (const callId of args.callIds) {
-      await ctx.db.patch(callId, {
-        status: "replayed",
-      });
-    }
+  handler: async (_ctx, _args) => {
     return null;
   },
 });
@@ -627,55 +579,6 @@ export const markFunctionCallsAsConfirmed = mutation({
     if (!authorizedThread) {
       return null;
     }
-
-    // Find all pending calls for this response
-    const calls = await ctx.db
-      .query("aiFunctionCalls")
-      .withIndex("by_response_id", (q) => q.eq("responseId", args.responseId))
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("threadId"), args.threadId),
-          q.eq(q.field("status"), "pending"),
-        ),
-      )
-      .collect();
-
-    const resolvedEvents: Array<{
-      eventType: "tool.confirmed" | "tool.rejected";
-      role: "tool";
-      callId: string;
-      data: { status: "confirmed" | "rejected"; result?: string };
-    }> = [];
-
-    for (const call of calls) {
-      const result = args.results.find(r => r.callId === call.callId);
-      if (result) {
-        // Determine status: explicit status > result presence > rejected
-        let newStatus: "confirmed" | "rejected" = "rejected";
-        if (result.status) {
-          newStatus = result.status;
-        } else if (result.result) {
-          newStatus = "confirmed";
-        }
-
-        await ctx.db.patch(call._id, {
-          status: newStatus,
-          result: result.result,
-          confirmedAt: Date.now(),
-        });
-
-        resolvedEvents.push({
-          eventType: newStatus === "confirmed" ? "tool.confirmed" : "tool.rejected",
-          role: "tool",
-          callId: call.callId,
-          data: {
-            status: newStatus,
-            result: result.result,
-          },
-        });
-      }
-    }
-
     return null;
   },
 });
@@ -709,15 +612,6 @@ export const clearAllThreadsForUser = mutation({
     );
 
     for (const thread of threadsToRemove) {
-      const functionCalls = await ctx.db
-        .query("aiFunctionCalls")
-        .withIndex("by_thread", (q) => q.eq("threadId", thread.threadId))
-        .collect();
-
-      for (const call of functionCalls) {
-        await ctx.db.delete(call._id);
-      }
-
       const agentThreadId = resolveAgentThreadId(thread);
       if (agentThreadId) {
         await ctx.runMutation(components.agent.threads.deleteAllForThreadIdAsync, {
@@ -753,15 +647,6 @@ export const clearThreadInternal = internalMutation({
 
     if (thread.projectId !== args.projectId) {
       throw new Error("Thread does not belong to this project");
-    }
-
-    const functionCalls = await ctx.db
-      .query("aiFunctionCalls")
-      .withIndex("by_thread", (q) => q.eq("threadId", args.threadId))
-      .collect();
-
-    for (const call of functionCalls) {
-      await ctx.db.delete(call._id);
     }
 
     const agentThreadId = resolveAgentThreadId(thread);

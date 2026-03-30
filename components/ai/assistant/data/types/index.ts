@@ -68,9 +68,11 @@ export type PendingItem = {
   /** Client-side id for UI transitions */
   clientId?: string;
   /** Resolved state for inline confirmations */
-  status?: "confirmed" | "rejected";
+  status?: "confirmed" | "rejected" | "superseded";
   /** Approval state for UI flow */
   approvalState?: PendingApprovalState;
+  /** Native @convex-dev/agent approval request id */
+  approvalRequestId?: string;
   /** Reason for approval state */
   approvalReason?: string;
   /** Primary data payload */
@@ -257,7 +259,6 @@ export interface ConfirmationGridProps {
   onConfirmItem: (index: number) => Promise<void>;
   onRejectItem: (index: number) => void;
   onRejectAll: () => void;
-  onEditItem?: (index: number) => void;
   onUpdateItem?: (index: number, updates: Partial<PendingContentItem>) => void;
   isProcessing?: boolean;
 }

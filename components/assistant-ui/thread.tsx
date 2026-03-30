@@ -10,7 +10,6 @@ import {
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
 import { ToolFallback } from "@/components/assistant-ui/tool-fallback";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
-import type { PendingContentItem } from "@/components/ai/assistant/data/types";
 import {
   AuiIf,
   ComposerPrimitive,
@@ -22,7 +21,9 @@ import {
 } from "@assistant-ui/react";
 import { ArrowDownIcon, ArrowUpIcon, Loader2, Sparkles, SquareIcon } from "lucide-react";
 import {
+  createContext,
   useEffect,
+  useContext,
   useMemo,
   useRef,
   useState,
@@ -42,16 +43,30 @@ type ThreadProps = {
   inputDisabled?: boolean;
   inputPlaceholder?: string;
   composerBanner?: ReactNode;
-  pendingItems?: PendingContentItem[];
-  onConfirmItem?: (index: number | string) => Promise<void>;
-  onRejectItem?: (index: number | string) => void | Promise<void>;
-  onEditItem?: (index: number) => void;
-  onUpdateItem?: (index: number | string, updates: Partial<PendingContentItem>) => void;
-  isProcessing?: boolean;
+  onRespondToToolApproval?: (args: {
+    approvalId: string;
+    approved: boolean;
+    toolCallId: string;
+    reason?: string;
+  }) => Promise<void>;
   confirmationMode?: "always_ask" | "auto_confirm";
   onConfirmationModeChange?: (mode: "always_ask" | "auto_confirm") => void | Promise<void>;
   isModeUpdating?: boolean;
 };
+
+type PendingInteractionContextValue = {
+  onRespondToToolApproval?: (args: {
+    approvalId: string;
+    approved: boolean;
+    toolCallId: string;
+    reason?: string;
+  }) => Promise<void>;
+  confirmationMode: "always_ask" | "auto_confirm";
+  onConfirmationModeChange?: (mode: "always_ask" | "auto_confirm") => void | Promise<void>;
+  isModeUpdating: boolean;
+};
+
+const PendingInteractionContext = createContext<PendingInteractionContextValue | null>(null);
 
 const WELCOME_SUGGESTIONS = QUICK_PROMPTS.slice(0, 2).map((item, index) => ({
   prompt: item.prompt,
@@ -67,77 +82,58 @@ export const Thread: FC<ThreadProps> = ({
   inputDisabled = false,
   inputPlaceholder,
   composerBanner,
-  pendingItems = [],
-  onConfirmItem,
-  onRejectItem,
-  onEditItem,
-  onUpdateItem,
-  isProcessing = false,
+  onRespondToToolApproval,
   confirmationMode = "always_ask",
   onConfirmationModeChange,
   isModeUpdating = false,
 }) => {
-  const messageComponents = useMemo(
+  const pendingInteractionValue = useMemo<PendingInteractionContextValue>(
     () => ({
-      UserMessage,
-      EditComposer,
-      AssistantMessage: () => (
-        <AssistantMessage
-          pendingItems={pendingItems}
-          onConfirmItem={onConfirmItem}
-          onRejectItem={onRejectItem}
-          onEditItem={onEditItem}
-          onUpdateItem={onUpdateItem}
-          isProcessing={isProcessing}
-          confirmationMode={confirmationMode}
-          onConfirmationModeChange={onConfirmationModeChange}
-          isModeUpdating={isModeUpdating}
-        />
-      ),
+      onRespondToToolApproval,
+      confirmationMode,
+      onConfirmationModeChange,
+      isModeUpdating,
     }),
     [
       confirmationMode,
       isModeUpdating,
-      isProcessing,
-      onConfirmItem,
+      onRespondToToolApproval,
       onConfirmationModeChange,
-      onEditItem,
-      onRejectItem,
-      onUpdateItem,
-      pendingItems,
     ],
   );
 
   return (
-    <ThreadPrimitive.Root
-      className="aui-root aui-thread-root @container flex h-full min-h-0 w-full flex-col bg-background"
-      style={{
-        ["--thread-max-width" as string]: "72rem",
-      }}
-    >
-      <ThreadPrimitive.Viewport
-        turnAnchor="top"
-        className="aui-thread-viewport relative flex min-h-0 flex-1 flex-col overflow-x-auto overflow-y-scroll scroll-smooth px-4 pt-5 md:px-6 md:pt-5"
+    <PendingInteractionContext.Provider value={pendingInteractionValue}>
+      <ThreadPrimitive.Root
+        className="aui-root aui-thread-root @container flex h-full min-h-0 w-full flex-col bg-background"
+        style={{
+          ["--thread-max-width" as string]: "72rem",
+        }}
       >
-        <AuiIf condition={({ thread }) => showWelcome && thread.isEmpty}>
-          <ThreadWelcome />
-        </AuiIf>
+        <ThreadPrimitive.Viewport
+          turnAnchor="top"
+          className="aui-thread-viewport relative flex min-h-0 flex-1 flex-col overflow-x-auto overflow-y-scroll scroll-smooth px-4 pt-5 md:px-6 md:pt-5"
+        >
+          <AuiIf condition={({ thread }) => showWelcome && thread.isEmpty}>
+            <ThreadWelcome />
+          </AuiIf>
 
-        <ThreadPrimitive.Messages components={messageComponents} />
+          <ThreadPrimitive.Messages components={THREAD_MESSAGE_COMPONENTS} />
 
-        <ThreadPrimitive.ViewportFooter className="aui-thread-viewport-footer sticky bottom-0 mx-auto mt-auto flex w-full max-w-(--thread-max-width) flex-col gap-5 overflow-visible bg-background pb-5 md:pb-7">
-          <ThreadScrollToBottom />
-          {composerBanner}
-          <Composer
-            inputDisabled={inputDisabled}
-            inputPlaceholder={inputPlaceholder}
-            confirmationMode={confirmationMode}
-            onConfirmationModeChange={onConfirmationModeChange}
-            isModeUpdating={isModeUpdating}
-          />
-        </ThreadPrimitive.ViewportFooter>
-      </ThreadPrimitive.Viewport>
-    </ThreadPrimitive.Root>
+          <ThreadPrimitive.ViewportFooter className="aui-thread-viewport-footer sticky bottom-0 mx-auto mt-auto flex w-full max-w-(--thread-max-width) flex-col gap-5 overflow-visible bg-background pb-5 md:pb-7">
+            <ThreadScrollToBottom />
+            {composerBanner}
+            <Composer
+              inputDisabled={inputDisabled}
+              inputPlaceholder={inputPlaceholder}
+              confirmationMode={confirmationMode}
+              onConfirmationModeChange={onConfirmationModeChange}
+              isModeUpdating={isModeUpdating}
+            />
+          </ThreadPrimitive.ViewportFooter>
+        </ThreadPrimitive.Viewport>
+      </ThreadPrimitive.Root>
+    </PendingInteractionContext.Provider>
   );
 };
 
@@ -468,42 +464,30 @@ const MessageError: FC = () => {
   );
 };
 
-type AssistantMessageProps = {
-  pendingItems?: PendingContentItem[];
-  onConfirmItem?: (index: number | string) => Promise<void>;
-  onRejectItem?: (index: number | string) => void | Promise<void>;
-  onEditItem?: (index: number) => void;
-  onUpdateItem?: (index: number | string, updates: Partial<PendingContentItem>) => void;
-  isProcessing?: boolean;
-  confirmationMode?: "always_ask" | "auto_confirm";
-  onConfirmationModeChange?: (mode: "always_ask" | "auto_confirm") => void | Promise<void>;
-  isModeUpdating?: boolean;
-};
+const PendingAwareToolFallback: FC<ComponentProps<typeof ToolFallback>> = (props) => {
+  const context = useContext(PendingInteractionContext);
+  if (!context) {
+    return <ToolFallback {...props} />;
+  }
 
-const AssistantMessage: FC<AssistantMessageProps> = ({
-  pendingItems = [],
-  onConfirmItem,
-  onRejectItem,
-  onEditItem,
-  onUpdateItem,
-  isProcessing = false,
-  confirmationMode = "always_ask",
-  onConfirmationModeChange,
-  isModeUpdating = false,
-}) => {
-  const PendingAwareToolFallback = (props: ComponentProps<typeof ToolFallback>) => (
+  return (
     <ToolFallback
       {...props}
-      pendingItems={pendingItems}
-      onConfirmItem={onConfirmItem}
-      onRejectItem={onRejectItem}
-      onEditItem={onEditItem}
-      onUpdateItem={onUpdateItem}
-      isProcessing={isProcessing}
-      confirmationMode={confirmationMode}
-      onConfirmationModeChange={onConfirmationModeChange}
-      isModeUpdating={isModeUpdating}
+      onRespondToToolApproval={context.onRespondToToolApproval}
+      confirmationMode={context.confirmationMode}
+      onConfirmationModeChange={context.onConfirmationModeChange}
+      isModeUpdating={context.isModeUpdating}
     />
+  );
+};
+
+const AssistantMessage: FC = () => {
+  const toolComponents = useMemo(
+    () => ({
+      Text: MarkdownText,
+      tools: { Fallback: PendingAwareToolFallback },
+    }),
+    [],
   );
 
   return (
@@ -512,12 +496,7 @@ const AssistantMessage: FC<AssistantMessageProps> = ({
       data-role="assistant"
     >
       <div className="aui-assistant-message-content min-w-0 break-words text-[15px] leading-7 text-foreground">
-        <MessagePrimitive.Parts
-          components={{
-            Text: MarkdownText,
-            tools: { Fallback: PendingAwareToolFallback },
-          }}
-        />
+        <MessagePrimitive.Parts components={toolComponents} />
       </div>
       <MessageError />
     </div>
@@ -560,4 +539,10 @@ const EditComposer: FC = () => {
       </ComposerPrimitive.Root>
     </div>
   );
+};
+
+const THREAD_MESSAGE_COMPONENTS = {
+  UserMessage,
+  EditComposer,
+  AssistantMessage,
 };

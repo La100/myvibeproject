@@ -135,6 +135,13 @@ const defaultClientPanelDisplaySettings = {
 
 type ClientPanelDisplaySettings = typeof defaultClientPanelDisplaySettings;
 
+const projectTaskStatusSettingsValidator = v.object({
+  todo: v.object({ name: v.string(), color: v.string() }),
+  in_progress: v.object({ name: v.string(), color: v.string() }),
+  review: v.optional(v.object({ name: v.string(), color: v.string() })),
+  done: v.object({ name: v.string(), color: v.string() }),
+});
+
 const getResolvedClientPanelDisplaySettings = (
   settings?: Partial<ClientPanelDisplaySettings> | null
 ): ClientPanelDisplaySettings => ({
@@ -633,7 +640,7 @@ export const updateProject = mutation({
     taxEnabled: v.optional(v.boolean()),
     taxRate: v.optional(v.number()),
     responsibleClerkUserId: v.optional(v.string()),
-    taskStatusSettings: v.optional(v.any()), // Allow any object for simplification
+    taskStatusSettings: v.optional(projectTaskStatusSettingsValidator),
     customAiPrompt: v.optional(v.string()),
     aiAutoConfirmCrud: v.optional(v.boolean()),
     aiAssistantRuntime: v.optional(
@@ -659,11 +666,7 @@ export const updateProject = mutation({
       throw new Error("Project not found");
     }
 
-    // Permission check (example)
-    // const member = await ctx.db.query("teamMembers").withIndex("by_team_and_user", q => q.eq("teamId", existingProject.teamId).eq("clerkUserId", identity.subject)).first();
-    // if (!member || (member.role !== 'admin' && member.role !== 'member')) {
-    //   throw new Error("You don't have permission to update this project.");
-    // }
+    await getProjectManagerMembership(ctx, projectId, identity.subject);
 
     const coverImageProvided = Object.prototype.hasOwnProperty.call(args, "coverImageUrl");
     const normalizedCoverImageUrl = coverImageProvided ? coverImageUrl?.trim() : undefined;
@@ -762,10 +765,45 @@ export const updateProject = mutation({
 export const listTeamProjects = query({
   args: { teamId: v.id("teams") },
   async handler(ctx, args) {
-    const projects = await ctx.db
-      .query("projects")
-      .withIndex("by_team", q => q.eq("teamId", args.teamId))
-      .collect();
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return [];
+    }
+
+    const membership = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", args.teamId).eq("clerkUserId", identity.subject)
+      )
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .unique();
+
+    if (!membership) {
+      return [];
+    }
+
+    let projects: Doc<"projects">[] = [];
+
+    if (membership.role === "admin") {
+      projects = await ctx.db
+        .query("projects")
+        .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+        .collect();
+    } else if (membership.role === "member") {
+      if (membership.projectIds && membership.projectIds.length > 0) {
+        const memberProjects = await Promise.all(
+          membership.projectIds.map((id) => ctx.db.get(id))
+        );
+        projects = memberProjects.filter((project): project is Doc<"projects"> => (
+          project !== null && project.teamId === args.teamId
+        ));
+      } else {
+        projects = await ctx.db
+          .query("projects")
+          .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+          .collect();
+      }
+    }
 
     const projectsWithTaskCounts = await Promise.all(
       projects.map(async (project) => {

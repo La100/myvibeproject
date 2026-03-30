@@ -11,17 +11,19 @@ import React, { memo } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
+  ChevronDown,
   Loader2,
 } from "lucide-react";
 import type { PendingContentItem } from "../../data/types";
 import {
-  extractBulkCreateEntries,
   getApprovalState,
   getCanonicalType,
-  shouldHideSectionCard,
+  getDescription,
+  getTitle,
   shouldRenderByState,
 } from "./helpers";
 import { InlineCreationForm } from "./InlineCreationForm";
+import { prepareInlineConfirmationViewModel } from "./viewModel";
 
 // ============================================
 // SINGLE CONFIRMATION CARD
@@ -32,7 +34,6 @@ interface ConfirmationCardProps {
   index: number;
   onConfirm?: (index: number | string) => Promise<void>;
   onReject?: (index: number | string) => void | Promise<void>;
-  onEdit?: (index: number) => void;
   onUpdate?: (index: number | string, updates: Partial<PendingContentItem>) => void;
   isProcessing?: boolean;
   confirmationMode?: "always_ask" | "auto_confirm";
@@ -92,6 +93,132 @@ export const ConfirmationCard = memo(function ConfirmationCard({
 
 ConfirmationCard.displayName = "ConfirmationCard";
 
+const GROUP_LABELS: Record<string, string> = {
+  task: "Tasks",
+  note: "Notes",
+  moodboard: "Moodboard images",
+  shopping: "Shopping items",
+  labor: "Labor items",
+  contact: "Contacts",
+  survey: "Surveys",
+  shoppingSection: "Shopping sections",
+  laborSection: "Labor sections",
+  projectSettings: "Project settings",
+};
+
+function BatchConfirmationCard({
+  items,
+  index,
+  onConfirm,
+  onReject,
+  isProcessing = false,
+}: {
+  items: PendingContentItem[];
+  index: number;
+  onConfirm?: (index: number | string) => Promise<void>;
+  onReject?: (index: number | string) => void | Promise<void>;
+  isProcessing?: boolean;
+}) {
+  const [isExpanded, setIsExpanded] = React.useState(false);
+  const firstItem = items[0];
+  if (!firstItem) return null;
+
+  const canonicalType = getCanonicalType(firstItem.type);
+  const label = GROUP_LABELS[canonicalType] ?? "Items";
+  const total = items.length;
+  const preview = items
+    .slice(0, 3)
+    .map((item) => getTitle(item))
+    .filter((value) => value && value !== "Untitled");
+  const remaining = total - preview.length;
+
+  return (
+    <div className="flex h-full w-full min-w-0 flex-col overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm animate-in fade-in zoom-in-95 duration-200">
+      <div className="flex items-center justify-between border-b border-border/70 bg-card px-4 py-3">
+        <div className="space-y-1">
+          <p className="text-sm font-semibold text-foreground">
+            Review {total} {label.toLowerCase()}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            One confirmation for the whole batch.
+          </p>
+        </div>
+        <span className="rounded-full border border-border/70 px-2.5 py-1 text-xs font-medium text-muted-foreground">
+          {label}
+        </span>
+      </div>
+
+      <div className="space-y-3 p-4">
+        <div className="space-y-1.5">
+          {preview.map((entry) => (
+            <div key={entry} className="truncate text-sm text-foreground">
+              {entry}
+            </div>
+          ))}
+          {remaining > 0 ? (
+            <div className="text-sm text-muted-foreground">
+              +{remaining} more in this batch
+            </div>
+          ) : null}
+        </div>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-8 px-2 text-xs text-muted-foreground"
+          onClick={() => setIsExpanded((prev) => !prev)}
+        >
+          <ChevronDown
+            className={cn("mr-1 h-3.5 w-3.5 transition-transform", isExpanded && "rotate-180")}
+          />
+          {isExpanded ? "Hide details" : "Show details"}
+        </Button>
+
+        {isExpanded ? (
+          <div className="max-h-56 space-y-2 overflow-y-auto rounded-lg border border-border/60 bg-muted/20 p-3">
+            {items.map((item, itemIndex) => {
+              const title = getTitle(item);
+              const description = getDescription(item);
+              return (
+                <div key={item.clientId ?? `${index}-${itemIndex}`} className="space-y-0.5">
+                  <div className="text-sm font-medium text-foreground">{title}</div>
+                  {description ? (
+                    <div className="line-clamp-2 text-xs text-muted-foreground">
+                      {description}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+      </div>
+
+      <div className="flex items-center justify-end gap-2.5 border-t border-border/70 bg-card px-4 py-2.5">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onReject?.(index)}
+          className="h-8 px-3 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+          disabled={isProcessing}
+        >
+          Reject batch
+        </Button>
+        <Button
+          size="sm"
+          onClick={() => void onConfirm?.(index)}
+          className="h-8 px-4 font-medium shadow-sm"
+          disabled={isProcessing}
+        >
+          {isProcessing ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+          Confirm batch
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 // ============================================
 // INLINE CONFIRMATION LIST
 // ============================================
@@ -100,7 +227,6 @@ interface InlineConfirmationListProps {
   items: PendingContentItem[];
   onConfirmItem?: (index: number | string) => Promise<void>;
   onRejectItem?: (index: number | string) => void | Promise<void>;
-  onEditItem?: (index: number) => void;
   onConfirmAll?: () => Promise<void>;
   onRejectAll?: () => void | Promise<void>;
   onUpdateItem?: (index: number | string, updates: Partial<PendingContentItem>) => void;
@@ -114,7 +240,6 @@ export function InlineConfirmationList({
   items,
   onConfirmItem,
   onRejectItem,
-  onEditItem,
   onConfirmAll,
   onRejectAll,
   onUpdateItem,
@@ -124,231 +249,48 @@ export function InlineConfirmationList({
   isModeUpdating = false,
 }: InlineConfirmationListProps) {
   const [showResolvedDetails, setShowResolvedDetails] = React.useState(false);
-  const scrollRef = React.useRef<HTMLDivElement>(null);
   const noopUpdate: NonNullable<InlineConfirmationListProps["onUpdateItem"]> =
     React.useCallback(() => {
       // Bulk-expanded preview cards can share one source call id.
       // Keep the full inline form layout without mutating shared source payload.
     }, []);
+  const {
+    visibleItems,
+    unresolvedItems,
+    hiddenSectionLabels,
+    resolvedSummary,
+  } = React.useMemo(() => prepareInlineConfirmationViewModel(items), [items]);
+  const groupedItems = React.useMemo(() => {
+    const groups = new Map<
+      string,
+      { index: number; fromBulk: boolean; items: PendingContentItem[]; key: string }
+    >();
 
-  const getSectionNameFromRecord = React.useCallback(
-    (value: unknown): string | undefined => {
-      if (!value || typeof value !== "object" || Array.isArray(value)) {
-        return undefined;
-      }
-
-      const record = value as Record<string, unknown>;
-      const candidates = [
-        record.sectionName,
-        record.name,
-        record.title,
-        record.section,
-        (record.sectionData as Record<string, unknown> | undefined)?.sectionName,
-        (record.sectionData as Record<string, unknown> | undefined)?.name,
-        (record.data as Record<string, unknown> | undefined)?.sectionName,
-        (record.data as Record<string, unknown> | undefined)?.name,
-      ];
-
-      for (const candidate of candidates) {
-        if (typeof candidate === "string" && candidate.trim().length > 0) {
-          return candidate.trim();
-        }
-      }
-
-      return undefined;
-    },
-    [],
-  );
-
-  const inferSharedSectionName = React.useCallback(
-    (type: "shopping" | "labor") => {
-      const sectionType = type === "shopping" ? "shoppingSection" : "laborSection";
-      const matchingSections = items.filter((entry) => entry.type === sectionType);
-      if (matchingSections.length !== 1) return undefined;
-
-      const sectionData = (matchingSections[0]?.data ?? {}) as Record<string, unknown>;
-      const candidates = [
-        sectionData.name,
-        sectionData.sectionName,
-        sectionData.title,
-        (sectionData.sectionData as Record<string, unknown> | undefined)?.name,
-        (sectionData.sectionData as Record<string, unknown> | undefined)?.sectionName,
-        (sectionData.data as Record<string, unknown> | undefined)?.name,
-        (sectionData.data as Record<string, unknown> | undefined)?.sectionName,
-      ];
-
-      for (const candidate of candidates) {
-        if (typeof candidate === "string" && candidate.trim().length > 0) {
-          return candidate.trim();
-        }
-      }
-
-      return undefined;
-    },
-    [items],
-  );
-
-  const referencedSectionNames = React.useMemo(() => {
-    const shopping = new Set<string>();
-    const labor = new Set<string>();
-
-    for (const item of items) {
-      const canonicalType = getCanonicalType(item.type);
-      if (canonicalType !== "shopping" && canonicalType !== "labor") {
+    for (const entry of unresolvedItems) {
+      const groupKey = entry.fromBulk ? `bulk:${entry.index}` : `single:${entry.key}`;
+      const existing = groups.get(groupKey);
+      if (existing) {
+        existing.items.push(entry.item);
         continue;
       }
-
-      const bulkEntries = extractBulkCreateEntries(item);
-      const candidates =
-        bulkEntries.length > 0 ? bulkEntries : [((item.data ?? {}) as Record<string, unknown>)];
-
-      for (const candidate of candidates) {
-        const sectionName = getSectionNameFromRecord(candidate);
-        if (!sectionName) continue;
-
-        if (canonicalType === "shopping") {
-          shopping.add(sectionName);
-        } else {
-          labor.add(sectionName);
-        }
-      }
+      groups.set(groupKey, {
+        index: entry.index,
+        fromBulk: entry.fromBulk,
+        items: [entry.item],
+        key: groupKey,
+      });
     }
 
-    return { shopping, labor };
-  }, [getSectionNameFromRecord, items]);
-
-  const shoppingItemsExist = React.useMemo(
-    () => items.some((entry) => getCanonicalType(entry.type) === "shopping"),
-    [items],
-  );
-  const laborItemsExist = React.useMemo(
-    () => items.some((entry) => getCanonicalType(entry.type) === "labor"),
-    [items],
-  );
-
-  const hiddenSectionMeta = React.useMemo(() => {
-    const shoppingSectionName = shoppingItemsExist ? inferSharedSectionName("shopping") : undefined;
-    const laborSectionName = laborItemsExist ? inferSharedSectionName("labor") : undefined;
-
-    return {
-      shopping: shoppingItemsExist && !!shoppingSectionName ? shoppingSectionName : undefined,
-      labor: laborItemsExist && !!laborSectionName ? laborSectionName : undefined,
-    };
-  }, [inferSharedSectionName, laborItemsExist, shoppingItemsExist]);
-
-  const displayItems = items.flatMap((item, index) => {
-    const bulkEntries = extractBulkCreateEntries(item);
-    if (bulkEntries.length <= 1) {
-      const canonicalType = getCanonicalType(item.type);
-      const inferredSectionName =
-        canonicalType === "shopping" || canonicalType === "labor"
-          ? inferSharedSectionName(canonicalType)
-          : undefined;
-      const currentData = (item.data ?? {}) as Record<string, unknown>;
-      const normalizedItem =
-        inferredSectionName &&
-        typeof currentData.sectionName !== "string"
-          ? {
-              ...item,
-              data: {
-                ...currentData,
-                sectionName: inferredSectionName,
-              },
-            }
-          : item;
-
-      const normalizedData = (normalizedItem.data ?? {}) as Record<string, unknown>;
-      const sectionCardName = getSectionNameFromRecord(normalizedData);
-
-      const shouldHideCurrentSectionCard = shouldHideSectionCard({
-        canonicalType,
-        sectionCardName,
-        referencedSectionNames,
-        hiddenSectionMeta,
-      });
-
-      return [{
-        item: normalizedItem,
-        index,
-        key: `${index}`,
-        fromBulk: false,
-        hidden: shouldHideCurrentSectionCard,
-      }];
-    }
-
-    return bulkEntries.map((entry, entryIndex) => {
-      const canonicalType = getCanonicalType(item.type);
-      const inferredSectionName =
-        canonicalType === "shopping" || canonicalType === "labor"
-          ? inferSharedSectionName(canonicalType)
-          : undefined;
-      const normalizedEntry =
-        inferredSectionName && typeof entry.sectionName !== "string"
-          ? { ...entry, sectionName: inferredSectionName }
-          : entry;
-      const sectionCardName = getSectionNameFromRecord(normalizedEntry);
-      const hidden = shouldHideSectionCard({
-        canonicalType,
-        sectionCardName,
-        referencedSectionNames,
-        hiddenSectionMeta,
-      });
-
-      return {
-        item: {
-          ...item,
-          operation: "create" as const,
-          data: normalizedEntry,
-          clientId: item.clientId ? `${item.clientId}::${entryIndex}` : undefined,
-        },
-        index,
-        key: `${index}-${entryIndex}`,
-        fromBulk: true,
-        hidden,
-      };
-    });
-  });
-
-  const visibleItems = displayItems
-    .filter(({ item, hidden }) => !hidden && shouldRenderByState(getApprovalState(item)));
+    return Array.from(groups.values());
+  }, [unresolvedItems]);
 
   if (visibleItems.length === 0) return null;
 
-  const unresolvedItems = visibleItems.filter(({ item }) => {
-    const approvalState = getApprovalState(item);
-    return !(
-      item.status === "confirmed" ||
-      item.status === "rejected" ||
-      approvalState === "output-available" ||
-      approvalState === "output-denied" ||
-      approvalState === "output-error" ||
-      approvalState === "approval-responded"
-    );
-  });
-
   const allResolved = unresolvedItems.length === 0;
   if (allResolved) {
-    const confirmedCount = visibleItems.filter(({ item }) => {
-      const approvalState = getApprovalState(item);
-      return item.status === "confirmed" || approvalState === "output-available";
-    }).length;
-    const rejectedCount = visibleItems.length - confirmedCount;
-    const groupedByType = visibleItems.reduce((acc, { item }) => {
-      const key = getCanonicalType(item.type);
-      if (!acc[key]) {
-        acc[key] = { confirmed: 0, rejected: 0 };
-      }
-      const approvalState = getApprovalState(item);
-      const isConfirmed =
-        item.status === "confirmed" || approvalState === "output-available";
-      if (isConfirmed) {
-        acc[key].confirmed += 1;
-      } else {
-        acc[key].rejected += 1;
-      }
-      return acc;
-    }, {} as Record<string, { confirmed: number; rejected: number }>);
-    const typeSummaries = Object.entries(groupedByType);
+    const confirmedCount = resolvedSummary?.confirmedCount ?? 0;
+    const rejectedCount = resolvedSummary?.rejectedCount ?? 0;
+    const typeSummaries = resolvedSummary?.typeSummaries ?? [];
     const toTypeLabel = (type: string) => {
       switch (type) {
         case "task":
@@ -462,7 +404,6 @@ export function InlineConfirmationList({
           index={unresolvedItems[0].index}
           onConfirm={onConfirmItem}
           onReject={onRejectItem}
-          onEdit={onEditItem}
           onUpdate={onUpdateItem}
           isProcessing={isProcessing}
           confirmationMode={confirmationMode}
@@ -474,10 +415,6 @@ export function InlineConfirmationList({
   }
 
   const showRow = unresolvedItems.length > 1;
-  const hiddenSectionLabels = [
-    hiddenSectionMeta.shopping ? `shopping section "${hiddenSectionMeta.shopping}"` : null,
-    hiddenSectionMeta.labor ? `labor section "${hiddenSectionMeta.labor}"` : null,
-  ].filter(Boolean) as string[];
 
   return (
     <div className="space-y-3">
@@ -546,34 +483,42 @@ export function InlineConfirmationList({
       </div>
 
       <div
-        ref={scrollRef}
         className={cn(
           "flex gap-3 overflow-x-auto pb-2",
-          showRow ? "items-stretch" : "block",
+          groupedItems.length > 1 ? "items-stretch" : "block",
           "[&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
         )}
       >
-        {unresolvedItems.map(({ item, index: originalIndex, key, fromBulk }) => (
+        {groupedItems.map(({ items: groupedEntries, index: originalIndex, key, fromBulk }) => (
           <div
             key={key}
             className={cn(
               "min-w-0",
-              showRow ? "w-[min(26rem,calc(100vw-7rem))] shrink-0" : "w-full"
+              groupedItems.length > 1 ? "w-[min(26rem,calc(100vw-7rem))] shrink-0" : "w-full"
             )}
           >
-            <ConfirmationCard
-              item={item}
-              index={originalIndex}
-              onConfirm={onConfirmItem}
-              onReject={onRejectItem}
-              onEdit={fromBulk ? undefined : onEditItem}
-              onUpdate={fromBulk ? noopUpdate : onUpdateItem}
-              isProcessing={isProcessing}
-              confirmationMode={confirmationMode}
-              onConfirmationModeChange={onConfirmationModeChange}
-              isModeUpdating={isModeUpdating}
-              showActions={!showRow}
-            />
+            {fromBulk && groupedEntries.length > 1 ? (
+              <BatchConfirmationCard
+                items={groupedEntries}
+                index={originalIndex}
+                onConfirm={onConfirmItem}
+                onReject={onRejectItem}
+                isProcessing={isProcessing}
+              />
+            ) : (
+              <ConfirmationCard
+                item={groupedEntries[0]!}
+                index={originalIndex}
+                onConfirm={onConfirmItem}
+                onReject={onRejectItem}
+                onUpdate={fromBulk ? noopUpdate : onUpdateItem}
+                isProcessing={isProcessing}
+                confirmationMode={confirmationMode}
+                onConfirmationModeChange={onConfirmationModeChange}
+                isModeUpdating={isModeUpdating}
+                showActions={!showRow}
+              />
+            )}
           </div>
         ))}
       </div>

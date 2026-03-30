@@ -15,6 +15,18 @@ const getCreateStreamingTools = async () => {
   return mod.createStreamingTools;
 };
 
+const getToolModule = async () => {
+  const globalWithRequire = globalThis as typeof globalThis & {
+    require?: ReturnType<typeof createRequire>;
+  };
+  if (!globalWithRequire.require) {
+    globalWithRequire.require = createRequire(
+      new URL("../../convex/ai/tools.ts", import.meta.url),
+    );
+  }
+  return import("../../convex/ai/tools.ts");
+};
+
 test("update_item uses runQuery for getItemById lookup", async () => {
   const createStreamingTools = await getCreateStreamingTools();
   const calls = { runAction: 0, runQuery: 0 };
@@ -46,6 +58,23 @@ test("update_item uses runQuery for getItemById lookup", async () => {
   assert.equal(calls.runAction, 0);
   assert.equal(parsed.operation, "edit");
   assert.equal(parsed.originalItem._id, "shopping_1");
+});
+
+test("createStreamingTools can enforce an allowlist", async () => {
+  const { createStreamingTools, getActiveRuntimeToolNames } = await getToolModule();
+  const tools = createStreamingTools({
+    projectId: "project_1",
+    allowedToolNames: ["search_items", "load_full_project_context"],
+  });
+
+  assert.deepEqual(
+    Object.keys(tools).sort(),
+    ["load_full_project_context", "search_items"],
+  );
+  assert.deepEqual(
+    getActiveRuntimeToolNames(["search_items", "unknown_tool", "load_full_project_context"]),
+    ["search_items", "load_full_project_context"],
+  );
 });
 
 test("create_item maps shopping title alias into name", async () => {
@@ -639,14 +668,30 @@ test("update_project_settings trims values and rejects too-short name", async ()
   assert.equal(parsed.updates.location, "Warszawa");
 });
 
+test("update_project_settings rejects updates that normalize to empty values", async () => {
+  const createStreamingTools = await getCreateStreamingTools();
+  const tools = createStreamingTools({ projectId: "project_1" });
+
+  const raw = await tools.update_project_settings.execute({
+    name: "   ",
+    description: "   ",
+  });
+  const parsed = JSON.parse(raw);
+
+  assert.equal(parsed.operation, undefined);
+  assert.equal(parsed.error, "No valid project setting updates were provided");
+});
+
 test("search_items uses runAction (not runQuery)", async () => {
   const createStreamingTools = await getCreateStreamingTools();
   const calls = { runAction: 0, runQuery: 0 };
+  let receivedArgs: Record<string, unknown> | null = null;
 
   const tools = createStreamingTools({
     projectId: "project_1",
-    runAction: async () => {
+    runAction: async (_actionRef: unknown, args: Record<string, unknown>) => {
       calls.runAction += 1;
+      receivedArgs = args;
       return {
         count: 1,
         total: 1,
@@ -663,12 +708,20 @@ test("search_items uses runAction (not runQuery)", async () => {
     type: "shopping",
     query: "farba",
     limit: 10,
+    filters: {
+      completed: true,
+      status: "done",
+      badKey: "ignored",
+    } as any,
   });
   const parsed = JSON.parse(raw);
 
   assert.equal(calls.runAction, 1);
   assert.equal(calls.runQuery, 0);
   assert.equal(parsed.total, 1);
+  assert.equal((receivedArgs as { completed?: boolean } | null)?.completed, true);
+  assert.equal("status" in (receivedArgs ?? {}), false);
+  assert.equal("badKey" in (receivedArgs ?? {}), false);
 });
 
 test("generate_moodboard_image uses runAction and passes project context", async () => {

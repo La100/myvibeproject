@@ -85,6 +85,25 @@ export const SUBSCRIPTION_PLANS = {
   },
 } as const;
 
+const subscriptionLimitsValidator = v.object({
+  id: v.string(),
+  name: v.string(),
+  maxProjects: v.number(),
+  maxTeamMembers: v.number(),
+  maxStorageGB: v.number(),
+  hasAdvancedFeatures: v.boolean(),
+  hasAIFeatures: v.optional(v.boolean()),
+  price: v.number(),
+  aiMonthlyTokens: v.optional(v.number()),
+});
+
+const teamLimitsAdditionalDataValidator = v.optional(
+  v.object({
+    bytes: v.optional(v.number()),
+    current: v.optional(v.number()),
+  }),
+);
+
 export function getEffectiveLimits(team: any) {
   const plan = (team.subscriptionPlan || "free") as keyof typeof SUBSCRIPTION_PLANS;
   const defaultLimits = SUBSCRIPTION_PLANS[plan];
@@ -564,8 +583,20 @@ export const checkTeamLimits = query({
       v.literal("use_advanced_features"),
       v.literal("upload_file")
     ),
-    additionalData: v.optional(v.any())
+    additionalData: teamLimitsAdditionalDataValidator,
   },
+  returns: v.union(
+    v.object({
+      allowed: v.literal(true),
+    }),
+    v.object({
+      allowed: v.literal(false),
+      reason: v.string(),
+      message: v.string(),
+      current: v.optional(v.number()),
+      limit: v.optional(v.number()),
+    }),
+  ),
   async handler(ctx, args) {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
@@ -577,13 +608,24 @@ export const checkTeamLimits = query({
       throw new Error("Team not found");
     }
 
+    const membership = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", args.teamId).eq("clerkUserId", identity.subject)
+      )
+      .unique();
+
+    if (!membership || !membership.isActive) {
+      throw new Error("Not authorized to view this team");
+    }
+
     const plan = (team.subscriptionPlan || "free") as keyof typeof SUBSCRIPTION_PLANS;
     const limits = getEffectiveLimits(team);
 
     // Check subscription status
     if (team.subscriptionStatus && !["active", "trialing"].includes(team.subscriptionStatus)) {
       return {
-        allowed: false,
+        allowed: false as const,
         reason: "subscription_inactive",
         message: "Your subscription is not active. Please update your billing information.",
       };
@@ -599,7 +641,7 @@ export const checkTeamLimits = query({
 
         if (projectCount >= limits.maxProjects) {
           return {
-            allowed: false,
+            allowed: false as const,
             reason: "project_limit_reached",
             message: `You've reached the maximum number of projects (${limits.maxProjects}) for your ${plan} plan.`,
             current: projectCount,
@@ -619,7 +661,7 @@ export const checkTeamLimits = query({
 
         if (memberCount >= limits.maxTeamMembers) {
           return {
-            allowed: false,
+            allowed: false as const,
             reason: "member_limit_reached",
             message: `You've reached the maximum number of team members (${limits.maxTeamMembers}) for your ${plan} plan.`,
             current: memberCount,
@@ -632,7 +674,7 @@ export const checkTeamLimits = query({
       case "use_advanced_features": {
         if (!limits.hasAdvancedFeatures) {
           return {
-            allowed: false,
+            allowed: false as const,
             reason: "feature_not_available",
             message: "Advanced features are not available on your current plan.",
           };
@@ -641,7 +683,7 @@ export const checkTeamLimits = query({
       }
     }
 
-    return { allowed: true };
+    return { allowed: true as const };
   },
 });
 
@@ -711,7 +753,7 @@ export const checkTeamAIAccess = query({
       v.literal("unpaid"),
       v.null()
     )),
-    subscriptionLimits: v.optional(v.any()),
+    subscriptionLimits: v.optional(subscriptionLimitsValidator),
     // Simple token balance
     totalTokens: v.optional(v.number()),
     usedTokens: v.optional(v.number()),

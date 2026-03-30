@@ -1,7 +1,7 @@
 import type { FileMetadataForHistory, OpenAIUploadedFile } from "./files";
 
 type OpenAIFileContentPart =
-  | { type: "file"; data: string; mimeType: string };
+  | { type: "file"; data: string; mediaType: string };
 
 export const toOpenAIFileContentPart = (
   file: OpenAIUploadedFile,
@@ -17,7 +17,7 @@ export const toOpenAIFileContentPart = (
     contentPart: {
       type: "file",
       data: file.fileId,
-      mimeType: fileType,
+      mediaType: fileType,
     },
     description: fileType.startsWith("image/")
       ? `User attached image: ${readableName} (${fileType})`

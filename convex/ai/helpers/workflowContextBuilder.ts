@@ -60,10 +60,10 @@ export function buildWorkflowSystemPrompt(
 
   // Enabled tools guidance
   if (currentStep.enabledTools && currentStep.enabledTools.length > 0) {
-    parts.push("### Available tools for this step:");
+    parts.push("### Preferred tools for this step:");
     parts.push(currentStep.enabledTools.map((t) => `- \`${t}\``).join("\n"));
     parts.push("");
-    parts.push("*Use the tools above to complete this workflow step.*");
+    parts.push("*Stay within the tools above for this workflow step whenever runtime allows it.*");
   }
 
   // Workflow help content
@@ -218,5 +218,3 @@ export function isWorkflowComplete(workflowId: string, completedStepIds: string[
 
   return workflow.steps.every((step) => completedStepIds.includes(step.id));
 }
-
-

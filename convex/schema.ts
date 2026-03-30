@@ -981,6 +981,20 @@ export default defineSchema({
     lastResponseId: v.optional(v.string()), // OpenAI Response ID (not currently used)
     agentThreadId: v.optional(v.string()), // Convex Agent Thread ID
     abortedAt: v.optional(v.number()), // Timestamp when user requested abort
+    workflowContext: v.optional(
+      v.object({
+        workflowId: v.string(),
+        stepId: v.string(),
+        previousResponses: v.optional(
+          v.array(
+            v.object({
+              stepId: v.string(),
+              response: v.string(),
+            }),
+          ),
+        ),
+      }),
+    ),
   })
     .index("by_thread_id", ["threadId"])
     .index("by_project", ["projectId"])
@@ -1082,27 +1096,4 @@ export default defineSchema({
     .index("by_user", ["userClerkId"])
     .index("by_success", ["success"])
     .index("by_session", ["sessionId"]),
-
-  // AI Function Calls - tracks function calls for threading continuity
-  aiFunctionCalls: defineTable({
-    threadId: v.string(), // Reference to aiThreads
-    projectId: v.id("projects"),
-    responseId: v.string(), // OpenAI Response ID that generated this call
-    callId: v.string(), // OpenAI call_id for the function call
-    functionName: v.string(), // Name of the function called
-    arguments: v.string(), // JSON stringified arguments
-    result: v.optional(v.string()), // JSON stringified result after confirmation
-    status: v.union(
-      v.literal("pending"), // Waiting for user confirmation
-      v.literal("confirmed"), // User confirmed, executed
-      v.literal("rejected"), // User rejected
-      v.literal("replayed"), // Already replayed in a subsequent message
-    ),
-    createdAt: v.number(),
-    confirmedAt: v.optional(v.number()),
-  })
-    .index("by_thread", ["threadId"])
-    .index("by_thread_and_status", ["threadId", "status"])
-    .index("by_response_id", ["responseId"]),
-
 });

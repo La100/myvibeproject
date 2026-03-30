@@ -161,8 +161,8 @@ export function InlineCreationForm({
   };
 
   return (
-    <div className="flex h-full w-full min-w-0 flex-col overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm animate-in fade-in zoom-in-95 duration-200 max-h-[48vh]">
-      <div className="px-4 py-2.5 border-b border-border/70 bg-card flex items-center justify-between">
+    <div className="flex h-full w-full min-w-0 max-w-[42rem] flex-col overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm animate-in fade-in zoom-in-95 duration-200 max-h-[34vh]">
+      <div className="flex items-center justify-between border-b border-border/70 bg-card px-3 py-2">
         <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <div className={cn("w-2 h-2 rounded-full", getDotColor(type))} />
           <span>{operationVerb} {getLabel(type)}</span>
@@ -172,7 +172,7 @@ export function InlineCreationForm({
         )}
       </div>
 
-      <div className="p-4 space-y-3 flex-1 min-h-0 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+      <div className="flex-1 min-h-0 overflow-y-auto px-3 py-2.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         {operation === "delete" ? (
           <div className="space-y-3">
             <div className="text-base font-medium">{displayTitle}</div>
@@ -182,13 +182,6 @@ export function InlineCreationForm({
           </div>
         ) : (
           <>
-            <div className="space-y-2 border-b border-border/60 pb-3">
-              <div className="text-base font-medium">{displayTitle}</div>
-              {displayDescription && (
-                <div className="text-sm text-muted-foreground line-clamp-2">{displayDescription}</div>
-              )}
-            </div>
-
             {type === "task" && <TaskForm data={data} onUpdate={updateData} teamMembers={teamMembers} />}
             {type === "note" && <NoteForm data={data} onUpdate={updateData} />}
             {type === "shopping" && <ShoppingForm data={data} onUpdate={updateData} currency={projectCurrency} />}
@@ -204,7 +197,7 @@ export function InlineCreationForm({
       </div>
 
       {showActions && (
-        <div className="flex items-center justify-end px-4 py-2.5 bg-card border-t border-border/70">
+        <div className="flex items-center justify-end border-t border-border/70 bg-card px-3 py-2">
           <div className="flex items-center gap-2.5">
             <Button
               variant="ghost"

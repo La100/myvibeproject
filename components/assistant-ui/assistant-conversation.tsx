@@ -6,8 +6,6 @@ import { AssistantRuntimeProvider, useExternalStoreRuntime } from "@assistant-ui
 import type { AttachmentAdapter } from "@assistant-ui/react";
 import type { UIMessage } from "@convex-dev/agent/react";
 import { History, Loader2, Plus } from "lucide-react";
-import type { PendingContentItem } from "@/components/ai/assistant/data/types";
-
 import { Thread } from "@/components/assistant-ui/thread";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
 import { ACCEPTED_FILE_TYPES } from "@/components/ai/assistant/config";
@@ -46,12 +44,12 @@ type AssistantConversationProps = {
   inputDisabled?: boolean;
   inputPlaceholder?: string;
   composerBanner?: ReactNode;
-  pendingItems?: PendingContentItem[];
-  onConfirmItem?: (index: number | string) => Promise<void>;
-  onRejectItem?: (index: number | string) => void | Promise<void>;
-  onEditItem?: (index: number) => void;
-  onUpdateItem?: (index: number | string, updates: Partial<PendingContentItem>) => void;
-  isProcessing?: boolean;
+  onRespondToToolApproval?: (args: {
+    approvalId: string;
+    approved: boolean;
+    toolCallId: string;
+    reason?: string;
+  }) => Promise<void>;
   confirmationMode?: "always_ask" | "auto_confirm";
   onConfirmationModeChange?: (mode: "always_ask" | "auto_confirm") => void | Promise<void>;
   isModeUpdating?: boolean;
@@ -136,25 +134,39 @@ const toThreadMessageLikeFromUI = (
       continue;
     }
 
-    if (type.startsWith("tool-result:")) {
-      const toolCallId = type.replace("tool-result:", "");
+    const isToolPart =
+      (type.startsWith("tool-") || typeof part.toolCallId === "string") &&
+      type !== "tool-approval-request" &&
+      type !== "tool-approval-response";
+    if (isToolPart) {
+      const toolCallId =
+        (typeof part.toolCallId === "string" && part.toolCallId) ||
+        (type.startsWith("tool-result:") ? type.replace("tool-result:", "") : undefined);
+      if (!toolCallId) {
+        continue;
+      }
       const toolName =
         (typeof part.toolName === "string" && part.toolName) ||
         (typeof part.name === "string" && part.name) ||
-        "tool";
-      let result: unknown = undefined;
-      if (typeof part.result === "string") {
+        (type.startsWith("tool-") ? type.replace(/^tool-/, "") : "tool");
+      const rawResult = "output" in part ? part.output : "result" in part ? part.result : undefined;
+      let result: unknown = rawResult;
+      if (typeof rawResult === "string") {
         try {
-          result = JSON.parse(part.result);
+          result = JSON.parse(rawResult);
         } catch {
-          result = part.result;
+          result = rawResult;
         }
       }
-      const args =
-        typeof part.args === "object" && part.args
-          ? (part.args as ReadonlyJSONObject)
-          : undefined;
-
+      const argsSource =
+        typeof part.input === "object" && part.input
+          ? part.input
+          : typeof part.args === "object" && part.args
+            ? part.args
+            : undefined;
+      const args = argsSource as ReadonlyJSONObject | undefined;
+      const toolState =
+        typeof part.state === "string" ? part.state : undefined;
       content.push({
         type: "tool-call",
         toolCallId,
@@ -162,13 +174,18 @@ const toThreadMessageLikeFromUI = (
         args,
         argsText:
           (typeof part.argsText === "string" && part.argsText) ||
-          (typeof part.args === "object" ? JSON.stringify(part.args) : ""),
+          (args ? JSON.stringify(args) : ""),
         result,
+        state: toolState,
+        approval:
+          typeof part.approval === "object" && part.approval
+            ? part.approval
+            : undefined,
         isError:
           typeof result === "object" &&
           result !== null &&
           "error" in (result as Record<string, unknown>),
-      });
+      } as unknown as ThreadContentPart);
       continue;
     }
   }
@@ -249,12 +266,7 @@ export default function AssistantConversation({
   inputDisabled = false,
   inputPlaceholder,
   composerBanner,
-  pendingItems = [],
-  onConfirmItem,
-  onRejectItem,
-  onEditItem,
-  onUpdateItem,
-  isProcessing = false,
+  onRespondToToolApproval,
   confirmationMode = "always_ask",
   onConfirmationModeChange,
   isModeUpdating = false,
@@ -592,12 +604,7 @@ export default function AssistantConversation({
               inputDisabled={inputDisabled}
               inputPlaceholder={inputPlaceholder}
               composerBanner={composerBanner}
-              pendingItems={pendingItems}
-              onConfirmItem={onConfirmItem}
-              onRejectItem={onRejectItem}
-              onEditItem={onEditItem}
-              onUpdateItem={onUpdateItem}
-              isProcessing={isProcessing}
+              onRespondToToolApproval={onRespondToToolApproval}
               confirmationMode={confirmationMode}
               onConfirmationModeChange={onConfirmationModeChange}
               isModeUpdating={isModeUpdating}

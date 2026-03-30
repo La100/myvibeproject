@@ -1,7 +1,9 @@
 import type { PendingItem } from "../types";
 
 export const isResolvedPendingItem = (item: PendingItem) =>
-  item.status === "confirmed" || item.status === "rejected";
+  item.status === "confirmed" ||
+  item.status === "rejected" ||
+  item.status === "superseded";
 
 export const normalizePendingLookupId = (value: string) =>
   value.replace(/::\d+$/, "");

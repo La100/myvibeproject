@@ -11,8 +11,10 @@
  */
 
 import { z } from "zod";
+import { createTool, type ToolCtx } from "@convex-dev/agent";
 import type { Id } from "../_generated/dataModel";
 import type { ProjectContextSnapshot } from "./types";
+import { assistantToolNames } from "./toolMetadata.ts";
 
 // RunAction type matches ctx.runAction signature
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -20,6 +22,9 @@ type RunActionFn = (action: any, args: any) => Promise<any>;
 // RunQuery type matches ctx.runQuery signature
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type RunQueryFn = (query: any, args: any) => Promise<any>;
+// RunMutation type matches ctx.runMutation signature
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type RunMutationFn = (mutation: any, args: any) => Promise<any>;
 
 type InternalSearchApi = {
   getItemById: unknown;
@@ -38,6 +43,13 @@ const getInternalSearchApi = (): InternalSearchApi => {
   return (
     apiModule.internal as { ai: { search: InternalSearchApi } }
   ).ai.search;
+};
+
+const getPublicApi = (): any => {
+  // Keep this runtime-loaded to avoid deep type instantiation in TS.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const apiModule = require("../_generated/api") as { api: unknown };
+  return apiModule.api as any;
 };
 
 // ============================================
@@ -272,7 +284,10 @@ export const deleteItemSchema = z.object({
 export const searchItemsSchema = z.object({
   type: z.enum(["task", "note", "shopping", "labor", "survey", "contact"]).describe("Type of items to search"),
   query: z.string().optional().describe("Search query"),
-  filters: z.record(z.any()).optional().describe("Type-specific filters (e.g., status, sectionName, contactType)"),
+  filters: z
+    .record(z.union([z.string(), z.number(), z.boolean()]))
+    .optional()
+    .describe("Type-specific filters supported by the selected type"),
   limit: z.number().optional().default(10).describe("Maximum number of results"),
 });
 
@@ -299,10 +314,50 @@ export const generateMoodboardImageSchema = z.object({
 // Types for tool options
 interface StreamingToolOptions {
   projectId?: string;
+  teamSlug?: string;
   userClerkId?: string;
   runAction?: RunActionFn;
   runQuery?: RunQueryFn;
+  runMutation?: RunMutationFn;
   loadSnapshot?: () => Promise<ProjectContextSnapshot>;
+  allowedToolNames?: readonly string[];
+  crudApprovalMode?: "always_ask" | "auto_confirm";
+}
+
+type ToolApprovalMetadata = {
+  required: boolean;
+  mode: "always_ask" | "auto_confirm";
+  reason: string;
+};
+
+type AssistantToolPayload = Record<string, unknown> | string;
+
+type AssistantToolDefinition<INPUT> = {
+  description: string;
+  inputSchema: any;
+  inputExamples?: INPUT[];
+  requiresConfirmation?: boolean | ((input: INPUT) => boolean | Promise<boolean>);
+  confirmationReason?: string | ((input: INPUT) => string);
+  execute: (input: INPUT) => Promise<AssistantToolPayload>;
+};
+
+type AssistantToolInstance<INPUT> = {
+  description?: string;
+  inputSchema?: unknown;
+  execute: (input: INPUT, options?: unknown) => Promise<string>;
+};
+
+export const ALL_RUNTIME_TOOL_NAMES = assistantToolNames;
+
+export function getActiveRuntimeToolNames(
+  allowedToolNames?: readonly string[],
+): string[] {
+  if (!allowedToolNames || allowedToolNames.length === 0) {
+    return [...ALL_RUNTIME_TOOL_NAMES];
+  }
+
+  const allowed = new Set(allowedToolNames);
+  return ALL_RUNTIME_TOOL_NAMES.filter((toolName) => allowed.has(toolName));
 }
 
 /**
@@ -322,7 +377,7 @@ function getOperationType(type: ItemType): string {
   return typeMap[type];
 }
 
-function normalizePriceAliases(
+export function normalizePriceAliases(
   type: ItemType,
   rawData: unknown,
 ): Record<string, unknown> {
@@ -403,6 +458,433 @@ function normalizePriceAliases(
   return data;
 }
 
+function describeWithExamples<INPUT>(
+  description: string,
+  inputExamples?: INPUT[],
+): string {
+  if (!inputExamples || inputExamples.length === 0) {
+    return description;
+  }
+
+  const renderedExamples = inputExamples
+    .slice(0, 2)
+    .map((example, index) => `Example ${index + 1}: ${JSON.stringify(example)}`)
+    .join("\n");
+
+  return `${description}\n\nInput examples:\n${renderedExamples}`;
+}
+
+async function resolveApprovalMetadata<INPUT>(
+  input: INPUT,
+  options: StreamingToolOptions | undefined,
+  definition: Pick<
+    AssistantToolDefinition<INPUT>,
+    "requiresConfirmation" | "confirmationReason"
+  >,
+): Promise<ToolApprovalMetadata | undefined> {
+  const requiresConfirmation = definition.requiresConfirmation;
+  if (!requiresConfirmation) {
+    return undefined;
+  }
+
+  const required = typeof requiresConfirmation === "function"
+    ? await requiresConfirmation(input)
+    : requiresConfirmation;
+
+  if (!required) {
+    return undefined;
+  }
+
+  const mode = options?.crudApprovalMode ?? "always_ask";
+  const reason = typeof definition.confirmationReason === "function"
+    ? definition.confirmationReason(input)
+    : definition.confirmationReason;
+
+  return {
+    required: mode !== "auto_confirm",
+    mode,
+    reason:
+      reason ??
+      (mode === "auto_confirm"
+        ? "Project is configured to auto-confirm AI CRUD actions."
+        : "This tool changes project data and requires confirmation before execution."),
+  };
+}
+
+function serializeToolPayload(
+  payload: AssistantToolPayload,
+): string {
+  const normalizedPayload =
+    typeof payload === "string"
+      ? (() => {
+          try {
+            return JSON.parse(payload) as Record<string, unknown>;
+          } catch {
+            return { value: payload };
+          }
+        })()
+      : payload;
+
+  if (typeof normalizedPayload.error === "string") {
+    return JSON.stringify(normalizedPayload);
+  }
+
+  return JSON.stringify(normalizedPayload);
+}
+
+const ACTIONABLE_OPERATIONS = new Set([
+  "create",
+  "bulk_create",
+  "edit",
+  "bulk_edit",
+  "delete",
+]);
+
+type ToolExecutionOutcome =
+  | { success: true; message?: string; count?: number }
+  | { success: false; message: string };
+
+const BULK_KEYS_BY_TYPE: Record<string, string[]> = {
+  task: ["tasks", "items"],
+  note: ["notes", "items"],
+  shopping: ["items"],
+  labor: ["items", "laborItems"],
+  survey: ["surveys", "items"],
+  contact: ["contacts", "items"],
+  shoppingSection: ["items", "sections"],
+  laborSection: ["items", "sections"],
+};
+
+const toRecord = (value: unknown): Record<string, unknown> =>
+  value && typeof value === "object" && !Array.isArray(value)
+    ? ({ ...(value as Record<string, unknown>) })
+    : {};
+
+const toRecordArray = (value: unknown): Record<string, unknown>[] =>
+  Array.isArray(value)
+    ? value.filter(
+        (entry): entry is Record<string, unknown> =>
+          !!entry && typeof entry === "object" && !Array.isArray(entry),
+      )
+    : [];
+
+const parsePayloadObject = (
+  payload: AssistantToolPayload,
+): Record<string, unknown> | null => {
+  if (typeof payload === "string") {
+    try {
+      const parsed = JSON.parse(payload) as unknown;
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>)
+        : null;
+    } catch {
+      return null;
+    }
+  }
+  return payload;
+};
+
+async function executeSinglePayload(
+  payload: Record<string, unknown>,
+  options?: StreamingToolOptions,
+): Promise<ToolExecutionOutcome> {
+  const api = getPublicApi();
+  const type = typeof payload.type === "string" ? payload.type : undefined;
+  const operation =
+    typeof payload.operation === "string" ? payload.operation : undefined;
+  const data = toRecord(payload.data);
+  const updates = toRecord(payload.updates);
+
+  if (!type || !operation || !ACTIONABLE_OPERATIONS.has(operation)) {
+    return { success: true };
+  }
+  if (!options?.runAction && !options?.runMutation) {
+    return { success: false, message: "Tool execution is unavailable in this runtime." };
+  }
+  if (!options.projectId && type !== "contact") {
+    return { success: false, message: "Missing active project for tool execution." };
+  }
+
+  const projectId = options.projectId as Id<"projects"> | undefined;
+  const runAction = options.runAction;
+  const runMutation = options.runMutation;
+
+  if (operation === "create") {
+    switch (type) {
+      case "task": {
+        const taskData = { ...data };
+        delete taskData.assignedToName;
+        return await runAction!(api.ai.confirmedActions.createConfirmedTask, {
+          projectId,
+          taskData,
+        });
+      }
+      case "note":
+        return await runAction!(api.ai.confirmedActions.createConfirmedNote, {
+          projectId,
+          noteData: data,
+        });
+      case "shopping":
+        return await runAction!(api.ai.confirmedActions.createConfirmedShoppingItem, {
+          projectId,
+          itemData: {
+            ...data,
+            quantity:
+              typeof data.quantity === "number" && Number.isFinite(data.quantity)
+                ? data.quantity
+                : 1,
+          },
+        });
+      case "shoppingSection":
+        return await runAction!(api.ai.confirmedActions.createConfirmedShoppingSection, {
+          projectId,
+          sectionData: data,
+        });
+      case "labor":
+        return await runAction!(api.ai.confirmedActions.createConfirmedLaborItem, {
+          projectId,
+          itemData: {
+            ...data,
+            quantity:
+              typeof data.quantity === "number" && Number.isFinite(data.quantity)
+                ? data.quantity
+                : 1,
+          },
+        });
+      case "laborSection":
+        return await runAction!(api.ai.confirmedActions.createConfirmedLaborSection, {
+          projectId,
+          sectionData: data,
+        });
+      case "survey":
+        return await runAction!(api.ai.confirmedActions.createConfirmedSurvey, {
+          projectId,
+          surveyData: data,
+        });
+      case "contact":
+        return await runAction!(api.ai.confirmedActions.createConfirmedContact, {
+          teamSlug: options.teamSlug,
+          contactData: data,
+        });
+    }
+  }
+
+  if (operation === "edit") {
+    switch (type) {
+      case "task":
+        return await runAction!(api.ai.confirmedActions.editConfirmedTask, {
+          projectId,
+          taskId: data.itemId,
+          updates,
+        });
+      case "note":
+        return await runAction!(api.ai.confirmedActions.editConfirmedNote, {
+          projectId,
+          noteId: data.itemId,
+          updates,
+        });
+      case "shopping":
+        return await runAction!(api.ai.confirmedActions.editConfirmedShoppingItem, {
+          projectId,
+          itemId: data.itemId,
+          updates,
+        });
+      case "shoppingSection":
+        return await runAction!(api.ai.confirmedActions.editConfirmedShoppingSection, {
+          sectionId: data.sectionId ?? data.itemId,
+          updates,
+        });
+      case "labor":
+        return await runAction!(api.ai.confirmedActions.editConfirmedLaborItem, {
+          projectId,
+          itemId: data.itemId,
+          updates,
+        });
+      case "laborSection":
+        return await runAction!(api.ai.confirmedActions.editConfirmedLaborSection, {
+          sectionId: data.sectionId ?? data.itemId,
+          updates,
+        });
+      case "survey":
+        return await runAction!(api.ai.confirmedActions.editConfirmedSurvey, {
+          projectId,
+          surveyId: data.itemId,
+          updates,
+        });
+      case "contact":
+        return await runAction!(api.ai.confirmedActions.editConfirmedContact, {
+          teamSlug: options.teamSlug,
+          contactId: data.itemId,
+          updates,
+        });
+      case "projectSettings":
+        return await runMutation!(api.projects.updateProject, {
+          projectId,
+          ...updates,
+        }).then(() => ({ success: true, message: "Project settings updated." }));
+    }
+  }
+
+  if (operation === "delete") {
+    switch (type) {
+      case "task":
+        return await runAction!(api.ai.confirmedActions.deleteConfirmedTask, {
+          taskId: data.itemId,
+          reason: data.reason,
+        });
+      case "note":
+        return await runAction!(api.ai.confirmedActions.deleteConfirmedNote, {
+          noteId: data.itemId,
+          reason: data.reason,
+        });
+      case "moodboard":
+        await runMutation!(api.files.deleteFile, { fileId: data.fileId ?? data.itemId });
+        return { success: true, message: "Moodboard image deleted successfully" };
+      case "shopping":
+        return await runAction!(api.ai.confirmedActions.deleteConfirmedShoppingItem, {
+          itemId: data.itemId,
+          reason: data.reason,
+        });
+      case "shoppingSection":
+        return await runAction!(api.ai.confirmedActions.deleteConfirmedShoppingSection, {
+          sectionId: data.sectionId ?? data.itemId,
+          reason: data.reason,
+        });
+      case "labor":
+        return await runAction!(api.ai.confirmedActions.deleteConfirmedLaborItem, {
+          itemId: data.itemId,
+          reason: data.reason,
+        });
+      case "laborSection":
+        return await runAction!(api.ai.confirmedActions.deleteConfirmedLaborSection, {
+          sectionId: data.sectionId ?? data.itemId,
+          reason: data.reason,
+        });
+      case "survey":
+        return await runAction!(api.ai.confirmedActions.deleteConfirmedSurvey, {
+          surveyId: data.itemId,
+          reason: data.reason,
+        });
+      case "contact":
+        return await runAction!(api.ai.confirmedActions.deleteConfirmedContact, {
+          contactId: data.itemId,
+          reason: data.reason,
+        });
+    }
+  }
+
+  return { success: false, message: `Unsupported tool execution for ${type}:${operation}` };
+}
+
+async function executePreparedPayload(
+  payload: Record<string, unknown>,
+  options?: StreamingToolOptions,
+): Promise<ToolExecutionOutcome> {
+  const operation =
+    typeof payload.operation === "string" ? payload.operation : undefined;
+  const type = typeof payload.type === "string" ? payload.type : undefined;
+  const data = toRecord(payload.data);
+
+  if (!operation || !type || !ACTIONABLE_OPERATIONS.has(operation)) {
+    return { success: true };
+  }
+
+  if (operation === "bulk_create") {
+    const bulkKeys = BULK_KEYS_BY_TYPE[type] ?? ["items"];
+    let count = 0;
+    for (const key of bulkKeys) {
+      const entries = toRecordArray(data[key]);
+      for (const entry of entries) {
+        const outcome = await executeSinglePayload(
+          { type, operation: "create", data: entry },
+          options,
+        );
+        if (!outcome.success) return outcome;
+        count += 1;
+      }
+      if (entries.length > 0) {
+        return { success: true, count, message: `Created ${count} items.` };
+      }
+    }
+    return { success: false, message: "No items were provided for bulk create." };
+  }
+
+  if (operation === "bulk_edit") {
+    const items = toRecordArray(data.items);
+    if (items.length === 0) {
+      return { success: false, message: "No items were provided for bulk edit." };
+    }
+    let count = 0;
+    for (const item of items) {
+      const outcome = await executeSinglePayload(
+        {
+          type,
+          operation: "edit",
+          data: { itemId: item.itemId },
+          updates: toRecord(item.updates),
+        },
+        options,
+      );
+      if (!outcome.success) return outcome;
+      count += 1;
+    }
+    return { success: true, count, message: `Updated ${count} items.` };
+  }
+
+  return executeSinglePayload(payload, options);
+}
+
+function createAssistantTool<INPUT>(
+  definition: AssistantToolDefinition<INPUT>,
+  options?: StreamingToolOptions,
+): AssistantToolInstance<INPUT> {
+  const toolInstance = createTool<INPUT, string>({
+    ctx: {} as ToolCtx,
+    description: describeWithExamples(
+      definition.description,
+      definition.inputExamples,
+    ),
+    inputSchema: definition.inputSchema,
+    needsApproval: async (_ctx, input) => {
+      const approval = await resolveApprovalMetadata(
+        input as INPUT,
+        options,
+        definition,
+      );
+      return Boolean(approval?.required);
+    },
+    execute: async (_ctx, input, executionOptions) => {
+      const payload = await definition.execute(input as INPUT);
+      const parsedPayload = parsePayloadObject(payload);
+      if (!parsedPayload || typeof parsedPayload.error === "string") {
+        return serializeToolPayload(payload);
+      }
+
+      const shouldExecute =
+        !!executionOptions &&
+        Object.keys(executionOptions as unknown as Record<string, unknown>).length > 0;
+      if (!shouldExecute) {
+        return serializeToolPayload(parsedPayload);
+      }
+
+      const outcome = await executePreparedPayload(parsedPayload, options);
+      return serializeToolPayload({
+        ...parsedPayload,
+        ...(outcome.success ? { status: "confirmed" } : {}),
+        outcome,
+      });
+    },
+  });
+
+  const execute = async (input: INPUT) =>
+    serializeToolPayload(await definition.execute(input));
+
+  return Object.assign(toolInstance, {
+    inputSchema: definition.inputSchema,
+    execute,
+  }) as AssistantToolInstance<INPUT>;
+}
+
 function getRequiredPrimaryField(type: ItemType): "title" | "name" {
   switch (type) {
     case "task":
@@ -414,7 +896,7 @@ function getRequiredPrimaryField(type: ItemType): "title" | "name" {
   }
 }
 
-function getBulkCreatePayload(
+export function getBulkCreatePayload(
   type: ItemType,
   items: Record<string, unknown>[],
 ): Record<string, unknown> {
@@ -514,7 +996,7 @@ function normalizeSurveyCreateData(rawData: Record<string, unknown>): Record<str
   return data;
 }
 
-function normalizeCreateData(
+export function normalizeCreateData(
   type: ItemType,
   rawData: unknown,
 ): Record<string, unknown> {
@@ -530,6 +1012,37 @@ function normalizeCreateData(
   return normalized;
 }
 
+function normalizeSearchFilters(
+  type: z.infer<typeof searchItemsSchema>["type"],
+  rawFilters: unknown,
+): Record<string, string | number | boolean> {
+  const filters = toRecord(rawFilters);
+
+  switch (type) {
+    case "task":
+      return typeof filters.status === "string" &&
+        ["todo", "in_progress", "review", "done"].includes(filters.status)
+        ? { status: filters.status }
+        : {};
+    case "shopping":
+      return typeof filters.completed === "boolean"
+        ? { completed: filters.completed }
+        : {};
+    case "survey":
+      return typeof filters.status === "string" &&
+        ["draft", "active", "closed", "completed", "archived"].includes(filters.status)
+        ? { status: filters.status }
+        : {};
+    case "contact":
+      return typeof filters.type === "string" &&
+        ["contractor", "supplier", "subcontractor", "other"].includes(filters.type)
+        ? { type: filters.type }
+        : {};
+    default:
+      return {};
+  }
+}
+
 function hasRequiredPrimaryField(
   type: ItemType,
   data: Record<string, unknown>,
@@ -537,13 +1050,6 @@ function hasRequiredPrimaryField(
   const requiredField = getRequiredPrimaryField(type);
   const value = data[requiredField];
   return typeof value === "string" && value.trim().length > 0;
-}
-
-function toRecord(value: unknown): Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-  return { ...(value as Record<string, unknown>) };
 }
 
 function extractUpdateData(rawData: unknown): Record<string, unknown> {
@@ -578,7 +1084,7 @@ function extractUpdateData(rawData: unknown): Record<string, unknown> {
   return normalized;
 }
 
-function extractUpdateDataFromSingleArgs(rawArgs: unknown): Record<string, unknown> {
+export function extractUpdateDataFromSingleArgs(rawArgs: unknown): Record<string, unknown> {
   const argsRecord = toRecord(rawArgs);
   const nestedData = extractUpdateData(argsRecord.data);
   const directData = { ...argsRecord };
@@ -592,7 +1098,7 @@ function extractUpdateDataFromSingleArgs(rawArgs: unknown): Record<string, unkno
     : flattenedDirectData;
 }
 
-function extractUpdateDataFromBulkEntry(rawEntry: unknown): Record<string, unknown> {
+export function extractUpdateDataFromBulkEntry(rawEntry: unknown): Record<string, unknown> {
   const entry = toRecord(rawEntry);
   const nestedData = extractUpdateData(entry.data);
   const directData = { ...entry };
@@ -620,7 +1126,7 @@ function hasMeaningfulValue(
   return true;
 }
 
-function hasMeaningfulUpdateFields(
+export function hasMeaningfulUpdateFields(
   data: Record<string, unknown>,
 ): boolean {
   return Object.values(data).some((value) => hasMeaningfulValue(value, { allowZeroNumber: true }));
@@ -641,11 +1147,15 @@ function hasFallbackUpdateFields(
  * Using inputSchema (AI SDK v5) instead of parameters
  */
 export function createStreamingTools(options?: StreamingToolOptions) {
-  return {
+  const tools = {
     // Generic CRUD operations
-    create_item: {
+    create_item: createAssistantTool({
       description: "Create a new item (task, note, shopping item, labor item, survey, contact, or section). Specify the type and provide the appropriate data fields. ONLY use this when the user explicitly asks to create something.",
       inputSchema: createItemSchema,
+      inputExamples: [
+        { type: "task", data: { title: "Book electrician", priority: "high" } },
+      ],
+      requiresConfirmation: true,
       execute: async (args: z.infer<typeof createItemSchema>) => {
         const data = normalizeCreateData(args.type, args.data);
         const requiredField = getRequiredPrimaryField(args.type);
@@ -663,11 +1173,21 @@ export function createStreamingTools(options?: StreamingToolOptions) {
           data
         });
       },
-    },
+    }, options),
 
-    create_multiple_items: {
+    create_multiple_items: createAssistantTool({
       description: "Create multiple items at once (2+ items of the same type). More efficient than multiple single creates.",
       inputSchema: createMultipleItemsSchema,
+      inputExamples: [
+        {
+          type: "shopping",
+          items: [
+            { name: "Primer", quantity: 1 },
+            { name: "Wall paint", quantity: 3 },
+          ],
+        },
+      ],
+      requiresConfirmation: true,
       execute: async (args: z.infer<typeof createMultipleItemsSchema>) => {
         if (args.items.length === 0) {
           return JSON.stringify({
@@ -699,11 +1219,19 @@ export function createStreamingTools(options?: StreamingToolOptions) {
           data: getBulkCreatePayload(args.type, items)
         });
       },
-    },
+    }, options),
 
-    update_item: {
+    update_item: createAssistantTool({
       description: "Update/edit an existing item. Provide the type, item ID, and fields to update. Only changed fields need to be included.",
       inputSchema: updateItemSchema,
+      inputExamples: [
+        {
+          type: "task",
+          itemId: "task_123",
+          data: { status: "done" },
+        },
+      ],
+      requiresConfirmation: true,
       execute: async (args: z.infer<typeof updateItemSchema>) => {
         const typeToTable: Record<string, string> = {
           task: "tasks",
@@ -774,11 +1302,12 @@ export function createStreamingTools(options?: StreamingToolOptions) {
           originalItem: originalItem || { _id: args.itemId },
         });
       },
-    },
+    }, options),
 
-    update_multiple_items: {
+    update_multiple_items: createAssistantTool({
       description: "Update multiple items at once (2+ items of the same type). More efficient than multiple single updates.",
       inputSchema: updateMultipleItemsSchema,
+      requiresConfirmation: true,
       execute: async (args: z.infer<typeof updateMultipleItemsSchema>) => {
         const normalizedUpdates = args.updates.map((update) => {
           const rawData = extractUpdateDataFromBulkEntry(update);
@@ -877,11 +1406,13 @@ export function createStreamingTools(options?: StreamingToolOptions) {
           }
         });
       },
-    },
+    }, options),
 
-    delete_item: {
+    delete_item: createAssistantTool({
       description: "Delete/remove an item from the project. Provide the type and item ID.",
       inputSchema: deleteItemSchema,
+      requiresConfirmation: true,
+      confirmationReason: "Delete operations are destructive and require explicit approval.",
       execute: async (args: z.infer<typeof deleteItemSchema>) => {
         // Fetch original item to show full details in delete confirmation
         let originalItem: { title?: string; name?: string; _id?: string } | null = null;
@@ -950,19 +1481,23 @@ export function createStreamingTools(options?: StreamingToolOptions) {
           originalItem: originalItem || { _id: args.itemId, title: args.name, name: args.name },
         });
       },
-    },
+    }, options),
 
     // Generic search operation
-    search_items: {
+    search_items: createAssistantTool({
       description: "Search for and list items in the project (tasks, notes, shopping items, labor items, surveys, or contacts). Use this tool when the user asks to see, list, show, or find existing items. Use type-specific filters for advanced queries. This is a READ-ONLY operation - it does not create or modify anything.",
       inputSchema: searchItemsSchema,
+      inputExamples: [
+        { type: "task", query: "bathroom", limit: 5 },
+      ],
       execute: async (args: z.infer<typeof searchItemsSchema>) => {
-        if (!options?.projectId || !options?.runAction) {
+        if ((!options?.projectId && args.type !== "contact") || !options?.runAction) {
           return JSON.stringify({ error: "Search not available - missing project context" });
         }
 
         try {
           const searchApi = getInternalSearchApi();
+          const filters = normalizeSearchFilters(args.type, args.filters);
           // Route to appropriate search function based on type
           const searchMap = {
             task: searchApi.searchTasks,
@@ -970,16 +1505,29 @@ export function createStreamingTools(options?: StreamingToolOptions) {
             shopping: searchApi.searchShoppingItems,
             labor: searchApi.searchLaborItems,
             survey: searchApi.searchSurveys,
-            contact: searchApi.searchContacts,
           };
 
-          const searchFn = searchMap[args.type];
-          const result = await options.runAction(searchFn, {
-            projectId: options.projectId as Id<"projects">,
-            query: args.query,
-            limit: args.limit,
-            ...args.filters,
-          });
+          const result = args.type === "contact"
+            ? await (() => {
+                if (!options.teamSlug) {
+                  return Promise.resolve({
+                    error: "Contact search not available - missing team context",
+                  });
+                }
+
+                return options.runAction!(searchApi.searchContacts, {
+                  teamSlug: options.teamSlug,
+                  query: args.query,
+                  limit: args.limit,
+                  ...filters,
+                });
+              })()
+            : await options.runAction(searchMap[args.type], {
+                projectId: options.projectId as Id<"projects">,
+                query: args.query,
+                limit: args.limit,
+                ...filters,
+              });
 
           return JSON.stringify(result);
         } catch (error) {
@@ -990,11 +1538,13 @@ export function createStreamingTools(options?: StreamingToolOptions) {
           });
         }
       },
-    },
+    }, options),
 
-    update_project_settings: {
+    update_project_settings: createAssistantTool({
       description: "Update project General Settings (name, description, cover image URL, status, client, location, budget, currency). Use this when the user asks to change project settings.",
       inputSchema: updateProjectSettingsSchema,
+      requiresConfirmation: true,
+      confirmationReason: "Project settings affect the whole project and require approval before execution.",
       execute: async (args: z.infer<typeof updateProjectSettingsSchema>) => {
         if (!options?.projectId) {
           return JSON.stringify({
@@ -1056,6 +1606,15 @@ export function createStreamingTools(options?: StreamingToolOptions) {
           updates.currency = args.currency;
         }
 
+        const hasMeaningfulUpdate = Object.values(updates).some(
+          (value) => value !== undefined,
+        );
+        if (!hasMeaningfulUpdate) {
+          return JSON.stringify({
+            error: "No valid project setting updates were provided",
+          });
+        }
+
         const snapshot = options?.loadSnapshot ? await options.loadSnapshot() : undefined;
 
         return JSON.stringify({
@@ -1069,10 +1628,10 @@ export function createStreamingTools(options?: StreamingToolOptions) {
           originalItem: snapshot?.project || undefined,
         });
       },
-    },
+    }, options),
 
     // Full project context loading tool
-    load_full_project_context: {
+    load_full_project_context: createAssistantTool({
       description: "Load complete project overview including ALL tasks, notes, shopping items, contacts, and surveys. Use this when you need comprehensive context about the entire project (e.g., for summaries, complex queries spanning multiple areas, or when search results are insufficient). This is more expensive than targeted searches, so use it wisely. The context is cached, so multiple calls are efficient.",
       inputSchema: loadFullProjectContextSchema,
       execute: async () => {
@@ -1114,11 +1673,17 @@ export function createStreamingTools(options?: StreamingToolOptions) {
           });
         }
       },
-    },
+    }, options),
 
-    generate_moodboard_image: {
+    generate_moodboard_image: createAssistantTool({
       description: "Generate a moodboard image with the Gemini image model and save it directly to the current project's moodboard. Use this only when the user explicitly asks to create or render a moodboard image, concept image, or visual. After a successful result, reply with a short confirmation and include the returned markdown image preview.",
       inputSchema: generateMoodboardImageSchema,
+      inputExamples: [
+        {
+          prompt: "Warm minimalist kitchen with oak fronts, travertine counters, and brushed steel details",
+          section: "Kitchen",
+        },
+      ],
       execute: async (args: z.infer<typeof generateMoodboardImageSchema>) => {
         if (!options?.projectId || !options?.runAction) {
           return JSON.stringify({
@@ -1147,8 +1712,18 @@ export function createStreamingTools(options?: StreamingToolOptions) {
           });
         }
       },
-    },
+    }, options),
   };
+
+  const activeToolNames = getActiveRuntimeToolNames(options?.allowedToolNames);
+  if (activeToolNames.length === ALL_RUNTIME_TOOL_NAMES.length) {
+    return tools;
+  }
+
+  const allowed = new Set(activeToolNames);
+  return Object.fromEntries(
+    Object.entries(tools).filter(([toolName]) => allowed.has(toolName)),
+  ) as typeof tools;
 }
 
 // ============================================

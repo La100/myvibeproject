@@ -5,7 +5,6 @@
  */
 
 export { useAIChat as useChat } from './useChat';
-export { usePendingItems } from './usePendingItems';
 export { useFileUpload } from './useFileUpload';
 export { useMessages } from './useMessages';
 export { useScrollToBottom } from './useScrollToBottom';

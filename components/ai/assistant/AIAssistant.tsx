@@ -9,13 +9,26 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
 import { useChat } from "./data/hooks";
-import { usePendingItems } from "./data/hooks";
 import { AISubscriptionWall, AIQuotaUpsellCard } from "@/components/ai/shared";
 import AssistantConversation from "@/components/assistant-ui/assistant-conversation";
 import ChatSidebar from "@/components/ai/assistant/ui/Sidebar";
 import { ASSISTANT_AT_COMMANDS } from "@/components/ai/assistant/config";
 import type { UIMessage } from "@convex-dev/agent/react";
 import { toast } from "sonner";
+
+const expandAssistantCommand = (text: string) => {
+  const trimmedMessage = text.trim();
+  const match = trimmedMessage.match(/^@([a-z-]+)\b\s*/i);
+  if (!match) return trimmedMessage;
+
+  const command = ASSISTANT_AT_COMMANDS.find(
+    (item) => item.id === match[1].toLowerCase(),
+  );
+  if (!command) return trimmedMessage;
+
+  const rest = trimmedMessage.slice(match[0].length).trim();
+  return rest ? `${command.promptPrefix} ${rest}` : command.promptPrefix;
+};
 
 const AIAssistant = () => {
   const { user } = useUser();
@@ -35,13 +48,31 @@ const AIAssistant = () => {
     team?._id ? { teamId: team._id } : "skip",
   );
   const updateProject = useMutation(apiAny.projects.updateProject);
+  const respondToToolApproval = useMutation(apiAny.ai.streamingQueries.respondToToolApproval);
   const [confirmationMode, setConfirmationMode] = useState<"always_ask" | "auto_confirm">(
     "always_ask",
   );
   const [isModeUpdating, setIsModeUpdating] = useState(false);
+  const uploadAssistantFile = useCallback(
+    async (args: { projectId: unknown; file: File }) => {
+      const formData = new FormData();
+      formData.append("projectId", String(args.projectId));
+      formData.append("file", args.file);
+
+      const response = await fetch("/api/ai/files", {
+        method: "POST",
+        body: formData,
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || "OpenAI file upload failed");
+      }
+      return await response.json();
+    },
+    [],
+  );
 
   const {
-    setChatHistory,
     isLoading,
     threadId,
     showHistory,
@@ -84,22 +115,6 @@ const AIAssistant = () => {
     router.replace(nextUrl, { scroll: false });
   }, [pathname, router, searchParams, threadId]);
 
-  const {
-    pendingItems,
-    handleConfirmItem,
-    handleRejectItem,
-    handleEditItem,
-    handleUpdatePendingItem,
-    isBulkProcessing,
-    resetPendingState,
-  } = usePendingItems({
-    projectId: project?._id,
-    teamSlug: team?.slug,
-    threadId,
-    autoConfirmCrud: confirmationMode === "auto_confirm",
-    setChatHistory,
-  });
-
   useEffect(() => {
     if (!project) return;
     setConfirmationMode(project.aiAutoConfirmCrud ? "auto_confirm" : "always_ask");
@@ -107,13 +122,11 @@ const AIAssistant = () => {
 
   const handleStartNewChat = useCallback(() => {
     handleNewChat();
-    resetPendingState();
-  }, [handleNewChat, resetPendingState]);
+  }, [handleNewChat]);
 
   const handleSelectThread = useCallback((selectedThreadId: string) => {
-    resetPendingState();
     handleThreadSelect(selectedThreadId);
-  }, [handleThreadSelect, resetPendingState]);
+  }, [handleThreadSelect]);
 
   const isQuotaBlocked = !!(
     aiAccess &&
@@ -129,19 +142,7 @@ const AIAssistant = () => {
         return;
       }
 
-      const trimmedMessage = payload.text.trim();
-      const expandedMessage = (() => {
-        const match = trimmedMessage.match(/^@([a-z-]+)\b\s*/i);
-        if (!match) return trimmedMessage;
-
-        const command = ASSISTANT_AT_COMMANDS.find(
-          (item) => item.id === match[1].toLowerCase(),
-        );
-        if (!command) return trimmedMessage;
-
-        const rest = trimmedMessage.slice(match[0].length).trim();
-        return rest ? `${command.promptPrefix} ${rest}` : command.promptPrefix;
-      })();
+      const expandedMessage = expandAssistantCommand(payload.text);
 
       if (!expandedMessage && payload.files.length === 0) {
         return;
@@ -154,29 +155,16 @@ const AIAssistant = () => {
       await sendMessageWithFile(
         payload.files,
         [],
-        () => { },
-        () => { },
-        async (args) => {
-          const formData = new FormData();
-          formData.append("projectId", String(args.projectId));
-          formData.append("file", args.file);
-
-          const response = await fetch("/api/ai/files", {
-            method: "POST",
-            body: formData,
-          });
-          if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(errorText || "OpenAI file upload failed");
-          }
-          return await response.json();
-        },
+        () => {},
+        () => {},
+        uploadAssistantFile,
         expandedMessage || fileLabel,
       );
     },
     [
       isQuotaBlocked,
       sendMessageWithFile,
+      uploadAssistantFile,
     ],
   );
 
@@ -215,6 +203,24 @@ const AIAssistant = () => {
     [confirmationMode, project, updateProject],
   );
 
+  const handleRespondToToolApproval = useCallback(
+    async (args: {
+      approvalId: string;
+      approved: boolean;
+      toolCallId: string;
+      reason?: string;
+    }) => {
+      if (!threadId) return;
+      await respondToToolApproval({
+        threadId,
+        toolCallId: args.toolCallId,
+        approved: args.approved,
+        reason: args.reason,
+      });
+    },
+    [respondToToolApproval, threadId],
+  );
+
   const quotaBlockedAssistantMessage = useMemo(() => {
     if (!isQuotaBlocked) return null;
 
@@ -245,7 +251,7 @@ const AIAssistant = () => {
   }, [aiAccess?.message, isQuotaBlocked]);
 
   const conversationMessages = useMemo(() => {
-    const baseMessages = [...((uiMessages as UIMessage[] | undefined) ?? [])];
+    const baseMessages = (uiMessages as UIMessage[] | undefined) ?? [];
     if (!quotaBlockedAssistantMessage) return baseMessages;
 
     const withoutQuotaNotice = baseMessages.filter((message) => {
@@ -348,12 +354,7 @@ const AIAssistant = () => {
           userImageUrl={user?.imageUrl || undefined}
           userFallback={userFallback}
           composerBanner={quotaBanner}
-          pendingItems={pendingItems}
-          onConfirmItem={handleConfirmItem}
-          onRejectItem={handleRejectItem}
-          onEditItem={handleEditItem}
-          onUpdateItem={handleUpdatePendingItem}
-          isProcessing={isBulkProcessing}
+          onRespondToToolApproval={handleRespondToToolApproval}
           confirmationMode={confirmationMode}
           onConfirmationModeChange={handleConfirmationModeChange}
           isModeUpdating={isModeUpdating}

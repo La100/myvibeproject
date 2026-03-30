@@ -88,8 +88,9 @@ test("normalizePendingLookupId leaves plain ids unchanged", () => {
   assert.equal(normalizePendingLookupId("call_123"), "call_123");
 });
 
-test("isResolvedPendingItem only treats confirmed and rejected items as resolved", () => {
+test("isResolvedPendingItem treats confirmed, rejected, and superseded items as resolved", () => {
   assert.equal(isResolvedPendingItem(makePendingItem({ status: "confirmed" })), true);
   assert.equal(isResolvedPendingItem(makePendingItem({ status: "rejected" })), true);
+  assert.equal(isResolvedPendingItem(makePendingItem({ status: "superseded" })), true);
   assert.equal(isResolvedPendingItem(makePendingItem({ status: undefined })), false);
 });

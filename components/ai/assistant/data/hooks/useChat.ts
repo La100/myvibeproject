@@ -13,11 +13,7 @@ import { toast } from "sonner";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { ChatHistoryEntry, SessionTokens } from "../types";
 import { useUIMessages } from "@convex-dev/agent/react";
-import {
-  mergePersistentCallState,
-  type PersistentCall,
-  type UIMessagesResult,
-} from "./chatMessageTransform";
+import { type UIMessagesResult } from "./chatMessageTransform";
 interface UseAIChatProps {
   projectId: Id<"projects"> | undefined;
   userClerkId: string | undefined;
@@ -141,6 +137,7 @@ export const useAIChat = ({
   const abortControllerRef = useRef<AbortController | null>(null);
   const isSendingRef = useRef(false);
   const prevInitialThreadIdRef = useRef<string | undefined>(normalizedInitialThreadId);
+  const detachedThreadIdRef = useRef<string | undefined>(undefined);
   const hasStreamedRef = useRef(false);
   const awaitingStreamRef = useRef(false);
   const pendingResponseBaselineRef = useRef<number | null>(null);
@@ -160,10 +157,14 @@ export const useAIChat = ({
     const previousInitialThreadId = prevInitialThreadIdRef.current;
     const hasInitialThreadChanged = normalizedInitialThreadId !== previousInitialThreadId;
     prevInitialThreadIdRef.current = normalizedInitialThreadId;
+    if (!normalizedInitialThreadId && detachedThreadIdRef.current) {
+      detachedThreadIdRef.current = undefined;
+    }
 
     if (!projectId || !userClerkId) return;
     if (!hasInitialThreadChanged) return;
     if (!normalizedInitialThreadId) return;
+    if (normalizedInitialThreadId === detachedThreadIdRef.current) return;
     if (normalizedInitialThreadId === threadId) return;
     setThreadId(normalizedInitialThreadId);
     resetConversationState();
@@ -185,12 +186,6 @@ export const useAIChat = ({
     projectId && userClerkId ? { projectId, userClerkId } : "skip"
   );
 
-  // List persistent function calls (pending + confirmed/rejected)
-  const persistentFunctionCalls = useQuery(
-    apiAny.ai.threads.listPendingItems,
-    shouldSubscribe ? { threadId: threadId! } : "skip"
-  );
-
   const streamingHookResult = useUIMessages(
     apiAny.ai.streamingQueries.listThreadMessages,
     shouldSubscribe ? { threadId: threadId! } : "skip",
@@ -198,15 +193,7 @@ export const useAIChat = ({
   );
 
   // Extract results - always from hook when subscribed
-  const rawUiMessages = shouldSubscribe ? streamingHookResult.results : undefined;
-  const uiMessages = useMemo(
-    () =>
-      mergePersistentCallState(
-        rawUiMessages,
-        persistentFunctionCalls as PersistentCall[] | undefined,
-      ),
-    [rawUiMessages, persistentFunctionCalls],
-  );
+  const uiMessages = shouldSubscribe ? streamingHookResult.results : undefined;
 
   const streamingStatus = shouldSubscribe ? streamingHookResult.status : "Exhausted";
   const loadMoreMessages = streamingHookResult.loadMore;
@@ -338,6 +325,7 @@ export const useAIChat = ({
     if (selectedThreadId === threadId) {
       return;
     }
+    detachedThreadIdRef.current = undefined;
     const activeThreadId = threadId;
     if (activeThreadId && (isStreaming || isLoading)) {
       void abortThreadStream(activeThreadId, { notify: false });
@@ -349,6 +337,7 @@ export const useAIChat = ({
 
   const handleNewChat = useCallback(() => {
     const activeThreadId = threadId;
+    detachedThreadIdRef.current = activeThreadId;
     if (activeThreadId && (isStreaming || isLoading)) {
       void abortThreadStream(activeThreadId, { notify: false });
     }
@@ -481,6 +470,7 @@ export const useAIChat = ({
       });
 
       if (!currentThreadId && result?.threadId) {
+        detachedThreadIdRef.current = undefined;
         setThreadId(result.threadId);
       }
 

@@ -85,6 +85,7 @@ export function getApprovalState(item: PendingContentItem): PendingApprovalState
   }
   if (item.status === "confirmed") return "output-available";
   if (item.status === "rejected") return "output-denied";
+  if (item.status === "superseded") return "approval-responded";
   return "approval-requested";
 }
 

@@ -200,6 +200,52 @@ test("AI assistant public endpoints stay access-controlled", async () => {
   );
   assert.match(
     source,
-    /export const markFunctionCallsAsConfirmed = mutation\([\s\S]*?q\.and\([\s\S]*?q\.eq\(q\.field\("threadId"\),\s*args\.threadId\)[\s\S]*?q\.eq\(q\.field\("status"\),\s*"pending"\)/,
+    /export const markFunctionCallsAsConfirmed = mutation\([\s\S]*?const identity = await requireIdentity\(ctx\)[\s\S]*?ensureThreadAccess\(ctx,\s*args\.threadId,\s*identity\.subject\)/,
+  );
+});
+
+test("Project and file queries keep team-level authorization checks", async () => {
+  const projectsPath = path.join(convexRoot, "projects.ts");
+  const projectsSource = await readFile(projectsPath, "utf8");
+
+  assert.match(
+    projectsSource,
+    /export const updateProject = mutation\([\s\S]*?await getProjectManagerMembership\(ctx,\s*projectId,\s*identity\.subject\)/,
+  );
+  assert.doesNotMatch(
+    projectsSource,
+    /export const updateProject = mutation\([\s\S]*?taskStatusSettings:\s*v\.optional\(v\.any\(\)\)/,
+  );
+  assert.match(
+    projectsSource,
+    /export const listTeamProjects = query\([\s\S]*?const identity = await ctx\.auth\.getUserIdentity\(\)[\s\S]*?withIndex\("by_team_and_user",[\s\S]*?q\.eq\("teamId",\s*args\.teamId\)\.eq\("clerkUserId",\s*identity\.subject\)/,
+  );
+  assert.match(
+    projectsSource,
+    /export const listTeamProjects = query\([\s\S]*?membership\.projectIds && membership\.projectIds\.length > 0[\s\S]*?membership\.projectIds\.map\(\(id\) => ctx\.db\.get\(id\)\)/,
+  );
+
+  const filesPath = path.join(convexRoot, "files.ts");
+  const filesSource = await readFile(filesPath, "utf8");
+
+  assert.match(
+    filesSource,
+    /export const getTeamStorageUsage = query\([\s\S]*?const identity = await ctx\.auth\.getUserIdentity\(\)[\s\S]*?withIndex\("by_team_and_user",[\s\S]*?q\.eq\("teamId",\s*args\.teamId\)\.eq\("clerkUserId",\s*identity\.subject\)/,
+  );
+
+  const stripePath = path.join(convexRoot, "stripe.ts");
+  const stripeSource = await readFile(stripePath, "utf8");
+
+  assert.match(
+    stripeSource,
+    /export const checkTeamLimits = query\([\s\S]*?const identity = await ctx\.auth\.getUserIdentity\(\)[\s\S]*?withIndex\("by_team_and_user",[\s\S]*?q\.eq\("teamId",\s*args\.teamId\)\.eq\("clerkUserId",\s*identity\.subject\)/,
+  );
+  assert.doesNotMatch(
+    stripeSource,
+    /export const checkTeamLimits = query\([\s\S]*?additionalData:\s*v\.optional\(v\.any\(\)\)/,
+  );
+  assert.doesNotMatch(
+    stripeSource,
+    /export const checkTeamAIAccess = query\([\s\S]*?subscriptionLimits:\s*v\.optional\(v\.any\(\)\)/,
   );
 });

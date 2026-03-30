@@ -36,68 +36,13 @@ import {
 } from "./files";
 import type { ProjectContextSnapshot } from "./types";
 import { AI_MODEL, calculateCost } from "./config";
-import { defaultPrompt } from "./prompt";
+import { buildDefaultPrompt, defaultPrompt } from "./prompt";
 import type { Id } from "../_generated/dataModel";
 import { buildFallbackResponseFromTools } from "./helpers/streamResponseBuilder";
+import { buildWorkflowRuntimeContext } from "./helpers/workflowRuntime";
 
 const AI_CREDITS_EXHAUSTED_MESSAGE =
   "You've run out of AI credits. Upgrade your plan or manage billing to continue.";
-
-const READ_ONLY_TOOL_NAMES = new Set([
-  "search_items",
-  "load_full_project_context",
-]);
-
-const DELETE_INTENT_PATTERN =
-  /\b(delete|remove|usu[nń]|skasuj|wywal|wyrzu[cć]|usunac|usunąć)\b/i;
-
-const parseJsonSafely = <T>(value: unknown): T | null => {
-  if (typeof value !== "string") {
-    return (value && typeof value === "object" ? value : null) as T | null;
-  }
-
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    return null;
-  }
-};
-
-const inferDeleteTargetType = (
-  toolCall: unknown,
-  parsedResult: Record<string, unknown> | null,
-) => {
-  const callRecord =
-    toolCall && typeof toolCall === "object"
-      ? (toolCall as Record<string, unknown>)
-      : null;
-  const rawArgs =
-    callRecord?.args ??
-    callRecord?.input ??
-    callRecord?.arguments;
-  const parsedArgs = parseJsonSafely<Record<string, unknown>>(rawArgs);
-
-  const candidates = [
-    parsedArgs?.type,
-    parsedResult?.type,
-    parsedResult?.itemType,
-  ];
-
-  for (const candidate of candidates) {
-    if (
-      candidate === "task" ||
-      candidate === "note" ||
-      candidate === "shopping" ||
-      candidate === "labor" ||
-      candidate === "survey" ||
-      candidate === "contact"
-    ) {
-      return candidate;
-    }
-  }
-
-  return null;
-};
 
 /**
  * Internal action that does the actual streaming work
@@ -105,10 +50,11 @@ const inferDeleteTargetType = (
  */
 export const internalDoStreaming = internalAction({
   args: {
-    message: v.string(),
+    message: v.optional(v.string()),
     projectId: v.id("projects"),
     userClerkId: v.string(),
     threadId: v.string(),
+    promptMessageId: v.optional(v.string()),
     fileId: v.optional(v.union(v.id("files"), v.string())),
     fileIds: v.optional(v.array(v.union(v.id("files"), v.string()))),
     openaiFiles: v.optional(
@@ -127,11 +73,19 @@ export const internalDoStreaming = internalAction({
     const startTime = Date.now();
     const agentModeIdentifier = "convex_agent_stream";
     const providedThreadId = args.threadId;
+    const isApprovalContinuation = !!args.promptMessageId;
 
     const getThreadRuntimeState = async () =>
       (await ctx.runQuery(internalAny.ai.threads.getThreadRuntimeState, {
         threadId: providedThreadId,
-      })) as { abortedAt?: number } | null;
+      })) as {
+        abortedAt?: number;
+        workflowContext?: {
+          workflowId: string;
+          stepId: string;
+          previousResponses?: Array<{ stepId: string; response: string }>;
+        };
+      } | null;
 
     const wasAborted = async () => {
       const runtimeState = await getThreadRuntimeState();
@@ -160,7 +114,11 @@ export const internalDoStreaming = internalAction({
       threadId: args.threadId,
       projectId: args.projectId,
       userClerkId: args.userClerkId,
-      message: args.message.substring(0, 100) + (args.message.length > 100 ? "..." : ""),
+      message:
+        (args.message ?? "").substring(0, 100) +
+        ((args.message ?? "").length > 100 ? "..." : ""),
+      isApprovalContinuation,
+      promptMessageId: args.promptMessageId,
       hasFiles: !!(
         args.fileId ||
         args.fileIds ||
@@ -179,7 +137,7 @@ export const internalDoStreaming = internalAction({
       // Resolve teamId from project
       const projectForTeam = await ctx.runQuery(apiAny.projects.getProject, {
         projectId: args.projectId,
-      }) as { teamId?: Id<"teams">; customAiPrompt?: string } | null;
+      }) as { teamId?: Id<"teams">; customAiPrompt?: string; aiAutoConfirmCrud?: boolean } | null;
       const teamId = projectForTeam?.teamId ?? null;
       if (!teamId) {
         throw new Error("Unable to resolve teamId");
@@ -197,83 +155,45 @@ export const internalDoStreaming = internalAction({
         return snapshot!;
       };
 
+      const threadRuntimeState = await getThreadRuntimeState();
+      const hasUploadedFile = Boolean(
+        args.fileId ||
+        (args.fileIds && args.fileIds.length > 0) ||
+        (args.openaiFiles && args.openaiFiles.length > 0),
+      );
+      const workflowRuntime = buildWorkflowRuntimeContext(
+        threadRuntimeState?.workflowContext,
+        hasUploadedFile,
+      );
+      const activeRuntimeToolNames = workflowRuntime.allowedToolNames;
       // Build system instructions
       // Custom prompt is additive so base guardrails/tool contract always remain active.
+      const basePrompt = buildDefaultPrompt(activeRuntimeToolNames);
       const customPrompt = projectForTeam?.customAiPrompt?.trim();
       const hasCustomPrompt = Boolean(customPrompt && customPrompt !== defaultPrompt.trim());
       const systemPrompt = hasCustomPrompt
-        ? `${defaultPrompt}
+        ? `${basePrompt}
 
 ## Additional Project Instructions
 ${customPrompt}
 
 Apply these additional instructions when they do not conflict with the tool contract, safety, or confirmation rules above.`
-        : defaultPrompt;
-      const pendingCallsForContext = (await ctx.runQuery(
-        internalAny.ai.threads.listPendingItemsInternal,
-        {
-          threadId: providedThreadId,
-          userClerkId: args.userClerkId,
-        },
-      )) as Array<{ status?: string; functionName: string }>;
-      const unresolvedPendingCalls = pendingCallsForContext.filter(
-        (call) => call.status === "pending",
-      );
-      const resolvedConfirmedCalls = pendingCallsForContext.filter(
-        (call) => call.status === "confirmed",
-      );
-      const resolvedRejectedCalls = pendingCallsForContext.filter(
-        (call) => call.status === "rejected",
-      );
-      const pendingActionSummary = unresolvedPendingCalls.reduce((acc, call) => {
-        acc[call.functionName] = (acc[call.functionName] ?? 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-      const resolvedActionSummary = pendingCallsForContext.reduce((acc, call) => {
-        if (call.status !== "confirmed" && call.status !== "rejected") return acc;
-        acc[call.functionName] = acc[call.functionName] ?? { confirmed: 0, rejected: 0 };
-        if (call.status === "confirmed") {
-          acc[call.functionName].confirmed += 1;
-        } else {
-          acc[call.functionName].rejected += 1;
-        }
-        return acc;
-      }, {} as Record<string, { confirmed: number; rejected: number }>);
-      const pendingActionSection =
-        unresolvedPendingCalls.length > 0 ||
-        resolvedConfirmedCalls.length > 0 ||
-        resolvedRejectedCalls.length > 0
-          ? [
-            "## Pending Actions Context",
-            `Unresolved pending actions: ${unresolvedPendingCalls.length}.`,
-            `Resolved outcomes so far: ${resolvedConfirmedCalls.length} confirmed, ${resolvedRejectedCalls.length} rejected.`,
-            unresolvedPendingCalls.length > 0
-              ? "Treat the next user message as a possible refinement of pending actions unless the user explicitly asks to cancel/reject them."
-              : "",
-            "Do not describe pending actions as completed until confirmed. Rejected actions were not applied.",
-            Object.keys(pendingActionSummary).length > 0
-              ? `Pending by tool: ${Object.entries(pendingActionSummary)
-                .map(([name, count]) => `${name} (${count})`)
-                .join(", ")}`
-              : "",
-            Object.keys(resolvedActionSummary).length > 0
-              ? `Resolved by tool: ${Object.entries(resolvedActionSummary)
-                .map(([name, counts]) => `${name} (c:${counts.confirmed}, r:${counts.rejected})`)
-                .join(", ")}`
-              : "",
-          ]
-            .filter(Boolean)
-            .join("\n")
-          : "";
-      const effectiveSystemPrompt = pendingActionSection
-        ? `${systemPrompt}\n\n${pendingActionSection}`
-        : systemPrompt;
+        : basePrompt;
+      const effectiveSystemPrompt = [
+        systemPrompt,
+        workflowRuntime.workflowSection,
+      ]
+        .filter(Boolean)
+        .join("\n\n");
 
       const teamMembers = await ctx.runQuery(internalAny.teams.getTeamMembersWithUserDetails, {
         projectId: args.projectId,
       }) as Array<Record<string, unknown>>;
       const teamMembersContext = buildTeamMembersContext(teamMembers);
-      const team = await ctx.runQuery(apiAny.teams.getTeamById, { teamId: teamId! }) as { timezone?: string } | null;
+      const team = await ctx.runQuery(apiAny.teams.getTeamById, { teamId: teamId! }) as {
+        timezone?: string;
+        slug?: string;
+      } | null;
       const timezone = team?.timezone; // Get timezone from team
 
       const { currentDate, currentDateTime } = getCurrentDateTime(timezone);
@@ -290,60 +210,66 @@ Apply these additional instructions when they do not conflict with the tool cont
         hasCustomPrompt,
         teamMembersCount: teamMembers.length,
         currentDate,
-        unresolvedPendingCalls: unresolvedPendingCalls.length,
-        resolvedConfirmedCalls: resolvedConfirmedCalls.length,
-        resolvedRejectedCalls: resolvedRejectedCalls.length,
+        activeRuntimeToolNames,
+        workflowId: threadRuntimeState?.workflowContext?.workflowId,
+        workflowStepId: threadRuntimeState?.workflowContext?.stepId,
       });
 
-      // Prepare user message
-      let userPrompt = args.message;
+      // Approval continuations reuse the saved approval-response message as prompt.
+      let userPrompt = args.message ?? "";
       let userMessageContent:
         | string
         | Array<
           | { type: "text"; text: string }
           | { type: "image"; image: string; mediaType?: string }
-          | { type: "file"; data: string; mimeType: string }
+          | { type: "file"; data: string; mediaType: string }
         > = userPrompt;
-      if (args.openaiFiles && args.openaiFiles.length > 0) {
-        const result = await prepareMessageWithOpenAIFiles({
-          openaiFiles: args.openaiFiles,
-          baseMessage: args.message,
-        });
-        userPrompt = result.message;
-        userMessageContent = result.content;
-      } else if (args.fileIds && args.fileIds.length > 0) {
-        const result = await prepareMessageWithFiles({
-          ctx,
-          fileIds: args.fileIds as string[],
-          baseMessage: args.message,
-        });
-        userPrompt = result.message;
-        userMessageContent = result.content;
-      } else if (args.fileId) {
-        const result = await prepareMessageWithFile({
-          ctx,
-          fileId: args.fileId as string,
-          baseMessage: args.message,
-        });
-        userPrompt = result.message;
-        userMessageContent = result.content;
-      }
+      if (!isApprovalContinuation) {
+        if (args.openaiFiles && args.openaiFiles.length > 0) {
+          const result = await prepareMessageWithOpenAIFiles({
+            openaiFiles: args.openaiFiles,
+            baseMessage: userPrompt,
+          });
+          userPrompt = result.message;
+          userMessageContent = result.content;
+        } else if (args.fileIds && args.fileIds.length > 0) {
+          const result = await prepareMessageWithFiles({
+            ctx,
+            fileIds: args.fileIds as string[],
+            baseMessage: userPrompt,
+          });
+          userPrompt = result.message;
+          userMessageContent = result.content;
+        } else if (args.fileId) {
+          const result = await prepareMessageWithFile({
+            ctx,
+            fileId: args.fileId as string,
+            baseMessage: userPrompt,
+          });
+          userPrompt = result.message;
+          userMessageContent = result.content;
+        }
 
-      console.log("📨 [USER MESSAGE]", {
-        messageLength: userPrompt.length,
-        hasMultipartContent: Array.isArray(userMessageContent),
-        openaiFiles: args.openaiFiles?.length || 0,
-        fileIds: args.fileIds?.length || 0,
-        fileId: args.fileId || null,
-      });
+        console.log("📨 [USER MESSAGE]", {
+          messageLength: userPrompt.length,
+          hasMultipartContent: Array.isArray(userMessageContent),
+          openaiFiles: args.openaiFiles?.length || 0,
+          fileIds: args.fileIds?.length || 0,
+          fileId: args.fileId || null,
+        });
+      }
 
       // Create agent
       const agent = createMyvibeProjectAgent(systemInstructions, {
         projectId: args.projectId as string,
+        teamSlug: team?.slug,
         userClerkId: args.userClerkId,
         runAction: ctx.runAction,
         runQuery: ctx.runQuery,
+        runMutation: ctx.runMutation,
         loadSnapshot: ensureSnapshot,
+        allowedToolNames: activeRuntimeToolNames,
+        crudApprovalMode: projectForTeam?.aiAutoConfirmCrud ? "auto_confirm" : "always_ask",
       });
 
       console.log("🤖 [AGENT CREATED]");
@@ -371,16 +297,19 @@ Apply these additional instructions when they do not conflict with the tool cont
         await ctx.runMutation(components.agent.messages.addMessages, {
           threadId: agentThreadId,
           userId: args.userClerkId,
+          promptMessageId: args.promptMessageId,
           messages: [
-            {
-              message: {
-                role: "user",
-                content: userMessageContent,
-              },
-              text: userPrompt,
-              status: "success",
-              finishReason: "stop",
-            },
+            ...(!isApprovalContinuation
+              ? [{
+                  message: {
+                    role: "user" as const,
+                    content: userMessageContent,
+                  },
+                  text: userPrompt,
+                  status: "success" as const,
+                  finishReason: "stop" as const,
+                }]
+              : []),
             {
               message: {
                 role: "assistant",
@@ -411,37 +340,6 @@ Apply these additional instructions when they do not conflict with the tool cont
         userId: args.userClerkId,
       });
 
-      // REPLAY LOGIC:
-      // Fetch confirmed/rejected calls to feed back into agent history
-      const replayCalls = (await ctx.runQuery(internalAny.ai.threads.getPendingFunctionCalls, {
-        threadId: providedThreadId,
-      })) as any[];
-
-      const toolResultMessages: any[] = [];
-      const replayedCallIds: string[] = [];
-
-      if (replayCalls && replayCalls.length > 0) {
-        console.log("🔄 [REPLAY] Found calls to replay", { count: replayCalls.length });
-
-        const toolResults = replayCalls.map((call) => {
-          replayedCallIds.push(call._id);
-          return {
-            type: "tool-result",
-            toolCallId: call.callId,
-            toolName: call.functionName,
-            result:
-              call.status === "rejected"
-                ? JSON.stringify({ error: "User rejected this action." })
-                : call.result,
-          };
-        });
-
-        toolResultMessages.push({
-          role: "tool" as const,
-          content: toolResults,
-        });
-      }
-
       let response;
       try {
         response = await agent.streamText(
@@ -449,10 +347,13 @@ Apply these additional instructions when they do not conflict with the tool cont
           { userId: args.userClerkId, threadId: agentThreadId },
           {
             system: systemInstructions,
-            messages: [
-              ...toolResultMessages,
-              { role: "user" as const, content: userMessageContent },
-            ],
+            ...(args.promptMessageId
+              ? { promptMessageId: args.promptMessageId }
+              : {
+                  messages: [
+                    { role: "user" as const, content: userMessageContent },
+                  ],
+                }),
             toolChoice: "auto" as const, // Allow AI to decide when to use tools
           },
           {
@@ -589,293 +490,14 @@ Apply these additional instructions when they do not conflict with the tool cont
       });
 
       if (allToolCalls.length > 0) {
-
-        console.log("🔧 [PROCESSING TOOL CALLS]", {
+        console.log("🔧 [TOOL CALLS COMPLETED IN AGENT FLOW]", {
           toolCallsCount: allToolCalls.length,
           toolNames: allToolCalls.map((tc: any) => tc.toolName || tc.name).filter(Boolean),
         });
-
-        const functionCalls: Array<{
-          callId: string;
-          functionName: string;
-          arguments: string;
-        }> = [];
-
-        // Fallback map so generic tools still create pending items even if parsing fails.
-        const toolNameDefaults: Record<string, { type?: string; operation?: string }> = {
-          create_item: { operation: 'create' },
-          create_multiple_items: { operation: 'bulk_create' },
-          update_item: { operation: 'edit' },
-          update_multiple_items: { operation: 'bulk_edit' },
-          delete_item: { operation: 'delete' },
-          update_project_settings: { type: 'projectSettings', operation: 'edit' },
-        };
-
-        for (let i = 0; i < allToolCalls.length; i++) {
-          const toolCall = allToolCalls[i] as any;
-          // Create function call record - handle different property names
-          const toolCallId = toolCall.toolCallId || toolCall.id || `tc_${Date.now()}_${i}`;
-          const toolResult = toolResultMap.get(toolCallId) ?? (allToolResults[i] as any);
-
-          const toolName = toolCall.toolName || toolCall.name || "unknown";
-          const toolArgs = toolCall.args || toolCall.input || toolCall.arguments || {};
-
-          // Skip read-only tools - they shouldn't create pending items
-          if (READ_ONLY_TOOL_NAMES.has(toolName)) {
-            continue;
-          }
-
-          // Parse tool result to verify it's an action item and persist full payload
-          const resultValue = toolResult?.result || toolResult?.output || toolResult;
-          let payload: any = undefined;
-
-          // Try parsing tool result first
-          if (resultValue) {
-            try {
-              const parsed = typeof resultValue === 'string'
-                ? JSON.parse(resultValue)
-                : resultValue;
-              if (parsed && typeof parsed === 'object') {
-                payload = parsed;
-              }
-            } catch {
-              // Could not parse tool result
-            }
-          }
-
-          // Fallback payload based on tool name/args when parsing fails or lacks type/operation
-          if (!payload || !payload.type || !payload.operation) {
-            const defaults = toolNameDefaults[toolName];
-            const normalizedArgs = typeof toolArgs === 'string'
-              ? (() => { try { return JSON.parse(toolArgs); } catch { return toolArgs; } })()
-              : toolArgs;
-
-            // Handle case where parsing returns a string (double JSON stringified)
-            const finalArgs = typeof normalizedArgs === 'string'
-              ? (() => { try { return JSON.parse(normalizedArgs); } catch { return normalizedArgs; } })()
-              : normalizedArgs;
-
-            const inferredType =
-              payload?.type ??
-              (
-                finalArgs &&
-                typeof finalArgs === "object" &&
-                typeof (finalArgs as { type?: unknown }).type === "string"
-                  ? (finalArgs as { type: string }).type
-                  : undefined
-              ) ??
-              defaults?.type;
-            const inferredOperation =
-              payload?.operation ??
-              (
-                finalArgs &&
-                typeof finalArgs === "object" &&
-                typeof (finalArgs as { operation?: unknown }).operation === "string"
-                  ? (finalArgs as { operation: string }).operation
-                  : undefined
-              ) ??
-              defaults?.operation;
-
-            payload = {
-              ...(payload && typeof payload === 'object' ? payload : {}),
-              type: inferredType,
-              operation: inferredOperation,
-              data: payload?.data ?? finalArgs ?? {},
-            };
-          } else if (!payload.data) {
-            payload.data = toolArgs ?? {};
-          }
-
-          const payloadHasError =
-            payload &&
-            typeof payload === "object" &&
-            typeof payload.error === "string";
-
-          if (payloadHasError) {
-            continue;
-          }
-
-          const hasSupportedOperation =
-            typeof payload?.operation === "string" &&
-            ["create", "bulk_create", "edit", "bulk_edit", "delete"].includes(payload.operation);
-
-          // Only persist actionable items with type + operation
-          if (payload?.type && hasSupportedOperation) {
-            functionCalls.push({
-              callId: toolCallId,
-              functionName: toolName,
-              arguments: JSON.stringify(payload),
-            });
-          }
-        }
-
-        const pendingCalls = await ctx.runQuery(
-          internalAny.ai.threads.listPendingItemsInternal,
-          {
-            threadId: providedThreadId,
-            userClerkId: args.userClerkId,
-          },
-        ) as Array<{ callId: string; status?: string; responseId: string; arguments?: string }>;
-        const unresolvedPendingCalls = pendingCalls.filter(
-          (call) => call.status === "pending",
-        );
-
-        let replacedExistingPendingCall = false;
-        const shouldReplacePending =
-          unresolvedPendingCalls.length === 1 &&
-          functionCalls.length === 1;
-
-        if (shouldReplacePending) {
-          const pendingCall = unresolvedPendingCalls[0];
-          const safeParse = (value?: string) => {
-            if (!value) return null;
-            try {
-              return JSON.parse(value);
-            } catch {
-              return null;
-            }
-          };
-          const pendingPayload = safeParse(pendingCall.arguments);
-          const nextPayload = safeParse(functionCalls[0].arguments);
-
-          const isPendingCreateTask =
-            pendingPayload?.type === "task" && pendingPayload?.operation === "create";
-
-          if (isPendingCreateTask && nextPayload?.type === "task") {
-            const pendingData = (pendingPayload?.data ?? {}) as Record<string, unknown>;
-            const nextData = (nextPayload?.data ?? {}) as Record<string, unknown>;
-            const mergedData = { ...pendingData, ...nextData } as Record<string, unknown>;
-
-            const mergedPayload = {
-              ...pendingPayload,
-              type: "task",
-              operation: "create",
-              data: mergedData,
-            };
-
-            functionCalls[0] = {
-              ...functionCalls[0],
-              functionName: "create_item",
-              arguments: JSON.stringify(mergedPayload),
-            };
-
-            await ctx.runMutation(internalAny.ai.threads.replacePendingFunctionCall, {
-              threadId: providedThreadId,
-              responseId: pendingCall.responseId,
-              callId: pendingCall.callId,
-              functionName: "create_item",
-              arguments: functionCalls[0].arguments,
-            });
-            replacedExistingPendingCall = true;
-          }
-        }
-
-        const actionFunctionCalls = functionCalls.filter(
-          (fc) => !READ_ONLY_TOOL_NAMES.has(fc.functionName)
-        );
-
-        if (replacedExistingPendingCall) {
-          console.log("♻️ [PENDING REFINED IN PLACE]", {
-            threadId: providedThreadId,
-            replacedCallCount: 1,
-          });
-        } else if (actionFunctionCalls.length > 0) {
-          const responseId = `resp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-
-          console.log("💾 [SAVE FUNCTION CALLS]", {
-            responseId,
-            functionCallsCount: actionFunctionCalls.length,
-            functionNames: actionFunctionCalls.map((fc) => fc.functionName),
-            filteredOutCount: functionCalls.length - actionFunctionCalls.length,
-          });
-
-          await ctx.runMutation(internalAny.ai.threads.saveFunctionCalls, {
-            threadId: providedThreadId,
-            projectId: args.projectId,
-            responseId,
-            functionCalls: actionFunctionCalls,
-          });
-        } else {
-
-          console.log("⚠️ [NO FUNCTION CALLS TO SAVE]", {
-            allToolCallsCount: allToolCalls.length,
-            message: "Tool calls did not generate pending items (read-only or parsing failed)",
-          });
-
-          // Heuristic: if user asked to delete and search_items returned matches, auto-stage delete.
-          const userAskedToDelete = DELETE_INTENT_PATTERN.test(args.message);
-          const onlyItemSearch =
-            allToolCalls.length === 1 &&
-            (allToolCalls[0]?.toolName || allToolCalls[0]?.name) === "search_items";
-
-          if (userAskedToDelete && onlyItemSearch && allToolResults.length === 1) {
-            const rawResult = allToolResults[0]?.result || allToolResults[0]?.output || allToolResults[0];
-            try {
-              const parsed = parseJsonSafely<Record<string, unknown>>(rawResult);
-              const items = Array.isArray(parsed?.items) ? parsed.items : [];
-              const inferredType = inferDeleteTargetType(allToolCalls[0], parsed);
-
-              // If many items, stage individual delete calls so UI can show bulk grid.
-              if (inferredType && items.length > 1) {
-                const responseId = `resp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-                const functionCalls = items.map((item: any, idx: number) => {
-                  const itemId = item?.id || item?._id || `unknown_${idx}`;
-                  const itemName = item?.name || item?.title;
-                  return {
-                    callId: `auto_delete_${itemId}`,
-                    functionName: "delete_item",
-                    arguments: JSON.stringify({
-                      type: inferredType,
-                      operation: "delete",
-                      data: { itemId, name: itemName },
-                    }),
-                  };
-                });
-
-                await ctx.runMutation(internalAny.ai.threads.saveFunctionCalls, {
-                  threadId: providedThreadId,
-                  projectId: args.projectId,
-                  responseId,
-                  functionCalls,
-                });
-              } else if (inferredType) {
-                const firstItem = items[0];
-                const itemId = firstItem?.id || firstItem?._id;
-                if (itemId) {
-                  const itemName = firstItem?.name || firstItem?.title;
-                  const responseId = `resp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-                  const autoCall = {
-                    callId: `auto_delete_${itemId}`,
-                    functionName: "delete_item",
-                    arguments: JSON.stringify({
-                      type: inferredType,
-                      operation: "delete",
-                      data: { itemId, name: itemName },
-                    }),
-                  };
-                  await ctx.runMutation(internalAny.ai.threads.saveFunctionCalls, {
-                    threadId: providedThreadId,
-                    projectId: args.projectId,
-                    responseId,
-                    functionCalls: [autoCall],
-                  });
-                }
-              }
-            } catch {
-              // Failed to auto-stage delete after shopping search
-            }
-          }
-        }
       }
 
       if (shouldPersistSyntheticFallback) {
         await persistAssistantMessage(fullResponse);
-      }
-
-      if (replayedCallIds.length > 0) {
-        await ctx.runMutation(internalAny.ai.threads.markFunctionCallsAsReplayed, {
-          callIds: replayedCallIds as any,
-        });
       }
 
       // Calculate token usage

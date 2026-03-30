@@ -19,6 +19,7 @@ import { paginationOptsValidator } from "convex/server";
 import { createThread, vStreamArgs, listUIMessages, syncStreams } from "@convex-dev/agent";
 import type { SyncStreamsReturnValue } from "@convex-dev/agent";
 import { ensureProjectAccess, ensureThreadAccess, requireIdentity } from "./access";
+import { createMyvibeProjectAgent } from "./agent";
 
 /**
  * Query for useUIMessages hook - the main streaming query
@@ -123,6 +124,20 @@ export const initiateStreaming = mutation({
     threadId: v.optional(v.string()),
     projectId: v.id("projects"),
     prompt: v.string(),
+    workflowContext: v.optional(
+      v.object({
+        workflowId: v.string(),
+        stepId: v.string(),
+        previousResponses: v.optional(
+          v.array(
+            v.object({
+              stepId: v.string(),
+              response: v.string(),
+            }),
+          ),
+        ),
+      }),
+    ),
     fileId: v.optional(v.union(v.id("files"), v.string())),
     fileIds: v.optional(v.array(v.union(v.id("files"), v.string()))),
     openaiFiles: v.optional(
@@ -193,6 +208,7 @@ export const initiateStreaming = mutation({
         messageCount: 1,
         lastMessagePreview: args.prompt,
         lastMessageRole: "user",
+        workflowContext: args.workflowContext,
       });
 
       threadId = agentThreadId;
@@ -224,6 +240,7 @@ export const initiateStreaming = mutation({
           messageCount: 1,
           lastMessagePreview: args.prompt,
           lastMessageRole: "user",
+          workflowContext: args.workflowContext,
         });
         threadId = agentThreadId;
       } else {
@@ -251,7 +268,10 @@ export const initiateStreaming = mutation({
           threadUpdates.title = titlePatch;
         }
 
-        await ctx.db.patch(existingThread._id, threadUpdates);
+        await ctx.db.patch(existingThread._id, {
+          ...threadUpdates,
+          ...(args.workflowContext ? { workflowContext: args.workflowContext } : {}),
+        });
       }
     }
 
@@ -430,6 +450,80 @@ export const abortStream = mutation({
         abortedStreams > 0
           ? `Response stopped (${abortedStreams} stream${abortedStreams === 1 ? "" : "s"} aborted).`
           : "Stop requested. No active stream was found to abort.",
+    };
+  },
+});
+
+export const respondToToolApproval = mutation({
+  args: {
+    threadId: v.string(),
+    toolCallId: v.string(),
+    approved: v.boolean(),
+    reason: v.optional(v.string()),
+  },
+  returns: v.object({
+    success: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await requireIdentity(ctx);
+    const authorizedThread = await ensureThreadAccess(
+      ctx,
+      args.threadId,
+      identity.subject,
+    );
+    if (!authorizedThread) {
+      throw new Error("Thread not found or unauthorized");
+    }
+
+    const agent = createMyvibeProjectAgent("", {});
+    const messages = await agent.listMessages(ctx, {
+      threadId: args.threadId,
+      paginationOpts: { cursor: null, numItems: 100 },
+    });
+
+    let approvalId: string | undefined;
+    for (const message of messages.page) {
+      const content = Array.isArray(message.message?.content)
+        ? (message.message?.content as Array<Record<string, unknown>>)
+        : [];
+      for (const part of content) {
+        if (
+          part.type === "tool-approval-request" &&
+          part.toolCallId === args.toolCallId &&
+          typeof part.approvalId === "string"
+        ) {
+          approvalId = part.approvalId;
+          break;
+        }
+      }
+      if (approvalId) break;
+    }
+    if (!approvalId) {
+      throw new Error(`Approval request not found for tool call ${args.toolCallId}`);
+    }
+
+    const { messageId } = args.approved
+      ? await agent.approveToolCall(ctx, {
+          threadId: args.threadId,
+          approvalId,
+          reason: args.reason,
+        })
+      : await agent.denyToolCall(ctx, {
+          threadId: args.threadId,
+          approvalId,
+          reason: args.reason,
+        });
+
+    const internalDoStreaming = "ai/streaming:internalDoStreaming" as any;
+    await ctx.scheduler.runAfter(0, internalDoStreaming, {
+      projectId: authorizedThread.thread.projectId,
+      userClerkId: identity.subject,
+      threadId: args.threadId,
+      promptMessageId: messageId,
+    });
+
+    return {
+      success: true,
     };
   },
 });

@@ -20,13 +20,20 @@ type RunActionFn = (action: any, args: any) => Promise<any>;
 // RunQuery type matches ctx.runQuery signature
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type RunQueryFn = (query: any, args: any) => Promise<any>;
+// RunMutation type matches ctx.runMutation signature
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type RunMutationFn = (mutation: any, args: any) => Promise<any>;
 
 interface AgentOptions {
   projectId?: string;
+  teamSlug?: string;
   userClerkId?: string;
   runAction?: RunActionFn;
   runQuery?: RunQueryFn;
+  runMutation?: RunMutationFn;
   loadSnapshot?: () => Promise<ProjectContextSnapshot>;
+  allowedToolNames?: readonly string[];
+  crudApprovalMode?: "always_ask" | "auto_confirm";
 }
 
 /**
@@ -61,10 +68,14 @@ export const createMyvibeProjectAgent = (
     // Import all tools from tools.ts (single source of truth)
     tools: createAgentTools({
       projectId: options?.projectId,
+      teamSlug: options?.teamSlug,
       userClerkId: options?.userClerkId,
       runAction: options?.runAction,
       runQuery: options?.runQuery,
+      runMutation: options?.runMutation,
       loadSnapshot: options?.loadSnapshot,
+      allowedToolNames: options?.allowedToolNames,
+      crudApprovalMode: options?.crudApprovalMode,
     }),
   };
 

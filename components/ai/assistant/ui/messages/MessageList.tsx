@@ -23,7 +23,6 @@ type MessagesProps = {
   } | null;
   onConfirmItem?: (index: number | string) => Promise<void>;
   onRejectItem?: (index: number | string) => void | Promise<void>;
-  onEditItem?: (index: number | string) => void;
   onConfirmAll?: () => Promise<void>;
   onRejectAll?: () => void | Promise<void>;
   onUpdateItem?: (index: number | string, updates: Partial<PendingContentItem>) => void;
@@ -49,7 +48,6 @@ export function Messages({
   pendingUserMessage,
   onConfirmItem,
   onRejectItem,
-  onEditItem,
   onConfirmAll,
   onRejectAll,
   onUpdateItem,
@@ -69,6 +67,16 @@ export function Messages({
   const shouldDockMessages =
     messages.length > 0 || Boolean(pendingUserMessage) || hasSentMessage;
   const lastMessage = messages[messages.length - 1];
+  const lastAssistantMessageIndex = [...messages]
+    .map((message, index) => ({ message, index }))
+    .filter(({ message }) => message.role === "assistant")
+    .at(-1)?.index ?? -1;
+  const activePendingItems = (pendingItems ?? []).filter(
+    (item) =>
+      item.status !== "confirmed" &&
+      item.status !== "rejected" &&
+      item.status !== "superseded",
+  );
   const shouldShowThinking =
     (status === "submitted" || status === "streaming") &&
     lastMessage?.role !== "assistant";
@@ -89,6 +97,8 @@ export function Messages({
 
           {messages.map((message, index) => {
             const messageKey = message.key ?? message.id ?? `${message.order}-${index}`;
+            const isActiveConfirmationHost =
+              message.role === "assistant" && index === lastAssistantMessageIndex;
 
             return (
               <PreviewMessage
@@ -99,12 +109,13 @@ export function Messages({
                 localAttachments={localMessageAttachments?.[message.key]}
                 onConfirmItem={onConfirmItem}
                 onRejectItem={onRejectItem}
-                onEditItem={onEditItem}
                 onUpdateItem={onUpdateItem}
                 onConfirmAll={onConfirmAll}
                 onRejectAll={onRejectAll}
                 isProcessing={isProcessing}
-                pendingItems={pendingItems}
+                pendingItems={isActiveConfirmationHost ? activePendingItems : []}
+                inlineItemsOverride={isActiveConfirmationHost ? activePendingItems : []}
+                suppressInlineItemsFromMessage={!isActiveConfirmationHost}
               />
             );
           })}

@@ -40,6 +40,18 @@ export const getTeamStorageUsage = query({
       throw new Error("Not authenticated");
     }
 
+    const membership = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", args.teamId).eq("clerkUserId", identity.subject)
+      )
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .unique();
+
+    if (!membership) {
+      throw new Error("Not authorized to view team storage usage");
+    }
+
     const team = await ctx.db.get(args.teamId);
     if (!team) {
       throw new Error("Team not found");
