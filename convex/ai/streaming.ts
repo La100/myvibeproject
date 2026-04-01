@@ -67,6 +67,13 @@ export const internalDoStreaming = internalAction({
         }),
       ),
     ),
+    refinementContext: v.optional(
+      v.object({
+        toolCallId: v.string(),
+        toolName: v.string(),
+        proposal: v.string(),
+      }),
+    ),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -161,9 +168,13 @@ export const internalDoStreaming = internalAction({
         (args.fileIds && args.fileIds.length > 0) ||
         (args.openaiFiles && args.openaiFiles.length > 0),
       );
+      const crudApprovalMode = projectForTeam?.aiAutoConfirmCrud
+        ? "auto_confirm"
+        : "always_ask";
       const workflowRuntime = buildWorkflowRuntimeContext(
         threadRuntimeState?.workflowContext,
         hasUploadedFile,
+        crudApprovalMode,
       );
       const activeRuntimeToolNames = workflowRuntime.allowedToolNames;
       // Build system instructions
@@ -224,6 +235,24 @@ Apply these additional instructions when they do not conflict with the tool cont
           | { type: "image"; image: string; mediaType?: string }
           | { type: "file"; data: string; mediaType: string }
         > = userPrompt;
+
+      if (!isApprovalContinuation && args.refinementContext) {
+        const refinementNote = [
+          "REFINEMENT CONTEXT:",
+          "The user's latest message is intended to refine or replace the most recent pending draft.",
+          "Update that existing draft instead of creating a duplicate proposal.",
+          `Previous pending tool: ${args.refinementContext.toolName}`,
+          `Previous tool call ID: ${args.refinementContext.toolCallId}`,
+          "Previous pending proposal:",
+          args.refinementContext.proposal,
+          "",
+          "Apply the user's latest request to this proposal and return only the newest proposal.",
+        ].join("\n");
+
+        userPrompt = `${refinementNote}\n\nUSER FOLLOW-UP:\n${userPrompt}`;
+        userMessageContent = userPrompt;
+      }
+
       if (!isApprovalContinuation) {
         if (args.openaiFiles && args.openaiFiles.length > 0) {
           const result = await prepareMessageWithOpenAIFiles({
@@ -269,7 +298,7 @@ Apply these additional instructions when they do not conflict with the tool cont
         runMutation: ctx.runMutation,
         loadSnapshot: ensureSnapshot,
         allowedToolNames: activeRuntimeToolNames,
-        crudApprovalMode: projectForTeam?.aiAutoConfirmCrud ? "auto_confirm" : "always_ask",
+        crudApprovalMode,
       });
 
       console.log("🤖 [AGENT CREATED]");

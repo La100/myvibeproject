@@ -12,6 +12,12 @@ export interface FunctionCallResult {
   actionSummaries: string[];
 }
 
+type ModelFunctionCall = {
+  call_id: string;
+  name: string;
+  arguments: string;
+};
+
 // Helper to resolve team member assignment
 const resolveTeamMember = (identifier: string | undefined, teamMembers: TeamMember[]) => {
   if (!identifier) return null;
@@ -28,8 +34,54 @@ const resolveTeamMember = (identifier: string | undefined, teamMembers: TeamMemb
   } : null;
 };
 
+const inferManagedType = (
+  functionName: string,
+  functionArgs: Record<string, unknown>,
+): PendingItem["type"] | null => {
+  const entity = functionArgs.entity;
+  switch (functionName) {
+    case "manage_tasks":
+      return "task";
+    case "manage_notes":
+      return "note";
+    case "manage_contacts":
+      return "contact";
+    case "manage_surveys":
+      return "survey";
+    case "manage_shopping":
+      return entity === "section" ? "shoppingSection" : "shopping";
+    case "manage_labor":
+      return entity === "section" ? "laborSection" : "labor";
+    default:
+      return null;
+  }
+};
+
+const findOriginalItem = (
+  snapshot: ProjectContextSnapshot,
+  type: PendingItem["type"],
+  itemId: string,
+) => {
+  if (type === "task") {
+    return snapshot.tasks.find((item) => item._id === itemId) || { _id: itemId };
+  }
+  if (type === "note") {
+    return snapshot.notes.find((item) => item._id === itemId) || { _id: itemId };
+  }
+  if (type === "shopping") {
+    return snapshot.shoppingItems.find((item) => item._id === itemId) || { _id: itemId };
+  }
+  if (type === "survey") {
+    return snapshot.surveys.find((item) => item._id === itemId) || { _id: itemId };
+  }
+  if (type === "contact") {
+    return snapshot.contacts.find((item) => item._id === itemId) || { _id: itemId };
+  }
+  return { _id: itemId };
+};
+
 export const processFunctionCalls = async (
-  functionCalls: any[],
+  functionCalls: ModelFunctionCall[],
   aiResponse: string,
   teamMembers: TeamMember[],
   getSnapshot: () => Promise<ProjectContextSnapshot>,
@@ -40,7 +92,7 @@ export const processFunctionCalls = async (
   let finalResponse = aiResponse;
 
   for (const functionCall of functionCalls) {
-    let functionArgs: any;
+    let functionArgs: Record<string, unknown>;
     try {
       const parsedArgs = JSON.parse(functionCall.arguments);
       functionArgs =
@@ -62,15 +114,25 @@ export const processFunctionCalls = async (
     };
 
     switch (functionCall.name) {
-      // ============================================
-      // NEW GENERIC OPERATIONS
-      // ============================================
-      case "create_item":
+      case "manage_tasks":
+      case "manage_notes":
+      case "manage_contacts":
+      case "manage_shopping":
+      case "manage_labor":
+      case "manage_surveys":
         {
-          const { type, data } = functionArgs;
+          const type = inferManagedType(functionCall.name, functionArgs);
+          const action = functionArgs.action;
+          const data =
+            functionArgs.data && typeof functionArgs.data === "object"
+              ? (functionArgs.data as Record<string, unknown>)
+              : {};
 
-          // Handle team member assignment for tasks
-          if (type === "task" && data.assignedTo) {
+          if (!type || (action !== "create" && action !== "update" && action !== "delete")) {
+            break;
+          }
+
+          if (type === "task" && typeof data.assignedTo === "string") {
             const resolved = resolveTeamMember(data.assignedTo, teamMembers);
             if (resolved) {
               data.assignedTo = resolved.clerkUserId;
@@ -80,135 +142,77 @@ export const processFunctionCalls = async (
             }
           }
 
-          pendingItems.push({
-            type,
-            operation: "create",
-            data,
-            functionCall: funcCallDataPayload,
-            responseId,
-          });
-
-          const itemName = data.title || data.name || "item";
-          actionSummaries.push(`${type}: "${itemName}"`);
-          finalResponse = `I'll create a ${type}: "${itemName}". ${aiResponse}`;
-        }
-        break;
-
-      case "create_multiple_items":
-        {
-          const { type, items } = functionArgs;
-
-          items.forEach((itemData: any) => {
-            // Handle team member assignment for tasks
-            if (type === "task" && itemData.assignedTo) {
-              const resolved = resolveTeamMember(itemData.assignedTo, teamMembers);
-              if (resolved) {
-                itemData.assignedTo = resolved.clerkUserId;
-                itemData.assignedToName = resolved.name;
-              } else {
-                itemData.assignedTo = null;
-              }
-            }
-
+          if (action === "create") {
             pendingItems.push({
               type,
               operation: "create",
-              data: itemData,
+              data,
               functionCall: funcCallDataPayload,
               responseId,
             });
-          });
 
-          actionSummaries.push(`${items.length} ${type}s`);
-          finalResponse = `I'll create ${items.length} ${type}s for you. ${aiResponse}`;
-        }
-        break;
-
-      case "update_item":
-        {
-          const { type, itemId, data } = functionArgs;
-          const snapshot = await getSnapshot();
-
-          // Handle team member assignment for tasks
-          if (type === "task" && data.assignedTo) {
-            const resolved = resolveTeamMember(data.assignedTo, teamMembers);
-            if (resolved) {
-              data.assignedTo = resolved.clerkUserId;
-              data.assignedToName = resolved.name;
-            } else {
-              data.assignedTo = null;
-            }
+            const itemName = data.title || data.name || "item";
+            actionSummaries.push(`${type}: "${itemName}"`);
+            finalResponse = `I'll create a ${type}: "${itemName}". ${aiResponse}`;
+            break;
           }
 
-          // Find original item based on type
-          let originalItem: any = { _id: itemId };
-          if (type === "task") {
-            originalItem = snapshot.tasks.find((t) => t._id === itemId) || { _id: itemId };
-          } else if (type === "note") {
-            originalItem = snapshot.notes.find((n) => n._id === itemId) || { _id: itemId };
-          } else if (type === "shopping") {
-            originalItem = snapshot.shoppingItems.find((item) => item._id === itemId) || { _id: itemId };
-          } else if (type === "survey") {
-            originalItem = snapshot.surveys.find((s) => s._id === itemId) || { _id: itemId };
+          const itemId =
+            typeof functionArgs.itemId === "string"
+              ? functionArgs.itemId
+              : typeof functionArgs.taskId === "string"
+                ? functionArgs.taskId
+                : typeof functionArgs.noteId === "string"
+                  ? functionArgs.noteId
+                  : typeof functionArgs.contactId === "string"
+                    ? functionArgs.contactId
+                    : typeof functionArgs.surveyId === "string"
+                      ? functionArgs.surveyId
+                      : typeof functionArgs.sectionId === "string"
+                        ? functionArgs.sectionId
+                        : typeof functionArgs.id === "string"
+                          ? functionArgs.id
+                          : undefined;
+
+          if (!itemId) {
+            break;
           }
 
-          pendingItems.push({
-            type,
-            operation: "edit",
-            data: { ...data, itemId },
-            updates: data,
-            originalItem,
-            functionCall: funcCallDataPayload,
-            responseId,
-          });
-
-          finalResponse = `I'll update the ${type}. ${aiResponse}`;
-        }
-        break;
-
-      case "update_multiple_items":
-        {
-          const { type, updates } = functionArgs;
-          const snapshot = await getSnapshot();
-
-          for (const update of updates) {
-            const { itemId, data } = update;
-
-            // Handle team member assignment for tasks
-            if (type === "task" && data.assignedTo) {
-              const resolved = resolveTeamMember(data.assignedTo, teamMembers);
-              if (resolved) {
-                data.assignedTo = resolved.clerkUserId;
-                data.assignedToName = resolved.name;
-              } else {
-                data.assignedTo = null;
-              }
-            }
-
-            // Find original item based on type
-            let originalItem: any = { _id: itemId };
-            if (type === "task") {
-              originalItem = snapshot.tasks.find((t) => t._id === itemId) || { _id: itemId };
-            } else if (type === "note") {
-              originalItem = snapshot.notes.find((n) => n._id === itemId) || { _id: itemId };
-            } else if (type === "shopping") {
-              originalItem = snapshot.shoppingItems.find((item) => item._id === itemId) || { _id: itemId };
-            } else if (type === "survey") {
-              originalItem = snapshot.surveys.find((s) => s._id === itemId) || { _id: itemId };
-            }
-
+          if (action === "update") {
+            const snapshot = await getSnapshot();
             pendingItems.push({
               type,
               operation: "edit",
               data: { ...data, itemId },
               updates: data,
-              originalItem,
+              originalItem: findOriginalItem(snapshot, type, itemId),
               functionCall: funcCallDataPayload,
               responseId,
             });
+
+            finalResponse = `I'll update the ${type}. ${aiResponse}`;
+            break;
           }
 
-          finalResponse = `I'll update ${updates.length} ${type}s for you. ${aiResponse}`;
+          pendingItems.push({
+            type,
+            operation: "delete",
+            data: {
+              itemId,
+              name:
+                (typeof data.name === "string" && data.name) ||
+                (typeof data.title === "string" && data.title) ||
+                undefined,
+              reason: typeof data.reason === "string" ? data.reason : undefined,
+            },
+            functionCall: funcCallDataPayload,
+            responseId,
+          });
+
+          finalResponse =
+            typeof data.name === "string" || typeof data.title === "string"
+              ? `I'll delete the ${type} "${String(data.name ?? data.title)}". ${aiResponse}`
+              : `I'll delete the ${type}. ${aiResponse}`;
         }
         break;
 
@@ -227,24 +231,6 @@ export const processFunctionCalls = async (
           });
 
           finalResponse = `I'll update project settings. ${aiResponse}`;
-        }
-        break;
-
-      case "delete_item":
-        {
-          const { type, itemId, name, reason } = functionArgs;
-
-          pendingItems.push({
-            type,
-            operation: "delete",
-            data: { itemId, name, reason },
-            functionCall: funcCallDataPayload,
-            responseId,
-          });
-
-          finalResponse = name
-            ? `I'll delete the ${type} "${name}". ${aiResponse}`
-            : `I'll delete the ${type}. ${aiResponse}`;
         }
         break;
 

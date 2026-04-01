@@ -13,6 +13,8 @@ import { openai } from "@ai-sdk/openai";
 import { AI_MODEL, AI_CONFIG } from "./config";
 import type { ProjectContextSnapshot } from "./types";
 import { createAgentTools } from "./tools";
+import type { ModelMessage } from "ai";
+import { sanitizeIncompleteToolHistory } from "./helpers/sanitizeToolHistory";
 
 // RunAction type matches ctx.runAction signature
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -63,6 +65,12 @@ export const createMyvibeProjectAgent = (
     contextOptions: {
       // Include tool messages in context so the AI remembers search results and previous actions
       excludeToolMessages: false,
+    },
+    contextHandler: async (
+      _ctx: unknown,
+      args: { allMessages: ModelMessage[] },
+    ) => {
+      return sanitizeIncompleteToolHistory(args.allMessages);
     },
 
     // Import all tools from tools.ts (single source of truth)

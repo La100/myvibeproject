@@ -6,6 +6,10 @@ import type { ClerkProviderProps } from "@clerk/clerk-react";
 import type { CSSProperties } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { getUiVibeCssVariables, resolveUiVibeId } from "@/lib/ui-system";
+import { Geist } from "next/font/google";
+import { cn } from "@/lib/utils";
+
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 export const metadata: Metadata = {
   title: "Myvibe project",
@@ -79,7 +83,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" data-ui-vibe={activeUiVibe}>
+    <html lang="en" data-ui-vibe={activeUiVibe} className={cn("font-sans", geist.variable)}>
       <body className="antialiased" style={rootThemeVariables}>
         <ClerkProvider
           appearance={clerkAppearance}

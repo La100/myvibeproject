@@ -8,6 +8,7 @@ import {
   QUICK_PROMPTS,
 } from "@/components/ai/assistant/config";
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
+import { StreamingReasoning } from "@/components/assistant-ui/reasoning";
 import { ToolFallback } from "@/components/assistant-ui/tool-fallback";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
 import {
@@ -485,6 +486,7 @@ const AssistantMessage: FC = () => {
   const toolComponents = useMemo(
     () => ({
       Text: MarkdownText,
+      Reasoning: StreamingReasoning,
       tools: { Fallback: PendingAwareToolFallback },
     }),
     [],

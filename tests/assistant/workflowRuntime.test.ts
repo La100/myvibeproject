@@ -15,9 +15,7 @@ test("buildWorkflowRuntimeContext returns workflow section and step allowlist", 
     ],
   });
 
-  assert.equal(runtime.allowedToolNames.includes("update_item"), true);
-  assert.equal(runtime.allowedToolNames.includes("update_multiple_items"), true);
-  assert.equal(runtime.allowedToolNames.includes("create_item"), false);
+  assert.equal(runtime.allowedToolNames.includes("manage_tasks"), true);
   assert.match(runtime.workflowSection ?? "", /WORKFLOW MODE - GUIDED FLOW/);
   assert.match(runtime.workflowSection ?? "", /Step 5 of 5/);
 });
@@ -29,7 +27,34 @@ test("buildWorkflowRuntimeContext falls back to full runtime tools for invalid s
   });
 
   assert.equal(runtime.workflowSection, null);
-  assert.equal(runtime.allowedToolNames.includes("create_item"), true);
-  assert.equal(runtime.allowedToolNames.includes("update_item"), true);
+  assert.equal(runtime.allowedToolNames.includes("manage_tasks"), true);
+  assert.equal(runtime.allowedToolNames.includes("manage_notes"), true);
   assert.equal(runtime.allowedToolNames.includes("search_items"), true);
+});
+
+test("buildWorkflowRuntimeContext restricts workflow tools to read-only in always_ask mode", () => {
+  const runtime = buildWorkflowRuntimeContext(
+    {
+      workflowId: "floor-plan-analysis",
+      stepId: "schedule",
+    },
+    false,
+    "always_ask",
+  );
+
+  assert.deepEqual(runtime.allowedToolNames.sort(), ["search_items", "web_search"]);
+  assert.match(runtime.workflowSection ?? "", /WORKFLOW MODE - GUIDED FLOW/);
+});
+
+test("buildWorkflowRuntimeContext falls back to read-only tools for invalid step in always_ask mode", () => {
+  const runtime = buildWorkflowRuntimeContext(
+    {
+      workflowId: "floor-plan-analysis",
+      stepId: "missing-step",
+    },
+    false,
+    "always_ask",
+  );
+
+  assert.deepEqual(runtime.allowedToolNames.sort(), ["search_items", "web_search"]);
 });

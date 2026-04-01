@@ -14,7 +14,7 @@ test("toOpenAIFileContentPart preserves MIME type for non-image files", () => {
   assert.deepEqual(result.contentPart, {
     type: "file",
     data: "file_csv_1",
-    mimeType: "text/csv",
+    mediaType: "text/csv",
   });
   assert.equal(result.description, "User attached file: budget.csv (text/csv)");
   assert.deepEqual(result.metadata, {

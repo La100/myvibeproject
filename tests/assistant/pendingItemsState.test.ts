@@ -18,7 +18,7 @@ const makePendingItem = (
   clientId: "pending:task:create:1",
   functionCall: {
     callId: "call_1",
-    functionName: "create_item",
+    functionName: "manage_tasks",
     arguments: "{}",
   },
   responseId: "resp_1",
@@ -44,7 +44,7 @@ test("findPendingItemIndex falls back to function call id lookup", () => {
       clientId: "pending:task:create:99",
       functionCall: {
         callId: "call_bulk",
-        functionName: "create_multiple_items",
+        functionName: "manage_tasks",
         arguments: "{}",
       },
     }),
@@ -67,7 +67,7 @@ test("findPendingItemIndex prefers clientId before function call id", () => {
       clientId: "shared_id",
       functionCall: {
         callId: "call_first",
-        functionName: "create_item",
+        functionName: "manage_tasks",
         arguments: "{}",
       },
     }),
@@ -75,7 +75,7 @@ test("findPendingItemIndex prefers clientId before function call id", () => {
       clientId: "other_id",
       functionCall: {
         callId: "shared_id",
-        functionName: "create_item",
+        functionName: "manage_tasks",
         arguments: "{}",
       },
     }),

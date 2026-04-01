@@ -8,11 +8,8 @@
 import {
   Database,
   Search,
-  Plus,
   Layers,
-  Pencil,
   Edit3,
-  Trash,
   type LucideIcon,
 } from "lucide-react";
 
@@ -25,6 +22,48 @@ export interface ToolConfig {
 }
 
 export const TOOL_CONFIGS: Record<string, ToolConfig> = {
+  manage_tasks: {
+    icon: Layers,
+    label: "Managing Tasks",
+    description: "Preparing task changes",
+    category: "edit",
+    color: "text-amber-500",
+  },
+  manage_notes: {
+    icon: Layers,
+    label: "Managing Notes",
+    description: "Preparing note changes",
+    category: "edit",
+    color: "text-amber-500",
+  },
+  manage_contacts: {
+    icon: Layers,
+    label: "Managing Contacts",
+    description: "Preparing contact changes",
+    category: "edit",
+    color: "text-amber-500",
+  },
+  manage_shopping: {
+    icon: Layers,
+    label: "Managing Shopping",
+    description: "Preparing shopping item or section changes",
+    category: "edit",
+    color: "text-amber-500",
+  },
+  manage_labor: {
+    icon: Layers,
+    label: "Managing Labor",
+    description: "Preparing labor item or section changes",
+    category: "edit",
+    color: "text-amber-500",
+  },
+  manage_surveys: {
+    icon: Layers,
+    label: "Managing Surveys",
+    description: "Preparing survey changes",
+    category: "edit",
+    color: "text-amber-500",
+  },
   load_full_project_context: {
     icon: Database,
     label: "Loading Project Context",
@@ -39,47 +78,12 @@ export const TOOL_CONFIGS: Record<string, ToolConfig> = {
     category: "search",
     color: "text-blue-500",
   },
-  create_item: {
-    icon: Plus,
-    label: "Creating Item",
-    description: "Preparing a new item",
-    category: "create",
-    color: "text-green-500",
-  },
-  create_multiple_items: {
-    icon: Layers,
-    label: "Creating Multiple Items",
-    description: "Preparing multiple new items",
-    category: "create",
-    color: "text-green-500",
-  },
-  update_item: {
-    icon: Pencil,
-    label: "Updating Item",
-    description: "Preparing item updates",
-    category: "edit",
-    color: "text-amber-500",
-  },
-  update_multiple_items: {
-    icon: Layers,
-    label: "Updating Multiple Items",
-    description: "Preparing multiple item updates",
-    category: "edit",
-    color: "text-amber-500",
-  },
   update_project_settings: {
     icon: Edit3,
     label: "Updating Project Settings",
     description: "Preparing project settings updates",
     category: "edit",
     color: "text-amber-500",
-  },
-  delete_item: {
-    icon: Trash,
-    label: "Deleting Item",
-    description: "Preparing item deletion",
-    category: "delete",
-    color: "text-red-500",
   },
 };
 

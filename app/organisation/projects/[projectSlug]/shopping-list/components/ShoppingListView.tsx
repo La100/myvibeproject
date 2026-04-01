@@ -812,10 +812,10 @@ export default function ShoppingListView() {
           isPending={isPending}
         />
 
-        <div className="sticky top-3 z-20 mb-8">
-          <div className="rounded-[28px] border border-[var(--ui-border-soft)] bg-[color:color-mix(in_srgb,var(--ui-surface-base)_88%,white)] p-4 shadow-[0_26px_70px_rgba(20,20,20,0.10)] backdrop-blur-xl sm:p-6">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-              <div className="flex flex-col gap-3">
+        <div className="sticky top-0 z-30 mb-6">
+          <div className="rounded-[24px] border border-[var(--ui-border-soft)] bg-[color:color-mix(in_srgb,var(--ui-surface-base)_92%,white)] p-3 shadow-[0_20px_54px_rgba(20,20,20,0.09)] backdrop-blur-xl sm:p-4">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex flex-col gap-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="outline" className="border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-[var(--ui-accent-brand)]">
                     {project.name}
@@ -832,17 +832,17 @@ export default function ShoppingListView() {
                     </Badge>
                   )}
                 </div>
-                <p className="max-w-3xl text-sm text-[var(--ui-text-muted)]">
+                <p className="max-w-3xl text-[13px] text-[var(--ui-text-muted)]">
                   Search products and narrow the list by status, priority, section, and category.
                 </p>
               </div>
 
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap gap-2">
                 {hasActiveFilters && (
                   <Button
                     onClick={resetFilters}
                     variant="ghost"
-                    className="rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-[var(--ui-text-main)] hover:bg-[var(--ui-surface-soft)]"
+                    className="h-10 rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-4 text-[var(--ui-text-main)] hover:bg-[var(--ui-surface-soft)]"
                   >
                     <XIcon data-icon="inline-start" />
                     Clear filters
@@ -850,7 +850,7 @@ export default function ShoppingListView() {
                 )}
                 <Button
                   onClick={() => setShowMainAddForm(!showMainAddForm)}
-                  className="rounded-full bg-[var(--ui-action-bg)] px-6 text-[var(--primary-foreground)] shadow-[0_14px_36px_rgba(14,14,14,0.18)] hover:bg-[var(--ui-action-hover)]"
+                  className="h-10 rounded-full bg-[var(--ui-action-bg)] px-5 text-[var(--primary-foreground)] shadow-[0_14px_36px_rgba(14,14,14,0.18)] hover:bg-[var(--ui-action-hover)]"
                 >
                   <PlusIcon data-icon="inline-start" />
                   Add Product
@@ -858,7 +858,7 @@ export default function ShoppingListView() {
                 <Button
                   onClick={() => setIsExportModalOpen(true)}
                   variant="outline"
-                  className="rounded-full border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-6 text-[var(--ui-text-strong)] hover:bg-[var(--ui-surface-soft)]"
+                  className="h-10 rounded-full border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-5 text-[var(--ui-text-strong)] hover:bg-[var(--ui-surface-soft)]"
                 >
                   <DownloadIcon data-icon="inline-start" />
                   Export
@@ -866,19 +866,19 @@ export default function ShoppingListView() {
               </div>
             </div>
 
-            <div className="mt-5 grid gap-3 xl:grid-cols-[minmax(0,1.5fr)_repeat(4,minmax(0,0.8fr))]">
+            <div className="mt-4 grid gap-2.5 xl:grid-cols-[minmax(0,1.5fr)_repeat(4,minmax(0,0.8fr))]">
               <div className="relative">
                 <SearchIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ui-text-muted)]" />
                 <Input
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder="Search by product, supplier, notes, category..."
-                  className="h-11 rounded-2xl border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] pl-10"
+                  className="h-10 rounded-xl border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] pl-10"
                 />
               </div>
 
               <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as 'all' | ShoppingListItem["realizationStatus"])}>
-                <SelectTrigger className="h-11 w-full rounded-2xl border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)]">
+                <SelectTrigger className="h-10 w-full rounded-xl border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)]">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -893,7 +893,7 @@ export default function ShoppingListView() {
               </Select>
 
               <Select value={priorityFilter} onValueChange={(value) => setPriorityFilter(value as 'all' | NonNullable<ShoppingListItem["priority"]>)}>
-                <SelectTrigger className="h-11 w-full rounded-2xl border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)]">
+                <SelectTrigger className="h-10 w-full rounded-xl border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)]">
                   <SelectValue placeholder="Priority" />
                 </SelectTrigger>
                 <SelectContent>
@@ -906,7 +906,7 @@ export default function ShoppingListView() {
               </Select>
 
               <Select value={sectionFilter} onValueChange={setSectionFilter}>
-                <SelectTrigger className="h-11 w-full rounded-2xl border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)]">
+                <SelectTrigger className="h-10 w-full rounded-xl border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)]">
                   <SelectValue placeholder="Section" />
                 </SelectTrigger>
                 <SelectContent>
@@ -920,7 +920,7 @@ export default function ShoppingListView() {
               </Select>
 
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="h-11 w-full rounded-2xl border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)]">
+                <SelectTrigger className="h-10 w-full rounded-xl border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)]">
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -935,7 +935,7 @@ export default function ShoppingListView() {
             </div>
 
             {availableSections.length > 0 && (
-              <div className="mt-4 flex flex-wrap items-center gap-2">
+              <div className="mt-3 flex flex-wrap items-center gap-2">
                 <span className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--ui-text-muted)]">
                   Sections
                 </span>
@@ -967,7 +967,7 @@ export default function ShoppingListView() {
             )}
 
             {availableCategories.length > 0 && (
-              <div className="mt-3 flex flex-wrap items-center gap-2">
+              <div className="mt-2 flex flex-wrap items-center gap-2">
                 <span className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--ui-text-muted)]">
                   Categories
                 </span>

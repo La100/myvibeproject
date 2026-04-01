@@ -6,12 +6,21 @@
 
 import { action } from "../../_generated/server";
 import { v } from "convex/values";
-import { api } from "../../_generated/api";
+import { makeFunctionReference } from "convex/server";
 import { ensureProjectAccess, parseOptionalDateToMillis } from "./helpers";
+
+const getTaskQueryRef = makeFunctionReference<"query">("tasks:getTask");
+const createTaskInternalMutationRef =
+  makeFunctionReference<"mutation">("tasks:createTaskInternal");
+const updateTaskInternalMutationRef =
+  makeFunctionReference<"mutation">("tasks:updateTaskInternal");
+const deleteTaskInternalMutationRef =
+  makeFunctionReference<"mutation">("tasks:deleteTaskInternal");
 
 export const createConfirmedTask = action({
   args: {
     projectId: v.id("projects"),
+    userClerkId: v.optional(v.string()),
     taskData: v.object({
       title: v.string(),
       status: v.optional(v.union(v.literal("todo"), v.literal("in_progress"), v.literal("review"), v.literal("done"))),
@@ -31,7 +40,12 @@ export const createConfirmedTask = action({
   }),
   handler: async (ctx, args) => {
     try {
-      const { project } = await ensureProjectAccess(ctx, args.projectId, true);
+      const { clerkUserId, project } = await ensureProjectAccess(
+        ctx,
+        args.projectId,
+        true,
+        args.userClerkId,
+      );
 
       const startDateNumber = parseOptionalDateToMillis(
         args.taskData.startDate,
@@ -42,7 +56,8 @@ export const createConfirmedTask = action({
         "task endDate",
       );
 
-      const taskId: any = await ctx.runMutation(api.tasks.createTask, {
+      const taskId = await ctx.runMutation(createTaskInternalMutationRef, {
+        actorClerkUserId: clerkUserId,
         projectId: args.projectId,
         teamId: project.teamId,
         title: args.taskData.title,
@@ -73,6 +88,7 @@ export const createConfirmedTask = action({
 export const editConfirmedTask = action({
   args: {
     projectId: v.optional(v.id("projects")),
+    userClerkId: v.optional(v.string()),
     taskId: v.id("tasks"),
     updates: v.object({
       title: v.optional(v.string()),
@@ -92,14 +108,19 @@ export const editConfirmedTask = action({
   }),
   handler: async (ctx, args) => {
     try {
-      const task = await ctx.runQuery(api.tasks.getTask, { taskId: args.taskId });
+      const task = await ctx.runQuery(getTaskQueryRef, { taskId: args.taskId });
       if (!task) {
         throw new Error("Task not found");
       }
       if (args.projectId && task.projectId !== args.projectId) {
         throw new Error("Task does not belong to the active project");
       }
-      await ensureProjectAccess(ctx, args.projectId ?? task.projectId, true);
+      const { clerkUserId } = await ensureProjectAccess(
+        ctx,
+        args.projectId ?? task.projectId,
+        true,
+        args.userClerkId,
+      );
 
       const startDateNumber = parseOptionalDateToMillis(
         args.updates.startDate,
@@ -110,7 +131,8 @@ export const editConfirmedTask = action({
         "task endDate",
       );
 
-      await ctx.runMutation(api.tasks.updateTask, {
+      await ctx.runMutation(updateTaskInternalMutationRef, {
+        actorClerkUserId: clerkUserId,
         taskId: args.taskId,
         title: args.updates.title,
         description: args.updates.description,
@@ -139,6 +161,7 @@ export const editConfirmedTask = action({
 export const deleteConfirmedTask = action({
   args: {
     taskId: v.id("tasks"),
+    userClerkId: v.optional(v.string()),
     reason: v.optional(v.string()),
   },
   returns: v.object({
@@ -147,13 +170,19 @@ export const deleteConfirmedTask = action({
   }),
   handler: async (ctx, args) => {
     try {
-      const task = await ctx.runQuery(api.tasks.getTask, { taskId: args.taskId });
+      const task = await ctx.runQuery(getTaskQueryRef, { taskId: args.taskId });
       if (!task) {
         throw new Error("Task not found");
       }
-      await ensureProjectAccess(ctx, task.projectId, true);
+      const { clerkUserId } = await ensureProjectAccess(
+        ctx,
+        task.projectId,
+        true,
+        args.userClerkId,
+      );
 
-      await ctx.runMutation(api.tasks.deleteTask, {
+      await ctx.runMutation(deleteTaskInternalMutationRef, {
+        actorClerkUserId: clerkUserId,
         taskId: args.taskId,
       });
 
@@ -169,10 +198,6 @@ export const deleteConfirmedTask = action({
     }
   },
 });
-
-
-
-
 
 
 

@@ -1,12 +1,36 @@
 import { v } from "convex/values";
-import { api, internal } from "./_generated/api";
-import { query, mutation, internalQuery, action } from "./_generated/server";
+import { makeFunctionReference } from "convex/server";
+import { query, mutation, internalQuery, internalMutation, action } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
 
-// Utility function to check project read access
-const hasProjectAccess = async (ctx: any, projectId: Id<"projects">, requireWriteAccess = false): Promise<boolean> => {
+const logActivityMutationRef = makeFunctionReference<"mutation">("activityLog:logActivity");
+const checkAIFeatureAccessByProjectQueryRef =
+  makeFunctionReference<"query">("stripe:checkAIFeatureAccessByProject");
+const getTeamMembersForIndexingQueryRef =
+  makeFunctionReference<"query">("teams:getTeamMembersForIndexing");
+const getTaskQueryRef = makeFunctionReference<"query">("tasks:getTask");
+
+const resolveActorClerkUserId = async (
+  ctx: any,
+  actorClerkUserId?: string,
+): Promise<string | null> => {
+  if (typeof actorClerkUserId === "string" && actorClerkUserId.trim().length > 0) {
+    return actorClerkUserId.trim();
+  }
+
   const identity = await ctx.auth.getUserIdentity();
-  if (!identity) return false;
+  return identity?.subject ?? null;
+};
+
+// Utility function to check project read access
+const hasProjectAccess = async (
+  ctx: any,
+  projectId: Id<"projects">,
+  requireWriteAccess = false,
+  actorClerkUserId?: string,
+): Promise<boolean> => {
+  const effectiveActorClerkUserId = await resolveActorClerkUserId(ctx, actorClerkUserId);
+  if (!effectiveActorClerkUserId) return false;
 
   const project = await ctx.db.get(projectId);
   if (!project) return false;
@@ -14,7 +38,7 @@ const hasProjectAccess = async (ctx: any, projectId: Id<"projects">, requireWrit
   const membership = await ctx.db
     .query("teamMembers")
     .withIndex("by_team_and_user", (q: any) =>
-      q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
+      q.eq("teamId", project.teamId).eq("clerkUserId", effectiveActorClerkUserId)
     )
     .filter((q: any) => q.eq(q.field("isActive"), true))
     .first();
@@ -38,11 +62,114 @@ const hasProjectAccess = async (ctx: any, projectId: Id<"projects">, requireWrit
 };
 
 // Utility function to check task read/write access
-const hasTaskAccess = async (ctx: any, taskId: Id<"tasks">, requireWriteAccess = false): Promise<boolean> => {
+const hasTaskAccess = async (
+  ctx: any,
+  taskId: Id<"tasks">,
+  requireWriteAccess = false,
+  actorClerkUserId?: string,
+): Promise<boolean> => {
   const task = await ctx.db.get(taskId);
   if (!task) return false;
-  return await hasProjectAccess(ctx, task.projectId, requireWriteAccess);
-}
+  return await hasProjectAccess(ctx, task.projectId, requireWriteAccess, actorClerkUserId);
+};
+
+const insertTaskRecord = async (
+  ctx: any,
+  args: {
+    title: string;
+    projectId: Id<"projects">;
+    teamId: Id<"teams">;
+    description?: string;
+    status: "todo" | "in_progress" | "review" | "done";
+    priority?: "low" | "medium" | "high" | "urgent";
+    assignedTo?: string | null;
+    milestoneId?: Id<"projectMilestones"> | null;
+    startDate?: number;
+    endDate?: number;
+    tags?: string[];
+    content?: string;
+  },
+  createdBy: string,
+) => {
+  const taskId = await ctx.db.insert("tasks", {
+    projectId: args.projectId,
+    teamId: args.teamId,
+    title: args.title,
+    description: args.description,
+    status: args.status,
+    priority: args.priority,
+    assignedTo: args.assignedTo,
+    milestoneId: args.milestoneId,
+    createdBy,
+    startDate: args.startDate,
+    endDate: args.endDate,
+    tags: args.tags ?? [],
+    updatedAt: Date.now(),
+    content: args.content ?? undefined,
+  });
+
+  await ctx.runMutation(logActivityMutationRef, {
+    teamId: args.teamId,
+    projectId: args.projectId,
+    taskId,
+    actionType: "task.create",
+    details: { title: args.title },
+    entityId: taskId,
+    entityType: "task",
+  });
+
+  return taskId;
+};
+
+const updateTaskRecord = async (
+  ctx: any,
+  taskId: Id<"tasks">,
+  updates: {
+    title?: string;
+    description?: string;
+    status?: "todo" | "in_progress" | "review" | "done";
+    priority?: "low" | "medium" | "high" | "urgent" | null;
+    assignedTo?: string | null;
+    milestoneId?: Id<"projectMilestones"> | null;
+    startDate?: number;
+    endDate?: number;
+    tags?: string[];
+    content?: string;
+  },
+) => {
+  const task = await ctx.db.get(taskId);
+  if (!task) throw new Error("Task not found");
+
+  const updatePayload = { ...updates, updatedAt: Date.now() };
+  await ctx.db.patch(taskId, updatePayload as Partial<Doc<"tasks">>);
+
+  await ctx.runMutation(logActivityMutationRef, {
+    teamId: task.teamId,
+    projectId: task.projectId,
+    taskId,
+    actionType: "task.update",
+    details: { title: task.title, updatedFields: Object.keys(updatePayload) },
+    entityId: taskId,
+    entityType: "task",
+  });
+};
+
+const deleteTaskRecord = async (ctx: any, taskId: Id<"tasks">) => {
+  const task = await ctx.db.get(taskId);
+  if (!task) return;
+
+  await ctx.runMutation(logActivityMutationRef, {
+    teamId: task.teamId,
+    projectId: task.projectId,
+    taskId,
+    actionType: "task.delete",
+    details: { title: task.title },
+    entityId: taskId,
+    entityType: "task",
+  });
+
+  await ctx.db.delete(taskId);
+};
 
 // ====== QUERIES ======
 
@@ -418,36 +545,9 @@ export const createTask = mutation({
   async handler(ctx, args) {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
-    const hasAccess = await hasProjectAccess(ctx, args.projectId, true);
+    const hasAccess = await hasProjectAccess(ctx, args.projectId, true, identity.subject);
     if (!hasAccess) throw new Error("Permission denied.");
-    const taskId = await ctx.db.insert("tasks", {
-      projectId: args.projectId,
-      teamId: args.teamId,
-      title: args.title,
-      description: args.description,
-      status: args.status,
-      priority: args.priority,
-      assignedTo: args.assignedTo,
-      milestoneId: args.milestoneId,
-      createdBy: identity.subject,
-      startDate: args.startDate,
-      endDate: args.endDate,
-      tags: args.tags ?? [],
-      updatedAt: Date.now(),
-      content: args.content ?? undefined,
-    });
-    // @ts-ignore
-    await ctx.runMutation((internal as any).activityLog.logActivity, {
-      teamId: args.teamId,
-      projectId: args.projectId,
-      taskId: taskId,
-      actionType: "task.create",
-      details: { title: args.title },
-      entityId: taskId,
-      entityType: "task",
-    });
-
-    return taskId;
+    return await insertTaskRecord(ctx, args, identity.subject);
   },
 });
 
@@ -466,27 +566,12 @@ export const updateTask = mutation({
     content: v.optional(v.string()),
   },
   async handler(ctx, args) {
-    const hasAccess = await hasTaskAccess(ctx, args.taskId, true);
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const hasAccess = await hasTaskAccess(ctx, args.taskId, true, identity.subject);
     if (!hasAccess) throw new Error("Permission denied.");
-
-    const task = await ctx.db.get(args.taskId);
-    if (!task) throw new Error("Task not found");
-
     const { taskId, ...updates } = args;
-    const updatePayload = { ...updates, updatedAt: Date.now() };
-
-    await ctx.db.patch(taskId, updatePayload as Partial<Doc<"tasks">>);
-
-    await ctx.runMutation(internal.activityLog.logActivity, {
-      teamId: task.teamId,
-      projectId: task.projectId,
-      taskId: args.taskId,
-      actionType: "task.update",
-      details: { title: task.title, updatedFields: Object.keys(updatePayload) },
-      entityId: args.taskId,
-      entityType: "task",
-    });
-
+    await updateTaskRecord(ctx, taskId, updates);
   },
 });
 
@@ -503,7 +588,7 @@ export const updateTaskStatus = mutation({
     const originalStatus = task.status;
     if (originalStatus === args.status) return;
     await ctx.db.patch(args.taskId, { status: args.status, updatedAt: Date.now() });
-    await ctx.runMutation(internal.activityLog.logActivity, {
+    await ctx.runMutation(logActivityMutationRef, {
       teamId: task.teamId,
       projectId: task.projectId,
       taskId: args.taskId,
@@ -518,22 +603,71 @@ export const updateTaskStatus = mutation({
 export const deleteTask = mutation({
   args: { taskId: v.id("tasks") },
   async handler(ctx, args) {
-    const hasAccess = await hasTaskAccess(ctx, args.taskId, true);
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const hasAccess = await hasTaskAccess(ctx, args.taskId, true, identity.subject);
     if (!hasAccess) throw new Error("Permission denied.");
-    const task = await ctx.db.get(args.taskId);
-    if (!task) return;
-    await ctx.runMutation(internal.activityLog.logActivity, {
-      teamId: task.teamId,
-      projectId: task.projectId,
-      taskId: args.taskId,
-      actionType: "task.delete",
-      details: { title: task.title },
-      entityId: args.taskId,
-      entityType: "task",
-    });
-    await ctx.db.delete(args.taskId);
+    await deleteTaskRecord(ctx, args.taskId);
+  },
+});
 
+export const createTaskInternal = internalMutation({
+  args: {
+    actorClerkUserId: v.string(),
+    title: v.string(),
+    projectId: v.id("projects"),
+    teamId: v.id("teams"),
+    description: v.optional(v.string()),
+    status: v.union(v.literal("todo"), v.literal("in_progress"), v.literal("review"), v.literal("done")),
+    priority: v.optional(v.union(v.literal("low"), v.literal("medium"), v.literal("high"), v.literal("urgent"))),
+    assignedTo: v.optional(v.union(v.string(), v.null())),
+    milestoneId: v.optional(v.union(v.id("projectMilestones"), v.null())),
+    startDate: v.optional(v.number()),
+    endDate: v.optional(v.number()),
+    tags: v.optional(v.array(v.string())),
+    content: v.optional(v.string()),
+    sectionId: v.optional(v.union(v.id("taskSections"), v.null())),
+  },
+  async handler(ctx, args) {
+    const hasAccess = await hasProjectAccess(ctx, args.projectId, true, args.actorClerkUserId);
+    if (!hasAccess) throw new Error("Permission denied.");
+    const { actorClerkUserId, ...taskArgs } = args;
+    return await insertTaskRecord(ctx, taskArgs, actorClerkUserId);
+  },
+});
 
+export const updateTaskInternal = internalMutation({
+  args: {
+    actorClerkUserId: v.string(),
+    taskId: v.id("tasks"),
+    title: v.optional(v.string()),
+    description: v.optional(v.string()),
+    status: v.optional(v.union(v.literal("todo"), v.literal("in_progress"), v.literal("review"), v.literal("done"))),
+    priority: v.optional(v.union(v.literal("low"), v.literal("medium"), v.literal("high"), v.literal("urgent"), v.null())),
+    assignedTo: v.optional(v.union(v.string(), v.null())),
+    milestoneId: v.optional(v.union(v.id("projectMilestones"), v.null())),
+    startDate: v.optional(v.number()),
+    endDate: v.optional(v.number()),
+    tags: v.optional(v.array(v.string())),
+    content: v.optional(v.string()),
+  },
+  async handler(ctx, args) {
+    const hasAccess = await hasTaskAccess(ctx, args.taskId, true, args.actorClerkUserId);
+    if (!hasAccess) throw new Error("Permission denied.");
+    const { actorClerkUserId, taskId, ...updates } = args;
+    await updateTaskRecord(ctx, taskId, updates);
+  },
+});
+
+export const deleteTaskInternal = internalMutation({
+  args: {
+    actorClerkUserId: v.string(),
+    taskId: v.id("tasks"),
+  },
+  async handler(ctx, args) {
+    const hasAccess = await hasTaskAccess(ctx, args.taskId, true, args.actorClerkUserId);
+    if (!hasAccess) throw new Error("Permission denied.");
+    await deleteTaskRecord(ctx, args.taskId);
   },
 });
 
@@ -547,7 +681,7 @@ export const assignTask = mutation({
     const originalAssignee = task.assignedTo;
     if (originalAssignee === args.userId) return;
     await ctx.db.patch(args.taskId, { assignedTo: args.userId });
-    await ctx.runMutation(internal.activityLog.logActivity, {
+    await ctx.runMutation(logActivityMutationRef, {
       teamId: task.teamId,
       projectId: task.projectId,
       taskId: args.taskId,
@@ -568,7 +702,7 @@ export const updateTaskContent = mutation({
     const task = await ctx.db.get(args.taskId);
     if (!task) throw new Error("Task not found");
     await ctx.db.patch(args.taskId, { content: args.content, updatedAt: Date.now() });
-    await ctx.runMutation(internal.activityLog.logActivity, {
+    await ctx.runMutation(logActivityMutationRef, {
       teamId: task.teamId,
       projectId: task.projectId,
       taskId: args.taskId,
@@ -597,7 +731,7 @@ export const generateTaskDetailsFromPrompt = action({
   },
   handler: async (ctx, args): Promise<any> => {
     // 🔒 CHECK SUBSCRIPTION: AI features require Pro+ subscription
-    const subscriptionCheck = await ctx.runQuery(internal.stripe.checkAIFeatureAccessByProject, {
+    const subscriptionCheck = await ctx.runQuery(checkAIFeatureAccessByProjectQueryRef, {
       projectId: args.projectId
     });
 
@@ -605,7 +739,9 @@ export const generateTaskDetailsFromPrompt = action({
       throw new Error(subscriptionCheck.message || "🚫 AI features require Pro or Enterprise subscription. Please upgrade your plan to use AI task generation.");
     }
 
-    const teamMembers: any[] = await ctx.runQuery(internal.teams.getTeamMembersForIndexing, { projectId: args.projectId });
+    const teamMembers: any[] = await ctx.runQuery(getTeamMembersForIndexingQueryRef, {
+      projectId: args.projectId,
+    });
     const memberList = teamMembers.map((m: any) => ({
       name: m.name || m.email || 'Unknown User',
       email: m.email,
@@ -618,8 +754,7 @@ export const generateTaskDetailsFromPrompt = action({
 
     let taskContext = "";
     if (args.taskId) {
-      // @ts-ignore
-      const task = await ctx.runQuery((api as any).tasks.getTask, { taskId: args.taskId });
+      const task = await ctx.runQuery(getTaskQueryRef, { taskId: args.taskId });
       if (task) {
         taskContext = `
 The user is editing an existing task. Here is the current state of the task:

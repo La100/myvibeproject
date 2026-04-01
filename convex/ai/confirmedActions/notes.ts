@@ -12,6 +12,7 @@ import { ensureProjectAccess } from "./helpers";
 export const createConfirmedNote = action({
   args: {
     projectId: v.id("projects"),
+    userClerkId: v.optional(v.string()),
     noteData: v.object({
       title: v.string(),
       content: v.string(),
@@ -24,7 +25,7 @@ export const createConfirmedNote = action({
   }),
   handler: async (ctx, args) => {
     try {
-      await ensureProjectAccess(ctx, args.projectId, true);
+      await ensureProjectAccess(ctx, args.projectId, true, args.userClerkId);
 
       const noteId: any = await ctx.runMutation(api.notes.createNote, {
         projectId: args.projectId,
@@ -49,6 +50,7 @@ export const createConfirmedNote = action({
 export const editConfirmedNote = action({
   args: {
     projectId: v.optional(v.id("projects")),
+    userClerkId: v.optional(v.string()),
     noteId: v.id("notes"),
     updates: v.object({
       title: v.optional(v.string()),
@@ -76,7 +78,7 @@ export const editConfirmedNote = action({
         };
       }
 
-      await ensureProjectAccess(ctx, args.projectId ?? currentNote.projectId, true);
+      await ensureProjectAccess(ctx, args.projectId ?? currentNote.projectId, true, args.userClerkId);
 
       await ctx.runMutation(api.notes.updateNote, {
         noteId: args.noteId,
@@ -100,6 +102,7 @@ export const editConfirmedNote = action({
 export const deleteConfirmedNote = action({
   args: {
     noteId: v.id("notes"),
+    userClerkId: v.optional(v.string()),
     reason: v.optional(v.string()),
   },
   returns: v.object({
@@ -112,7 +115,7 @@ export const deleteConfirmedNote = action({
       if (!note) {
         throw new Error("Note not found");
       }
-      await ensureProjectAccess(ctx, note.projectId, true);
+      await ensureProjectAccess(ctx, note.projectId, true, args.userClerkId);
 
       await ctx.runMutation(api.notes.deleteNote, {
         noteId: args.noteId,
@@ -130,7 +133,6 @@ export const deleteConfirmedNote = action({
     }
   },
 });
-
 
 
 

@@ -1,9 +1,11 @@
 export const assistantToolNames = [
-  "create_item",
-  "create_multiple_items",
-  "update_item",
-  "update_multiple_items",
-  "delete_item",
+  "web_search",
+  "manage_tasks",
+  "manage_notes",
+  "manage_contacts",
+  "manage_shopping",
+  "manage_labor",
+  "manage_surveys",
   "search_items",
   "update_project_settings",
   "load_full_project_context",
@@ -38,39 +40,53 @@ type ToolMetadata = {
 };
 
 const assistantToolMetadata: Record<AssistantToolName, ToolMetadata> = {
-  create_item: {
+  web_search: {
+    readOnly: true,
+    promptSummary:
+      "Search the public web for up-to-date external information and return cited results.",
+    approvalMode: "read-only",
+    shouldPersistPending: () => false,
+  },
+  manage_tasks: {
     readOnly: false,
-    promptSummary: "Create one project item.",
+    promptSummary: "Manage tasks with a single tool for create, update, or delete.",
     approvalMode: "requires-confirmation",
-    defaults: { operation: "create" },
+    defaults: { type: "task" },
     shouldPersistPending: () => true,
   },
-  create_multiple_items: {
+  manage_notes: {
     readOnly: false,
-    promptSummary: "Create multiple project items of the same type.",
+    promptSummary: "Manage notes with a single tool for create, update, or delete.",
     approvalMode: "requires-confirmation",
-    defaults: { operation: "bulk_create" },
+    defaults: { type: "note" },
     shouldPersistPending: () => true,
   },
-  update_item: {
+  manage_contacts: {
     readOnly: false,
-    promptSummary: "Update one existing project item.",
+    promptSummary: "Manage contacts with a single tool for create, update, or delete.",
     approvalMode: "requires-confirmation",
-    defaults: { operation: "edit" },
+    defaults: { type: "contact" },
     shouldPersistPending: () => true,
   },
-  update_multiple_items: {
+  manage_shopping: {
     readOnly: false,
-    promptSummary: "Update multiple existing project items of the same type.",
+    promptSummary: "Manage shopping items or sections with one tool. Use entity=item or entity=section.",
     approvalMode: "requires-confirmation",
-    defaults: { operation: "bulk_edit" },
+    defaults: { type: "shopping" },
     shouldPersistPending: () => true,
   },
-  delete_item: {
+  manage_labor: {
     readOnly: false,
-    promptSummary: "Delete one project item.",
+    promptSummary: "Manage labor items or sections with one tool. Use entity=item or entity=section.",
     approvalMode: "requires-confirmation",
-    defaults: { operation: "delete" },
+    defaults: { type: "labor" },
+    shouldPersistPending: () => true,
+  },
+  manage_surveys: {
+    readOnly: false,
+    promptSummary: "Manage surveys with a single tool for create, update, or delete.",
+    approvalMode: "requires-confirmation",
+    defaults: { type: "survey" },
     shouldPersistPending: () => true,
   },
   search_items: {
@@ -143,28 +159,22 @@ export function shouldPersistPendingToolCall(
 export function buildToolPromptList(
   activeToolNames?: readonly string[],
 ): string[] {
-  const allowed = activeToolNames
-    ? new Set(activeToolNames.filter(isAssistantToolName))
-    : null;
+  const filtered = activeToolNames
+    ? assistantToolNames.filter((toolName) => activeToolNames.includes(toolName))
+    : [...assistantToolNames];
 
-  return assistantToolNames
-    .filter((toolName) => !allowed || allowed.has(toolName))
-    .map(
-      (toolName) =>
-        `- ${toolName}: ${assistantToolMetadata[toolName].promptSummary} [${assistantToolMetadata[toolName].approvalMode}]`,
-    );
+  return filtered.map(
+    (toolName) =>
+      `- ${toolName}: ${assistantToolMetadata[toolName].promptSummary} [${assistantToolMetadata[toolName].approvalMode}]`,
+  );
 }
 
 export function buildToolExecutionPolicy(
   activeToolNames?: readonly string[],
 ): string[] {
-  const allowed = activeToolNames
-    ? new Set(activeToolNames.filter(isAssistantToolName))
-    : null;
-
-  const activeTools = assistantToolNames.filter(
-    (toolName) => !allowed || allowed.has(toolName),
-  );
+  const activeTools = activeToolNames
+    ? assistantToolNames.filter((toolName) => activeToolNames.includes(toolName))
+    : [...assistantToolNames];
   const readOnlyTools = activeTools.filter(
     (toolName) => assistantToolMetadata[toolName].approvalMode === "read-only",
   );

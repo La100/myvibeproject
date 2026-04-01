@@ -16,10 +16,135 @@ import { components } from "../_generated/api";
 import { query, mutation, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
-import { createThread, vStreamArgs, listUIMessages, syncStreams } from "@convex-dev/agent";
+import { createThread, vStreamArgs, listMessages, listUIMessages, syncStreams } from "@convex-dev/agent";
 import type { SyncStreamsReturnValue } from "@convex-dev/agent";
 import { ensureProjectAccess, ensureThreadAccess, requireIdentity } from "./access";
 import { createMyvibeProjectAgent } from "./agent";
+
+type ApprovalHistoryMessage = {
+  message?: { content?: unknown } | null;
+};
+
+type PendingApproval = {
+  approvalId: string;
+  toolCallId: string;
+};
+
+type RefinementContext = {
+  toolCallId: string;
+  toolName: string;
+  proposal: string;
+};
+
+const collectUnresolvedToolApprovals = (
+  messages: ApprovalHistoryMessage[],
+): PendingApproval[] => {
+  const requestedApprovals = new Map<string, PendingApproval>();
+  const respondedApprovalIds = new Set<string>();
+
+  for (const message of messages) {
+    const content = Array.isArray(message.message?.content)
+      ? (message.message?.content as Array<Record<string, unknown>>)
+      : [];
+
+    for (const part of content) {
+      if (
+        part.type === "tool-approval-request" &&
+        typeof part.approvalId === "string" &&
+        typeof part.toolCallId === "string"
+      ) {
+        requestedApprovals.set(part.approvalId, {
+          approvalId: part.approvalId,
+          toolCallId: part.toolCallId,
+        });
+        continue;
+      }
+
+      if (
+        part.type === "tool-approval-response" &&
+        typeof part.approvalId === "string"
+      ) {
+        respondedApprovalIds.add(part.approvalId);
+      }
+    }
+  }
+
+  return Array.from(requestedApprovals.values()).filter(
+    ({ approvalId }) => !respondedApprovalIds.has(approvalId),
+  );
+};
+
+const truncateForPrompt = (value: string, limit = 4000) =>
+  value.length > limit ? `${value.slice(0, limit)}\n...[TRUNCATED]...` : value;
+
+const collectLatestPendingProposal = (
+  messages: ApprovalHistoryMessage[],
+): RefinementContext | null => {
+  const unresolved = collectUnresolvedToolApprovals(messages);
+  if (unresolved.length === 0) return null;
+
+  const latest = unresolved[unresolved.length - 1];
+  if (!latest) return null;
+
+  for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
+    const content = Array.isArray(messages[messageIndex]?.message?.content)
+      ? (messages[messageIndex]?.message?.content as Array<Record<string, unknown>>)
+      : [];
+
+    let toolName: string | undefined;
+    let proposal: string | undefined;
+
+    for (const part of content) {
+      if (
+        typeof part.type === "string" &&
+        part.type === `tool-result:${latest.toolCallId}` &&
+        typeof part.result === "string"
+      ) {
+        proposal = truncateForPrompt(part.result);
+        if (typeof part.toolName === "string") {
+          toolName = part.toolName;
+        }
+      }
+
+      const callId =
+        typeof part.toolCallId === "string"
+          ? part.toolCallId
+          : typeof part.callId === "string"
+            ? part.callId
+            : typeof part.id === "string"
+              ? part.id
+              : undefined;
+      if (callId !== latest.toolCallId) continue;
+
+      if (!toolName) {
+        toolName =
+          typeof part.toolName === "string"
+            ? part.toolName
+            : typeof part.name === "string"
+              ? part.name
+              : undefined;
+      }
+
+      if (
+        !proposal &&
+        typeof part.argsText === "string" &&
+        part.argsText.trim().length > 0
+      ) {
+        proposal = truncateForPrompt(part.argsText);
+      }
+    }
+
+    if (proposal) {
+      return {
+        toolCallId: latest.toolCallId,
+        toolName: toolName ?? "tool",
+        proposal,
+      };
+    }
+  }
+
+  return null;
+};
 
 /**
  * Query for useUIMessages hook - the main streaming query
@@ -150,6 +275,13 @@ export const initiateStreaming = mutation({
         }),
       ),
     ),
+    refinementContext: v.optional(
+      v.object({
+        toolCallId: v.string(),
+        toolName: v.string(),
+        proposal: v.string(),
+      }),
+    ),
   },
   returns: v.object({
     threadId: v.string(),
@@ -183,6 +315,7 @@ export const initiateStreaming = mutation({
     const trimmedPrompt = args.prompt.trim();
     const threadTitle = trimmedPrompt.slice(0, 120) || "New conversation";
     let threadId = args.threadId?.trim();
+    const internalDoStreaming = "ai/streaming:internalDoStreaming" as any;
 
     if (!threadId) {
       console.log("🆕 [MUTATION] Creating new thread");
@@ -244,6 +377,25 @@ export const initiateStreaming = mutation({
         });
         threadId = agentThreadId;
       } else {
+        const messageHistory = await listMessages(ctx, components.agent, {
+          threadId: assuredThreadId,
+          paginationOpts: { cursor: null, numItems: 100 },
+        });
+        const refinementContext = collectLatestPendingProposal(messageHistory.page);
+        const unresolvedApprovals = collectUnresolvedToolApprovals(messageHistory.page);
+        if (unresolvedApprovals.length > 0) {
+          const agent = createMyvibeProjectAgent("", {});
+          for (const { approvalId, toolCallId } of unresolvedApprovals) {
+            console.warn(
+              `Auto-denying unresolved tool approval ${approvalId} (toolCallId: ${toolCallId}): new generation started`,
+            );
+            await agent.denyToolCall(ctx, {
+              threadId: assuredThreadId,
+              approvalId,
+              reason: "Superseded by a newer user message.",
+            });
+          }
+        }
 
         const titlePatch =
           (!existingThread.title || existingThread.title.trim().length === 0) && trimmedPrompt.length > 0
@@ -272,6 +424,24 @@ export const initiateStreaming = mutation({
           ...threadUpdates,
           ...(args.workflowContext ? { workflowContext: args.workflowContext } : {}),
         });
+
+        await ctx.scheduler.runAfter(0, internalDoStreaming, {
+          message: args.prompt,
+          projectId: args.projectId,
+          userClerkId,
+          threadId: assuredThreadId,
+          fileId: args.fileId,
+          fileIds: args.fileIds,
+          openaiFiles: args.openaiFiles,
+          refinementContext: refinementContext ?? undefined,
+        });
+
+        console.log("✅ [MUTATION] Streaming action scheduled successfully:", assuredThreadId);
+
+        return {
+          threadId: assuredThreadId,
+          success: true,
+        };
       }
     }
 
@@ -285,9 +455,6 @@ export const initiateStreaming = mutation({
       promptLength: args.prompt.length,
     });
 
-    // Use string function reference to avoid deep TS instantiation on generated API types.
-    const internalDoStreaming = "ai/streaming:internalDoStreaming" as any;
-
     // Schedule the streaming action to run in the background
     await ctx.scheduler.runAfter(0, internalDoStreaming, {
       message: args.prompt,
@@ -297,6 +464,7 @@ export const initiateStreaming = mutation({
       fileId: args.fileId,
       fileIds: args.fileIds,
       openaiFiles: args.openaiFiles,
+      refinementContext: undefined,
     });
 
     console.log("✅ [MUTATION] Streaming action scheduled successfully:", threadId);
@@ -457,6 +625,7 @@ export const abortStream = mutation({
 export const respondToToolApproval = mutation({
   args: {
     threadId: v.string(),
+    approvalId: v.optional(v.string()),
     toolCallId: v.string(),
     approved: v.boolean(),
     reason: v.optional(v.string()),
@@ -481,22 +650,24 @@ export const respondToToolApproval = mutation({
       paginationOpts: { cursor: null, numItems: 100 },
     });
 
-    let approvalId: string | undefined;
-    for (const message of messages.page) {
-      const content = Array.isArray(message.message?.content)
-        ? (message.message?.content as Array<Record<string, unknown>>)
-        : [];
-      for (const part of content) {
-        if (
-          part.type === "tool-approval-request" &&
-          part.toolCallId === args.toolCallId &&
-          typeof part.approvalId === "string"
-        ) {
-          approvalId = part.approvalId;
-          break;
+    let approvalId = args.approvalId?.trim() || undefined;
+    if (!approvalId) {
+      for (const message of messages.page) {
+        const content = Array.isArray(message.message?.content)
+          ? (message.message?.content as Array<Record<string, unknown>>)
+          : [];
+        for (const part of content) {
+          if (
+            part.type === "tool-approval-request" &&
+            part.toolCallId === args.toolCallId &&
+            typeof part.approvalId === "string"
+          ) {
+            approvalId = part.approvalId;
+            break;
+          }
         }
+        if (approvalId) break;
       }
-      if (approvalId) break;
     }
     if (!approvalId) {
       throw new Error(`Approval request not found for tool call ${args.toolCallId}`);

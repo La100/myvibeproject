@@ -12,6 +12,7 @@ import { ensureProjectAccess } from "./helpers";
 export const createConfirmedLaborItem = action({
   args: {
     projectId: v.id("projects"),
+    userClerkId: v.optional(v.string()),
     itemData: v.object({
       name: v.string(),
       quantity: v.number(),
@@ -29,7 +30,7 @@ export const createConfirmedLaborItem = action({
   }),
   handler: async (ctx, args) => {
     try {
-      await ensureProjectAccess(ctx, args.projectId, true);
+      await ensureProjectAccess(ctx, args.projectId, true, args.userClerkId);
 
       const itemId: any = await ctx.runMutation(api.labor.createLaborItem, {
         projectId: args.projectId,
@@ -59,6 +60,7 @@ export const createConfirmedLaborItem = action({
 export const createConfirmedLaborSection = action({
   args: {
     projectId: v.id("projects"),
+    userClerkId: v.optional(v.string()),
     sectionData: v.object({
       name: v.string(),
     }),
@@ -70,7 +72,7 @@ export const createConfirmedLaborSection = action({
   }),
   handler: async (ctx, args) => {
     try {
-      await ensureProjectAccess(ctx, args.projectId, true);
+      await ensureProjectAccess(ctx, args.projectId, true, args.userClerkId);
 
       const sectionId: any = await ctx.runMutation(api.labor.createLaborSection, {
         name: args.sectionData.name,
@@ -94,6 +96,7 @@ export const createConfirmedLaborSection = action({
 export const editConfirmedLaborItem = action({
   args: {
     projectId: v.optional(v.id("projects")),
+    userClerkId: v.optional(v.string()),
     itemId: v.id("laborItems"),
     updates: v.object({
       name: v.optional(v.string()),
@@ -118,7 +121,7 @@ export const editConfirmedLaborItem = action({
       if (args.projectId && item.projectId !== args.projectId) {
         throw new Error("Labor item does not belong to the active project");
       }
-      await ensureProjectAccess(ctx, args.projectId ?? item.projectId, true);
+      await ensureProjectAccess(ctx, args.projectId ?? item.projectId, true, args.userClerkId);
 
       await ctx.runMutation(api.labor.updateLaborItem, {
         itemId: args.itemId,
@@ -147,6 +150,7 @@ export const editConfirmedLaborItem = action({
 export const editConfirmedLaborSection = action({
   args: {
     sectionId: v.id("laborSections"),
+    userClerkId: v.optional(v.string()),
     updates: v.object({
       name: v.optional(v.string()),
     }),
@@ -163,7 +167,7 @@ export const editConfirmedLaborSection = action({
         throw new Error("Labor section not found");
       }
 
-      await ensureProjectAccess(ctx, section.projectId, true);
+      await ensureProjectAccess(ctx, section.projectId, true, args.userClerkId);
 
       await ctx.runMutation(api.labor.updateLaborSection, {
         sectionId: args.sectionId,
@@ -186,6 +190,7 @@ export const editConfirmedLaborSection = action({
 export const deleteConfirmedLaborItem = action({
   args: {
     itemId: v.id("laborItems"),
+    userClerkId: v.optional(v.string()),
     reason: v.optional(v.string()),
   },
   returns: v.object({
@@ -198,7 +203,7 @@ export const deleteConfirmedLaborItem = action({
       if (!item) {
         throw new Error("Labor item not found");
       }
-      await ensureProjectAccess(ctx, item.projectId, true);
+      await ensureProjectAccess(ctx, item.projectId, true, args.userClerkId);
 
       await ctx.runMutation(api.labor.deleteLaborItem, {
         itemId: args.itemId,
@@ -220,6 +225,7 @@ export const deleteConfirmedLaborItem = action({
 export const deleteConfirmedLaborSection = action({
   args: {
     sectionId: v.id("laborSections"),
+    userClerkId: v.optional(v.string()),
   },
   returns: v.object({
     success: v.boolean(),
@@ -233,7 +239,7 @@ export const deleteConfirmedLaborSection = action({
         throw new Error("Labor section not found");
       }
 
-      await ensureProjectAccess(ctx, section.projectId, true);
+      await ensureProjectAccess(ctx, section.projectId, true, args.userClerkId);
 
       await ctx.runMutation(api.labor.deleteLaborSection, {
         sectionId: args.sectionId,

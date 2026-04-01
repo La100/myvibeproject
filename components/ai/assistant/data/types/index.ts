@@ -67,12 +67,10 @@ export type PendingItem = {
   operation: PendingOperation;
   /** Client-side id for UI transitions */
   clientId?: string;
-  /** Resolved state for inline confirmations */
+  /** Resolved status for tool approval/result UI */
   status?: "confirmed" | "rejected" | "superseded";
   /** Approval state for UI flow */
   approvalState?: PendingApprovalState;
-  /** Native @convex-dev/agent approval request id */
-  approvalRequestId?: string;
   /** Reason for approval state */
   approvalReason?: string;
   /** Primary data payload */
@@ -250,15 +248,3 @@ export type QuickPrompt = {
   label: string;
   prompt: string;
 };
-
-// ==================== COMPONENT PROP TYPES ====================
-
-export interface ConfirmationGridProps {
-  pendingItems: PendingContentItem[];
-  onConfirmAll: () => Promise<void>;
-  onConfirmItem: (index: number) => Promise<void>;
-  onRejectItem: (index: number) => void;
-  onRejectAll: () => void;
-  onUpdateItem?: (index: number, updates: Partial<PendingContentItem>) => void;
-  isProcessing?: boolean;
-}

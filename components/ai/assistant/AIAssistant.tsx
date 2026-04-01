@@ -211,12 +211,19 @@ const AIAssistant = () => {
       reason?: string;
     }) => {
       if (!threadId) return;
-      await respondToToolApproval({
-        threadId,
-        toolCallId: args.toolCallId,
-        approved: args.approved,
-        reason: args.reason,
-      });
+      try {
+        await respondToToolApproval({
+          threadId,
+          approvalId: args.approvalId,
+          toolCallId: args.toolCallId,
+          approved: args.approved,
+          reason: args.reason,
+        });
+      } catch (error) {
+        console.error("Failed to respond to tool approval:", error);
+        toast.error("Failed to continue the tool action");
+        throw error;
+      }
     },
     [respondToToolApproval, threadId],
   );

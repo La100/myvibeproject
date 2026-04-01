@@ -87,6 +87,12 @@ export default defineSchema({
     })),
     // Simple AI tokens field - manually editable in dashboard
     aiTokens: v.optional(v.number()), // Total tokens available for this team
+    openaiProjectId: v.optional(v.string()), // Optional OpenAI project used to scope hosted ChatKit usage
+    aiHostedChatKitSyncedCostCents: v.optional(v.number()), // Cumulative OpenAI cost already reconciled for hosted ChatKit
+    aiHostedChatKitSyncedWindowStart: v.optional(v.number()),
+    aiHostedChatKitSyncedWindowEnd: v.optional(v.number()),
+    aiHostedChatKitLastSyncedAt: v.optional(v.number()),
+    aiHostedChatKitLastSyncError: v.optional(v.string()),
     timezone: v.optional(v.string()), // Team timezone (e.g. "Europe/Warsaw")
     stripeConnectAccountId: v.optional(v.string()),
     stripeConnectChargesEnabled: v.optional(v.boolean()),
@@ -937,6 +943,32 @@ export default defineSchema({
     .index("by_team", ["teamId"])
     .index("by_user", ["userClerkId"])
     .index("by_thread", ["threadId"]),
+
+  aiProviderUsageSnapshots: defineTable({
+    teamId: v.id("teams"),
+    provider: v.union(v.literal("openai")),
+    product: v.union(v.literal("chatkit_hosted")),
+    openaiProjectId: v.string(),
+    billingWindowStart: v.number(),
+    billingWindowEnd: v.number(),
+    totalCostCents: v.number(),
+    deltaCostCents: v.number(),
+    deltaCredits: v.number(),
+    totalInputTokens: v.optional(v.number()),
+    totalOutputTokens: v.optional(v.number()),
+    totalCachedInputTokens: v.optional(v.number()),
+    totalRequests: v.optional(v.number()),
+    syncStatus: v.union(
+      v.literal("applied"),
+      v.literal("noop"),
+      v.literal("refunded"),
+      v.literal("error")
+    ),
+    syncedAt: v.number(),
+    errorMessage: v.optional(v.string()),
+  })
+    .index("by_team", ["teamId"])
+    .index("by_team_and_synced_at", ["teamId", "syncedAt"]),
 
   // Product Library
   productLibrary: defineTable({

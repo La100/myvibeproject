@@ -8,8 +8,8 @@
  * - Workflow-specific instructions
  */
 
-import type { WorkflowAIContext, WorkflowSession, WorkflowDefinition, WorkflowStep } from "../workflows/types";
-import { getWorkflow, getWorkflowStep } from "../workflows/loader";
+import type { WorkflowAIContext, WorkflowSession, WorkflowDefinition, WorkflowStep } from "../workflows/types.ts";
+import { getWorkflow, getWorkflowStep } from "../workflows/loader.ts";
 
 /**
  * Build the system prompt section for a workflow step

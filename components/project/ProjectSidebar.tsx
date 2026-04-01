@@ -134,11 +134,13 @@ function ProjectSidebarContent() {
   ];
 
   const aiItem = { href: `/organisation/projects/${params.projectSlug}/ai`, label: "AI", icon: Sparkles, key: "ai" };
+  const ai2Item = { href: `/organisation/projects/${params.projectSlug}/ai2`, label: "AI 2", icon: Sparkles, key: "ai2" };
   const settingsItem = { href: `/organisation/projects/${params.projectSlug}/settings`, label: "Settings", icon: Settings, key: "settings" };
 
   const projectNavItems = allNavItems.filter((item) => item.group === "project");
   const architectureNavItems = allNavItems.filter((item) => item.group === "architecture");
   const footerItems = [
+    ai2Item,
     settingsItem,
     { href: "/help", label: "Help", icon: LifeBuoy },
   ];

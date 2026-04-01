@@ -12,7 +12,7 @@ const makePendingItem = (
   data: { name: "Sink" },
   functionCall: {
     callId: "call_1",
-    functionName: "create_multiple_items",
+    functionName: "manage_shopping",
     arguments: "{}",
   },
   ...overrides,

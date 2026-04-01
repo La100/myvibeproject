@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useMemo } from "react";
+import { memo } from "react";
 import type { UIMessage } from "@convex-dev/agent/react";
 import { useQuery } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
@@ -8,9 +8,6 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { MessageContent } from "@/components/ai/primitives/message";
 import { MessageResponse } from "@/components/ai/primitives/message";
-import { InlineConfirmationList } from "../confirmations/InlineConfirmation";
-import type { PendingContentItem } from "../../data/types";
-import { toPendingItemsFromToolResult } from "../../data/utils/toolResultPendingItems";
 import { Download, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -18,24 +15,6 @@ type UIMessagePart = NonNullable<UIMessage["parts"]>[number];
 
 const hasText = (part: UIMessagePart): part is UIMessagePart & { text: string } =>
   typeof (part as { text?: unknown }).text === "string";
-
-function extractPendingItemsFromMessage(message: UIMessage): PendingContentItem[] {
-  const items: PendingContentItem[] = [];
-  if (!message.parts) return items;
-
-  for (const part of message.parts) {
-    if (part.type.startsWith("tool-result:")) {
-      const resultPart = part as { type: string; result?: string };
-      if (!resultPart.result) continue;
-      items.push(...toPendingItemsFromToolResult(
-        part.type.replace("tool-result:", ""),
-        resultPart.result,
-      ));
-    }
-  }
-
-  return items;
-}
 
 function UserAttachmentPreview({
   metadata,
@@ -135,18 +114,10 @@ type PreviewMessageProps = {
     type: string;
     previewUrl?: string;
   }>;
-  onConfirmItem?: (index: number | string) => Promise<void>;
-  onRejectItem?: (index: number | string) => void | Promise<void>;
-  onConfirmAll?: () => Promise<void>;
-  onRejectAll?: () => void | Promise<void>;
-  onUpdateItem?: (index: number | string, updates: Partial<PendingContentItem>) => void;
-  isProcessing?: boolean;
   mediaImageUrl?: string;
   onImageClick?: (payload: { url: string; prompt: string }) => void;
   onDownloadImage?: (url: string) => void;
   hideGeneratedPlaceholderText?: boolean;
-  inlineItemsOverride?: PendingContentItem[];
-  suppressInlineItemsFromMessage?: boolean;
 };
 
 export const PurePreviewMessage = ({
@@ -154,20 +125,11 @@ export const PurePreviewMessage = ({
   isLoading,
   metadata,
   localAttachments,
-  pendingItems,
-  onConfirmItem,
-  onRejectItem,
-  onConfirmAll,
-  onRejectAll,
-  onUpdateItem,
-  isProcessing,
   mediaImageUrl,
   onImageClick,
   onDownloadImage,
   hideGeneratedPlaceholderText = false,
-  inlineItemsOverride,
-  suppressInlineItemsFromMessage = false,
-}: PreviewMessageProps & { pendingItems?: PendingContentItem[] }) => {
+}: PreviewMessageProps) => {
   const isUser = message.role === "user";
   const textFromParts =
     message.parts?.find(
@@ -179,46 +141,9 @@ export const PurePreviewMessage = ({
     hideGeneratedPlaceholderText && messageText.trim() === "Generated image."
       ? ""
       : messageText;
-
-  // Extract items and merge with local pending state for optimistic updates
-  const inlineItems = useMemo(() => {
-    const items = inlineItemsOverride ?? (
-      suppressInlineItemsFromMessage ? [] : extractPendingItemsFromMessage(message)
-    );
-    if (!pendingItems || pendingItems.length === 0) {
-      return items.filter((item) => item.status !== "superseded");
-    }
-
-    const pendingStatusesByClientId = new Map<string, PendingContentItem["status"]>();
-    for (const pendingItem of pendingItems) {
-      if (!pendingItem.clientId) continue;
-      pendingStatusesByClientId.set(pendingItem.clientId, pendingItem.status);
-    }
-
-    return items.map((item) => {
-      const localStatus =
-        item.clientId ? pendingStatusesByClientId.get(item.clientId) : undefined;
-      if (localStatus === "confirmed" || localStatus === "rejected") {
-        return {
-          ...item,
-          status: localStatus,
-        };
-      }
-      if (localStatus === "superseded" || item.status === "superseded") {
-        return {
-          ...item,
-          status: "superseded" as const,
-        };
-      }
-      return item;
-    }).filter((item) => item.status !== "superseded");
-  }, [message, pendingItems, inlineItemsOverride, suppressInlineItemsFromMessage]);
-
-  const hasConfirmations = inlineItems.length > 0 && !isLoading;
   const hasVisibleAssistantContent =
     resolvedMessageText.trim().length > 0 ||
-    Boolean(mediaImageUrl) ||
-    hasConfirmations;
+    Boolean(mediaImageUrl);
 
   if (!isUser && !isLoading && !hasVisibleAssistantContent) {
     return null;
@@ -303,17 +228,6 @@ export const PurePreviewMessage = ({
             </div>
           )}
 
-          {hasConfirmations && onConfirmItem && onRejectItem && (
-            <InlineConfirmationList
-              items={inlineItems}
-              onConfirmItem={onConfirmItem}
-              onRejectItem={onRejectItem}
-              onConfirmAll={onConfirmAll}
-              onRejectAll={onRejectAll}
-              onUpdateItem={onUpdateItem}
-              isProcessing={isProcessing}
-            />
-          )}
         </div>
 
         {isUser && (

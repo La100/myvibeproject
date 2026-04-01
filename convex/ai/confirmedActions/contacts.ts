@@ -13,6 +13,7 @@ import { ensureTeamMembership } from "./helpers";
 export const createConfirmedContact = action({
   args: {
     teamSlug: v.string(),
+    userClerkId: v.optional(v.string()),
     contactData: v.object({
       name: v.string(),
       companyName: v.optional(v.string()),
@@ -38,7 +39,7 @@ export const createConfirmedContact = action({
       if (!team) {
         throw new Error("Team not found");
       }
-      await ensureTeamMembership(ctx, team._id);
+      await ensureTeamMembership(ctx, team._id, args.userClerkId);
 
       const contactId: any = await ctx.runMutation(api.contacts.createContact, {
         teamSlug: args.teamSlug,
@@ -72,6 +73,7 @@ export const createConfirmedContact = action({
 export const editConfirmedContact = action({
   args: {
     contactId: v.id("contacts"),
+    userClerkId: v.optional(v.string()),
     updates: v.object({
       name: v.optional(v.string()),
       companyName: v.optional(v.string()),
@@ -104,7 +106,7 @@ export const editConfirmedContact = action({
         throw new Error("Contact not found");
       }
 
-      await ensureTeamMembership(ctx, contact.teamId as Id<"teams">);
+      await ensureTeamMembership(ctx, contact.teamId as Id<"teams">, args.userClerkId);
 
       await ctx.runMutation(api.contacts.updateContact, {
         contactId: args.contactId,
@@ -137,6 +139,7 @@ export const editConfirmedContact = action({
 export const deleteConfirmedContact = action({
   args: {
     contactId: v.id("contacts"),
+    userClerkId: v.optional(v.string()),
     reason: v.optional(v.string()),
   },
   returns: v.object({
@@ -149,7 +152,7 @@ export const deleteConfirmedContact = action({
       if (!contact) {
         throw new Error("Contact not found");
       }
-      await ensureTeamMembership(ctx, contact.teamId as Id<"teams">);
+      await ensureTeamMembership(ctx, contact.teamId as Id<"teams">, args.userClerkId);
 
       await ctx.runMutation(api.contacts.deleteContact, {
         contactId: args.contactId,
@@ -167,7 +170,6 @@ export const deleteConfirmedContact = action({
     }
   },
 });
-
 
 
 

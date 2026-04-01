@@ -3,10 +3,9 @@ import test from "node:test";
 
 import type { PendingContentItem } from "../../components/ai/assistant/data/types";
 import {
-  resolveInlineConfirmationItems,
+  buildToolPreviewSummary,
   toPendingItemsFromResult,
 } from "../../components/assistant-ui/tool-fallback-helpers.ts";
-import type { InlineConfirmationScope } from "../../components/assistant-ui/tool-fallback-confirmation-scope";
 
 const makePendingItem = (
   overrides: Partial<PendingContentItem> = {},
@@ -16,7 +15,7 @@ const makePendingItem = (
   data: { title: "Example" },
   functionCall: {
     callId: "call_1",
-    functionName: "create_item",
+    functionName: "manage_tasks",
     arguments: "{}",
   },
   ...overrides,
@@ -92,30 +91,101 @@ test("toPendingItemsFromResult expands bulk edits into edit items", () => {
   assert.equal((items[0]?.updates as { title?: string })?.title, "New");
 });
 
-test("resolveInlineConfirmationItems keeps fallback items when other calls are already pending", () => {
-  const fallbackItems = [
-    makePendingItem({
-      type: "contact",
-      functionCall: {
-        callId: "call_current",
-        functionName: "create_item",
-        arguments: "{}",
+test("buildToolPreviewSummary summarizes bulk edit results as human-readable cards", () => {
+  const pendingItems = toPendingItemsFromResult(
+    "call_bulk_edit",
+    JSON.stringify({
+      type: "task",
+      operation: "bulk_edit",
+      data: {
+        items: [
+          {
+            itemId: "task_1",
+            originalItem: { _id: "task_1", title: "Measure kitchen" },
+            updates: { title: "Measure the kitchen", priority: "medium" },
+          },
+          {
+            itemId: "task_2",
+            originalItem: { _id: "task_2", title: "Paint walls" },
+            updates: { status: "in_progress" },
+          },
+        ],
       },
     }),
-  ];
-  const matchedPendingItemsByCallId: PendingContentItem[] = [];
-  const inlineConfirmationScope: InlineConfirmationScope = {
-    items: [],
-    suppressToolFallback: false,
-  };
+  );
 
-  const resolved = resolveInlineConfirmationItems({
-    inlineConfirmationScope,
-    matchedPendingItemsByCallId,
-    fallbackPendingItems: fallbackItems,
+  const summary = buildToolPreviewSummary({
+    toolName: "manage_tasks",
+    result: JSON.stringify({
+      type: "task",
+      operation: "bulk_edit",
+      data: {
+        items: [],
+      },
+    }),
+    pendingItems,
   });
 
-  assert.equal(resolved.length, 1);
-  assert.equal(resolved[0]?.functionCall?.callId, "call_current");
-  assert.equal(resolved[0]?.type, "contact");
+  assert.ok(summary);
+  assert.equal(summary?.title, "Update 2 tasks");
+  assert.equal(summary?.items?.[0]?.title, "Measure kitchen");
+  assert.equal(summary?.items?.[0]?.description, "Changes: Title, Priority");
+});
+
+test("buildToolPreviewSummary summarizes search results without raw json", () => {
+  const summary = buildToolPreviewSummary({
+    toolName: "search_items",
+    argsText: JSON.stringify({ type: "shopping", query: "farba" }),
+    result: JSON.stringify({
+      count: 2,
+      items: [
+        { _id: "shopping_1", name: "Farba biala", notes: "Mat" },
+        { _id: "shopping_2", name: "Farba gruntujaca" },
+      ],
+    }),
+  });
+
+  assert.ok(summary);
+  assert.equal(summary?.title, "Found 2 shopping items");
+  assert.equal(summary?.subtitle, "Search query: farba");
+  assert.equal(summary?.items?.[0]?.title, "Farba biala");
+});
+
+test("buildToolPreviewSummary summarizes create tool args before approval", () => {
+  const summary = buildToolPreviewSummary({
+    toolName: "manage_shopping",
+    argsText: JSON.stringify({
+      action: "create",
+      entity: "item",
+      data: {
+        name: "Testowy item",
+        notes: "Testowy shopping list item",
+        quantity: 1,
+      },
+    }),
+  });
+
+  assert.ok(summary);
+  assert.equal(summary?.title, "Create 1 shopping item");
+  assert.equal(summary?.items?.[0]?.title, "Testowy item");
+  assert.equal(summary?.items?.[0]?.description, "Testowy shopping list item");
+});
+
+test("buildToolPreviewSummary summarizes full project context counts", () => {
+  const summary = buildToolPreviewSummary({
+    toolName: "load_full_project_context",
+    result: JSON.stringify({
+      success: true,
+      counts: {
+        tasks: 4,
+        notes: 2,
+        shoppingItems: 6,
+      },
+      message: "Full project context loaded successfully.",
+    }),
+  });
+
+  assert.ok(summary);
+  assert.equal(summary?.title, "Loaded full project context");
+  assert.equal(summary?.items?.[0]?.title, "Tasks: 4");
 });

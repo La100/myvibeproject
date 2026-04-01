@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { processFunctionCalls } from "../../convex/ai/helpers/functionCallHandler.ts";
+import type { ProjectContextSnapshot } from "../../convex/ai/types.ts";
 
 const buildSnapshot = async () =>
   ({
@@ -10,17 +11,20 @@ const buildSnapshot = async () =>
     shoppingItems: [],
     contacts: [],
     surveys: [],
+    files: [],
+    summary: "",
     project: null,
-  }) as any;
+  }) as ProjectContextSnapshot;
 
-test("stages pending shopping item for generic create_item", async () => {
+test("stages pending shopping item for manage_shopping create", async () => {
   const result = await processFunctionCalls(
     [
       {
         call_id: "call-1",
-        name: "create_item",
+        name: "manage_shopping",
         arguments: JSON.stringify({
-          type: "shopping",
+          action: "create",
+          entity: "item",
           data: {
             name: "Farba biala",
             quantity: 2,
@@ -38,8 +42,8 @@ test("stages pending shopping item for generic create_item", async () => {
   assert.equal(result.pendingItems.length, 1);
   assert.equal(result.pendingItems[0].type, "shopping");
   assert.equal(result.pendingItems[0].operation, "create");
-  assert.equal((result.pendingItems[0].data as any).name, "Farba biala");
-  assert.equal((result.pendingItems[0].data as any).quantity, 2);
+  assert.equal((result.pendingItems[0].data as Record<string, unknown>).name, "Farba biala");
+  assert.equal((result.pendingItems[0].data as Record<string, unknown>).quantity, 2);
   assert.match(result.finalResponse, /create a shopping/i);
 });
 
@@ -48,14 +52,15 @@ test("skips malformed function call arguments and continues processing", async (
     [
       {
         call_id: "call-bad",
-        name: "create_item",
+        name: "manage_shopping",
         arguments: "{bad-json",
       },
       {
         call_id: "call-good",
-        name: "create_item",
+        name: "manage_shopping",
         arguments: JSON.stringify({
-          type: "shopping",
+          action: "create",
+          entity: "item",
           data: {
             name: "Walek",
             quantity: 1,
@@ -71,17 +76,18 @@ test("skips malformed function call arguments and continues processing", async (
 
   assert.equal(result.pendingItems.length, 1);
   assert.equal(result.pendingItems[0].type, "shopping");
-  assert.equal((result.pendingItems[0].data as any).name, "Walek");
+  assert.equal((result.pendingItems[0].data as Record<string, unknown>).name, "Walek");
 });
 
-test("stages pending shopping item for generic create_item", async () => {
+test("stages pending shopping item for manage_shopping create", async () => {
   const result = await processFunctionCalls(
     [
       {
         call_id: "call-2",
-        name: "create_item",
+        name: "manage_shopping",
         arguments: JSON.stringify({
-          type: "shopping",
+          action: "create",
+          entity: "item",
           data: {
             name: "Tasma malarska",
             quantity: 1,
@@ -98,20 +104,20 @@ test("stages pending shopping item for generic create_item", async () => {
   assert.equal(result.pendingItems.length, 1);
   assert.equal(result.pendingItems[0].type, "shopping");
   assert.equal(result.pendingItems[0].operation, "create");
-  assert.equal((result.pendingItems[0].data as any).name, "Tasma malarska");
+  assert.equal((result.pendingItems[0].data as Record<string, unknown>).name, "Tasma malarska");
   assert.equal(result.actionSummaries[0], 'shopping: "Tasma malarska"');
   assert.match(result.finalResponse, /create a shopping/i);
 });
 
-test("stages pending contact edit for generic update_item", async () => {
+test("stages pending contact edit for manage_contacts update", async () => {
   const result = await processFunctionCalls(
     [
       {
         call_id: "call-3",
-        name: "update_item",
+        name: "manage_contacts",
         arguments: JSON.stringify({
-          type: "contact",
-          itemId: "contact_1",
+          action: "update",
+          contactId: "contact_1",
           data: {
             phone: "+48 500 100 200",
           },
@@ -127,27 +133,29 @@ test("stages pending contact edit for generic update_item", async () => {
         shoppingItems: [],
         contacts: [{ _id: "contact_1", name: "Jan Kowalski", type: "contractor" }],
         surveys: [],
+        files: [],
+        summary: "",
         project: null,
-      }) as any,
+      }) as ProjectContextSnapshot,
     "resp-3",
   );
 
   assert.equal(result.pendingItems.length, 1);
   assert.equal(result.pendingItems[0].type, "contact");
   assert.equal(result.pendingItems[0].operation, "edit");
-  assert.equal((result.pendingItems[0].updates as any).phone, "+48 500 100 200");
-  assert.equal((result.pendingItems[0].originalItem as any)._id, "contact_1");
+  assert.equal((result.pendingItems[0].updates as Record<string, unknown>).phone, "+48 500 100 200");
+  assert.equal((result.pendingItems[0].originalItem as { _id?: string })._id, "contact_1");
 });
 
-test("keeps survey question update metadata in pending survey edit payload", async () => {
+test("keeps survey question update metadata in manage_surveys edit payload", async () => {
   const result = await processFunctionCalls(
     [
       {
         call_id: "call-4",
-        name: "update_item",
+        name: "manage_surveys",
         arguments: JSON.stringify({
-          type: "survey",
-          itemId: "survey_1",
+          action: "update",
+          surveyId: "survey_1",
           data: {
             questions: [
               {
@@ -174,24 +182,29 @@ test("keeps survey question update metadata in pending survey edit payload", asy
           {
             _id: "survey_1",
             title: "Weekly Check-in",
+            status: "active",
+            isRequired: false,
+            allowMultipleResponses: false,
             questions: [
               {
                 _id: "question_1",
                 questionText: "Jak oceniasz komunikacje?",
                 questionType: "rating",
-                order: 1,
               },
             ],
           },
         ],
+        files: [],
+        summary: "",
         project: null,
-      }) as any,
+      }) as ProjectContextSnapshot,
     "resp-4",
   );
 
   assert.equal(result.pendingItems.length, 1);
   assert.equal(result.pendingItems[0].type, "survey");
   assert.equal(result.pendingItems[0].operation, "edit");
-  assert.equal(((result.pendingItems[0].updates as any).questions?.[0] as any).questionId, "question_1");
-  assert.equal(((result.pendingItems[0].updates as any).questions?.[0] as any).operation, "edit");
+  const questions = (result.pendingItems[0].updates as { questions?: Array<Record<string, unknown>> }).questions;
+  assert.equal(questions?.[0]?.questionId, "question_1");
+  assert.equal(questions?.[0]?.operation, "edit");
 });

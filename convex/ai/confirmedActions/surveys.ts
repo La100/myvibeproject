@@ -22,6 +22,7 @@ const deleteSurveyMutationRef = makeFunctionReference<"mutation">("surveys:delet
 export const createConfirmedSurvey = action({
   args: {
     projectId: v.id("projects"),
+    userClerkId: v.optional(v.string()),
     surveyData: v.object({
       title: v.string(),
       description: v.optional(v.string()),
@@ -45,7 +46,7 @@ export const createConfirmedSurvey = action({
   }),
   handler: async (ctx, args) => {
     try {
-      await ensureProjectAccess(ctx, args.projectId, true);
+      await ensureProjectAccess(ctx, args.projectId, true, args.userClerkId);
 
       const startDateNumber = parseOptionalDateToMillis(
         args.surveyData.startDate,
@@ -102,6 +103,7 @@ export const createConfirmedSurvey = action({
 export const editConfirmedSurvey = action({
   args: {
     projectId: v.optional(v.id("projects")),
+    userClerkId: v.optional(v.string()),
     surveyId: v.id("surveys"),
     updates: v.object({
       title: v.optional(v.string()),
@@ -149,7 +151,7 @@ export const editConfirmedSurvey = action({
         throw new Error("Survey does not belong to the active project");
       }
 
-      await ensureProjectAccess(ctx, args.projectId ?? survey.projectId, true);
+      await ensureProjectAccess(ctx, args.projectId ?? survey.projectId, true, args.userClerkId);
 
       const startDateNumber = parseOptionalDateToMillis(
         args.updates.startDate,
@@ -311,6 +313,7 @@ export const editConfirmedSurvey = action({
 export const deleteConfirmedSurvey = action({
   args: {
     surveyId: v.id("surveys"),
+    userClerkId: v.optional(v.string()),
     title: v.optional(v.string()),
     reason: v.optional(v.string()),
   },
@@ -324,7 +327,7 @@ export const deleteConfirmedSurvey = action({
       if (!survey) {
         throw new Error("Survey not found");
       }
-      await ensureProjectAccess(ctx, survey.projectId, true);
+      await ensureProjectAccess(ctx, survey.projectId, true, args.userClerkId);
 
       await ctx.runMutation(deleteSurveyMutationRef, {
         surveyId: args.surveyId,
@@ -347,7 +350,6 @@ export const deleteConfirmedSurvey = action({
     }
   },
 });
-
 
 
 

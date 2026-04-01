@@ -13,7 +13,10 @@ import { toast } from "sonner";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { ChatHistoryEntry, SessionTokens } from "../types";
 import { useUIMessages } from "@convex-dev/agent/react";
-import { type UIMessagesResult } from "./chatMessageTransform";
+import {
+  supersedeStaleApprovalMessages,
+  type UIMessagesResult,
+} from "./chatMessageTransform";
 interface UseAIChatProps {
   projectId: Id<"projects"> | undefined;
   userClerkId: string | undefined;
@@ -193,7 +196,11 @@ export const useAIChat = ({
   );
 
   // Extract results - always from hook when subscribed
-  const uiMessages = shouldSubscribe ? streamingHookResult.results : undefined;
+  const rawUiMessages = shouldSubscribe ? streamingHookResult.results : undefined;
+  const uiMessages = useMemo(
+    () => supersedeStaleApprovalMessages(rawUiMessages),
+    [rawUiMessages],
+  );
 
   const streamingStatus = shouldSubscribe ? streamingHookResult.status : "Exhausted";
   const loadMoreMessages = streamingHookResult.loadMore;

@@ -47,24 +47,14 @@ export function AuthShell({
         <div className="p-4 sm:p-6 lg:h-full lg:p-8">
           <div className="relative min-h-[320px] overflow-hidden rounded-[28px] border border-border/60 bg-background shadow-soft-lg sm:min-h-[420px] lg:min-h-[calc(100vh-4rem)]">
             <Image
-              src="/auth-image.jpg"
-              alt="Myvibe project visualization"
+              src="/visualization-1773318760233.png"
+              alt="Myvibe project background"
               fill
               priority
               className="object-cover object-center"
               sizes="(max-width: 1023px) 100vw, 60vw"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-black/5 to-transparent" />
-            <div className="absolute inset-0 flex items-center justify-center p-6 sm:p-8 lg:p-10">
-              <h1 className="flex flex-wrap items-baseline justify-center gap-x-4 gap-y-2 text-center text-white [text-shadow:0_6px_24px_rgba(0,0,0,0.16)] sm:gap-x-5 lg:gap-x-6">
-                <span className="font-serif text-5xl italic leading-[0.9] tracking-[-0.05em] sm:text-6xl lg:text-7xl xl:text-[7.5rem]">
-                  Myvibe
-                </span>
-                <span className="font-sans text-5xl font-extralight leading-[0.9] tracking-[-0.06em] sm:text-6xl lg:text-7xl xl:text-[7.5rem]">
-                  Project
-                </span>
-              </h1>
-            </div>
+            <div className="absolute inset-0 bg-gradient-to-t from-black/12 via-transparent to-white/10" />
           </div>
         </div>
       </section>

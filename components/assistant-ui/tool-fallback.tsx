@@ -21,7 +21,12 @@ import {
 } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { toPendingItemsFromResult } from "@/components/assistant-ui/tool-fallback-helpers";
+import {
+  buildToolPreviewSummary,
+  toPendingItemsFromResult,
+} from "@/components/assistant-ui/tool-fallback-helpers";
+import { getCategoryStyles, getToolConfig } from "@/components/ai/shared/ToolIcons";
+import { toast } from "sonner";
 
 const ANIMATION_DURATION = 200;
 
@@ -234,6 +239,98 @@ function ToolFallbackResult({
   );
 }
 
+function ToolPreviewCard({
+  toolName,
+  summary,
+  status,
+  statusLabelOverride,
+}: {
+  toolName: string;
+  summary: NonNullable<ReturnType<typeof buildToolPreviewSummary>>;
+  status?: ToolCallMessagePartStatus;
+  statusLabelOverride?: string;
+}) {
+  const config = getToolConfig(toolName);
+  const styles = getCategoryStyles(config.category);
+  const Icon = config.icon;
+  const statusLabel =
+    statusLabelOverride ??
+    (status?.type === "running"
+      ? "Running"
+      : status?.type === "incomplete"
+        ? "Failed"
+        : status?.type === "requires-action"
+          ? "Needs review"
+          : "Complete");
+
+  return (
+    <div className={cn("px-4", status?.type === "incomplete" && "opacity-80")}>
+      <div
+        className={cn(
+          "rounded-xl border p-3 shadow-sm",
+          styles.bgColor,
+          styles.borderColor,
+        )}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="mt-0.5 rounded-lg border border-black/5 bg-background/80 p-2">
+              <Icon className={cn("size-4", config.color, status?.type === "running" && "animate-spin")} />
+            </div>
+            <div className="min-w-0 space-y-1">
+              <p className="truncate text-sm font-semibold text-foreground">{summary.title}</p>
+              {summary.subtitle ? (
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  {summary.subtitle}
+                </p>
+              ) : null}
+            </div>
+          </div>
+          <span className="rounded-full border border-border/70 bg-background/80 px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+            {statusLabel}
+          </span>
+        </div>
+
+        {summary.badges && summary.badges.length > 0 ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {summary.badges.map((badge) => (
+              <span
+                key={badge}
+                className="rounded-full border border-border/60 bg-background/70 px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
+              >
+                {badge}
+              </span>
+            ))}
+          </div>
+        ) : null}
+
+        {summary.items && summary.items.length > 0 ? (
+          <div className="mt-3 space-y-2">
+            {summary.items.map((item, index) => (
+              <div
+                key={`${item.title}-${index}`}
+                className="rounded-lg border border-border/60 bg-background/70 px-3 py-2"
+              >
+                <div className="text-sm font-medium text-foreground">{item.title}</div>
+                {item.description ? (
+                  <div className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                    {item.description}
+                  </div>
+                ) : null}
+                {item.meta ? (
+                  <div className="mt-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/90">
+                    {item.meta}
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export interface ToolFallbackProps extends ToolCallMessagePartProps {
   onRespondToToolApproval?: (args: {
     approvalId: string;
@@ -312,6 +409,16 @@ const ToolFallbackImpl = ({
     () => (toolCallId ? toPendingItemsFromResult(toolCallId, previewSource) : []),
     [previewSource, toolCallId],
   );
+  const previewSummary = useMemo(
+    () =>
+      buildToolPreviewSummary({
+        toolName,
+        argsText,
+        result,
+        pendingItems: previewItems,
+      }),
+    [argsText, previewItems, result, toolName],
+  );
   const isApprovalRequested =
     nativeState === "approval-requested" && !!approvalId;
   const [isSubmittingApproval, setIsSubmittingApproval] = useState(false);
@@ -338,6 +445,10 @@ const ToolFallbackImpl = ({
           approved,
           toolCallId,
         });
+        toast.success(approved ? "Action approved" : "Action rejected");
+      } catch (error) {
+        console.error("Failed to submit tool approval:", error);
+        toast.error("Couldn't continue this tool action");
       } finally {
         setIsSubmittingApproval(false);
       }
@@ -357,7 +468,7 @@ const ToolFallbackImpl = ({
               </p>
             </div>
             <span className="rounded-full border border-border/70 px-2.5 py-1 text-xs font-medium text-muted-foreground">
-              {confirmationMode === "auto_confirm" ? "Manual override" : "Manual review"}
+              {confirmationMode === "auto_confirm" ? "Auto mode mismatch" : "Manual review"}
             </span>
           </div>
           <div className="space-y-3 px-4 py-3">
@@ -384,7 +495,16 @@ const ToolFallbackImpl = ({
                 })}
               </div>
             ) : (
-              <ToolFallbackArgs argsText={argsText} />
+              previewSummary ? (
+                <ToolPreviewCard
+                  toolName={toolName}
+                  summary={previewSummary}
+                  status={status}
+                  statusLabelOverride="Needs review"
+                />
+              ) : (
+                <ToolFallbackArgs argsText={argsText} />
+              )
             )}
           </div>
           <div className="flex items-center justify-end gap-2 border-t border-border/70 px-4 py-3">
@@ -428,13 +548,23 @@ const ToolFallbackImpl = ({
           </div>
         ) : null}
         <ToolFallbackError status={status} />
-        <ToolFallbackArgs
-          argsText={argsText}
-          className={cn(isCancelled && "opacity-60")}
-        />
-        {!isCancelled && (
-          <ToolFallbackResult result={result} />
-        )}
+        {previewSummary ? (
+          <ToolPreviewCard toolName={toolName} summary={previewSummary} status={status} />
+        ) : null}
+        <div className="px-4">
+          <div className="rounded-lg border border-dashed border-border/70 bg-muted/10">
+            <div className="border-b border-dashed border-border/70 px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Raw details
+            </div>
+            <ToolFallbackArgs
+              argsText={argsText}
+              className={cn("px-3 py-3", isCancelled && "opacity-60")}
+            />
+            {!isCancelled && (
+              <ToolFallbackResult result={result} className="border-t-0 px-3 pb-3 pt-0" />
+            )}
+          </div>
+        </div>
       </ToolFallbackContent>
     </ToolFallbackRoot>
   );

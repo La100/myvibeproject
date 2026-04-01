@@ -23,6 +23,17 @@ type ReadonlyJSONValue =
   | ReadonlyJSONObject
   | ReadonlyJSONValue[];
 
+type ApprovalRecord = {
+  id: string;
+  approved?: boolean;
+  reason?: string;
+};
+
+type ToolApprovalState = {
+  approvalByToolCallId: Map<string, ApprovalRecord>;
+  stateByToolCallId: Map<string, string>;
+};
+
 type AssistantConversationProps = {
   className?: string;
   title?: string;
@@ -115,11 +126,67 @@ const toThreadMessageLikeFromUI = (
     (typeof record.key === "string" && record.key) ||
     (typeof record._id === "string" && record._id) ||
     undefined;
+  const approvalState = parts.reduce<ToolApprovalState>(
+    (acc, part) => {
+      if (
+        part.type === "tool-approval-request" &&
+        typeof part.toolCallId === "string" &&
+        typeof part.approvalId === "string"
+      ) {
+        acc.approvalByToolCallId.set(part.toolCallId, {
+          id: part.approvalId,
+          reason:
+            typeof part.reason === "string" && part.reason.length > 0
+              ? part.reason
+              : undefined,
+        });
+        acc.stateByToolCallId.set(part.toolCallId, "approval-requested");
+        return acc;
+      }
+
+      if (
+        part.type === "tool-approval-response" &&
+        typeof part.approvalId === "string"
+      ) {
+        const approvalId = part.approvalId;
+        for (const [toolCallId, approval] of acc.approvalByToolCallId.entries()) {
+          if (approval.id !== approvalId) continue;
+          acc.approvalByToolCallId.set(toolCallId, {
+            ...approval,
+            approved:
+              typeof part.approved === "boolean"
+                ? part.approved
+                : approval.approved,
+            reason:
+              typeof part.reason === "string" && part.reason.length > 0
+                ? part.reason
+                : approval.reason,
+          });
+          acc.stateByToolCallId.set(toolCallId, "approval-responded");
+          break;
+        }
+      }
+
+      return acc;
+    },
+    {
+      approvalByToolCallId: new Map<string, ApprovalRecord>(),
+      stateByToolCallId: new Map<string, string>(),
+    },
+  );
 
   for (const part of parts) {
     const type = String(part.type ?? "");
     if (type === "text" && typeof part.text === "string") {
       content.push({ type: "text", text: part.text });
+      continue;
+    }
+
+    if (type === "reasoning" && typeof part.text === "string") {
+      content.push({
+        type: "reasoning",
+        text: part.text,
+      } as unknown as ThreadContentPart);
       continue;
     }
 
@@ -165,8 +232,15 @@ const toThreadMessageLikeFromUI = (
             ? part.args
             : undefined;
       const args = argsSource as ReadonlyJSONObject | undefined;
+      const explicitApproval = approvalState.approvalByToolCallId.get(toolCallId);
+      const nativeApproval =
+        typeof part.approval === "object" && part.approval
+          ? (part.approval as ApprovalRecord)
+          : undefined;
       const toolState =
-        typeof part.state === "string" ? part.state : undefined;
+        typeof part.state === "string"
+          ? part.state
+          : approvalState.stateByToolCallId.get(toolCallId);
       content.push({
         type: "tool-call",
         toolCallId,
@@ -177,10 +251,7 @@ const toThreadMessageLikeFromUI = (
           (args ? JSON.stringify(args) : ""),
         result,
         state: toolState,
-        approval:
-          typeof part.approval === "object" && part.approval
-            ? part.approval
-            : undefined,
+        approval: nativeApproval ?? explicitApproval,
         isError:
           typeof result === "object" &&
           result !== null &&

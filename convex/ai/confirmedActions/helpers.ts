@@ -10,6 +10,28 @@ const apiLoose = require("../../_generated/api").api as unknown as {
   projects: { getProject: unknown };
   teams: { getCurrentUserTeamMember: unknown };
 };
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const internalLoose = require("../../_generated/api").internal as unknown as {
+  teams: { getTeamMemberByClerkId: unknown };
+};
+
+type ResolvedActor = {
+  clerkUserId: string;
+  identity: any;
+};
+
+type ConfirmedProjectAccess = {
+  clerkUserId: string;
+  identity: any;
+  project: any;
+  membership: any;
+};
+
+type ConfirmedTeamMembership = {
+  clerkUserId: string;
+  identity: any;
+  membership: any;
+};
 
 // Basic access control helpers for confirmed AI actions
 export const requireIdentity = async (ctx: any) => {
@@ -20,20 +42,44 @@ export const requireIdentity = async (ctx: any) => {
   return identity;
 };
 
+const resolveActor = async (
+  ctx: any,
+  actorUserId?: string,
+): Promise<ResolvedActor> => {
+  if (typeof actorUserId === "string" && actorUserId.trim().length > 0) {
+    return {
+      clerkUserId: actorUserId.trim(),
+      identity: null,
+    };
+  }
+
+  const identity = await requireIdentity(ctx);
+  return {
+    clerkUserId: identity.subject,
+    identity,
+  };
+};
+
 export const ensureProjectAccess = async (
   ctx: any,
   projectId: Id<"projects">,
   requireWriteAccess = true,
-) => {
-  const identity = await requireIdentity(ctx);
+  actorUserId?: string,
+): Promise<ConfirmedProjectAccess> => {
+  const { identity, clerkUserId } = await resolveActor(ctx, actorUserId);
   const project = await ctx.runQuery(apiLoose.projects.getProject, { projectId });
   if (!project) {
     throw new Error("Project not found");
   }
 
-  const membership = await ctx.runQuery(apiLoose.teams.getCurrentUserTeamMember, {
-    teamId: project.teamId,
-  });
+  const membership = actorUserId
+    ? await ctx.runQuery(internalLoose.teams.getTeamMemberByClerkId, {
+        teamId: project.teamId,
+        clerkUserId,
+      })
+    : await ctx.runQuery(apiLoose.teams.getCurrentUserTeamMember, {
+        teamId: project.teamId,
+      });
 
   if (!membership || membership.isActive === false) {
     throw new Error("Forbidden");
@@ -48,20 +94,29 @@ export const ensureProjectAccess = async (
     throw new Error("Forbidden");
   }
 
-  return { identity, project, membership };
+  return { clerkUserId, identity, project, membership };
 };
 
-export const ensureTeamMembership = async (ctx: any, teamId: Id<"teams">) => {
-  const identity = await requireIdentity(ctx);
-  const membership = await ctx.runQuery(apiLoose.teams.getCurrentUserTeamMember, {
-    teamId,
-  });
+export const ensureTeamMembership = async (
+  ctx: any,
+  teamId: Id<"teams">,
+  actorUserId?: string,
+): Promise<ConfirmedTeamMembership> => {
+  const { identity, clerkUserId } = await resolveActor(ctx, actorUserId);
+  const membership = actorUserId
+    ? await ctx.runQuery(internalLoose.teams.getTeamMemberByClerkId, {
+        teamId,
+        clerkUserId,
+      })
+    : await ctx.runQuery(apiLoose.teams.getCurrentUserTeamMember, {
+        teamId,
+      });
 
   if (!membership || membership.isActive === false) {
     throw new Error("Forbidden");
   }
 
-  return { identity, membership };
+  return { clerkUserId, identity, membership };
 };
 
 export const parseOptionalDateToMillis = (
@@ -79,9 +134,6 @@ export const parseOptionalDateToMillis = (
 
   return timestamp;
 };
-
-
-
 
 
 

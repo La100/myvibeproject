@@ -1,6 +1,6 @@
-import { getActiveRuntimeToolNames } from "../tools";
-import { createWorkflowContextSection } from "./workflowContextBuilder";
-import { getWorkflowStep } from "../workflows/loader";
+import { getActiveRuntimeToolNames } from "../tools.ts";
+import { createWorkflowContextSection } from "./workflowContextBuilder.ts";
+import { getWorkflowStep } from "../workflows/loader.ts";
 
 export type WorkflowResponseEntry = {
   stepId: string;
@@ -34,6 +34,7 @@ function toPreviousResponsesRecord(
 export function buildWorkflowRuntimeContext(
   workflowContext?: ThreadWorkflowContext | null,
   hasUploadedFile: boolean = false,
+  crudApprovalMode: "always_ask" | "auto_confirm" = "auto_confirm",
 ): {
   workflowSection: string | null;
   allowedToolNames: string[];
@@ -41,7 +42,22 @@ export function buildWorkflowRuntimeContext(
   if (!workflowContext) {
     return {
       workflowSection: null,
-      allowedToolNames: getActiveRuntimeToolNames(),
+      allowedToolNames: getActiveRuntimeToolNames(undefined, crudApprovalMode),
+    };
+  }
+
+  if (crudApprovalMode !== "auto_confirm") {
+    const step = getWorkflowStep(workflowContext.workflowId, workflowContext.stepId);
+    return {
+      workflowSection: step
+        ? createWorkflowContextSection(
+            workflowContext.workflowId,
+            workflowContext.stepId,
+            toPreviousResponsesRecord(workflowContext.previousResponses),
+            hasUploadedFile,
+          )
+        : null,
+      allowedToolNames: getActiveRuntimeToolNames(undefined, "always_ask"),
     };
   }
 
@@ -49,7 +65,7 @@ export function buildWorkflowRuntimeContext(
   if (!step) {
     return {
       workflowSection: null,
-      allowedToolNames: getActiveRuntimeToolNames(),
+      allowedToolNames: getActiveRuntimeToolNames(undefined, crudApprovalMode),
     };
   }
 
@@ -60,6 +76,9 @@ export function buildWorkflowRuntimeContext(
       toPreviousResponsesRecord(workflowContext.previousResponses),
       hasUploadedFile,
     ),
-    allowedToolNames: getActiveRuntimeToolNames(step.enabledTools),
+    allowedToolNames: getActiveRuntimeToolNames(
+      step.enabledTools,
+      crudApprovalMode,
+    ),
   };
 }

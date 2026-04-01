@@ -28,6 +28,7 @@ const deleteShoppingListSectionMutationRef =
 export const createConfirmedShoppingItem = action({
   args: {
     projectId: v.id("projects"),
+    userClerkId: v.optional(v.string()),
     itemData: v.object({
       name: v.string(),
       quantity: v.number(),
@@ -50,7 +51,7 @@ export const createConfirmedShoppingItem = action({
   }),
   handler: async (ctx, args) => {
     try {
-      await ensureProjectAccess(ctx, args.projectId, true);
+      await ensureProjectAccess(ctx, args.projectId, true, args.userClerkId);
 
       const buyBeforeNumber = parseOptionalDateToMillis(
         args.itemData.buyBefore,
@@ -90,6 +91,7 @@ export const createConfirmedShoppingItem = action({
 export const createConfirmedShoppingSection = action({
   args: {
     projectId: v.id("projects"),
+    userClerkId: v.optional(v.string()),
     sectionData: v.object({
       name: v.string(),
     }),
@@ -101,7 +103,7 @@ export const createConfirmedShoppingSection = action({
   }),
   handler: async (ctx, args) => {
     try {
-      await ensureProjectAccess(ctx, args.projectId, true);
+      await ensureProjectAccess(ctx, args.projectId, true, args.userClerkId);
 
       const sectionId = await ctx.runMutation(createShoppingListSectionMutationRef, {
         name: args.sectionData.name,
@@ -125,6 +127,7 @@ export const createConfirmedShoppingSection = action({
 export const editConfirmedShoppingItem = action({
   args: {
     projectId: v.optional(v.id("projects")),
+    userClerkId: v.optional(v.string()),
     itemId: v.id("shoppingListItems"),
     updates: v.object({
       name: v.optional(v.string()),
@@ -159,7 +162,7 @@ export const editConfirmedShoppingItem = action({
       if (args.projectId && item.projectId !== args.projectId) {
         throw new Error("Shopping item does not belong to the active project");
       }
-      await ensureProjectAccess(ctx, args.projectId ?? item.projectId, true);
+      await ensureProjectAccess(ctx, args.projectId ?? item.projectId, true, args.userClerkId);
 
       let buyBeforeNumber: number | undefined;
       if (args.updates.buyBefore) {
@@ -203,6 +206,7 @@ export const editConfirmedShoppingItem = action({
 export const editConfirmedShoppingSection = action({
   args: {
     sectionId: v.id("shoppingListSections"),
+    userClerkId: v.optional(v.string()),
     updates: v.object({
       name: v.optional(v.string()),
     }),
@@ -222,7 +226,7 @@ export const editConfirmedShoppingSection = action({
         throw new Error("Shopping section not found");
       }
 
-      await ensureProjectAccess(ctx, section.projectId as Id<"projects">, true);
+      await ensureProjectAccess(ctx, section.projectId as Id<"projects">, true, args.userClerkId);
 
       await ctx.runMutation(updateShoppingListSectionMutationRef, {
         sectionId: args.sectionId,
@@ -245,6 +249,7 @@ export const editConfirmedShoppingSection = action({
 export const deleteConfirmedShoppingItem = action({
   args: {
     itemId: v.id("shoppingListItems"),
+    userClerkId: v.optional(v.string()),
     reason: v.optional(v.string()),
   },
   returns: v.object({
@@ -257,7 +262,7 @@ export const deleteConfirmedShoppingItem = action({
       if (!item) {
         throw new Error("Shopping item not found");
       }
-      await ensureProjectAccess(ctx, item.projectId, true);
+      await ensureProjectAccess(ctx, item.projectId, true, args.userClerkId);
 
       await ctx.runMutation(deleteShoppingListItemMutationRef, {
         itemId: args.itemId,
@@ -279,6 +284,7 @@ export const deleteConfirmedShoppingItem = action({
 export const deleteConfirmedShoppingSection = action({
   args: {
     sectionId: v.id("shoppingListSections"),
+    userClerkId: v.optional(v.string()),
   },
   returns: v.object({
     success: v.boolean(),
@@ -294,7 +300,7 @@ export const deleteConfirmedShoppingSection = action({
         throw new Error("Shopping section not found");
       }
 
-      await ensureProjectAccess(ctx, section.projectId as Id<"projects">, true);
+      await ensureProjectAccess(ctx, section.projectId as Id<"projects">, true, args.userClerkId);
 
       await ctx.runMutation(deleteShoppingListSectionMutationRef, {
         sectionId: args.sectionId,
@@ -312,7 +318,6 @@ export const deleteConfirmedShoppingSection = action({
     }
   },
 });
-
 
 
 

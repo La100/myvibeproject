@@ -227,12 +227,6 @@ export const mergePersistentCallState = (
       let partsChanged = false;
       const normalizedParts: MessagePart[] = [];
       for (const part of parts) {
-        if (part.type === "reasoning") {
-          partsChanged = true;
-          hasUpdates = true;
-          continue;
-        }
-
         const normalizedPart = normalizeTextPart(part);
         if (!normalizedPart) {
           partsChanged = true;
@@ -273,4 +267,82 @@ export const mergePersistentCallState = (
       };
     })
     .map((msg) => sanitizeMessageText(msg));
+};
+
+export const supersedeStaleApprovalMessages = (
+  rawUiMessages: UIMessagesResult | undefined,
+): UIMessagesResult | undefined => {
+  if (!rawUiMessages) return undefined;
+
+  const lastUserMessageIndex = [...rawUiMessages]
+    .map((message, index) => ({ message, index }))
+    .filter(({ message }) => (message.role ?? "assistant") === "user")
+    .at(-1)?.index;
+
+  if (lastUserMessageIndex === undefined || lastUserMessageIndex <= 0) {
+    return rawUiMessages.map((msg) => sanitizeMessageText(msg));
+  }
+
+  return rawUiMessages.map((msg, index) => {
+    if (!msg.parts) return sanitizeMessageText(msg);
+    if ((msg.role ?? "assistant") !== "assistant") return sanitizeMessageText(msg);
+    if (index >= lastUserMessageIndex) return sanitizeMessageText(msg);
+
+    const hasPendingApproval = msg.parts.some((part) => {
+      const toolPart = part as ToolCallishPart & { state?: unknown };
+      return (
+        typeof toolPart.state === "string" &&
+        toolPart.state === "approval-requested"
+      );
+    });
+
+    if (!hasPendingApproval) {
+      return sanitizeMessageText(msg);
+    }
+
+    const filteredParts = msg.parts.filter((part) => {
+      const toolPart = part as ToolCallishPart & { state?: unknown };
+      if (
+        typeof toolPart.state === "string" &&
+        toolPart.state === "approval-requested"
+      ) {
+        return false;
+      }
+
+      if (
+        typeof part.type === "string" &&
+        part.type.startsWith("tool-result:")
+      ) {
+        const resultPart = part as ToolResultPart;
+        const parsedResult =
+          typeof resultPart.result === "string"
+            ? parseJson<Record<string, unknown>>(resultPart.result)
+            : null;
+        if (parsedResult?.approvalState === "approval-requested") {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    if (filteredParts.length === msg.parts.length) {
+      return sanitizeMessageText(msg);
+    }
+
+    const flattenedText = filteredParts
+      .filter(
+        (part) =>
+          part.type === "text" &&
+          typeof (part as { text?: unknown }).text === "string",
+      )
+      .map((part) => (part as { text: string }).text)
+      .join("");
+
+    return sanitizeMessageText({
+      ...msg,
+      parts: filteredParts,
+      text: flattenedText,
+    });
+  });
 };
