@@ -130,7 +130,7 @@ export function ProjectProvider({ children }: {
     if (isLoaded && !organization?.id) {
       return (
         <div className="fixed inset-0 flex items-center justify-center bg-muted/30">
-          <div className="text-center space-y-3">
+          <div className="flex flex-col items-center gap-3 text-center">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent mx-auto" />
             <p className="text-sm text-muted-foreground">Redirecting to onboarding...</p>
           </div>
@@ -140,8 +140,8 @@ export function ProjectProvider({ children }: {
 
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-muted/30">
-        <div className="text-center space-y-4">
-          <div className="flex items-center justify-center gap-3 mb-6">
+        <div className="flex flex-col items-center gap-4 text-center">
+          <div className="mb-6 flex items-center justify-center gap-3">
             <Building className="h-8 w-8 text-foreground animate-pulse" />
             <span className="text-2xl font-semibold text-foreground">Myvibe project</span>
           </div>

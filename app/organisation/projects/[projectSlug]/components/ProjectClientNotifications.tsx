@@ -104,7 +104,7 @@ export function ProjectClientNotifications({
             <Badge variant="secondary">{notifications.length} recent</Badge>
           </div>
         </CardHeader>
-        <CardContent className="space-y-3 pt-0">
+        <CardContent className="flex flex-col gap-3 pt-0">
           {notifications.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No client notifications yet. Actions from client portal will appear here.
@@ -129,12 +129,12 @@ export function ProjectClientNotifications({
               const isAccepted = details.decision === "accepted";
               const notificationTone = isDecision
                 ? isAccepted
-                  ? "border-emerald-200 bg-emerald-50/70"
-                  : "border-rose-200 bg-rose-50/70"
-                : "border-blue-200 bg-blue-50/60";
+                  ? "border-primary/20 bg-primary/5"
+                  : "border-destructive/20 bg-destructive/5"
+                : "border-border bg-muted/40";
               const statusTone = isAccepted
-                ? "border-emerald-200 bg-emerald-100 text-emerald-800"
-                : "border-rose-200 bg-rose-100 text-rose-800";
+                ? "border-primary/20 bg-primary/10 text-primary"
+                : "border-destructive/20 bg-destructive/10 text-destructive";
 
               return (
                 <div
@@ -147,12 +147,12 @@ export function ProjectClientNotifications({
                   <div className="flex min-w-0 items-start gap-2">
                     {isDecision ? (
                       isAccepted ? (
-                        <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-600" />
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
                       ) : (
-                        <XCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-rose-600" />
+                        <XCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-destructive" />
                       )
                     ) : (
-                      <ClipboardList className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-600" />
+                      <ClipboardList className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
                     )}
                     <p className="text-sm leading-6 text-foreground">
                       {isDecision ? (

@@ -111,7 +111,7 @@ export const VisualizationSuggestions = memo(function VisualizationSuggestions({
           <button
             key={suggestion.text}
             onClick={() => textInput.setInput(suggestion.text)}
-            className="group relative aspect-[5/3] min-w-[70vw] flex-shrink-0 snap-center overflow-hidden rounded-[20px] border border-[color:var(--overlay-border)] text-left shadow-lg transition-all duration-300 hover:-translate-y-1.5 hover:border-[color:var(--overlay-border-strong)] hover:shadow-2xl sm:min-w-[300px] md:min-w-[280px] lg:min-w-[260px]"
+            className="group relative aspect-[5/3] min-w-[70vw] flex-shrink-0 snap-center overflow-hidden rounded-2xl border border-border/70 bg-card text-left shadow-lg transition-all duration-300 hover:-translate-y-1.5 hover:border-border hover:shadow-xl sm:min-w-[300px] md:min-w-[280px] lg:min-w-[260px]"
           >
             <div className="absolute inset-0 z-0">
               <img
@@ -121,11 +121,11 @@ export const VisualizationSuggestions = memo(function VisualizationSuggestions({
                 loading="lazy"
                 decoding="async"
               />
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-background/90 via-background/40 to-transparent" />
             </div>
 
             <div className="relative z-10 flex h-full flex-col justify-end p-5">
-              <p className="text-sm font-semibold leading-snug text-[var(--overlay-foreground)] drop-shadow-sm">
+              <p className="text-sm font-semibold leading-snug text-foreground drop-shadow-sm">
                 {suggestion.text}
               </p>
             </div>
@@ -152,7 +152,7 @@ export const VisualizationEmptyState = memo(function VisualizationEmptyState({
 
       <p className="mb-12 text-center text-lg text-muted-foreground">
         Describe your <span className="font-serif italic text-foreground">vision</span>. AI brings it to{" "}
-        <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text font-semibold text-transparent">
+        <span className="font-semibold text-primary">
           life
         </span>
         .
@@ -217,12 +217,12 @@ export const VisualizationLightbox = memo(function VisualizationLightbox({
           </motion.div>
 
           <div
-            className="absolute bottom-8 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full border border-[color:var(--overlay-border-soft)] bg-black/50 p-2 shadow-xl backdrop-blur-md"
+            className="absolute bottom-8 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full border border-border/70 bg-background/70 p-2 shadow-xl backdrop-blur-md"
             onClick={(event) => event.stopPropagation()}
           >
             <Button
               variant="ghost"
-              className="h-10 rounded-lg px-6 text-[var(--overlay-foreground)] hover:bg-card/20 hover:text-[var(--overlay-foreground)]"
+              className="h-10 rounded-lg px-6 text-foreground hover:bg-muted hover:text-foreground"
               onClick={() => onDownload(selectedLightbox.url)}
             >
               <Download className="mr-2 h-4 w-4" />

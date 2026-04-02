@@ -28,15 +28,15 @@ export function ProductModal({ product, onClose, teamCurrency, teamId }: Product
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5" />
-            {product.name}
-          </DialogTitle>
+          <Package className="h-5 w-5" />
+          {product.name}
+        </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="flex flex-col gap-6">
           {/* Product Image */}
           {product.imageUrl && (
-            <div className="aspect-video bg-muted rounded-lg overflow-hidden">
+            <div className="overflow-hidden rounded-2xl border border-border/70 bg-muted">
               <img 
                 src={product.imageUrl} 
                 alt={product.name}
@@ -47,10 +47,10 @@ export function ProductModal({ product, onClose, teamCurrency, teamId }: Product
 
           {/* Basic Info */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
+            <div className="flex flex-col gap-4">
               <div>
                 <h3 className="font-semibold mb-2">Product Details</h3>
-                <div className="space-y-2 text-sm">
+                <div className="flex flex-col gap-2 text-sm">
                   {product.brand && (
                     <div className="flex items-center gap-2">
                       <span className="text-muted-foreground">Brand:</span>
@@ -82,7 +82,7 @@ export function ProductModal({ product, onClose, teamCurrency, teamId }: Product
               {(product.dimensions || product.weight || product.material || product.color) && (
                 <div>
                   <h3 className="font-semibold mb-2">Physical Properties</h3>
-                  <div className="space-y-2 text-sm">
+                  <div className="flex flex-col gap-2 text-sm">
                     {product.dimensions && (
                       <div className="flex items-center gap-2">
                         <Ruler className="h-4 w-4 text-muted-foreground" />
@@ -112,11 +112,11 @@ export function ProductModal({ product, onClose, teamCurrency, teamId }: Product
               )}
             </div>
 
-            <div className="space-y-4">
+            <div className="flex flex-col gap-4">
               {/* Pricing & Availability */}
               <div>
                 <h3 className="font-semibold mb-2">Pricing & Availability</h3>
-                <div className="space-y-2">
+                <div className="flex flex-col gap-2">
                   {product.unitPrice && (
                     <div className="text-xl font-bold">
                       {formatCurrency(product.unitPrice, teamCurrency)}
@@ -134,7 +134,7 @@ export function ProductModal({ product, onClose, teamCurrency, teamId }: Product
               )}
 
               {/* Category & Tags */}
-              <div className="space-y-3">
+              <div className="flex flex-col gap-3">
                 {product.category && (
                   <div>
                     <h4 className="font-medium text-sm mb-1">Category</h4>

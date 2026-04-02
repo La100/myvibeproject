@@ -1,5 +1,10 @@
-import HostedChatKit from "@/components/ai/chatkit/HostedChatKit";
+import { redirect } from "next/navigation";
 
-export default function AI2Page() {
-  return <HostedChatKit />;
+export default async function AI2Page({
+  params,
+}: {
+  params: Promise<{ projectSlug: string }>;
+}) {
+  const { projectSlug } = await params;
+  redirect(`/organisation/projects/${projectSlug}/ai`);
 }

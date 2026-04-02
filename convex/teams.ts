@@ -863,7 +863,6 @@ export const updateTeamSettings = mutation({
   args: {
     teamId: v.id("teams"),
     imageUrl: v.optional(v.string()),
-    openaiProjectId: v.optional(v.string()),
     currency: v.optional(v.union(
       v.literal("USD"), v.literal("EUR"), v.literal("PLN"), v.literal("GBP"),
       v.literal("CAD"), v.literal("AUD"), v.literal("JPY"), v.literal("CHF"),
@@ -896,7 +895,6 @@ export const updateTeamSettings = mutation({
       currency?: typeof args.currency;
       timezone?: string;
       imageUrl?: string | undefined;
-      openaiProjectId?: string | undefined;
       billingProfile?: ReturnType<typeof normalizeBillingProfile>;
     } = {};
 
@@ -911,11 +909,6 @@ export const updateTeamSettings = mutation({
     if (Object.prototype.hasOwnProperty.call(args, "imageUrl")) {
       const normalizedImageUrl = args.imageUrl?.trim();
       patch.imageUrl = normalizedImageUrl || undefined;
-    }
-
-    if (Object.prototype.hasOwnProperty.call(args, "openaiProjectId")) {
-      const normalizedProjectId = args.openaiProjectId?.trim();
-      patch.openaiProjectId = normalizedProjectId || undefined;
     }
 
     if (Object.prototype.hasOwnProperty.call(args, "billingProfile")) {

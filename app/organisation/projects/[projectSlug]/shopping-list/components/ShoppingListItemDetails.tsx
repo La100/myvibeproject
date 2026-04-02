@@ -16,10 +16,10 @@ export function ShoppingListItemDetails({ item, teamMembers }: ShoppingListItemD
         : undefined;
 
     return (
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 text-sm text-gray-600">
+        <div className="mt-4 grid grid-cols-1 gap-4 text-sm text-muted-foreground sm:grid-cols-2 md:grid-cols-3">
             {item.priority && (
                 <div className="flex items-center gap-2">
-                    <span className="font-semibold">Priority:</span>
+                    <span className="font-medium text-foreground">Priority:</span>
                     <Badge variant={
                         item.priority === 'high' || item.priority === 'urgent' ? 'destructive' : 'secondary'
                     }>
@@ -29,52 +29,52 @@ export function ShoppingListItemDetails({ item, teamMembers }: ShoppingListItemD
             )}
             {item.buyBefore && (
                 <div className="flex items-center gap-2">
-                    <span className="font-semibold">Buy Before:</span>
+                    <span className="font-medium text-foreground">Buy Before:</span>
                     <span>{format(new Date(item.buyBefore), 'MMM dd, yyyy')}</span>
                 </div>
             )}
             {item.supplier && (
                 <div className="flex items-center gap-2">
-                    <span className="font-semibold">Supplier:</span>
+                    <span className="font-medium text-foreground">Supplier:</span>
                     <span>{item.supplier}</span>
                 </div>
             )}
             {item.category && (
                 <div className="flex items-center gap-2">
-                    <span className="font-semibold">Category:</span>
+                    <span className="font-medium text-foreground">Category:</span>
                     <span>{item.category}</span>
                 </div>
             )}
             {item.dimensions && (
                 <div className="flex items-center gap-2">
-                    <span className="font-semibold">Dimensions:</span>
+                    <span className="font-medium text-foreground">Dimensions:</span>
                     <span>{item.dimensions}</span>
                 </div>
             )}
             {item.catalogNumber && (
                 <div className="flex items-center gap-2">
-                    <span className="font-semibold">Catalog #:</span>
+                    <span className="font-medium text-foreground">Catalog #:</span>
                     <span>{item.catalogNumber}</span>
                 </div>
             )}
             {item.productLink && (
                 <div className="flex items-center gap-2 col-span-2 md:col-span-1">
-                    <span className="font-semibold">Link:</span>
-                    <a href={item.productLink} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline truncate">
+                    <span className="font-medium text-foreground">Link:</span>
+                    <a href={item.productLink} target="_blank" rel="noopener noreferrer" className="truncate text-primary hover:underline">
                         {item.productLink}
                     </a>
                 </div>
             )}
             {item.assignedTo && (
                 <div className="flex items-center gap-2">
-                    <span className="font-semibold">Assigned To:</span>
+                    <span className="font-medium text-foreground">Assigned To:</span>
                     <span>{assignedMemberName}</span>
                 </div>
             )}
             {item.notes && (
                 <div className="col-span-2 md:col-span-3">
-                    <span className="font-semibold">Notes:</span>
-                    <p className="mt-1 text-gray-700">{item.notes}</p>
+                    <span className="font-medium text-foreground">Notes:</span>
+                    <p className="mt-1 text-foreground">{item.notes}</p>
                 </div>
             )}
         </div>

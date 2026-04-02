@@ -151,8 +151,8 @@ export default function CompanyReports() {
   }).filter((entry) => entry.count > 0);
 
   return (
-    <div className="flex-1 p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-1 flex-col gap-6 p-6">
+      <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Reports & Analytics</h1>
 
         <div className="flex items-center gap-3">
@@ -184,10 +184,10 @@ export default function CompanyReports() {
         </TabsList>
 
         <TabsContent value="overview" className="mt-6">
-          <div className="space-y-6">
+          <div className="flex flex-col gap-6">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
                   <CardTitle className="text-sm font-medium">Total Projects</CardTitle>
                   <BarChart3 className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
@@ -198,7 +198,7 @@ export default function CompanyReports() {
               </Card>
 
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
                   <CardTitle className="text-sm font-medium">Total Budget</CardTitle>
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
@@ -209,7 +209,7 @@ export default function CompanyReports() {
               </Card>
 
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
                   <CardTitle className="text-sm font-medium">Tasks Progress</CardTitle>
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
@@ -222,7 +222,7 @@ export default function CompanyReports() {
               </Card>
 
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
                   <CardTitle className="text-sm font-medium">Overdue Tasks</CardTitle>
                   <Clock className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
@@ -230,9 +230,9 @@ export default function CompanyReports() {
                   <div className="text-2xl font-bold">{overdueTasks}</div>
                   <p className="text-xs text-muted-foreground">
                     {overdueTasks > 0 ? (
-                      <span className="text-red-600">Require attention</span>
+                      <span className="text-destructive">Require attention</span>
                     ) : (
-                      <span className="text-green-600">All on track</span>
+                      <span className="text-foreground">All on track</span>
                     )}
                   </p>
                 </CardContent>
@@ -277,14 +277,14 @@ export default function CompanyReports() {
         </TabsContent>
 
         <TabsContent value="projects" className="mt-6">
-          <div className="space-y-6">
+          <div className="flex flex-col gap-6">
             <Card>
               <CardHeader>
                 <CardTitle>Project Status Distribution</CardTitle>
                 <CardDescription>Breakdown of projects by current status</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
+                <div className="flex flex-col gap-4">
                   {Object.entries(projectsByStatus as Record<string, number>).map(([status, count]) => (
                     <div key={status} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -313,7 +313,7 @@ export default function CompanyReports() {
                 <CardDescription>Progress, budget, and schedule overview</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
+                <div className="flex flex-col gap-4">
                   {projectList.length > 0 ? (
                     projectList
                       .slice()
@@ -334,7 +334,7 @@ export default function CompanyReports() {
                               </div>
                               <Badge variant="outline">{project.status}</Badge>
                             </div>
-                            <div className="space-y-2">
+                            <div className="flex flex-col gap-2">
                               <div className="flex items-center justify-between text-sm">
                                 <span className="text-muted-foreground">Progress</span>
                                 <span className="font-medium">{Math.round(progress)}%</span>
@@ -365,14 +365,14 @@ export default function CompanyReports() {
         </TabsContent>
 
         <TabsContent value="tasks" className="mt-6">
-          <div className="space-y-6">
+          <div className="flex flex-col gap-6">
             <Card>
               <CardHeader>
                 <CardTitle>Task Status Breakdown</CardTitle>
                 <CardDescription>Current status of all tasks</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
+                <div className="flex flex-col gap-4">
                   {Object.entries(tasksByStatus as Record<string, number>).map(([status, count]) => (
                     <div key={status} className="flex items-center justify-between">
                       <Badge variant={status === "done" ? "default" : "outline"}>{status.replace("_", " ").toUpperCase()}</Badge>
@@ -395,15 +395,15 @@ export default function CompanyReports() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <AlertCircle className="h-5 w-5 text-red-600" />
+                    <AlertCircle className="h-5 w-5 text-destructive" />
                     Overdue Tasks
                   </CardTitle>
                   <CardDescription>Tasks that need immediate attention</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
+                  <div className="flex flex-col gap-3">
                     {overdueTaskList.map((task) => (
-                      <div key={task._id} className="flex items-center justify-between border-l-2 border-red-500 pl-3 py-2">
+                      <div key={task._id} className="flex items-center justify-between border-l-2 border-destructive pl-3 py-2">
                         <div className="flex-1">
                           <p className="font-medium">{task.title}</p>
                           <p className="text-xs text-muted-foreground">
@@ -424,7 +424,7 @@ export default function CompanyReports() {
         </TabsContent>
 
         <TabsContent value="financial" className="mt-6">
-          <div className="space-y-6">
+          <div className="flex flex-col gap-6">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <FinancialCard title="Total Budget" value={formatMoney(totalBudget)} subtitle={`Across ${totalProjects} projects`} icon={<DollarSign className="h-4 w-4 text-muted-foreground" />} />
               <FinancialCard title="Shopping List" value={formatMoney(totalShoppingCost)} subtitle={`${shoppingList.length} items planned`} icon={<BarChart3 className="h-4 w-4 text-muted-foreground" />} />
@@ -437,7 +437,7 @@ export default function CompanyReports() {
                 <CardDescription>Items and cost by realization status</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
+                <div className="flex flex-col gap-4">
                   {shoppingByStatus.length > 0 ? (
                     shoppingByStatus.map((entry) => (
                       <div key={entry.status} className="flex items-center justify-between">
@@ -463,7 +463,7 @@ export default function CompanyReports() {
                 <CardDescription>Top projects by budget</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
+                <div className="flex flex-col gap-4">
                   {projectList
                     .filter((project) => (project.budget || 0) > 0)
                     .sort((a, b) => (b.budget || 0) - (a.budget || 0))
@@ -502,7 +502,7 @@ function FinancialCard({
 }) {
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
         {icon}
       </CardHeader>

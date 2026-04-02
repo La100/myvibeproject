@@ -1,4 +1,7 @@
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DownloadIcon, FileSpreadsheetIcon } from 'lucide-react';
 
@@ -31,17 +34,20 @@ export function ExportModal({
   onExport, 
   isPending 
 }: ExportModalProps) {
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 backdrop-blur-sm">
-      <div className="bg-[var(--ui-surface-base)] rounded-lg p-6 w-96 max-w-[90vw]">
-        <h3 className="text-lg font-semibold mb-4">Export Shopping List</h3>
-        
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium">Format:</label>
-            <div className="flex gap-2 mt-1">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Export Shopping List</DialogTitle>
+          <DialogDescription>
+            Choose the format and filters for your export.
+          </DialogDescription>
+        </DialogHeader>
+
+        <FieldGroup>
+          <Field>
+            <FieldLabel>Format</FieldLabel>
+            <div className="flex gap-2">
               <Button
                 variant={exportOptions.format === 'csv' ? 'default' : 'outline'}
                 size="sm"
@@ -59,15 +65,15 @@ export function ExportModal({
                 PDF
               </Button>
             </div>
-          </div>
+          </Field>
 
-          <div>
-            <label className="text-sm font-medium">Filter by Status:</label>
+          <Field>
+            <FieldLabel>Filter by Status</FieldLabel>
             <Select 
               value={exportOptions.statusFilter} 
               onValueChange={(value) => onExportOptionsChange({...exportOptions, statusFilter: value as 'all' | 'planned' | 'ordered' | 'completed'})}
             >
-              <SelectTrigger className="mt-1">
+              <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -77,42 +83,39 @@ export function ExportModal({
                 <SelectItem value="completed">Completed Only</SelectItem>
               </SelectContent>
             </Select>
-          </div>
+          </Field>
 
-          <div className="space-y-2">
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
+          <Field className="gap-2">
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox
                 checked={exportOptions.includeNotes}
-                onChange={(e) => onExportOptionsChange({...exportOptions, includeNotes: e.target.checked})}
+                onCheckedChange={(checked) => onExportOptionsChange({...exportOptions, includeNotes: checked === true})}
               />
               <span className="text-sm">Include Notes</span>
             </label>
             
             {exportOptions.format === 'pdf' && (
               <>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox
                     checked={exportOptions.includeImages}
-                    onChange={(e) => onExportOptionsChange({...exportOptions, includeImages: e.target.checked})}
+                    onCheckedChange={(checked) => onExportOptionsChange({...exportOptions, includeImages: checked === true})}
                   />
                   <span className="text-sm">Include Images</span>
                 </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox
                     checked={exportOptions.groupBySections}
-                    onChange={(e) => onExportOptionsChange({...exportOptions, groupBySections: e.target.checked})}
+                    onCheckedChange={(checked) => onExportOptionsChange({...exportOptions, groupBySections: checked === true})}
                   />
                   <span className="text-sm">Group by Sections</span>
                 </label>
               </>
             )}
-          </div>
-        </div>
+          </Field>
+        </FieldGroup>
 
-        <div className="flex gap-2 mt-6">
+        <DialogFooter>
           <Button
             onClick={onExport}
             disabled={isPending}
@@ -122,8 +125,8 @@ export function ExportModal({
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 } 

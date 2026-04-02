@@ -81,121 +81,77 @@ const getShoppingDecisionState = (
 const getActivityIcon = (actionType: string, details: Record<string, unknown> = {}) => {
   const shoppingDecisionState = getShoppingDecisionState(actionType, details);
   if (shoppingDecisionState === "accepted") {
-    return <CheckCircle2 className="h-4 w-4 text-emerald-600" />;
+    return <CheckCircle2 className="h-4 w-4 text-primary" />;
   }
 
   if (shoppingDecisionState === "rejected") {
-    return <XCircle className="h-4 w-4 text-rose-600" />;
+    return <XCircle className="h-4 w-4 text-destructive" />;
   }
 
   if (actionType.startsWith("task.")) {
     switch (actionType) {
       case "task.create":
-        return <Plus className="h-4 w-4 text-green-600" />;
+        return <Plus className="h-4 w-4 text-primary" />;
       case "task.update":
-        return <Edit3 className="h-4 w-4 text-blue-600" />;
+        return <Edit3 className="h-4 w-4 text-primary" />;
       case "task.status.change":
       case "task.status_change":
-        return <CheckCircle2 className="h-4 w-4 text-orange-600" />;
+        return <CheckCircle2 className="h-4 w-4 text-primary" />;
       case "task.assign":
-        return <Users className="h-4 w-4 text-purple-600" />;
+        return <Users className="h-4 w-4 text-muted-foreground" />;
       case "task.comment.add":
-        return <MessageCircle className="h-4 w-4 text-indigo-600" />;
+        return <MessageCircle className="h-4 w-4 text-muted-foreground" />;
       case "task.file.add":
-        return <Upload className="h-4 w-4 text-teal-600" />;
+        return <Upload className="h-4 w-4 text-muted-foreground" />;
       case "task.content.update":
-        return <FileText className="h-4 w-4 text-amber-600" />;
+        return <FileText className="h-4 w-4 text-muted-foreground" />;
       case "task.delete":
-        return <Trash className="h-4 w-4 text-red-600" />;
+        return <Trash className="h-4 w-4 text-destructive" />;
       default:
-        return <Clock className="h-4 w-4 text-gray-600" />;
+        return <Clock className="h-4 w-4 text-muted-foreground" />;
     }
   }
 
   if (actionType.startsWith("shopping.")) {
-    return <ShoppingCart className="h-4 w-4 text-emerald-600" />;
+    return <ShoppingCart className="h-4 w-4 text-primary" />;
   }
 
   if (actionType.startsWith("labor.")) {
-    return <Hammer className="h-4 w-4 text-orange-600" />;
+    return <Hammer className="h-4 w-4 text-muted-foreground" />;
   }
 
   if (actionType.startsWith("note.")) {
-    return <StickyNote className="h-4 w-4 text-yellow-600" />;
+    return <StickyNote className="h-4 w-4 text-muted-foreground" />;
   }
 
   if (actionType.startsWith("contact.")) {
-    return <Contact className="h-4 w-4 text-cyan-600" />;
+    return <Contact className="h-4 w-4 text-muted-foreground" />;
   }
 
   if (actionType.startsWith("survey.")) {
-    return <ClipboardList className="h-4 w-4 text-pink-600" />;
+    return <ClipboardList className="h-4 w-4 text-muted-foreground" />;
   }
 
-  return <Clock className="h-4 w-4 text-gray-600" />;
+  return <Clock className="h-4 w-4 text-muted-foreground" />;
 };
 
-const getActivityColor = (actionType: string, details: Record<string, unknown> = {}) => {
-  const shoppingDecisionState = getShoppingDecisionState(actionType, details);
+const getActivityColor = (details: Record<string, unknown> = {}) => {
+  const shoppingDecisionState = details.decision;
   if (shoppingDecisionState === "accepted") {
-    return "bg-emerald-50 border-emerald-200";
+    return "bg-primary/5 border-primary/20";
   }
 
   if (shoppingDecisionState === "rejected") {
-    return "bg-rose-50 border-rose-200";
+    return "bg-destructive/5 border-destructive/20";
   }
 
-  if (actionType.startsWith("task.")) {
-    switch (actionType) {
-      case "task.create":
-        return "bg-green-50 border-green-200";
-      case "task.update":
-        return "bg-blue-50 border-blue-200";
-      case "task.status.change":
-      case "task.status_change":
-        return "bg-orange-50 border-orange-200";
-      case "task.assign":
-        return "bg-purple-50 border-purple-200";
-      case "task.comment.add":
-        return "bg-indigo-50 border-indigo-200";
-      case "task.file.add":
-        return "bg-teal-50 border-teal-200";
-      case "task.content.update":
-        return "bg-amber-50 border-amber-200";
-      case "task.delete":
-        return "bg-red-50 border-red-200";
-      default:
-        return "bg-gray-50 border-gray-200";
-    }
-  }
-
-  if (actionType.startsWith("shopping.")) {
-    return "bg-emerald-50 border-emerald-200";
-  }
-
-  if (actionType.startsWith("labor.")) {
-    return "bg-orange-50 border-orange-200";
-  }
-
-  if (actionType.startsWith("note.")) {
-    return "bg-yellow-50 border-yellow-200";
-  }
-
-  if (actionType.startsWith("contact.")) {
-    return "bg-cyan-50 border-cyan-200";
-  }
-
-  if (actionType.startsWith("survey.")) {
-    return "bg-pink-50 border-pink-200";
-  }
-
-  return "bg-gray-50 border-gray-200";
+  return "bg-card border-border";
 };
 
 const getDecisionBadgeColor = (decision: "accepted" | "rejected") =>
   decision === "accepted"
-    ? "border-emerald-200 bg-emerald-100 text-emerald-800"
-    : "border-rose-200 bg-rose-100 text-rose-800";
+    ? "border-primary/20 bg-primary/10 text-primary"
+    : "border-destructive/20 bg-destructive/10 text-destructive";
 
 const getActivityDescription = (actionType: string, details: Record<string, unknown>) => {
   if (actionType.startsWith("task.")) {
@@ -375,15 +331,15 @@ const getStatusLabel = (status: string) => {
 const getStatusBadgeColor = (status: string) => {
   switch (status) {
     case "todo":
-      return "bg-gray-100 text-gray-700";
+      return "border-border bg-muted text-muted-foreground";
     case "in_progress":
-      return "bg-blue-100 text-blue-700";
+      return "border-primary/20 bg-primary/10 text-primary";
     case "review":
-      return "bg-purple-100 text-purple-700";
+      return "border-secondary/20 bg-secondary text-secondary-foreground";
     case "done":
-      return "bg-green-100 text-green-700";
+      return "border-primary/20 bg-primary/10 text-primary";
     default:
-      return "bg-gray-100 text-gray-700";
+      return "border-border bg-muted text-muted-foreground";
   }
 };
 
@@ -463,7 +419,7 @@ export function ProjectChangelog({
       {showHeader && (
         <ProjectPageHeader
           title="Project Changelog"
-          icon={<History className="h-8 w-8 text-[var(--ui-accent-brand)]" />}
+          icon={<History className="h-8 w-8 text-primary" />}
           subtitle={`Complete activity history for ${project.name}`}
         />
       )}
@@ -581,7 +537,7 @@ export function ProjectChangelog({
                   </CardContent>
                 </Card>
               ) : (
-                <div className="space-y-3">
+                <div className="flex flex-col gap-3">
                   {paginatedActivities.map((activity) => {
                     const actorName =
                       activity.userName ||
@@ -595,7 +551,7 @@ export function ProjectChangelog({
                     return (
                       <div
                         key={activity._id}
-                        className={`relative flex items-start space-x-3 rounded-lg border p-4 transition-all hover:shadow-md ${getActivityColor(activity.actionType, activity.details ?? {})}`}
+                        className={`relative flex items-start gap-3 rounded-lg border p-4 transition-colors hover:bg-muted/40 ${getActivityColor(activity.details ?? {})}`}
                       >
                         <div className="flex-shrink-0 mt-1">
                           {getActivityIcon(activity.actionType, activity.details ?? {})}
@@ -611,10 +567,10 @@ export function ProjectChangelog({
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2">
                             <div className="text-sm flex-1">
-                              <span className="font-medium text-gray-900">
+                              <span className="font-medium text-foreground">
                                 {actorName}
                               </span>
-                              <span className="text-gray-600 ml-1">
+                              <span className="ml-1 text-muted-foreground">
                                 {getActivityDescription(activity.actionType, activity.details)}
                               </span>
                             </div>
@@ -635,11 +591,11 @@ export function ProjectChangelog({
                           </div>
 
                           {(activity.actionType === "task.status.change" || activity.actionType === "task.status_change") && (
-                            <div className="mt-2 flex items-center space-x-2">
+                            <div className="mt-2 flex items-center gap-2">
                               <Badge className={getStatusBadgeColor((activity.details.fromStatus || activity.details.from) as string)}>
                                 {getStatusLabel((activity.details.fromStatus || activity.details.from) as string)}
                               </Badge>
-                              <span className="text-gray-400">→</span>
+                              <span className="text-muted-foreground">→</span>
                               <Badge className={getStatusBadgeColor((activity.details.toStatus || activity.details.to) as string)}>
                                 {getStatusLabel((activity.details.toStatus || activity.details.to) as string)}
                               </Badge>
@@ -647,21 +603,21 @@ export function ProjectChangelog({
                           )}
 
                           {activity.actionType === "task.comment.add" && activity.details.commentPreview && (
-                            <div className="mt-2 p-2 bg-card/50 rounded text-xs text-gray-600 italic">
+                            <div className="mt-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs italic text-muted-foreground">
                               "{activity.details.commentPreview}..."
                             </div>
                           )}
 
                           {activity.actionType === "task.file.add" && (
-                            <div className="mt-2 flex items-center space-x-2">
-                              <FileText className="h-4 w-4 text-gray-500" />
-                              <span className="text-xs text-gray-600">
+                            <div className="mt-2 flex items-center gap-2">
+                              <FileText className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-xs text-muted-foreground">
                                 {activity.details.fileType} file
                               </span>
                             </div>
                           )}
 
-                          <div className="mt-2 flex items-center space-x-2 text-xs text-gray-500">
+                          <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
                             <CalendarIcon className="h-3 w-3" />
                             <span>{formatDistanceToNow(new Date(activity._creationTime), { addSuffix: true })}</span>
                             <span>•</span>

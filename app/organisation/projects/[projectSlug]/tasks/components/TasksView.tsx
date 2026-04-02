@@ -40,7 +40,7 @@ import {
   KanbanHeader,
   type DragEndEvent,
 } from '@/components/ui/shadcn-io/kanban';
-import type { DragStartEvent, DragCancelEvent } from '@dnd-kit/core';
+import type { DragStartEvent } from '@dnd-kit/core';
 import { Spinner } from '@/components/ui/spinner';
 import { format } from 'date-fns';
 
@@ -167,16 +167,25 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
-const priorityColors: Record<NonNullable<TaskPriority>, string> = {
-  low: "bg-gray-100 text-gray-600",
-  medium: "bg-blue-100 text-blue-600",
-  high: "bg-orange-100 text-orange-600",
-  urgent: "bg-red-100 text-red-600",
+const priorityStyles: Record<
+  NonNullable<TaskPriority>,
+  { label: string; variant: "outline" | "secondary" | "default" | "destructive"; accentClassName: string }
+> = {
+  low: { label: "Low", variant: "outline", accentClassName: "bg-muted-foreground/30" },
+  medium: { label: "Medium", variant: "secondary", accentClassName: "bg-primary/60" },
+  high: { label: "High", variant: "default", accentClassName: "bg-primary" },
+  urgent: { label: "Urgent", variant: "destructive", accentClassName: "bg-destructive" },
 };
 
 const getPriorityDisplay = (priority: TaskPriority) => {
-  if (!priority || priority === null) return { label: "No priority", color: "bg-gray-50 text-gray-400" };
-  return { label: priority, color: priorityColors[priority] };
+  if (!priority || priority === null) {
+    return {
+      label: "No priority",
+      variant: "outline" as const,
+      accentClassName: "bg-muted-foreground/20",
+    };
+  }
+  return priorityStyles[priority];
 };
 
 export function TasksViewSkeleton({ viewMode = "kanban" }: { viewMode?: "kanban" | "list" }) {
@@ -345,7 +354,7 @@ export default function TasksView() {
     setActiveDragTaskId(event.active.id as Id<"tasks">);
   };
 
-  const handleDragCancel = (_event: DragCancelEvent) => {
+  const handleDragCancel = () => {
     setActiveDragTaskId(null);
   };
 
@@ -368,7 +377,7 @@ export default function TasksView() {
        <div className="mb-2">
          <ProjectPageHeader
            title="Tasks"
-           icon={<ListTodo className="h-8 w-8 text-[var(--ui-accent-brand)]" />}
+           icon={<ListTodo className="h-8 w-8 text-primary" />}
            subtitle={`Manage tasks for ${project.name}`}
            actions={
              <div className="flex items-center gap-2">
@@ -382,7 +391,7 @@ export default function TasksView() {
                    onClick={() => setViewMode("kanban")}
                    className="rounded-r-none"
                  >
-                   <LayoutGrid className="h-4 w-4" />
+                   <LayoutGrid />
                  </Button>
                  <Button
                    variant={viewMode === "list" ? "secondary" : "ghost"}
@@ -390,7 +399,7 @@ export default function TasksView() {
                    onClick={() => setViewMode("list")}
                    className="rounded-l-none"
                  >
-                   <List className="h-4 w-4" />
+                   <List />
                  </Button>
                </div>
              </div>
@@ -431,7 +440,7 @@ export default function TasksView() {
              onFilterChange={(selected) => handleFilterChange('tags', Array.from(selected))}
            />
  
-           {isFiltered && <Button variant="ghost" onClick={clearFilters} className="h-8 px-2 lg:px-3">Reset <X className="ml-2 h-4 w-4"/></Button>}
+           {isFiltered && <Button variant="ghost" onClick={clearFilters} className="h-8 px-2 lg:px-3">Reset <X data-icon="inline-end" /></Button>}
          </div>
        </div>
       <Dialog open={isTaskFormOpen} onOpenChange={setIsTaskFormOpen}>
@@ -514,7 +523,7 @@ export default function TasksView() {
                 <TableRow>
                   <TableHead onClick={() => handleSortChange('title')}>
                     <div className="flex items-center cursor-pointer">
-                      Task <ChevronsUpDown className="ml-2 h-4 w-4" />
+                      Task <ChevronsUpDown data-icon="inline-end" />
                     </div>
                   </TableHead>
                   <TableHead>Status</TableHead>
@@ -522,7 +531,7 @@ export default function TasksView() {
                   <TableHead>Assignee</TableHead>
                   <TableHead onClick={() => handleSortChange('endDate')}>
                     <div className="flex items-center cursor-pointer">
-                      End Date <ChevronsUpDown className="ml-2 h-4 w-4" />
+                      End Date <ChevronsUpDown data-icon="inline-end" />
                     </div>
                   </TableHead>
                   <TableHead>Tags</TableHead>
@@ -543,10 +552,7 @@ export default function TasksView() {
                       ) : null}
                     </TableCell>
                     <TableCell>
-                      <Badge style={{ 
-                        backgroundColor: project.taskStatusSettings?.[task.status]?.color,
-                        color: 'white',
-                      }}>
+                      <Badge variant="secondary">
                         {project.taskStatusSettings?.[task.status]?.name || task.status}
                       </Badge>
                     </TableCell>
@@ -556,7 +562,7 @@ export default function TasksView() {
                     <TableCell>
                       {task.assignedToName && (
                         <div className="flex items-center gap-2">
-                          <Avatar className="h-6 w-6">
+                          <Avatar className="size-6">
                             <AvatarImage src={task.assignedToImageUrl} />
                             <AvatarFallback>{task.assignedToName?.charAt(0)}</AvatarFallback>
                           </Avatar>
@@ -577,7 +583,7 @@ export default function TasksView() {
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" className="h-8 w-8 p-0">
                             <span className="sr-only">Open menu</span>
-                            <ChevronsUpDown className="h-4 w-4" />
+                            <ChevronsUpDown />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
@@ -605,10 +611,10 @@ const TaskCardContent = memo(function TaskCardContent({ task, projectSlug }: { t
 
   // Priority accent colors
   const priorityAccentColors = {
-    urgent: "bg-red-500",
-    high: "bg-orange-500",
-    medium: "bg-yellow-500",
-    low: "bg-green-500",
+    urgent: "bg-destructive",
+    high: "bg-primary",
+    medium: "bg-primary/70",
+    low: "bg-muted-foreground/40",
   };
 
   return (
@@ -629,7 +635,9 @@ const TaskCardContent = memo(function TaskCardContent({ task, projectSlug }: { t
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Badge className={`${priority.color} text-xs ml-2 shrink-0`}>{priority.label}</Badge>
+                <Badge variant={priority.variant} className="ml-2 shrink-0 text-xs">
+                  {priority.label}
+                </Badge>
               </TooltipTrigger>
               <TooltipContent>
                 <p>Priority: {priority.label}</p>
@@ -675,17 +683,17 @@ const TaskCardContent = memo(function TaskCardContent({ task, projectSlug }: { t
         <div className="flex items-center gap-3">
           {task.commentCount > 0 && (
             <div className="flex items-center gap-1 text-muted-foreground text-xs">
-              <MessageSquare className="w-3.5 h-3.5" />
+              <MessageSquare />
               <span>{task.commentCount}</span>
             </div>
           )}
         </div>
-        <div className="flex items-center -space-x-2">
+        <div className="flex items-center gap-2">
           {task.assignedTo && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Avatar className="w-6 h-6 border-2 border-background hover:scale-110 transition-transform">
+                  <Avatar className="size-6 border-2 border-background transition-transform hover:scale-110">
                     <AvatarImage src={task.assignedToImageUrl} />
                     <AvatarFallback className="text-xs">{task.assignedToName?.charAt(0)}</AvatarFallback>
                   </Avatar>
@@ -715,7 +723,9 @@ function TaskDragPreview({ task }: { task: KanbanTask }) {
           ) : null}
         </div>
         {task.priority ? (
-          <Badge className={`${priority.color} shrink-0 text-xs`}>{priority.label}</Badge>
+          <Badge variant={priority.variant} className="shrink-0 text-xs">
+            {priority.label}
+          </Badge>
         ) : null}
       </div>
     </div>

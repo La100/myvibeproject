@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { Spinner } from '@/components/ui/spinner';
 import { format } from 'date-fns';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { addBrandHeader, addDocumentMeta, addPageNumbers, ensurePdfUnicodeFont, formatMoney, pdfTableTheme, resolvePageBreak, sanitizeFileName } from '@/lib/pdfExport';
 import { buildAlternativeSelection, calculateShoppingTotal, isItemCountedInShoppingTotal } from '@/lib/shoppingAlternatives';
 
@@ -23,7 +24,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { cn } from '@/lib/utils';
 import { DownloadIcon, PlusIcon, SearchIcon, XIcon } from 'lucide-react';
 
 type ShoppingListItem = Doc<"shoppingListItems"> & {
@@ -813,36 +813,36 @@ export default function ShoppingListView() {
         />
 
         <div className="sticky top-0 z-30 mb-6">
-          <div className="rounded-[24px] border border-[var(--ui-border-soft)] bg-[color:color-mix(in_srgb,var(--ui-surface-base)_92%,white)] p-3 shadow-[0_20px_54px_rgba(20,20,20,0.09)] backdrop-blur-xl sm:p-4">
-            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <Card className="gap-0 rounded-3xl border-border/70 bg-card/95 p-3 backdrop-blur-xl sm:p-4">
+            <CardContent className="flex flex-col gap-3 px-0 py-0 xl:flex-row xl:items-center xl:justify-between">
               <div className="flex flex-col gap-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="outline" className="border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-[var(--ui-accent-brand)]">
+                  <Badge variant="outline" className="rounded-full px-3 py-1 text-primary">
                     {project.name}
                   </Badge>
-                  <Badge variant="secondary" className="bg-[var(--ui-surface-soft)] text-[var(--ui-text-main)]">
+                  <Badge variant="secondary" className="rounded-full px-3 py-1">
                     Showing {filteredItems.length} / {items.length} items
                   </Badge>
-                  <Badge variant="outline" className="border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-[var(--ui-text-main)]">
+                  <Badge variant="outline" className="rounded-full px-3 py-1">
                     Total: {grandTotal.toFixed(2)} {currencySymbol}
                   </Badge>
                   {hasActiveFilters && (
-                    <Badge variant="outline" className="border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] text-[var(--ui-text-main)]">
+                    <Badge variant="outline" className="rounded-full px-3 py-1">
                       Visible: {visibleGrandTotal.toFixed(2)} {currencySymbol}
                     </Badge>
                   )}
                 </div>
-                <p className="max-w-3xl text-[13px] text-[var(--ui-text-muted)]">
+                <CardDescription className="max-w-3xl">
                   Search products and narrow the list by status, priority, section, and category.
-                </p>
+                </CardDescription>
               </div>
 
               <div className="flex flex-wrap gap-2">
                 {hasActiveFilters && (
                   <Button
                     onClick={resetFilters}
-                    variant="ghost"
-                    className="h-10 rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-4 text-[var(--ui-text-main)] hover:bg-[var(--ui-surface-soft)]"
+                    variant="outline"
+                    className="h-10 rounded-full px-4"
                   >
                     <XIcon data-icon="inline-start" />
                     Clear filters
@@ -850,7 +850,7 @@ export default function ShoppingListView() {
                 )}
                 <Button
                   onClick={() => setShowMainAddForm(!showMainAddForm)}
-                  className="h-10 rounded-full bg-[var(--ui-action-bg)] px-5 text-[var(--primary-foreground)] shadow-[0_14px_36px_rgba(14,14,14,0.18)] hover:bg-[var(--ui-action-hover)]"
+                  className="h-10 rounded-full px-5"
                 >
                   <PlusIcon data-icon="inline-start" />
                   Add Product
@@ -858,27 +858,27 @@ export default function ShoppingListView() {
                 <Button
                   onClick={() => setIsExportModalOpen(true)}
                   variant="outline"
-                  className="h-10 rounded-full border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-5 text-[var(--ui-text-strong)] hover:bg-[var(--ui-surface-soft)]"
+                  className="h-10 rounded-full px-5"
                 >
                   <DownloadIcon data-icon="inline-start" />
                   Export
                 </Button>
               </div>
-            </div>
+            </CardContent>
 
-            <div className="mt-4 grid gap-2.5 xl:grid-cols-[minmax(0,1.5fr)_repeat(4,minmax(0,0.8fr))]">
+            <CardContent className="mt-4 grid gap-2.5 px-0 pb-0 xl:grid-cols-[minmax(0,1.5fr)_repeat(4,minmax(0,0.8fr))]">
               <div className="relative">
-                <SearchIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ui-text-muted)]" />
+                <SearchIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder="Search by product, supplier, notes, category..."
-                  className="h-10 rounded-xl border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] pl-10"
+                  className="h-10 pl-10"
                 />
               </div>
 
               <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as 'all' | ShoppingListItem["realizationStatus"])}>
-                <SelectTrigger className="h-10 w-full rounded-xl border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)]">
+                <SelectTrigger className="h-10 w-full">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -893,7 +893,7 @@ export default function ShoppingListView() {
               </Select>
 
               <Select value={priorityFilter} onValueChange={(value) => setPriorityFilter(value as 'all' | NonNullable<ShoppingListItem["priority"]>)}>
-                <SelectTrigger className="h-10 w-full rounded-xl border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)]">
+                <SelectTrigger className="h-10 w-full">
                   <SelectValue placeholder="Priority" />
                 </SelectTrigger>
                 <SelectContent>
@@ -906,7 +906,7 @@ export default function ShoppingListView() {
               </Select>
 
               <Select value={sectionFilter} onValueChange={setSectionFilter}>
-                <SelectTrigger className="h-10 w-full rounded-xl border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)]">
+                <SelectTrigger className="h-10 w-full">
                   <SelectValue placeholder="Section" />
                 </SelectTrigger>
                 <SelectContent>
@@ -920,7 +920,7 @@ export default function ShoppingListView() {
               </Select>
 
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="h-10 w-full rounded-xl border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)]">
+                <SelectTrigger className="h-10 w-full">
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -932,18 +932,17 @@ export default function ShoppingListView() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
+            </CardContent>
 
             {availableSections.length > 0 && (
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <span className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--ui-text-muted)]">
+                <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
                   Sections
                 </span>
                 <Button
                   type="button"
                   size="sm"
                   variant={sectionFilter === 'all' ? 'secondary' : 'outline'}
-                  className="rounded-full"
                   onClick={() => setSectionFilter('all')}
                 >
                   All
@@ -954,10 +953,6 @@ export default function ShoppingListView() {
                     type="button"
                     size="sm"
                     variant={sectionFilter === sectionName ? 'secondary' : 'outline'}
-                    className={cn(
-                      'rounded-full',
-                      sectionFilter === sectionName && 'border-transparent bg-[var(--ui-surface-soft)] text-[var(--ui-text-strong)]',
-                    )}
                     onClick={() => setSectionFilter(sectionName)}
                   >
                     {sectionName}
@@ -968,14 +963,13 @@ export default function ShoppingListView() {
 
             {availableCategories.length > 0 && (
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <span className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--ui-text-muted)]">
+                <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
                   Categories
                 </span>
                 <Button
                   type="button"
                   size="sm"
                   variant={categoryFilter === 'all' ? 'secondary' : 'outline'}
-                  className="rounded-full"
                   onClick={() => setCategoryFilter('all')}
                 >
                   All
@@ -986,10 +980,6 @@ export default function ShoppingListView() {
                     type="button"
                     size="sm"
                     variant={categoryFilter === categoryName ? 'secondary' : 'outline'}
-                    className={cn(
-                      'rounded-full',
-                      categoryFilter === categoryName && 'border-transparent bg-[var(--ui-surface-soft)] text-[var(--ui-text-strong)]',
-                    )}
                     onClick={() => setCategoryFilter(categoryName)}
                   >
                     {categoryName}
@@ -997,24 +987,28 @@ export default function ShoppingListView() {
                 ))}
               </div>
             )}
-          </div>
+          </Card>
         </div>
 
         {/* Main Add Product Form */}
         {showMainAddForm && (
-          <div className="mb-10 rounded-[32px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-8 shadow-[0_24px_60px_rgba(20,20,20,0.08)]">
-            <h3 className="text-2xl font-medium font-[var(--font-display-serif)] mb-6">Add New Product</h3>
-            <AddItemForm
-              sections={sections}
-              teamMembers={teamMembers}
-              currencySymbol={currencySymbol}
-              onAddItem={async (itemData) => {
-                await handleAddItem(itemData);
-                setShowMainAddForm(false);
-              }}
-              isPending={isPending}
-            />
-          </div>
+          <Card className="mb-10 rounded-3xl border-border/70">
+            <CardHeader>
+              <CardTitle className="text-2xl">Add New Product</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <AddItemForm
+                sections={sections}
+                teamMembers={teamMembers}
+                currencySymbol={currencySymbol}
+                onAddItem={async (itemData) => {
+                  await handleAddItem(itemData);
+                  setShowMainAddForm(false);
+                }}
+                isPending={isPending}
+              />
+            </CardContent>
+          </Card>
         )}
 
         {/* Section Manager */}
@@ -1027,19 +1021,21 @@ export default function ShoppingListView() {
 
         {/* Shopping List Sections */}
         {sortedVisibleSections.length === 0 && (
-          <div className="mb-10 rounded-[32px] border border-dashed border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-10 text-center shadow-[0_24px_60px_rgba(20,20,20,0.05)]">
-            <p className="text-base font-medium text-[var(--ui-text-strong)]">No products match the current filters.</p>
-            <p className="mt-2 text-sm text-[var(--ui-text-muted)]">
-              Adjust the search or clear the filters to see the full list again.
-            </p>
-            <Button
-              onClick={resetFilters}
-              variant="outline"
-              className="mt-4 rounded-full border-[var(--ui-border-soft)]"
-            >
-              Reset filters
-            </Button>
-          </div>
+          <Card className="mb-10 rounded-3xl border-dashed border-border/70">
+            <CardContent className="p-10 text-center">
+              <p className="text-base font-medium text-foreground">No products match the current filters.</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Adjust the search or clear the filters to see the full list again.
+              </p>
+              <Button
+                onClick={resetFilters}
+                variant="outline"
+                className="mt-4 rounded-full"
+              >
+                Reset filters
+              </Button>
+            </CardContent>
+          </Card>
         )}
 
         {sortedVisibleSections.map(([sectionName, sectionItems]) => {
@@ -1065,30 +1061,32 @@ export default function ShoppingListView() {
           })}
 
         {/* Grand Total */}
-        <div className="mt-12 rounded-[32px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-8 shadow-[0_24px_60px_rgba(20,20,20,0.08)]">
-          <div className="space-y-4">
+        <Card className="mt-12 rounded-3xl border-border/70">
+          <CardContent className="flex flex-col gap-4 p-8">
             {sectionTotals.map(({ section, total, itemCount }) => (
-              <div key={section} className="flex justify-between items-center text-base text-[var(--ui-text-main)]">
-                <span className="font-medium">{section} <span className="text-[var(--ui-text-muted)]">({itemCount})</span></span>
+              <div key={section} className="flex items-center justify-between text-base text-foreground">
+                <span className="font-medium">
+                  {section} <span className="text-muted-foreground">({itemCount})</span>
+                </span>
                 <span>{total.toFixed(2)} {currencySymbol}</span>
               </div>
             ))}
-            <div className="border-t border-[var(--ui-border-soft)] pt-4 flex justify-between items-center">
-              <span className="text-xl font-medium font-[var(--font-display-serif)]">
+            <div className="flex items-center justify-between border-t border-border pt-4">
+              <span className="text-xl font-semibold">
                 {hasActiveFilters ? 'Filtered Total' : 'Grand Total'}
               </span>
-              <span className="text-2xl font-medium font-[var(--font-display-serif)]">
+              <span className="text-2xl font-semibold">
                 {hasActiveFilters ? visibleGrandTotal.toFixed(2) : grandTotal.toFixed(2)} {currencySymbol}
               </span>
             </div>
             {hasActiveFilters && (
-              <div className="flex justify-between items-center text-sm text-[var(--ui-text-muted)]">
+              <div className="flex items-center justify-between text-sm text-muted-foreground">
                 <span>Full list total</span>
                 <span>{grandTotal.toFixed(2)} {currencySymbol}</span>
               </div>
             )}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </ProjectPageLayout>
     </TooltipProvider>
   );

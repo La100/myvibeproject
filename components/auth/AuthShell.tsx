@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 
 type AuthShellProps = {
@@ -45,7 +46,7 @@ export function AuthShell({
     <div className="min-h-screen bg-background lg:grid lg:grid-cols-[minmax(0,1.2fr)_minmax(420px,0.8fr)]">
       <section className="border-b border-border/60 bg-muted/20 lg:border-b-0 lg:border-r lg:min-h-screen">
         <div className="p-4 sm:p-6 lg:h-full lg:p-8">
-          <div className="relative min-h-[320px] overflow-hidden rounded-[28px] border border-border/60 bg-background shadow-soft-lg sm:min-h-[420px] lg:min-h-[calc(100vh-4rem)]">
+          <Card className="relative min-h-[320px] overflow-hidden p-0 sm:min-h-[420px] lg:min-h-[calc(100vh-4rem)]">
             <Image
               src="/visualization-1773318760233.png"
               alt="Myvibe project background"
@@ -55,7 +56,7 @@ export function AuthShell({
               sizes="(max-width: 1023px) 100vw, 60vw"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/12 via-transparent to-white/10" />
-          </div>
+          </Card>
         </div>
       </section>
 
@@ -74,7 +75,7 @@ export function AuthShell({
 
           <Button
             onClick={primaryAction}
-            className="mb-6 h-12 w-full gap-3 rounded-lg shadow-soft-sm"
+            className="mb-6 h-12 w-full gap-3 rounded-full"
           >
             <GoogleIcon />
             {primaryActionLabel}
@@ -89,7 +90,7 @@ export function AuthShell({
           <Button
             variant="outline"
             onClick={secondaryAction}
-            className="mb-8 h-12 w-full rounded-lg shadow-soft-sm"
+            className="mb-8 h-12 w-full rounded-full"
           >
             {secondaryActionLabel}
           </Button>

@@ -101,7 +101,7 @@ export default function AISettings({ projectId }: AISettingsProps) {
   const isCustomPromptChanged = customPrompt !== (project?.customAiPrompt || "");
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       {/* AI Overview Card */}
       <Card>
         <CardHeader className="pb-4">
@@ -114,8 +114,8 @@ export default function AISettings({ projectId }: AISettingsProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="px-4 lg:px-6">
-          <div className="flex items-start justify-between gap-4 rounded-lg border bg-muted/30 p-4">
-            <div className="space-y-1">
+          <div className="flex items-start justify-between gap-4 rounded-lg border border-border/70 bg-muted/30 p-4">
+            <div className="flex flex-col gap-1">
               <p className="font-medium">AI CRUD Action Confirmation</p>
               <p className="text-sm text-muted-foreground">
                 When enabled, the assistant will automatically run create/edit/delete without manual approval.
@@ -148,8 +148,8 @@ export default function AISettings({ projectId }: AISettingsProps) {
             Add project-specific instructions. These are appended to the default system prompt guardrails.
           </CardDescription>
         </CardHeader>
-        <CardContent className="px-4 lg:px-6 space-y-4">
-          <div className="space-y-2">
+        <CardContent className="flex flex-col gap-4 px-4 lg:px-6">
+          <div className="flex flex-col gap-2">
             <Label htmlFor="customPrompt" className="text-sm font-medium">
               Additional Instructions
             </Label>
@@ -170,7 +170,7 @@ export default function AISettings({ projectId }: AISettingsProps) {
             </p>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <Button
               onClick={handleSaveCustomPrompt}
               disabled={isSaving || !isCustomPromptChanged}
@@ -200,8 +200,8 @@ export default function AISettings({ projectId }: AISettingsProps) {
           </div>
 
           {customPrompt.trim() !== "" && (
-            <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900">
-              <p className="text-sm text-blue-800 dark:text-blue-200">
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+              <p className="text-sm text-foreground">
                 <strong>Note:</strong> Additional instructions affect only new conversations. Existing conversations keep their previous system instructions.
               </p>
             </div>

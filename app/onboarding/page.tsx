@@ -20,6 +20,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Spinner } from "@/components/ui/spinner";
 import { TimezonePicker } from "@/components/ui/timezone-picker";
 
 const detectTimezone = (): string => {
@@ -30,6 +31,19 @@ const detectTimezone = (): string => {
 };
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function LoadingState({ message }: { message: string }) {
+  return (
+    <div className="flex min-h-screen items-center justify-center px-4">
+      <Card className="w-full max-w-md">
+        <CardContent className="flex flex-col items-center gap-4 py-8 text-center">
+          <Spinner fullHeight={false} className="py-0" iconClassName="size-5" />
+          <p className="text-sm text-muted-foreground">{message}</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
 function OnboardingContent() {
   const router = useRouter();
@@ -231,34 +245,20 @@ function OnboardingContent() {
   };
 
   if (!isAuthLoaded || !isSignedIn || onboardingStatus === undefined || !initialized) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent mx-auto" />
-          <p className="text-sm text-muted-foreground">Preparing onboarding...</p>
-        </div>
-      </div>
-    );
+    return <LoadingState message="Preparing onboarding..." />;
   }
 
   if (!isForcedOrganizationSetup && onboardingStatus.completed && activeOrganization) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent mx-auto" />
-          <p className="text-sm text-muted-foreground">Redirecting to workspace...</p>
-        </div>
-      </div>
-    );
+    return <LoadingState message="Redirecting to workspace..." />;
   }
 
   return (
-    <div className="min-h-screen bg-background py-8 px-4">
-      <div className="max-w-3xl mx-auto space-y-6">
+    <div className="min-h-screen bg-background px-4 py-8">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
         <Card className="border-border/50">
-          <CardHeader className="space-y-4">
+          <CardHeader className="flex flex-col gap-4">
             <div className="flex items-start justify-between gap-3">
-              <div className="space-y-2">
+              <div className="flex flex-col gap-2">
                 <Badge variant="secondary" className="w-fit">
                   <Sparkles className="h-3 w-3 mr-1" />
                   {isForcedOrganizationSetup ? "Organization Re-Setup" : "Organization Setup"}
@@ -270,7 +270,7 @@ function OnboardingContent() {
                     : "Configure team defaults for architectural project management."}
                 </CardDescription>
               </div>
-              <Bot className="h-8 w-8 text-primary" />
+              <Bot className="size-8 text-primary" />
             </div>
 
             {activeOrganization ? (
@@ -288,7 +288,7 @@ function OnboardingContent() {
               </div>
             ) : (
               <div className="rounded-lg border bg-muted/40 px-4 py-3 text-sm">
-                <div className="flex items-center gap-2 mb-1">
+                <div className="mb-1 flex items-center gap-2">
                   <Building2 className="h-4 w-4" />
                   <span className="font-medium">Create your organization</span>
                 </div>
@@ -299,10 +299,10 @@ function OnboardingContent() {
             )}
           </CardHeader>
 
-          <CardContent className="space-y-6">
+          <CardContent className="flex flex-col gap-6">
             {!activeOrganization && (
-              <div className="space-y-4 rounded-lg border p-4">
-                <div className="space-y-2">
+              <div className="flex flex-col gap-4 rounded-lg border p-4">
+                <div className="flex flex-col gap-2">
                   <Label htmlFor="organization-name" className="text-sm font-medium">
                     Organization name
                   </Label>
@@ -326,7 +326,7 @@ function OnboardingContent() {
             )}
 
             {activeOrganization && canUpdateOrganization && (
-              <div className="space-y-3">
+              <div className="flex flex-col gap-3">
                 <Label htmlFor="currency" className="text-sm font-medium">
                   <Coins className="h-4 w-4 inline mr-2" />
                   Organization currency
@@ -362,7 +362,7 @@ function OnboardingContent() {
             )}
 
             {activeOrganization && canUpdateOrganization && (
-              <div className="space-y-3 max-w-md">
+              <div className="flex max-w-md flex-col gap-3">
                 <Label className="text-sm font-medium">
                   <Clock3 className="h-4 w-4 inline mr-2" />
                   Organization timezone
@@ -396,14 +396,7 @@ function OnboardingContent() {
 export default function OnboardingPage() {
   return (
     <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-center space-y-4">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent mx-auto" />
-            <p className="text-sm text-muted-foreground">Preparing onboarding...</p>
-          </div>
-        </div>
-      }
+      fallback={<LoadingState message="Preparing onboarding..." />}
     >
       <OnboardingContent />
     </Suspense>

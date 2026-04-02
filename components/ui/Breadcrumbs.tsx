@@ -2,6 +2,7 @@
 
 import { ChevronRight, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface BreadcrumbItem {
   id?: string;
@@ -16,26 +17,26 @@ interface BreadcrumbsProps {
 
 export default function Breadcrumbs({ items, className = "" }: BreadcrumbsProps) {
   return (
-    <nav className={`flex items-center space-x-1 text-sm text-gray-600 ${className}`}>
+    <nav className={cn("flex flex-wrap items-center gap-1 text-sm text-muted-foreground", className)}>
       {items.map((item, index) => (
         <div key={item.id || index} className="flex items-center">
           {index > 0 && (
-            <ChevronRight className="h-4 w-4 text-gray-400 mx-1" />
+            <ChevronRight className="mx-1 size-4 text-muted-foreground/60" />
           )}
-          
+
           {item.onClick ? (
             <Button
               variant="ghost"
               size="sm"
               onClick={item.onClick}
-              className="h-auto p-1 font-medium hover:text-blue-600 hover:bg-blue-50"
+              className="h-8 rounded-full px-2.5 text-muted-foreground hover:text-foreground"
             >
-              {index === 0 && <Home className="h-4 w-4 mr-1" />}
+              {index === 0 && <Home data-icon="inline-start" />}
               {item.name}
             </Button>
           ) : (
-            <span className="px-1 py-1 font-medium text-gray-900 flex items-center">
-              {index === 0 && <Home className="h-4 w-4 mr-1" />}
+            <span className="inline-flex h-8 items-center gap-1.5 rounded-full bg-muted px-3 font-medium text-foreground">
+              {index === 0 && <Home className="size-4 text-muted-foreground" />}
               {item.name}
             </span>
           )}
@@ -43,4 +44,4 @@ export default function Breadcrumbs({ items, className = "" }: BreadcrumbsProps)
       ))}
     </nav>
   );
-} 
+}

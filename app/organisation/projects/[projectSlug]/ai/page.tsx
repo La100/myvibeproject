@@ -1,5 +1,5 @@
-import AIAssistant from "@/components/ai/assistant/AIAssistant";
+import HostedChatKit from "@/components/ai/chatkit/HostedChatKit";
 
 export default function AIPage() {
-  return <AIAssistant />;
+  return <HostedChatKit />;
 }

@@ -15,6 +15,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  Card,
+  CardContent,
+} from "@/components/ui/card";
+import {
   Empty,
   EmptyContent,
   EmptyDescription,
@@ -176,21 +180,12 @@ function ProjectCard({
   onClick: () => void;
   onHover: () => void;
 }) {
-  const getStatusDotClass = (status: ProjectStatus) => {
-    switch (status) {
-      case "active":
-        return "bg-blue-500";
-      case "planning":
-        return "bg-neutral-400";
-      case "on_hold":
-        return "bg-amber-500";
-      case "completed":
-        return "bg-emerald-500";
-      case "cancelled":
-        return "bg-red-500";
-      default:
-        return "bg-neutral-300";
-    }
+  const statusDotClasses: Record<ProjectStatus, string> = {
+    active: "bg-primary",
+    planning: "bg-muted-foreground",
+    on_hold: "bg-muted-foreground",
+    completed: "bg-primary",
+    cancelled: "bg-destructive",
   };
 
   const getStatusLabel = (status: ProjectStatus) => {
@@ -225,84 +220,99 @@ function ProjectCard({
       onMouseEnter={onHover}
       className="group w-full cursor-pointer"
     >
-      <div
-        className={cn(
-          "relative aspect-[5/4] overflow-hidden rounded-lg border transition-shadow group-hover:shadow-md md:aspect-[16/10] xl:aspect-[4/3]",
-          showCoverImage
-            ? "border-border bg-muted/40 p-4"
-            : "border-border bg-card p-5",
-        )}
-      >
-        {showCoverImage ? (
-          <>
-            <img
-              src={project.coverImageUrl}
-              alt={project.name}
-              className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-              onError={() => setCoverImageFailed(true)}
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/35 to-black/5" />
-            <div className="relative z-10 mt-auto flex h-full flex-col justify-end">
-              <p className="text-lg font-medium leading-snug line-clamp-3 text-[var(--overlay-foreground)]">{project.name}</p>
-              {project.description ? (
-                <p className="mt-1.5 text-xs text-[var(--overlay-foreground-muted)] line-clamp-2">{project.description}</p>
-              ) : null}
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="pointer-events-none absolute inset-0">
-              <div className="absolute inset-0 bg-[linear-gradient(180deg,color-mix(in_oklab,var(--card)_94%,white_6%)_0%,color-mix(in_oklab,var(--muted)_62%,var(--card)_38%)_100%)]" />
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,color-mix(in_oklab,white_90%,transparent)_0%,transparent_34%)]" />
-              <div className="absolute inset-0 opacity-[0.55] bg-[linear-gradient(135deg,transparent_0%,transparent_64%,color-mix(in_oklab,var(--foreground)_3%,transparent)_64%,color-mix(in_oklab,var(--foreground)_3%,transparent)_65%,transparent_65%,transparent_100%)]" />
-              <div className="absolute inset-0 opacity-[0.35] bg-[linear-gradient(to_right,color-mix(in_oklab,var(--foreground)_3%,transparent)_1px,transparent_1px),linear-gradient(to_bottom,color-mix(in_oklab,var(--foreground)_2.5%,transparent)_1px,transparent_1px)] [background-size:32px_32px]" />
-              <div className="absolute -bottom-4 right-4 text-[5.5rem] font-semibold tracking-[-0.08em] text-foreground/[0.05]">
-                {projectInitials}
+      <Card className="overflow-hidden border-border transition-transform duration-200 group-hover:-translate-y-0.5">
+        <div className="relative aspect-[5/4] overflow-hidden bg-muted md:aspect-[16/10] xl:aspect-[4/3]">
+          {showCoverImage ? (
+            <>
+              <img
+                src={project.coverImageUrl}
+                alt={project.name}
+                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                onError={() => setCoverImageFailed(true)}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/25 to-transparent" />
+              <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 p-5">
+                <div className="max-w-[24rem]">
+                  <p className="text-lg font-medium leading-snug text-background line-clamp-3">
+                    {project.name}
+                  </p>
+                  {project.description ? (
+                    <p className="mt-1.5 line-clamp-2 text-xs text-background/80">
+                      {project.description}
+                    </p>
+                  ) : null}
+                </div>
+                {project.status ? (
+                  <span
+                    className={cn(
+                      "inline-block h-2.5 w-2.5 shrink-0 rounded-full",
+                      statusDotClasses[project.status],
+                    )}
+                  />
+                ) : null}
               </div>
-            </div>
-
-            <div className="relative z-10 flex h-full flex-col">
+            </>
+          ) : (
+            <div className="flex h-full flex-col justify-between p-5">
               <div className="flex items-start justify-between gap-4">
                 {(project.location || project.customer) ? (
-                  <span className="rounded-full border border-border/70 bg-background/80 px-2.5 py-1 text-[11px] font-medium text-muted-foreground backdrop-blur-sm">
+                  <span className="rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
                     {project.location || project.customer}
                   </span>
-                ) : (
-                  <span />
-                )}
+                ) : <span />}
+                {project.status ? (
+                  <span
+                    className={cn(
+                      "inline-block h-2.5 w-2.5 shrink-0 rounded-full",
+                      statusDotClasses[project.status],
+                    )}
+                  />
+                ) : null}
               </div>
 
-              <div className="mt-auto max-w-[24rem]">
+              <div className="flex flex-1 items-center justify-center">
+                <div className="text-center">
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-border bg-background text-xl font-semibold tracking-tight text-foreground">
+                    {projectInitials}
+                  </div>
+                </div>
+              </div>
+
+              <div className="max-w-[24rem]">
                 <p className="text-xl font-medium leading-tight tracking-tight text-foreground">
                   {project.name}
                 </p>
                 {project.description ? (
-                  <p className="mt-2 max-w-[20rem] text-sm leading-6 text-muted-foreground line-clamp-2">
+                  <p className="mt-2 line-clamp-2 max-w-[20rem] text-sm leading-6 text-muted-foreground">
                     {project.description}
                   </p>
                 ) : null}
               </div>
             </div>
-          </>
-        )}
-      </div>
-      <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-        <span className="font-medium text-foreground line-clamp-1">{project.name}</span>
-      </div>
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        {project.status ? (
-          <>
-            <span className={cn("inline-block h-2 w-2 rounded-sm", getStatusDotClass(project.status))} />
-            <span>{getStatusLabel(project.status)}</span>
-          </>
-        ) : null}
-        {project.customer ? (
-          <>
-            <span className="mx-0.5">·</span>
-            <span className="line-clamp-1">{project.customer}</span>
-          </>
-        ) : null}
-      </div>
+          )}
+        </div>
+        <CardContent className="flex flex-col gap-1 p-4 pt-3">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            {project.status ? (
+              <>
+                <span
+                  className={cn(
+                    "inline-block h-2 w-2 rounded-full",
+                    statusDotClasses[project.status],
+                  )}
+                />
+                <span>{getStatusLabel(project.status)}</span>
+              </>
+            ) : null}
+            {project.customer ? (
+              <>
+                <span className="mx-0.5">·</span>
+                <span className="line-clamp-1">{project.customer}</span>
+              </>
+            ) : null}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

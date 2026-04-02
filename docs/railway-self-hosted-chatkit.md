@@ -1,12 +1,12 @@
 # Railway self-hosted ChatKit
 
-This repo now treats `AI 2` as a self-hosted ChatKit surface.
+This repo now treats `AI` as a self-hosted ChatKit surface.
 
 ## Architecture
 
 - Public web app: this Next.js app on Railway
 - Private ChatKit backend: separate Railway service
-- Browser traffic: `AI 2` calls `/api/chatkit/self-hosted`
+- Browser traffic: `AI` calls `/api/chatkit/self-hosted`
 - App proxy: forwards requests to `CHATKIT_SELF_HOSTED_SERVER_URL`
 - Backend auth: the proxy attaches an internal secret plus user, team, project, and Convex context headers
 
@@ -14,7 +14,8 @@ This repo now treats `AI 2` as a self-hosted ChatKit surface.
 
 OpenAI's ChatKit advanced integration uses a custom API URL instead of hosted ChatKit sessions. In this repo that means:
 
-- `app/organisation/projects/[projectSlug]/ai2/page.tsx` stays the only `AI 2` route
+- `app/organisation/projects/[projectSlug]/ai/page.tsx` is the primary assistant route
+- `app/organisation/projects/[projectSlug]/ai2/page.tsx` redirects legacy `AI 2` links to `AI`
 - `components/ai/chatkit/HostedChatKit.tsx` is now wired to the self-hosted API only
 - `app/api/chatkit/self-hosted/[[...path]]/route.ts` is the trusted proxy between Clerk-authenticated users and your ChatKit backend
 

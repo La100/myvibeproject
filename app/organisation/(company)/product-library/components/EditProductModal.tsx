@@ -131,9 +131,9 @@ export function EditProductModal({ product, onClose }: EditProductModalProps) {
           <DialogTitle>Edit Product</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-6">
           {/* Product Name - Most Important Field */}
-          <div>
+          <div className="flex flex-col gap-2">
             <Label htmlFor="name" className="text-base font-semibold">Product Name *</Label>
             <Input
               id="name"
@@ -141,12 +141,12 @@ export function EditProductModal({ product, onClose }: EditProductModalProps) {
               onChange={(e) => handleInputChange("name", e.target.value)}
               placeholder="Enter product name"
               required
-              className="text-base mt-2"
+              className="text-base"
             />
           </div>
 
           {/* Description */}
-          <div>
+          <div className="flex flex-col gap-2">
             <Label htmlFor="description" className="text-sm font-medium">Description</Label>
             <Textarea
               id="description"
@@ -154,60 +154,55 @@ export function EditProductModal({ product, onClose }: EditProductModalProps) {
               onChange={(e) => handleInputChange("description", e.target.value)}
               placeholder="Enter product description"
               rows={3}
-              className="mt-2"
             />
           </div>
 
           {/* Two Column Grid for Basic Info */}
           <div className="grid grid-cols-2 gap-4">
-            <div>
+            <div className="flex flex-col gap-2">
               <Label htmlFor="brand" className="text-sm font-medium">Brand</Label>
               <Input
                 id="brand"
                 value={formData.brand}
                 onChange={(e) => handleInputChange("brand", e.target.value)}
                 placeholder="Brand name"
-                className="mt-1"
               />
             </div>
             
-            <div>
+            <div className="flex flex-col gap-2">
               <Label htmlFor="category" className="text-sm font-medium">Category</Label>
               <Input
                 id="category"
                 value={formData.category}
                 onChange={(e) => handleInputChange("category", e.target.value)}
                 placeholder="e.g. Furniture, Lighting"
-                className="mt-1"
               />
             </div>
           </div>
 
           {/* Three Column Grid for Identifiers */}
           <div className="grid grid-cols-3 gap-3">
-            <div>
+            <div className="flex flex-col gap-2">
               <Label htmlFor="model" className="text-sm font-medium">Model</Label>
               <Input
                 id="model"
                 value={formData.model}
                 onChange={(e) => handleInputChange("model", e.target.value)}
                 placeholder="Model"
-                className="mt-1"
               />
             </div>
             
-            <div>
+            <div className="flex flex-col gap-2">
               <Label htmlFor="sku" className="text-sm font-medium">SKU</Label>
               <Input
                 id="sku"
                 value={formData.sku}
                 onChange={(e) => handleInputChange("sku", e.target.value)}
                 placeholder="SKU"
-                className="mt-1"
               />
             </div>
             
-            <div>
+            <div className="flex flex-col gap-2">
               <Label htmlFor="unitPrice" className="text-sm font-medium">Price</Label>
               <Input
                 id="unitPrice"
@@ -216,75 +211,69 @@ export function EditProductModal({ product, onClose }: EditProductModalProps) {
                 value={formData.unitPrice}
                 onChange={(e) => handleInputChange("unitPrice", e.target.value)}
                 placeholder="0.00"
-                className="mt-1"
               />
             </div>
           </div>
 
           {/* Supplier Info */}
           <div className="grid grid-cols-2 gap-4">
-            <div>
+            <div className="flex flex-col gap-2">
               <Label htmlFor="supplier" className="text-sm font-medium">Supplier</Label>
               <Input
                 id="supplier"
                 value={formData.supplier}
                 onChange={(e) => handleInputChange("supplier", e.target.value)}
                 placeholder="Supplier name"
-                className="mt-1"
               />
             </div>
             
-            <div>
+            <div className="flex flex-col gap-2">
               <Label htmlFor="supplierSku" className="text-sm font-medium">Supplier SKU</Label>
               <Input
                 id="supplierSku"
                 value={formData.supplierSku}
                 onChange={(e) => handleInputChange("supplierSku", e.target.value)}
                 placeholder="Supplier SKU"
-                className="mt-1"
               />
             </div>
           </div>
 
           {/* Links */}
           <div className="grid grid-cols-2 gap-4">
-            <div>
+            <div className="flex flex-col gap-2">
               <Label htmlFor="imageUrl" className="text-sm font-medium">Image URL</Label>
               <Input
                 id="imageUrl"
                 value={formData.imageUrl}
                 onChange={(e) => handleInputChange("imageUrl", e.target.value)}
                 placeholder="https://..."
-                className="mt-1"
               />
             </div>
             
-            <div>
+            <div className="flex flex-col gap-2">
               <Label htmlFor="productLink" className="text-sm font-medium">Product Link</Label>
               <Input
                 id="productLink"
                 value={formData.productLink}
                 onChange={(e) => handleInputChange("productLink", e.target.value)}
                 placeholder="https://..."
-                className="mt-1"
               />
             </div>
           </div>
 
           {/* Physical Properties */}
           <div className="grid grid-cols-2 gap-4">
-            <div>
+            <div className="flex flex-col gap-2">
               <Label htmlFor="dimensions" className="text-sm font-medium">Dimensions</Label>
               <Input
                 id="dimensions"
                 value={formData.dimensions}
                 onChange={(e) => handleInputChange("dimensions", e.target.value)}
                 placeholder="120 x 80 x 75 cm"
-                className="mt-1"
               />
             </div>
             
-            <div>
+            <div className="flex flex-col gap-2">
               <Label htmlFor="weight" className="text-sm font-medium">Weight (kg)</Label>
               <Input
                 id="weight"
@@ -293,41 +282,38 @@ export function EditProductModal({ product, onClose }: EditProductModalProps) {
                 value={formData.weight}
                 onChange={(e) => handleInputChange("weight", e.target.value)}
                 placeholder="0.0"
-                className="mt-1"
               />
             </div>
           </div>
 
           {/* Material and Color */}
           <div className="grid grid-cols-2 gap-4">
-            <div>
+            <div className="flex flex-col gap-2">
               <Label htmlFor="material" className="text-sm font-medium">Material</Label>
               <Input
                 id="material"
                 value={formData.material}
                 onChange={(e) => handleInputChange("material", e.target.value)}
                 placeholder="Wood, Metal, Plastic..."
-                className="mt-1"
               />
             </div>
             
-            <div>
+            <div className="flex flex-col gap-2">
               <Label htmlFor="color" className="text-sm font-medium">Color</Label>
               <Input
                 id="color"
                 value={formData.color}
                 onChange={(e) => handleInputChange("color", e.target.value)}
                 placeholder="White, Black, Natural..."
-                className="mt-1"
               />
             </div>
           </div>
 
 
           {/* Tags */}
-          <div>
+          <div className="flex flex-col gap-2">
             <Label className="text-sm font-medium">Tags</Label>
-            <div className="flex gap-2 mt-2">
+            <div className="flex gap-2">
               <Input
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
@@ -345,7 +331,7 @@ export function EditProductModal({ product, onClose }: EditProductModalProps) {
             </div>
             
             {tags.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-3">
+              <div className="flex flex-wrap gap-2">
                 {tags.map((tag, index) => (
                   <Badge key={index} variant="secondary" className="flex items-center gap-1">
                     {tag}
@@ -360,7 +346,7 @@ export function EditProductModal({ product, onClose }: EditProductModalProps) {
           </div>
 
           {/* Notes */}
-          <div>
+          <div className="flex flex-col gap-2">
             <Label htmlFor="notes" className="text-sm font-medium">Additional Notes</Label>
             <Textarea
               id="notes"
@@ -368,22 +354,19 @@ export function EditProductModal({ product, onClose }: EditProductModalProps) {
               onChange={(e) => handleInputChange("notes", e.target.value)}
               placeholder="Additional notes or specifications..."
               rows={3}
-              className="mt-2"
             />
           </div>
 
           {/* Actions */}
-          <form onSubmit={handleSubmit}>
-            <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
-              <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Updating Product..." : "Update Product"}
-              </Button>
-            </div>
-          </form>
-        </div>
+          <div className="flex flex-col-reverse gap-3 pt-4 sm:flex-row">
+            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Updating Product..." : "Update Product"}
+            </Button>
+          </div>
+        </form>
       </DialogContent>
     </Dialog>
   );

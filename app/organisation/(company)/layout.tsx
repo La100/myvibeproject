@@ -5,6 +5,7 @@ import { useQuery, useMutation } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import { useEffect, useRef, useMemo } from "react";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { Spinner } from "@/components/ui/spinner";
 import { CompanySidebar } from "@/components/company/CompanySidebar";
 import { useOrganization } from "@clerk/nextjs";
 import { ChevronRight } from "lucide-react";
@@ -119,8 +120,8 @@ export default function CompanyLayout({
   ) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent mx-auto" />
+        <div className="clean-panel flex w-full max-w-sm flex-col items-center gap-3 px-6 py-8 text-center">
+          <Spinner fullHeight={false} className="py-0" iconClassName="size-5" />
           <p className="text-sm text-muted-foreground">Preparing workspace...</p>
         </div>
       </div>
@@ -130,7 +131,7 @@ export default function CompanyLayout({
   return (
     <SidebarProvider>
       <CompanySidebar />
-      <SidebarInset className="xl:clean-panel xl:overflow-hidden">
+      <SidebarInset className="xl:overflow-hidden">
         <header className="xl:hidden sticky top-0 z-20 flex h-16 items-center gap-2 border-b border-border/70 bg-background/90 px-4 backdrop-blur-md">
           <SidebarTrigger className="-ml-1 [&.hidden]:flex" />
           <span className="clean-title text-lg font-medium">Workspace</span>
@@ -138,7 +139,7 @@ export default function CompanyLayout({
         <main className="flex-1 min-h-0 overflow-auto">
           <div className="mx-auto flex w-full max-w-[1540px] flex-col px-4 pb-8 pt-4 md:px-6 xl:px-8 xl:pt-8">
             {breadcrumbs.length > 1 && (
-              <nav className="mb-4 flex items-center gap-1 text-sm text-muted-foreground">
+              <nav className="mb-4 flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
                 {breadcrumbs.map((crumb, i) => (
                   <span key={crumb.href} className="flex items-center gap-1">
                     {i > 0 && <ChevronRight className="h-3.5 w-3.5" />}

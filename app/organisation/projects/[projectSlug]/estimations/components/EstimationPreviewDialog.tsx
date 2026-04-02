@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { FileTextIcon, DownloadIcon, PrinterIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { useProject } from '@/components/providers/ProjectProvider';
@@ -34,12 +35,15 @@ export function EstimationPreviewDialog({
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'draft': return 'secondary';
-      case 'sent': return 'default';
-      case 'accepted': return 'default';
-      case 'rejected': return 'destructive';
-      case 'expired': return 'secondary';
-      default: return 'secondary';
+      case 'sent':
+      case 'accepted':
+        return 'default';
+      case 'rejected':
+        return 'destructive';
+      case 'draft':
+      case 'expired':
+      default:
+        return 'secondary';
     }
   };
 
@@ -230,10 +234,10 @@ export function EstimationPreviewDialog({
   if (!estimation) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader className="sr-only">
-            <DialogTitle>Loading estimation preview</DialogTitle>
-          </DialogHeader>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="sr-only">
+          <DialogTitle>Loading estimation preview</DialogTitle>
+        </DialogHeader>
           <Spinner />
         </DialogContent>
       </Dialog>
@@ -243,10 +247,10 @@ export function EstimationPreviewDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="flex flex-row items-center justify-between">
+        <DialogHeader className="flex flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <FileTextIcon className="h-6 w-6 text-[var(--ui-accent-brand)]" />
-            <DialogTitle className="text-xl font-[var(--font-display-serif)]">
+            <FileTextIcon className="h-6 w-6 text-primary" />
+            <DialogTitle className="text-xl font-semibold tracking-tight">
               Estimation Preview
             </DialogTitle>
           </div>
@@ -262,179 +266,174 @@ export function EstimationPreviewDialog({
           </div>
         </DialogHeader>
 
-        {/* Preview Content */}
-        <div className="mt-6 border rounded-lg p-6 bg-[var(--ui-surface-base)]">
-          {/* Header */}
-          <div className="flex justify-between items-start mb-6 pb-6 border-b">
-            <div>
+        <Card className="mt-6 gap-6 rounded-2xl p-0 shadow-none">
+          <CardHeader className="flex flex-row items-start justify-between gap-6 border-b px-6 pb-6">
+            <div className="flex flex-col gap-1">
               {team && (
-                <h2 className="text-xl font-bold text-[var(--ui-text-strong)]">{team.name}</h2>
+                <h2 className="text-xl font-semibold tracking-tight">{team.name}</h2>
               )}
             </div>
             <div className="text-right">
               <div className="text-lg font-semibold">COST ESTIMATION</div>
               {estimation.estimationNumber && (
-                <div className="text-sm text-[var(--ui-text-muted)]">#{estimation.estimationNumber}</div>
+                <div className="text-sm text-muted-foreground">#{estimation.estimationNumber}</div>
               )}
               <Badge variant={getStatusColor(estimation.status)} className="mt-2">
                 {estimation.status.toUpperCase()}
               </Badge>
             </div>
-          </div>
+          </CardHeader>
 
-          {/* Info Grid */}
-          <div className="grid grid-cols-2 gap-6 mb-6">
-            <div>
-              <h3 className="font-semibold text-lg mb-2">{estimation.title}</h3>
+          <CardContent className="flex flex-col gap-6 px-6 pb-6">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              <div className="flex flex-col gap-2">
+                <h3 className="text-lg font-semibold">{estimation.title}</h3>
               {estimation.location && (
-                <p className="text-sm text-[var(--ui-text-muted)]">Location: {estimation.location}</p>
+                  <p className="text-sm text-muted-foreground">Location: {estimation.location}</p>
               )}
-              <p className="text-sm text-[var(--ui-text-muted)]">
-                Date: {format(new Date(estimation.estimationDate), 'MMMM d, yyyy')}
-              </p>
-              {estimation.plannedStartDate && (
-                <p className="text-sm text-[var(--ui-text-muted)]">
-                  Planned Start: {format(new Date(estimation.plannedStartDate), 'MMMM d, yyyy')}
+                <p className="text-sm text-muted-foreground">
+                  Date: {format(new Date(estimation.estimationDate), 'MMMM d, yyyy')}
                 </p>
+              {estimation.plannedStartDate && (
+                  <p className="text-sm text-muted-foreground">
+                    Planned Start: {format(new Date(estimation.plannedStartDate), 'MMMM d, yyyy')}
+                  </p>
               )}
-            </div>
+              </div>
             {estimation.customerName && (
-              <div>
-                <p className="text-sm font-medium text-[var(--ui-text-muted)] mb-1">Client:</p>
-                <p className="font-medium">{estimation.customerName}</p>
+                <div className="flex flex-col gap-1">
+                  <p className="text-sm font-medium text-muted-foreground">Client:</p>
+                  <p className="font-medium">{estimation.customerName}</p>
                 {estimation.customerAddress && (
-                  <p className="text-sm text-[var(--ui-text-muted)]">{estimation.customerAddress}</p>
+                    <p className="text-sm text-muted-foreground">{estimation.customerAddress}</p>
                 )}
                 {estimation.customerEmail && (
-                  <p className="text-sm text-[var(--ui-text-muted)]">{estimation.customerEmail}</p>
+                    <p className="text-sm text-muted-foreground">{estimation.customerEmail}</p>
                 )}
                 {estimation.customerPhone && (
-                  <p className="text-sm text-[var(--ui-text-muted)]">{estimation.customerPhone}</p>
+                    <p className="text-sm text-muted-foreground">{estimation.customerPhone}</p>
                 )}
-              </div>
+                </div>
             )}
-          </div>
+            </div>
 
-          {/* Labor Table */}
           {estimation.laborItems && estimation.laborItems.length > 0 && (
-            <div className="mb-6">
-              <h4 className="font-semibold mb-3">Labor</h4>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-[var(--ui-surface-soft)]">
-                    <th className="text-left py-2 px-3">Description</th>
-                    <th className="text-right py-2 px-3 w-20">Qty</th>
-                    <th className="text-center py-2 px-3 w-16">Unit</th>
-                    <th className="text-right py-2 px-3 w-28">Price/Unit</th>
-                    <th className="text-right py-2 px-3 w-28">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <div className="flex flex-col gap-3">
+                <h4 className="font-semibold">Labor</h4>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="px-3 py-2 text-left">Description</th>
+                      <th className="w-20 px-3 py-2 text-right">Qty</th>
+                      <th className="w-16 px-3 py-2 text-center">Unit</th>
+                      <th className="w-28 px-3 py-2 text-right">Price/Unit</th>
+                      <th className="w-28 px-3 py-2 text-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                   {estimation.laborItems.filter(Boolean).map((item) => (
-                    <tr key={item!._id} className="border-b">
-                      <td className="py-2 px-3">{item!.name}</td>
-                      <td className="text-right py-2 px-3">{item!.quantity}</td>
-                      <td className="text-center py-2 px-3">{item!.unit}</td>
-                      <td className="text-right py-2 px-3">
+                      <tr key={item!._id} className="border-b">
+                        <td className="px-3 py-2">{item!.name}</td>
+                        <td className="px-3 py-2 text-right">{item!.quantity}</td>
+                        <td className="px-3 py-2 text-center">{item!.unit}</td>
+                        <td className="px-3 py-2 text-right">
                         {item!.unitPrice?.toFixed(2) || '-'} {currencySymbol}
-                      </td>
-                      <td className="text-right py-2 px-3 font-medium">
+                        </td>
+                        <td className="px-3 py-2 text-right font-medium">
                         {item!.totalPrice?.toFixed(2) || '-'} {currencySymbol}
-                      </td>
-                    </tr>
+                        </td>
+                      </tr>
                   ))}
-                </tbody>
-                <tfoot>
-                  <tr className="bg-[var(--ui-surface-soft)]">
-                    <td colSpan={4} className="text-right py-2 px-3 font-medium">Labor Subtotal:</td>
-                    <td className="text-right py-2 px-3 font-semibold">
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-muted/50">
+                      <td colSpan={4} className="px-3 py-2 text-right font-medium">Labor Subtotal:</td>
+                      <td className="px-3 py-2 text-right font-semibold">
                       {estimation.laborTotal?.toFixed(2) || '0.00'} {currencySymbol}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          )}
-
-          {/* Shopping List Table */}
-          {estimation.materialItems && estimation.materialItems.length > 0 && (
-            <div className="mb-6">
-              <h4 className="font-semibold mb-3">Shopping List</h4>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-[var(--ui-surface-soft)]">
-                    <th className="text-left py-2 px-3">Product</th>
-                    <th className="text-right py-2 px-3 w-20">Qty</th>
-                    <th className="text-right py-2 px-3 w-28">Price/Unit</th>
-                    <th className="text-right py-2 px-3 w-28">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {estimation.materialItems.filter(Boolean).map((item) => (
-                    <tr key={item!._id} className="border-b">
-                      <td className="py-2 px-3">{item!.name}</td>
-                      <td className="text-right py-2 px-3">{item!.quantity}</td>
-                      <td className="text-right py-2 px-3">
-                        {item!.unitPrice?.toFixed(2) || '-'} {currencySymbol}
-                      </td>
-                      <td className="text-right py-2 px-3 font-medium">
-                        {item!.totalPrice?.toFixed(2) || '-'} {currencySymbol}
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="bg-[var(--ui-surface-soft)]">
-                    <td colSpan={3} className="text-right py-2 px-3 font-medium">Shopping List Subtotal:</td>
-                    <td className="text-right py-2 px-3 font-semibold">
-                      {estimation.materialsTotal?.toFixed(2) || '0.00'} {currencySymbol}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+                  </tfoot>
+                </table>
+              </div>
           )}
 
-          {/* Summary */}
-          <div className="border-t pt-4">
-            <div className="max-w-xs ml-auto space-y-2">
+          {estimation.materialItems && estimation.materialItems.length > 0 && (
+              <div className="flex flex-col gap-3">
+                <h4 className="font-semibold">Shopping List</h4>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="px-3 py-2 text-left">Product</th>
+                      <th className="w-20 px-3 py-2 text-right">Qty</th>
+                      <th className="w-28 px-3 py-2 text-right">Price/Unit</th>
+                      <th className="w-28 px-3 py-2 text-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                  {estimation.materialItems.filter(Boolean).map((item) => (
+                      <tr key={item!._id} className="border-b">
+                        <td className="px-3 py-2">{item!.name}</td>
+                        <td className="px-3 py-2 text-right">{item!.quantity}</td>
+                        <td className="px-3 py-2 text-right">
+                        {item!.unitPrice?.toFixed(2) || '-'} {currencySymbol}
+                        </td>
+                        <td className="px-3 py-2 text-right font-medium">
+                        {item!.totalPrice?.toFixed(2) || '-'} {currencySymbol}
+                        </td>
+                      </tr>
+                  ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-muted/50">
+                      <td colSpan={3} className="px-3 py-2 text-right font-medium">Shopping List Subtotal:</td>
+                      <td className="px-3 py-2 text-right font-semibold">
+                      {estimation.materialsTotal?.toFixed(2) || '0.00'} {currencySymbol}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+          )}
+
+            <div className="border-t pt-4">
+              <div className="ml-auto flex max-w-xs flex-col gap-2">
               <div className="flex justify-between text-sm">
-                <span className="text-[var(--ui-text-muted)]">Labor:</span>
+                  <span className="text-muted-foreground">Labor:</span>
                 <span>{estimation.laborTotal?.toFixed(2) || '0.00'} {currencySymbol}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-[var(--ui-text-muted)]">Shopping List:</span>
+                  <span className="text-muted-foreground">Shopping List:</span>
                 <span>{estimation.materialsTotal?.toFixed(2) || '0.00'} {currencySymbol}</span>
               </div>
-              <div className="flex justify-between font-medium border-t pt-2">
+                <div className="flex justify-between border-t pt-2 font-medium">
                 <span>Net Total:</span>
                 <span>{estimation.netTotal?.toFixed(2) || '0.00'} {currencySymbol}</span>
               </div>
               {estimation.discountPercent && estimation.discountPercent > 0 && (
-                <div className="flex justify-between text-sm text-red-500">
+                  <div className="flex justify-between text-sm text-destructive">
                   <span>Discount ({estimation.discountPercent}%):</span>
                   <span>-{estimation.discountAmount?.toFixed(2) || '0.00'} {currencySymbol}</span>
                 </div>
               )}
               <div className="flex justify-between text-sm">
-                <span className="text-[var(--ui-text-muted)]">VAT ({estimation.vatPercent}%):</span>
+                  <span className="text-muted-foreground">VAT ({estimation.vatPercent}%):</span>
                 <span>{estimation.vatAmount?.toFixed(2) || '0.00'} {currencySymbol}</span>
               </div>
-              <div className="flex justify-between text-xl font-semibold border-t pt-2">
+                <div className="flex justify-between border-t pt-2 text-xl font-semibold">
                 <span>GROSS TOTAL:</span>
                 <span>{estimation.grossTotal?.toFixed(2) || '0.00'} {currencySymbol}</span>
               </div>
             </div>
-          </div>
+            </div>
 
-          {/* Notes */}
           {estimation.notes && (
-            <div className="mt-6 pt-4 border-t">
-              <h4 className="font-semibold mb-2">Notes</h4>
-              <p className="text-sm text-[var(--ui-text-muted)] whitespace-pre-wrap">{estimation.notes}</p>
+              <div className="mt-6 border-t pt-4">
+                <h4 className="mb-2 font-semibold">Notes</h4>
+                <p className="whitespace-pre-wrap text-sm text-muted-foreground">{estimation.notes}</p>
             </div>
           )}
-        </div>
+          </CardContent>
+        </Card>
       </DialogContent>
     </Dialog>
   );

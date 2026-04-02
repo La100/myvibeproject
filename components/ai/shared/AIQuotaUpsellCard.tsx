@@ -92,19 +92,19 @@ export function AIQuotaUpsellCard({
 
   return (
     <Card className={cn("border-border/60 bg-card/70", className)}>
-      <CardHeader className="space-y-3 pb-3">
+      <CardHeader className="flex flex-col gap-3 pb-3">
         <Badge
           variant="secondary"
-          className="w-fit border-0 bg-orange-100 px-2.5 py-1 text-orange-700 hover:bg-orange-100 dark:bg-orange-900/30 dark:text-orange-300"
+          className="w-fit"
         >
           AI credits exhausted
         </Badge>
-        <div className="space-y-1">
+        <div className="flex flex-col gap-1">
           <CardTitle className="text-lg tracking-tight">AI usage paused</CardTitle>
           <CardDescription>{resolvedMessage}</CardDescription>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4 pt-0">
+      <CardContent className="flex flex-col gap-4 pt-0">
         <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/30 px-3 py-2.5">
           <span className="text-xs uppercase tracking-wide text-muted-foreground">Remaining credits</span>
           <span className="text-sm font-semibold tabular-nums">{remainingTokens.toLocaleString()}</span>

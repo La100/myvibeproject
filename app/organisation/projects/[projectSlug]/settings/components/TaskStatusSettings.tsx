@@ -88,16 +88,16 @@ export default function TaskStatusSettings({ projectId, initialSettings }: TaskS
 
   return (
     <Card className="clean-panel overflow-hidden">
-      <CardHeader className="border-b border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)]/45 pb-5">
+      <CardHeader className="border-b border-border/70 bg-muted/40 pb-5">
         <CardTitle>Task Status Settings</CardTitle>
         <CardDescription>
           Customize labels and colors for each stage in your task workflow.
         </CardDescription>
       </CardHeader>
 
-      <CardContent className="space-y-6 p-4 md:p-6">
+      <CardContent className="flex flex-col gap-6 p-4 md:p-6">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-6">
             <div className="grid gap-4 lg:grid-cols-2">
               {statusKeys.map((key) => {
                 const statusMeta = STATUS_META[key];
@@ -107,19 +107,19 @@ export default function TaskStatusSettings({ projectId, initialSettings }: TaskS
                 return (
                   <div
                     key={key}
-                    className="rounded-2xl border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-4"
+                    className="rounded-2xl border border-border/70 bg-card p-4"
                   >
                     <div className="mb-4 flex items-start justify-between gap-3">
                       <div>
-                        <h4 className="text-sm font-semibold text-[var(--ui-text-main)]">
+                        <h4 className="text-sm font-semibold text-foreground">
                           {statusMeta.title}
                         </h4>
-                        <p className="mt-1 text-xs text-[var(--ui-text-muted)]">
+                        <p className="mt-1 text-xs text-muted-foreground">
                           {statusMeta.description}
                         </p>
                       </div>
 
-                      <span className="inline-flex items-center gap-2 rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-2.5 py-1 text-xs font-medium text-[var(--ui-text-main)]">
+                      <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-muted px-2.5 py-1 text-xs font-medium text-foreground">
                         <span
                           className="h-2.5 w-2.5 rounded-full border border-black/10"
                           style={{ backgroundColor: previewColor }}
@@ -136,7 +136,7 @@ export default function TaskStatusSettings({ projectId, initialSettings }: TaskS
                           <FormItem>
                             <FormLabel>Status Name</FormLabel>
                             <FormControl>
-                              <Input {...field} className="bg-[var(--ui-surface-base)]" />
+                              <Input {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -154,12 +154,12 @@ export default function TaskStatusSettings({ projectId, initialSettings }: TaskS
                                 <Input
                                   type="color"
                                   {...field}
-                                  className="h-10 w-14 border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-1"
+                                  className="h-10 w-14 p-1"
                                 />
                                 <Input
                                   {...field}
                                   placeholder="#RRGGBB"
-                                  className="flex-1 bg-[var(--ui-surface-base)]"
+                                  className="flex-1"
                                 />
                               </div>
                             </FormControl>
@@ -173,8 +173,8 @@ export default function TaskStatusSettings({ projectId, initialSettings }: TaskS
               })}
             </div>
 
-            <div className="flex flex-col-reverse gap-3 rounded-xl border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)]/70 p-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-[var(--ui-text-muted)]">
+            <div className="flex flex-col-reverse gap-3 rounded-xl border border-border/70 bg-muted/60 p-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-muted-foreground">
                 Updated labels and colors are used across boards and task details.
               </p>
               <Button type="submit" disabled={form.formState.isSubmitting} className="sm:min-w-[190px]">

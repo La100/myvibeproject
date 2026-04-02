@@ -8,10 +8,13 @@ import { useRouter } from "next/navigation";
 import { useProject } from "@/components/providers/ProjectProvider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Save, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -157,44 +160,39 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
     }
   };
 
-  
-
   return (
-    <div className="space-y-8">
+    <div className="flex flex-col gap-8">
       <ProjectPageHeader
         title="Edit Survey"
-        icon={<Save className="h-8 w-8 text-[var(--ui-accent-brand)]" />}
+        icon={<Save className="h-8 w-8 text-primary" />}
         subtitle={`Edit survey for ${project.name}`}
         actions={
           <Button
             variant="outline"
             size="sm"
             onClick={() => router.back()}
-            className="shrink-0 bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:text-primary-foreground"
           >
-            <ArrowLeft className="mr-2 h-5 w-5 stroke-[2.4]" />
+            <ArrowLeft data-icon="inline-start" />
             Back
           </Button>
         }
       />
 
       <div className="mx-auto w-full max-w-5xl">
-        <form onSubmit={handleSubmit} className="space-y-8">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-8">
           {/* Basic Information */}
-          <Card className="shadow-sm border-0 bg-card">
+          <Card>
             <CardHeader className="pb-6">
               <div className="flex items-center gap-3">
                 <Save className="h-5 w-5 text-foreground" />
-                <div>
+                <div className="flex flex-col gap-1">
                   <CardTitle className="text-xl">Basic Information</CardTitle>
-                  <CardDescription className="text-sm mt-1">
-                    Edit basic information about the survey
-                  </CardDescription>
+                  <CardDescription>Edit basic information about the survey</CardDescription>
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-3">
+            <CardContent className="flex flex-col gap-6">
+              <div className="flex flex-col gap-3">
                 <Label htmlFor="title" className="text-sm font-semibold">
                   Survey Title *
                 </Label>
@@ -208,7 +206,7 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
                 />
               </div>
 
-              <div className="space-y-3">
+              <div className="flex flex-col gap-3">
                 <Label htmlFor="description" className="text-sm font-semibold">
                   Description (optional)
                 </Label>
@@ -225,73 +223,61 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
           </Card>
 
           {/* Questions Section */}
-          <Card className="shadow-sm border-0 bg-card">
+          <Card>
             <CardHeader className="pb-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <Plus className="h-5 w-5 text-foreground" />
-                  <div>
+                  <div className="flex flex-col gap-1">
                     <CardTitle className="text-xl">Questions</CardTitle>
-                    <CardDescription className="text-sm mt-1">
-                      Edit questions in the survey
-                    </CardDescription>
+                    <CardDescription>Edit questions in the survey</CardDescription>
                   </div>
                 </div>
-                <Button 
-                  type="button" 
+                <Button
+                  type="button"
                   onClick={addNewQuestion}
-                  className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
                 >
-                  <Plus className="h-4 w-4 mr-2" />
+                  <Plus data-icon="inline-start" />
                   Add Question
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
               {questions.length === 0 ? (
-                <div className="text-center py-16 px-4">
-                  <div className="p-4 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center border border-gray-200">
-                    <Plus className="h-8 w-8 text-gray-400" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    No Questions
-                  </h3>
-                  <p className="text-gray-500 mb-6">
-                    Click "Add Question" to add a new question
-                  </p>
-                  <Button 
-                    type="button" 
-                    onClick={addNewQuestion}
-                    variant="outline"
-                    className="border-border text-foreground hover:bg-accent"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add First Question
-                  </Button>
-                </div>
+                <EmptyState
+                  className="border border-border bg-card"
+                  icon={Plus}
+                  title="No Questions"
+                  description='Click "Add Question" to add a new question.'
+                  action={{
+                    label: "Add First Question",
+                    onClick: addNewQuestion,
+                    icon: Plus,
+                  }}
+                />
               ) : (
-                <div className="space-y-6">
+                <div className="flex flex-col gap-6">
                   {questions.map((question, index) => (
-                    <Card key={question.id} className="border border-gray-200 shadow-sm bg-gray-50/50">
+                    <Card key={question.id}>
                       <CardContent className="p-6">
-                        <div className="space-y-5">
+                        <div className="flex flex-col gap-5">
                           {/* Question Header */}
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                              <span className="inline-block border border-border text-foreground bg-transparent rounded px-2 py-1 text-xs font-semibold">Question {index + 1}</span>
+                              <Badge variant="outline">Question {index + 1}</Badge>
                             </div>
                             <Button
                               type="button"
                               variant="ghost"
                               size="sm"
                               onClick={() => removeQuestion(question.id)}
-                              className="text-foreground hover:text-primary-foreground hover:bg-primary"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 data-icon="inline-start" />
                             </Button>
                           </div>
-                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <div className="space-y-3">
+                          <Separator />
+                          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                            <div className="flex flex-col gap-3">
                               <Label className="text-sm font-semibold">
                                 Question Content *
                               </Label>
@@ -302,9 +288,9 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
                                 required
                                 rows={3}
                                 className="resize-none text-base"
-                              />
+                                />
                             </div>
-                            <div className="space-y-3">
+                            <div className="flex flex-col gap-3">
                               <Label className="text-sm font-semibold">
                                 Question Type
                               </Label>
@@ -328,15 +314,15 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
                               </Select>
                             </div>
                           </div>
-                          <div className="flex items-center justify-between p-4 bg-card rounded-lg border border-gray-200">
-                            <div className="flex items-center space-x-3">
+                          <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/30 p-4">
+                            <div className="flex items-center gap-3">
                               <Switch
                                 checked={question.isRequired}
                                 onCheckedChange={(checked) => updateQuestionLocal(question.id, { isRequired: checked })}
                               />
-                              <div>
+                              <div className="flex flex-col gap-1">
                                 <Label className="text-sm font-medium">Required Question</Label>
-                                <p className="text-xs text-gray-500 mt-1">
+                                <p className="text-xs text-muted-foreground">
                                   Respondents will have to answer this question
                                 </p>
                               </div>
@@ -356,16 +342,16 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
               type="button"
               variant="outline"
               onClick={() => router.back()}
-              className="min-w-[120px] bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:text-primary-foreground"
+              className="min-w-[120px]"
             >
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={loading}
-              className="min-w-[160px] bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
+              className="min-w-[160px]"
             >
-              <Save className="h-4 w-4 mr-2" />
+              <Save data-icon="inline-start" />
               {loading ? "Saving..." : "Save Changes"}
             </Button>
             <Button
@@ -373,9 +359,8 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
               variant="destructive"
               onClick={handleDeleteSurvey}
               disabled={loading}
-              className="flex items-center gap-2"
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 data-icon="inline-start" />
               Delete Survey
             </Button>
           </div>

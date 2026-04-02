@@ -242,9 +242,9 @@ export default function TaskForm({ projectId, teamId, teamMembers, milestones = 
     };
   
     return (
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
             <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
                 <FormField
                     control={form.control}
                     name="title"
@@ -359,10 +359,10 @@ export default function TaskForm({ projectId, teamId, teamMembers, milestones = 
                 />
                 
                 {/* Date and Time Options */}
-                <div className="space-y-4 border rounded-lg p-4">
+                <div className="flex flex-col gap-4 rounded-lg border p-4">
                     <div className="flex items-center justify-between">
                         <Label className="text-base font-medium">Date & Time</Label>
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center gap-2">
                             <Checkbox
                                 id="all-day"
                                 checked={isAllDay}
@@ -374,7 +374,7 @@ export default function TaskForm({ projectId, teamId, teamMembers, milestones = 
                         </div>
                     </div>
 
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center gap-2">
                         <Checkbox
                             id="single-day"
                             checked={singleDayTask}
@@ -393,7 +393,7 @@ export default function TaskForm({ projectId, teamId, teamMembers, milestones = 
                         </Label>
                     </div>
 
-                    <div className="space-y-4">
+                    <div className="flex flex-col gap-4">
                         {/* Date Selection */}
                         <div className={singleDayTask ? "grid grid-cols-1 gap-4" : "grid grid-cols-1 sm:grid-cols-2 gap-4"}>
                             {/* Start Date */}
@@ -438,7 +438,7 @@ export default function TaskForm({ projectId, teamId, teamMembers, milestones = 
 
                         {/* Time Selection - shown when "All day" is unchecked */}
                         {!isAllDay && (
-                            <div className="space-y-3">
+                            <div className="flex flex-col gap-3">
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <Label className="text-sm text-muted-foreground">Start Time</Label>
@@ -461,7 +461,7 @@ export default function TaskForm({ projectId, teamId, teamMembers, milestones = 
                                         </div>
                                     )}
                                 </div>
-                                <div className="flex items-center space-x-2">
+                                <div className="flex items-center gap-2">
                                     <Checkbox
                                         id="has-end-time"
                                         checked={hasEndTime}
@@ -483,50 +483,6 @@ export default function TaskForm({ projectId, teamId, teamMembers, milestones = 
                         )}
                     </div>
                 </div>
-
-                {/*
-                <div className="flex items-center space-x-2">
-                    <Switch
-                        id="add-time"
-                        checked={showTime}
-                        onCheckedChange={(checked) => {
-                            setShowTime(checked);
-                            if (!checked) {
-                                setStartTime("");
-                                setEndTime("");
-                            }
-                        }}
-                    />
-                    <Label htmlFor="add-time">Add specific time</Label>
-                </div>
-
-                {showTime && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <FormItem>
-                            <FormLabel>Start Time</FormLabel>
-                            <FormControl>
-                                <Input
-                                    type="time"
-                                    value={startTime}
-                                    onChange={(e) => setStartTime(e.target.value)}
-                                    disabled={!form.watch("dateRange.from")}
-                                />
-                            </FormControl>
-                        </FormItem>
-                        <FormItem>
-                            <FormLabel>End Time</FormLabel>
-                            <FormControl>
-                                <Input
-                                    type="time"
-                                    value={endTime}
-                                    onChange={(e) => setEndTime(e.target.value)}
-                                    disabled={!form.watch("dateRange.to")}
-                                />
-                            </FormControl>
-                        </FormItem>
-                    </div>
-                )}
-                */}
 
                 <FormField
                     control={form.control}

@@ -11,6 +11,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useProject } from '@/components/providers/ProjectProvider';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -387,41 +389,39 @@ export function CreateEstimationDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-[var(--font-display-serif)]">
+          <DialogTitle className="text-2xl font-semibold tracking-tight">
             New Cost Estimation
           </DialogTitle>
         </DialogHeader>
 
-        {/* Step Indicator */}
-        <div className="flex items-center justify-center gap-2 mb-6">
+        <div className="mb-6 flex items-center justify-center gap-2">
           {[1, 2, 3, 4].map((s) => (
             <div key={s} className="flex items-center">
               <div
                 className={cn(
-                  "w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium",
+                  "flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium",
                   step === s
-                    ? "bg-[var(--ui-action-bg)] text-[var(--primary-foreground)]"
+                    ? "bg-primary text-primary-foreground"
                     : step > s
-                      ? "bg-green-500 text-[var(--primary-foreground)]"
-                      : "bg-[var(--ui-border-soft)] text-[var(--ui-text-muted)]"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground"
                 )}
               >
                 {s}
               </div>
               {s < 4 && (
                 <div className={cn(
-                  "w-12 h-0.5",
-                  step > s ? "bg-green-500" : "bg-[var(--ui-border-soft)]"
+                  "h-0.5 w-12",
+                  step > s ? "bg-primary" : "bg-border"
                 )} />
               )}
             </div>
           ))}
         </div>
 
-        {/* Step 1: Basic Info */}
         {step === 1 && (
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium mb-4">Basic Information</h3>
+          <div className="flex flex-col gap-4">
+            <h3 className="mb-4 text-lg font-medium">Basic Information</h3>
             <div className="grid gap-4">
               <div>
                 <Label>Estimation Title *</Label>
@@ -497,12 +497,11 @@ export function CreateEstimationDialog({
           </div>
         )}
 
-        {/* Step 2: Select Items */}
         {step === 2 && (
-          <div className="space-y-6">
-            <h3 className="text-lg font-medium mb-4">Select Labor Items</h3>
+          <div className="flex flex-col gap-6">
+            <h3 className="mb-4 text-lg font-medium">Select Labor Items</h3>
             <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <span className="text-sm text-[var(--ui-text-muted)]">{selectedLaborIds.length} selected</span>
+              <span className="text-sm text-muted-foreground">{selectedLaborIds.length} selected</span>
               <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
                 <Select value={laborFilter} onValueChange={setLaborFilter}>
                   <SelectTrigger className="h-8 w-full sm:w-[200px]">
@@ -525,18 +524,18 @@ export function CreateEstimationDialog({
             </div>
             <div className="max-h-64 overflow-y-auto overflow-x-hidden rounded-lg border">
               {laborItems?.length === 0 ? (
-                <div className="p-4 text-center text-[var(--ui-text-muted)]">
+                <div className="p-4 text-center text-muted-foreground">
                   No labor items. Add some in the Labor section first.
                 </div>
               ) : filteredLaborItems.length === 0 ? (
-                <div className="p-4 text-center text-[var(--ui-text-muted)]">
+                <div className="p-4 text-center text-muted-foreground">
                   No labor items match this section filter.
                 </div>
               ) : (
                 filteredLaborItems.map((item) => (
                   <div
-                    key={item._id}
-                    className="flex items-center gap-3 p-3 border-b last:border-b-0 hover:bg-[var(--ui-surface-soft)]"
+                  key={item._id}
+                    className="flex items-center gap-3 border-b p-3 last:border-b-0 hover:bg-muted/50"
                   >
                     <Checkbox
                       checked={selectedLaborIds.includes(item._id)}
@@ -544,7 +543,7 @@ export function CreateEstimationDialog({
                     />
                     <div className="flex-1 min-w-0">
                       <div className="font-medium truncate">{item.name}</div>
-                      <div className="truncate text-sm text-[var(--ui-text-muted)]">
+                      <div className="truncate text-sm text-muted-foreground">
                         {item.quantity} {item.unit}
                         {item.sectionId && laborSectionNameById.get(item.sectionId) && (
                           <span> • {laborSectionNameById.get(item.sectionId)}</span>
@@ -559,9 +558,9 @@ export function CreateEstimationDialog({
               )}
             </div>
 
-            <h3 className="text-lg font-medium mb-4 mt-6">Select Shopping List Items</h3>
+            <h3 className="mb-4 mt-6 text-lg font-medium">Select Shopping List Items</h3>
             <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <span className="text-sm text-[var(--ui-text-muted)]">{selectedMaterialIds.length} selected</span>
+              <span className="text-sm text-muted-foreground">{selectedMaterialIds.length} selected</span>
               <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
                 <Select value={materialFilter} onValueChange={setMaterialFilter}>
                   <SelectTrigger className="h-8 w-full sm:w-[220px]">
@@ -583,18 +582,18 @@ export function CreateEstimationDialog({
             </div>
             <div className="max-h-64 overflow-y-auto overflow-x-hidden rounded-lg border">
               {materialItems?.length === 0 ? (
-                <div className="p-4 text-center text-[var(--ui-text-muted)]">
+                <div className="p-4 text-center text-muted-foreground">
                   No shopping list items. Add some in the Shopping List section first.
                 </div>
               ) : filteredMaterialItems.length === 0 ? (
-                <div className="p-4 text-center text-[var(--ui-text-muted)]">
+                <div className="p-4 text-center text-muted-foreground">
                   No shopping list items match this category filter.
                 </div>
               ) : (
                 filteredMaterialItems.map((item) => (
                   <div
-                    key={item._id}
-                    className="flex items-center gap-3 p-3 border-b last:border-b-0 hover:bg-[var(--ui-surface-soft)]"
+                  key={item._id}
+                    className="flex items-center gap-3 border-b p-3 last:border-b-0 hover:bg-muted/50"
                   >
                     <Checkbox
                       checked={selectedMaterialIds.includes(item._id)}
@@ -602,7 +601,7 @@ export function CreateEstimationDialog({
                     />
                     <div className="flex-1 min-w-0">
                       <div className="font-medium truncate">{item.name}</div>
-                      <div className="truncate text-sm text-[var(--ui-text-muted)]">
+                      <div className="truncate text-sm text-muted-foreground">
                         Qty: {item.quantity}
                         <span> • {resolveMaterialCategory(item)}</span>
                       </div>
@@ -617,12 +616,11 @@ export function CreateEstimationDialog({
           </div>
         )}
 
-        {/* Step 3: Customer & Settings */}
         {step === 3 && (
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium mb-4">Customer Information & Settings</h3>
+          <div className="flex flex-col gap-4">
+            <h3 className="mb-4 text-lg font-medium">Customer Information & Settings</h3>
             {hasProjectCustomerDefaults && (
-              <p className="text-sm text-[var(--ui-text-muted)]">
+              <p className="text-sm text-muted-foreground">
                 Customer details were pre-filled from {primaryProjectContact ? 'the project contact' : 'the project settings'}.
               </p>
             )}
@@ -646,7 +644,7 @@ export function CreateEstimationDialog({
                 </SelectContent>
               </Select>
               {selectedContact?.projectRole && (
-                <p className="mt-2 text-xs text-[var(--ui-text-muted)]">
+                <p className="mt-2 text-xs text-muted-foreground">
                   Project role: {selectedContact.projectRole}
                 </p>
               )}
@@ -729,29 +727,30 @@ export function CreateEstimationDialog({
           </div>
         )}
 
-        {/* Step 4: Summary */}
         {step === 4 && (
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium mb-4">Summary</h3>
+          <div className="flex flex-col gap-4">
+            <h3 className="mb-4 text-lg font-medium">Summary</h3>
 
-            <div className="rounded-lg border p-4 bg-[var(--ui-surface-soft)]">
-              <div className="flex justify-between items-center mb-2">
+            <Card className="rounded-2xl border border-border/70 bg-muted/30 shadow-none">
+              <CardContent className="flex flex-col gap-2 p-4">
+              <div className="flex items-center justify-between">
                 <span className="font-medium">{title || 'Untitled Estimation'}</span>
                 {nextNumber && (
-                  <span className="text-sm text-[var(--ui-text-muted)]">#{nextNumber}</span>
+                  <Badge variant="outline" className="text-xs">#{nextNumber}</Badge>
                 )}
               </div>
-              {location && <p className="text-sm text-[var(--ui-text-muted)]">{location}</p>}
-              {customerName && <p className="text-sm text-[var(--ui-text-muted)]">Client: {customerName}</p>}
-            </div>
+                {location && <p className="text-sm text-muted-foreground">{location}</p>}
+                {customerName && <p className="text-sm text-muted-foreground">Client: {customerName}</p>}
+              </CardContent>
+            </Card>
 
-            <div className="space-y-3 pt-4">
+            <div className="flex flex-col gap-3 pt-4">
               <div className="flex justify-between">
-                <span className="text-[var(--ui-text-muted)]">Labor ({selectedLaborIds.length} items)</span>
+                <span className="text-muted-foreground">Labor ({selectedLaborIds.length} items)</span>
                 <span>{laborTotal.toFixed(2)} {currencySymbol}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[var(--ui-text-muted)]">Shopping List ({selectedMaterialIds.length} items)</span>
+                <span className="text-muted-foreground">Shopping List ({selectedMaterialIds.length} items)</span>
                 <span>{materialsTotal.toFixed(2)} {currencySymbol}</span>
               </div>
               <div className="flex justify-between font-medium border-t pt-3">
@@ -759,13 +758,13 @@ export function CreateEstimationDialog({
                 <span>{netTotal.toFixed(2)} {currencySymbol}</span>
               </div>
               {discountPercent > 0 && (
-                <div className="flex justify-between text-red-500">
+                <div className="flex justify-between text-destructive">
                   <span>Discount ({discountPercent}%)</span>
                   <span>-{discountAmount.toFixed(2)} {currencySymbol}</span>
                 </div>
               )}
               <div className="flex justify-between">
-                <span className="text-[var(--ui-text-muted)]">VAT ({vatPercent}%)</span>
+                <span className="text-muted-foreground">VAT ({vatPercent}%)</span>
                 <span>{vatAmount.toFixed(2)} {currencySymbol}</span>
               </div>
               <div className="flex justify-between text-xl font-semibold border-t pt-3">
@@ -776,8 +775,7 @@ export function CreateEstimationDialog({
           </div>
         )}
 
-        {/* Navigation */}
-        <div className="flex justify-between pt-6 border-t">
+        <div className="flex justify-between border-t pt-6">
           <Button
             variant="outline"
             onClick={() => step > 1 ? setStep(step - 1) : onOpenChange(false)}

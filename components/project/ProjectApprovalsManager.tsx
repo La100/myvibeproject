@@ -103,14 +103,14 @@ const approvalTypeLabels: Record<ApprovalType, string> = {
   other: "Other",
 };
 
-const statusClassNames: Record<ApprovalStatus, string> = {
-  draft: "border-slate-200 bg-slate-50 text-slate-700",
-  sent: "border-sky-200 bg-sky-50 text-sky-700",
-  viewed: "border-indigo-200 bg-indigo-50 text-indigo-700",
-  commented: "border-amber-200 bg-amber-50 text-amber-700",
-  approved: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  rejected: "border-rose-200 bg-rose-50 text-rose-700",
-  expired: "border-zinc-200 bg-zinc-50 text-zinc-700",
+const statusBadgeVariants: Record<ApprovalStatus, "outline" | "secondary" | "default" | "destructive"> = {
+  draft: "outline",
+  sent: "secondary",
+  viewed: "secondary",
+  commented: "secondary",
+  approved: "default",
+  rejected: "destructive",
+  expired: "outline",
 };
 
 const formatDateInput = (timestamp?: number) => {
@@ -240,7 +240,7 @@ export function ProjectApprovalsManager() {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">Client approvals</h2>
@@ -288,14 +288,14 @@ export function ProjectApprovalsManager() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
           {sortedApprovals.map((approval) => (
             <Card key={approval._id}>
-              <CardContent className="space-y-4 p-6">
+              <CardContent className="flex flex-col gap-4 py-6">
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                  <div className="space-y-2">
+                  <div className="flex flex-col gap-2">
                     <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="outline" className={statusClassNames[approval.status]}>
+                      <Badge variant={statusBadgeVariants[approval.status]}>
                         {approval.status.replace("_", " ")}
                       </Badge>
                       <Badge variant="secondary">{approvalTypeLabels[approval.type]}</Badge>
@@ -346,7 +346,7 @@ export function ProjectApprovalsManager() {
                 </div>
 
                 {approval.currentVersionRecord?.items?.length ? (
-                  <div className="space-y-2">
+                  <div className="flex flex-col gap-2">
                     <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Requested items</p>
                     <div className="flex flex-wrap gap-2">
                       {approval.currentVersionRecord.items.map((item) => (
@@ -365,9 +365,9 @@ export function ProjectApprovalsManager() {
                 ) : null}
 
                 {approval.clientComment ? (
-                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                  <div className="rounded-2xl border border-border bg-muted/40 p-4 text-sm text-foreground">
                     <div className="flex items-center gap-2 font-medium">
-                      <Clock3 className="h-4 w-4" />
+                      <Clock3 className="h-4 w-4 text-muted-foreground" />
                       Client comment
                     </div>
                     <p className="mt-2">{approval.clientComment}</p>
@@ -394,7 +394,7 @@ export function ProjectApprovalsManager() {
           </DialogHeader>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label>Type</Label>
               <Select
                 value={form.type}
@@ -414,7 +414,7 @@ export function ProjectApprovalsManager() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="approval-due-date">Decision deadline</Label>
               <Input
                 id="approval-due-date"
@@ -425,7 +425,7 @@ export function ProjectApprovalsManager() {
                 }
               />
             </div>
-            <div className="space-y-2 md:col-span-2">
+            <div className="flex flex-col gap-2 md:col-span-2">
               <Label htmlFor="approval-title">Title</Label>
               <Input
                 id="approval-title"
@@ -434,7 +434,7 @@ export function ProjectApprovalsManager() {
                 placeholder="e.g. Approve kitchen worktop variant"
               />
             </div>
-            <div className="space-y-2 md:col-span-2">
+            <div className="flex flex-col gap-2 md:col-span-2">
               <Label htmlFor="approval-description">Description</Label>
               <Textarea
                 id="approval-description"
@@ -446,7 +446,7 @@ export function ProjectApprovalsManager() {
                 placeholder="Short context shown on the team side"
               />
             </div>
-            <div className="space-y-2 md:col-span-2">
+            <div className="flex flex-col gap-2 md:col-span-2">
               <Label htmlFor="approval-summary">Client-facing summary</Label>
               <Textarea
                 id="approval-summary"
@@ -458,7 +458,7 @@ export function ProjectApprovalsManager() {
                 placeholder="What exactly the client should decide"
               />
             </div>
-            <div className="space-y-2 md:col-span-2">
+            <div className="flex flex-col gap-2 md:col-span-2">
               <Label htmlFor="approval-details">Details</Label>
               <Textarea
                 id="approval-details"
@@ -470,7 +470,7 @@ export function ProjectApprovalsManager() {
                 placeholder="Explain options, constraints, risks or consequences"
               />
             </div>
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="approval-items">Items</Label>
               <Textarea
                 id="approval-items"
@@ -482,7 +482,7 @@ export function ProjectApprovalsManager() {
                 placeholder={"One item per line\nEgger Oak\nQuartz White"}
               />
             </div>
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="approval-reference-ids">Reference IDs</Label>
               <Textarea
                 id="approval-reference-ids"

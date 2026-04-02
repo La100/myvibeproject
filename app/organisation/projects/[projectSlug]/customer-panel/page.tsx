@@ -164,10 +164,10 @@ export default function CustomerPanelPage() {
   }
 
   return (
-    <div className="space-y-10">
+    <div className="flex flex-col gap-10">
       <ProjectPageHeader
         title="Client Portal"
-        icon={<ExternalLink className="h-8 w-8 text-[var(--ui-accent-brand)]" />}
+        icon={<ExternalLink className="h-8 w-8 text-primary" />}
         subtitle={
           <>
             Publish the latest portal data for the public client link.
@@ -184,10 +184,10 @@ export default function CustomerPanelPage() {
             {isPublishingPortal ? "Updating..." : "Update portal"}
           </Button>
         }
-      />
+        />
 
-      <div className="mx-auto w-full max-w-2xl space-y-10">
-      <section className="space-y-5">
+      <div className="mx-auto flex w-full max-w-2xl flex-col gap-10">
+      <section className="flex flex-col gap-5">
         <div>
           <h2 className="text-lg font-semibold">Visibility</h2>
           <p className="text-sm text-muted-foreground">
@@ -195,10 +195,10 @@ export default function CustomerPanelPage() {
           </p>
         </div>
 
-        <div className="space-y-6 rounded-lg border bg-card p-6">
-          <div className="space-y-4">
+        <div className="flex flex-col gap-6 rounded-2xl border bg-card p-6">
+          <div className="flex flex-col gap-4">
             <h3 className="text-sm font-medium text-foreground">Portal sections</h3>
-            <div className="space-y-3">
+            <div className="flex flex-col gap-3">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <Label htmlFor="show-shopping-list" className="font-medium">
@@ -358,7 +358,7 @@ export default function CustomerPanelPage() {
         </div>
       </section>
 
-      <section className="space-y-5">
+      <section className="flex flex-col gap-5">
         <div>
           <h2 className="text-lg font-semibold">Portal Link</h2>
           <p className="text-sm text-muted-foreground">
@@ -366,7 +366,7 @@ export default function CustomerPanelPage() {
           </p>
         </div>
 
-        <div className="space-y-4 rounded-lg border bg-card p-6">
+        <div className="flex flex-col gap-4 rounded-2xl border bg-card p-6">
           <Input value={panelUrlValue || (isPreparingLink ? "Preparing link..." : "")} readOnly />
           <div className="flex flex-wrap gap-2">
             <Button type="button" size="sm" onClick={handleCopyLink} disabled={!panelUrlValue || isPreparingLink}>
@@ -400,7 +400,7 @@ export default function CustomerPanelPage() {
         </div>
       </section>
 
-      <section className="space-y-5">
+      <section className="flex flex-col gap-5">
         <div>
           <h2 className="text-lg font-semibold">Approval Summary</h2>
           <p className="text-sm text-muted-foreground">
@@ -428,7 +428,7 @@ export default function CustomerPanelPage() {
         </div>
       </section>
 
-      <section className="space-y-5">
+      <section className="flex flex-col gap-5">
         <ProjectApprovalsManager />
       </section>
       </div>

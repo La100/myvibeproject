@@ -11,10 +11,10 @@ export default function ChangelogPage() {
   return (
     <Suspense fallback={<ProjectChangelogSkeleton />}>
       <ProjectPageLayout>
-        <div className="space-y-7">
+        <div className="flex flex-col gap-7">
           <ProjectPageHeader
             title="Notifications"
-            icon={<BellRing className="h-8 w-8 text-[var(--ui-accent-brand)]" />}
+            icon={<BellRing className="h-8 w-8 text-primary" />}
             subtitle="Client responses and full project activity history."
           />
           <ProjectClientNotifications showHeader={false} />

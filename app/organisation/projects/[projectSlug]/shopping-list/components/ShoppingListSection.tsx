@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -201,11 +202,11 @@ export function ShoppingListSection({
 
   const getPriorityColor = (priority: Priority) => {
     switch (priority) {
-      case 'urgent': return 'bg-red-500';
-      case 'high': return 'bg-orange-500';
-      case 'medium': return 'bg-yellow-500';
-      case 'low': return 'bg-green-500';
-      default: return 'bg-gray-400';
+      case 'urgent': return 'bg-destructive';
+      case 'high': return 'bg-primary';
+      case 'medium': return 'bg-muted-foreground';
+      case 'low': return 'bg-secondary-foreground';
+      default: return 'bg-border';
     }
   };
 
@@ -243,7 +244,7 @@ export function ShoppingListSection({
   };
 
   const renderEditForm = (item: ShoppingListItem) => (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         <div>
           <label className="text-sm font-medium">Product Name</label>
@@ -484,19 +485,21 @@ export function ShoppingListSection({
     }
 
     return (
-      <div className="rounded-md border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] p-3">
+      <div className="rounded-md border bg-muted/40 p-3">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium text-[var(--ui-text-muted)]">
+          <span className="text-xs font-medium text-muted-foreground">
             Customer feedback:
           </span>
           <Badge
-            variant="outline"
-            className={
+            variant={
               item.customerDecision === "accepted"
-                ? "border-emerald-300 text-emerald-700"
+                ? "default"
                 : item.customerDecision === "rejected"
-                  ? "border-rose-300 text-rose-700"
-                  : ""
+                  ? "destructive"
+                  : "secondary"
+            }
+            className={
+              item.customerDecision ? "" : "border-border"
             }
           >
             {item.customerDecision === "accepted"
@@ -506,12 +509,12 @@ export function ShoppingListSection({
                 : "Comment only"}
           </Badge>
         </div>
-        <p className="mt-2 text-sm text-[var(--ui-text-main)]">
+        <p className="mt-2 text-sm text-foreground">
           {item.customerDecisionComment && item.customerDecisionComment.trim().length > 0
             ? item.customerDecisionComment
             : "No comment."}
         </p>
-        <p className="mt-2 text-xs text-[var(--ui-text-muted)]">
+        <p className="mt-2 text-xs text-muted-foreground">
           {item.customerDecisionByName ? `${item.customerDecisionByName} · ` : ""}
           {item.customerDecisionUpdatedAt
             ? new Date(item.customerDecisionUpdatedAt).toLocaleString()
@@ -528,7 +531,7 @@ export function ShoppingListSection({
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 w-8 p-0 text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-soft)] hover:text-[var(--ui-text-strong)]"
+            className="size-8 p-0 text-muted-foreground"
             onClick={() => toggleDetails(String(item._id))}
           >
             {expandedDetails[String(item._id)] ? <ChevronUpIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
@@ -539,10 +542,10 @@ export function ShoppingListSection({
       {item.productLink && (
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0 text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-soft)] hover:text-[var(--ui-text-strong)]"
+          <Button
+            variant="ghost"
+            size="sm"
+              className="size-8 p-0 text-muted-foreground"
               onClick={() => window.open(item.productLink, '_blank')}
             >
               <ExternalLinkIcon className="h-4 w-4" />
@@ -556,7 +559,7 @@ export function ShoppingListSection({
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 w-8 p-0 text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-soft)] hover:text-[var(--ui-text-strong)]"
+            className="size-8 p-0 text-muted-foreground"
             onClick={() => handleStartEdit(item)}
           >
             <EditIcon className="h-4 w-4" />
@@ -569,7 +572,7 @@ export function ShoppingListSection({
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 w-8 p-0 text-[var(--ui-text-muted)] hover:bg-red-50 hover:text-red-600"
+            className="size-8 p-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
             onClick={() => onDeleteItem(item._id)}
           >
             <TrashIcon className="h-4 w-4" />
@@ -592,10 +595,10 @@ export function ShoppingListSection({
       <div
         key={item._id}
         className={cn(
-          "rounded-[18px] border p-4 transition-colors",
+          "rounded-2xl border p-4 transition-colors",
           isSelectedOption
-            ? "border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)]"
-            : "border-[var(--ui-border-soft)]/60 bg-[var(--ui-surface-base)]",
+            ? "bg-muted/40"
+            : "border-border/60 bg-background",
         )}
       >
         {editingItemId === String(item._id) ? (
@@ -605,7 +608,7 @@ export function ShoppingListSection({
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="flex min-w-0 flex-1 items-start gap-4">
                 {item.imageUrl && (
-                  <div className="h-20 w-20 overflow-hidden rounded-xl border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)]">
+                  <div className="h-20 w-20 overflow-hidden rounded-xl border bg-muted/40">
                     <img
                       src={item.imageUrl}
                       alt={item.name}
@@ -615,7 +618,7 @@ export function ShoppingListSection({
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="mb-1 flex items-start gap-2">
-                    <h4 className="flex-1 break-words pr-2 text-base font-medium leading-snug text-[var(--ui-text-strong)]">
+                    <h4 className="flex-1 break-words pr-2 text-base font-medium leading-snug text-foreground">
                       {item.name}
                     </h4>
                     {item.priority && (
@@ -625,51 +628,51 @@ export function ShoppingListSection({
 
                   <div className="mb-3 flex flex-wrap items-center gap-2">
                     {group.isOrphanAlternative && (
-                      <Badge variant="outline" className="text-[10px]">
+                      <Badge variant="outline" className="text-xs">
                         Alternative linked outside this section
                       </Badge>
                     )}
                     {group.hasAlternatives && !isAlternativeItem && (
-                      <Badge variant="outline" className="text-[10px]">
+                      <Badge variant="outline" className="text-xs">
                         Base option
                       </Badge>
                     )}
                     {group.hasAlternatives && isAlternativeItem && (
-                      <Badge variant="outline" className="text-[10px]">
+                      <Badge variant="outline" className="text-xs">
                         Alternative
                       </Badge>
                     )}
                     {group.hasAlternatives && isSelectedOption && (
-                      <Badge variant="default" className="text-[10px]">
+                      <Badge variant="default" className="text-xs">
                         Selected for total
                       </Badge>
                     )}
                     {group.hasAlternatives && !isSelectedOption && (
-                      <Badge variant="secondary" className="text-[10px]">
+                      <Badge variant="secondary" className="text-xs">
                         Not counted in totals
                       </Badge>
                     )}
                   </div>
 
-                  <div className="flex flex-col gap-1 text-sm text-[var(--ui-text-main)]">
+                  <div className="flex flex-col gap-1 text-sm text-foreground">
                     <div className="flex flex-wrap items-center gap-3">
-                      <span className="rounded-md border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-2 py-0.5 text-xs font-medium">
+                      <span className="rounded-md border bg-muted px-2 py-0.5 text-xs font-medium">
                         Qty: {item.quantity}
                       </span>
                       {item.unitPrice && (
-                        <span className="text-[var(--ui-text-muted)]">
+                        <span className="text-muted-foreground">
                           {item.unitPrice.toFixed(2)} {currencySymbol} / unit
                         </span>
                       )}
                     </div>
                     {item.totalPrice && (
-                      <span className={cn("mt-1 font-medium", group.hasAlternatives && !isCountedInTotal && "text-[var(--ui-text-muted)]")}>
+                      <span className={cn("mt-1 font-medium", group.hasAlternatives && !isCountedInTotal && "text-muted-foreground")}>
                         Total: {item.totalPrice.toFixed(2)} {currencySymbol}
                       </span>
                     )}
                     {item.catalogNumber && (
-                      <span className="mt-1 text-xs text-[var(--ui-text-muted)]">
-                        Catalog #: <span className="font-medium text-[var(--ui-text-main)]">{item.catalogNumber}</span>
+                      <span className="mt-1 text-xs text-muted-foreground">
+                        Catalog #: <span className="font-medium text-foreground">{item.catalogNumber}</span>
                       </span>
                     )}
                   </div>
@@ -678,11 +681,11 @@ export function ShoppingListSection({
                     <div className="mt-3 flex items-center gap-2">
                       <Avatar className="h-6 w-6 border border-border/70 shadow-sm">
                         <AvatarImage src={teamMembers?.find((member) => member.clerkUserId === item.assignedTo)?.imageUrl} />
-                        <AvatarFallback className="bg-[var(--ui-surface-soft)] text-[10px] text-[var(--ui-text-main)]">
+                        <AvatarFallback className="bg-muted text-xs text-foreground">
                           {getAssignedMemberName(item.assignedTo)?.[0]}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="text-xs text-[var(--ui-text-muted)]">
+                      <span className="text-xs text-muted-foreground">
                         {getAssignedMemberName(item.assignedTo)}
                       </span>
                     </div>
@@ -690,7 +693,7 @@ export function ShoppingListSection({
                 </div>
               </div>
 
-              <div className="flex w-full flex-wrap items-center justify-between gap-3 border-t border-[var(--ui-border-soft)] pt-3 lg:w-auto lg:flex-col lg:items-end lg:border-t-0 lg:pt-0">
+              <div className="flex w-full flex-wrap items-center justify-between gap-3 border-t pt-3 lg:w-auto lg:flex-col lg:items-end lg:border-t-0 lg:pt-0">
                 <Badge variant={getStatusColor(item.realizationStatus)} className="text-xs px-2.5 py-0.5">
                   {item.realizationStatus}
                 </Badge>
@@ -716,7 +719,7 @@ export function ShoppingListSection({
             </div>
 
             {expandedDetails[String(item._id)] && (
-              <div className="mt-4 animate-in slide-in-from-top-2 border-t border-[var(--ui-border-soft)] pt-4 duration-200">
+              <div className="mt-4 animate-in slide-in-from-top-2 border-t pt-4 duration-200">
                 <ShoppingListItemDetails item={item} teamMembers={teamMembers} />
               </div>
             )}
@@ -727,20 +730,20 @@ export function ShoppingListSection({
   };
 
   return (
-    <div className="mb-10 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-4 shadow-[0_24px_60px_rgba(20,20,20,0.08)] sm:rounded-[32px] sm:p-8">
+    <div className="mb-10 rounded-3xl border bg-card p-4 shadow-sm sm:p-8">
       <div className="mb-6 flex flex-col justify-between gap-4 sm:mb-8 sm:flex-row sm:items-center">
         <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-          <h2 className="font-[var(--font-display-serif)] text-xl font-medium text-[var(--ui-text-strong)] sm:text-2xl">{sectionName}</h2>
-          <span className="inline-flex items-center justify-center rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-muted)]">
+          <h2 className="text-xl font-medium text-foreground sm:text-2xl">{sectionName}</h2>
+          <span className="inline-flex items-center justify-center rounded-full border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
             {visibleGroupCount} {visibleGroupCount === 1 ? 'group' : 'groups'}
           </span>
           {hiddenAlternativeCount > 0 && (
-            <span className="inline-flex items-center justify-center rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-muted)]">
+            <span className="inline-flex items-center justify-center rounded-full border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
               {hiddenAlternativeCount} hidden in groups
             </span>
           )}
           {sectionTotal > 0 && (
-            <span className="inline-flex items-center justify-center rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-main)]">
+            <span className="inline-flex items-center justify-center rounded-full border bg-muted px-3 py-1 text-xs font-medium text-foreground">
               {sectionTotal.toFixed(2)} {currencySymbol}
             </span>
           )}
@@ -748,16 +751,16 @@ export function ShoppingListSection({
         <Button
           variant="ghost"
           size="sm"
-          className="self-end rounded-full hover:bg-[var(--ui-surface-soft)] sm:self-auto"
+          className="self-end rounded-full sm:self-auto"
           onClick={() => setShowAddForm(!showAddForm)}
         >
           <PlusIcon className="h-4 w-4" />
         </Button>
       </div>
 
-      <div className="space-y-4">
+      <div className="flex flex-col gap-4">
         {showAddForm && (
-          <div className="mb-8 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] p-6">
+          <div className="mb-8 rounded-3xl border bg-muted/40 p-6">
             <AddItemForm
               sections={sections}
               teamMembers={teamMembers}
@@ -775,66 +778,84 @@ export function ShoppingListSection({
           </div>
         )}
 
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
           {alternativeGroups.map((group) => (
-            <div
-              key={group.root._id}
-              className="rounded-[20px] border border-[var(--ui-border-soft)]/50 bg-[var(--ui-surface-base)] p-5"
-            >
-              {(group.hasAlternatives || group.isOrphanAlternative) && (
-                <div className="mb-4 flex flex-col gap-3 border-b border-[var(--ui-border-soft)] pb-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="min-w-0">
-                    <h3 className="text-lg font-medium text-[var(--ui-text-strong)]">
-                      {group.root.name}
-                    </h3>
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      {group.hasAlternatives && (
-                        <Badge variant="outline" className="text-[10px]">
-                          {group.options.length} options in this group
-                        </Badge>
-                      )}
-                      {group.hasAlternatives && (
-                        <Badge variant="secondary" className="text-[10px]">
-                          Counted in total: {group.selectedOption.name}
-                        </Badge>
-                      )}
-                      {group.isOrphanAlternative && (
-                        <Badge variant="outline" className="text-[10px]">
-                          Parent item is not in this section
-                        </Badge>
-                      )}
-                    </div>
+            (() => {
+              const hasCustomerFeedback =
+                (group.root.customerDecision === "accepted" || group.root.customerDecision === "rejected") ||
+                !!group.root.customerDecisionComment?.trim();
+              const shouldRenderGroupShell =
+                group.hasAlternatives || group.isOrphanAlternative || hasCustomerFeedback;
+
+              if (!shouldRenderGroupShell) {
+                return (
+                  <div key={group.root._id}>
+                    {group.options.map((item) => renderOptionRow(item, group))}
                   </div>
-                  {group.hasAlternatives && (
-                    <div className="max-w-xs text-sm text-[var(--ui-text-muted)]">
-                      Client choice is handled inside the option rows. The selected row is the only one counted in totals.
+                );
+              }
+
+              return (
+                <div
+                  key={group.root._id}
+                  className="rounded-2xl border border-border/40 bg-transparent p-5"
+                >
+                  {(group.hasAlternatives || group.isOrphanAlternative) && (
+                    <div className="mb-4 flex flex-col gap-3 border-b pb-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="min-w-0">
+                        <h3 className="text-lg font-medium text-foreground">
+                          {group.root.name}
+                        </h3>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          {group.hasAlternatives && (
+                            <Badge variant="outline" className="text-xs">
+                              {group.options.length} options in this group
+                            </Badge>
+                          )}
+                          {group.hasAlternatives && (
+                            <Badge variant="secondary" className="text-xs">
+                              Counted in total: {group.selectedOption.name}
+                            </Badge>
+                          )}
+                          {group.isOrphanAlternative && (
+                            <Badge variant="outline" className="text-xs">
+                              Parent item is not in this section
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      {group.hasAlternatives && (
+                        <div className="max-w-xs text-sm text-muted-foreground">
+                          Client choice is handled inside the option rows. The selected row is the only one counted in totals.
+                        </div>
+                      )}
                     </div>
                   )}
+
+                  {!group.isOrphanAlternative && renderCustomerFeedback(group.root)}
+
+                  <div className={cn("flex flex-col gap-3", !group.isOrphanAlternative && group.hasAlternatives && "mt-4")}>
+                    {group.options.map((item) => renderOptionRow(item, group))}
+                  </div>
                 </div>
-              )}
-
-              {!group.isOrphanAlternative && renderCustomerFeedback(group.root)}
-
-              <div className={cn("space-y-3", !group.isOrphanAlternative && group.hasAlternatives && "mt-4")}>
-                {group.options.map((item) => renderOptionRow(item, group))}
-              </div>
-            </div>
+              );
+            })()
           ))}
         </div>
 
         {items.length === 0 && !showAddForm && (
-          <div className="py-8 text-center text-[var(--ui-text-muted)]">
-            <p className="text-sm">No shopping items in this section</p>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="mt-2"
-              onClick={() => setShowAddForm(true)}
-            >
-              <PlusIcon className="mr-2 h-4 w-4" />
-              Add first item
-            </Button>
-          </div>
+          <Empty className="py-8">
+            <EmptyHeader>
+              <EmptyTitle>No shopping items in this section</EmptyTitle>
+              <EmptyDescription>Add the first product to start building this section.</EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              <Button variant="outline" size="sm" onClick={() => setShowAddForm(true)}>
+                <PlusIcon className="mr-2 h-4 w-4" />
+                Add first item
+              </Button>
+            </EmptyContent>
+          </Empty>
         )}
       </div>
     </div>

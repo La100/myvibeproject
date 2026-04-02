@@ -27,63 +27,63 @@ export const TOOL_CONFIGS: Record<string, ToolConfig> = {
     label: "Managing Tasks",
     description: "Preparing task changes",
     category: "edit",
-    color: "text-amber-500",
+    color: "text-primary",
   },
   manage_notes: {
     icon: Layers,
     label: "Managing Notes",
     description: "Preparing note changes",
     category: "edit",
-    color: "text-amber-500",
+    color: "text-primary",
   },
   manage_contacts: {
     icon: Layers,
     label: "Managing Contacts",
     description: "Preparing contact changes",
     category: "edit",
-    color: "text-amber-500",
+    color: "text-primary",
   },
   manage_shopping: {
     icon: Layers,
     label: "Managing Shopping",
     description: "Preparing shopping item or section changes",
     category: "edit",
-    color: "text-amber-500",
+    color: "text-primary",
   },
   manage_labor: {
     icon: Layers,
     label: "Managing Labor",
     description: "Preparing labor item or section changes",
     category: "edit",
-    color: "text-amber-500",
+    color: "text-primary",
   },
   manage_surveys: {
     icon: Layers,
     label: "Managing Surveys",
     description: "Preparing survey changes",
     category: "edit",
-    color: "text-amber-500",
+    color: "text-primary",
   },
   load_full_project_context: {
     icon: Database,
     label: "Loading Project Context",
     description: "Loading complete project data",
     category: "context",
-    color: "text-purple-500",
+    color: "text-muted-foreground",
   },
   search_items: {
     icon: Search,
     label: "Searching Items",
     description: "Looking for matching items",
     category: "search",
-    color: "text-blue-500",
+    color: "text-primary",
   },
   update_project_settings: {
     icon: Edit3,
     label: "Updating Project Settings",
     description: "Preparing project settings updates",
     category: "edit",
-    color: "text-amber-500",
+    color: "text-primary",
   },
 };
 
@@ -100,7 +100,7 @@ export function getToolConfig(toolName: string): ToolConfig {
     label: toolName.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
     description: `Executing ${toolName}`,
     category: "context",
-    color: "text-gray-500",
+    color: "text-muted-foreground",
   };
 }
 
@@ -111,33 +111,33 @@ export function getCategoryStyles(category: ToolConfig["category"]) {
   switch (category) {
     case "context":
       return {
-        bgColor: "bg-purple-50 dark:bg-purple-950/30",
-        borderColor: "border-purple-200 dark:border-purple-800",
-        dotColor: "bg-purple-500",
+        bgColor: "bg-muted/40",
+        borderColor: "border-border/70",
+        dotColor: "bg-muted-foreground",
       };
     case "search":
       return {
-        bgColor: "bg-blue-50 dark:bg-blue-950/30",
-        borderColor: "border-blue-200 dark:border-blue-800",
-        dotColor: "bg-blue-500",
+        bgColor: "bg-primary/10",
+        borderColor: "border-primary/20",
+        dotColor: "bg-primary",
       };
     case "create":
       return {
-        bgColor: "bg-green-50 dark:bg-green-950/30",
-        borderColor: "border-green-200 dark:border-green-800",
-        dotColor: "bg-green-500",
+        bgColor: "bg-secondary/50",
+        borderColor: "border-border/70",
+        dotColor: "bg-secondary-foreground",
       };
     case "edit":
       return {
-        bgColor: "bg-amber-50 dark:bg-amber-950/30",
-        borderColor: "border-amber-200 dark:border-amber-800",
-        dotColor: "bg-amber-500",
+        bgColor: "bg-accent/50",
+        borderColor: "border-border/70",
+        dotColor: "bg-accent-foreground",
       };
     case "delete":
       return {
-        bgColor: "bg-red-50 dark:bg-red-950/30",
-        borderColor: "border-red-200 dark:border-red-800",
-        dotColor: "bg-red-500",
+        bgColor: "bg-destructive/10",
+        borderColor: "border-destructive/20",
+        dotColor: "bg-destructive",
       };
   }
 }

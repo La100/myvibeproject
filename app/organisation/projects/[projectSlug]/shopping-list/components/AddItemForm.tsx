@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -177,24 +178,24 @@ export function AddItemForm({
   const totalPrice = newItemUnitPrice ? newItemQuantity * (parseFloat(newItemUnitPrice) || 0) : 0;
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div>
-          <label className="text-sm font-medium text-[var(--ui-text-main)] mb-1.5 block">Product Name *</label>
+        <Field>
+          <FieldLabel>Product Name *</FieldLabel>
           <Input
             value={newItemName}
             onChange={(e) => setNewItemName(e.target.value)}
             placeholder="e.g. Kitchen Countertop Navona"
-            className="h-12 rounded-[18px] border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-sm focus-visible:ring-[var(--ui-accent-brand)]"
+            className="h-12 text-sm"
           />
-        </div>
-        <div>
-          <label className="text-sm font-medium text-[var(--ui-text-main)] mb-1.5 block">Section</label>
+        </Field>
+        <Field>
+          <FieldLabel>Section</FieldLabel>
           <Select
             value={newItemSectionId}
             onValueChange={(value) => setNewItemSectionId(value as Id<"shoppingListSections"> | "none")}
           >
-            <SelectTrigger className="h-12 rounded-[18px] border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-sm focus-visible:ring-[var(--ui-accent-brand)]">
+            <SelectTrigger className="h-12 text-sm">
               <SelectValue placeholder="Select section" />
             </SelectTrigger>
             <SelectContent>
@@ -206,101 +207,101 @@ export function AddItemForm({
               ))}
             </SelectContent>
           </Select>
-        </div>
-        <div>
-          <label className="text-sm font-medium text-[var(--ui-text-main)] mb-1.5 block">Supplier</label>
+        </Field>
+        <Field>
+          <FieldLabel>Supplier</FieldLabel>
           <Input
             value={newItemSupplier}
             onChange={(e) => setNewItemSupplier(e.target.value)}
             placeholder="e.g. kronosfera.pl"
-            className="h-12 rounded-[18px] border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-sm focus-visible:ring-[var(--ui-accent-brand)]"
+            className="h-12 text-sm"
           />
-        </div>
-        <div>
-          <label className="text-sm font-medium text-[var(--ui-text-main)] mb-1.5 block">Catalog Number</label>
+        </Field>
+        <Field>
+          <FieldLabel>Catalog Number</FieldLabel>
           <Input
             value={newItemCatalogNumber}
             onChange={(e) => setNewItemCatalogNumber(e.target.value)}
             placeholder="e.g. BU1K367PH-3BC1"
-            className="h-12 rounded-[18px] border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-sm focus-visible:ring-[var(--ui-accent-brand)]"
+            className="h-12 text-sm"
           />
-        </div>
-        <div>
-          <label className="text-sm font-medium text-[var(--ui-text-main)] mb-1.5 block">Category</label>
+        </Field>
+        <Field>
+          <FieldLabel>Category</FieldLabel>
           <Input
             value={newItemCategory}
             onChange={(e) => setNewItemCategory(e.target.value)}
             placeholder="e.g. Furniture"
-            className="h-12 rounded-[18px] border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-sm focus-visible:ring-[var(--ui-accent-brand)]"
+            className="h-12 text-sm"
           />
-        </div>
-        <div>
-          <label className="text-sm font-medium text-[var(--ui-text-main)] mb-1.5 block">Dimensions</label>
+        </Field>
+        <Field>
+          <FieldLabel>Dimensions</FieldLabel>
           <Input
             value={newItemDimensions}
             onChange={(e) => setNewItemDimensions(e.target.value)}
             placeholder="e.g. 4100 x 1200"
-            className="h-12 rounded-[18px] border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-sm focus-visible:ring-[var(--ui-accent-brand)]"
+            className="h-12 text-sm"
           />
-        </div>
-        <div>
-          <label className="text-sm font-medium text-[var(--ui-text-main)] mb-1.5 block">Quantity</label>
+        </Field>
+        <Field>
+          <FieldLabel>Quantity</FieldLabel>
           <Input
             type="number"
             min="1"
             value={newItemQuantity}
             onChange={(e) => setNewItemQuantity(parseInt(e.target.value, 10) || 1)}
-            className="h-12 rounded-[18px] border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-sm focus-visible:ring-[var(--ui-accent-brand)]"
+            className="h-12 text-sm"
           />
-        </div>
-        <div>
-          <label className="text-sm font-medium text-[var(--ui-text-main)] mb-1.5 block">Unit Price ({currencySymbol})</label>
+        </Field>
+        <Field>
+          <FieldLabel>Unit Price ({currencySymbol})</FieldLabel>
           <Input
             type="number"
             step="0.01"
             value={newItemUnitPrice}
             onChange={(e) => setNewItemUnitPrice(e.target.value)}
             placeholder="0.00"
-            className="h-12 rounded-[18px] border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-sm focus-visible:ring-[var(--ui-accent-brand)]"
+            className="h-12 text-sm"
           />
-        </div>
-        <div>
-          <label className="text-sm font-medium text-[var(--ui-text-main)] mb-1.5 block">Product Link</label>
+        </Field>
+        <Field>
+          <FieldLabel>Product Link</FieldLabel>
           <div className="flex items-center gap-2">
             <Input
               value={newItemProductLink}
               onChange={(e) => setNewItemProductLink(e.target.value)}
               placeholder="https://..."
-              className="h-12 rounded-[18px] border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-sm focus-visible:ring-[var(--ui-accent-brand)]"
+              className="h-12 text-sm"
             />
             <Button
               type="button"
               variant="outline"
               disabled={isPending || isScraping || !newItemProductLink.trim()}
               onClick={handleScrapeByUrl}
-              className="h-12 shrink-0 rounded-[18px] border-[var(--ui-border-soft)] px-4"
+              className="h-12 shrink-0 px-4"
             >
               {isScraping ? <Loader2 className="h-4 w-4 animate-spin" /> : <WandSparkles className="h-4 w-4" />}
               <span className="ml-2 hidden xl:inline">{isScraping ? 'Scraping...' : 'Auto-fill'}</span>
             </Button>
           </div>
-        </div>
-        <div className="md:col-span-2 lg:col-span-3">
-          <label className="text-sm font-medium text-[var(--ui-text-main)] mb-1.5 block">Image URL</label>
+        </Field>
+        <Field className="md:col-span-2 lg:col-span-3">
+          <FieldLabel>Image URL</FieldLabel>
           <Input
             value={newItemImageUrl}
             onChange={(e) => setNewItemImageUrl(e.target.value)}
             placeholder="https://..."
-            className="h-12 rounded-[18px] border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-sm focus-visible:ring-[var(--ui-accent-brand)]"
+            className="h-12 text-sm"
           />
-        </div>
-        <div>
-          <label className="text-sm font-medium text-[var(--ui-text-main)] mb-1.5 block">Assign To</label>
+        </Field>
+        <Field>
+          <FieldLabel>Assign To</FieldLabel>
           <Select
             value={newItemAssignedTo}
             onValueChange={setNewItemAssignedTo}
           >
-            <SelectTrigger className="h-12 rounded-[18px] border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-sm focus-visible:ring-[var(--ui-accent-brand)]">
+            <SelectTrigger className="h-12 text-sm">
               <SelectValue placeholder="Select user" />
             </SelectTrigger>
             <SelectContent>
@@ -318,15 +319,15 @@ export function AddItemForm({
               ))}
             </SelectContent>
           </Select>
-        </div>
-        <div>
-          <label className="text-sm font-medium text-[var(--ui-text-main)] mb-1.5 block">Buy Before</label>
+        </Field>
+        <Field>
+          <FieldLabel>Buy Before</FieldLabel>
           <Popover>
             <PopoverTrigger asChild>
               <Button
                 variant={"outline"}
                 className={cn(
-                  "w-full justify-start text-left font-normal h-12 rounded-[18px] border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-sm hover:bg-[var(--ui-surface-soft)]",
+                  "h-12 w-full justify-start text-left font-normal text-sm",
                   !newItemBuyBefore && "text-muted-foreground"
                 )}
               >
@@ -343,13 +344,13 @@ export function AddItemForm({
               />
             </PopoverContent>
           </Popover>
-        </div>
+        </Field>
       </div>
 
       {totalPrice > 0 && (
         <div className="flex items-center justify-end gap-2 text-sm">
-          <span className="text-[var(--ui-text-muted)]">Total:</span>
-          <span className="font-medium text-[var(--ui-text-strong)]">
+          <span className="text-muted-foreground">Total:</span>
+          <span className="font-medium text-foreground">
             {totalPrice.toFixed(2)} {currencySymbol}
           </span>
         </div>
@@ -359,7 +360,7 @@ export function AddItemForm({
         <Button
           onClick={handleAddItem}
           disabled={isPending || isScraping || !newItemName.trim()}
-          className="rounded-lg bg-[var(--ui-action-bg)] px-6 h-11 text-[var(--primary-foreground)] shadow-[0_14px_36px_rgba(14,14,14,0.18)] hover:bg-[var(--ui-action-hover)]"
+          className="h-11 px-6"
         >
           {isPending ? 'Adding...' : 'Add Product'}
         </Button>

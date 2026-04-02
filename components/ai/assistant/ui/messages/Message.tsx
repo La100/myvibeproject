@@ -189,7 +189,7 @@ export const PurePreviewMessage = ({
           )}
 
           {!isUser && mediaImageUrl && (
-            <div className="max-w-full space-y-2">
+            <div className="max-w-full flex flex-col gap-2">
               <div
                 className={cn(
                   "relative overflow-hidden rounded-2xl border border-border/50 bg-muted/20 shadow-sm transition-shadow",

@@ -161,48 +161,48 @@ type CalendarResponse = {
 const WEEKDAY_HEADERS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const statusBadgeColors: Record<string, string> = {
-  todo: "bg-gray-100 text-gray-700 border-gray-200",
-  in_progress: "bg-blue-100 text-blue-700 border-blue-200",
-  review: "bg-purple-100 text-purple-700 border-purple-200",
-  done: "bg-green-100 text-green-700 border-green-200",
+  todo: "bg-muted text-muted-foreground border-border",
+  in_progress: "bg-primary/10 text-primary border-primary/20",
+  review: "bg-accent text-accent-foreground border-border",
+  done: "bg-secondary text-secondary-foreground border-border",
 };
 
 const priorityBorderColors: Record<string, string> = {
-  low: "border-l-gray-300",
-  medium: "border-l-blue-300",
-  high: "border-l-orange-300",
-  urgent: "border-l-red-400",
+  low: "border-l-border",
+  medium: "border-l-primary/50",
+  high: "border-l-accent",
+  urgent: "border-l-destructive",
 };
 
 const shoppingStatusColors: Record<string, string> = {
-  PLANNED: "bg-slate-100 text-slate-700 border-slate-200",
-  ORDERED: "bg-blue-100 text-blue-700 border-blue-200",
-  IN_TRANSIT: "bg-indigo-100 text-indigo-700 border-indigo-200",
-  DELIVERED: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  COMPLETED: "bg-green-100 text-green-700 border-green-200",
-  CANCELLED: "bg-rose-100 text-rose-700 border-rose-200",
+  PLANNED: "bg-muted text-muted-foreground border-border",
+  ORDERED: "bg-primary/10 text-primary border-primary/20",
+  IN_TRANSIT: "bg-secondary text-secondary-foreground border-border",
+  DELIVERED: "bg-accent text-accent-foreground border-border",
+  COMPLETED: "bg-secondary text-secondary-foreground border-border",
+  CANCELLED: "bg-destructive/10 text-destructive border-destructive/20",
 };
 
 const surveyStatusColors: Record<string, string> = {
-  draft: "bg-amber-100 text-amber-700 border-amber-200",
-  active: "bg-green-100 text-green-700 border-green-200",
-  closed: "bg-slate-100 text-slate-700 border-slate-200",
+  draft: "bg-muted text-muted-foreground border-border",
+  active: "bg-primary/10 text-primary border-primary/20",
+  closed: "bg-secondary text-secondary-foreground border-border",
 };
 
 const estimationStatusColors: Record<string, string> = {
-  draft: "bg-slate-100 text-slate-700 border-slate-200",
-  sent: "bg-blue-100 text-blue-700 border-blue-200",
-  accepted: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  rejected: "bg-rose-100 text-rose-700 border-rose-200",
-  expired: "bg-amber-100 text-amber-700 border-amber-200",
+  draft: "bg-muted text-muted-foreground border-border",
+  sent: "bg-primary/10 text-primary border-primary/20",
+  accepted: "bg-secondary text-secondary-foreground border-border",
+  rejected: "bg-destructive/10 text-destructive border-destructive/20",
+  expired: "bg-accent text-accent-foreground border-border",
 };
 
 const milestoneStatusColors: Record<string, string> = {
-  planned: "bg-slate-100 text-slate-700 border-slate-200",
-  in_progress: "bg-blue-100 text-blue-700 border-blue-200",
-  at_risk: "bg-amber-100 text-amber-700 border-amber-200",
-  blocked: "bg-rose-100 text-rose-700 border-rose-200",
-  completed: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  planned: "bg-muted text-muted-foreground border-border",
+  in_progress: "bg-primary/10 text-primary border-primary/20",
+  at_risk: "bg-accent text-accent-foreground border-border",
+  blocked: "bg-destructive/10 text-destructive border-destructive/20",
+  completed: "bg-secondary text-secondary-foreground border-border",
 };
 
 // --- Helpers ---
@@ -488,14 +488,14 @@ export default function ProjectCalendar() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <ProjectPageHeader
         title="Calendar"
-        icon={<CalendarDays className="h-8 w-8 text-[var(--ui-accent-brand)]" />}
+        icon={<CalendarDays className="h-8 w-8 text-primary" />}
         subtitle={`Timeline and planning for ${project.name}`}
       />
-      <div className="flex h-full w-full flex-col overflow-hidden rounded-xl border bg-card">
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b bg-card">
+      <div className="flex h-full w-full flex-col overflow-hidden rounded-2xl border bg-card">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-card px-4 py-3">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goToPrevMonth}>
             <ChevronLeft className="h-4 w-4" />
@@ -508,14 +508,14 @@ export default function ProjectCalendar() {
           </Button>
         </div>
 
-        <div className="flex items-center gap-1.5 flex-wrap justify-end">
+        <div className="flex flex-wrap items-center justify-end gap-1.5">
           <Button
             variant={visibleTypes.has("task") ? "secondary" : "ghost"}
             size="sm"
             className="h-8 gap-1.5 text-xs"
             onClick={() => toggleType("task")}
           >
-            <div className="h-2 w-2 rounded-full bg-blue-500" />
+            <div className="h-2 w-2 rounded-full bg-primary" />
             Tasks
           </Button>
           <Button
@@ -524,7 +524,7 @@ export default function ProjectCalendar() {
             className="h-8 gap-1.5 text-xs"
             onClick={() => toggleType("shopping")}
           >
-            <div className="h-2 w-2 rounded-full bg-emerald-500" />
+            <div className="h-2 w-2 rounded-full bg-secondary" />
             Shopping
           </Button>
           <Button
@@ -533,7 +533,7 @@ export default function ProjectCalendar() {
             className="h-8 gap-1.5 text-xs"
             onClick={() => toggleType("labor")}
           >
-            <div className="h-2 w-2 rounded-full bg-orange-500" />
+            <div className="h-2 w-2 rounded-full bg-accent" />
             Labor
           </Button>
           <Button
@@ -542,7 +542,7 @@ export default function ProjectCalendar() {
             className="h-8 gap-1.5 text-xs"
             onClick={() => toggleType("survey")}
           >
-            <div className="h-2 w-2 rounded-full bg-purple-500" />
+            <div className="h-2 w-2 rounded-full bg-primary/70" />
             Surveys
           </Button>
           <Button
@@ -551,7 +551,7 @@ export default function ProjectCalendar() {
             className="h-8 gap-1.5 text-xs"
             onClick={() => toggleType("estimation")}
           >
-            <div className="h-2 w-2 rounded-full bg-fuchsia-500" />
+            <div className="h-2 w-2 rounded-full bg-secondary" />
             Estimates
           </Button>
           <Button
@@ -560,7 +560,7 @@ export default function ProjectCalendar() {
             className="h-8 gap-1.5 text-xs"
             onClick={() => toggleType("note")}
           >
-            <div className="h-2 w-2 rounded-full bg-amber-500" />
+            <div className="h-2 w-2 rounded-full bg-muted-foreground" />
             Notes
           </Button>
           <Button
@@ -569,14 +569,14 @@ export default function ProjectCalendar() {
             className="h-8 gap-1.5 text-xs"
             onClick={() => toggleType("project")}
           >
-            <div className="h-2 w-2 rounded-full bg-rose-500" />
+            <div className="h-2 w-2 rounded-full bg-destructive" />
             Milestones
           </Button>
         </div>
       </div>
 
         <ScrollArea className="flex-1">
-          <div className="p-4 space-y-4">
+          <div className="flex flex-col gap-4 p-4">
           <div className="grid grid-cols-7 gap-px rounded-t-lg overflow-hidden">
             {WEEKDAY_HEADERS.map((day) => (
               <div
@@ -636,34 +636,34 @@ export default function ProjectCalendar() {
 
                   <div className="flex flex-wrap gap-0.5 mt-1">
                     {visibleTypes.has("task") && hasDayContent(data, "task") && (
-                      <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                      <div className="h-1.5 w-1.5 rounded-full bg-primary" />
                     )}
                     {visibleTypes.has("shopping") && hasDayContent(data, "shopping") && (
-                      <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                      <div className="h-1.5 w-1.5 rounded-full bg-secondary" />
                     )}
                     {visibleTypes.has("labor") && hasDayContent(data, "labor") && (
-                      <div className="h-1.5 w-1.5 rounded-full bg-orange-500" />
+                      <div className="h-1.5 w-1.5 rounded-full bg-accent" />
                     )}
                     {visibleTypes.has("survey") && hasDayContent(data, "survey") && (
-                      <div className="h-1.5 w-1.5 rounded-full bg-purple-500" />
+                      <div className="h-1.5 w-1.5 rounded-full bg-secondary" />
                     )}
                     {visibleTypes.has("estimation") && hasDayContent(data, "estimation") && (
-                      <div className="h-1.5 w-1.5 rounded-full bg-fuchsia-500" />
+                      <div className="h-1.5 w-1.5 rounded-full bg-primary/60" />
                     )}
                     {visibleTypes.has("note") && hasDayContent(data, "note") && (
-                      <div className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                      <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
                     )}
                     {visibleTypes.has("project") && hasDayContent(data, "project") && (
-                      <div className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+                      <div className="h-1.5 w-1.5 rounded-full bg-destructive" />
                     )}
                   </div>
 
                   {visibleTypes.has("task") && (data?.tasks.length ?? 0) > 0 && (
-                    <div className="hidden sm:block mt-1 space-y-0.5">
+                    <div className="hidden sm:block mt-1 flex flex-col gap-0.5">
                       {data!.tasks.slice(0, 2).map((task) => (
                         <div
                           key={task._id}
-                          className="text-[10px] leading-tight truncate text-blue-700 dark:text-blue-400"
+                          className="text-[10px] leading-tight truncate text-primary"
                         >
                           {task.title}
                         </div>
@@ -682,7 +682,7 @@ export default function ProjectCalendar() {
 
           {selectedDate && selectedDayData && (
             <Card className="rounded-2xl border bg-card/80">
-              <CardContent className="p-4 space-y-4">
+              <CardContent className="flex flex-col gap-4 p-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold">
                     {format(new Date(`${selectedDate}T00:00:00`), "EEEE, MMMM d, yyyy")}
@@ -700,18 +700,18 @@ export default function ProjectCalendar() {
                 {visibleTypes.has("task") && selectedDayData.tasks.length > 0 && (
                   <div>
                     <div className="flex items-center gap-2 mb-2">
-                      <CheckSquare className="h-4 w-4 text-blue-500" />
+                      <CheckSquare className="h-4 w-4 text-primary" />
                       <span className="text-sm font-medium">
                         Tasks ({selectedDayData.tasks.length})
                       </span>
                     </div>
-                    <div className="space-y-2">
+                    <div className="flex flex-col gap-2">
                       {selectedDayData.tasks.map((task) => (
                         <div
                           key={task._id}
                           className={cn(
-                            "flex items-center justify-between p-2.5 rounded-lg border-l-4 bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30",
-                            task.priority ? priorityBorderColors[task.priority] : "border-l-gray-200",
+                            "flex items-center justify-between rounded-lg border border-border bg-primary/5 p-2.5",
+                            task.priority ? priorityBorderColors[task.priority] : "border-l-border",
                           )}
                         >
                           <div className="min-w-0 flex-1">
@@ -742,16 +742,16 @@ export default function ProjectCalendar() {
                 {visibleTypes.has("shopping") && selectedDayData.shopping.length > 0 && (
                   <div>
                     <div className="flex items-center gap-2 mb-2">
-                      <ShoppingBag className="h-4 w-4 text-emerald-500" />
+                      <ShoppingBag className="h-4 w-4 text-secondary-foreground" />
                       <span className="text-sm font-medium">
                         Shopping ({selectedDayData.shopping.length})
                       </span>
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="flex flex-col gap-1.5">
                       {selectedDayData.shopping.map((item) => (
                         <div
                           key={item._id}
-                          className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30"
+                          className="flex items-center justify-between gap-2 rounded-lg border border-border bg-secondary/30 p-2.5"
                         >
                           <div className="min-w-0">
                             <p className="text-sm font-medium truncate">{item.name}</p>
@@ -775,16 +775,16 @@ export default function ProjectCalendar() {
                 {visibleTypes.has("labor") && selectedDayData.labor.length > 0 && (
                   <div>
                     <div className="flex items-center gap-2 mb-2">
-                      <Hammer className="h-4 w-4 text-orange-500" />
+                      <Hammer className="h-4 w-4 text-accent-foreground" />
                       <span className="text-sm font-medium">
                         Labor ({selectedDayData.labor.length})
                       </span>
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="flex flex-col gap-1.5">
                       {selectedDayData.labor.map((item) => (
                         <div
                           key={item._id}
-                          className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-orange-50/50 dark:bg-orange-950/20 border border-orange-100 dark:border-orange-900/30"
+                          className="flex items-center justify-between gap-2 rounded-lg border border-border bg-accent/30 p-2.5"
                         >
                           <div className="min-w-0">
                             <p className="text-sm font-medium truncate">{item.name}</p>
@@ -802,16 +802,16 @@ export default function ProjectCalendar() {
                 {visibleTypes.has("survey") && selectedDayData.surveys.length > 0 && (
                   <div>
                     <div className="flex items-center gap-2 mb-2">
-                      <ClipboardList className="h-4 w-4 text-purple-500" />
+                      <ClipboardList className="h-4 w-4 text-primary/70" />
                       <span className="text-sm font-medium">
                         Surveys ({selectedDayData.surveys.length})
                       </span>
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="flex flex-col gap-1.5">
                       {selectedDayData.surveys.map((survey) => (
                         <div
                           key={survey._id}
-                          className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-purple-50/50 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/30"
+                          className="flex items-center justify-between gap-2 rounded-lg border border-border bg-primary/5 p-2.5"
                         >
                           <div className="min-w-0">
                             <p className="text-sm font-medium truncate">{survey.title}</p>
@@ -834,16 +834,16 @@ export default function ProjectCalendar() {
                 {visibleTypes.has("estimation") && selectedDayData.estimations.length > 0 && (
                   <div>
                     <div className="flex items-center gap-2 mb-2">
-                      <Receipt className="h-4 w-4 text-fuchsia-500" />
+                      <Receipt className="h-4 w-4 text-secondary-foreground" />
                       <span className="text-sm font-medium">
                         Estimations ({selectedDayData.estimations.length})
                       </span>
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="flex flex-col gap-1.5">
                       {selectedDayData.estimations.map((estimation) => (
                         <div
                           key={estimation._id}
-                          className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-fuchsia-50/50 dark:bg-fuchsia-950/20 border border-fuchsia-100 dark:border-fuchsia-900/30"
+                          className="flex items-center justify-between gap-2 rounded-lg border border-border bg-secondary/40 p-2.5"
                         >
                           <div className="min-w-0">
                             <p className="text-sm font-medium truncate">{estimation.title}</p>
@@ -871,14 +871,14 @@ export default function ProjectCalendar() {
                 {visibleTypes.has("note") && selectedDayData.notes.length > 0 && (
                   <div>
                     <div className="flex items-center gap-2 mb-2">
-                      <FileText className="h-4 w-4 text-amber-500" />
+                      <FileText className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm font-medium">Notes ({selectedDayData.notes.length})</span>
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="flex flex-col gap-1.5">
                       {selectedDayData.notes.map((note) => (
                         <div
                           key={note._id}
-                          className="p-2.5 rounded-lg bg-amber-50/50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30"
+                          className="rounded-lg border border-border bg-muted/40 p-2.5"
                         >
                           <p className="text-sm font-medium truncate">{note.title}</p>
                           <p className="text-xs text-muted-foreground">
@@ -894,16 +894,16 @@ export default function ProjectCalendar() {
                 {visibleTypes.has("project") && selectedDayData.milestones.length > 0 && (
                   <div>
                     <div className="flex items-center gap-2 mb-2">
-                      <Flag className="h-4 w-4 text-rose-500" />
+                      <Flag className="h-4 w-4 text-destructive" />
                       <span className="text-sm font-medium">
                         Project milestones ({selectedDayData.milestones.length})
                       </span>
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="flex flex-col gap-1.5">
                       {selectedDayData.milestones.map((milestone) => (
                         <div
                           key={milestone._id}
-                          className="p-2.5 rounded-lg bg-rose-50/50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30"
+                          className="rounded-lg border border-border bg-destructive/5 p-2.5"
                         >
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="min-w-0">

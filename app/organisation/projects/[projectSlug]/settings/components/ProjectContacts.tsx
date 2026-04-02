@@ -127,14 +127,17 @@ export default function ProjectContacts({ project }: ProjectContactsProps) {
     return labels[type as keyof typeof labels] || type;
   };
 
-  const getTypeColor = (type: string) => {
-    const colors = {
-      contractor: "bg-blue-100 text-blue-800",
-      supplier: "bg-green-100 text-green-800",
-      subcontractor: "bg-purple-100 text-purple-800", 
-      other: "bg-gray-100 text-gray-800"
-    };
-    return colors[type as keyof typeof colors] || "bg-gray-100 text-gray-800";
+  const getTypeBadgeVariant = (type: string) => {
+    switch (type) {
+      case "contractor":
+        return "default" as const;
+      case "supplier":
+        return "secondary" as const;
+      case "subcontractor":
+        return "outline" as const;
+      default:
+        return "outline" as const;
+    }
   };
 
 
@@ -169,7 +172,7 @@ export default function ProjectContacts({ project }: ProjectContactsProps) {
                 </DialogDescription>
               </DialogHeader>
               
-              <div className="space-y-4">
+              <div className="flex flex-col gap-4">
                 <div>
                   <Label htmlFor="contact">Contact</Label>
                   <Select value={selectedContactId} onValueChange={(value) => setSelectedContactId(value as Id<"contacts"> | "")}>
@@ -231,18 +234,18 @@ export default function ProjectContacts({ project }: ProjectContactsProps) {
       
       <CardContent className="px-4 lg:px-6">
         {projectContacts && projectContacts.length > 0 ? (
-          <div className="space-y-4">
+          <div className="flex flex-col gap-4">
             {projectContacts.map((contact) => (
               <div
                 key={contact._id}
-                className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
+                className="rounded-xl border border-border/70 bg-card p-4 transition-colors hover:bg-muted/40"
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       <h3 className="font-semibold">{contact.name}</h3>
                       {contact.type && (
-                        <Badge className={getTypeColor(contact.type)}>
+                        <Badge variant={getTypeBadgeVariant(contact.type)}>
                           {getTypeLabel(contact.type)}
                         </Badge>
                       )}
@@ -287,7 +290,7 @@ export default function ProjectContacts({ project }: ProjectContactsProps) {
                     
                     
                     {contact.projectNotes && (
-                      <p className="text-sm text-muted-foreground mt-2 p-2 bg-muted rounded">
+                      <p className="mt-2 rounded-lg bg-muted p-2 text-sm text-muted-foreground">
                         {contact.projectNotes}
                       </p>
                     )}
@@ -297,7 +300,7 @@ export default function ProjectContacts({ project }: ProjectContactsProps) {
                     variant="ghost"
                     size="sm"
                     onClick={() => contact._id && handleRemoveContact(contact._id)}
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -323,7 +326,7 @@ export default function ProjectContacts({ project }: ProjectContactsProps) {
         )}
         
         {availableContacts.length === 0 && projectContacts && projectContacts.length > 0 && (
-          <div className="mt-4 p-3 bg-muted rounded-lg">
+          <div className="mt-4 rounded-lg bg-muted p-3">
             <p className="text-sm text-muted-foreground">
               All available contacts have been assigned to this project
             </p>

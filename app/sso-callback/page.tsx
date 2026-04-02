@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useClerk } from "@clerk/nextjs";
+import { Spinner } from "@/components/ui/spinner";
 
 export default function SSOCallbackPage() {
   const router = useRouter();
@@ -60,9 +61,9 @@ export default function SSOCallbackPage() {
   }, [clerk, router]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-center space-y-4">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent mx-auto" />
+    <div className="flex min-h-screen items-center justify-center">
+      <div className="flex flex-col items-center gap-4 text-center">
+        <Spinner fullHeight={false} />
         <p className="text-sm text-muted-foreground">
           {error ?? "Finishing sign-in..."}
         </p>

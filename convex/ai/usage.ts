@@ -1,6 +1,7 @@
 import { v } from "convex/values";
-import { internalMutation, query } from "../_generated/server";
+import { internalMutation, mutation, query } from "../_generated/server";
 import { getBillingWindow, getEffectiveLimits, SUBSCRIPTION_PLANS } from "../stripe";
+import { ensureProjectAccess } from "./access";
 
 // ====== TOKEN USAGE TRACKING ======
 
@@ -59,19 +60,71 @@ export const saveTokenUsage = internalMutation({
       (args.requestType === "chat" ? "assistant" : "other");
     const billableTokens = Math.max(0, args.billableTokens ?? args.totalTokens);
 
-    // Insert usage record
     const usageId = await ctx.db.insert("aiTokenUsage", {
       ...args,
       feature: resolvedFeature,
       billableTokens,
     });
 
-    // Decrement aiTokens from team. If balance was never initialized, seed from plan limit first.
     const team = await ctx.db.get(args.teamId);
     if (team) {
       const currentBalance = getTeamTokenBalance(team);
       const newBalance = Math.max(0, currentBalance - billableTokens);
       await ctx.db.patch(args.teamId, { aiTokens: newBalance });
+    }
+
+    return usageId;
+  },
+});
+
+export const recordSelfHostedChatKitUsage = mutation({
+  args: {
+    projectId: v.id("projects"),
+    teamId: v.id("teams"),
+    threadId: v.optional(v.string()),
+    model: v.string(),
+    feature: v.optional(
+      v.union(v.literal("assistant"), v.literal("visualizations"), v.literal("other")),
+    ),
+    requestType: v.union(v.literal("chat"), v.literal("embedding"), v.literal("other")),
+    inputTokens: v.number(),
+    outputTokens: v.number(),
+    totalTokens: v.number(),
+    billableTokens: v.optional(v.number()),
+    contextSize: v.optional(v.number()),
+    mode: v.optional(v.string()),
+    estimatedCostCents: v.optional(v.number()),
+    responseTimeMs: v.optional(v.number()),
+    success: v.boolean(),
+    errorMessage: v.optional(v.string()),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const { clerkUserId, project } = await ensureProjectAccess(ctx, args.projectId);
+    if (project.teamId !== args.teamId) {
+      throw new Error("Project does not belong to the provided team");
+    }
+
+    const payload = {
+      ...args,
+      userClerkId: clerkUserId,
+    };
+    const resolvedFeature =
+      payload.feature ||
+      (payload.requestType === "chat" ? "assistant" : "other");
+    const billableTokens = Math.max(0, payload.billableTokens ?? payload.totalTokens);
+
+    const usageId = await ctx.db.insert("aiTokenUsage", {
+      ...payload,
+      feature: resolvedFeature,
+      billableTokens,
+    });
+
+    const team = await ctx.db.get(payload.teamId);
+    if (team) {
+      const currentBalance = getTeamTokenBalance(team);
+      const newBalance = Math.max(0, currentBalance - billableTokens);
+      await ctx.db.patch(payload.teamId, { aiTokens: newBalance });
     }
 
     return usageId;

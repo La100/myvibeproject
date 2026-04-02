@@ -297,10 +297,10 @@ export default function SurveyResponsePage({ params }: SurveyResponsePageProps) 
   if (isResponseComplete) {
     return (
       <ProjectPageLayout>
-        <div className="space-y-6">
+        <div className="flex flex-col gap-6">
           <ProjectPageHeader
             title={survey.title}
-            icon={<Send className="h-8 w-8 text-[var(--ui-accent-brand)]" />}
+            icon={<Send className="h-8 w-8 text-primary" />}
             subtitle="Survey completed"
             actions={
               <Button
@@ -316,13 +316,13 @@ export default function SurveyResponsePage({ params }: SurveyResponsePageProps) 
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-green-600">Survey completed</CardTitle>
+              <CardTitle className="text-primary">Survey completed</CardTitle>
               <CardDescription>
                 Thank you for completing "{survey.title}". Your response has been saved.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-muted-foreground">
                 Submitted: {new Date(userResponse?.submittedAt || 0).toLocaleString()}
               </p>
             </CardContent>
@@ -334,10 +334,10 @@ export default function SurveyResponsePage({ params }: SurveyResponsePageProps) 
 
   return (
     <ProjectPageLayout>
-      <div className="space-y-6">
+      <div className="flex flex-col gap-6">
         <ProjectPageHeader
           title={survey.title}
-          icon={<Send className="h-8 w-8 text-[var(--ui-accent-brand)]" />}
+          icon={<Send className="h-8 w-8 text-primary" />}
           subtitle={survey.description}
           actions={
             <Button
@@ -347,10 +347,9 @@ export default function SurveyResponsePage({ params }: SurveyResponsePageProps) 
             >
               <ArrowLeft className="mr-2 h-5 w-5 stroke-[2.4]" />
               Back
-            </Button>
-          }
-        />
-
+              </Button>
+            }
+          />
 
         {!hasStarted ? (
           <Card>
@@ -367,7 +366,7 @@ export default function SurveyResponsePage({ params }: SurveyResponsePageProps) 
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-6">
+          <div className="flex flex-col gap-6">
             {survey.questions.map((question, index) => (
               <Card key={question._id}>
                 <CardHeader>
@@ -396,7 +395,7 @@ export default function SurveyResponsePage({ params }: SurveyResponsePageProps) 
                       onValueChange={(value) => handleAnswerChange(question._id, value)}
                     >
                       {question.options?.map((option, optionIndex) => (
-                        <div key={optionIndex} className="flex items-center space-x-2">
+                        <div key={optionIndex} className="flex items-center gap-2">
                           <RadioGroupItem value={option} id={`${question._id}-${optionIndex}`} />
                           <Label htmlFor={`${question._id}-${optionIndex}`}>{option}</Label>
                         </div>
@@ -405,9 +404,9 @@ export default function SurveyResponsePage({ params }: SurveyResponsePageProps) 
                   )}
 
                   {question.questionType === "multiple_choice" && (
-                    <div className="space-y-2">
+                    <div className="flex flex-col gap-2">
                       {question.options?.map((option, optionIndex) => (
-                        <div key={optionIndex} className="flex items-center space-x-2">
+                        <div key={optionIndex} className="flex items-center gap-2">
                           <Checkbox
                             id={`${question._id}-${optionIndex}`}
                             checked={Array.isArray(answers[question._id]) && (answers[question._id] as string[]).includes(option)}
@@ -426,8 +425,8 @@ export default function SurveyResponsePage({ params }: SurveyResponsePageProps) 
                   )}
 
                   {question.questionType === "rating" && (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-sm text-gray-600">
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center justify-between text-sm text-muted-foreground">
                         <span>{question.ratingScale?.minLabel || question.ratingScale?.min}</span>
                         <span>{question.ratingScale?.maxLabel || question.ratingScale?.max}</span>
                       </div>
@@ -457,11 +456,11 @@ export default function SurveyResponsePage({ params }: SurveyResponsePageProps) 
                       value={answers[question._id]?.toString() || ""}
                       onValueChange={(value) => handleAnswerChange(question._id, value === "true")}
                     >
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center gap-2">
                         <RadioGroupItem value="true" id={`${question._id}-yes`} />
                         <Label htmlFor={`${question._id}-yes`}>Yes</Label>
                       </div>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center gap-2">
                         <RadioGroupItem value="false" id={`${question._id}-no`} />
                         <Label htmlFor={`${question._id}-no`}>No</Label>
                       </div>
@@ -469,13 +468,13 @@ export default function SurveyResponsePage({ params }: SurveyResponsePageProps) 
                   )}
 
                   {question.questionType === "file" && (
-                    <div className="space-y-3">
-                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                        <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                        <div className="text-lg font-medium text-gray-900 mb-2">
+                    <div className="flex flex-col gap-3">
+                      <div className="rounded-2xl border-2 border-dashed border-border p-6 text-center">
+                        <Upload className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                        <div className="mb-2 text-lg font-medium text-foreground">
                           Upload a file
                         </div>
-                        <p className="text-sm text-gray-600 mb-4">
+                        <p className="mb-4 text-sm text-muted-foreground">
                           Click to choose a file or drag and drop it here
                         </p>
                         <input
@@ -498,8 +497,8 @@ export default function SurveyResponsePage({ params }: SurveyResponsePageProps) 
                         </Button>
                       </div>
                       {(answers[question._id] as { fileName?: string })?.fileName && (
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                          <div className="flex items-center text-green-800">
+                        <div className="rounded-xl border border-primary/20 bg-primary/5 p-3">
+                          <div className="flex items-center text-primary">
                             <Upload className="h-4 w-4 mr-2" />
                             <span className="text-sm font-medium">
                               Uploaded: {(answers[question._id] as { fileName: string })?.fileName}

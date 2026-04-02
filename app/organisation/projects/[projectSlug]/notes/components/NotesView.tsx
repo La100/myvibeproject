@@ -83,8 +83,8 @@ function NoteForm({ isOpen, onClose, onSubmit, note, isSubmitting }: NoteFormPro
         <DialogHeader>
           <DialogTitle>{note ? "Edit Note" : "Add New Note"}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
             <Label htmlFor="title">Title</Label>
             <Input
               id="title"
@@ -94,7 +94,7 @@ function NoteForm({ isOpen, onClose, onSubmit, note, isSubmitting }: NoteFormPro
               disabled={isSubmitting}
             />
           </div>
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             <Label htmlFor="content">Content</Label>
             <Textarea
               id="content"
@@ -166,7 +166,7 @@ function NoteCard({ note, onEdit, onDelete, onView }: {
           </DropdownMenu>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="flex flex-col gap-4">
         <div className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-4">
           {note.content}
         </div>
@@ -276,10 +276,10 @@ export default function NotesView() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <ProjectPageHeader
         title="Notes"
-        icon={<StickyNote className="h-8 w-8 text-[var(--ui-accent-brand)]" />}
+        icon={<StickyNote className="h-8 w-8 text-primary" />}
         subtitle="Manage project notes and documentation"
         actions={
           <Button onClick={() => setIsFormOpen(true)}>
@@ -329,7 +329,7 @@ export default function NotesView() {
           <DialogHeader>
             <DialogTitle className="text-xl">{viewingNote?.title}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="flex flex-col gap-4">
             <div className="whitespace-pre-wrap text-sm leading-relaxed">
               {viewingNote?.content}
             </div>

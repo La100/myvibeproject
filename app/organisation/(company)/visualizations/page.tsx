@@ -72,7 +72,7 @@ export default function VisualizationsPage() {
           <div className="flex-1 overflow-y-auto px-6">
             {showEmptyState ? (
               isQuotaBlocked && quotaBlockedAssistantMessage ? (
-                <div className="mx-auto max-w-4xl space-y-6 py-8">
+                <div className="mx-auto flex max-w-4xl flex-col gap-6 py-8">
                   <AssistantMessage message={quotaBlockedAssistantMessage} isLoading={false} />
                   <VisualizationComposer
                     submitStatus={submitStatus}
@@ -104,7 +104,7 @@ export default function VisualizationsPage() {
                 />
               )
             ) : (
-              <div className="mx-auto max-w-4xl space-y-6 py-6">
+              <div className="mx-auto flex max-w-4xl flex-col gap-6 py-6">
                 {displayMessages.map(({ raw, mapped }) => (
                   <AssistantMessage
                     key={raw._id}

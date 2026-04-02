@@ -263,7 +263,7 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
 
   if (shouldRedirectToSubscription) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         <p className="text-sm text-muted-foreground animate-pulse">Opening subscription...</p>
       </div>
@@ -272,7 +272,7 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
 
   if (!isLoaded) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         <p className="text-sm text-muted-foreground animate-pulse">
           {isSubscriptionPage ? "Loading subscription..." : "Loading settings..."}
@@ -284,12 +284,12 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
   if (!organization) {
     return (
       <div className="flex min-h-[70vh] items-center justify-center p-6">
-        <div className="w-full max-w-md space-y-4 text-center">
+        <div className="flex w-full max-w-md flex-col gap-4 text-center">
           <h1 className="text-2xl font-semibold">Finish workspace setup</h1>
           <p className="text-sm text-muted-foreground">
             You need an active organization to access {isSubscriptionPage ? "organization subscription" : "organization settings"}.
           </p>
-          <Button type="button" onClick={() => router.replace("/onboarding")} className="rounded-lg px-6">
+          <Button type="button" onClick={() => router.replace("/onboarding")} className="px-6">
             Go to onboarding
           </Button>
         </div>
@@ -299,7 +299,7 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
 
   if (teamData === undefined || repairingTeamState) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         <p className="text-sm text-muted-foreground animate-pulse">
           {isSubscriptionPage ? "Loading subscription..." : "Loading settings..."}
@@ -318,7 +318,7 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
               The app couldn&apos;t find your team membership for this organization.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="flex flex-col gap-4">
             <p className="text-sm text-muted-foreground">
               Click retry to re-sync your organization and permissions.
             </p>
@@ -509,9 +509,9 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
   const totalCredits = aiAccess?.totalTokens ?? remainingCredits;
   const usedCredits = usageBreakdown?.totalTokens ?? Math.max(0, totalCredits - remainingCredits);
   const creditBreakdownItems = [
-    { key: "assistant", label: "AI Assistant", icon: Sparkles, color: "text-blue-500", barColor: "bg-blue-500" },
-    { key: "visualizations", label: "Visualizations", icon: BarChart3, color: "text-emerald-500", barColor: "bg-emerald-500" },
-    { key: "other", label: "Other", icon: AlertCircle, color: "text-amber-500", barColor: "bg-amber-500" },
+    { key: "assistant", label: "AI Assistant", icon: Sparkles, color: "text-chart-1", barColor: "bg-chart-1" },
+    { key: "visualizations", label: "Visualizations", icon: BarChart3, color: "text-chart-2", barColor: "bg-chart-2" },
+    { key: "other", label: "Other", icon: AlertCircle, color: "text-chart-4", barColor: "bg-chart-4" },
   ] as const;
   const visibleCreditBreakdownItems = creditBreakdownItems.filter((item) => (usageBreakdown?.byFeature?.[item.key] || 0) > 0);
   const usagePercent = totalCredits > 0 ? Math.min(100, Math.round((usedCredits / totalCredits) * 100)) : 0;
@@ -555,11 +555,11 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
 
   return (
     <div className="min-h-screen pb-20">
-      <div className="max-w-5xl mx-auto px-6 py-10 space-y-8">
+      <div className="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-10">
 
         <div className="flex flex-col gap-2 border-b border-border/40 pb-6">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
               {isSubscriptionPage ? <CreditCard className="h-5 w-5" /> : <Building2 className="h-5 w-5" />}
             </div>
             <div>
@@ -576,12 +576,12 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
         </div>
 
         {isSubscriptionPage ? (
-          <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-10">
-            <div className="space-y-5 rounded-[28px] border border-border/60 bg-gradient-to-br from-muted/50 via-background to-background p-5 shadow-sm sm:p-6">
+          <motion.div variants={containerVariants} initial="hidden" animate="visible" className="flex flex-col gap-10">
+            <div className="flex flex-col gap-5 rounded-4xl border border-border/60 bg-gradient-to-br from-muted/50 via-background to-background p-5 shadow-sm sm:p-6">
               <div className="flex flex-col gap-3">
-                <div className="space-y-2">
+                <div className="flex flex-col gap-2">
                   <Badge variant="secondary">Subscription options</Badge>
-                  <div className="space-y-1">
+                  <div className="flex flex-col gap-1">
                     <h2 className="text-xl font-semibold tracking-tight">Choose the plan for your team</h2>
                   </div>
                 </div>
@@ -611,9 +611,9 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                       >
                         <CardHeader className="gap-4 border-b border-border/40">
                           <div className="flex items-start justify-between gap-3">
-                            <div className="space-y-2">
+                            <div className="flex flex-col gap-2">
                               <div className="flex flex-wrap items-center gap-2">
-                                <CardTitle className="text-xl">{plan.name}</CardTitle>
+                      <CardTitle className="text-xl">{plan.name}</CardTitle>
                                 {isRecommended ? <Badge>Recommended</Badge> : null}
                               </div>
                               <CardDescription>{plan.description}</CardDescription>
@@ -714,9 +714,9 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                     <Badge variant={usagePercent >= 75 ? "secondary" : "outline"}>{usagePercent}% used</Badge>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-5 pt-6">
-                  <div className="space-y-5">
-                    <div className="space-y-1">
+                <CardContent className="flex flex-col gap-5 pt-6">
+                  <div className="flex flex-col gap-5">
+                    <div className="flex flex-col gap-1">
                       <p className="text-sm text-muted-foreground">Available now</p>
                       <div className="text-4xl font-semibold tracking-tight tabular-nums">
                         {formatTokens(remainingCredits)}
@@ -739,7 +739,7 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                     </div>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="flex flex-col gap-2">
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span>{formatTokens(usedCredits)} used</span>
                       <span>{formatTokens(totalCredits)} total</span>
@@ -762,7 +762,7 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                   </CardAction>
                 </CardHeader>
                 <CardContent className="flex h-full flex-col gap-5 pt-6">
-                  <div className="space-y-1">
+                  <div className="flex flex-col gap-1">
                     <div className="text-3xl font-semibold tracking-tight">{subscriptionLabel}</div>
                     <p className="text-sm text-muted-foreground">{subscriptionSubtext}</p>
                     <p className="text-sm text-muted-foreground">{subscriptionPeriodLabel}</p>
@@ -840,13 +840,13 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
               </Card>
             </div>
 
-            <Card className="border-border/40 shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-base font-medium">Transaction History</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {teamPayments && teamPayments.length > 0 ? (
-                  <div className="space-y-4">
+              <Card className="border-border/40 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-base font-medium">Transaction History</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {teamPayments && teamPayments.length > 0 ? (
+                  <div className="flex flex-col gap-4">
                     {teamPayments.map((payment) => {
                       const amount = payment.amount / 100;
                       const currency = payment.currency?.toUpperCase() || "USD";
@@ -890,7 +890,7 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
 
             <Separator />
 
-            <div className="space-y-6">
+            <div className="flex flex-col gap-6">
               <div className="flex flex-col gap-1">
                 <h2 className="text-lg font-medium">Usage</h2>
                 <p className="text-sm text-muted-foreground">
@@ -901,8 +901,8 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 <Card className="border-border/40 shadow-sm">
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-base font-medium flex items-center gap-2">
-                      <Coins className="h-4 w-4 text-blue-500" />
+                    <CardTitle className="flex items-center gap-2 text-base font-medium">
+                      <Coins className="h-4 w-4 text-chart-1" />
                       AI Credits
                     </CardTitle>
                     <CardDescription>
@@ -911,7 +911,7 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                         : "Current period"}
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="flex flex-col gap-4">
                     <div>
                       <div className="text-xl font-semibold tabular-nums">{formatTokens(usedCredits)}</div>
                       <p className="text-xs text-muted-foreground">credits used this billing period</p>
@@ -920,16 +920,16 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                       <div className="text-xl font-semibold tabular-nums">{formatTokens(remainingCredits)}</div>
                       <p className="text-xs text-muted-foreground">credits remaining</p>
                     </div>
-                    <div className="space-y-2 pt-2">
+                    <div className="flex flex-col gap-2 pt-2">
                       <Progress
                         value={usagePercent}
                         className="h-2 bg-muted/30"
                         indicatorClassName={
                           usagePercent >= 90
-                            ? "bg-red-500"
+                            ? "bg-destructive"
                             : usagePercent >= 75
-                              ? "bg-orange-500"
-                              : "bg-blue-500"
+                              ? "bg-chart-1"
+                              : "bg-chart-2"
                         }
                       />
                       <p className="text-xs text-muted-foreground">{usagePercent}% used</p>
@@ -939,22 +939,22 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
 
                 <Card className="border-border/40 shadow-sm">
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-base font-medium flex items-center gap-2">
-                      <HardDrive className="h-4 w-4 text-emerald-500" />
+                    <CardTitle className="flex items-center gap-2 text-base font-medium">
+                      <HardDrive className="h-4 w-4 text-chart-2" />
                       Storage
                     </CardTitle>
                     <CardDescription>
                       All projects combined
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="flex flex-col gap-4">
                     <div>
                       <div className="text-xl font-semibold tabular-nums">
                         {storageUsage?.usedGB.toFixed(2) ?? "0.00"} GB
                       </div>
                       <p className="text-xs text-muted-foreground">used of {storageUsage?.limitGB ?? 0} GB total</p>
                     </div>
-                    <div className="space-y-2 pt-2">
+                    <div className="flex flex-col gap-2 pt-2">
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <span>{storageUsage?.usedGB.toFixed(2) ?? "0.00"} GB used</span>
                         <span>{storageUsage?.limitGB ?? 0} GB total</span>
@@ -964,10 +964,10 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                         className="h-2 bg-muted/30"
                         indicatorClassName={
                           (storageUsage?.percentUsed ?? 0) >= 90
-                            ? "bg-red-500"
+                            ? "bg-destructive"
                             : (storageUsage?.percentUsed ?? 0) >= 75
-                              ? "bg-orange-500"
-                              : "bg-emerald-500"
+                              ? "bg-chart-1"
+                              : "bg-chart-2"
                         }
                       />
                       <p className="text-xs text-muted-foreground">{storageUsage?.percentUsed.toFixed(1) ?? "0.0"}% used</p>
@@ -977,22 +977,22 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
 
                 <Card className="border-border/40 shadow-sm">
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-base font-medium flex items-center gap-2">
-                      <FolderOpen className="h-4 w-4 text-purple-500" />
+                    <CardTitle className="flex items-center gap-2 text-base font-medium">
+                      <FolderOpen className="h-4 w-4 text-chart-3" />
                       Projects
                     </CardTitle>
                     <CardDescription>
                       Active projects
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="flex flex-col gap-4">
                     <div>
                       <div className="text-xl font-semibold tabular-nums">
                         {resourceUsage?.projectsUsed ?? 0} projects
                       </div>
                       <p className="text-xs text-muted-foreground">of {resourceUsage?.projectsLimit ?? 0} total</p>
                     </div>
-                    <div className="space-y-2 pt-2">
+                    <div className="flex flex-col gap-2 pt-2">
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <span>{resourceUsage?.projectsUsed ?? 0} used</span>
                         <span>{resourceUsage?.projectsLimit ?? 0} total</span>
@@ -1002,10 +1002,10 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                         className="h-2 bg-muted/30"
                         indicatorClassName={
                           (resourceUsage?.projectsPercentUsed ?? 0) >= 90
-                            ? "bg-red-500"
+                            ? "bg-destructive"
                             : (resourceUsage?.projectsPercentUsed ?? 0) >= 75
-                              ? "bg-orange-500"
-                              : "bg-purple-500"
+                              ? "bg-chart-1"
+                              : "bg-chart-3"
                         }
                       />
                       <p className="text-xs text-muted-foreground">{resourceUsage?.projectsPercentUsed ?? 0}% used</p>
@@ -1015,22 +1015,22 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
 
                 <Card className="border-border/40 shadow-sm">
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-base font-medium flex items-center gap-2">
-                      <Users className="h-4 w-4 text-orange-500" />
+                    <CardTitle className="flex items-center gap-2 text-base font-medium">
+                      <Users className="h-4 w-4 text-chart-4" />
                       Team Members
                     </CardTitle>
                     <CardDescription>
                       Active members
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="flex flex-col gap-4">
                     <div>
                       <div className="text-xl font-semibold tabular-nums">
                         {resourceUsage?.membersUsed ?? 0} members
                       </div>
                       <p className="text-xs text-muted-foreground">of {resourceUsage?.membersLimit ?? 0} total</p>
                     </div>
-                    <div className="space-y-2 pt-2">
+                    <div className="flex flex-col gap-2 pt-2">
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <span>{resourceUsage?.membersUsed ?? 0} used</span>
                         <span>{resourceUsage?.membersLimit ?? 0} total</span>
@@ -1040,10 +1040,10 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                         className="h-2 bg-muted/30"
                         indicatorClassName={
                           (resourceUsage?.membersPercentUsed ?? 0) >= 90
-                            ? "bg-red-500"
+                            ? "bg-destructive"
                             : (resourceUsage?.membersPercentUsed ?? 0) >= 75
-                              ? "bg-orange-500"
-                              : "bg-orange-500"
+                              ? "bg-chart-1"
+                              : "bg-chart-4"
                         }
                       />
                       <p className="text-xs text-muted-foreground">{resourceUsage?.membersPercentUsed ?? 0}% used</p>
@@ -1065,7 +1065,7 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                         : "Billing period"}
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="flex flex-col gap-4">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Plan</span>
                       <span className="font-medium">{subscriptionLabel}</span>
@@ -1094,14 +1094,14 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base font-medium">Credit Breakdown</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="flex flex-col gap-4">
                   <div className="flex items-center justify-between text-sm text-muted-foreground">
                     <span>Credits Used</span>
                     <span>
                       {formatTokens(usedCredits)} of {formatTokens(totalCredits)} credits
                     </span>
                   </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-muted/30 flex">
+                  <div className="flex h-2 w-full overflow-hidden rounded-full bg-muted/30">
                     {visibleCreditBreakdownItems.map((segment) => {
                       const tokens = usageBreakdown?.byFeature?.[segment.key] || 0;
                       const percent = usedCredits > 0 ? (tokens / usedCredits) * 100 : 0;
@@ -1114,7 +1114,7 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                       );
                     })}
                   </div>
-                  <div className="space-y-3">
+                  <div className="flex flex-col gap-3">
                     {visibleCreditBreakdownItems.map((item) => {
                       const tokens = usageBreakdown?.byFeature?.[item.key] || 0;
                       const percent = usedCredits > 0 ? (tokens / usedCredits) * 100 : 0;
@@ -1141,7 +1141,7 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
             </div>
           </motion.div>
         ) : (
-          <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-8">
+          <motion.div variants={containerVariants} initial="hidden" animate="visible" className="flex flex-col gap-8">
             <div className="grid gap-6">
               <div className="flex flex-col gap-1">
                 <h2 className="text-lg font-medium">Organization Profile</h2>
@@ -1150,8 +1150,8 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                 </p>
               </div>
 
-              <Card className="border-border/40 shadow-sm overflow-hidden">
-                <CardContent className="space-y-4 p-6">
+              <Card className="overflow-hidden border-border/40 shadow-sm">
+                <CardContent className="flex flex-col gap-4 p-6">
                   <div className="flex items-center gap-4 rounded-lg border border-border/40 bg-muted/20 p-4">
                     <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-border/40 bg-background">
                       {organizationImagePreviewUrl.trim() ? (
@@ -1169,7 +1169,7 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                         />
                       )}
                     </div>
-                    <div className="min-w-0 flex-1 space-y-3">
+                    <div className="flex min-w-0 flex-1 flex-col gap-3">
                       <Label htmlFor="organization-image-upload">Organization image</Label>
                       <input
                         ref={organizationImageInputRef}
@@ -1186,7 +1186,7 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                           onClick={() => organizationImageInputRef.current?.click()}
                           disabled={savingOrganizationProfile}
                         >
-                          <Upload className="h-4 w-4 mr-2" />
+                          <Upload data-icon="inline-start" />
                           {savingOrganizationProfile ? "Uploading..." : "Add image"}
                         </Button>
                       </div>
@@ -1223,7 +1223,7 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
 
               <Card className="border-border/40 shadow-sm">
                 <CardHeader>
-                  <CardTitle className="text-base font-medium flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2 text-base font-medium">
                     <Globe className="h-4 w-4 text-primary" />
                     Default Currency
                   </CardTitle>
@@ -1231,7 +1231,7 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                     Select the currency used for project estimates and financial reports.
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="flex flex-col gap-4">
                   <div className="grid gap-2">
                     <Label htmlFor="currency">Currency</Label>
                     <Select
@@ -1250,10 +1250,10 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                           { value: "CAD", label: "Canadian Dollar (C$)" },
                           { value: "AUD", label: "Australian Dollar (A$)" },
                           { value: "JPY", label: "Japanese Yen (¥)" },
-                        ].map((curr) => (
+                          ].map((curr) => (
                           <SelectItem key={curr.value} value={curr.value}>
                             <span className="font-medium">{curr.value}</span>
-                            <span className="text-muted-foreground ml-2 text-xs">({curr.label})</span>
+                            <span className="ml-2 text-xs text-muted-foreground">({curr.label})</span>
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -1268,7 +1268,7 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                     />
                   </div>
                 </CardContent>
-                <CardFooter className="bg-muted/30 border-t border-border/40 px-6 py-4 flex justify-between items-center">
+                <CardFooter className="flex items-center justify-between border-t border-border/40 bg-muted/30 px-6 py-4">
                   <p className="text-xs text-muted-foreground">
                     Changes apply to all new projects and AI date handling.
                   </p>
@@ -1281,7 +1281,7 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                       <div className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
                     ) : (
                       <>
-                        <Check className="h-4 w-4 mr-2" />
+                        <Check data-icon="inline-start" />
                         Save Changes
                       </>
                     )}
@@ -1327,78 +1327,78 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                     These values prefill the seller section in project payments and invoices.
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-6">
+                <CardContent className="flex flex-col gap-6">
                   <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
+                    <div className="flex flex-col gap-2">
                       <Label>Seller name</Label>
                       <Input value={billingProfile.sellerName} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerName: e.target.value }))} />
                     </div>
-                    <div className="space-y-2">
+                    <div className="flex flex-col gap-2">
                       <Label>Tax ID / NIP</Label>
                       <Input value={billingProfile.sellerTaxId} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerTaxId: e.target.value }))} />
                     </div>
-                    <div className="space-y-2">
+                    <div className="flex flex-col gap-2">
                       <Label>Billing email</Label>
                       <Input type="email" value={billingProfile.sellerEmail} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerEmail: e.target.value }))} />
                     </div>
-                    <div className="space-y-2">
+                    <div className="flex flex-col gap-2">
                       <Label>Phone</Label>
                       <Input value={billingProfile.sellerPhone} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerPhone: e.target.value }))} />
                     </div>
-                    <div className="space-y-2 md:col-span-2">
+                    <div className="flex flex-col gap-2 md:col-span-2">
                       <Label>Address line 1</Label>
                       <Input value={billingProfile.sellerAddressLine1} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerAddressLine1: e.target.value }))} />
                     </div>
-                    <div className="space-y-2 md:col-span-2">
+                    <div className="flex flex-col gap-2 md:col-span-2">
                       <Label>Address line 2</Label>
                       <Input value={billingProfile.sellerAddressLine2} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerAddressLine2: e.target.value }))} />
                     </div>
-                    <div className="space-y-2">
+                    <div className="flex flex-col gap-2">
                       <Label>Postal code</Label>
                       <Input value={billingProfile.sellerPostalCode} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerPostalCode: e.target.value }))} />
                     </div>
-                    <div className="space-y-2">
+                    <div className="flex flex-col gap-2">
                       <Label>City</Label>
                       <Input value={billingProfile.sellerCity} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerCity: e.target.value }))} />
                     </div>
-                    <div className="space-y-2 md:col-span-2">
+                    <div className="flex flex-col gap-2 md:col-span-2">
                       <Label>Country</Label>
                       <Input value={billingProfile.sellerCountry} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerCountry: e.target.value }))} />
                     </div>
                   </div>
 
                   <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
+                    <div className="flex flex-col gap-2">
                       <Label>Account holder</Label>
                       <Input value={billingProfile.bankAccountHolder} onChange={(e) => setBillingProfile((prev) => ({ ...prev, bankAccountHolder: e.target.value }))} />
                     </div>
-                    <div className="space-y-2">
+                    <div className="flex flex-col gap-2">
                       <Label>Bank name</Label>
                       <Input value={billingProfile.bankName} onChange={(e) => setBillingProfile((prev) => ({ ...prev, bankName: e.target.value }))} />
                     </div>
-                    <div className="space-y-2">
+                    <div className="flex flex-col gap-2">
                       <Label>Bank account number / IBAN</Label>
                       <Input value={billingProfile.bankAccountNumber} onChange={(e) => setBillingProfile((prev) => ({ ...prev, bankAccountNumber: e.target.value }))} />
                     </div>
-                    <div className="space-y-2">
+                    <div className="flex flex-col gap-2">
                       <Label>SWIFT</Label>
                       <Input value={billingProfile.bankSwift} onChange={(e) => setBillingProfile((prev) => ({ ...prev, bankSwift: e.target.value }))} />
                     </div>
-                    <div className="space-y-2">
+                    <div className="flex flex-col gap-2">
                       <Label>Invoice prefix</Label>
                       <Input value={billingProfile.invoicePrefix} onChange={(e) => setBillingProfile((prev) => ({ ...prev, invoicePrefix: e.target.value }))} />
                     </div>
-                    <div className="space-y-2">
+                    <div className="flex flex-col gap-2">
                       <Label>Default due days</Label>
                       <Input type="number" min="1" value={billingProfile.defaultPaymentTermDays} onChange={(e) => setBillingProfile((prev) => ({ ...prev, defaultPaymentTermDays: e.target.value }))} />
                     </div>
-                    <div className="space-y-2 md:col-span-2">
+                    <div className="flex flex-col gap-2 md:col-span-2">
                       <Label>Payment instructions</Label>
                       <Textarea rows={4} value={billingProfile.paymentInstructions} onChange={(e) => setBillingProfile((prev) => ({ ...prev, paymentInstructions: e.target.value }))} />
                     </div>
                   </div>
                 </CardContent>
-                <CardFooter className="bg-muted/30 border-t border-border/40 px-6 py-4 flex justify-between items-center">
+                <CardFooter className="flex items-center justify-between border-t border-border/40 bg-muted/30 px-6 py-4">
                   <p className="text-xs text-muted-foreground">
                     Seller name defaults to the organization name until you override it here.
                   </p>
@@ -1411,7 +1411,7 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                       <div className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
                     ) : (
                       <>
-                        <Check className="h-4 w-4 mr-2" />
+                        <Check data-icon="inline-start" />
                         Save Profile
                       </>
                     )}

@@ -253,14 +253,14 @@ export default function FilesView() {
         <div className="mb-6">
           <ProjectPageHeader
             title="Files"
-            icon={<FolderOpen className="h-8 w-8 text-[var(--ui-accent-brand)]" />}
+            icon={<FolderOpen className="h-8 w-8 text-primary" />}
             subtitle={`Organize files and folders for ${project.name}`}
             actions={
               currentFolderId && currentFolder ? (
                 <Button
                   variant="outline"
                   size="sm"
-                  className="text-red-600 hover:bg-red-50 border-red-200"
+                  className="border-destructive/30 text-destructive hover:bg-destructive/10"
                   onClick={async () => {
                     await handleDeleteFolder(currentFolderId);
                     if (folderPath.length > 1) {
@@ -297,7 +297,7 @@ export default function FilesView() {
                   Create a new folder to organize your files.
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4">
+              <div className="flex flex-col gap-4">
                 <Input
                   placeholder="Folder name"
                   value={newFolderName}
@@ -343,9 +343,9 @@ export default function FilesView() {
               onClick={() => navigateToFolder(folder._id, folder.name)}
             >
               <CardContent className="p-4 h-full flex flex-col justify-center items-center">
-                <div className="flex flex-col items-center space-y-3 text-center">
-                  <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <FolderOpen className="h-8 w-8 text-blue-600" />
+                <div className="flex flex-col items-center gap-3 text-center">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted text-primary">
+                    <FolderOpen className="h-8 w-8" />
                   </div>
                   <h3 className="font-medium text-sm leading-tight truncate w-full" title={folder.name}>
                     {folder.name}
@@ -359,7 +359,7 @@ export default function FilesView() {
           {content.files.map((file) => (
             <Card key={file._id} className="hover:shadow-lg transition-shadow">
               <CardContent className="p-4">
-                <div className="aspect-square bg-gray-50 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
+                <div className="mb-3 flex aspect-square items-center justify-center overflow-hidden rounded-2xl bg-muted/50">
                   {isImageFile(file) && file.url ? (
                     <Image
                       src={file.url}
@@ -377,8 +377,8 @@ export default function FilesView() {
                         muted
                         preload="metadata"
                       />
-                      <div className="absolute inset-0 bg-black/20 flex items-center justify-center rounded-lg">
-                        <Play className="h-8 w-8 text-[var(--overlay-foreground)]" />
+                      <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/20">
+                        <Play className="h-8 w-8 text-background" />
                       </div>
                     </div>
                   ) : file.fileType === "document" && file.url && file.mimeType === "application/pdf" ? (
@@ -388,13 +388,13 @@ export default function FilesView() {
                       onClick={() => setFileForPreview(file)}
                     />
                   ) : (
-                    <div className="text-gray-400">
+                    <div className="text-muted-foreground">
                       {getFileTypeIcon(file.fileType)}
                     </div>
                   )}
                 </div>
 
-                <div className="space-y-2">
+                <div className="flex flex-col gap-2">
                   <h3 className="font-medium text-sm truncate" title={file.name}>
                     {file.name}
                   </h3>
@@ -409,13 +409,13 @@ export default function FilesView() {
                       </Badge>
                     )}
                     {file.aiPrompt && (
-                      <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700">
+                      <Badge variant="secondary" className="text-xs">
                         AI
                       </Badge>
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between rounded-md border border-[var(--ui-border-soft)] px-2 py-1">
+                  <div className="flex items-center justify-between rounded-xl border border-border/70 px-2 py-1">
                     <span className="text-xs text-muted-foreground">Customer portal</span>
                     <Switch
                       checked={file.showInClientPortal === true}
@@ -454,7 +454,7 @@ export default function FilesView() {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="h-8 w-8 p-0 text-red-600 hover:bg-red-50"
+                      className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10"
                       onClick={() => handleDeleteFile(file._id)}
                     >
                       <Trash2 className="h-3 w-3" />
@@ -469,10 +469,10 @@ export default function FilesView() {
         {/* Empty State */}
         {content.folders.length === 0 && content.files.length === 0 && (
           <Card className="p-8 text-center">
-            <div className="text-gray-400 mb-4">
+            <div className="mb-4 text-muted-foreground">
               <FolderOpen className="h-12 w-12 mx-auto" />
             </div>
-            <p className="font-medium text-[var(--ui-text-main)] mb-4">
+            <p className="mb-4 font-medium text-foreground">
               This folder is empty. Create a folder or upload files to get started.
             </p>
             <div className="flex gap-2 justify-center">
@@ -497,7 +497,7 @@ export default function FilesView() {
               <DialogTitle className="flex items-center gap-2">
                 {fileForPreview?.name}
                 {fileForPreview?.aiPrompt && (
-                  <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700">
+                  <Badge variant="secondary" className="text-xs">
                     AI Generated
                   </Badge>
                 )}
@@ -506,9 +506,9 @@ export default function FilesView() {
                 {fileForPreview?.fileType} - Uploaded {fileForPreview && formatDistanceToNow(new Date(fileForPreview._creationTime), { addSuffix: true })}
               </DialogDescription>
               {fileForPreview?.aiPrompt && (
-                <div className="mt-3 p-3 bg-purple-50 rounded-lg border border-purple-200">
-                  <p className="text-xs font-medium text-purple-700 mb-1">Prompt:</p>
-                  <p className="text-sm text-purple-900">{fileForPreview.aiPrompt}</p>
+                <div className="mt-3 rounded-2xl border border-border/70 bg-muted/40 p-3">
+                  <p className="mb-1 text-xs font-medium text-muted-foreground">Prompt:</p>
+                  <p className="text-sm text-foreground">{fileForPreview.aiPrompt}</p>
                 </div>
               )}
             </DialogHeader>

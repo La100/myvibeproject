@@ -309,7 +309,7 @@ function ProjectSettingsContent() {
   if (!canEdit) {
     return (
       <div className="flex min-h-[400px] flex-col items-center justify-center text-center">
-        <h1 className="mb-2 text-2xl font-bold text-orange-600">Read Only</h1>
+        <h1 className="mb-2 text-2xl font-bold text-destructive">Read Only</h1>
         <p className="text-muted-foreground">
           You can view this project but cannot modify its settings.
         </p>
@@ -388,10 +388,10 @@ function ProjectSettingsContent() {
   }
 
   return (
-    <div className="space-y-6 pb-10">
+    <div className="flex flex-col gap-6 pb-10">
       <ProjectPageHeader
         title="Project Settings"
-        icon={<Settings className="h-8 w-8 text-[var(--ui-accent-brand)]" />}
+        icon={<Settings className="h-8 w-8 text-primary" />}
         subtitle="Manage your project configuration and access."
       />
 
@@ -401,8 +401,8 @@ function ProjectSettingsContent() {
         className="w-full"
       >
         <div className="grid gap-5 lg:grid-cols-[290px_minmax(0,1fr)]">
-          <div className="space-y-3 self-start lg:sticky lg:top-6">
-            <TabsList className="grid h-auto w-full grid-cols-1 gap-1.5 rounded-[22px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)]/90 p-2">
+          <div className="flex flex-col gap-3 self-start lg:sticky lg:top-6">
+            <TabsList className="grid h-auto w-full grid-cols-1 gap-1.5 rounded-2xl border border-border/70 bg-card/90 p-2">
               {SETTINGS_TABS.map((tab) => {
                 const Icon = tab.icon;
 
@@ -410,17 +410,17 @@ function ProjectSettingsContent() {
                   <TabsTrigger
                     key={tab.value}
                     value={tab.value}
-                    className="h-auto w-full flex-none justify-start rounded-xl border border-transparent px-3 py-2.5 text-left data-[state=active]:border-[var(--ui-border-soft)] data-[state=active]:bg-[var(--ui-surface-soft)] data-[state=active]:shadow-[0_14px_26px_-24px_rgba(0,0,0,0.62)]"
+                    className="h-auto w-full flex-none justify-start rounded-xl border border-transparent px-3 py-2.5 text-left data-[state=active]:border-border/70 data-[state=active]:bg-muted data-[state=active]:shadow-none"
                   >
                     <span className="flex w-full items-start gap-2.5">
-                      <span className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)]">
-                        <Icon className="h-3.5 w-3.5 text-[var(--ui-text-muted)]" />
+                      <span className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border/70 bg-card">
+                        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
                       </span>
                       <span className="min-w-0">
-                        <span className="block text-sm font-medium text-[var(--ui-text-main)]">
+                        <span className="block text-sm font-medium text-foreground">
                           {tab.label}
                         </span>
-                        <span className="mt-0.5 block text-[11px] leading-snug text-[var(--ui-text-muted)]">
+                        <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">
                           {tab.description}
                         </span>
                       </span>
@@ -430,7 +430,7 @@ function ProjectSettingsContent() {
               })}
             </TabsList>
 
-            <p className="rounded-xl border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)]/70 px-3 py-2 text-xs text-[var(--ui-text-muted)]">
+            <p className="rounded-xl border border-border/70 bg-muted/70 px-3 py-2 text-xs text-muted-foreground">
               Changes are saved per section. Keep this page open while editing to avoid losing form state.
             </p>
           </div>
@@ -688,20 +688,20 @@ function GeneralTab({
 
   return (
     <Card className="clean-panel overflow-hidden">
-      <CardHeader className="border-b border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)]/45 pb-5">
+      <CardHeader className="border-b border-border/70 bg-muted/40 pb-5">
         <CardTitle className="text-lg lg:text-xl">General Settings</CardTitle>
         <CardDescription className="text-sm">
           Update the project identity, cover image, and operational details visible across the workspace.
         </CardDescription>
       </CardHeader>
 
-      <CardContent className="space-y-6 p-4 md:p-6">
+      <CardContent className="flex flex-col gap-6 p-4 md:p-6">
         <Form {...settingsForm}>
-          <form onSubmit={settingsForm.handleSubmit(onSettingsSubmit)} className="space-y-6">
-            <section className="rounded-2xl border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-4 md:p-5">
-              <div className="mb-4 space-y-1">
-                <h3 className="text-sm font-semibold text-[var(--ui-text-main)]">Identity</h3>
-                <p className="text-xs text-[var(--ui-text-muted)]">
+          <form onSubmit={settingsForm.handleSubmit(onSettingsSubmit)} className="flex flex-col gap-6">
+            <section className="rounded-2xl border border-border/70 bg-card p-4 md:p-5">
+              <div className="mb-4 flex flex-col gap-1">
+                <h3 className="text-sm font-semibold text-foreground">Identity</h3>
+                <p className="text-xs text-muted-foreground">
                   This information appears in dashboards, lists, and notifications.
                 </p>
               </div>
@@ -717,7 +717,7 @@ function GeneralTab({
                         <Input
                           placeholder="Project name"
                           {...field}
-                          className="h-10 w-full bg-[var(--ui-surface-base)]"
+                          className="h-10 w-full"
                         />
                       </FormControl>
                       <FormMessage />
@@ -733,7 +733,7 @@ function GeneralTab({
                       <FormLabel className="text-sm font-medium">Project Status</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value ?? undefined}>
                         <FormControl>
-                          <SelectTrigger className="h-10 w-full bg-[var(--ui-surface-base)]">
+                          <SelectTrigger className="h-10 w-full">
                             <SelectValue placeholder="Select project status" />
                           </SelectTrigger>
                         </FormControl>
@@ -765,7 +765,7 @@ function GeneralTab({
                       disabled={responsibleOptions.length === 0}
                     >
                       <FormControl>
-                        <SelectTrigger className="h-10 w-full bg-[var(--ui-surface-base)]">
+                        <SelectTrigger className="h-10 w-full">
                           <SelectValue placeholder="Select team member responsible for this project" />
                         </SelectTrigger>
                       </FormControl>
@@ -778,7 +778,7 @@ function GeneralTab({
                         ))}
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-[var(--ui-text-muted)]">
+                    <p className="text-xs text-muted-foreground">
                       Client portal response emails are sent to this person. Default is the project creator.
                     </p>
                     <FormMessage />
@@ -791,14 +791,14 @@ function GeneralTab({
                 name="description"
                 render={({ field }) => (
                   <FormItem className="mt-4">
-                    <FormLabel className="text-sm font-medium">Description</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="What is this project about?"
-                        {...field}
-                        className="min-h-[110px] w-full resize-none bg-[var(--ui-surface-base)]"
-                        rows={4}
-                      />
+                      <FormLabel className="text-sm font-medium">Description</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="What is this project about?"
+                          {...field}
+                          className="min-h-[110px] w-full resize-none"
+                          rows={4}
+                        />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -806,16 +806,16 @@ function GeneralTab({
               />
             </section>
 
-            <section className="rounded-2xl border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-4 md:p-5">
-              <div className="mb-4 space-y-1">
-                <h3 className="text-sm font-semibold text-[var(--ui-text-main)]">Cover Image</h3>
-                <p className="text-xs text-[var(--ui-text-muted)]">
+            <section className="rounded-2xl border border-border/70 bg-card p-4 md:p-5">
+              <div className="mb-4 flex flex-col gap-1">
+                <h3 className="text-sm font-semibold text-foreground">Cover Image</h3>
+                <p className="text-xs text-muted-foreground">
                   Upload an image from your device. No manual URL needed.
                 </p>
               </div>
 
               <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
-                <div className="space-y-3">
+                <div className="flex flex-col gap-3">
                   <input
                     ref={coverFileInputRef}
                     type="file"
@@ -848,12 +848,12 @@ function GeneralTab({
                     </Button>
                   ) : null}
 
-                  <p className="text-xs text-[var(--ui-text-muted)]">
+                  <p className="text-xs text-muted-foreground">
                     Pick a file and save the section to apply the new cover.
                   </p>
                 </div>
 
-                <div className="overflow-hidden rounded-xl border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)]">
+                <div className="overflow-hidden rounded-xl border border-border/70 bg-muted/40">
                   {hasCoverPreview ? (
                     <img
                       src={coverPreviewUrl ?? undefined}
@@ -861,7 +861,7 @@ function GeneralTab({
                       className="h-[184px] w-full object-cover"
                     />
                   ) : (
-                    <div className="flex h-[184px] items-center justify-center px-4 text-center text-xs text-[var(--ui-text-muted)]">
+                    <div className="flex h-[184px] items-center justify-center px-4 text-center text-xs text-muted-foreground">
                       {coverPreviewStatus === "loading"
                         ? "Loading preview..."
                         : coverPreviewStatus === "error"
@@ -874,10 +874,10 @@ function GeneralTab({
               </div>
             </section>
 
-            <section className="rounded-2xl border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-4 md:p-5">
-              <div className="mb-4 space-y-1">
-                <h3 className="text-sm font-semibold text-[var(--ui-text-main)]">Business Details</h3>
-                <p className="text-xs text-[var(--ui-text-muted)]">
+            <section className="rounded-2xl border border-border/70 bg-card p-4 md:p-5">
+              <div className="mb-4 flex flex-col gap-1">
+                <h3 className="text-sm font-semibold text-foreground">Business Details</h3>
+                <p className="text-xs text-muted-foreground">
                   Optional project metadata for reporting and planning.
                 </p>
               </div>
@@ -893,7 +893,7 @@ function GeneralTab({
                         <Input
                           placeholder="Client name"
                           {...field}
-                          className="h-10 w-full bg-[var(--ui-surface-base)]"
+                          className="h-10 w-full"
                         />
                       </FormControl>
                       <FormMessage />
@@ -911,7 +911,7 @@ function GeneralTab({
                         <Input
                           placeholder="Project location"
                           {...field}
-                          className="h-10 w-full bg-[var(--ui-surface-base)]"
+                          className="h-10 w-full"
                         />
                       </FormControl>
                       <FormMessage />
@@ -930,7 +930,7 @@ function GeneralTab({
                           type="number"
                           placeholder="Project budget"
                           {...field}
-                          className="h-10 w-full bg-[var(--ui-surface-base)]"
+                          className="h-10 w-full"
                         />
                       </FormControl>
                       <FormMessage />
@@ -946,7 +946,7 @@ function GeneralTab({
                       <FormLabel className="text-sm font-medium">Currency</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value ?? undefined}>
                         <FormControl>
-                          <SelectTrigger className="h-10 w-full bg-[var(--ui-surface-base)]">
+                          <SelectTrigger className="h-10 w-full">
                             <SelectValue placeholder="Select project currency" />
                           </SelectTrigger>
                         </FormControl>
@@ -967,18 +967,18 @@ function GeneralTab({
                   control={settingsForm.control}
                   name="taxEnabled"
                   render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 rounded-xl border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)]/60 p-4 md:col-span-2">
+                    <FormItem className="flex flex-row items-start gap-3 rounded-xl border border-border/70 bg-muted/60 p-4 md:col-span-2">
                       <FormControl>
                         <Checkbox
                           checked={field.value}
                           onCheckedChange={(checked) => field.onChange(Boolean(checked))}
                         />
                       </FormControl>
-                      <div className="space-y-1 leading-none">
+                      <div className="flex flex-col gap-1 leading-none">
                         <FormLabel className="text-sm font-medium">
                           Include tax in project cost analysis
                         </FormLabel>
-                        <p className="text-xs text-[var(--ui-text-muted)]">
+                        <p className="text-xs text-muted-foreground">
                           Overview totals will show net, tax, and gross. Estimations will use this as the default VAT.
                         </p>
                       </div>
@@ -1001,7 +1001,7 @@ function GeneralTab({
                           {...field}
                           value={field.value ?? ""}
                           disabled={!settingsForm.watch("taxEnabled")}
-                          className="h-10 w-full bg-[var(--ui-surface-base)]"
+                          className="h-10 w-full"
                         />
                       </FormControl>
                       <FormMessage />
@@ -1011,8 +1011,8 @@ function GeneralTab({
               </div>
             </section>
 
-            <div className="flex flex-col-reverse gap-3 rounded-xl border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)]/70 p-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-[var(--ui-text-muted)]">
+            <div className="flex flex-col-reverse gap-3 rounded-xl border border-border/70 bg-muted/70 p-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-muted-foreground">
                 {hasUnsavedChanges
                   ? "You have unsaved changes in this section."
                   : "Everything in this section is up to date."}
@@ -1082,7 +1082,7 @@ function AdvancedTab({
   onDeleteSubmit: (values: z.infer<typeof deleteFormSchema>) => void;
 }) {
   return (
-    <div className="space-y-4 lg:space-y-6">
+    <div className="flex flex-col gap-4 lg:gap-6">
       <Card className="clean-surface">
         <CardHeader className="pb-4">
           <CardTitle className="text-lg lg:text-xl">Advanced Settings</CardTitle>
@@ -1097,16 +1097,16 @@ function AdvancedTab({
         </CardContent>
       </Card>
 
-      <Card className="border-red-200 bg-red-50/30 dark:border-red-900/70 dark:bg-red-950/20">
+      <Card className="border-destructive/20 bg-destructive/5">
         <CardHeader className="pb-4">
-          <CardTitle className="text-lg text-red-600 lg:text-xl">Danger Zone</CardTitle>
+          <CardTitle className="text-lg text-destructive lg:text-xl">Danger Zone</CardTitle>
           <CardDescription className="text-sm">
             Permanent actions that remove data for the whole team.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4 px-4 lg:px-6">
-          <div className="rounded-xl border border-red-200/80 bg-background/80 p-4 dark:border-red-900/70">
-            <h4 className="mb-2 text-sm font-medium text-red-600">Delete Project</h4>
+        <CardContent className="flex flex-col gap-4 px-4 lg:px-6">
+          <div className="rounded-xl border border-destructive/20 bg-background/80 p-4">
+            <h4 className="mb-2 text-sm font-medium text-destructive">Delete Project</h4>
             <p className="mb-4 text-sm text-muted-foreground">
               Deleting this project removes tasks, files, comments, and related history. This action is irreversible.
             </p>
@@ -1124,7 +1124,7 @@ function AdvancedTab({
                   </DialogDescription>
                 </DialogHeader>
                 <Form {...deleteForm}>
-                  <form onSubmit={deleteForm.handleSubmit(onDeleteSubmit)} className="space-y-4 lg:space-y-6">
+                  <form onSubmit={deleteForm.handleSubmit(onDeleteSubmit)} className="flex flex-col gap-4 lg:gap-6">
                     <FormField
                       control={deleteForm.control}
                       name="confirmName"

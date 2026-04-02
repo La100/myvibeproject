@@ -34,21 +34,21 @@ export const renderAccessGate = ({ aiAccess, team }: AccessGateProps) => {
 
       return (
         <div className="flex min-h-screen items-center justify-center px-4 bg-background/50">
-          <Card className="max-w-lg w-full border-border/50 shadow-2xl rounded-3xl overflow-hidden bg-card/80 backdrop-blur-xl">
-            <CardHeader className="space-y-4 pb-2">
+          <Card className="max-w-lg w-full overflow-hidden rounded-3xl border-border/50 bg-card/80 backdrop-blur-xl">
+            <CardHeader className="flex flex-col gap-4 pb-2">
               <Badge
-                variant="secondary"
-                className="w-fit bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400 border-0 px-3 py-1 rounded-lg"
+                variant="destructive"
+                className="w-fit"
               >
                 Tokens exhausted
               </Badge>
-              <div className="space-y-2">
-                <CardTitle className="text-2xl font-display tracking-tight">No AI tokens available</CardTitle>
+              <div className="flex flex-col gap-2">
+                <CardTitle className="text-2xl tracking-tight">No AI tokens available</CardTitle>
                 <CardDescription className="text-base">{aiAccess.message}</CardDescription>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4 pt-4">
-              <div className="rounded-2xl border border-border/50 bg-muted/30 p-4 space-y-3">
+            <CardContent className="flex flex-col gap-4 pt-4">
+              <div className="flex flex-col gap-3 rounded-2xl border border-border/50 bg-muted/30 p-4">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
                     Remaining tokens
@@ -59,7 +59,7 @@ export const renderAccessGate = ({ aiAccess, team }: AccessGateProps) => {
                 </div>
                 <div className="h-2 rounded-full bg-muted overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-red-500 to-orange-500 rounded-full"
+                    className="h-full rounded-full bg-destructive"
                     style={{ width: "100%" }}
                   />
                 </div>

@@ -331,7 +331,7 @@ export default function TaskDetailSidebar({ task, project, onDelete }: TaskDetai
         <CardTitle className="text-lg font-semibold">Task Details</CardTitle>
         <p className="text-sm text-muted-foreground">Edit fields directly</p>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="flex flex-col gap-6">
         {/* Status */}
         <div>
           <Label className="text-sm font-medium">Status</Label>
@@ -446,7 +446,7 @@ export default function TaskDetailSidebar({ task, project, onDelete }: TaskDetai
           )}
         </div>
 
-        <div className="space-y-3 rounded-lg border p-4">
+        <div className="flex flex-col gap-3 rounded-lg border p-4">
           <div className="flex items-center justify-between">
             <Label htmlFor="task-all-day" className="text-sm font-medium cursor-pointer">
               All day
@@ -467,7 +467,7 @@ export default function TaskDetailSidebar({ task, project, onDelete }: TaskDetai
           )}
 
           {!isAllDay && (
-            <div className="space-y-3">
+            <div className="flex flex-col gap-3">
               <div className={hasEndTime ? "grid grid-cols-1 gap-3 sm:grid-cols-2" : "grid grid-cols-1"}>
                 <div>
                   <Label className="text-sm text-muted-foreground">Start Time</Label>
@@ -508,7 +508,7 @@ export default function TaskDetailSidebar({ task, project, onDelete }: TaskDetai
                 )}
               </div>
 
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center gap-2">
                 <Checkbox
                   id="task-has-end-time"
                   checked={hasEndTime}

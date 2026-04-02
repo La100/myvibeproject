@@ -1,13 +1,16 @@
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+
 const LAST_UPDATED = "February 20, 2026"
 
 export default function PrivacyPolicyPage() {
   return (
     <div className="min-h-screen bg-background px-6 py-12">
-      <div className="mx-auto max-w-3xl rounded-xl border border-border bg-card p-8 shadow-soft-sm">
-        <h1 className="text-3xl font-semibold text-foreground">Privacy Policy</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Last updated: {LAST_UPDATED}</p>
-
-        <div className="prose prose-sm mt-6 max-w-none text-foreground">
+      <Card className="mx-auto max-w-3xl">
+        <CardHeader>
+          <CardTitle className="text-3xl">Privacy Policy</CardTitle>
+          <CardDescription>Last updated: {LAST_UPDATED}</CardDescription>
+        </CardHeader>
+        <CardContent className="prose prose-sm max-w-none text-foreground">
           <p>
             This policy describes how MyVibeProject and the MyVibeProject Web Clipper Chrome
             extension process data.
@@ -69,8 +72,8 @@ export default function PrivacyPolicyPage() {
             For privacy questions, contact:{" "}
             <a href="mailto:privacy@myvibeproject.com">privacy@myvibeproject.com</a>
           </p>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

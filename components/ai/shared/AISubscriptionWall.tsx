@@ -92,26 +92,29 @@ export function AISubscriptionWall({ teamId }: AISubscriptionWallProps) {
   };
 
   return (
-    <div className="relative min-h-screen w-full flex flex-col items-center justify-center overflow-hidden bg-background text-foreground p-4 sm:p-6 lg:p-8">
+    <div className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden bg-background p-4 text-foreground sm:p-6 lg:p-8">
       {/* Background Elements */}
       <div className="absolute inset-0 -z-10 h-full w-full bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px] [mask-image:radial-gradient(ellipse_50%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-50 dark:bg-[radial-gradient(#1f2937_1px,transparent_1px)]"></div>
-      <div className="absolute top-[-10%] left-[-10%] h-[500px] w-[500px] rounded-full bg-purple-100 blur-[100px] opacity-30 dark:bg-purple-900/20 animate-pulse"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] h-[500px] w-[500px] rounded-full bg-blue-100 blur-[100px] opacity-30 dark:bg-blue-900/20 animate-pulse" style={{ animationDelay: "2s" }}></div>
+      <div className="absolute top-[-10%] left-[-10%] h-[500px] w-[500px] animate-pulse rounded-full bg-primary/10 blur-[100px] opacity-30"></div>
+      <div
+        className="absolute bottom-[-10%] right-[-10%] h-[500px] w-[500px] animate-pulse rounded-full bg-muted/50 blur-[100px] opacity-30"
+        style={{ animationDelay: "2s" }}
+      ></div>
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className="w-full max-w-6xl z-10 grid lg:grid-cols-2 gap-12 items-center"
+        className="z-10 grid w-full max-w-6xl items-center gap-12 lg:grid-cols-2"
       >
         {/* Left Column: Content & Features */}
-        <div className="space-y-8 text-center lg:text-left">
-          <div className="space-y-4">
+        <div className="flex flex-col gap-8 text-center lg:text-left">
+          <div className="flex flex-col gap-4">
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ delay: 0.2 }}
-              className="inline-flex items-center rounded-lg border border-border bg-background/50 px-3 py-1 text-sm font-medium text-muted-foreground backdrop-blur-sm mx-auto lg:mx-0"
+              className="mx-auto inline-flex items-center rounded-lg border border-border bg-background/50 px-3 py-1 text-sm font-medium text-muted-foreground backdrop-blur-sm lg:mx-0"
             >
               <Sparkles className="mr-2 h-4 w-4 text-foreground" />
               Unlock the full potential
@@ -122,22 +125,22 @@ export function AISubscriptionWall({ teamId }: AISubscriptionWallProps) {
               <span className="italic text-muted-foreground font-serif">AI Intelligence</span>
             </h1>
 
-            <p className="text-xl text-muted-foreground max-w-lg mx-auto lg:mx-0 leading-relaxed">
+            <p className="mx-auto max-w-lg text-xl leading-relaxed text-muted-foreground lg:mx-0">
               Transform your project management with AI-powered assistance,
               smart content generation, and creative image synthesis.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {AI_FEATURES.map((feature, index) => (
               <motion.div
                 key={feature.title}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 + index * 0.1 }}
-                className="group p-4 rounded-2xl bg-muted/30 border border-border/50 hover:bg-muted/50 transition-colors text-left"
+                className="group rounded-2xl border border-border/50 bg-muted/30 p-4 text-left transition-colors hover:bg-muted/50"
               >
-                <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-background shadow-sm text-foreground">
+                <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-background text-foreground shadow-sm">
                   <feature.icon className="w-5 h-5" />
                 </div>
                 <h3 className="font-semibold mb-1">{feature.title}</h3>
@@ -156,18 +159,18 @@ export function AISubscriptionWall({ teamId }: AISubscriptionWallProps) {
           transition={{ delay: 0.6 }}
           className="relative mx-auto w-full max-w-md"
         >
-          <Card className="relative overflow-hidden rounded-3xl border-2 border-primary/5 bg-card/80 backdrop-blur-xl shadow-2xl">
+          <Card className="relative overflow-hidden rounded-3xl border-2 border-primary/5 bg-card/80 backdrop-blur-xl shadow-xl">
             {/* Subtle background glow */}
-            <div className="absolute -top-20 -right-20 w-64 h-64 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+            <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-primary/5 blur-3xl" />
 
             <CardHeader className="relative text-center pb-8 pt-8">
-              <Badge variant="secondary" className="w-fit mx-auto mb-6 rounded-lg px-4 py-1.5 font-medium">
+              <Badge variant="secondary" className="mx-auto mb-6 w-fit px-4 py-1.5 font-medium">
                 Pro Plan
               </Badge>
 
               <div className="flex items-baseline justify-center gap-1">
-                <span className="text-5xl font-bold tracking-tight font-display">$39</span>
-                <span className="text-muted-foreground text-lg font-normal">/month</span>
+                <span className="text-5xl font-bold tracking-tight">$39</span>
+                <span className="text-lg font-normal text-muted-foreground">/month</span>
               </div>
 
               <CardDescription className="text-base mt-4 max-w-xs mx-auto">
@@ -175,9 +178,9 @@ export function AISubscriptionWall({ teamId }: AISubscriptionWallProps) {
               </CardDescription>
             </CardHeader>
 
-            <CardContent className="relative space-y-8 pb-8 px-8">
+            <CardContent className="relative flex flex-col gap-8 px-8 pb-8">
               {/* Benefits list */}
-              <div className="space-y-4">
+              <div className="flex flex-col gap-4">
                 {[
                   "Unlimited AI Assistant access",
                   "AI credits for text and images",
@@ -189,7 +192,7 @@ export function AISubscriptionWall({ teamId }: AISubscriptionWallProps) {
                   "Priority support",
                 ].map((benefit, index) => (
                   <div key={index} className="flex items-center gap-3">
-                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-foreground text-background flex items-center justify-center">
+                    <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-foreground text-background">
                       <Check className="w-3 h-3" />
                     </div>
                     <span className="text-sm text-muted-foreground">{benefit}</span>
@@ -198,15 +201,14 @@ export function AISubscriptionWall({ teamId }: AISubscriptionWallProps) {
               </div>
 
               {/* CTA Button */}
-              <div className="space-y-4">
+              <div className="flex flex-col gap-4">
                 <Button
                   onClick={handleSubscribe}
                   disabled={loading}
                   size="lg"
                   className={cn(
-                    "w-full h-14 text-base font-semibold rounded-lg",
-                    "bg-foreground text-background hover:bg-foreground/90",
-                    "shadow-lg hover:shadow-xl transition-all duration-300"
+                    "h-14 w-full rounded-lg text-base font-semibold shadow-lg transition-all duration-300 hover:shadow-xl",
+                    "bg-foreground text-background hover:bg-foreground/90"
                   )}
                 >
                   {loading ? (
@@ -237,7 +239,7 @@ export function AISubscriptionWall({ teamId }: AISubscriptionWallProps) {
               transition={{ delay: 0.8 }}
               className="mt-6 text-center"
             >
-              <p className="text-sm text-muted-foreground bg-muted/50 inline-flex items-center px-3 py-1 rounded-lg">
+              <p className="inline-flex items-center rounded-lg bg-muted/50 px-3 py-1 text-sm text-muted-foreground">
                 <Lock className="w-3 h-3 mr-2" />
                 Current plan: <span className="font-medium ml-1">{subscription.planDetails.name}</span>
                 {subscription.subscriptionStatus === "trialing" && (

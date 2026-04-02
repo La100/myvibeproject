@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation } from 'convex/react';
 import { Button } from '@/components/ui/button';
+import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -160,24 +161,24 @@ export function AddLaborItemForm({
   const totalPrice = newItemUnitPrice ? newItemQuantity * parseFloat(newItemUnitPrice) : 0;
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2">
-          <label className="text-sm font-medium text-[var(--ui-text-main)] mb-1.5 block">Work Description *</label>
+    <div className="flex flex-col gap-4">
+      <FieldGroup className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <Field className="gap-2 lg:col-span-2">
+          <FieldLabel>Work Description *</FieldLabel>
           <Input
             value={newItemName}
             onChange={(e) => setNewItemName(e.target.value)}
             placeholder="e.g. Tile installation"
-            className="h-12 rounded-[18px] border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-sm focus-visible:ring-[var(--ui-accent-brand)]"
+            className="h-12 text-sm"
           />
-        </div>
-        <div>
-          <label className="text-sm font-medium text-[var(--ui-text-main)] mb-1.5 block">Section</label>
+        </Field>
+        <Field className="gap-2">
+          <FieldLabel>Section</FieldLabel>
           <Select
             value={newItemSectionId}
             onValueChange={(value) => setNewItemSectionId(value as Id<"laborSections"> | "none")}
           >
-            <SelectTrigger className="h-12 rounded-[18px] border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-sm focus-visible:ring-[var(--ui-accent-brand)]">
+            <SelectTrigger className="h-12 text-sm">
               <SelectValue placeholder="Select section" />
             </SelectTrigger>
             <SelectContent>
@@ -189,22 +190,22 @@ export function AddLaborItemForm({
               ))}
             </SelectContent>
           </Select>
-        </div>
-        <div>
-          <label className="text-sm font-medium text-[var(--ui-text-main)] mb-1.5 block">Quantity *</label>
+        </Field>
+        <Field className="gap-2">
+          <FieldLabel>Quantity *</FieldLabel>
           <Input
             type="number"
             min="0.01"
             step="0.01"
             value={newItemQuantity}
             onChange={(e) => setNewItemQuantity(parseFloat(e.target.value) || 0)}
-            className="h-12 rounded-[18px] border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-sm focus-visible:ring-[var(--ui-accent-brand)]"
+            className="h-12 text-sm"
           />
-        </div>
-        <div>
-          <label className="text-sm font-medium text-[var(--ui-text-main)] mb-1.5 block">Unit *</label>
+        </Field>
+        <Field className="gap-2">
+          <FieldLabel>Unit *</FieldLabel>
           <Select value={newItemUnit} onValueChange={setNewItemUnit}>
-            <SelectTrigger className="h-12 rounded-[18px] border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-sm focus-visible:ring-[var(--ui-accent-brand)]">
+            <SelectTrigger className="h-12 text-sm">
               <SelectValue placeholder="Select unit" />
             </SelectTrigger>
             <SelectContent>
@@ -215,25 +216,25 @@ export function AddLaborItemForm({
               ))}
             </SelectContent>
           </Select>
-        </div>
-        <div>
-          <label className="text-sm font-medium text-[var(--ui-text-main)] mb-1.5 block">Price per Unit ({currencySymbol})</label>
+        </Field>
+        <Field className="gap-2">
+          <FieldLabel>Price per Unit ({currencySymbol})</FieldLabel>
           <Input
             type="number"
             step="0.01"
             value={newItemUnitPrice}
             onChange={(e) => setNewItemUnitPrice(e.target.value)}
             placeholder="0.00"
-            className="h-12 rounded-[18px] border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-sm focus-visible:ring-[var(--ui-accent-brand)]"
+            className="h-12 text-sm"
           />
-        </div>
-        <div>
-          <label className="text-sm font-medium text-[var(--ui-text-main)] mb-1.5 block">Assign To (Contractor)</label>
+        </Field>
+        <Field className="gap-2">
+          <FieldLabel>Assign To (Contractor)</FieldLabel>
           <Select
             value={newItemAssignedTo}
             onValueChange={setNewItemAssignedTo}
           >
-            <SelectTrigger className="h-12 rounded-[18px] border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-sm focus-visible:ring-[var(--ui-accent-brand)]">
+            <SelectTrigger className="h-12 text-sm">
               <SelectValue placeholder="Select contractor" />
             </SelectTrigger>
             <SelectContent>
@@ -251,33 +252,33 @@ export function AddLaborItemForm({
               ))}
             </SelectContent>
           </Select>
-        </div>
-        <div className="lg:col-span-2">
-          <label className="text-sm font-medium text-[var(--ui-text-main)] mb-1.5 block">Notes</label>
+        </Field>
+        <Field className="gap-2 lg:col-span-2">
+          <FieldLabel>Notes</FieldLabel>
           <Input
             value={newItemNotes}
             onChange={(e) => setNewItemNotes(e.target.value)}
             placeholder="Additional notes..."
-            className="h-12 rounded-[18px] border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-sm focus-visible:ring-[var(--ui-accent-brand)]"
+            className="h-12 text-sm"
           />
-        </div>
-        <div className="lg:col-span-2">
-          <label className="text-sm font-medium text-[var(--ui-text-main)] mb-1.5 block">Reference Link</label>
+        </Field>
+        <Field className="gap-2 lg:col-span-2">
+          <FieldLabel>Reference Link</FieldLabel>
           <div className="relative">
-            <LinkIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ui-text-muted)]" />
+            <LinkIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={newItemReferenceLink}
               onChange={(e) => setNewItemReferenceLink(e.target.value)}
               placeholder="https://example.com"
-              className="h-12 rounded-[18px] border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] pl-10 text-sm focus-visible:ring-[var(--ui-accent-brand)]"
+              className="h-12 pl-10 text-sm"
             />
           </div>
-        </div>
-        <div>
-          <label className="text-sm font-medium text-[var(--ui-text-main)] mb-1.5 block">Attachment</label>
-          <div className="space-y-2">
-            <label className="flex h-12 cursor-pointer items-center gap-2 rounded-[18px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-4 text-sm text-[var(--ui-text-main)]">
-              <PaperclipIcon className="h-4 w-4 text-[var(--ui-text-muted)]" />
+        </Field>
+        <Field className="gap-2">
+          <FieldLabel>Attachment</FieldLabel>
+          <FieldContent className="gap-2">
+            <label className="flex h-12 cursor-pointer items-center gap-2 rounded-2xl border border-input bg-background px-4 text-sm text-foreground transition-colors hover:bg-muted">
+              <PaperclipIcon className="h-4 w-4 text-muted-foreground" />
               <span className="truncate">{newItemAttachment?.name || 'Choose file'}</span>
               <input
                 type="file"
@@ -297,18 +298,17 @@ export function AddLaborItemForm({
                 Remove file
               </Button>
             )}
-            <p className="text-xs text-[var(--ui-text-muted)]">
+            <FieldDescription className="text-xs">
               Stored automatically in <span className="font-medium">Files/labor</span>.
-            </p>
-          </div>
-        </div>
-      </div>
+            </FieldDescription>
+          </FieldContent>
+        </Field>
+      </FieldGroup>
 
-      {/* Total preview */}
       {totalPrice > 0 && (
         <div className="flex items-center justify-end gap-2 text-sm">
-          <span className="text-[var(--ui-text-muted)]">Total:</span>
-          <span className="font-medium text-[var(--ui-text-strong)]">
+          <span className="text-muted-foreground">Total:</span>
+          <span className="font-medium text-foreground">
             {totalPrice.toFixed(2)} {currencySymbol}
           </span>
         </div>
@@ -318,7 +318,7 @@ export function AddLaborItemForm({
         <Button
           onClick={handleAddItem}
           disabled={isPending || isUploadingAttachment || !newItemName.trim()}
-          className="rounded-lg bg-[var(--ui-action-bg)] px-6 h-11 text-[var(--primary-foreground)] shadow-[0_14px_36px_rgba(14,14,14,0.18)] hover:bg-[var(--ui-action-hover)]"
+          className="h-11 px-6"
         >
           {isUploadingAttachment ? 'Uploading...' : isPending ? 'Adding...' : 'Add Labor Item'}
         </Button>

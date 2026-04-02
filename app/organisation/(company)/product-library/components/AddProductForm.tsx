@@ -11,6 +11,8 @@ import { toast } from "sonner";
 import { Id } from "@/convex/_generated/dataModel";
 import { apiAny } from "@/lib/convexApiAny";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 
 interface AddProductFormProps {
@@ -155,114 +157,116 @@ export function AddProductForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mx-auto max-w-5xl space-y-6">
-      <div className="rounded-[28px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-raised)] p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-[var(--ui-text-main)]">Product Name *</label>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Kitchen Countertop Navona"
-              className="h-12 rounded-[18px] border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-sm focus-visible:ring-[var(--ui-accent-brand)]"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-[var(--ui-text-main)]">Supplier</label>
-            <Input
-              value={supplier}
-              onChange={(e) => setSupplier(e.target.value)}
-              placeholder="e.g. kronosfera.pl"
-              className="h-12 rounded-[18px] border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-sm focus-visible:ring-[var(--ui-accent-brand)]"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-[var(--ui-text-main)]">Catalog Number</label>
-            <Input
-              value={catalogNumber}
-              onChange={(e) => setCatalogNumber(e.target.value)}
-              placeholder="e.g. BU1K367PH-3BC1"
-              className="h-12 rounded-[18px] border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-sm focus-visible:ring-[var(--ui-accent-brand)]"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-[var(--ui-text-main)]">Category</label>
-            <Input
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              placeholder="e.g. Furniture"
-              className="h-12 rounded-[18px] border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-sm focus-visible:ring-[var(--ui-accent-brand)]"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-[var(--ui-text-main)]">Dimensions</label>
-            <Input
-              value={dimensions}
-              onChange={(e) => setDimensions(e.target.value)}
-              placeholder="e.g. 4100 x 1200"
-              className="h-12 rounded-[18px] border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-sm focus-visible:ring-[var(--ui-accent-brand)]"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-[var(--ui-text-main)]">Unit Price ({currencySymbol})</label>
-            <Input
-              type="number"
-              step="0.01"
-              value={unitPrice}
-              onChange={(e) => setUnitPrice(e.target.value)}
-              placeholder="0.00"
-              className="h-12 rounded-[18px] border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-sm focus-visible:ring-[var(--ui-accent-brand)]"
-            />
-          </div>
-
-          <div className="lg:col-span-2">
-            <label className="mb-1.5 block text-sm font-medium text-[var(--ui-text-main)]">Product Link</label>
-            <div className="flex items-center gap-2">
+    <form onSubmit={handleSubmit} className="mx-auto flex max-w-5xl flex-col gap-6">
+      <Card>
+        <CardContent className="p-6">
+          <FieldGroup className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <Field className="gap-2">
+              <FieldLabel>Product Name *</FieldLabel>
               <Input
-                value={productLink}
-                onChange={(e) => setProductLink(e.target.value)}
-                placeholder="https://..."
-                className="h-12 rounded-[18px] border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-sm focus-visible:ring-[var(--ui-accent-brand)]"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Kitchen Countertop Navona"
+                className="h-12 text-sm"
+                required
               />
-              <Button
-                type="button"
-                variant="outline"
-                disabled={isSubmitting || isScraping || !productLink.trim()}
-                onClick={handleScrapeByUrl}
-                className="h-12 shrink-0 rounded-[18px] border-[var(--ui-border-soft)] px-4"
-              >
-                {isScraping ? <Loader2 className="h-4 w-4 animate-spin" /> : <WandSparkles className="h-4 w-4" />}
-                <span className="ml-2 hidden xl:inline">{isScraping ? "Scraping..." : "Auto-fill"}</span>
-              </Button>
-            </div>
-          </div>
+            </Field>
 
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-[var(--ui-text-main)]">Image URL</label>
-            <Input
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              placeholder="https://..."
-              className="h-12 rounded-[18px] border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-sm focus-visible:ring-[var(--ui-accent-brand)]"
-            />
-          </div>
-        </div>
-      </div>
+            <Field className="gap-2">
+              <FieldLabel>Supplier</FieldLabel>
+              <Input
+                value={supplier}
+                onChange={(e) => setSupplier(e.target.value)}
+                placeholder="e.g. kronosfera.pl"
+                className="h-12 text-sm"
+              />
+            </Field>
+
+            <Field className="gap-2">
+              <FieldLabel>Catalog Number</FieldLabel>
+              <Input
+                value={catalogNumber}
+                onChange={(e) => setCatalogNumber(e.target.value)}
+                placeholder="e.g. BU1K367PH-3BC1"
+                className="h-12 text-sm"
+              />
+            </Field>
+
+            <Field className="gap-2">
+              <FieldLabel>Category</FieldLabel>
+              <Input
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                placeholder="e.g. Furniture"
+                className="h-12 text-sm"
+              />
+            </Field>
+
+            <Field className="gap-2">
+              <FieldLabel>Dimensions</FieldLabel>
+              <Input
+                value={dimensions}
+                onChange={(e) => setDimensions(e.target.value)}
+                placeholder="e.g. 4100 x 1200"
+                className="h-12 text-sm"
+              />
+            </Field>
+
+            <Field className="gap-2">
+              <FieldLabel>Unit Price ({currencySymbol})</FieldLabel>
+              <Input
+                type="number"
+                step="0.01"
+                value={unitPrice}
+                onChange={(e) => setUnitPrice(e.target.value)}
+                placeholder="0.00"
+                className="h-12 text-sm"
+              />
+            </Field>
+
+            <Field className="gap-2 lg:col-span-2">
+              <FieldLabel>Product Link</FieldLabel>
+              <div className="flex gap-2">
+                <Input
+                  value={productLink}
+                  onChange={(e) => setProductLink(e.target.value)}
+                  placeholder="https://..."
+                  className="h-12 flex-1 text-sm"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isSubmitting || isScraping || !productLink.trim()}
+                  onClick={handleScrapeByUrl}
+                  className="h-12 shrink-0 px-4"
+                >
+                  {isScraping ? <Loader2 className="h-4 w-4 animate-spin" /> : <WandSparkles className="h-4 w-4" />}
+                  <span className="ml-2 hidden xl:inline">{isScraping ? "Scraping..." : "Auto-fill"}</span>
+                </Button>
+              </div>
+            </Field>
+
+            <Field className="gap-2">
+              <FieldLabel>Image URL</FieldLabel>
+              <Input
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
+                placeholder="https://..."
+                className="h-12 text-sm"
+              />
+            </Field>
+          </FieldGroup>
+        </CardContent>
+      </Card>
 
       <div className="flex items-center justify-end gap-3">
-        <Button asChild variant="outline" className="h-11 rounded-[18px] px-5">
+        <Button asChild variant="outline" className="h-11 px-5">
           <Link href={cancelHref}>Cancel</Link>
         </Button>
         <Button
           type="submit"
           disabled={isSubmitting || isScraping || !name.trim()}
-          className="h-11 rounded-[18px] bg-[var(--ui-action-bg)] px-6 text-[var(--primary-foreground)] shadow-[0_14px_36px_rgba(14,14,14,0.18)] hover:bg-[var(--ui-action-hover)]"
+          className="h-11 px-6"
         >
           {isSubmitting ? "Adding..." : "Add Product"}
         </Button>

@@ -22,24 +22,25 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { Spinner } from "@/components/ui/spinner";
 import ActivityLog from "@/components/dashboard/ActivityLog";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 
 type TaskPriority = "low" | "medium" | "high" | "urgent" | null;
 
-const priorityColors = {
-  low: "bg-green-100 text-green-700",
-  medium: "bg-yellow-100 text-yellow-700",
-  high: "bg-orange-100 text-orange-700",
-  urgent: "bg-red-100 text-red-700",
+const priorityTone: Record<Exclude<TaskPriority, null>, "secondary" | "outline" | "default" | "destructive"> = {
+  low: "secondary",
+  medium: "outline",
+  high: "default",
+  urgent: "destructive",
 };
 
-const statusColors = {
-  todo: "bg-gray-100 text-gray-700",
-  in_progress: "bg-blue-100 text-blue-700",
-  review: "bg-purple-100 text-purple-700",
-  completed: "bg-green-100 text-green-700",
+const statusTone: Record<string, "secondary" | "outline"> = {
+  todo: "secondary",
+  in_progress: "outline",
+  review: "outline",
+  completed: "secondary",
 };
 
 export default function TaskDetail() {
@@ -87,8 +88,8 @@ export default function TaskDetail() {
     project === undefined
   ) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Spinner />
       </div>
     );
   }
@@ -96,7 +97,7 @@ export default function TaskDetail() {
   if (!user || !task || !project) {
     return (
       <ProjectPageLayout>
-        <div className="space-y-6">
+        <div className="flex flex-col gap-6">
           <ProjectPageHeader
             title="Task unavailable"
             actions={
@@ -214,12 +215,12 @@ export default function TaskDetail() {
 
   return (
     <ProjectPageLayout>
-      <div className="space-y-6">
+      <div className="flex flex-col gap-6">
         <ProjectPageHeader
           title={task.title}
           subtitle={project.name}
           actions={
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center gap-3">
               <Button
                 variant="ghost"
                 size="sm"
@@ -231,19 +232,13 @@ export default function TaskDetail() {
               </Button>
               {task.priority && task.priority !== null && (
                 <Badge
-                  variant="outline"
-                  className={
-                    priorityColors[task.priority as Exclude<TaskPriority, null>]
-                  }
+                  variant={priorityTone[task.priority as Exclude<TaskPriority, null>]}
                 >
                   {task.priority}
                 </Badge>
               )}
               <Badge
-                variant="outline"
-                className={
-                  statusColors[task.status as keyof typeof statusColors]
-                }
+                variant={statusTone[task.status] ?? "outline"}
               >
                 {project.taskStatusSettings?.[task.status]?.name || task.status}
               </Badge>
@@ -254,7 +249,7 @@ export default function TaskDetail() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
             {/* Main content */}
-            <div className="lg:col-span-3 space-y-8">
+            <div className="lg:col-span-3 flex flex-col gap-8">
               {/* Editable Title */}
               {isEditingTitle ? (
                 <div className="mb-4">
@@ -279,7 +274,7 @@ export default function TaskDetail() {
                 </div>
               ) : (
                 <h1
-                  className="text-3xl font-bold text-gray-900 mb-2 cursor-pointer hover:bg-gray-50 rounded p-2 -m-2 transition-colors"
+                  className="mb-2 cursor-pointer rounded-md p-2 -m-2 text-3xl font-bold text-foreground transition-colors hover:bg-muted"
                   onClick={startEditingTitle}
                   title="Click to edit title"
                 >
@@ -297,11 +292,11 @@ export default function TaskDetail() {
 
               {/* Attachments Section */}
               <div>
-                <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
+                <h2 className="mb-4 flex items-center text-2xl font-bold text-foreground">
                   <Paperclip className="mr-2 h-6 w-6" />
                   Attachments
                 </h2>
-                <div className="bg-background rounded-lg border p-4 space-y-4">
+                <div className="flex flex-col gap-4 rounded-lg border bg-background p-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                     {files?.map(
                       (file: {
@@ -365,12 +360,12 @@ export default function TaskDetail() {
 
               {/* Comments Section */}
               <div>
-                <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                <h2 className="mb-4 text-2xl font-bold text-foreground">
                   Comments
                 </h2>
-                <div className="space-y-6">
+                <div className="flex flex-col gap-6">
                   {/* Add comment form */}
-                  <div className="flex items-start space-x-4">
+                  <div className="flex items-start gap-4">
                     <Avatar className="h-10 w-10">
                       <AvatarImage src={user.imageUrl} />
                       <AvatarFallback>
@@ -397,7 +392,7 @@ export default function TaskDetail() {
                   {comments?.map((comment) => (
                     <div
                       key={comment._id}
-                      className="flex items-start space-x-4"
+                      className="flex items-start gap-4"
                     >
                       <Avatar className="h-10 w-10">
                         <AvatarImage src={comment.authorImageUrl} />
@@ -407,14 +402,14 @@ export default function TaskDetail() {
                       </Avatar>
                       <div className="flex-1 bg-background rounded-lg p-3">
                         <div className="flex items-center justify-between mb-1">
-                          <span className="font-semibold text-sm text-gray-800">
+                          <span className="text-sm font-semibold text-foreground">
                             {comment.authorName}
                           </span>
                           <span className="text-xs text-muted-foreground">
                             {new Date(comment._creationTime).toLocaleString()}
                           </span>
                         </div>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-muted-foreground">
                           {comment.content}
                         </p>
                       </div>
@@ -428,7 +423,7 @@ export default function TaskDetail() {
 
               {/* Activity Log Section */}
               <div>
-                <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                <h2 className="mb-4 text-2xl font-bold text-foreground">
                   Activity Log
                 </h2>
                 <div className="bg-background rounded-lg border p-4">

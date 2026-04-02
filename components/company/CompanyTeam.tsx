@@ -115,7 +115,7 @@ export default function CompanyTeam() {
   return (
     <div className="flex flex-col flex-1 min-h-0">
       {/* Header */}
-      <div className="flex flex-col gap-4 p-6 border-b">
+      <div className="flex flex-col gap-4 border-b p-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Team Management</h1>
@@ -168,11 +168,11 @@ export default function CompanyTeam() {
           </TabsList>
 
           <TabsContent value="overview" className="mt-6">
-            <div className="space-y-6">
+            <div className="flex flex-col gap-6">
               {/* Team Overview Stats */}
               <div className="grid gap-4 md:grid-cols-4">
                 <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
                     <CardTitle className="text-sm font-medium">Team Members</CardTitle>
                     <Users className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
@@ -182,7 +182,7 @@ export default function CompanyTeam() {
                   </CardContent>
                 </Card>
                 <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
                     <CardTitle className="text-sm font-medium">Administrators</CardTitle>
                     <Crown className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
@@ -192,7 +192,7 @@ export default function CompanyTeam() {
                   </CardContent>
                 </Card>
                 <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
                     <CardTitle className="text-sm font-medium">Projects</CardTitle>
                     <Building2 className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
@@ -202,7 +202,7 @@ export default function CompanyTeam() {
                   </CardContent>
                 </Card>
                 <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
                     <CardTitle className="text-sm font-medium">Pending Invites</CardTitle>
                     <Mail className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
@@ -215,12 +215,12 @@ export default function CompanyTeam() {
 
               {/* Quick Actions */}
               <Card>
-                <CardHeader>
-                  <CardTitle>Quick Actions</CardTitle>
-                  <CardDescription>Common team management tasks</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex gap-4">
+                  <CardHeader>
+                    <CardTitle>Quick Actions</CardTitle>
+                    <CardDescription>Common team management tasks</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex gap-4">
                     <InviteMemberDialog teamId={team._id}>
                       <Button>
                         <Mail className="mr-2 h-4 w-4" />
@@ -241,7 +241,7 @@ export default function CompanyTeam() {
                   </CardHeader>
                   <CardContent>
                     {teamMembersOnly.length > 0 ? (
-                      <div className="space-y-3">
+                      <div className="flex flex-col gap-3">
                         {teamMembersOnly
                           .sort((a, b) => (b.joinedAt || 0) - (a.joinedAt || 0))
                           .slice(0, 5)
@@ -284,7 +284,7 @@ export default function CompanyTeam() {
                   </CardHeader>
                 <CardContent>
                   {teamProjects.length > 0 ? (
-                    <div className="space-y-3">
+                    <div className="flex flex-col gap-3">
                       {teamProjects.slice(0, 5).map((project) => (
                         <div
                           key={project._id}
@@ -326,7 +326,7 @@ export default function CompanyTeam() {
 
 
           <TabsContent value="team" className="mt-6">
-            <div className="space-y-4">
+            <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-xl font-semibold">Internal Team Members</h3>
@@ -342,7 +342,7 @@ export default function CompanyTeam() {
                 
               <Card>
                 <CardContent className="p-0">
-                  <div className="space-y-0">
+                  <div className="flex flex-col gap-0">
                     {teamMembersOnly.map((member: TeamMember) => (
                       <div
                         key={member.clerkUserId}
@@ -357,10 +357,10 @@ export default function CompanyTeam() {
                           <div>
                             <p className="font-semibold">{member.name}</p>
                             <p className="text-sm text-muted-foreground">{member.email}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Badge variant={member.role === 'admin' ? 'default' : 'secondary'} className="text-xs">
-                                {member.role === 'admin' ? 'Administrator' : 'Member'}
-                              </Badge>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge variant={member.role === 'admin' ? 'default' : 'secondary'} className="text-xs">
+                              {member.role === 'admin' ? 'Administrator' : 'Member'}
+                            </Badge>
                               {member.clerkUserId === currentUserMember?.clerkUserId && (
                                 <Badge variant="outline" className="text-xs">You</Badge>
                               )}
@@ -389,7 +389,7 @@ export default function CompanyTeam() {
           </TabsContent>
 
           <TabsContent value="invitations" className="mt-6">
-            <div className="space-y-4">
+            <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-xl font-semibold">Pending Invitations</h3>
@@ -408,7 +408,7 @@ export default function CompanyTeam() {
               <Card>
                 <CardContent className="pt-6">
                   {visiblePendingInvitations.length > 0 ? (
-                    <div className="space-y-3">
+                    <div className="flex flex-col gap-3">
                       {visiblePendingInvitations.map((inv: PendingInvitation) => (
                         <div key={inv._id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                           <div className="flex items-center gap-4 flex-1">
@@ -477,19 +477,19 @@ export default function CompanyTeam() {
 
               {/* Invitation Info Card */}
               {visiblePendingInvitations.length > 0 && (
-                <Card className="border-blue-200 bg-blue-50">
+                <Card className="border-border bg-muted/30">
                   <CardContent className="pt-6">
                     <div className="flex items-start gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100">
-                        <Mail className="h-4 w-4 text-blue-600" />
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                        <Mail className="h-4 w-4 text-primary" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-blue-900">About Invitations</h3>
-                        <p className="text-sm text-blue-700 mt-1">
+                        <h3 className="font-semibold text-foreground">About Invitations</h3>
+                        <p className="mt-1 text-sm text-muted-foreground">
                           Invitations are sent via email and remain valid until accepted or revoked.
                           Invited users will receive full access based on their assigned role once they accept.
                         </p>
-                        <p className="text-xs text-blue-600 mt-2">
+                        <p className="mt-2 text-xs text-muted-foreground">
                           Total pending: {visiblePendingInvitations.length} invitation{visiblePendingInvitations.length !== 1 ? 's' : ''}
                         </p>
                       </div>

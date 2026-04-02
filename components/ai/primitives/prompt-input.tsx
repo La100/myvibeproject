@@ -342,7 +342,7 @@ export function PromptInputAttachment({
         </div>
       </HoverCardTrigger>
       <PromptInputHoverCardContent className="w-auto p-2">
-        <div className="w-auto space-y-3">
+        <div className="w-auto flex flex-col gap-3">
           {isImage && (
             <div className="flex max-h-96 w-96 items-center justify-center overflow-hidden rounded-md border">
               <img
@@ -355,7 +355,7 @@ export function PromptInputAttachment({
             </div>
           )}
           <div className="flex items-center gap-2.5">
-            <div className="min-w-0 flex-1 space-y-1 px-0.5">
+            <div className="min-w-0 flex flex-1 flex-col gap-1 px-0.5">
               <h4 className="truncate font-semibold text-sm leading-none">
                 {filename || (isImage ? "Image" : "Attachment")}
               </h4>
@@ -1354,7 +1354,7 @@ export const PromptInputTabBody = ({
   className,
   ...props
 }: PromptInputTabBodyProps) => (
-  <div className={cn("space-y-1", className)} {...props} />
+  <div className={cn("flex flex-col gap-1", className)} {...props} />
 );
 
 export type PromptInputTabItemProps = HTMLAttributes<HTMLDivElement>;

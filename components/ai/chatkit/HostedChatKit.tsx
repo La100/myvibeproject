@@ -56,7 +56,7 @@ export default function HostedChatKit() {
     process.env.NEXT_PUBLIC_CHATKIT_SELF_HOSTED_DOMAIN_KEY?.trim() || null;
   const configurationError = selfHostedDomainKey
     ? null
-    : "Missing NEXT_PUBLIC_CHATKIT_SELF_HOSTED_DOMAIN_KEY for AI 2 self-hosted ChatKit.";
+    : "Missing NEXT_PUBLIC_CHATKIT_SELF_HOSTED_DOMAIN_KEY for the self-hosted AI assistant.";
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -226,15 +226,15 @@ export default function HostedChatKit() {
   if (effectiveError) {
     return (
       <div className="flex h-[calc(100vh-4rem)] w-full items-center justify-center p-4 xl:p-6">
-        <Card className="w-full max-w-xl rounded-[2rem] border-border/70 bg-background/95 shadow-[0_24px_80px_rgba(15,23,42,0.08)]">
+        <Card className="w-full max-w-xl rounded-3xl border-border/70 bg-background/95">
           <CardHeader>
             <CardTitle>Self-hosted ChatKit error</CardTitle>
             <CardDescription>
-              AI 2 is wired to your self-hosted ChatKit backend, but the integration could not be
-              initialized.
+              The AI assistant is wired to your self-hosted ChatKit backend, but the integration
+              could not be initialized.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="flex flex-col gap-4">
             <div className="rounded-2xl border border-border/70 bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
               {effectiveError}
             </div>
@@ -262,8 +262,8 @@ export default function HostedChatKit() {
         strategy="afterInteractive"
       />
 
-      <div className="mx-auto mb-4 flex w-full max-w-[1220px] items-center justify-between rounded-[1.5rem] border border-border/70 bg-background/95 px-5 py-4 shadow-sm">
-        <div className="space-y-1">
+      <div className="mx-auto mb-4 flex w-full max-w-[1220px] items-center justify-between rounded-3xl border border-border/70 bg-background/95 px-5 py-4 shadow-sm">
+        <div className="flex flex-col gap-1">
           <p className="text-sm font-medium">Can make changes</p>
           <p className="text-xs text-muted-foreground">
             The self-hosted backend receives this mode on every request, so it can enforce
@@ -283,7 +283,7 @@ export default function HostedChatKit() {
         />
       </div>
 
-      <div className="mx-auto flex h-full w-full max-w-[1220px] overflow-hidden rounded-[2rem] border border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(250,248,244,0.92))] shadow-[0_28px_110px_rgba(15,23,42,0.08)]">
+      <div className="mx-auto flex h-full w-full max-w-[1220px] overflow-hidden rounded-3xl border border-border/70 bg-gradient-to-b from-background to-muted/20 shadow-lg">
         <ChatKit
           key={refreshKey}
           control={chatkit.control}

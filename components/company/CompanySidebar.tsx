@@ -26,6 +26,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Settings,
   CreditCard,
@@ -431,8 +432,8 @@ export function CompanySidebar() {
           <SidebarHeader className="border-b border-sidebar-border/70">
             <div className="flex flex-col gap-2 py-2 px-2">
               <div className="px-2 py-1">
-                <div className="h-7 bg-muted rounded animate-pulse mb-1" />
-                <div className="h-4 bg-muted rounded animate-pulse w-2/3" />
+                <Skeleton className="mb-1 h-7" />
+                <Skeleton className="h-4 w-2/3" />
               </div>
             </div>
           </SidebarHeader>
@@ -442,7 +443,7 @@ export function CompanySidebar() {
                 <SidebarMenu>
                   {Array.from({ length: 5 }).map((_, i) => (
                     <SidebarMenuItem key={i}>
-                      <div className="h-10 bg-muted rounded animate-pulse mx-2 mb-1" />
+                      <Skeleton className="mx-2 mb-1 h-10" />
                     </SidebarMenuItem>
                   ))}
                 </SidebarMenu>

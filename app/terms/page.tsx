@@ -1,3 +1,5 @@
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+
 const LAST_UPDATED = "March 12, 2026";
 
 const sections = [
@@ -131,11 +133,12 @@ const sections = [
 export default function TermsOfServicePage() {
   return (
     <div className="min-h-screen bg-background px-6 py-12">
-      <div className="mx-auto max-w-3xl rounded-xl border border-border bg-card p-8 shadow-soft-sm">
-        <h1 className="text-3xl font-semibold text-foreground">Terms of Service</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Last updated: {LAST_UPDATED}</p>
-
-        <div className="prose prose-sm mt-6 max-w-none text-foreground">
+      <Card className="mx-auto max-w-3xl">
+        <CardHeader>
+          <CardTitle className="text-3xl">Terms of Service</CardTitle>
+          <CardDescription>Last updated: {LAST_UPDATED}</CardDescription>
+        </CardHeader>
+        <CardContent className="prose prose-sm max-w-none text-foreground">
           <p>
             These Terms are designed for a professional SaaS workflow and reflect how
             MyVibeProject currently operates across team workspaces, client collaboration, billing,
@@ -150,8 +153,8 @@ export default function TermsOfServicePage() {
               ))}
             </section>
           ))}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -44,41 +44,41 @@ export function SectionManager({
   );
 
   return (
-    <div className="mb-8 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-6 shadow-sm">
+    <div className="mb-8 rounded-3xl border bg-card p-6 shadow-sm">
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         className="flex items-center justify-between w-full text-left"
       >
         <div className="flex items-center gap-3">
-          <FolderIcon className="h-5 w-5 text-[var(--ui-accent-brand)]" />
-          <span className="text-lg font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)]">
+          <FolderIcon className="h-5 w-5 text-primary" />
+          <span className="text-lg font-medium text-foreground">
             Manage Sections
           </span>
-          <span className="text-sm text-[var(--ui-text-muted)]">
+          <span className="text-sm text-muted-foreground">
             ({sections.length} sections)
           </span>
         </div>
         {isExpanded ? (
-          <ChevronUpIcon className="h-5 w-5 text-[var(--ui-text-muted)]" />
+          <ChevronUpIcon className="h-5 w-5 text-muted-foreground" />
         ) : (
-          <ChevronDownIcon className="h-5 w-5 text-[var(--ui-text-muted)]" />
+          <ChevronDownIcon className="h-5 w-5 text-muted-foreground" />
         )}
       </button>
 
       {isExpanded && (
-        <div className="mt-6 space-y-6">
+        <div className="mt-6 flex flex-col gap-6">
           <div className="flex gap-3">
             <Input
               value={newSectionName}
               onChange={(e) => setNewSectionName(e.target.value)}
               placeholder="New section name..."
               onKeyDown={(e) => e.key === 'Enter' && handleCreateSection()}
-              className="h-11 rounded-[18px] border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-sm focus-visible:ring-[var(--ui-accent-brand)]"
+              className="h-11 text-sm"
             />
             <Button
               onClick={handleCreateSection}
               disabled={isPending || !newSectionName.trim()}
-              className="rounded-lg bg-[var(--ui-action-bg)] px-5 h-11 text-[var(--primary-foreground)] shadow-sm hover:bg-[var(--ui-action-hover)]"
+              className="h-11 px-5"
             >
               <PlusIcon className="h-4 w-4 mr-2" />
               Add
@@ -87,14 +87,14 @@ export function SectionManager({
 
           {suggestedSections.length > 0 && (
             <div>
-              <p className="text-xs font-medium text-[var(--ui-text-muted)] mb-2">Quick add:</p>
+              <p className="mb-2 text-xs font-medium text-muted-foreground">Quick add:</p>
               <div className="flex flex-wrap gap-2">
                 {suggestedSections.map((name) => (
                   <button
                     key={name}
                     onClick={() => onCreateSection(name)}
                     disabled={isPending}
-                    className="px-3 py-1.5 text-xs font-medium rounded-lg border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] text-[var(--ui-text-main)] hover:bg-[var(--ui-surface-soft)] transition-colors disabled:opacity-50"
+                    className="rounded-lg border border-border bg-muted px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted/80 disabled:opacity-50"
                   >
                     + {name}
                   </button>
@@ -105,20 +105,20 @@ export function SectionManager({
 
           {sections.length > 0 && (
             <div>
-              <p className="text-xs font-medium text-[var(--ui-text-muted)] mb-3">Existing sections:</p>
-              <div className="space-y-2">
+              <p className="mb-3 text-xs font-medium text-muted-foreground">Existing sections:</p>
+              <div className="flex flex-col gap-2">
                 {sections.map((section) => (
                   <div
                     key={section._id}
-                    className="flex items-center justify-between p-3 rounded-[14px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)]"
+                    className="flex items-center justify-between rounded-2xl border border-border bg-muted/40 p-3"
                   >
-                    <span className="text-sm font-medium text-[var(--ui-text-main)]">{section.name}</span>
+                    <span className="text-sm font-medium text-foreground">{section.name}</span>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => onDeleteSection(section._id)}
                       disabled={isPending}
-                      className="h-8 w-8 p-0 text-[var(--ui-text-muted)] hover:text-red-600 hover:bg-red-50"
+                      className="h-8 w-8 p-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                     >
                       <TrashIcon className="h-4 w-4" />
                     </Button>

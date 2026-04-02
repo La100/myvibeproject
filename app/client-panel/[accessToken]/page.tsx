@@ -408,7 +408,7 @@ function ItemImage({
   if (imageUrl) {
     return (
       <div
-        className={`${sizeClass} overflow-hidden rounded-xl border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)]`}
+        className={`${sizeClass} overflow-hidden rounded-xl border border-border bg-muted`}
       >
         <img src={imageUrl} alt={name} className="h-full w-full object-cover" />
       </div>
@@ -1070,21 +1070,21 @@ export default function PublicClientPanelPage() {
   return (
     <div className="mx-auto w-full max-w-6xl px-6 pb-24 pt-8 sm:px-8">
       <div className="mb-10 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
           <div className="flex items-center gap-3">
-            <ClipboardList className="h-8 w-8 text-[var(--ui-accent-brand)]" />
-            <h1 className="text-4xl font-medium tracking-tight font-[var(--font-display-serif)] text-[var(--ui-text-strong)] md:text-5xl">
+            <ClipboardList className="h-8 w-8 text-primary" />
+            <h1 className="text-4xl font-medium tracking-tight font-serif text-foreground md:text-5xl">
               Customer Portal
             </h1>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <span className="inline-flex items-center gap-2 rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-4 py-2 text-sm font-medium text-[var(--ui-accent-brand)]">
+            <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium text-primary">
               For project: {project.name}
             </span>
             {settings.showShoppingList &&
             settings.showPrice &&
             activeSectionId === "portal-materials" ? (
-              <span className="inline-flex items-center gap-2 rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-4 py-2 text-sm font-medium text-[var(--ui-text-main)]">
+              <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium text-foreground">
                 Total: {formatAmount(grandTotal, currencySymbol)}
               </span>
             ) : null}
@@ -1101,26 +1101,24 @@ export default function PublicClientPanelPage() {
               onClick={() => void handleExportMaterialsPdf()}
               disabled={isExportingMaterialsPdf}
             >
-              <Download className="mr-2 h-4 w-4" />
+              <Download data-icon="inline-start" />
               {isExportingMaterialsPdf ? "Exporting PDF..." : "Export shopping list PDF"}
             </Button>
           ) : null}
           {sectionCards.length > 0 ? (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {sectionCards.map((section) => (
-                <button
+                <Button
                   key={section.id}
                   type="button"
                   onClick={() => setActiveSectionId(section.id)}
-                  className={`rounded-[14px] border px-4 py-3 text-left transition-colors ${
-                    activeSectionId === section.id
-                      ? "border-[var(--ui-accent-brand)] bg-[var(--ui-surface-soft)]"
-                      : "border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] hover:bg-[var(--ui-surface-soft)]"
-                  }`}
+                  variant={activeSectionId === section.id ? "default" : "outline"}
+                  size="sm"
+                  className="h-auto flex flex-col items-start gap-1 px-4 py-3 text-left"
                 >
-                  <p className="text-sm font-medium text-[var(--ui-text-strong)]">{section.label}</p>
-                  <p className="text-xs text-[var(--ui-text-muted)]">{section.count} items</p>
-                </button>
+                  <span className="text-sm font-medium">{section.label}</span>
+                  <span className="text-xs text-muted-foreground">{section.count} items</span>
+                </Button>
               ))}
             </div>
           ) : null}
@@ -1128,34 +1126,34 @@ export default function PublicClientPanelPage() {
       </div>
 
       {panelData.version === 0 ? (
-        <div className="mb-8 rounded-[20px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-5 py-4 text-sm text-[var(--ui-text-muted)]">
+        <div className="mb-8 rounded-2xl border border-border bg-card px-5 py-4 text-sm text-muted-foreground">
           This portal has not been updated yet. Ask the project team to click Update portal in
           project settings.
         </div>
       ) : null}
 
       {settings.showFiles && activeSectionId === "portal-files" ? (
-        <div className="mb-10 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-4 shadow-[0_24px_60px_rgba(20,20,20,0.08)] sm:rounded-[32px] sm:p-8">
+        <div className="mb-10 rounded-3xl border border-border bg-card p-4 shadow-sm sm:rounded-3xl sm:p-8">
           <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
-            <h2 className="text-xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)] sm:text-2xl">
+            <h2 className="text-xl font-medium font-serif text-foreground sm:text-2xl">
               Files
             </h2>
-            <span className="inline-flex items-center justify-center rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-muted)]">
+            <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
               {files.length} files
             </span>
           </div>
           {files.length === 0 ? (
-            <p className="text-sm text-[var(--ui-text-muted)]">No files shared.</p>
+            <p className="text-sm text-muted-foreground">No files shared.</p>
           ) : (
-            <div className="space-y-3">
+            <div className="flex flex-col gap-3">
               {files.map((file) => (
                 <div
                   key={file._id}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-[16px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-4"
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-card p-4"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-[var(--ui-text-strong)]">{file.name}</p>
-                    <p className="mt-1 text-xs text-[var(--ui-text-muted)]">
+                    <p className="truncate text-sm font-medium text-foreground">{file.name}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
                       {file.fileType} • {formatFileSize(file.size)}
                       {file.folderName ? ` • ${file.folderName}` : ""}
                     </p>
@@ -1165,7 +1163,7 @@ export default function PublicClientPanelPage() {
                       href={file.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--ui-border-soft)] text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-soft)] hover:text-[var(--ui-text-main)]"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
                       aria-label={`Open ${file.name}`}
                     >
                       <ExternalLink className="h-4 w-4" />
@@ -1173,7 +1171,7 @@ export default function PublicClientPanelPage() {
                     <a
                       href={file.url}
                       download={file.name}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--ui-border-soft)] text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-soft)] hover:text-[var(--ui-text-main)]"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
                       aria-label={`Download ${file.name}`}
                     >
                       <Download className="h-4 w-4" />
@@ -1188,37 +1186,37 @@ export default function PublicClientPanelPage() {
 
       {settings.showMoodboard && activeSectionId === "portal-moodboard" ? (
         <>
-          <div className="mb-10 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-4 shadow-[0_24px_60px_rgba(20,20,20,0.08)] sm:rounded-[32px] sm:p-8">
+          <div className="mb-10 rounded-3xl border border-border bg-card p-4 shadow-sm sm:rounded-3xl sm:p-8">
             <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
-              <h2 className="text-xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)] sm:text-2xl">
+              <h2 className="text-xl font-medium font-serif text-foreground sm:text-2xl">
                 Moodboard
               </h2>
-              <span className="inline-flex items-center justify-center rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-muted)]">
+              <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
                 {moodboardFiles.length} items
               </span>
             </div>
             {moodboardFiles.length === 0 ? (
-              <p className="text-sm text-[var(--ui-text-muted)]">No moodboard items shared.</p>
+              <p className="text-sm text-muted-foreground">No moodboard items shared.</p>
             ) : (
-              <div className="space-y-12">
+              <div className="flex flex-col gap-12">
                 {moodboardSections.map((section) => (
-                  <div key={section.sectionId} className="space-y-6">
+                  <div key={section.sectionId} className="flex flex-col gap-6">
                     <div className="flex items-center gap-3">
-                      <h3 className="text-sm font-semibold tracking-[0.2em] uppercase text-[var(--ui-text-strong)]">
+                      <h3 className="text-sm font-semibold tracking-[0.2em] uppercase text-foreground">
                         {section.sectionLabel}
                       </h3>
-                      <span className="inline-flex items-center justify-center rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-1 text-[11px] font-medium text-[var(--ui-text-muted)]">
+                      <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-[11px] font-medium text-muted-foreground">
                         {section.files.length} items
                       </span>
                     </div>
 
-                    <div className="columns-1 sm:columns-2 md:columns-2 lg:columns-3 xl:columns-3 gap-6 space-y-6">
+                    <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
                       {section.files.map((file) => {
                         const isImage = file.mimeType.startsWith("image/");
                         return (
                           <div
                             key={file._id}
-                            className="group relative mb-4 break-inside-avoid overflow-hidden rounded-xl border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)]"
+                            className="group relative mb-4 break-inside-avoid overflow-hidden rounded-xl border border-border/70 bg-card"
                           >
                             {isImage ? (
                               <button
@@ -1230,7 +1228,7 @@ export default function PublicClientPanelPage() {
                                 <img
                                   src={file.url}
                                   alt={file.name}
-                                  className="w-full h-auto object-contain bg-[var(--ui-surface-soft)] transition-transform duration-300 group-hover:scale-[1.02]"
+                                  className="w-full h-auto object-contain bg-muted transition-transform duration-300 group-hover:scale-[1.02]"
                                 />
                               </button>
                             ) : (
@@ -1238,7 +1236,7 @@ export default function PublicClientPanelPage() {
                                 href={file.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="block rounded-lg border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-soft)] p-3 text-xs text-[var(--ui-text-muted)]"
+                                className="block rounded-lg border border-border/70 bg-muted p-3 text-xs text-muted-foreground"
                               >
                                 Preview unavailable
                               </a>
@@ -1249,7 +1247,7 @@ export default function PublicClientPanelPage() {
                                 href={file.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)]/90 text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-soft)] hover:text-[var(--ui-text-main)]"
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-card/90 text-muted-foreground hover:bg-muted hover:text-foreground"
                                 aria-label={`Open ${file.name}`}
                               >
                                 <ExternalLink className="h-4 w-4" />
@@ -1257,7 +1255,7 @@ export default function PublicClientPanelPage() {
                               <a
                                 href={file.url}
                                 download={file.name}
-                                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)]/90 text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-soft)] hover:text-[var(--ui-text-main)]"
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-card/90 text-muted-foreground hover:bg-muted hover:text-foreground"
                                 aria-label={`Download ${file.name}`}
                               >
                                 <Download className="h-4 w-4" />
@@ -1276,7 +1274,7 @@ export default function PublicClientPanelPage() {
 
           {selectedMoodboardFile ? (
             <div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+              className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur-sm p-4"
               onClick={() => setSelectedMoodboardFile(null)}
             >
               <div className="max-h-full max-w-6xl" onClick={(event) => event.stopPropagation()}>
@@ -1295,7 +1293,7 @@ export default function PublicClientPanelPage() {
       activeSectionId === "portal-surveys" &&
       respondentKey &&
       publicSurveysData === undefined ? (
-        <div className="mb-10 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-5 py-6 text-sm text-[var(--ui-text-muted)]">
+        <div className="mb-10 rounded-3xl border border-border bg-card px-5 py-6 text-sm text-muted-foreground">
           Loading surveys...
         </div>
       ) : null}
@@ -1303,22 +1301,22 @@ export default function PublicClientPanelPage() {
       {settings.showSurveys &&
       activeSectionId === "portal-surveys" &&
       publicSurveysData !== undefined ? (
-        <div className="mb-10 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-4 shadow-[0_24px_60px_rgba(20,20,20,0.08)] sm:rounded-[32px] sm:p-8">
+        <div className="mb-10 rounded-3xl border border-border bg-card p-4 shadow-sm sm:rounded-3xl sm:p-8">
           <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
-            <h2 className="text-xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)] sm:text-2xl">
+            <h2 className="text-xl font-medium font-serif text-foreground sm:text-2xl">
               Surveys
             </h2>
-            <span className="inline-flex items-center justify-center rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-muted)]">
+            <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
               {surveys.length} available
             </span>
           </div>
-          <p className="mb-6 text-sm text-[var(--ui-text-muted)]">
+          <p className="mb-6 text-sm text-muted-foreground">
             Share your feedback directly in the portal. Responses are sent to the project team.
           </p>
           {surveys.length === 0 ? (
-            <p className="text-sm text-[var(--ui-text-muted)]">No surveys shared.</p>
+            <p className="text-sm text-muted-foreground">No surveys shared.</p>
           ) : (
-            <div className="space-y-4">
+            <div className="flex flex-col gap-4">
               {surveys.map((survey) => {
               const surveyId = String(survey._id);
               const isOpen = openSurveyId === surveyId;
@@ -1332,27 +1330,27 @@ export default function PublicClientPanelPage() {
               return (
                 <div
                   key={surveyId}
-                  className="rounded-[20px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-5"
+                  className="rounded-2xl border border-border/70 bg-card p-5"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div className="min-w-0 space-y-2">
+                    <div className="min-w-0 flex flex-col gap-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        <ClipboardList className="h-4 w-4 text-[var(--ui-accent-brand)]" />
-                        <h3 className="text-lg font-medium text-[var(--ui-text-strong)]">{survey.title}</h3>
+                        <ClipboardList className="h-4 w-4 text-primary" />
+                        <h3 className="text-lg font-medium text-foreground">{survey.title}</h3>
                         {survey.isRequired ? (
                           <Badge variant="destructive" className="text-[10px]">Required</Badge>
                         ) : null}
                         {survey.hasSubmitted ? (
                           <Badge variant="outline" className="text-[10px]">
-                            <CheckCircle2 className="mr-1 h-3 w-3" />
+                            <CheckCircle2 data-icon="inline-start" />
                             Submitted
                           </Badge>
                         ) : null}
                       </div>
                       {survey.description ? (
-                        <p className="text-sm text-[var(--ui-text-muted)]">{survey.description}</p>
+                        <p className="text-sm text-muted-foreground">{survey.description}</p>
                       ) : null}
-                      <p className="text-xs text-[var(--ui-text-muted)]">
+                      <p className="text-xs text-muted-foreground">
                         {survey.questions.length} question{survey.questions.length === 1 ? "" : "s"}
                         {survey.submittedAt ? ` · last submitted ${new Date(survey.submittedAt).toLocaleString()}` : ""}
                       </p>
@@ -1371,14 +1369,14 @@ export default function PublicClientPanelPage() {
                   </div>
 
                   {isLocked ? (
-                    <p className="mt-4 text-sm text-[var(--ui-text-muted)]">
+                    <p className="mt-4 text-sm text-muted-foreground">
                       You already submitted this survey.
                     </p>
                   ) : null}
 
                   {isOpen ? (
-                    <div className="mt-6 space-y-4 border-t border-[var(--ui-border-soft)] pt-5">
-                      <div className="max-w-md space-y-2">
+                    <div className="mt-6 flex flex-col gap-4 border-t border-border pt-5">
+                      <div className="max-w-md flex flex-col gap-2">
                         <Label htmlFor={`respondent-name-${surveyId}`} className="text-sm font-medium">
                           Who is answering survey "{survey.title}"?
                         </Label>
@@ -1397,7 +1395,7 @@ export default function PublicClientPanelPage() {
                         return (
                           <div
                             key={questionId}
-                            className="rounded-[14px] border border-[var(--ui-border-soft)]/60 bg-[var(--ui-surface-soft)] p-4"
+                            className="rounded-lg border border-border/60 bg-muted p-4"
                           >
                             <div className="mb-3 flex flex-wrap items-center gap-2">
                               <Badge variant="outline" className="text-[10px]">Question {index + 1}</Badge>
@@ -1405,7 +1403,7 @@ export default function PublicClientPanelPage() {
                                 <Badge variant="destructive" className="text-[10px]">Required</Badge>
                               ) : null}
                             </div>
-                            <p className="mb-3 text-sm font-medium text-[var(--ui-text-strong)]">
+                            <p className="mb-3 text-sm font-medium text-foreground">
                               {question.questionText}
                             </p>
 
@@ -1434,10 +1432,10 @@ export default function PublicClientPanelPage() {
                               <RadioGroup
                                 value={typeof answerValue === "string" ? answerValue : ""}
                                 onValueChange={(value) => updateSurveyAnswer(surveyId, questionId, value)}
-                                className="space-y-2"
+                                className="flex flex-col gap-2"
                               >
                                 {(question.options || []).map((option) => (
-                                  <div key={option} className="flex items-center space-x-2">
+                                  <div key={option} className="flex items-center gap-2">
                                     <RadioGroupItem value={option} id={`${questionId}-${option}`} />
                                     <Label htmlFor={`${questionId}-${option}`}>{option}</Label>
                                   </div>
@@ -1446,14 +1444,14 @@ export default function PublicClientPanelPage() {
                             ) : null}
 
                             {question.questionType === "multiple_choice" ? (
-                              <div className="space-y-2">
+                              <div className="flex flex-col gap-2">
                                 {(question.options || []).map((option) => {
                                   const selectedValues = Array.isArray(answerValue)
                                     ? answerValue.filter((value): value is string => typeof value === "string")
                                     : [];
                                   const checked = selectedValues.includes(option);
                                   return (
-                                    <div key={option} className="flex items-center space-x-2">
+                                    <div key={option} className="flex items-center gap-2">
                                       <Checkbox
                                         id={`${questionId}-${option}`}
                                         checked={checked}
@@ -1477,9 +1475,9 @@ export default function PublicClientPanelPage() {
                                 onValueChange={(value) =>
                                   updateSurveyAnswer(surveyId, questionId, Number.parseInt(value, 10))
                                 }
-                                className="space-y-2"
+                                className="flex flex-col gap-2"
                               >
-                                <div className="flex items-center justify-between text-xs text-[var(--ui-text-muted)]">
+                                <div className="flex items-center justify-between text-xs text-muted-foreground">
                                   <span>{question.ratingScale?.minLabel || question.ratingScale?.min || 1}</span>
                                   <span>{question.ratingScale?.maxLabel || question.ratingScale?.max || 5}</span>
                                 </div>
@@ -1501,13 +1499,13 @@ export default function PublicClientPanelPage() {
                               <RadioGroup
                                 value={typeof answerValue === "boolean" ? String(answerValue) : ""}
                                 onValueChange={(value) => updateSurveyAnswer(surveyId, questionId, value === "true")}
-                                className="space-y-2"
+                                className="flex flex-col gap-2"
                               >
-                                <div className="flex items-center space-x-2">
+                                <div className="flex items-center gap-2">
                                   <RadioGroupItem value="true" id={`${questionId}-yes`} />
                                   <Label htmlFor={`${questionId}-yes`}>Yes</Label>
                                 </div>
-                                <div className="flex items-center space-x-2">
+                                <div className="flex items-center gap-2">
                                   <RadioGroupItem value="false" id={`${questionId}-no`} />
                                   <Label htmlFor={`${questionId}-no`}>No</Label>
                                 </div>
@@ -1536,7 +1534,7 @@ export default function PublicClientPanelPage() {
                             ) : null}
 
                             {question.questionType === "file" ? (
-                              <p className="text-xs text-[var(--ui-text-muted)]">
+                              <p className="text-xs text-muted-foreground">
                                 File uploads are not available in the public portal yet.
                               </p>
                             ) : null}
@@ -1545,7 +1543,7 @@ export default function PublicClientPanelPage() {
                       })}
 
                       {hasRequiredFileQuestion ? (
-                        <p className="text-xs text-red-600">
+                        <p className="text-xs text-destructive">
                           This survey has required file upload questions and cannot be submitted in the public portal.
                         </p>
                       ) : null}
@@ -1556,7 +1554,7 @@ export default function PublicClientPanelPage() {
                           onClick={() => void handleSubmitPublicSurvey(survey)}
                           disabled={isSubmitting || hasRequiredFileQuestion}
                         >
-                          <Send className="mr-2 h-4 w-4" />
+                          <Send data-icon="inline-start" />
                           {isSubmitting ? "Submitting..." : "Submit survey"}
                         </Button>
                       </div>
@@ -1571,27 +1569,27 @@ export default function PublicClientPanelPage() {
       ) : null}
 
       {settings.showTasks && activeSectionId === "portal-tasks" ? (
-        <div className="mb-10 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-4 shadow-[0_24px_60px_rgba(20,20,20,0.08)] sm:rounded-[32px] sm:p-8">
+        <div className="mb-10 rounded-3xl border border-border bg-card p-4 shadow-sm sm:rounded-3xl sm:p-8">
           <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
-            <h2 className="text-xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)] sm:text-2xl">
+            <h2 className="text-xl font-medium font-serif text-foreground sm:text-2xl">
               Tasks
             </h2>
-            <span className="inline-flex items-center justify-center rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-muted)]">
+            <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
               {tasks.length} items
             </span>
           </div>
           {tasks.length === 0 ? (
-            <p className="text-sm text-[var(--ui-text-muted)]">No tasks shared.</p>
+            <p className="text-sm text-muted-foreground">No tasks shared.</p>
           ) : (
-            <div className="space-y-3">
+            <div className="flex flex-col gap-3">
               {tasks.map((task) => (
                 <div
                   key={task._id}
-                  className="rounded-[16px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-4"
+                  className="rounded-xl border border-border/70 bg-card p-4"
                 >
                   <div className="flex flex-wrap items-center gap-2">
-                    <ClipboardList className="h-4 w-4 text-[var(--ui-accent-brand)]" />
-                    <p className="text-sm font-medium text-[var(--ui-text-strong)]">{task.title}</p>
+                    <ClipboardList className="h-4 w-4 text-primary" />
+                    <p className="text-sm font-medium text-foreground">{task.title}</p>
                     <Badge variant="outline" className="text-[10px]">
                       {formatTaskStatus(task.status)}
                     </Badge>
@@ -1602,9 +1600,9 @@ export default function PublicClientPanelPage() {
                     ) : null}
                   </div>
                   {task.description ? (
-                    <p className="mt-2 text-sm text-[var(--ui-text-muted)]">{task.description}</p>
+                    <p className="mt-2 text-sm text-muted-foreground">{task.description}</p>
                   ) : null}
-                  <p className="mt-2 text-xs text-[var(--ui-text-muted)]">
+                  <p className="mt-2 text-xs text-muted-foreground">
                     Start: {formatPortalDate(task.startDate)} · End: {formatPortalDate(task.endDate)}
                   </p>
                 </div>
@@ -1615,38 +1613,38 @@ export default function PublicClientPanelPage() {
       ) : null}
 
       {settings.showLabor && activeSectionId === "portal-labor" ? (
-        <div className="mb-10 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-4 shadow-[0_24px_60px_rgba(20,20,20,0.08)] sm:rounded-[32px] sm:p-8">
+        <div className="mb-10 rounded-3xl border border-border bg-card p-4 shadow-sm sm:rounded-3xl sm:p-8">
           <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
-            <h2 className="text-xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)] sm:text-2xl">
+            <h2 className="text-xl font-medium font-serif text-foreground sm:text-2xl">
               Labor
             </h2>
-            <span className="inline-flex items-center justify-center rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-muted)]">
+            <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
               {laborItems.length} items
             </span>
           </div>
           {laborItems.length === 0 ? (
-            <p className="text-sm text-[var(--ui-text-muted)]">No labor entries shared.</p>
+            <p className="text-sm text-muted-foreground">No labor entries shared.</p>
           ) : (
-            <div className="space-y-3">
+            <div className="flex flex-col gap-3">
               {laborItems.map((item) => (
                 <div
                   key={item._id}
-                  className="rounded-[16px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-4"
+                  className="rounded-xl border border-border/70 bg-card p-4"
                 >
                   <div className="flex flex-wrap items-center gap-2">
-                    <Wrench className="h-4 w-4 text-[var(--ui-accent-brand)]" />
-                    <p className="text-sm font-medium text-[var(--ui-text-strong)]">{item.name}</p>
+                    <Wrench className="h-4 w-4 text-primary" />
+                    <p className="text-sm font-medium text-foreground">{item.name}</p>
                   </div>
-                  <p className="mt-2 text-sm text-[var(--ui-text-main)]">
+                  <p className="mt-2 text-sm text-foreground">
                     Qty: {item.quantity} {item.unit}
                     {settings.showPrice && item.totalPrice !== undefined
                       ? ` · Total: ${formatAmount(item.totalPrice, currencySymbol)}`
                       : ""}
                   </p>
                   {item.notes ? (
-                    <p className="mt-2 text-sm text-[var(--ui-text-muted)]">{item.notes}</p>
+                    <p className="mt-2 text-sm text-muted-foreground">{item.notes}</p>
                   ) : null}
-                  <p className="mt-2 text-xs text-[var(--ui-text-muted)]">
+                  <p className="mt-2 text-xs text-muted-foreground">
                     Start: {formatPortalDate(item.startDate)} · End: {formatPortalDate(item.endDate)}
                   </p>
                 </div>
@@ -1657,42 +1655,42 @@ export default function PublicClientPanelPage() {
       ) : null}
 
       {settings.showContacts && activeSectionId === "portal-contacts" ? (
-        <div className="mb-10 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-4 shadow-[0_24px_60px_rgba(20,20,20,0.08)] sm:rounded-[32px] sm:p-8">
+        <div className="mb-10 rounded-3xl border border-border bg-card p-4 shadow-sm sm:rounded-3xl sm:p-8">
           <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
-            <h2 className="text-xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)] sm:text-2xl">
+            <h2 className="text-xl font-medium font-serif text-foreground sm:text-2xl">
               Contacts
             </h2>
-            <span className="inline-flex items-center justify-center rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-muted)]">
+            <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
               {contacts.length} items
             </span>
           </div>
           {contacts.length === 0 ? (
-            <p className="text-sm text-[var(--ui-text-muted)]">No contacts shared.</p>
+            <p className="text-sm text-muted-foreground">No contacts shared.</p>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
               {contacts.map((contact) => (
                 <div
                   key={contact._id}
-                  className="rounded-[16px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-4"
+                  className="rounded-xl border border-border/70 bg-card p-4"
                 >
                   <div className="flex flex-wrap items-center gap-2">
-                    <Users className="h-4 w-4 text-[var(--ui-accent-brand)]" />
-                    <p className="text-sm font-medium text-[var(--ui-text-strong)]">{contact.name}</p>
+                    <Users className="h-4 w-4 text-primary" />
+                    <p className="text-sm font-medium text-foreground">{contact.name}</p>
                     <Badge variant="outline" className="text-[10px]">
                       {contact.type.toUpperCase()}
                     </Badge>
                   </div>
                   {contact.companyName ? (
-                    <p className="mt-2 text-sm text-[var(--ui-text-main)]">{contact.companyName}</p>
+                    <p className="mt-2 text-sm text-foreground">{contact.companyName}</p>
                   ) : null}
                   {(contact.email || contact.phone) ? (
-                    <p className="mt-2 text-xs text-[var(--ui-text-muted)]">
+                    <p className="mt-2 text-xs text-muted-foreground">
                       {contact.email || "-"}
                       {contact.phone ? ` · ${contact.phone}` : ""}
                     </p>
                   ) : null}
                   {contact.projectRole ? (
-                    <p className="mt-2 text-xs text-[var(--ui-text-muted)]">
+                    <p className="mt-2 text-xs text-muted-foreground">
                       Role: {contact.projectRole}
                     </p>
                   ) : null}
@@ -1704,21 +1702,21 @@ export default function PublicClientPanelPage() {
       ) : null}
 
       {settings.showApprovals && activeSectionId === "portal-approvals" ? (
-        <div className="mb-10 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-4 shadow-[0_24px_60px_rgba(20,20,20,0.08)] sm:rounded-[32px] sm:p-8">
+        <div className="mb-10 rounded-3xl border border-border bg-card p-4 shadow-sm sm:rounded-3xl sm:p-8">
           <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
-            <h2 className="text-xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)] sm:text-2xl">
+            <h2 className="text-xl font-medium font-serif text-foreground sm:text-2xl">
               Approvals
             </h2>
-            <span className="inline-flex items-center justify-center rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-muted)]">
+            <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
               {approvals.length} requests
             </span>
           </div>
 
           {approvals.length === 0 ? (
-            <p className="text-sm text-[var(--ui-text-muted)]">No approval requests shared yet.</p>
+            <p className="text-sm text-muted-foreground">No approval requests shared yet.</p>
           ) : (
-            <div className="space-y-5">
-              <div className="max-w-md space-y-2">
+            <div className="flex flex-col gap-5">
+              <div className="max-w-md flex flex-col gap-2">
                 <Label htmlFor="approval-respondent-name" className="text-sm font-medium">
                   Who is reviewing approvals?
                 </Label>
@@ -1740,37 +1738,29 @@ export default function PublicClientPanelPage() {
                 return (
                   <div
                     key={approvalId}
-                    className="rounded-[20px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-5"
+                    className="rounded-2xl border border-border/70 bg-card p-5"
                   >
                     <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                      <div className="space-y-2">
+                      <div className="flex flex-col gap-2">
                         <div className="flex flex-wrap items-center gap-2">
                           <Badge variant="outline">{approvalTypeLabel(approval.type)}</Badge>
                           <Badge
                             variant="outline"
-                            className={
-                              approval.status === "approved"
-                                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                                : approval.status === "rejected"
-                                  ? "border-rose-200 bg-rose-50 text-rose-700"
-                                  : approval.status === "commented"
-                                    ? "border-amber-200 bg-amber-50 text-amber-700"
-                                    : "border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] text-[var(--ui-text-main)]"
-                            }
+                            className="border-border bg-muted text-foreground"
                           >
                             {approval.status.toUpperCase()}
                           </Badge>
                           <Badge variant="secondary">v{approval.currentVersion}</Badge>
                         </div>
                         <div>
-                          <h3 className="text-lg font-medium text-[var(--ui-text-strong)]">{approval.title}</h3>
+                          <h3 className="text-lg font-medium text-foreground">{approval.title}</h3>
                           {approval.description ? (
-                            <p className="mt-1 text-sm text-[var(--ui-text-muted)]">{approval.description}</p>
+                            <p className="mt-1 text-sm text-muted-foreground">{approval.description}</p>
                           ) : null}
                         </div>
                       </div>
 
-                      <div className="shrink-0 text-sm text-[var(--ui-text-muted)]">
+                      <div className="shrink-0 text-sm text-muted-foreground">
                         {approval.dueDate
                           ? `Decision deadline: ${new Date(approval.dueDate).toLocaleDateString()}`
                           : "No deadline"}
@@ -1778,13 +1768,13 @@ export default function PublicClientPanelPage() {
                     </div>
 
                     {approval.currentVersionRecord?.summary ? (
-                      <div className="mt-4 rounded-[16px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-4 py-3 text-sm text-[var(--ui-text-main)]">
+                      <div className="mt-4 rounded-xl border border-border bg-muted px-4 py-3 text-sm text-foreground">
                         {approval.currentVersionRecord.summary}
                       </div>
                     ) : null}
 
                     {approval.currentVersionRecord?.details ? (
-                      <p className="mt-4 text-sm text-[var(--ui-text-muted)]">
+                      <p className="mt-4 text-sm text-muted-foreground">
                         {approval.currentVersionRecord.details}
                       </p>
                     ) : null}
@@ -1800,8 +1790,8 @@ export default function PublicClientPanelPage() {
                     ) : null}
 
                     {canDecide ? (
-                      <div className="mt-5 space-y-3 border-t border-[var(--ui-border-soft)] pt-4">
-                        <div className="space-y-2">
+                      <div className="mt-5 flex flex-col gap-3 border-t border-border pt-4">
+                        <div className="flex flex-col gap-2">
                           <Label htmlFor={`approval-comment-${approvalId}`}>Comment for the project team</Label>
                           <Textarea
                             id={`approval-comment-${approvalId}`}
@@ -1822,7 +1812,7 @@ export default function PublicClientPanelPage() {
                             onClick={() => void handleRespondToApproval(approval, "approved")}
                             disabled={respondingApprovalId === approvalId}
                           >
-                            <CheckCircle2 className="mr-2 h-4 w-4" />
+                            <CheckCircle2 data-icon="inline-start" />
                             {respondingApprovalId === approvalId ? "Saving..." : "Approve"}
                           </Button>
                           <Button
@@ -1831,7 +1821,7 @@ export default function PublicClientPanelPage() {
                             onClick={() => void handleRespondToApproval(approval, "rejected")}
                             disabled={respondingApprovalId === approvalId}
                           >
-                            <XCircle className="mr-2 h-4 w-4" />
+                            <XCircle data-icon="inline-start" />
                             Reject
                           </Button>
                         </div>
@@ -1839,16 +1829,16 @@ export default function PublicClientPanelPage() {
                     ) : null}
 
                     {!canDecide && approval.clientDecision ? (
-                      <div className="mt-5 rounded-[16px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-4 py-3 text-sm text-[var(--ui-text-main)]">
+                      <div className="mt-5 rounded-xl border border-border bg-muted px-4 py-3 text-sm text-foreground">
                         <div className="flex items-center gap-2 font-medium">
                           {approval.clientDecision === "approved" ? (
-                            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                            <CheckCircle2 className="h-4 w-4 text-foreground" />
                           ) : (
-                            <XCircle className="h-4 w-4 text-rose-600" />
+                            <XCircle className="h-4 w-4 text-foreground" />
                           )}
                           Decision: {approval.clientDecision}
                         </div>
-                        <p className="mt-2 text-[var(--ui-text-muted)]">
+                        <p className="mt-2 text-muted-foreground">
                           By {approval.clientRespondentName || "client"}
                           {approval.decidedAt ? ` on ${new Date(approval.decidedAt).toLocaleString()}` : ""}
                         </p>
@@ -1866,88 +1856,88 @@ export default function PublicClientPanelPage() {
       ) : null}
 
       {settings.showBudget && activeSectionId === "portal-budget" ? (
-        <div className="mb-10 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-4 shadow-[0_24px_60px_rgba(20,20,20,0.08)] sm:rounded-[32px] sm:p-8">
+        <div className="mb-10 rounded-3xl border border-border bg-card p-4 shadow-sm sm:rounded-3xl sm:p-8">
           <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
-            <h2 className="text-xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)] sm:text-2xl">
+            <h2 className="text-xl font-medium font-serif text-foreground sm:text-2xl">
               Budget
             </h2>
           </div>
           {publicBudgetSummary ? (
-            <div className="space-y-5">
+            <div className="flex flex-col gap-5">
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-[16px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-5">
-                  <p className="text-sm text-[var(--ui-text-muted)]">Budget</p>
+                <div className="rounded-xl border border-border/70 bg-card p-5">
+                  <p className="text-sm text-muted-foreground">Budget</p>
                   <div className="mt-2 flex items-center gap-3">
-                    <Banknote className="h-5 w-5 text-[var(--ui-accent-brand)]" />
-                    <p className="text-xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)]">
+                    <Banknote className="h-5 w-5 text-primary" />
+                    <p className="text-xl font-medium font-serif text-foreground">
                       {formatAmount(publicBudgetSummary.budget, currencySymbol)}
                     </p>
                   </div>
                 </div>
-                <div className="rounded-[16px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-5">
-                  <p className="text-sm text-[var(--ui-text-muted)]">Planned cost</p>
-                  <p className="mt-2 text-xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)]">
+                <div className="rounded-xl border border-border/70 bg-card p-5">
+                  <p className="text-sm text-muted-foreground">Planned cost</p>
+                  <p className="mt-2 text-xl font-medium font-serif text-foreground">
                     {formatAmount(publicBudgetSummary.plannedCost, currencySymbol)}
                   </p>
-                  <p className="mt-1 text-xs text-[var(--ui-text-muted)]">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     {publicBudgetSummary.projectedUtilizationPercent ?? 0}% of budget
                   </p>
                 </div>
-                <div className="rounded-[16px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-5">
-                  <p className="text-sm text-[var(--ui-text-muted)]">Committed cost</p>
-                  <p className="mt-2 text-xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)]">
+                <div className="rounded-xl border border-border/70 bg-card p-5">
+                  <p className="text-sm text-muted-foreground">Committed cost</p>
+                  <p className="mt-2 text-xl font-medium font-serif text-foreground">
                     {formatAmount(publicBudgetSummary.committedCost, currencySymbol)}
                   </p>
-                  <p className="mt-1 text-xs text-[var(--ui-text-muted)]">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     Approved and scheduled spend
                   </p>
                 </div>
-                <div className="rounded-[16px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-5">
-                  <p className="text-sm text-[var(--ui-text-muted)]">Actual cost</p>
-                  <p className="mt-2 text-xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)]">
+                <div className="rounded-xl border border-border/70 bg-card p-5">
+                  <p className="text-sm text-muted-foreground">Actual cost</p>
+                  <p className="mt-2 text-xl font-medium font-serif text-foreground">
                     {formatAmount(publicBudgetSummary.actualCost, currencySymbol)}
                   </p>
-                  <p className="mt-1 text-xs text-[var(--ui-text-muted)]">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     {publicBudgetSummary.utilizationPercent ?? 0}% of budget used
                   </p>
                 </div>
               </div>
 
               <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-                <div className="rounded-[18px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-5">
+                <div className="rounded-xl border border-border/70 bg-card p-5">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <p className="text-base font-medium text-[var(--ui-text-strong)]">
+                      <p className="text-base font-medium text-foreground">
                         Budget balance
                       </p>
-                      <p className="mt-1 text-sm text-[var(--ui-text-muted)]">
+                      <p className="mt-1 text-sm text-muted-foreground">
                         Remaining budget against actual and projected spending.
                       </p>
                     </div>
                     <div
                       className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${
                         publicBudgetSummary.variance < 0
-                          ? "border-rose-200 bg-rose-50 text-rose-700"
-                          : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                          ? "border-border bg-muted text-foreground"
+                          : "border-border bg-muted text-foreground"
                       }`}
                     >
                       {publicBudgetSummary.variance < 0 ? "Over budget" : "Within budget"}
                     </div>
                   </div>
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-[14px] bg-[var(--ui-surface-soft)] px-4 py-3">
-                      <p className="text-xs uppercase tracking-[0.18em] text-[var(--ui-text-muted)]">
+                    <div className="rounded-lg bg-muted px-4 py-3">
+                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                         Remaining now
                       </p>
-                      <p className="mt-2 text-lg font-medium text-[var(--ui-text-strong)]">
+                      <p className="mt-2 text-lg font-medium text-foreground">
                         {formatAmount(publicBudgetSummary.variance, currencySymbol)}
                       </p>
                     </div>
-                    <div className="rounded-[14px] bg-[var(--ui-surface-soft)] px-4 py-3">
-                      <p className="text-xs uppercase tracking-[0.18em] text-[var(--ui-text-muted)]">
+                    <div className="rounded-lg bg-muted px-4 py-3">
+                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                         Projected remaining
                       </p>
-                      <p className="mt-2 text-lg font-medium text-[var(--ui-text-strong)]">
+                      <p className="mt-2 text-lg font-medium text-foreground">
                         {formatAmount(publicBudgetSummary.projectedVariance, currencySymbol)}
                       </p>
                     </div>
@@ -1959,8 +1949,8 @@ export default function PublicClientPanelPage() {
                           key={alert.label}
                           className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${
                             alert.severity === "high"
-                              ? "border-rose-200 bg-rose-50 text-rose-700"
-                              : "border-amber-200 bg-amber-50 text-amber-700"
+                              ? "border-border bg-muted text-foreground"
+                              : "border-border bg-muted text-foreground"
                           }`}
                         >
                           {alert.label}
@@ -1968,44 +1958,44 @@ export default function PublicClientPanelPage() {
                       ))}
                     </div>
                   ) : (
-                    <p className="mt-4 text-sm text-[var(--ui-text-muted)]">
+                    <p className="mt-4 text-sm text-muted-foreground">
                       No active budget alerts.
                     </p>
                   )}
                 </div>
 
-                <div className="rounded-[18px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-5">
-                  <p className="text-base font-medium text-[var(--ui-text-strong)]">
+                <div className="rounded-xl border border-border/70 bg-card p-5">
+                  <p className="text-base font-medium text-foreground">
                     Revenue and collections
                   </p>
-                  <div className="mt-4 space-y-3 text-sm">
+                  <div className="mt-4 flex flex-col gap-3 text-sm">
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-[var(--ui-text-muted)]">Accepted estimations</span>
-                      <span className="font-medium text-[var(--ui-text-strong)]">
+                      <span className="text-muted-foreground">Accepted estimations</span>
+                      <span className="font-medium text-foreground">
                         {formatAmount(publicBudgetSummary.revenue.acceptedEstimations, currencySymbol)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-[var(--ui-text-muted)]">Scheduled payments</span>
-                      <span className="font-medium text-[var(--ui-text-strong)]">
+                      <span className="text-muted-foreground">Scheduled payments</span>
+                      <span className="font-medium text-foreground">
                         {formatAmount(publicBudgetSummary.revenue.scheduledPayments, currencySymbol)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-[var(--ui-text-muted)]">Collected payments</span>
-                      <span className="font-medium text-[var(--ui-text-strong)]">
+                      <span className="text-muted-foreground">Collected payments</span>
+                      <span className="font-medium text-foreground">
                         {formatAmount(publicBudgetSummary.revenue.collectedPayments, currencySymbol)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-[var(--ui-text-muted)]">Outstanding payments</span>
-                      <span className="font-medium text-[var(--ui-text-strong)]">
+                      <span className="text-muted-foreground">Outstanding payments</span>
+                      <span className="font-medium text-foreground">
                         {formatAmount(publicBudgetSummary.revenue.outstandingPayments, currencySymbol)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-[var(--ui-text-muted)]">Milestone allocation</span>
-                      <span className="font-medium text-[var(--ui-text-strong)]">
+                      <span className="text-muted-foreground">Milestone allocation</span>
+                      <span className="font-medium text-foreground">
                         {formatAmount(publicBudgetSummary.milestones.budgetAllocated, currencySymbol)}
                       </span>
                     </div>
@@ -2014,48 +2004,48 @@ export default function PublicClientPanelPage() {
               </div>
 
               <div className="grid gap-4 lg:grid-cols-2">
-                <div className="rounded-[18px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-5">
-                  <p className="text-base font-medium text-[var(--ui-text-strong)]">Materials</p>
-                  <div className="mt-4 space-y-3 text-sm">
+                <div className="rounded-xl border border-border/70 bg-card p-5">
+                  <p className="text-base font-medium text-foreground">Materials</p>
+                  <div className="mt-4 flex flex-col gap-3 text-sm">
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-[var(--ui-text-muted)]">Planned</span>
-                      <span className="font-medium text-[var(--ui-text-strong)]">
+                      <span className="text-muted-foreground">Planned</span>
+                      <span className="font-medium text-foreground">
                         {formatAmount(publicBudgetSummary.breakdown.shopping.planned, currencySymbol)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-[var(--ui-text-muted)]">Committed</span>
-                      <span className="font-medium text-[var(--ui-text-strong)]">
+                      <span className="text-muted-foreground">Committed</span>
+                      <span className="font-medium text-foreground">
                         {formatAmount(publicBudgetSummary.breakdown.shopping.committed, currencySymbol)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-[var(--ui-text-muted)]">Actual</span>
-                      <span className="font-medium text-[var(--ui-text-strong)]">
+                      <span className="text-muted-foreground">Actual</span>
+                      <span className="font-medium text-foreground">
                         {formatAmount(publicBudgetSummary.breakdown.shopping.actual, currencySymbol)}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                <div className="rounded-[18px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-5">
-                  <p className="text-base font-medium text-[var(--ui-text-strong)]">Labor</p>
-                  <div className="mt-4 space-y-3 text-sm">
+                <div className="rounded-xl border border-border/70 bg-card p-5">
+                  <p className="text-base font-medium text-foreground">Labor</p>
+                  <div className="mt-4 flex flex-col gap-3 text-sm">
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-[var(--ui-text-muted)]">Planned</span>
-                      <span className="font-medium text-[var(--ui-text-strong)]">
+                      <span className="text-muted-foreground">Planned</span>
+                      <span className="font-medium text-foreground">
                         {formatAmount(publicBudgetSummary.breakdown.labor.planned, currencySymbol)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-[var(--ui-text-muted)]">Committed</span>
-                      <span className="font-medium text-[var(--ui-text-strong)]">
+                      <span className="text-muted-foreground">Committed</span>
+                      <span className="font-medium text-foreground">
                         {formatAmount(publicBudgetSummary.breakdown.labor.committed, currencySymbol)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-[var(--ui-text-muted)]">Actual</span>
-                      <span className="font-medium text-[var(--ui-text-strong)]">
+                      <span className="text-muted-foreground">Actual</span>
+                      <span className="font-medium text-foreground">
                         {formatAmount(publicBudgetSummary.breakdown.labor.actual, currencySymbol)}
                       </span>
                     </div>
@@ -2064,74 +2054,74 @@ export default function PublicClientPanelPage() {
               </div>
             </div>
           ) : typeof project?.budget === "number" ? (
-            <div className="rounded-[16px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-6">
-              <p className="mb-2 text-sm text-[var(--ui-text-muted)]">Project budget</p>
+            <div className="rounded-xl border border-border/70 bg-card p-6">
+              <p className="mb-2 text-sm text-muted-foreground">Project budget</p>
               <div className="flex items-center gap-3">
-                <Banknote className="h-5 w-5 text-[var(--ui-accent-brand)]" />
-                <p className="text-2xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)]">
+                <Banknote className="h-5 w-5 text-primary" />
+                <p className="text-2xl font-medium font-serif text-foreground">
                   {formatAmount(project.budget, currencySymbol)}
                 </p>
               </div>
-              <p className="mt-3 text-sm text-[var(--ui-text-muted)]">
+              <p className="mt-3 text-sm text-muted-foreground">
                 Detailed project finance summary is not available yet.
               </p>
             </div>
           ) : (
-            <p className="text-sm text-[var(--ui-text-muted)]">No budget set for this project.</p>
+            <p className="text-sm text-muted-foreground">No budget set for this project.</p>
           )}
         </div>
       ) : null}
 
       {settings.showPayments && activeSectionId === "portal-payments" ? (
-        <div className="mb-10 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-4 shadow-[0_24px_60px_rgba(20,20,20,0.08)] sm:rounded-[32px] sm:p-8">
+        <div className="mb-10 rounded-3xl border border-border bg-card p-4 shadow-sm sm:rounded-3xl sm:p-8">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3 sm:mb-8 sm:gap-4">
             <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-              <h2 className="text-xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)] sm:text-2xl">
+              <h2 className="text-xl font-medium font-serif text-foreground sm:text-2xl">
                 Payments
               </h2>
-              <span className="inline-flex items-center justify-center rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-muted)]">
+              <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
                 {payments.length} installments
               </span>
             </div>
           </div>
 
           {payments.length === 0 ? (
-            <p className="text-sm text-[var(--ui-text-muted)]">No installments shared yet.</p>
+            <p className="text-sm text-muted-foreground">No installments shared yet.</p>
           ) : (
-            <div className="space-y-4">
+            <div className="flex flex-col gap-4">
               {payments.map((payment) => (
                 <div
                   key={payment._id}
-                  className="rounded-[18px] border border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)] p-5"
+                  className="rounded-xl border border-border/70 bg-card p-5"
                 >
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="space-y-2">
+                    <div className="flex flex-col gap-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        <Wallet className="h-4 w-4 text-[var(--ui-accent-brand)]" />
-                        <p className="text-base font-medium text-[var(--ui-text-strong)]">
+                        <Wallet className="h-4 w-4 text-primary" />
+                        <p className="text-base font-medium text-foreground">
                           {payment.title}
                         </p>
                         <span
                           className={`inline-flex items-center justify-center rounded-full border px-3 py-1 text-[10px] font-medium ${
                             payment.status === "paid"
-                              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                              ? "border-border bg-muted text-foreground"
                               : payment.isOverdue
-                                ? "border-rose-200 bg-rose-50 text-rose-700"
-                                : "border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] text-[var(--ui-text-main)]"
+                                ? "border-border bg-muted text-foreground"
+                                : "border-border bg-muted text-foreground"
                           }`}
                         >
                           {payment.isOverdue ? "OVERDUE" : payment.status.toUpperCase()}
                         </span>
                         {payment.invoiceNumber ? (
-                          <span className="text-xs text-[var(--ui-text-muted)]">
+                          <span className="text-xs text-muted-foreground">
                             #{payment.invoiceNumber}
                           </span>
                         ) : null}
                       </div>
                       {payment.description ? (
-                        <p className="text-sm text-[var(--ui-text-muted)]">{payment.description}</p>
+                        <p className="text-sm text-muted-foreground">{payment.description}</p>
                       ) : null}
-                      <div className="flex flex-wrap gap-4 text-sm text-[var(--ui-text-main)]">
+                      <div className="flex flex-wrap gap-4 text-sm text-foreground">
                         <span>{formatAmount(payment.amount, currencySymbol)}</span>
                         <span>
                           {payment.dueDate
@@ -2143,20 +2133,20 @@ export default function PublicClientPanelPage() {
                         ) : null}
                       </div>
                       {payment.paymentReference ? (
-                        <p className="text-sm text-[var(--ui-text-muted)]">
+                        <p className="text-sm text-muted-foreground">
                           Transfer reference:{" "}
-                          <span className="font-medium text-[var(--ui-text-main)]">
+                          <span className="font-medium text-foreground">
                             {payment.paymentReference}
                           </span>
                         </p>
                       ) : null}
                       {(payment.bankAccountNumber || payment.bankName) ? (
-                        <div className="rounded-[16px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-4 py-3 text-sm text-[var(--ui-text-main)]">
+                        <div className="rounded-xl border border-border bg-muted px-4 py-3 text-sm text-foreground">
                           <p className="font-medium">
                             {payment.bankAccountHolder || "Bank transfer details"}
                           </p>
                           {payment.bankName ? (
-                            <p className="text-[var(--ui-text-muted)]">{payment.bankName}</p>
+                            <p className="text-muted-foreground">{payment.bankName}</p>
                           ) : null}
                           {payment.bankAccountNumber ? (
                             <p className="mt-1 font-medium tracking-[0.02em]">
@@ -2164,10 +2154,10 @@ export default function PublicClientPanelPage() {
                             </p>
                           ) : null}
                           {payment.bankSwift ? (
-                            <p className="text-[var(--ui-text-muted)]">SWIFT: {payment.bankSwift}</p>
+                            <p className="text-muted-foreground">SWIFT: {payment.bankSwift}</p>
                           ) : null}
                           {payment.paymentInstructions ? (
-                            <p className="mt-2 text-[var(--ui-text-muted)]">
+                            <p className="mt-2 text-muted-foreground">
                               {payment.paymentInstructions}
                             </p>
                           ) : null}
@@ -2184,9 +2174,9 @@ export default function PublicClientPanelPage() {
                         disabled={downloadingPaymentId === payment._id}
                       >
                         {payment.status === "paid" ? (
-                          <CheckCircle2 className="mr-2 h-4 w-4" />
+                          <CheckCircle2 data-icon="inline-start" />
                         ) : (
-                          <Download className="mr-2 h-4 w-4" />
+                          <Download data-icon="inline-start" />
                         )}
                         {downloadingPaymentId === payment._id
                           ? "Opening..."
@@ -2206,7 +2196,7 @@ export default function PublicClientPanelPage() {
       {settings.showShoppingList && activeSectionId === "portal-materials" ? (
         <div>
           {sectionSummaries.length === 0 ? (
-            <div className="rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-8 text-center text-sm text-[var(--ui-text-muted)]">
+            <div className="rounded-3xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
               No shopping items available yet.
             </div>
           ) : (
@@ -2216,23 +2206,23 @@ export default function PublicClientPanelPage() {
               return (
                 <div
                   key={sectionName}
-                  className="mb-10 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-4 shadow-[0_24px_60px_rgba(20,20,20,0.08)] sm:rounded-[32px] sm:p-8"
+                  className="mb-10 rounded-3xl border border-border bg-card p-4 shadow-sm sm:rounded-3xl sm:p-8"
                 >
                   <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
-                    <h2 className="text-xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)] sm:text-2xl">
+                    <h2 className="text-xl font-medium font-serif text-foreground sm:text-2xl">
                       {sectionName}
                     </h2>
-                    <span className="inline-flex items-center justify-center rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-muted)]">
+                    <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
                       {itemCount} items
                     </span>
                     {settings.showPrice ? (
-                      <span className="inline-flex items-center justify-center rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-main)]">
+                      <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-foreground">
                         {formatAmount(total, currencySymbol)}
                       </span>
                     ) : null}
                   </div>
 
-                  <div className="space-y-4">
+                  <div className="flex flex-col gap-4">
                     {sectionItems.map((baseItem) => {
                       const options = getOptionsForBaseItem(baseItem);
                       const hasAlternatives = options.length > 1;
@@ -2253,20 +2243,20 @@ export default function PublicClientPanelPage() {
                       return (
                         <div
                           key={baseItemId}
-                          className="group relative rounded-[20px] border border-[var(--ui-border-soft)]/50 bg-[var(--ui-surface-base)] p-5 transition-all hover:border-[var(--ui-border-soft)] hover:shadow-sm"
+                          className="group relative rounded-2xl border border-border/50 bg-card p-5 transition-all hover:border-border hover:shadow-sm"
                         >
                           {hasAlternatives ? (
-                            <div className="space-y-3">
-                              <div className="rounded-md border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-2">
-                                <p className="text-sm font-medium text-[var(--ui-text-strong)]">Choose:</p>
-                                <p className="text-xs text-[var(--ui-text-muted)]">
+                            <div className="flex flex-col gap-3">
+                              <div className="rounded-md border border-border bg-muted px-3 py-2">
+                                <p className="text-sm font-medium text-foreground">Choose:</p>
+                                <p className="text-xs text-muted-foreground">
                                   Select one option for this item.
                                 </p>
                               </div>
                               <RadioGroup
                                 value={selectedOptionId}
                                 onValueChange={(value) => void handleSelect(baseItem, value)}
-                                className="space-y-3"
+                                className="flex flex-col gap-3"
                               >
                                 {options.map((option) => {
                                   const optionId = String(option.sourceItemId);
@@ -2277,10 +2267,10 @@ export default function PublicClientPanelPage() {
                                   return (
                                     <div
                                       key={optionId}
-                                      className={`rounded-[16px] border p-4 transition-all ${
+                                      className={`rounded-xl border p-4 transition-all ${
                                         isSelected
-                                          ? "border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)]"
-                                          : "border-[var(--ui-border-soft)]/70 bg-[var(--ui-surface-base)]"
+                                          ? "border-border bg-muted"
+                                          : "border-border/70 bg-card"
                                       }`}
                                     >
                                       <div className="flex items-start gap-3">
@@ -2291,16 +2281,16 @@ export default function PublicClientPanelPage() {
                                             <div className="min-w-0 flex-1 py-1">
                                               <Label
                                                 htmlFor={`${baseItemId}-${optionId}`}
-                                                className="cursor-pointer break-words text-lg font-medium text-[var(--ui-text-strong)]"
+                                                className="cursor-pointer break-words text-lg font-medium text-foreground"
                                               >
                                                 {option.name}
                                               </Label>
-                                              <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-[var(--ui-text-main)]">
-                                                <span className="rounded-md border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-2 py-0.5 text-xs font-medium">
+                                              <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-foreground">
+                                                <span className="rounded-md border border-border bg-muted px-2 py-0.5 text-xs font-medium">
                                                   {getQtyLabel(option)}
                                                 </span>
                                                 {settings.showPrice && option.unitPrice !== undefined ? (
-                                                  <span className="text-[var(--ui-text-muted)]">
+                                                  <span className="text-muted-foreground">
                                                     {formatAmount(option.unitPrice, currencySymbol)} / unit
                                                   </span>
                                                 ) : null}
@@ -2314,14 +2304,14 @@ export default function PublicClientPanelPage() {
                                                 ) : null}
                                               </div>
                                               {settings.showNotes && option.notes ? (
-                                                <p className="mt-2 text-sm text-[var(--ui-text-muted)]">{option.notes}</p>
+                                                <p className="mt-2 text-sm text-muted-foreground">{option.notes}</p>
                                               ) : null}
                                             </div>
                                           </div>
                                           <div className="flex shrink-0 items-center gap-2">
-                                            <span className="h-2 w-2 rounded-full bg-[var(--ui-priority-medium)]" />
+                                            <span className="h-2 w-2 rounded-full bg-primary/60" />
                                             {optionStatusLabel ? (
-                                              <span className="inline-flex items-center justify-center rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-main)]">
+                                              <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-foreground">
                                                 {optionStatusLabel}
                                               </span>
                                             ) : null}
@@ -2330,7 +2320,7 @@ export default function PublicClientPanelPage() {
                                                 href={option.productLink}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-soft)] hover:text-[var(--ui-text-main)]"
+                                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
                                               >
                                                 <ExternalLink className="h-4 w-4" />
                                               </a>
@@ -2351,15 +2341,15 @@ export default function PublicClientPanelPage() {
                                   name={selectedOption.name || baseItem.name}
                                 />
                                 <div className="min-w-0 flex-1 py-1">
-                                  <h3 className="break-words text-lg font-medium text-[var(--ui-text-strong)]">
+                                  <h3 className="break-words text-lg font-medium text-foreground">
                                     {selectedOption.name || baseItem.name}
                                   </h3>
-                                  <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-[var(--ui-text-main)]">
-                                    <span className="rounded-md border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-2 py-0.5 text-xs font-medium">
+                                  <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-foreground">
+                                    <span className="rounded-md border border-border bg-muted px-2 py-0.5 text-xs font-medium">
                                       {getQtyLabel(selectedOption)}
                                     </span>
                                     {settings.showPrice && selectedOption.unitPrice !== undefined ? (
-                                      <span className="text-[var(--ui-text-muted)]">
+                                      <span className="text-muted-foreground">
                                         {formatAmount(selectedOption.unitPrice, currencySymbol)} / unit
                                       </span>
                                     ) : null}
@@ -2373,14 +2363,14 @@ export default function PublicClientPanelPage() {
                                     ) : null}
                                   </div>
                                   {settings.showNotes && selectedOption.notes ? (
-                                    <p className="mt-2 text-sm text-[var(--ui-text-muted)]">{selectedOption.notes}</p>
+                                    <p className="mt-2 text-sm text-muted-foreground">{selectedOption.notes}</p>
                                   ) : null}
                                 </div>
                               </div>
                               <div className="flex shrink-0 items-center gap-2">
-                                <span className="h-2 w-2 rounded-full bg-[var(--ui-priority-medium)]" />
+                                <span className="h-2 w-2 rounded-full bg-primary/60" />
                                 {statusLabel ? (
-                                  <span className="inline-flex items-center justify-center rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-main)]">
+                                  <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-foreground">
                                     {statusLabel}
                                   </span>
                                 ) : null}
@@ -2389,7 +2379,7 @@ export default function PublicClientPanelPage() {
                                     href={selectedOption.productLink}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-soft)] hover:text-[var(--ui-text-main)]"
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
                                   >
                                     <ExternalLink className="h-4 w-4" />
                                   </a>
@@ -2398,18 +2388,18 @@ export default function PublicClientPanelPage() {
                             </div>
                           )}
 
-                          <div className="mt-4 rounded-[14px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] p-4">
+                          <div className="mt-4 rounded-lg border border-border bg-muted p-4">
                             <div className="flex flex-wrap items-center justify-between gap-3">
-                              <p className="text-sm font-medium text-[var(--ui-text-strong)]">
+                              <p className="text-sm font-medium text-foreground">
                                 Customer decision
                               </p>
                               <span
                                 className={`inline-flex items-center justify-center rounded-full border px-3 py-1 text-xs font-medium ${
                                   feedbackDraft.decision === "accepted"
-                                    ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                                    ? "border-border bg-muted text-foreground"
                                     : feedbackDraft.decision === "rejected"
-                                      ? "border-rose-300 bg-rose-50 text-rose-700"
-                                      : "border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-[var(--ui-text-muted)]"
+                                      ? "border-border bg-muted text-foreground"
+                                      : "border-border bg-card text-muted-foreground"
                                 }`}
                               >
                                 {getMaterialDecisionLabel(feedbackDraft.decision)}
@@ -2439,10 +2429,10 @@ export default function PublicClientPanelPage() {
                                 Reject
                               </Button>
                             </div>
-                            <div className="mt-3 space-y-2">
+                            <div className="mt-3 flex flex-col gap-2">
                               <Label
                                 htmlFor={`comment-${baseItemId}`}
-                                className="text-xs text-[var(--ui-text-muted)]"
+                                className="text-xs text-muted-foreground"
                               >
                                 Comment
                               </Label>
@@ -2464,7 +2454,7 @@ export default function PublicClientPanelPage() {
                                 maxLength={2000}
                               />
                               <div className="flex flex-wrap items-center justify-between gap-2">
-                                <p className="text-xs text-[var(--ui-text-muted)]">
+                                <p className="text-xs text-muted-foreground">
                                   {baseItem.customerDecisionUpdatedAt
                                     ? `Last update: ${new Date(baseItem.customerDecisionUpdatedAt).toLocaleString()}`
                                     : "No customer feedback yet."}
@@ -2483,10 +2473,10 @@ export default function PublicClientPanelPage() {
                           </div>
 
                           {savingItemId === baseItemId ? (
-                            <p className="pt-3 text-xs text-[var(--ui-text-muted)]">Saving selection...</p>
+                            <p className="pt-3 text-xs text-muted-foreground">Saving selection...</p>
                           ) : null}
                           {savingFeedbackItemId === baseItemId ? (
-                            <p className="pt-2 text-xs text-[var(--ui-text-muted)]">Saving feedback...</p>
+                            <p className="pt-2 text-xs text-muted-foreground">Saving feedback...</p>
                           ) : null}
                         </div>
                       );
@@ -2500,7 +2490,7 @@ export default function PublicClientPanelPage() {
       ) : null}
 
       {sectionCards.length === 0 ? (
-        <div className="rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-8 text-center text-sm text-[var(--ui-text-muted)]">
+        <div className="rounded-3xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
           No portal sections are shared right now.
         </div>
       ) : null}
@@ -2509,17 +2499,17 @@ export default function PublicClientPanelPage() {
       settings.showPrice &&
       sectionSummaries.length > 0 &&
       activeSectionId === "portal-materials" ? (
-        <div className="mt-12 rounded-[32px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-8 shadow-[0_24px_60px_rgba(20,20,20,0.08)]">
-          <div className="space-y-4">
+        <div className="mt-12 rounded-3xl border border-border bg-card p-8 shadow-sm">
+          <div className="flex flex-col gap-4">
             {sectionSummaries.map(({ sectionName, total }) => (
-              <div key={sectionName} className="flex items-center justify-between text-base text-[var(--ui-text-main)]">
+              <div key={sectionName} className="flex items-center justify-between text-base text-foreground">
                 <span className="font-medium">{sectionName}</span>
                 <span>{formatAmount(total, currencySymbol)}</span>
               </div>
             ))}
-            <div className="flex items-center justify-between border-t border-[var(--ui-border-soft)] pt-4">
-              <span className="text-xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)]">Grand Total</span>
-              <span className="text-2xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)]">
+            <div className="flex items-center justify-between border-t border-border pt-4">
+              <span className="text-xl font-medium font-serif text-foreground">Grand Total</span>
+              <span className="text-2xl font-medium font-serif text-foreground">
                 {formatAmount(grandTotal, currencySymbol)}
               </span>
             </div>

@@ -122,9 +122,9 @@ export function ContactForm({ contactId, onSuccess, onCancel }: ContactFormProps
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-3">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="flex flex-col gap-3">
           <Label htmlFor="name">Contact Name *</Label>
           <Input
             id="name"
@@ -134,7 +134,7 @@ export function ContactForm({ contactId, onSuccess, onCancel }: ContactFormProps
           />
         </div>
         
-        <div className="space-y-3">
+        <div className="flex flex-col gap-3">
           <Label htmlFor="companyName">Company Name</Label>
           <Input
             id="companyName"
@@ -144,8 +144,8 @@ export function ContactForm({ contactId, onSuccess, onCancel }: ContactFormProps
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-3">
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="flex flex-col gap-3">
           <Label htmlFor="email">Email</Label>
           <Input
             id="email"
@@ -155,7 +155,7 @@ export function ContactForm({ contactId, onSuccess, onCancel }: ContactFormProps
           />
         </div>
         
-        <div className="space-y-3">
+        <div className="flex flex-col gap-3">
           <Label htmlFor="phone">Phone</Label>
           <Input
             id="phone"
@@ -165,7 +165,7 @@ export function ContactForm({ contactId, onSuccess, onCancel }: ContactFormProps
         </div>
       </div>
 
-      <div className="space-y-3">
+      <div className="flex flex-col gap-3">
         <Label htmlFor="address">Address</Label>
         <Input
           id="address"
@@ -174,8 +174,8 @@ export function ContactForm({ contactId, onSuccess, onCancel }: ContactFormProps
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-3">
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="flex flex-col gap-3">
           <Label htmlFor="city">City</Label>
           <Input
             id="city"
@@ -184,7 +184,7 @@ export function ContactForm({ contactId, onSuccess, onCancel }: ContactFormProps
           />
         </div>
         
-        <div className="space-y-3">
+        <div className="flex flex-col gap-3">
           <Label htmlFor="postalCode">Postal Code</Label>
           <Input
             id="postalCode"
@@ -195,8 +195,8 @@ export function ContactForm({ contactId, onSuccess, onCancel }: ContactFormProps
         
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-3">
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="flex flex-col gap-3">
           <Label htmlFor="website">Website</Label>
           <Input
             id="website"
@@ -205,7 +205,7 @@ export function ContactForm({ contactId, onSuccess, onCancel }: ContactFormProps
           />
         </div>
         
-        <div className="space-y-3">
+        <div className="flex flex-col gap-3">
           <Label htmlFor="taxId">Tax ID</Label>
           <Input
             id="taxId"
@@ -215,8 +215,8 @@ export function ContactForm({ contactId, onSuccess, onCancel }: ContactFormProps
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-3">
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="flex flex-col gap-3">
           <Label htmlFor="type">Contact Type</Label>
           <Select value={formData.type} onValueChange={(value: "contractor" | "supplier" | "subcontractor" | "other") => setFormData(prev => ({ ...prev, type: value }))}>
             <SelectTrigger>
@@ -234,7 +234,7 @@ export function ContactForm({ contactId, onSuccess, onCancel }: ContactFormProps
       </div>
 
 
-      <div className="space-y-3">
+      <div className="flex flex-col gap-3">
         <Label htmlFor="notes">Notes</Label>
         <Textarea
           id="notes"

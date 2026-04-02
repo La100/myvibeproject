@@ -54,6 +54,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { isClientNotificationActivity } from "@/lib/projectClientNotifications";
 
 function ProjectSidebarContent() {
@@ -134,13 +137,12 @@ function ProjectSidebarContent() {
   ];
 
   const aiItem = { href: `/organisation/projects/${params.projectSlug}/ai`, label: "AI", icon: Sparkles, key: "ai" };
-  const ai2Item = { href: `/organisation/projects/${params.projectSlug}/ai2`, label: "AI 2", icon: Sparkles, key: "ai2" };
   const settingsItem = { href: `/organisation/projects/${params.projectSlug}/settings`, label: "Settings", icon: Settings, key: "settings" };
 
   const projectNavItems = allNavItems.filter((item) => item.group === "project");
   const architectureNavItems = allNavItems.filter((item) => item.group === "architecture");
   const footerItems = [
-    ai2Item,
+    aiItem,
     settingsItem,
     { href: "/help", label: "Help", icon: LifeBuoy },
   ];
@@ -201,9 +203,9 @@ function ProjectSidebarContent() {
                     <item.icon className={`h-4 w-4 ${isActive ? "text-sidebar-foreground" : "text-sidebar-foreground/85"}`} />
                     <span className="min-w-0 flex-1 truncate">{item.label}</span>
                     {typeof item.notificationCount === "number" && item.notificationCount > 0 ? (
-                      <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
+                      <Badge variant="secondary" className="min-w-5 px-1.5 py-0.5 text-[10px] leading-none">
                         {item.notificationCount > 99 ? "99+" : item.notificationCount}
-                      </span>
+                      </Badge>
                     ) : null}
                   </Link>
                 </SidebarMenuButton>
@@ -241,15 +243,16 @@ function ProjectSidebarContent() {
 
         <SidebarGroup className="mt-auto px-4 pb-9 pt-1.5">
           <SidebarGroupContent>
-            <Link
-              href={aiItem.href}
-              onClick={handleLinkClick}
-              onMouseEnter={() => handleLinkHover(aiItem.href)}
-              className="group flex h-10 w-full items-center justify-center gap-2.5 rounded-lg bg-primary px-3 text-[13px] font-semibold text-primary-foreground shadow-soft-sm transition-all duration-200 hover:bg-primary/90 hover:shadow-soft-md"
-            >
-              <aiItem.icon className="h-4 w-4" />
-              <span className="truncate">{aiItem.label}</span>
-            </Link>
+            <Button asChild className="h-10 w-full justify-center rounded-full text-[13px] font-medium">
+              <Link
+                href={aiItem.href}
+                onClick={handleLinkClick}
+                onMouseEnter={() => handleLinkHover(aiItem.href)}
+              >
+                <aiItem.icon data-icon="inline-start" />
+                <span className="truncate">{aiItem.label}</span>
+              </Link>
+            </Button>
           </SidebarGroupContent>
         </SidebarGroup>
 
@@ -353,8 +356,8 @@ export function ProjectSidebar() {
           <SidebarHeader className="border-b border-sidebar-border/70">
             <div className="flex flex-col gap-2 py-2 px-2">
               <div className="px-2 py-1">
-                <div className="h-7 bg-muted rounded animate-pulse mb-1" />
-                <div className="h-4 bg-muted rounded animate-pulse w-2/3" />
+                <Skeleton className="mb-1 h-7" />
+                <Skeleton className="h-4 w-2/3" />
               </div>
             </div>
           </SidebarHeader>
@@ -364,7 +367,7 @@ export function ProjectSidebar() {
                 <SidebarMenu>
                   {Array.from({ length: 7 }).map((_, i) => (
                     <SidebarMenuItem key={i}>
-                      <div className="h-10 bg-muted rounded animate-pulse mx-2 mb-1" />
+                      <Skeleton className="mx-2 mb-1 h-10" />
                     </SidebarMenuItem>
                   ))}
                 </SidebarMenu>

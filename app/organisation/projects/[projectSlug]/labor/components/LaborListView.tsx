@@ -7,6 +7,8 @@ import { Doc, Id } from '@/convex/_generated/dataModel';
 import type { TeamMember } from '@/lib/teamMember';
 import { useProject } from '@/components/providers/ProjectProvider';
 import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
@@ -252,15 +254,15 @@ export default function LaborListView() {
         {/* Header */}
         <ProjectPageHeader
           title="Labor"
-          icon={<Hammer className="h-8 w-8" />}
+          icon={<Hammer className="h-8 w-8 text-primary" />}
           tags={
             <>
-              <span className="inline-flex items-center gap-2 rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-4 py-2 text-sm font-medium text-[var(--ui-accent-brand)]">
+              <Badge variant="outline" className="px-4 py-1.5 text-sm font-medium">
                 {project.name}
-              </span>
-              <span className="inline-flex items-center gap-2 rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-4 py-2 text-sm font-medium text-[var(--ui-text-main)]">
+              </Badge>
+              <Badge variant="secondary" className="px-4 py-1.5 text-sm font-medium">
                 Total: {grandTotal.toFixed(2)} {currencySymbol}
-              </span>
+              </Badge>
             </>
           }
           actions={
@@ -268,16 +270,16 @@ export default function LaborListView() {
               <Button
                 onClick={handleExportPDF}
                 variant="outline"
-                className="rounded-lg border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-6 text-[var(--ui-text-strong)] shadow-sm hover:bg-[var(--ui-surface-base)]/90 hover:-translate-y-0.5 transition-all"
+                className="h-11 px-6"
               >
-                <DownloadIcon className="h-4 w-4 mr-2" />
+                <DownloadIcon className="mr-2 h-4 w-4" />
                 Export PDF
               </Button>
               <Button
                 onClick={() => setShowMainAddForm(!showMainAddForm)}
-                className="rounded-lg bg-[var(--ui-action-bg)] px-6 text-[var(--primary-foreground)] shadow-[0_14px_36px_rgba(14,14,14,0.18)] hover:bg-[var(--ui-action-hover)] transition-transform hover:-translate-y-0.5"
+                className="h-11 px-6"
               >
-                <PlusIcon className="h-4 w-4 mr-2" />
+                <PlusIcon className="mr-2 h-4 w-4" />
                 Add Labor
               </Button>
             </>
@@ -286,20 +288,25 @@ export default function LaborListView() {
 
         {/* Main Add Labor Form */}
         {showMainAddForm && (
-          <div className="mb-10 rounded-[32px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-8 shadow-[0_24px_60px_rgba(20,20,20,0.08)]">
-            <h3 className="text-2xl font-medium font-[var(--font-display-serif)] mb-6">Add New Labor Item</h3>
-            <AddLaborItemForm
-              projectId={project._id}
-              sections={sections}
-              teamMembers={teamMembers}
-              currencySymbol={currencySymbol}
-              onAddItem={async (itemData) => {
-                await handleAddItem(itemData);
-                setShowMainAddForm(false);
-              }}
-              isPending={isPending}
-            />
-          </div>
+          <Card className="mb-10">
+            <CardHeader>
+              <CardTitle className="text-2xl">Add New Labor Item</CardTitle>
+              <CardDescription>Capture a new item and place it into a section.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <AddLaborItemForm
+                projectId={project._id}
+                sections={sections}
+                teamMembers={teamMembers}
+                currencySymbol={currencySymbol}
+                onAddItem={async (itemData) => {
+                  await handleAddItem(itemData);
+                  setShowMainAddForm(false);
+                }}
+                isPending={isPending}
+              />
+            </CardContent>
+          </Card>
         )}
 
         {/* Section Manager */}
@@ -340,20 +347,20 @@ export default function LaborListView() {
           })}
 
         {/* Grand Total */}
-        <div className="mt-12 rounded-[32px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-8 shadow-[0_24px_60px_rgba(20,20,20,0.08)]">
-          <div className="space-y-4">
+        <Card className="mt-12">
+          <CardContent className="flex flex-col gap-4 p-8">
             {sectionTotals.map(({ section, total }) => (
-              <div key={section} className="flex justify-between items-center text-base text-[var(--ui-text-main)]">
+              <div key={section} className="flex items-center justify-between text-base text-foreground">
                 <span className="font-medium">{section}</span>
                 <span>{total.toFixed(2)} {currencySymbol}</span>
               </div>
             ))}
-            <div className="border-t border-[var(--ui-border-soft)] pt-4 flex justify-between items-center">
-              <span className="text-xl font-medium font-[var(--font-display-serif)]">Labor Total</span>
-              <span className="text-2xl font-medium font-[var(--font-display-serif)]">{grandTotal.toFixed(2)} {currencySymbol}</span>
+            <div className="flex items-center justify-between border-t border-border pt-4">
+              <span className="text-xl font-semibold">Labor Total</span>
+              <span className="text-2xl font-semibold">{grandTotal.toFixed(2)} {currencySymbol}</span>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </ProjectPageLayout>
     </TooltipProvider>
   );

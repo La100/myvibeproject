@@ -34,8 +34,6 @@ import type * as ai_helpers_streamResponseBuilder from "../ai/helpers/streamResp
 import type * as ai_helpers_tokenUtils from "../ai/helpers/tokenUtils.js";
 import type * as ai_helpers_workflowContextBuilder from "../ai/helpers/workflowContextBuilder.js";
 import type * as ai_helpers_workflowRuntime from "../ai/helpers/workflowRuntime.js";
-import type * as ai_hostedChatkitBilling from "../ai/hostedChatkitBilling.js";
-import type * as ai_hostedChatkitBillingActions from "../ai/hostedChatkitBillingActions.js";
 import type * as ai_imageGen_config from "../ai/imageGen/config.js";
 import type * as ai_imageGen_generation from "../ai/imageGen/generation.js";
 import type * as ai_imageGen_helpers from "../ai/imageGen/helpers.js";
@@ -123,8 +121,6 @@ declare const fullApi: ApiFromModules<{
   "ai/helpers/tokenUtils": typeof ai_helpers_tokenUtils;
   "ai/helpers/workflowContextBuilder": typeof ai_helpers_workflowContextBuilder;
   "ai/helpers/workflowRuntime": typeof ai_helpers_workflowRuntime;
-  "ai/hostedChatkitBilling": typeof ai_hostedChatkitBilling;
-  "ai/hostedChatkitBillingActions": typeof ai_hostedChatkitBillingActions;
   "ai/imageGen/config": typeof ai_imageGen_config;
   "ai/imageGen/generation": typeof ai_imageGen_generation;
   "ai/imageGen/helpers": typeof ai_imageGen_helpers;

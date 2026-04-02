@@ -61,7 +61,7 @@ export function ChatSidebar({
   return (
     <aside
       className={cn(
-        "hidden md:flex md:absolute md:top-4 md:left-4 md:bottom-4 z-30 w-[25.5rem] flex-col overflow-hidden rounded-[1.75rem] border border-border/70 bg-background shadow-none transition-all duration-300 ease-out",
+        "hidden md:flex md:absolute md:top-4 md:left-4 md:bottom-4 z-30 w-[25.5rem] flex-col overflow-hidden rounded-4xl border border-border/70 bg-background shadow-none transition-all duration-300 ease-out",
         showHistory
           ? "translate-x-0 opacity-100"
           : "pointer-events-none -translate-x-6 opacity-0"

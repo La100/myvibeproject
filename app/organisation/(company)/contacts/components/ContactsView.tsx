@@ -69,14 +69,14 @@ export function ContactsView() {
     return labels[type as keyof typeof labels] || type;
   };
 
-  const getTypeColor = (type: string) => {
-    const colors = {
-      contractor: "bg-blue-100 text-blue-800",
-      supplier: "bg-green-100 text-green-800",
-      subcontractor: "bg-purple-100 text-purple-800", 
-      other: "bg-gray-100 text-gray-800"
-    };
-    return colors[type as keyof typeof colors] || "bg-gray-100 text-gray-800";
+  const getTypeVariant = (type: string) => {
+    const variants = {
+      contractor: "default",
+      supplier: "secondary",
+      subcontractor: "outline",
+      other: "destructive",
+    } as const;
+    return variants[type as keyof typeof variants] || "outline";
   };
 
   const getInitials = (name: string, companyName?: string) => {
@@ -87,10 +87,10 @@ export function ContactsView() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       {/* Search and filters */}
       <Card className="p-6">
-        <div className="flex flex-col space-y-4">
+        <div className="flex flex-col gap-4">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -162,12 +162,12 @@ export function ContactsView() {
                     )}
                   </div>
                 </div>
-                <Badge className={getTypeColor(contact.type)}>
+                <Badge variant={getTypeVariant(contact.type)}>
                   {getTypeLabel(contact.type)}
                 </Badge>
               </div>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="flex flex-col gap-3">
               {contact.email && (
                 <div className="flex items-center gap-2 text-sm">
                   <Mail className="h-4 w-4 text-muted-foreground" />

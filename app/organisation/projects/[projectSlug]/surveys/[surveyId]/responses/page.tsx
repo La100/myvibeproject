@@ -85,10 +85,10 @@ export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps
 
   return (
     <ProjectPageLayout>
-      <div className="space-y-6">
+      <div className="flex flex-col gap-6">
         <ProjectPageHeader
           title="Survey Responses"
-          icon={<Users className="h-8 w-8 text-[var(--ui-accent-brand)]" />}
+          icon={<Users className="h-8 w-8 text-primary" />}
           subtitle={survey.title}
           actions={
             <Button
@@ -115,7 +115,7 @@ export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps
               <div className="text-2xl font-bold">
                 {responses?.length ?? 0}
               </div>
-              <p className="text-sm text-gray-600">Total responses</p>
+              <p className="text-sm text-muted-foreground">Total responses</p>
             </CardContent>
           </Card>
 
@@ -130,7 +130,7 @@ export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps
               <div className="text-2xl font-bold">
                 {survey.questions ? survey.questions.length : 0}
               </div>
-              <p className="text-sm text-gray-600">Number of questions</p>
+              <p className="text-sm text-muted-foreground">Number of questions</p>
             </CardContent>
           </Card>
         </div>
@@ -143,7 +143,7 @@ export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps
             </CardHeader>
           </Card>
         ) : (
-          <div className="space-y-6">
+          <div className="flex flex-col gap-6">
             <Card>
               <CardHeader>
                 <CardTitle>Responses list</CardTitle>
@@ -151,7 +151,7 @@ export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps
                   Select a response to expand details.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="flex flex-col gap-3">
                 {sortedResponses.map((response, responseIndex) => {
                   const responseId = String(response._id);
                   return (
@@ -187,12 +187,12 @@ export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps
               collapsible
               value={expandedResponseId}
               onValueChange={setExpandedResponseId}
-              className="rounded-xl border border-gray-200 bg-gray-50/50 px-4"
+              className="rounded-xl border border-border bg-muted/30 px-4"
             >
               {sortedResponses.map((response, responseIndex) => {
                 const responseId = String(response._id);
                 return (
-                  <AccordionItem key={responseId} value={responseId} className="border-b border-gray-200 last:border-b-0">
+                  <AccordionItem key={responseId} value={responseId} className="border-b border-border last:border-b-0">
                     <AccordionTrigger className="py-5 hover:no-underline">
                       <div className="flex w-full items-start justify-between pr-3 text-left">
                         <div>
@@ -209,21 +209,21 @@ export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps
                       </div>
                     </AccordionTrigger>
                     <AccordionContent>
-                      <div className="space-y-6 pb-6">
+                      <div className="flex flex-col gap-6 pb-6">
                         {survey.questions.map((question, questionIndex) => {
                           const answer = response.answers.find(a => a.questionId === question._id);
                           return (
-                            <Card key={question._id} className="border border-gray-200 shadow-sm bg-card">
+                            <Card key={question._id} className="border border-border/80 bg-card shadow-sm">
                               <CardContent className="p-6">
-                                <div className="flex items-center gap-3 mb-2">
+                                <div className="mb-2 flex items-center gap-3">
                                   <span className="inline-block border border-border text-foreground bg-transparent rounded px-2 py-1 text-xs font-semibold">
                                     Question {questionIndex + 1}
                                   </span>
                                 </div>
-                                <div className="font-medium mb-2">{question.questionText}</div>
-                                <div className="bg-gray-50 p-3 rounded-lg">
+                                <div className="mb-2 font-medium">{question.questionText}</div>
+                                <div className="rounded-lg bg-muted/50 p-3">
                                   {answer ? getAnswerDisplay(answer) : (
-                                    <span className="text-gray-500 italic">No answer</span>
+                                    <span className="italic text-muted-foreground">No answer</span>
                                   )}
                                 </div>
                               </CardContent>

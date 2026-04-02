@@ -5,7 +5,33 @@ import { useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Spinner } from "@/components/ui/spinner";
+import { cn } from "@/lib/utils";
 
+function LoadingState({
+  title,
+  description,
+  className,
+}: {
+  title: string;
+  description: string;
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex min-h-[220px] items-center justify-center px-4", className)}>
+      <Card className="w-full max-w-md">
+        <CardHeader className="flex flex-col gap-2 text-center">
+          <CardTitle className="text-lg font-medium">{title}</CardTitle>
+          <CardDescription>{description}</CardDescription>
+        </CardHeader>
+        <CardContent className="flex justify-center pb-8">
+          <Spinner fullHeight={false} className="py-0" iconClassName="size-5" />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
 export function SmartDashboard() {
   const router = useRouter();
@@ -127,59 +153,26 @@ export function SmartDashboard() {
   // Show special loading for invitation acceptance
   if (hasInvitationTicket) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center space-y-4 max-w-md">
-          <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto" />
-          <h3 className="text-xl font-semibold">Processing your invitation...</h3>
-          <p className="text-muted-foreground">
-            We're adding you to the organization. This will take just a moment.
-          </p>
-        </div>
-      </div>
+      <LoadingState
+        title="Processing your invitation..."
+        description="We're adding you to the organization. This will take just a moment."
+      />
     );
   }
 
   // Show loading while checking organizations
   if (!isLoaded) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <div className="text-center space-y-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto" />
-          <p className="text-muted-foreground">Loading your workspace...</p>
-        </div>
-      </div>
-    );
+    return <LoadingState title="Loading your workspace..." description="Please wait a moment." />;
   }
 
   if (onboardingStatus === undefined) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <div className="text-center space-y-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto" />
-          <p className="text-muted-foreground">Preparing onboarding...</p>
-        </div>
-      </div>
-    );
+    return <LoadingState title="Preparing onboarding..." description="We are checking your setup." />;
   }
 
   if (!onboardingStatus.authenticated) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <div className="text-center space-y-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto" />
-          <p className="text-muted-foreground">Authorizing workspace...</p>
-        </div>
-      </div>
-    );
+    return <LoadingState title="Authorizing workspace..." description="One moment while we verify access." />;
   }
 
   // Always show loading while redirecting
-  return (
-    <div className="flex items-center justify-center py-8">
-      <div className="text-center space-y-4">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto" />
-        <p className="text-muted-foreground">{loadingMessage}</p>
-      </div>
-    </div>
-  );
+  return <LoadingState title="Working..." description={loadingMessage} />;
 }

@@ -139,7 +139,7 @@ export default function MemberDetailsModal({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-6">
+          <div className="flex flex-col gap-6">
             {/* Profile Section */}
             <div className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg">
               <Avatar className="h-16 w-16">
@@ -198,9 +198,9 @@ export default function MemberDetailsModal({
 
               <div className="flex items-start gap-3">
                 {member.isActive ? (
-                  <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5" />
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 text-primary" />
                 ) : (
-                  <Clock className="h-4 w-4 text-orange-600 mt-0.5" />
+                  <Clock className="mt-0.5 h-4 w-4 text-muted-foreground" />
                 )}
                 <div>
                   <p className="text-sm font-medium">Status</p>
@@ -225,8 +225,8 @@ export default function MemberDetailsModal({
 
             {/* Management Section - Only for admins */}
             {canManageMember && (
-              <div className="space-y-4 pt-4 border-t">
-                <div className="space-y-2">
+              <div className="flex flex-col gap-4 border-t pt-4">
+                <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium">Change Role</label>
                   <Select
                     value={member.role}

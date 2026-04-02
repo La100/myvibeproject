@@ -128,14 +128,14 @@ function ProjectOverviewContent() {
     )
     .slice(0, 3);
 
-  const statusColors = {
-    planning: "border-sky-200 bg-sky-50 text-sky-700",
-    active: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    on_hold: "border-amber-200 bg-amber-50 text-amber-700",
-    completed: "border-indigo-200 bg-indigo-50 text-indigo-700",
-    done: "border-indigo-200 bg-indigo-50 text-indigo-700",
-    cancelled: "border-rose-200 bg-rose-50 text-rose-700",
-  };
+  const statusVariants = {
+    planning: "outline",
+    active: "secondary",
+    on_hold: "outline",
+    completed: "default",
+    done: "default",
+    cancelled: "destructive",
+  } as const;
 
   const hasBudgetBaseline = budgetSummary.budget > 0;
   const hasFinancialActivity =
@@ -417,10 +417,10 @@ function ProjectOverviewContent() {
 
   return (
     <ProjectPageLayout>
-      <div className="space-y-7">
+      <div className="flex flex-col gap-7">
         <ProjectPageHeader
           title="Project Overview"
-          icon={<Target className="h-8 w-8 text-[var(--ui-accent-brand)]" />}
+          icon={<Target className="h-8 w-8 text-primary" />}
           subtitle={`A summary of ${project.name}`}
         />
 
@@ -510,9 +510,8 @@ function ProjectOverviewContent() {
             </CardHeader>
             <CardContent>
               <Badge
-                variant="outline"
-                className={
-                  statusColors[project.status as keyof typeof statusColors]
+                variant={
+                  statusVariants[project.status as keyof typeof statusVariants]
                 }
               >
                 {project.status.replace("_", " ").toUpperCase()}
@@ -626,7 +625,7 @@ function ProjectOverviewContent() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-1">
+                <div className="flex flex-col gap-1">
                   {project.startDate && (
                     <div className="text-sm">
                       <span className="text-muted-foreground">Start: </span>
@@ -672,7 +671,7 @@ function ProjectOverviewContent() {
                 Upcoming Installments
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 px-6">
+            <CardContent className="flex flex-col gap-3 px-6">
               {unpaidInstallments.map((installment) => (
                 <div
                   key={installment._id}
@@ -709,7 +708,7 @@ function ProjectOverviewContent() {
                 Next Milestone
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 px-6">
+            <CardContent className="flex flex-col gap-3 px-6">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="font-medium">

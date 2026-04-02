@@ -1,3 +1,4 @@
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DownloadIcon, PlusIcon, Hammer } from 'lucide-react';
 
@@ -17,41 +18,40 @@ export function LaborListHeader({
   onAddLaborClick
 }: LaborListHeaderProps) {
   return (
-    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-10">
-      <div className="mb-4 sm:mb-0 space-y-4">
+    <div className="mb-10 flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-4">
         <div className="flex items-center gap-3">
-          <Hammer className="h-8 w-8 text-[var(--ui-accent-brand)]" />
-          <h1 className="text-4xl md:text-5xl font-medium tracking-tight font-[var(--font-display-serif)] text-[var(--ui-text-strong)]">
+          <Hammer className="h-8 w-8 text-primary" />
+          <h1 className="text-4xl font-semibold tracking-tight text-foreground md:text-5xl">
             Labor
           </h1>
         </div>
         <div className="flex flex-wrap gap-3 items-center">
-          <span className="inline-flex items-center gap-2 rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-4 py-2 text-sm font-medium text-[var(--ui-accent-brand)]">
+          <Badge variant="outline" className="px-4 py-1.5 text-sm font-medium">
             {projectName}
-          </span>
-          <span className="inline-flex items-center gap-2 rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-4 py-2 text-sm font-medium text-[var(--ui-text-main)]">
+          </Badge>
+          <Badge variant="secondary" className="px-4 py-1.5 text-sm font-medium">
             Total: {grandTotal.toFixed(2)} {currencySymbol}
-          </span>
+          </Badge>
         </div>
       </div>
       <div className="flex gap-3">
         <Button
           onClick={onExportClick}
           variant="outline"
-          className="rounded-lg border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-6 text-[var(--ui-text-strong)] shadow-sm hover:bg-[var(--ui-surface-base)]/90 hover:-translate-y-0.5 transition-all"
+          className="h-11 px-6"
         >
-          <DownloadIcon className="h-4 w-4 mr-2" />
+          <DownloadIcon className="mr-2 h-4 w-4" />
           Export PDF
         </Button>
         <Button
           onClick={onAddLaborClick}
-          className="rounded-lg bg-[var(--ui-action-bg)] px-6 text-[var(--primary-foreground)] shadow-[0_14px_36px_rgba(14,14,14,0.18)] hover:bg-[var(--ui-action-hover)] transition-transform hover:-translate-y-0.5"
+          className="h-11 px-6"
         >
-          <PlusIcon className="h-4 w-4 mr-2" />
+          <PlusIcon className="mr-2 h-4 w-4" />
           Add Labor
         </Button>
       </div>
     </div>
   );
 }
-

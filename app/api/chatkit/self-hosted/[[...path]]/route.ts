@@ -20,9 +20,14 @@ function buildTargetUrl(request: Request, path: string[]) {
     throw new Error("Missing CHATKIT_SELF_HOSTED_SERVER_URL environment variable.");
   }
 
-  const normalizedBase = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
-  const targetUrl = new URL(path.join("/"), normalizedBase);
+  const targetUrl = new URL(baseUrl);
   const incomingUrl = new URL(request.url);
+
+  if (path.length > 0) {
+    const basePath = targetUrl.pathname.replace(/\/+$/, "");
+    const extraPath = path.join("/");
+    targetUrl.pathname = `${basePath}/${extraPath}`;
+  }
 
   targetUrl.search = incomingUrl.search;
   return targetUrl;

@@ -3,13 +3,17 @@ import "./globals.css";
 import ConvexClientProvider from "@/components/providers/ConvexClientProvider";
 import { ClerkProvider } from "@clerk/nextjs";
 import type { ClerkProviderProps } from "@clerk/clerk-react";
-import type { CSSProperties } from "react";
 import { Toaster } from "@/components/ui/sonner";
-import { getUiVibeCssVariables, resolveUiVibeId } from "@/lib/ui-system";
-import { Geist } from "next/font/google";
+import { Geist, Geist_Mono, Newsreader } from "next/font/google";
 import { cn } from "@/lib/utils";
 
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
+const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" });
+const newsreader = Newsreader({
+  subsets: ["latin"],
+  variable: "--font-serif",
+  weight: ["400", "500", "600", "700"],
+});
 
 export const metadata: Metadata = {
   title: "Myvibe project",
@@ -21,61 +25,42 @@ export const metadata: Metadata = {
   },
 };
 
-const activeUiVibe = resolveUiVibeId(process.env.NEXT_PUBLIC_UI_VIBE);
-const uiVibeVariables = getUiVibeCssVariables(activeUiVibe);
-
 const clerkAppearance: ClerkProviderProps["appearance"] = {
   layout: {
     socialButtonsVariant: "blockButton",
     socialButtonsPlacement: "top",
   },
   variables: {
-    colorPrimary: "var(--ui-clerk-primary)",
-    colorText: "var(--ui-clerk-text)",
-    colorInputText: "var(--ui-clerk-text)",
-    colorInputBackground: "var(--ui-clerk-input-bg)",
-    colorBackground: "var(--ui-clerk-card-bg)",
+    colorPrimary: "var(--primary)",
+    colorText: "var(--foreground)",
+    colorInputText: "var(--foreground)",
+    colorInputBackground: "var(--background)",
+    colorBackground: "var(--background)",
     borderRadius: "var(--radius)",
   },
   elements: {
     modalBackdrop: "backdrop-blur-sm bg-black/60",
-    modal:
-      "rounded-3xl shadow-[0_24px_80px_rgba(18,18,18,0.09)] border border-[var(--ui-clerk-border)] bg-[var(--ui-clerk-modal-bg)]",
-    card:
-      "rounded-3xl border border-[var(--ui-clerk-border)] shadow-[0_20px_60px_rgba(18,18,18,0.05)] bg-[var(--ui-clerk-card-bg)]",
-    headerTitle: "text-xl font-semibold text-[var(--ui-clerk-text)]",
-    headerSubtitle: "text-sm text-[var(--ui-clerk-text-muted)]",
+    modal: "rounded-3xl border border-border bg-background shadow-xl backdrop-blur-xl",
+    card: "rounded-2xl border border-border bg-card shadow-lg",
+    headerTitle: "text-xl font-medium text-foreground",
+    headerSubtitle: "text-sm text-muted-foreground",
     socialButtons: "gap-3",
-    socialButtonsBlockButton:
-      "h-11 rounded-xl border border-[var(--ui-clerk-border)] bg-[var(--ui-surface-base)] text-[var(--ui-clerk-text)] hover:bg-[var(--ui-surface-soft)] shadow-none",
-    socialButtonsBlockButtonText: "text-sm font-semibold",
+    socialButtonsBlockButton: "h-11 rounded-full border border-border bg-background text-foreground hover:bg-muted shadow-none",
+    socialButtonsBlockButtonText: "text-sm font-medium",
     socialButtonsProviderIcon: "text-base",
-    dividerText: "text-[var(--ui-text-subtle)] text-xs font-semibold uppercase tracking-[0.16em]",
-    dividerLine: "bg-[var(--ui-clerk-divider)]",
-    formFieldLabel: "text-xs font-semibold text-[var(--ui-clerk-text-muted)] uppercase tracking-[0.06em]",
+    dividerText: "text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground",
+    dividerLine: "bg-border",
+    formFieldLabel: "text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground",
     formFieldInput:
-      "h-11 rounded-2xl border border-[var(--ui-clerk-border)] bg-[var(--ui-surface-base)] text-[var(--ui-clerk-text)] placeholder:text-[var(--ui-text-subtle)] focus:ring-2 focus:ring-primary/20 focus:border-primary",
-    formFieldInputShowPasswordButton: "text-[var(--ui-clerk-text-muted)]",
+      "h-11 rounded-full border border-border bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20",
+    formFieldInputShowPasswordButton: "text-muted-foreground",
     formButtonPrimary:
-      "h-11 rounded-xl bg-[var(--ui-clerk-primary)] text-[var(--primary-foreground)] text-sm font-semibold shadow-[0_12px_28px_rgba(18,18,18,0.12)] hover:bg-[var(--ui-clerk-primary-hover)]",
-    footerActionText: "text-[var(--ui-clerk-text-muted)] text-sm",
-    footerActionLink: "text-[var(--ui-clerk-text)] font-semibold hover:underline",
+      "h-11 rounded-full bg-primary text-primary-foreground text-sm font-medium shadow-sm hover:bg-primary/90",
+    footerActionText: "text-sm text-muted-foreground",
+    footerActionLink: "font-medium text-foreground hover:underline",
     footer: "pt-2",
   },
 };
-
-const rootFontVariables = {
-  "--font-sans":
-    '"Inter", "Söhne", "SF Pro Text", "Segoe UI", system-ui, -apple-system, sans-serif',
-  "--font-mono":
-    '"IBM Plex Mono", "SFMono-Regular", ui-monospace, monospace',
-  "--font-serif": '"Canela", "Noe Display", "Georgia", "Times New Roman", serif',
-} as CSSProperties;
-
-const rootThemeVariables = {
-  ...rootFontVariables,
-  ...uiVibeVariables,
-} as CSSProperties;
 
 export default function RootLayout({
   children,
@@ -83,8 +68,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" data-ui-vibe={activeUiVibe} className={cn("font-sans", geist.variable)}>
-      <body className="antialiased" style={rootThemeVariables}>
+    <html
+      lang="en"
+      className={cn("font-sans", geist.variable, geistMono.variable, newsreader.variable)}
+    >
+      <body className="antialiased">
         <ClerkProvider
           appearance={clerkAppearance}
           signInUrl="/sign-in"

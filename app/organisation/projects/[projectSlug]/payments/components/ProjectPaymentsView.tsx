@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import {
   Banknote,
@@ -36,12 +37,24 @@ import {
   InputGroupInput,
   InputGroupText,
 } from "@/components/ui/input-group";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
 import { Id } from "@/convex/_generated/dataModel";
 import { apiAny } from "@/lib/convexApiAny";
 import { formatCurrency } from "@/lib/utils";
@@ -155,23 +168,22 @@ const parseDateInput = (value: string) => {
   return new Date(`${trimmed}T12:00:00`).getTime();
 };
 
-const getStatusBadgeClassName = (installment: Installment) => {
+const getStatusBadgeVariant = (
+  installment: Installment,
+): "default" | "secondary" | "outline" | "destructive" => {
+  if (installment.isOverdue || installment.status === "uncollectible") {
+    return "destructive";
+  }
+
   if (installment.status === "paid") {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    return "default";
   }
-  if (installment.status === "void") {
-    return "border-slate-200 bg-slate-50 text-slate-600";
-  }
-  if (installment.status === "uncollectible") {
-    return "border-amber-200 bg-amber-50 text-amber-700";
-  }
-  if (installment.isOverdue) {
-    return "border-rose-200 bg-rose-50 text-rose-700";
-  }
+
   if (installment.status === "open") {
-    return "border-sky-200 bg-sky-50 text-sky-700";
+    return "outline";
   }
-  return "border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] text-[var(--ui-text-main)]";
+
+  return "secondary";
 };
 
 const getStatusLabel = (installment: Installment) => {
@@ -180,6 +192,30 @@ const getStatusLabel = (installment: Installment) => {
   }
   return installment.status.toUpperCase();
 };
+
+function PaymentField({
+  label,
+  htmlFor,
+  description,
+  children,
+  className,
+}: {
+  label: ReactNode;
+  htmlFor?: string;
+  description?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <Field className={className}>
+      <FieldLabel htmlFor={htmlFor}>{label}</FieldLabel>
+      <FieldContent>
+        {children}
+        {description ? <FieldDescription>{description}</FieldDescription> : null}
+      </FieldContent>
+    </Field>
+  );
+}
 
 const buildCustomerFromProject = (project?: {
   customer?: string;
@@ -283,10 +319,6 @@ export default function ProjectPaymentsView() {
   const invoiceSetupIssues =
     (paymentsData?.billingSetup?.missingSellerFields?.length ?? 0) +
     (paymentsData?.billingSetup?.missingCustomerFields?.length ?? 0);
-  const paymentTabTriggerClassName =
-    "group h-auto w-full flex-none justify-start rounded-[18px] border border-transparent px-4 py-3 text-left text-[var(--ui-text-main)] shadow-none transition-all duration-200 hover:border-[var(--ui-border-soft)] hover:bg-[var(--ui-surface-base)]/70 hover:text-[var(--ui-text-strong)] data-[state=active]:border-[var(--ui-border-soft)] data-[state=active]:bg-[var(--ui-surface-base)] data-[state=active]:text-[var(--ui-text-strong)] data-[state=active]:shadow-[0_18px_34px_-28px_rgba(0,0,0,0.7)]";
-  const paymentTabBadgeClassName =
-    "border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] text-[var(--ui-text-main)]";
   const activeCurrency = paymentsData?.currency || project.currency || "PLN";
   const projectClientDefaults = buildCustomerFromProject(project);
   const hasProjectClientDefaults = Boolean(
@@ -486,12 +518,12 @@ export default function ProjectPaymentsView() {
       const canVoid = installment.status !== "paid" && installment.status !== "void";
 
       return (
-        <div key={installment._id} className="rounded-2xl border bg-background/60 p-4">
+        <div key={installment._id} className="rounded-2xl border bg-card p-4">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-lg font-medium">{installment.title}</h3>
-                <Badge variant="outline" className={getStatusBadgeClassName(installment)}>
+                <Badge variant={getStatusBadgeVariant(installment)}>
                   {getStatusLabel(installment)}
                 </Badge>
                 {installment.invoiceNumber ? (
@@ -545,7 +577,7 @@ export default function ProjectPaymentsView() {
                     onClick={() => void runInstallmentAction(installment._id, "send")}
                     disabled={isBusy}
                   >
-                    <Mail className="mr-2 h-4 w-4" />
+                    <Mail data-icon="inline-start" />
                     Issue & email
                   </Button>
                   <Button
@@ -555,7 +587,7 @@ export default function ProjectPaymentsView() {
                     onClick={() => void removeDraftInstallment(installment._id)}
                     disabled={isBusy}
                   >
-                    <Trash2 className="mr-2 h-4 w-4" />
+                    <Trash2 data-icon="inline-start" />
                     Delete
                   </Button>
                 </>
@@ -568,7 +600,7 @@ export default function ProjectPaymentsView() {
                     onClick={() => void runInstallmentAction(installment._id, "download")}
                     disabled={isBusy || !installment.hasInvoicePdf}
                   >
-                    <Download className="mr-2 h-4 w-4" />
+                    <Download data-icon="inline-start" />
                     Download PDF
                   </Button>
                   <Button
@@ -578,7 +610,7 @@ export default function ProjectPaymentsView() {
                     onClick={() => void runInstallmentAction(installment._id, "send")}
                     disabled={isBusy}
                   >
-                    <Mail className="mr-2 h-4 w-4" />
+                    <Mail data-icon="inline-start" />
                     Send email
                   </Button>
                   <Button
@@ -588,7 +620,7 @@ export default function ProjectPaymentsView() {
                     onClick={() => void copyReference(installment.paymentReference)}
                     disabled={!installment.paymentReference}
                   >
-                    <Copy className="mr-2 h-4 w-4" />
+                    <Copy data-icon="inline-start" />
                     Copy reference
                   </Button>
                   {installment.status !== "paid" ? (
@@ -599,7 +631,7 @@ export default function ProjectPaymentsView() {
                       onClick={() => void runInstallmentAction(installment._id, "paid")}
                       disabled={isBusy}
                     >
-                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                      <CheckCircle2 data-icon="inline-start" />
                       Mark paid
                     </Button>
                   ) : (
@@ -643,49 +675,49 @@ export default function ProjectPaymentsView() {
 
   return (
     <ProjectPageLayout>
-      <div className="space-y-8">
+      <div className="flex flex-col gap-8">
         <ProjectPageHeader
           title="Payments"
-          icon={<Wallet className="h-8 w-8 text-[var(--ui-accent-brand)]" />}
+          icon={<Wallet />}
           subtitle="Manage bank-transfer invoices, customer billing data, invoice PDFs, and manual payment reconciliation."
           actions={
             <Button type="button" onClick={openCreateDialog}>
-              <Plus className="mr-2 h-4 w-4" />
+              <Plus data-icon="inline-start" />
               New invoice
             </Button>
           }
         />
 
         <div className="grid gap-4 md:grid-cols-4">
-          <Card className="bg-card/90">
-            <CardHeader className="pb-2">
+          <Card>
+            <CardHeader>
               <CardTitle className="text-sm font-medium">Scheduled</CardTitle>
             </CardHeader>
             <CardContent className="text-2xl font-semibold">
               {formatCurrency(paymentsData.totals.scheduled || 0, paymentsData.currency)}
             </CardContent>
           </Card>
-          <Card className="bg-card/90">
-            <CardHeader className="pb-2">
+          <Card>
+            <CardHeader>
               <CardTitle className="text-sm font-medium">Collected</CardTitle>
             </CardHeader>
-            <CardContent className="text-2xl font-semibold text-emerald-700">
+            <CardContent className="text-2xl font-semibold">
               {formatCurrency(paymentsData.totals.paid || 0, paymentsData.currency)}
             </CardContent>
           </Card>
-          <Card className="bg-card/90">
-            <CardHeader className="pb-2">
+          <Card>
+            <CardHeader>
               <CardTitle className="text-sm font-medium">Outstanding</CardTitle>
             </CardHeader>
             <CardContent className="text-2xl font-semibold">
               {formatCurrency(paymentsData.totals.outstanding || 0, paymentsData.currency)}
             </CardContent>
           </Card>
-          <Card className="bg-card/90">
-            <CardHeader className="pb-2">
+          <Card>
+            <CardHeader>
               <CardTitle className="text-sm font-medium">Overdue</CardTitle>
             </CardHeader>
-            <CardContent className="text-2xl font-semibold text-rose-700">
+            <CardContent className="text-2xl font-semibold">
               {paymentsData.totals.overdueCount || 0}
             </CardContent>
           </Card>
@@ -707,76 +739,41 @@ export default function ProjectPaymentsView() {
         )}
 
         <Tabs defaultValue="schedule" className="w-full gap-6">
-          <TabsList className="grid h-auto w-full grid-cols-1 gap-2 rounded-[26px] border border-[var(--ui-border-soft)] bg-[linear-gradient(135deg,color-mix(in_oklab,var(--ui-surface-soft)_82%,white_18%)_0%,color-mix(in_oklab,var(--ui-surface-base)_72%,var(--ui-surface-soft)_28%)_100%)] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.72),0_18px_40px_-34px_rgba(15,15,15,0.42)] md:grid-cols-3">
-            <TabsTrigger
-              value="schedule"
-              className={paymentTabTriggerClassName}
-            >
-              <span className="flex w-full items-center gap-3">
-                <span className="inline-flex size-10 items-center justify-center rounded-[14px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] text-[var(--ui-text-muted)] transition-colors duration-200 group-data-[state=active]:bg-[color-mix(in_oklab,var(--ui-accent-brand)_12%,white_88%)] group-data-[state=active]:text-[var(--ui-accent-brand)]">
-                  <Wallet className="size-4" />
-                </span>
+          <TabsList className="grid h-auto w-full grid-cols-1 md:grid-cols-3">
+            <TabsTrigger value="schedule" className="justify-start px-4 py-3 text-left">
+              <span className="flex w-full flex-wrap items-center gap-2">
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold">Draft invoices</span>
-                  <span className="mt-0.5 block text-[11px] leading-snug text-[var(--ui-text-muted)]">
+                  <span className="block text-sm font-medium">Draft invoices</span>
+                  <span className="block text-xs text-muted-foreground">
                     Create and prepare invoices before issuing
                   </span>
                 </span>
-                <Badge
-                  variant="outline"
-                  className={paymentTabBadgeClassName}
-                >
-                  {draftInstallments.length}
-                </Badge>
+                <Badge variant="outline">{draftInstallments.length}</Badge>
               </span>
             </TabsTrigger>
-            <TabsTrigger
-              value="invoices"
-              className={paymentTabTriggerClassName}
-            >
-              <span className="flex w-full items-center gap-3">
-                <span className="inline-flex size-10 items-center justify-center rounded-[14px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] text-[var(--ui-text-muted)] transition-colors duration-200 group-data-[state=active]:bg-[color-mix(in_oklab,var(--ui-accent-copper)_13%,white_87%)] group-data-[state=active]:text-[var(--ui-accent-copper)]">
-                  <Banknote className="size-4" />
-                </span>
+            <TabsTrigger value="invoices" className="justify-start px-4 py-3 text-left">
+              <span className="flex w-full flex-wrap items-center gap-2">
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold">Issued invoices</span>
-                  <span className="mt-0.5 block text-[11px] leading-snug text-[var(--ui-text-muted)]">
+                  <span className="block text-sm font-medium">Issued invoices</span>
+                  <span className="block text-xs text-muted-foreground">
                     Sent invoices and payment history
                   </span>
                 </span>
-                <Badge
-                  variant="outline"
-                  className={paymentTabBadgeClassName}
-                >
-                  {issuedInstallments.length}
-                </Badge>
+                <Badge variant="outline">{issuedInstallments.length}</Badge>
               </span>
             </TabsTrigger>
-            <TabsTrigger
-              value="invoice-setup"
-              className={paymentTabTriggerClassName}
-            >
-              <span className="flex w-full items-center gap-3">
-                <span className="inline-flex size-10 items-center justify-center rounded-[14px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] text-[var(--ui-text-muted)] transition-colors duration-200 group-data-[state=active]:bg-[color-mix(in_oklab,var(--ui-accent-indigo)_12%,white_88%)] group-data-[state=active]:text-[var(--ui-accent-indigo)]">
-                  <Building2 className="size-4" />
-                </span>
+            <TabsTrigger value="invoice-setup" className="justify-start px-4 py-3 text-left">
+              <span className="flex w-full flex-wrap items-center gap-2">
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold">Invoice setup</span>
-                  <span className="mt-0.5 block text-[11px] leading-snug text-[var(--ui-text-muted)]">
+                  <span className="block text-sm font-medium">Invoice setup</span>
+                  <span className="block text-xs text-muted-foreground">
                     Seller profile and bill-to details
                   </span>
                 </span>
-                <Badge
-                  variant="outline"
-                  className={
-                    invoiceSetupReady
-                      ? "border-[color-mix(in_oklab,var(--ui-accent-brand)_30%,white_70%)] bg-[color-mix(in_oklab,var(--ui-accent-brand)_12%,white_88%)] text-[var(--ui-accent-brand)]"
-                      : "border-[color-mix(in_oklab,var(--ui-accent-copper)_28%,white_72%)] bg-[color-mix(in_oklab,var(--ui-accent-copper)_12%,white_88%)] text-[var(--ui-accent-copper)]"
-                  }
-                >
+                <Badge variant={invoiceSetupReady ? "default" : "destructive"}>
                   {invoiceSetupReady ? (
                     <>
-                      <CheckCircle2 className="size-3" />
+                      <CheckCircle2 />
                       Ready
                     </>
                   ) : (
@@ -787,19 +784,19 @@ export default function ProjectPaymentsView() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="schedule" className="space-y-6">
-            <Card className="bg-card/92">
+          <TabsContent value="schedule" className="flex flex-col gap-6">
+            <Card>
               <CardHeader className="flex flex-row items-center justify-between gap-4">
                 <CardTitle className="flex items-center gap-2">
-                  <Wallet className="h-4 w-4" />
+                  <Wallet />
                   Draft invoices
                 </CardTitle>
                 <Button type="button" onClick={openCreateDialog}>
-                  <Plus className="mr-2 h-4 w-4" />
+                  <Plus data-icon="inline-start" />
                   New invoice
                 </Button>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="flex flex-col gap-4">
                 {renderInstallmentList(
                   draftInstallments,
                   "No draft invoices yet. Create one here and issue it from the next tab when it is ready.",
@@ -808,15 +805,15 @@ export default function ProjectPaymentsView() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="invoices" className="space-y-6">
-            <Card className="bg-card/92">
+          <TabsContent value="invoices" className="flex flex-col gap-6">
+            <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Banknote className="h-4 w-4" />
+                  <Banknote />
                   Issued Invoices
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="flex flex-col gap-4">
                 {renderInstallmentList(
                   issuedInstallments,
                   "No issued invoices yet. Issue a draft invoice and it will appear here.",
@@ -825,96 +822,147 @@ export default function ProjectPaymentsView() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="invoice-setup" className="space-y-6">
+          <TabsContent value="invoice-setup" className="flex flex-col gap-6">
             <div className="grid gap-6 xl:grid-cols-2">
-              <Card className="bg-card/92">
+              <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Banknote className="h-4 w-4" />
+                    <Banknote />
                     Organization Billing Profile
                   </CardTitle>
-                  <p className="text-sm text-muted-foreground">
+                  <CardDescription>
                     Seller data is shared across this organization and is also available in{" "}
                     <Link
                       href="/organisation/settings#organization-billing-profile"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="font-medium text-foreground underline underline-offset-4"
                     >
                       organization settings
                     </Link>.
-                  </p>
+                  </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label>Seller name</Label>
-                      <Input value={billingProfile.sellerName} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerName: e.target.value }))} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Tax ID / NIP</Label>
-                      <Input value={billingProfile.sellerTaxId} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerTaxId: e.target.value }))} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Billing email</Label>
-                      <Input type="email" value={billingProfile.sellerEmail} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerEmail: e.target.value }))} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Phone</Label>
-                      <Input value={billingProfile.sellerPhone} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerPhone: e.target.value }))} />
-                    </div>
-                    <div className="space-y-2 md:col-span-2">
-                      <Label>Address line 1</Label>
-                      <Input value={billingProfile.sellerAddressLine1} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerAddressLine1: e.target.value }))} />
-                    </div>
-                    <div className="space-y-2 md:col-span-2">
-                      <Label>Address line 2</Label>
-                      <Input value={billingProfile.sellerAddressLine2} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerAddressLine2: e.target.value }))} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Postal code</Label>
-                      <Input value={billingProfile.sellerPostalCode} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerPostalCode: e.target.value }))} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>City</Label>
-                      <Input value={billingProfile.sellerCity} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerCity: e.target.value }))} />
-                    </div>
-                    <div className="space-y-2 md:col-span-2">
-                      <Label>Country</Label>
-                      <Input value={billingProfile.sellerCountry} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerCountry: e.target.value }))} />
-                    </div>
-                  </div>
+                <CardContent className="flex flex-col gap-6">
+                  <FieldGroup className="grid gap-4 md:grid-cols-2">
+                    <PaymentField label="Seller name" htmlFor="seller-name">
+                      <Input
+                        id="seller-name"
+                        value={billingProfile.sellerName}
+                        onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerName: e.target.value }))}
+                      />
+                    </PaymentField>
+                    <PaymentField label="Tax ID / NIP" htmlFor="seller-tax-id">
+                      <Input
+                        id="seller-tax-id"
+                        value={billingProfile.sellerTaxId}
+                        onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerTaxId: e.target.value }))}
+                      />
+                    </PaymentField>
+                    <PaymentField label="Billing email" htmlFor="seller-email">
+                      <Input
+                        id="seller-email"
+                        type="email"
+                        value={billingProfile.sellerEmail}
+                        onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerEmail: e.target.value }))}
+                      />
+                    </PaymentField>
+                    <PaymentField label="Phone" htmlFor="seller-phone">
+                      <Input
+                        id="seller-phone"
+                        value={billingProfile.sellerPhone}
+                        onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerPhone: e.target.value }))}
+                      />
+                    </PaymentField>
+                    <PaymentField label="Address line 1" htmlFor="seller-address-1" className="md:col-span-2">
+                      <Input
+                        id="seller-address-1"
+                        value={billingProfile.sellerAddressLine1}
+                        onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerAddressLine1: e.target.value }))}
+                      />
+                    </PaymentField>
+                    <PaymentField label="Address line 2" htmlFor="seller-address-2" className="md:col-span-2">
+                      <Input
+                        id="seller-address-2"
+                        value={billingProfile.sellerAddressLine2}
+                        onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerAddressLine2: e.target.value }))}
+                      />
+                    </PaymentField>
+                    <PaymentField label="Postal code" htmlFor="seller-postal-code">
+                      <Input
+                        id="seller-postal-code"
+                        value={billingProfile.sellerPostalCode}
+                        onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerPostalCode: e.target.value }))}
+                      />
+                    </PaymentField>
+                    <PaymentField label="City" htmlFor="seller-city">
+                      <Input
+                        id="seller-city"
+                        value={billingProfile.sellerCity}
+                        onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerCity: e.target.value }))}
+                      />
+                    </PaymentField>
+                    <PaymentField label="Country" htmlFor="seller-country" className="md:col-span-2">
+                      <Input
+                        id="seller-country"
+                        value={billingProfile.sellerCountry}
+                        onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerCountry: e.target.value }))}
+                      />
+                    </PaymentField>
+                  </FieldGroup>
 
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label>Account holder</Label>
-                      <Input value={billingProfile.bankAccountHolder} onChange={(e) => setBillingProfile((prev) => ({ ...prev, bankAccountHolder: e.target.value }))} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Bank name</Label>
-                      <Input value={billingProfile.bankName} onChange={(e) => setBillingProfile((prev) => ({ ...prev, bankName: e.target.value }))} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Bank account number / IBAN</Label>
-                      <Input value={billingProfile.bankAccountNumber} onChange={(e) => setBillingProfile((prev) => ({ ...prev, bankAccountNumber: e.target.value }))} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>SWIFT</Label>
-                      <Input value={billingProfile.bankSwift} onChange={(e) => setBillingProfile((prev) => ({ ...prev, bankSwift: e.target.value }))} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Invoice prefix</Label>
-                      <Input value={billingProfile.invoicePrefix} onChange={(e) => setBillingProfile((prev) => ({ ...prev, invoicePrefix: e.target.value }))} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Default due days</Label>
-                      <Input type="number" min="1" value={billingProfile.defaultPaymentTermDays} onChange={(e) => setBillingProfile((prev) => ({ ...prev, defaultPaymentTermDays: e.target.value }))} />
-                    </div>
-                    <div className="space-y-2 md:col-span-2">
-                      <Label>Payment instructions</Label>
-                      <Textarea rows={4} value={billingProfile.paymentInstructions} onChange={(e) => setBillingProfile((prev) => ({ ...prev, paymentInstructions: e.target.value }))} />
-                    </div>
-                  </div>
+                  <FieldGroup className="grid gap-4 md:grid-cols-2">
+                    <PaymentField label="Account holder" htmlFor="bank-account-holder">
+                      <Input
+                        id="bank-account-holder"
+                        value={billingProfile.bankAccountHolder}
+                        onChange={(e) => setBillingProfile((prev) => ({ ...prev, bankAccountHolder: e.target.value }))}
+                      />
+                    </PaymentField>
+                    <PaymentField label="Bank name" htmlFor="bank-name">
+                      <Input
+                        id="bank-name"
+                        value={billingProfile.bankName}
+                        onChange={(e) => setBillingProfile((prev) => ({ ...prev, bankName: e.target.value }))}
+                      />
+                    </PaymentField>
+                    <PaymentField label="Bank account number / IBAN" htmlFor="bank-account-number">
+                      <Input
+                        id="bank-account-number"
+                        value={billingProfile.bankAccountNumber}
+                        onChange={(e) => setBillingProfile((prev) => ({ ...prev, bankAccountNumber: e.target.value }))}
+                      />
+                    </PaymentField>
+                    <PaymentField label="SWIFT" htmlFor="bank-swift">
+                      <Input
+                        id="bank-swift"
+                        value={billingProfile.bankSwift}
+                        onChange={(e) => setBillingProfile((prev) => ({ ...prev, bankSwift: e.target.value }))}
+                      />
+                    </PaymentField>
+                    <PaymentField label="Invoice prefix" htmlFor="invoice-prefix">
+                      <Input
+                        id="invoice-prefix"
+                        value={billingProfile.invoicePrefix}
+                        onChange={(e) => setBillingProfile((prev) => ({ ...prev, invoicePrefix: e.target.value }))}
+                      />
+                    </PaymentField>
+                    <PaymentField label="Default due days" htmlFor="default-due-days">
+                      <Input
+                        id="default-due-days"
+                        type="number"
+                        min="1"
+                        value={billingProfile.defaultPaymentTermDays}
+                        onChange={(e) => setBillingProfile((prev) => ({ ...prev, defaultPaymentTermDays: e.target.value }))}
+                      />
+                    </PaymentField>
+                    <PaymentField label="Payment instructions" htmlFor="payment-instructions" className="md:col-span-2">
+                      <Textarea
+                        id="payment-instructions"
+                        rows={4}
+                        value={billingProfile.paymentInstructions}
+                        onChange={(e) => setBillingProfile((prev) => ({ ...prev, paymentInstructions: e.target.value }))}
+                      />
+                    </PaymentField>
+                  </FieldGroup>
 
                   <div className="flex justify-end">
                     <Button type="button" onClick={() => void saveBillingDetails()} disabled={isSavingBillingProfile}>
@@ -924,17 +972,17 @@ export default function ProjectPaymentsView() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-card/92">
+              <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4" />
+                    <Building2 />
                     Bill-To Customer
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="flex flex-col gap-4">
                   <div className="flex flex-wrap gap-2">
                     <Button type="button" variant="outline" onClick={applyProjectClientDetails}>
-                      <RefreshCw className="mr-2 h-4 w-4" />
+                      <RefreshCw data-icon="inline-start" />
                       Use project client details
                     </Button>
                     {projectClientDefaults.name ? (
@@ -942,48 +990,79 @@ export default function ProjectPaymentsView() {
                     ) : null}
                   </div>
 
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label>Company name</Label>
-                      <Input value={customer.companyName} onChange={(e) => setCustomer((prev) => ({ ...prev, companyName: e.target.value }))} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Contact / buyer name</Label>
-                      <Input value={customer.name} onChange={(e) => setCustomer((prev) => ({ ...prev, name: e.target.value }))} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Billing email</Label>
-                      <Input type="email" value={customer.email} onChange={(e) => setCustomer((prev) => ({ ...prev, email: e.target.value }))} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Phone</Label>
-                      <Input value={customer.phone} onChange={(e) => setCustomer((prev) => ({ ...prev, phone: e.target.value }))} />
-                    </div>
-                    <div className="space-y-2 md:col-span-2">
-                      <Label>Tax ID / NIP</Label>
-                      <Input value={customer.taxId} onChange={(e) => setCustomer((prev) => ({ ...prev, taxId: e.target.value }))} />
-                    </div>
-                    <div className="space-y-2 md:col-span-2">
-                      <Label>Address line 1</Label>
-                      <Input value={customer.addressLine1} onChange={(e) => setCustomer((prev) => ({ ...prev, addressLine1: e.target.value }))} />
-                    </div>
-                    <div className="space-y-2 md:col-span-2">
-                      <Label>Address line 2</Label>
-                      <Input value={customer.addressLine2} onChange={(e) => setCustomer((prev) => ({ ...prev, addressLine2: e.target.value }))} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Postal code</Label>
-                      <Input value={customer.postalCode} onChange={(e) => setCustomer((prev) => ({ ...prev, postalCode: e.target.value }))} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>City</Label>
-                      <Input value={customer.city} onChange={(e) => setCustomer((prev) => ({ ...prev, city: e.target.value }))} />
-                    </div>
-                    <div className="space-y-2 md:col-span-2">
-                      <Label>Country</Label>
-                      <Input value={customer.country} onChange={(e) => setCustomer((prev) => ({ ...prev, country: e.target.value }))} />
-                    </div>
-                  </div>
+                  <FieldGroup className="grid gap-4 md:grid-cols-2">
+                    <PaymentField label="Company name" htmlFor="customer-company-name">
+                      <Input
+                        id="customer-company-name"
+                        value={customer.companyName}
+                        onChange={(e) => setCustomer((prev) => ({ ...prev, companyName: e.target.value }))}
+                      />
+                    </PaymentField>
+                    <PaymentField label="Contact / buyer name" htmlFor="customer-name">
+                      <Input
+                        id="customer-name"
+                        value={customer.name}
+                        onChange={(e) => setCustomer((prev) => ({ ...prev, name: e.target.value }))}
+                      />
+                    </PaymentField>
+                    <PaymentField label="Billing email" htmlFor="customer-email">
+                      <Input
+                        id="customer-email"
+                        type="email"
+                        value={customer.email}
+                        onChange={(e) => setCustomer((prev) => ({ ...prev, email: e.target.value }))}
+                      />
+                    </PaymentField>
+                    <PaymentField label="Phone" htmlFor="customer-phone">
+                      <Input
+                        id="customer-phone"
+                        value={customer.phone}
+                        onChange={(e) => setCustomer((prev) => ({ ...prev, phone: e.target.value }))}
+                      />
+                    </PaymentField>
+                    <PaymentField label="Tax ID / NIP" htmlFor="customer-tax-id" className="md:col-span-2">
+                      <Input
+                        id="customer-tax-id"
+                        value={customer.taxId}
+                        onChange={(e) => setCustomer((prev) => ({ ...prev, taxId: e.target.value }))}
+                      />
+                    </PaymentField>
+                    <PaymentField label="Address line 1" htmlFor="customer-address-1" className="md:col-span-2">
+                      <Input
+                        id="customer-address-1"
+                        value={customer.addressLine1}
+                        onChange={(e) => setCustomer((prev) => ({ ...prev, addressLine1: e.target.value }))}
+                      />
+                    </PaymentField>
+                    <PaymentField label="Address line 2" htmlFor="customer-address-2" className="md:col-span-2">
+                      <Input
+                        id="customer-address-2"
+                        value={customer.addressLine2}
+                        onChange={(e) => setCustomer((prev) => ({ ...prev, addressLine2: e.target.value }))}
+                      />
+                    </PaymentField>
+                    <PaymentField label="Postal code" htmlFor="customer-postal-code">
+                      <Input
+                        id="customer-postal-code"
+                        value={customer.postalCode}
+                        onChange={(e) => setCustomer((prev) => ({ ...prev, postalCode: e.target.value }))}
+                      />
+                    </PaymentField>
+                    <PaymentField label="City" htmlFor="customer-city">
+                      <Input
+                        id="customer-city"
+                        value={customer.city}
+                        onChange={(e) => setCustomer((prev) => ({ ...prev, city: e.target.value }))}
+                      />
+                    </PaymentField>
+                    <PaymentField label="Country" htmlFor="customer-country" className="md:col-span-2">
+                      <Input
+                        id="customer-country"
+                        value={customer.country}
+                        onChange={(e) => setCustomer((prev) => ({ ...prev, country: e.target.value }))}
+                      />
+                    </PaymentField>
+                  </FieldGroup>
 
                   <div className="flex justify-end">
                     <Button type="button" onClick={() => void saveCustomerDetails()} disabled={isSavingCustomer}>
@@ -1006,19 +1085,17 @@ export default function ProjectPaymentsView() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="installment-title">Title</Label>
+          <div className="flex flex-col gap-4">
+            <PaymentField label="Title" htmlFor="installment-title">
               <Input
                 id="installment-title"
                 value={form.title}
                 onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
                 placeholder="Stage 1 deposit"
               />
-            </div>
+            </PaymentField>
 
-            <div className="space-y-2">
-              <Label htmlFor="installment-description">Description</Label>
+            <PaymentField label="Description" htmlFor="installment-description">
               <Textarea
                 id="installment-description"
                 value={form.description}
@@ -1026,11 +1103,10 @@ export default function ProjectPaymentsView() {
                 placeholder="Optional note visible on the invoice"
                 rows={4}
               />
-            </div>
+            </PaymentField>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="installment-amount">Amount</Label>
+            <FieldGroup className="grid gap-4 md:grid-cols-2">
+              <PaymentField label="Amount" htmlFor="installment-amount">
                 <InputGroup>
                   <InputGroupInput
                     id="installment-amount"
@@ -1045,18 +1121,17 @@ export default function ProjectPaymentsView() {
                     <InputGroupText>{activeCurrency}</InputGroupText>
                   </InputGroupAddon>
                 </InputGroup>
-              </div>
+              </PaymentField>
 
-              <div className="space-y-2">
-                <Label htmlFor="installment-due-date">Due date</Label>
+              <PaymentField label="Due date" htmlFor="installment-due-date">
                 <Input
                   id="installment-due-date"
                   type="date"
                   value={form.dueDate}
                   onChange={(event) => setForm((current) => ({ ...current, dueDate: event.target.value }))}
                 />
-              </div>
-            </div>
+              </PaymentField>
+            </FieldGroup>
           </div>
 
           <DialogFooter>

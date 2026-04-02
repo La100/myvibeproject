@@ -5,6 +5,8 @@ import { useProject } from "@/components/providers/ProjectProvider";
 import { useMutation, useQuery } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Plus, Edit3, Trash2, Images } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -49,11 +51,11 @@ function MoodboardRowTitle({ title, isEditing, onEdit, onSave, onUpload, isUploa
 
   if (isEditing) {
     return (
-      <div className="flex items-center gap-2 mb-6">
+      <div className="mb-6 flex items-center gap-2">
         <Input
           value={editedTitle}
           onChange={(e) => setEditedTitle(e.target.value)}
-          className="text-xl font-bold tracking-wider max-w-xs"
+          className="max-w-xs text-xl font-semibold tracking-tight"
           onKeyDown={(e) => {
             if (e.key === 'Enter') handleSave();
             if (e.key === 'Escape') onEdit();
@@ -66,8 +68,8 @@ function MoodboardRowTitle({ title, isEditing, onEdit, onSave, onUpload, isUploa
   }
 
   return (
-    <div className="flex items-center gap-3 mb-6">
-      <h2 className="text-xl font-bold tracking-wider">{title}</h2>
+    <div className="mb-6 flex items-center gap-3">
+      <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
       <div className="flex items-center gap-2">
         <Button
           variant="outline"
@@ -216,7 +218,7 @@ function MoodboardRow({ row, onUpdateTitle }: {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <MoodboardRowTitle
         title={row.title}
         isEditing={isEditingTitle}
@@ -227,40 +229,42 @@ function MoodboardRow({ row, onUpdateTitle }: {
       />
 
       {/* Masonry grid with natural image proportions - much larger images */}
-      <div className="columns-1 sm:columns-2 md:columns-2 lg:columns-3 xl:columns-3 gap-6 space-y-6">
-        {/* Images with natural aspect ratios - larger and more prominent */}
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {(sectionImages || []).map((image) => (
-          <div
+          <Card
             key={image.id}
-            className="break-inside-avoid mb-4 rounded-xl overflow-hidden hover:shadow-xl transition-all duration-300 group relative"
+            className="group relative overflow-hidden border-border/70 py-0 transition-shadow hover:shadow-md"
           >
-            <img
-              src={image.url}
-              alt=""
-              className="w-full h-auto object-contain cursor-pointer group-hover:scale-[1.02] transition-transform duration-300 bg-card rounded-xl"
-              loading="lazy"
-              onClick={() => setSelectedImage(image)}
-            />
-
-            {/* Delete button - larger and more visible */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDeleteImage(image.id);
-              }}
-              className="absolute top-3 right-3 bg-red-500 hover:bg-red-600 text-primary-foreground rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 shadow-lg"
-              title="Delete image"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          </div>
+            <CardContent className="p-0">
+              <img
+                src={image.url}
+                alt=""
+                className="h-auto w-full cursor-pointer object-contain transition-transform duration-300 group-hover:scale-[1.02]"
+                loading="lazy"
+                onClick={() => setSelectedImage(image)}
+              />
+              <Button
+                type="button"
+                variant="destructive"
+                size="icon-sm"
+                className="absolute right-3 top-3 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteImage(image.id);
+                }}
+                aria-label="Delete image"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </CardContent>
+          </Card>
         ))}
       </div>
 
       {/* Image Preview Modal */}
       {selectedImage && (
         <div
-          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
           onClick={() => setSelectedImage(null)}
         >
           <div className="max-w-6xl max-h-full">
@@ -359,21 +363,21 @@ export default function MoodboardPage() {
     <ProjectPageLayout>
       <ProjectPageHeader
         title="Moodboard"
-        icon={<Images className="h-8 w-8 text-[var(--ui-accent-brand)]" />}
+        icon={<Images className="h-8 w-8 text-primary" />}
         tags={
           <>
-            <span className="inline-flex items-center gap-2 rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-4 py-2 text-sm font-medium text-[var(--ui-accent-brand)]">
+            <Badge variant="outline" className="px-4 py-2 text-sm font-medium text-primary">
               {project.name}
-            </span>
-            <span className="inline-flex items-center gap-2 rounded-full border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] px-4 py-2 text-sm font-medium text-[var(--ui-text-main)]">
+            </Badge>
+            <Badge variant="secondary" className="px-4 py-2 text-sm font-medium">
               {rows.length} sections
-            </span>
+            </Badge>
           </>
         }
         actions={
           <Button
             onClick={handleAddRow}
-            className="rounded-lg bg-[var(--ui-action-bg)] px-6 text-[var(--primary-foreground)] shadow-[0_14px_36px_rgba(14,14,14,0.18)] hover:bg-[var(--ui-action-hover)] transition-transform hover:-translate-y-0.5"
+            className="px-6 transition-transform hover:-translate-y-0.5"
           >
             <Plus className="h-4 w-4 mr-2" />
             Add Section
@@ -383,7 +387,7 @@ export default function MoodboardPage() {
 
       {/* Moodboard Content */}
       <div className="w-full">
-        <div className="space-y-16">
+        <div className="flex flex-col gap-16">
           {rows.map((row) => (
             <MoodboardRow
               key={row.id}

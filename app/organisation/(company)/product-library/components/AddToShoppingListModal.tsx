@@ -19,6 +19,7 @@ import {
 import { ShoppingCart, Package } from "lucide-react";
 import { toast } from "sonner";
 import { Id } from "@/convex/_generated/dataModel";
+import { Card, CardContent } from "@/components/ui/card";
 
 interface AddToShoppingListModalProps {
   product: { _id: string; name: string; brand?: string; imageUrl?: string; };
@@ -32,7 +33,7 @@ export function AddToShoppingListModal({ product, teamId, onClose }: AddToShoppi
   
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [quantity, setQuantity] = useState("1");
-  const [sectionId, setSectionId] = useState<string>("");
+  const [sectionId, setSectionId] = useState<string>("none");
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -69,7 +70,7 @@ export function AddToShoppingListModal({ product, teamId, onClose }: AddToShoppi
         projectId: selectedProjectId as Id<"projects">,
         teamId,
         quantity: parseFloat(quantity),
-        sectionId: sectionId ? (sectionId as Id<"shoppingListSections">) : undefined,
+        sectionId: sectionId !== "none" ? (sectionId as Id<"shoppingListSections">) : undefined,
         createdBy: user?.id ?? "",
         notes: notes || undefined,
       });
@@ -95,12 +96,13 @@ export function AddToShoppingListModal({ product, teamId, onClose }: AddToShoppi
         </DialogHeader>
 
         {/* Product Preview */}
-        <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+        <Card className="gap-0 rounded-2xl bg-muted/30 p-0 shadow-none">
+          <CardContent className="flex items-center gap-3 p-3">
           {product.imageUrl && (
             <img 
               src={product.imageUrl} 
               alt={product.name}
-              className="w-12 h-12 object-cover rounded"
+              className="h-12 w-12 rounded-xl object-cover"
             />
           )}
           <div className="flex-1">
@@ -112,9 +114,10 @@ export function AddToShoppingListModal({ product, teamId, onClose }: AddToShoppi
               <p className="text-sm text-muted-foreground">{product.brand}</p>
             )}
           </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           {/* Project Selection */}
           <div>
             <Label htmlFor="project">Project *</Label>
@@ -141,7 +144,7 @@ export function AddToShoppingListModal({ product, teamId, onClose }: AddToShoppi
                   <SelectValue placeholder="Select a section" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No section</SelectItem>
+                  <SelectItem value="none">No section</SelectItem>
                   {sections.map(section => (
                     <SelectItem key={section._id} value={section._id}>
                       {section.name}

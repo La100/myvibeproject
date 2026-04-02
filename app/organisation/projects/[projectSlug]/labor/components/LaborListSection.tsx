@@ -1,8 +1,19 @@
 import { useState } from 'react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   EditIcon,
@@ -144,33 +155,32 @@ export function LaborListSection({
   };
 
   return (
-    <div className="mb-10 rounded-[24px] sm:rounded-[32px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-base)] p-4 sm:p-8 shadow-[0_24px_60px_rgba(20,20,20,0.08)]">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 sm:mb-8 gap-4">
+    <Card className="mb-10 gap-4 rounded-3xl p-4 sm:p-8">
+      <CardHeader className="flex flex-col gap-4 px-0 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-          <h2 className="text-xl sm:text-2xl font-medium font-[var(--font-display-serif)] text-[var(--ui-text-strong)]">{sectionName}</h2>
-          <span className="inline-flex items-center justify-center rounded-full bg-[var(--ui-surface-soft)] border border-[var(--ui-border-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-muted)]">
+          <CardTitle className="text-xl sm:text-2xl">{sectionName}</CardTitle>
+          <Badge variant="outline">
             {items.length} items
-          </span>
+          </Badge>
           {sectionTotal > 0 && (
-            <span className="inline-flex items-center justify-center rounded-full bg-[var(--ui-surface-soft)] border border-[var(--ui-border-soft)] px-3 py-1 text-xs font-medium text-[var(--ui-text-main)]">
+            <Badge variant="secondary">
               {sectionTotal.toFixed(2)} {currencySymbol}
-            </span>
+            </Badge>
           )}
         </div>
         <Button
           variant="ghost"
           size="sm"
-          className="self-end sm:self-auto rounded-full hover:bg-[var(--ui-surface-soft)]"
+          className="self-end sm:self-auto"
           onClick={() => setShowAddForm(!showAddForm)}
         >
           <PlusIcon className="h-4 w-4" />
         </Button>
-      </div>
+      </CardHeader>
 
-      <div className="space-y-4">
-        {/* Add Item Form */}
+      <CardContent className="flex flex-col gap-4 px-0">
         {showAddForm && (
-          <div className="mb-8 rounded-[24px] border border-[var(--ui-border-soft)] bg-[var(--ui-surface-soft)] p-6">
+          <div className="rounded-3xl border border-border/70 bg-muted/35 p-6">
             <AddLaborItemForm
               projectId={projectId}
               sections={sections}
@@ -190,34 +200,31 @@ export function LaborListSection({
           </div>
         )}
 
-        {/* Items Table */}
         {items.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-[var(--ui-border-soft)]">
-                  <th className="text-left py-3 px-4 text-sm font-medium text-[var(--ui-text-muted)]">Work Description</th>
-                  <th className="text-right py-3 px-4 text-sm font-medium text-[var(--ui-text-muted)] w-24">Qty</th>
-                  <th className="text-center py-3 px-4 text-sm font-medium text-[var(--ui-text-muted)] w-20">Unit</th>
-                  <th className="text-right py-3 px-4 text-sm font-medium text-[var(--ui-text-muted)] w-32">Price/Unit</th>
-                  <th className="text-right py-3 px-4 text-sm font-medium text-[var(--ui-text-muted)] w-32">Total</th>
-                  <th className="text-right py-3 px-4 text-sm font-medium text-[var(--ui-text-muted)] w-24">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Work Description</TableHead>
+                <TableHead className="w-24 text-right">Qty</TableHead>
+                <TableHead className="w-20 text-center">Unit</TableHead>
+                <TableHead className="w-32 text-right">Price/Unit</TableHead>
+                <TableHead className="w-32 text-right">Total</TableHead>
+                <TableHead className="w-24 text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
                 {items.map((item) => (
-                  <tr key={item._id} className="border-b border-[var(--ui-border-soft)]/50 hover:bg-[var(--ui-surface-soft)]/50 transition-colors">
+                  <TableRow key={item._id}>
                     {editingItemId === item._id ? (
-                      // Edit Mode
                       <>
-                        <td className="py-3 px-4">
+                        <TableCell>
                           <Input
                             value={editFormData.name || ''}
                             onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
                             className="h-9 rounded-lg text-sm"
                           />
-                        </td>
-                        <td className="py-3 px-4">
+                        </TableCell>
+                        <TableCell>
                           <Input
                             type="number"
                             min="0.01"
@@ -226,8 +233,8 @@ export function LaborListSection({
                             onChange={(e) => setEditFormData({ ...editFormData, quantity: parseFloat(e.target.value) || 1 })}
                             className="h-9 rounded-lg text-sm text-right w-20"
                           />
-                        </td>
-                        <td className="py-3 px-4">
+                        </TableCell>
+                        <TableCell>
                           <Select
                             value={editFormData.unit || 'm²'}
                             onValueChange={(value) => setEditFormData({ ...editFormData, unit: value })}
@@ -243,8 +250,8 @@ export function LaborListSection({
                               ))}
                             </SelectContent>
                           </Select>
-                        </td>
-                        <td className="py-3 px-4">
+                        </TableCell>
+                        <TableCell>
                           <Input
                             type="number"
                             step="0.01"
@@ -252,16 +259,16 @@ export function LaborListSection({
                             onChange={(e) => setEditFormData({ ...editFormData, unitPrice: e.target.value })}
                             className="h-9 rounded-lg text-sm text-right w-28"
                           />
-                        </td>
-                        <td className="py-3 px-4 text-right text-sm font-medium text-[var(--ui-text-strong)]">
+                        </TableCell>
+                        <TableCell className="text-right text-sm font-medium text-foreground">
                           {((editFormData.quantity || 0) * (parseFloat(editFormData.unitPrice || '0') || 0)).toFixed(2)} {currencySymbol}
-                        </td>
-                        <td className="py-3 px-4">
+                        </TableCell>
+                        <TableCell>
                           <div className="flex justify-end gap-1">
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                              className="h-8 w-8 p-0 text-primary hover:bg-primary/10 hover:text-primary"
                               onClick={() => handleSaveEdit(item._id)}
                               disabled={isPending}
                             >
@@ -270,26 +277,25 @@ export function LaborListSection({
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-8 w-8 p-0 text-[var(--ui-text-muted)] hover:text-[var(--ui-text-strong)] hover:bg-[var(--ui-surface-soft)]"
+                              className="h-8 w-8 p-0 text-muted-foreground"
                               onClick={handleCancelEdit}
                             >
                               <XIcon className="h-4 w-4" />
                             </Button>
                           </div>
-                        </td>
+                        </TableCell>
                       </>
                     ) : (
-                      // View Mode
                       <>
-                        <td className="py-3 px-4">
+                        <TableCell>
                           <div className="flex items-center gap-3">
-                            <span className="font-medium text-[var(--ui-text-strong)]">{item.name}</span>
+                            <span className="font-medium text-foreground">{item.name}</span>
                             {item.assignedTo && (
                               <Tooltip>
-                                <TooltipTrigger>
+                                <TooltipTrigger asChild>
                                   <Avatar className="h-6 w-6 border border-border/70 shadow-sm">
                                     <AvatarImage src={teamMembers?.find(m => m.clerkUserId === item.assignedTo)?.imageUrl} />
-                                    <AvatarFallback className="text-[10px] bg-[var(--ui-surface-soft)] text-[var(--ui-text-main)]">
+                                    <AvatarFallback className="bg-muted text-[10px] text-foreground">
                                       {getAssignedMemberName(item.assignedTo)?.[0]}
                                     </AvatarFallback>
                                   </Avatar>
@@ -299,7 +305,7 @@ export function LaborListSection({
                             )}
                           </div>
                           {item.notes && (
-                            <p className="text-xs text-[var(--ui-text-muted)] mt-1">{item.notes}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">{item.notes}</p>
                           )}
                           <div className="mt-1 flex flex-wrap items-center gap-3">
                             {item.referenceLink && (
@@ -307,36 +313,36 @@ export function LaborListSection({
                                 href={item.referenceLink}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="inline-flex items-center gap-1 text-xs text-[var(--ui-accent-brand)] hover:underline"
+                                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
                               >
                                 <ExternalLinkIcon className="h-3 w-3" />
                                 Link
                               </a>
                             )}
                             {item.attachmentFileId && (
-                              <span className="inline-flex items-center gap-1 text-xs text-[var(--ui-text-muted)]">
+                              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                                 <PaperclipIcon className="h-3 w-3" />
                                 Attachment in Files/labor
                               </span>
                             )}
                           </div>
-                        </td>
-                        <td className="py-3 px-4 text-right text-sm text-[var(--ui-text-main)]">{item.quantity}</td>
-                        <td className="py-3 px-4 text-center text-sm text-[var(--ui-text-muted)]">{item.unit}</td>
-                        <td className="py-3 px-4 text-right text-sm text-[var(--ui-text-main)]">
+                        </TableCell>
+                        <TableCell className="text-right text-sm text-foreground">{item.quantity}</TableCell>
+                        <TableCell className="text-center text-sm text-muted-foreground">{item.unit}</TableCell>
+                        <TableCell className="text-right text-sm text-foreground">
                           {item.unitPrice ? `${item.unitPrice.toFixed(2)} ${currencySymbol}` : '-'}
-                        </td>
-                        <td className="py-3 px-4 text-right text-sm font-medium text-[var(--ui-text-strong)]">
+                        </TableCell>
+                        <TableCell className="text-right text-sm font-medium text-foreground">
                           {item.totalPrice ? `${item.totalPrice.toFixed(2)} ${currencySymbol}` : '-'}
-                        </td>
-                        <td className="py-3 px-4">
+                        </TableCell>
+                        <TableCell>
                           <div className="flex justify-end gap-1">
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-8 w-8 p-0 text-[var(--ui-text-muted)] hover:text-[var(--ui-text-strong)] hover:bg-[var(--ui-surface-soft)]"
+                                  className="h-8 w-8 p-0 text-muted-foreground"
                                   onClick={() => handleStartEdit(item)}
                                 >
                                   <EditIcon className="h-4 w-4" />
@@ -349,7 +355,7 @@ export function LaborListSection({
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-8 w-8 p-0 text-[var(--ui-text-muted)] hover:bg-red-50 hover:text-red-600"
+                                  className="h-8 w-8 p-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                                   onClick={() => onDeleteItem(item._id)}
                                 >
                                   <TrashIcon className="h-4 w-4" />
@@ -358,30 +364,28 @@ export function LaborListSection({
                               <TooltipContent>Delete</TooltipContent>
                             </Tooltip>
                           </div>
-                        </td>
+                        </TableCell>
                       </>
                     )}
-                  </tr>
+                  </TableRow>
                 ))}
-              </tbody>
-              {/* Section Total Row */}
-              <tfoot>
-                <tr className="bg-[var(--ui-surface-soft)]">
-                  <td colSpan={4} className="py-3 px-4 text-right text-sm font-medium text-[var(--ui-text-main)]">
+            </TableBody>
+            <TableFooter>
+              <TableRow>
+                <TableCell colSpan={4} className="text-right text-sm font-medium text-foreground">
                     Section Total:
-                  </td>
-                  <td className="py-3 px-4 text-right text-sm font-semibold text-[var(--ui-text-strong)]">
+                </TableCell>
+                <TableCell className="text-right text-sm font-semibold text-foreground">
                     {sectionTotal.toFixed(2)} {currencySymbol}
-                  </td>
-                  <td></td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
+                </TableCell>
+                <TableCell />
+              </TableRow>
+            </TableFooter>
+          </Table>
         )}
 
         {items.length === 0 && !showAddForm && (
-          <div className="text-center py-8 text-[var(--ui-text-muted)]">
+          <div className="py-8 text-center text-muted-foreground">
             <p className="text-sm">No labor items in this section</p>
             <Button
               variant="ghost"
@@ -394,7 +398,7 @@ export function LaborListSection({
             </Button>
           </div>
         )}
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

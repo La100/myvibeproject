@@ -210,17 +210,16 @@ export default function NewProjectPage() {
 
   return (
     <>
-      <form onSubmit={handleCreateProject} className="mx-auto max-w-2xl space-y-10">
-        {/* Details */}
-        <section className="space-y-5">
+      <form onSubmit={handleCreateProject} className="mx-auto flex max-w-2xl flex-col gap-10">
+        <section className="flex flex-col gap-5">
           <div>
             <h2 className="text-lg font-semibold">Details</h2>
             <p className="text-sm text-muted-foreground">Basic information about your project</p>
           </div>
 
-          <div className="space-y-5 rounded-lg border bg-card p-6">
+          <div className="flex flex-col gap-5 rounded-lg border bg-card p-6">
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <div className="space-y-2">
+              <div className="flex flex-col gap-2">
                 <Label htmlFor="name">Project name</Label>
                 <Input
                   id="name"
@@ -231,7 +230,7 @@ export default function NewProjectPage() {
                 />
               </div>
 
-              <div className="space-y-2">
+              <div className="flex flex-col gap-2">
                 <Label>Project type</Label>
                 <Select value={newProject.projectType} onValueChange={(v) => setNewProject({ ...newProject, projectType: v })}>
                   <SelectTrigger className="w-full">
@@ -248,7 +247,7 @@ export default function NewProjectPage() {
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label>
                 Timeframe <span className="font-normal text-muted-foreground">(Optional)</span>
               </Label>
@@ -266,7 +265,7 @@ export default function NewProjectPage() {
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="description">
                 Description <span className="font-normal text-muted-foreground">(Optional)</span>
               </Label>
@@ -280,7 +279,7 @@ export default function NewProjectPage() {
               />
             </div>
 
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label>
                 Cover image <span className="font-normal text-muted-foreground">(Optional)</span>
               </Label>
@@ -324,15 +323,14 @@ export default function NewProjectPage() {
           </div>
         </section>
 
-        {/* Address */}
-        <section className="space-y-5">
+        <section className="flex flex-col gap-5">
           <div>
             <h2 className="text-lg font-semibold">Address <span className="font-normal text-sm text-muted-foreground">(Optional)</span></h2>
             <p className="text-sm text-muted-foreground">Project location details</p>
           </div>
 
-          <div className="space-y-5 rounded-lg border bg-card p-6">
-            <div className="space-y-2">
+          <div className="flex flex-col gap-5 rounded-lg border bg-card p-6">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="location">Street address</Label>
               <Input
                 id="location"
@@ -342,7 +340,7 @@ export default function NewProjectPage() {
               />
             </div>
 
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="streetAddress2">
                 Address line 2 <span className="font-normal text-muted-foreground">(Optional)</span>
               </Label>
@@ -355,7 +353,7 @@ export default function NewProjectPage() {
             </div>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <div className="space-y-2">
+              <div className="flex flex-col gap-2">
                 <Label htmlFor="city">City</Label>
                 <Input
                   id="city"
@@ -364,7 +362,7 @@ export default function NewProjectPage() {
                   onChange={(e) => setNewProject({ ...newProject, city: e.target.value })}
                 />
               </div>
-              <div className="space-y-2">
+              <div className="flex flex-col gap-2">
                 <Label htmlFor="state">State</Label>
                 <Input
                   id="state"
@@ -373,7 +371,7 @@ export default function NewProjectPage() {
                   onChange={(e) => setNewProject({ ...newProject, state: e.target.value })}
                 />
               </div>
-              <div className="space-y-2">
+              <div className="flex flex-col gap-2">
                 <Label htmlFor="postcode">Postcode</Label>
                 <Input
                   id="postcode"
@@ -386,8 +384,7 @@ export default function NewProjectPage() {
           </div>
         </section>
 
-        {/* Currency & Measurements */}
-        <section className="space-y-5">
+        <section className="flex flex-col gap-5">
           <div>
             <h2 className="text-lg font-semibold">Currency & Measurements</h2>
             <p className="text-sm text-muted-foreground">
@@ -395,7 +392,7 @@ export default function NewProjectPage() {
             </p>
           </div>
 
-          <div className="space-y-5 rounded-lg border bg-card p-6">
+          <div className="flex flex-col gap-5 rounded-lg border bg-card p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium">Use default settings</p>
@@ -409,8 +406,8 @@ export default function NewProjectPage() {
             </div>
 
             {!useDefaultCurrency && (
-              <div className="space-y-5">
-                <div className="space-y-2">
+              <div className="flex flex-col gap-5">
+                <div className="flex flex-col gap-2">
                   <Label>Project Currency</Label>
                   <Select value={newProject.currency} onValueChange={(v) => setNewProject({ ...newProject, currency: v })}>
                     <SelectTrigger className="w-full">
@@ -428,7 +425,7 @@ export default function NewProjectPage() {
             )}
 
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <div className="space-y-2">
+              <div className="flex flex-col gap-2">
                 <Label>Measurements</Label>
                 <Select value={newProject.measurements} onValueChange={(v) => setNewProject({ ...newProject, measurements: v })}>
                   <SelectTrigger className="w-full">
@@ -441,7 +438,7 @@ export default function NewProjectPage() {
                 </Select>
               </div>
 
-              <div className="space-y-2">
+              <div className="flex flex-col gap-2">
                 <Label htmlFor="taxRate">Tax Rate (%)</Label>
                 <Input
                   id="taxRate"
@@ -462,7 +459,7 @@ export default function NewProjectPage() {
                 id="tax"
                 checked={newProject.tax}
                 onChange={(e) => setNewProject({ ...newProject, tax: e.target.checked })}
-                className="mt-1 h-4 w-4 rounded border-gray-300"
+                className="mt-1 h-4 w-4 rounded border-border"
               />
               <div>
                 <label htmlFor="tax" className="cursor-pointer text-sm font-medium">Tax</label>
@@ -474,16 +471,15 @@ export default function NewProjectPage() {
           </div>
         </section>
 
-        {/* Client & Budget */}
-        <section className="space-y-5">
+        <section className="flex flex-col gap-5">
           <div>
             <h2 className="text-lg font-semibold">Client & Budget</h2>
             <p className="text-sm text-muted-foreground">Financial and client information</p>
           </div>
 
-          <div className="space-y-5 rounded-lg border bg-card p-6">
+          <div className="flex flex-col gap-5 rounded-lg border bg-card p-6">
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <div className="space-y-2">
+              <div className="flex flex-col gap-2">
                 <Label htmlFor="client">
                   Client <span className="font-normal text-muted-foreground">(Optional)</span>
                 </Label>
@@ -495,7 +491,7 @@ export default function NewProjectPage() {
                 />
               </div>
 
-              <div className="space-y-2">
+              <div className="flex flex-col gap-2">
                 <Label htmlFor="budget">
                   Budget <span className="font-normal text-muted-foreground">(Optional)</span>
                 </Label>
@@ -534,10 +530,10 @@ export default function NewProjectPage() {
       <Dialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader className="text-center sm:text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--ui-accent-copper)]/10">
-              <AlertTriangle className="h-7 w-7 text-[var(--ui-accent-copper)]" />
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+              <AlertTriangle className="h-7 w-7 text-primary" />
             </div>
-            <DialogTitle className="font-[var(--font-display-serif)] text-xl font-medium">Project limit reached</DialogTitle>
+            <DialogTitle className="text-xl font-medium">Project limit reached</DialogTitle>
             <DialogDescription className="text-base">
               You&apos;ve reached the maximum number of projects ({checkLimits?.limit || 3}) for the Free plan.
             </DialogDescription>
@@ -549,14 +545,14 @@ export default function NewProjectPage() {
                 <Sparkles className="h-5 w-5 text-primary-foreground" />
               </div>
               <div>
-                <p className="font-[var(--font-display-serif)] font-medium">AI Pro</p>
+                <p className="font-medium">AI Pro</p>
                 <p className="text-sm text-muted-foreground">$39/month</p>
               </div>
             </div>
-            <ul className="space-y-2.5 text-sm">
+            <ul className="flex flex-col gap-2.5 text-sm">
               {["20 projects", "25 team members", "AI Assistant & image generation", "50 GB storage"].map((feature) => (
                 <li key={feature} className="flex items-center gap-2.5">
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--ui-accent-brand)]/15 text-[var(--ui-accent-brand)]">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
                     <Check className="h-3 w-3" strokeWidth={2.5} />
                   </span>
                   <span>{feature}</span>
@@ -567,7 +563,7 @@ export default function NewProjectPage() {
 
           <DialogFooter className="flex-col gap-2 sm:flex-col">
             <Button
-              className="w-full h-11 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_8px_30px_rgba(44,42,37,0.15)]"
+              className="h-11 w-full"
               onClick={() => {
                 setShowUpgradeDialog(false);
                 router.push("/organisation/subscription");

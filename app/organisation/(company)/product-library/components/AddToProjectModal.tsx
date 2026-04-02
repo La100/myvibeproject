@@ -19,6 +19,7 @@ import {
 import { ShoppingCart, Package } from "lucide-react";
 import { toast } from "sonner";
 import { Id } from "@/convex/_generated/dataModel";
+import { Card, CardContent } from "@/components/ui/card";
 
 interface AddToProjectModalProps {
   product: { _id: string; name: string; brand?: string; imageUrl?: string; };
@@ -98,12 +99,13 @@ export function AddToProjectModal({ product, teamId, onClose }: AddToProjectModa
         </DialogHeader>
 
         {/* Product Preview */}
-        <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+        <Card className="gap-0 rounded-2xl bg-muted/30 p-0 shadow-none">
+          <CardContent className="flex items-center gap-3 p-3">
           {product.imageUrl && (
             <img 
               src={product.imageUrl} 
               alt={product.name}
-              className="w-12 h-12 object-cover rounded"
+              className="h-12 w-12 rounded-xl object-cover"
             />
           )}
           <div className="flex-1">
@@ -115,9 +117,10 @@ export function AddToProjectModal({ product, teamId, onClose }: AddToProjectModa
               <p className="text-sm text-muted-foreground">{product.brand}</p>
             )}
           </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           {/* Project Selection */}
           <div>
             <Label htmlFor="project">Select Project *</Label>
