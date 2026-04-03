@@ -78,6 +78,13 @@ export const TOOL_CONFIGS: Record<string, ToolConfig> = {
     category: "search",
     color: "text-primary",
   },
+  scrape_shopping_product: {
+    icon: Search,
+    label: "Scraping Product",
+    description: "Importing product details from a product page",
+    category: "search",
+    color: "text-primary",
+  },
   update_project_settings: {
     icon: Edit3,
     label: "Updating Project Settings",

@@ -9,10 +9,25 @@ import Stripe from "stripe";
 // Initialize Stripe client from component (for customer management)
 const stripeClient = new StripeSubscriptions(components.stripe, {});
 
-// Direct Stripe SDK for checkout (to support promotion codes)
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-11-17.clover",
-});
+// Direct Stripe SDK for checkout (to support promotion codes).
+// Keep initialization lazy so Convex module analysis does not require the secret at import time.
+let stripe: Stripe | null = null;
+
+const getStripe = () => {
+  if (stripe) {
+    return stripe;
+  }
+
+  const apiKey = process.env.STRIPE_SECRET_KEY;
+  if (!apiKey) {
+    throw new Error("STRIPE_SECRET_KEY is not configured");
+  }
+
+  stripe = new Stripe(apiKey, {
+    apiVersion: "2025-11-17.clover",
+  });
+  return stripe;
+};
 
 const getBaseUrl = () => (process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3001").replace(/\/+$/, "");
 const getBillingSettingsUrl = (checkoutState?: "success" | "canceled") => {
@@ -85,7 +100,7 @@ export const createCheckoutSession = action({
     }
 
     // Create checkout session using direct Stripe SDK (supports allow_promotion_codes)
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       customer: customer.customerId,
       mode: "subscription",
       line_items: [
@@ -198,14 +213,14 @@ export const ensureSubscriptionSynced = action({
     }
 
     // Check Stripe for active subscription
-    const subscriptions = await stripe.subscriptions.list({
+    const subscriptions = await getStripe().subscriptions.list({
       customer: team.stripeCustomerId,
       status: "active",
       limit: 1,
     });
 
     if (subscriptions.data.length === 0) {
-      const trialingSubscriptions = await stripe.subscriptions.list({
+      const trialingSubscriptions = await getStripe().subscriptions.list({
         customer: team.stripeCustomerId,
         status: "trialing",
         limit: 1,

@@ -134,15 +134,12 @@ export default function HostedChatKit() {
     },
     onClientTool,
     locale: "en",
-    frameTitle: `${project?.name || "Project"} assistant`,
+    frameTitle: "Vibe assistant",
     initialThread: initialThreadId ?? null,
     header: {
       enabled: true,
       title: {
-        enabled: true,
-        text: canMakeChanges
-          ? project?.name || "AI Assistant"
-          : `${project?.name || "AI Assistant"} (Read-only)`,
+        enabled: false,
       },
     },
     history: {
@@ -262,39 +259,37 @@ export default function HostedChatKit() {
         strategy="afterInteractive"
       />
 
-      <div className="mx-auto mb-4 flex w-full max-w-[1220px] items-center justify-between rounded-3xl border border-border/70 bg-background/95 px-5 py-4 shadow-sm">
-        <div className="flex flex-col gap-1">
-          <p className="text-sm font-medium">Can make changes</p>
-          <p className="text-xs text-muted-foreground">
-            The self-hosted backend receives this mode on every request, so it can enforce
-            read-only behavior server-side.
-          </p>
+      <div className="mx-auto mb-3 flex w-full max-w-[1220px] justify-end">
+        <div className="flex items-center gap-3 rounded-full border border-border/70 bg-background/95 px-4 py-2 shadow-sm">
+          <div className="flex flex-col">
+            <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+              Can make changes
+            </span>
+            <span className="text-sm font-medium text-foreground">
+              {canMakeChanges ? "Enabled" : "Read-only"}
+            </span>
+          </div>
+          <Switch
+            checked={canMakeChanges}
+            onCheckedChange={(checked) => {
+              setCanMakeChanges(checked);
+              setBootError(null);
+              if (typeof window !== "undefined") {
+                window.localStorage.setItem(CHANGE_MODE_STORAGE_KEY, String(checked));
+              }
+            }}
+            aria-label="Toggle whether ChatKit can make changes"
+          />
         </div>
-        <Switch
-          checked={canMakeChanges}
-          onCheckedChange={(checked) => {
-            setCanMakeChanges(checked);
-            setBootError(null);
-            if (typeof window !== "undefined") {
-              window.localStorage.setItem(CHANGE_MODE_STORAGE_KEY, String(checked));
-            }
-          }}
-          aria-label="Toggle whether ChatKit can make changes"
-        />
       </div>
 
-      <div className="mx-auto flex h-full w-full max-w-[1220px] overflow-hidden rounded-3xl border border-border/70 bg-gradient-to-b from-background to-muted/20 shadow-lg">
+      <div className="relative mx-auto flex h-full w-full max-w-[1220px] overflow-hidden rounded-3xl border border-border/70 bg-gradient-to-b from-background to-muted/20 shadow-lg">
         <ChatKit
           key={refreshKey}
           control={chatkit.control}
           className="block h-full min-h-0 w-full"
         />
       </div>
-
-      <p className="mt-3 text-xs text-muted-foreground">
-        Signed in as {user?.primaryEmailAddress?.emailAddress || user?.id || "unknown user"} for
-        project {project.name}.
-      </p>
     </div>
   );
 }

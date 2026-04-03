@@ -652,7 +652,7 @@ function ProjectOverviewContent() {
         {project.description && (
           <Card className="bg-card/92">
             <CardHeader className="pb-4">
-              <CardTitle className="clean-title text-lg font-medium lg:text-xl">
+              <CardTitle className="text-lg font-medium lg:text-xl">
                 Project Description
               </CardTitle>
             </CardHeader>
@@ -667,7 +667,7 @@ function ProjectOverviewContent() {
         {unpaidInstallments.length > 0 ? (
           <Card className="bg-card/92">
             <CardHeader className="pb-4">
-              <CardTitle className="clean-title text-lg font-medium lg:text-xl">
+              <CardTitle className="text-lg font-medium lg:text-xl">
                 Upcoming Installments
               </CardTitle>
             </CardHeader>
@@ -704,7 +704,7 @@ function ProjectOverviewContent() {
         {milestonesSummary?.nextMilestone ? (
           <Card className="bg-card/92">
             <CardHeader className="pb-4">
-              <CardTitle className="clean-title text-lg font-medium lg:text-xl">
+              <CardTitle className="text-lg font-medium lg:text-xl">
                 Next Milestone
               </CardTitle>
             </CardHeader>
@@ -734,7 +734,7 @@ function ProjectOverviewContent() {
         {budgetSummary ? (
           <Card className="bg-card/92">
             <CardHeader className="border-b pb-4">
-              <CardTitle className="clean-title text-lg font-medium lg:text-xl">
+              <CardTitle className="text-lg font-medium lg:text-xl">
                 Budget vs Actual
               </CardTitle>
               <CardDescription>

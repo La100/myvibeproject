@@ -40,6 +40,12 @@ export { createConfirmedSurvey, editConfirmedSurvey, deleteConfirmedSurvey } fro
 // Contact actions
 export { createConfirmedContact, editConfirmedContact, deleteConfirmedContact } from "./contacts";
 
+// Moodboard actions
+export {
+  createConfirmedMoodboardSection,
+  editConfirmedMoodboardSection,
+  deleteConfirmedMoodboardSection,
+} from "./moodboard";
 
 
 

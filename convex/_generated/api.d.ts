@@ -11,7 +11,6 @@
 import type * as activityLog from "../activityLog.js";
 import type * as ai_access from "../ai/access.js";
 import type * as ai_actions from "../ai/actions.js";
-import type * as ai_agent from "../ai/agent.js";
 import type * as ai_billing from "../ai/billing.js";
 import type * as ai_config from "../ai/config.js";
 import type * as ai_confirmedActions from "../ai/confirmedActions.js";
@@ -19,6 +18,7 @@ import type * as ai_confirmedActions_contacts from "../ai/confirmedActions/conta
 import type * as ai_confirmedActions_helpers from "../ai/confirmedActions/helpers.js";
 import type * as ai_confirmedActions_index from "../ai/confirmedActions/index.js";
 import type * as ai_confirmedActions_labor from "../ai/confirmedActions/labor.js";
+import type * as ai_confirmedActions_moodboard from "../ai/confirmedActions/moodboard.js";
 import type * as ai_confirmedActions_notes from "../ai/confirmedActions/notes.js";
 import type * as ai_confirmedActions_shopping from "../ai/confirmedActions/shopping.js";
 import type * as ai_confirmedActions_surveys from "../ai/confirmedActions/surveys.js";
@@ -43,9 +43,6 @@ import type * as ai_longContextQueries from "../ai/longContextQueries.js";
 import type * as ai_openaiFileParts from "../ai/openaiFileParts.js";
 import type * as ai_prompt from "../ai/prompt.js";
 import type * as ai_search from "../ai/search.js";
-import type * as ai_streaming from "../ai/streaming.js";
-import type * as ai_streamingQueries from "../ai/streamingQueries.js";
-import type * as ai_threads from "../ai/threads.js";
 import type * as ai_toolMetadata from "../ai/toolMetadata.js";
 import type * as ai_tools from "../ai/tools.js";
 import type * as ai_types from "../ai/types.js";
@@ -98,7 +95,6 @@ declare const fullApi: ApiFromModules<{
   activityLog: typeof activityLog;
   "ai/access": typeof ai_access;
   "ai/actions": typeof ai_actions;
-  "ai/agent": typeof ai_agent;
   "ai/billing": typeof ai_billing;
   "ai/config": typeof ai_config;
   "ai/confirmedActions": typeof ai_confirmedActions;
@@ -106,6 +102,7 @@ declare const fullApi: ApiFromModules<{
   "ai/confirmedActions/helpers": typeof ai_confirmedActions_helpers;
   "ai/confirmedActions/index": typeof ai_confirmedActions_index;
   "ai/confirmedActions/labor": typeof ai_confirmedActions_labor;
+  "ai/confirmedActions/moodboard": typeof ai_confirmedActions_moodboard;
   "ai/confirmedActions/notes": typeof ai_confirmedActions_notes;
   "ai/confirmedActions/shopping": typeof ai_confirmedActions_shopping;
   "ai/confirmedActions/surveys": typeof ai_confirmedActions_surveys;
@@ -130,9 +127,6 @@ declare const fullApi: ApiFromModules<{
   "ai/openaiFileParts": typeof ai_openaiFileParts;
   "ai/prompt": typeof ai_prompt;
   "ai/search": typeof ai_search;
-  "ai/streaming": typeof ai_streaming;
-  "ai/streamingQueries": typeof ai_streamingQueries;
-  "ai/threads": typeof ai_threads;
   "ai/toolMetadata": typeof ai_toolMetadata;
   "ai/tools": typeof ai_tools;
   "ai/types": typeof ai_types;

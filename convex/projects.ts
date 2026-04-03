@@ -472,7 +472,6 @@ export const createProjectInOrg = mutation({
       assignedTo: [],
       taskStatusSettings: defaultStatusSettings,
       aiAutoConfirmCrud: false,
-      aiAssistantRuntime: "v2",
     });
 
     await ctx.runMutation(internalAny.activityLog.logActivity, {
@@ -641,11 +640,7 @@ export const updateProject = mutation({
     taxRate: v.optional(v.number()),
     responsibleClerkUserId: v.optional(v.string()),
     taskStatusSettings: v.optional(projectTaskStatusSettingsValidator),
-    customAiPrompt: v.optional(v.string()),
     aiAutoConfirmCrud: v.optional(v.boolean()),
-    aiAssistantRuntime: v.optional(
-      v.union(v.literal("v1"), v.literal("v2")),
-    ),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();

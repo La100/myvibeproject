@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useOrganization } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
@@ -211,7 +212,8 @@ function ProjectCard({
     setCoverImageFailed(false);
   }, [project.coverImageUrl]);
 
-  const showCoverImage = Boolean(project.coverImageUrl && !coverImageFailed);
+  const coverImageSrc = project.coverImageUrl ?? "";
+  const showCoverImage = Boolean(coverImageSrc && !coverImageFailed);
   const projectInitials = getProjectInitials(project.name);
 
   return (
@@ -224,10 +226,12 @@ function ProjectCard({
         <div className="relative aspect-[5/4] overflow-hidden bg-muted md:aspect-[16/10] xl:aspect-[4/3]">
           {showCoverImage ? (
             <>
-              <img
-                src={project.coverImageUrl}
+              <Image
+                src={coverImageSrc}
                 alt={project.name}
-                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                fill
+                sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 25vw"
+                className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                 onError={() => setCoverImageFailed(true)}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/25 to-transparent" />

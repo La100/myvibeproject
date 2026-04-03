@@ -53,12 +53,15 @@ test("default prompt is generated from the shared tool registry", () => {
   assert.equal(toolLines.length, 3);
   assert.equal(executionPolicy.length, 2);
   assert.match(prompt, /You are Vibe, the AI copilot for interior design and architecture project management\./);
-  assert.match(prompt, /If a task, note, contact, shopping item, labor item, labor section, shopping section, or survey should be created, updated, or deleted, use the corresponding management tool directly\./);
+  assert.match(prompt, /If a task, note, contact, shopping item, labor item, labor section, shopping section, moodboard section, or survey should be created, updated, or deleted, use the corresponding management tool directly\./);
+  assert.match(prompt, /Prefer the narrowest project tool that can answer the question\./);
+  assert.match(prompt, /Use `search_items` for targeted lookups inside one domain/);
+  assert.match(prompt, /Use `web_search` only for external information that is not stored in the project/);
   assert.match(prompt, /- web_search: Search the public web for up-to-date external information and return cited results\. \[read-only\]/);
   assert.match(prompt, /- manage_tasks: Manage tasks with a single tool for create, update, or delete\. \[requires-confirmation\]/);
   assert.match(prompt, /- search_items: Search existing tasks.*\[read-only\]/);
   assert.match(prompt, /Read-only tools execute immediately: web_search, search_items\./);
-  assert.doesNotMatch(prompt, /generate_moodboard_image/);
+  assert.doesNotMatch(prompt, /- generate_moodboard_image:/);
 });
 
 test("default prompt switches to read-only contract when mutating tools are unavailable", () => {
@@ -68,6 +71,13 @@ test("default prompt switches to read-only contract when mutating tools are unav
   assert.match(prompt, /Do not attempt to create, update, delete, or promise changes to project data\./);
   assert.doesNotMatch(prompt, /Do not assume editing is disabled\./);
   assert.doesNotMatch(prompt, /use the corresponding management tool directly\./);
+});
+
+test("default prompt assumes editing is available when no explicit tool filter is passed", () => {
+  const prompt = buildDefaultPrompt();
+
+  assert.match(prompt, /All enabled tools are available for execution\. Do not assume editing is disabled\./);
+  assert.doesNotMatch(prompt, /Editing is disabled in this runtime\. Only read-only tools are available\./);
 });
 
 test("tool metadata exposes approval mode for prompt and confirmation flows", () => {

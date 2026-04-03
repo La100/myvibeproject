@@ -97,7 +97,7 @@ export function ProjectClientNotifications({
       <Card className="bg-card/92">
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between gap-3">
-            <CardTitle className="clean-title flex items-center gap-2 text-lg font-medium lg:text-xl">
+            <CardTitle className="flex items-center gap-2 text-lg font-medium lg:text-xl">
               <BellRing className="h-5 w-5 text-primary" />
               Client Notifications
             </CardTitle>

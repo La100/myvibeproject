@@ -16,20 +16,20 @@ export function ProjectPageHeader({
     actions,
 }: ProjectPageHeaderProps) {
     return (
-        <div className="mb-10 flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
-            <div className="mb-4 flex flex-col gap-4 sm:mb-0">
-                <div className="flex items-center gap-3">
+        <div className="mb-8 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+            <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2.5">
                     {icon && (
-                        <div className="text-primary">
+                        <div className="text-primary [&>svg]:h-6 [&>svg]:w-6">
                             {icon}
                         </div>
                     )}
-                    <h1 className="text-4xl font-semibold tracking-tight text-foreground md:text-5xl">
+                    <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
                         {title}
                     </h1>
                 </div>
                 {subtitle && (
-                    <p className="text-muted-foreground">
+                    <p className="text-sm text-muted-foreground">
                         {subtitle}
                     </p>
                 )}

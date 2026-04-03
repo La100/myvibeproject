@@ -174,36 +174,6 @@ test("Team invite/revoke flow stays scheduler + internalAction based", async () 
   assert.doesNotMatch(source, /export const revokeInvitation = mutation\([\s\S]*?\bfetch\s*\(/);
 });
 
-test("AI assistant public endpoints stay access-controlled", async () => {
-  const threadsPath = path.join(convexRoot, "ai", "threads.ts");
-  const source = await readFile(threadsPath, "utf8");
-
-  assert.match(
-    source,
-    /export const getProjectThread = mutation\([\s\S]*?const identity = await requireIdentity\(ctx\)/,
-  );
-  assert.match(
-    source,
-    /export const getProjectThread = mutation\([\s\S]*?identity\.subject !== args\.userClerkId/,
-  );
-  assert.match(
-    source,
-    /export const getProjectThread = mutation\([\s\S]*?ensureProjectAccess\(ctx,\s*args\.projectId,\s*identity\.subject\)/,
-  );
-  assert.match(
-    source,
-    /export const listPendingItems = query\([\s\S]*?ensureThreadAccess\(ctx,\s*args\.threadId,\s*identity\.subject\)/,
-  );
-  assert.match(
-    source,
-    /export const markFunctionCallsAsConfirmed = mutation\([\s\S]*?ensureThreadAccess\(ctx,\s*args\.threadId,\s*identity\.subject\)/,
-  );
-  assert.match(
-    source,
-    /export const markFunctionCallsAsConfirmed = mutation\([\s\S]*?const identity = await requireIdentity\(ctx\)[\s\S]*?ensureThreadAccess\(ctx,\s*args\.threadId,\s*identity\.subject\)/,
-  );
-});
-
 test("Project and file queries keep team-level authorization checks", async () => {
   const projectsPath = path.join(convexRoot, "projects.ts");
   const projectsSource = await readFile(projectsPath, "utf8");

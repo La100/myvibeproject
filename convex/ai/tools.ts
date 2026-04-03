@@ -35,6 +35,7 @@ type InternalSearchApi = {
   searchLaborItems: unknown;
   searchSurveys: unknown;
   searchContacts: unknown;
+  searchMoodboard: unknown;
 };
 
 type PublicApi = {
@@ -84,6 +85,7 @@ const itemTypeEnum = z.enum([
   "contact",
   "shoppingSection",
   "laborSection",
+  "moodboardSection",
 ]);
 
 type ItemType = z.infer<typeof itemTypeEnum>;
@@ -183,7 +185,7 @@ const contactFields = z.object({
 }).passthrough();
 
 const sectionFields = z.object({
-  name: z.string().describe("Section name. Mandatory for shoppingSection/laborSection confirmation cards. If sectionName exists, copy the same value into name."),
+  name: z.string().describe("Section name. Mandatory for shoppingSection/laborSection/moodboardSection confirmation cards. If sectionName exists, copy the same value into name."),
   sectionName: z.string().optional().describe("Optional section name alias. When provided, it should match name."),
 }).passthrough();
 
@@ -300,7 +302,7 @@ export const deleteItemSchema = z.object({
 
 // Generic search schema
 export const searchItemsSchema = z.object({
-  type: z.enum(["task", "note", "shopping", "labor", "survey", "contact"]).describe("Type of items to search"),
+  type: z.enum(["task", "note", "shopping", "labor", "survey", "contact", "moodboard"]).describe("Type of items to search"),
   query: z.string().optional().describe("Search query"),
   filters: z
     .record(z.union([z.string(), z.number(), z.boolean()]))
@@ -387,6 +389,16 @@ const manageLaborSchema = z
     sectionId: z.string().optional(),
     id: z.string().optional(),
     data: z.union([laborFields.partial().passthrough(), sectionFields.partial().passthrough()]).optional(),
+  })
+  .passthrough();
+
+const manageMoodboardSchema = z
+  .object({
+    action: managedCrudActionEnum,
+    sectionId: z.string().optional(),
+    itemId: z.string().optional(),
+    id: z.string().optional(),
+    data: sectionFields.partial().passthrough().optional(),
   })
   .passthrough();
 
@@ -570,6 +582,7 @@ function getOperationType(type: ItemType): string {
     contact: "contact",
     shoppingSection: "shoppingSection",
     laborSection: "laborSection",
+    moodboardSection: "moodboardSection",
   };
   return typeMap[type];
 }
@@ -750,6 +763,7 @@ const BULK_KEYS_BY_TYPE: Record<string, string[]> = {
   contact: ["contacts", "items"],
   shoppingSection: ["items", "sections"],
   laborSection: ["items", "sections"],
+  moodboardSection: ["items", "sections"],
 };
 
 const toRecord = (value: unknown): Record<string, unknown> =>
@@ -1040,6 +1054,12 @@ async function executeSinglePayload(
           ...actorArgs,
           sectionData: normalizeSectionName(data),
         });
+      case "moodboardSection":
+        return await runAction!(api.ai.confirmedActions.createConfirmedMoodboardSection, {
+          projectId,
+          ...actorArgs,
+          sectionData: normalizeSectionName(data),
+        });
       case "survey":
         return await runAction!(api.ai.confirmedActions.createConfirmedSurvey, {
           projectId,
@@ -1093,6 +1113,13 @@ async function executeSinglePayload(
         });
       case "laborSection":
         return await runAction!(api.ai.confirmedActions.editConfirmedLaborSection, {
+          ...actorArgs,
+          sectionId: data.sectionId ?? data.itemId,
+          updates: normalizeSectionName(updates),
+        });
+      case "moodboardSection":
+        return await runAction!(api.ai.confirmedActions.editConfirmedMoodboardSection, {
+          projectId,
           ...actorArgs,
           sectionId: data.sectionId ?? data.itemId,
           updates: normalizeSectionName(updates),
@@ -1155,6 +1182,13 @@ async function executeSinglePayload(
         });
       case "laborSection":
         return await runAction!(api.ai.confirmedActions.deleteConfirmedLaborSection, {
+          ...actorArgs,
+          sectionId: data.sectionId ?? data.itemId,
+          reason: data.reason,
+        });
+      case "moodboardSection":
+        return await runAction!(api.ai.confirmedActions.deleteConfirmedMoodboardSection, {
+          projectId,
           ...actorArgs,
           sectionId: data.sectionId ?? data.itemId,
           reason: data.reason,
@@ -1254,7 +1288,7 @@ function createAssistantTool<INPUT>(
       );
       return Boolean(approval?.required);
     },
-    execute: async (_ctx, input, _executionOptions) => {
+    execute: async (_ctx, input) => {
       const payload = await definition.execute(input as INPUT);
       const parsedPayload = parsePayloadObject(payload);
       if (!parsedPayload || typeof parsedPayload.error === "string") {
@@ -1444,6 +1478,8 @@ function normalizeSearchFilters(
         ["contractor", "supplier", "subcontractor", "other"].includes(filters.type)
         ? { type: filters.type }
         : {};
+    case "moodboard":
+      return {};
     default:
       return {};
   }
@@ -1839,7 +1875,9 @@ export async function prepareDeletePayload(
     typeof originalItemRecord.moodboardSection === "string";
   const resolvedType = isMoodboardFile ? "moodboard" : getOperationType(args.type);
   const isSectionType =
-    args.type === "shoppingSection" || args.type === "laborSection";
+    args.type === "shoppingSection" ||
+    args.type === "laborSection" ||
+    args.type === "moodboardSection";
 
   return JSON.stringify({
     type: resolvedType,
@@ -1885,13 +1923,19 @@ export function createStreamingTools(options?: StreamingToolOptions) {
     }, options),
 
     search_items: createAssistantTool({
-      description: "Search for and list items in the project (tasks, notes, shopping items, labor items, surveys, or contacts). Use this tool when the user asks to see, list, show, or find existing items. Use type-specific filters for advanced queries. This is a READ-ONLY operation - it does not create or modify anything.",
+      description: "Search for and list items in the project (tasks, notes, shopping items, labor items, surveys, contacts, or moodboard sections/images). Use this tool when the user asks to see, list, show, or find existing items. Use type-specific filters for advanced queries. This is a READ-ONLY operation - it does not create or modify anything.",
       inputSchema: searchItemsSchema,
       inputExamples: [
         { type: "task", query: "bathroom", limit: 5 },
+        { type: "moodboard", query: "kitchen", limit: 5 },
       ],
       execute: async (args: z.infer<typeof searchItemsSchema>) => {
-        if ((!options?.projectId && args.type !== "contact") || !options?.runAction) {
+        const toolOptions = options;
+        const needsProjectContext = args.type !== "contact";
+        const canRunSearch =
+          args.type === "moodboard" ? !!toolOptions?.runQuery : !!toolOptions?.runAction;
+
+        if ((!toolOptions?.projectId && needsProjectContext) || !canRunSearch) {
           return JSON.stringify({ error: "Search not available - missing project context" });
         }
 
@@ -1905,29 +1949,53 @@ export function createStreamingTools(options?: StreamingToolOptions) {
             shopping: searchApi.searchShoppingItems,
             labor: searchApi.searchLaborItems,
             survey: searchApi.searchSurveys,
+            moodboard: searchApi.searchMoodboard,
           };
 
           const result = args.type === "contact"
             ? await (() => {
-                if (!options.teamSlug) {
+                if (!toolOptions?.teamSlug || !toolOptions.runAction) {
                   return Promise.resolve({
                     error: "Contact search not available - missing team context",
                   });
                 }
 
-                return options.runAction!(searchApi.searchContacts, {
-                  teamSlug: options.teamSlug,
+                return toolOptions.runAction(searchApi.searchContacts, {
+                  teamSlug: toolOptions.teamSlug,
                   query: args.query,
                   limit: args.limit,
                   ...filters,
                 });
               })()
-            : await options.runAction(searchMap[args.type], {
-                projectId: options.projectId as Id<"projects">,
-                query: args.query,
-                limit: args.limit,
-                ...filters,
-              });
+            : args.type === "moodboard"
+              ? await (() => {
+                  if (!toolOptions?.projectId || !toolOptions.runQuery) {
+                    return Promise.resolve({
+                      error: "Moodboard search not available - missing project context",
+                    });
+                  }
+
+                  return toolOptions.runQuery(searchApi.searchMoodboard, {
+                    projectId: toolOptions.projectId as Id<"projects">,
+                    query: args.query,
+                    limit: args.limit,
+                    ...filters,
+                  });
+                })()
+            : await (() => {
+                if (!toolOptions?.projectId || !toolOptions.runAction) {
+                  return Promise.resolve({
+                    error: "Search not available - missing project context",
+                  });
+                }
+
+                return toolOptions.runAction(searchMap[args.type], {
+                  projectId: toolOptions.projectId as Id<"projects">,
+                  query: args.query,
+                  limit: args.limit,
+                  ...filters,
+                });
+              })();
 
           return JSON.stringify(result);
         } catch (error) {
@@ -2377,6 +2445,53 @@ export function createStreamingTools(options?: StreamingToolOptions) {
 
         return await prepareDeletePayload({
           type,
+          itemId: id,
+          name: pickFirstNonEmptyString(data, ["name", "sectionName", "title"]),
+          reason: pickFirstNonEmptyString(data, ["reason"]),
+        });
+      },
+    }, options),
+
+    manage_moodboard: createAssistantTool({
+      description: "Manage moodboard sections with one tool. Use action=create|update|delete.",
+      inputSchema: manageMoodboardSchema,
+      requiresConfirmation: true,
+      execute: async (args: z.infer<typeof manageMoodboardSchema>) => {
+        const id = pickFirstNonEmptyString(args as Record<string, unknown>, [
+          "sectionId",
+          "itemId",
+          "id",
+        ]);
+        const data = extractManagedToolData(args, [
+          "action",
+          "sectionId",
+          "itemId",
+          "id",
+        ]);
+
+        if (args.action === "create") {
+          return await prepareCreatePayload({
+            type: "moodboardSection",
+            data: data as z.infer<typeof createItemSchema>["data"],
+          });
+        }
+
+        if (!id) {
+          return JSON.stringify({
+            error: `manage_moodboard requires sectionId for ${args.action}`,
+          });
+        }
+
+        if (args.action === "update") {
+          return await prepareUpdatePayload({
+            type: "moodboardSection",
+            itemId: id,
+            data,
+          }, options);
+        }
+
+        return await prepareDeletePayload({
+          type: "moodboardSection",
           itemId: id,
           name: pickFirstNonEmptyString(data, ["name", "sectionName", "title"]),
           reason: pickFirstNonEmptyString(data, ["reason"]),

@@ -8,11 +8,13 @@ export const GPT_OUTPUT_COST_PER_1M = 15.0;
 export const GEMINI_FLASH_IMAGE_INPUT_COST_PER_1M = 0.3;
 export const GEMINI_FLASH_IMAGE_OUTPUT_COST_PER_1M = 30.0;
 export const GEMINI_FLASH_IMAGE_TYPICAL_OUTPUT_TOKENS = 1290;
+export const CLOUDFLARE_BROWSER_RENDERING_COST_PER_HOUR_USD = 0.09;
 
-export const AI_PRO_MONTHLY_TOKENS = 2340000;
-export const AI_SCALE_MONTHLY_TOKENS = 9000000;
-export const PRO_MONTHLY_TOKENS = 2940000;
-export const ENTERPRISE_MONTHLY_TOKENS = 11940000;
+export const FREE_MONTHLY_TOKENS = 200_000;
+export const AI_PRO_MONTHLY_TOKENS = 2_340_000;
+export const AI_SCALE_MONTHLY_TOKENS = 9_000_000;
+export const PRO_MONTHLY_TOKENS = 2_940_000;
+export const ENTERPRISE_MONTHLY_TOKENS = 11_940_000;
 
 export const usdToCredits = (usd: number): number => {
   if (!Number.isFinite(usd) || usd <= 0) {
@@ -54,6 +56,16 @@ export const calculateGeminiFlashImageCostUSD = (
 export const GEMINI_FLASH_IMAGE_TYPICAL_CREDITS = usdToCredits(
   calculateGeminiFlashImageCostUSD()
 );
+
+export const calculateCloudflareBrowserRenderingCostUSD = (
+  browserMs: number
+): number => {
+  if (!Number.isFinite(browserMs) || browserMs <= 0) {
+    return 0;
+  }
+
+  return (browserMs / 3_600_000) * CLOUDFLARE_BROWSER_RENDERING_COST_PER_HOUR_USD;
+};
 
 export const formatTokens = (tokens: number): string => {
   if (tokens >= 1_000_000) {

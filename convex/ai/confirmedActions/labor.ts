@@ -6,8 +6,23 @@
 
 import { action } from "../../_generated/server";
 import { v } from "convex/values";
-import { api } from "../../_generated/api";
+import { makeFunctionReference } from "convex/server";
 import { ensureProjectAccess } from "./helpers";
+
+const createLaborItemMutationRef =
+  makeFunctionReference<"mutation">("labor:createLaborItem");
+const createLaborSectionMutationRef =
+  makeFunctionReference<"mutation">("labor:createLaborSection");
+const getLaborItemQueryRef =
+  makeFunctionReference<"query">("labor:getLaborItem");
+const updateLaborItemMutationRef =
+  makeFunctionReference<"mutation">("labor:updateLaborItem");
+const updateLaborSectionMutationRef =
+  makeFunctionReference<"mutation">("labor:updateLaborSection");
+const deleteLaborItemMutationRef =
+  makeFunctionReference<"mutation">("labor:deleteLaborItem");
+const deleteLaborSectionMutationRef =
+  makeFunctionReference<"mutation">("labor:deleteLaborSection");
 
 export const createConfirmedLaborItem = action({
   args: {
@@ -32,7 +47,7 @@ export const createConfirmedLaborItem = action({
     try {
       await ensureProjectAccess(ctx, args.projectId, true, args.userClerkId);
 
-      const itemId: any = await ctx.runMutation(api.labor.createLaborItem, {
+      const itemId = await ctx.runMutation(createLaborItemMutationRef, {
         projectId: args.projectId,
         name: args.itemData.name,
         quantity: args.itemData.quantity,
@@ -57,6 +72,9 @@ export const createConfirmedLaborItem = action({
   },
 });
 
+const getLaborSectionQueryRef =
+  makeFunctionReference<"query">("labor:getLaborSection");
+
 export const createConfirmedLaborSection = action({
   args: {
     projectId: v.id("projects"),
@@ -74,7 +92,7 @@ export const createConfirmedLaborSection = action({
     try {
       await ensureProjectAccess(ctx, args.projectId, true, args.userClerkId);
 
-      const sectionId: any = await ctx.runMutation(api.labor.createLaborSection, {
+      const sectionId = await ctx.runMutation(createLaborSectionMutationRef, {
         name: args.sectionData.name,
         projectId: args.projectId,
       });
@@ -114,7 +132,7 @@ export const editConfirmedLaborItem = action({
   }),
   handler: async (ctx, args) => {
     try {
-      const item = await ctx.runQuery(api.labor.getLaborItem, { itemId: args.itemId });
+      const item = await ctx.runQuery(getLaborItemQueryRef, { itemId: args.itemId });
       if (!item) {
         throw new Error("Labor item not found");
       }
@@ -123,7 +141,7 @@ export const editConfirmedLaborItem = action({
       }
       await ensureProjectAccess(ctx, args.projectId ?? item.projectId, true, args.userClerkId);
 
-      await ctx.runMutation(api.labor.updateLaborItem, {
+      await ctx.runMutation(updateLaborItemMutationRef, {
         itemId: args.itemId,
         name: args.updates.name,
         notes: args.updates.notes,
@@ -161,15 +179,16 @@ export const editConfirmedLaborSection = action({
   }),
   handler: async (ctx, args) => {
     try {
-      const db = (ctx as any).db;
-      const section = db ? await db.get(args.sectionId) : null;
+      const section = await ctx.runQuery(getLaborSectionQueryRef, {
+        sectionId: args.sectionId,
+      });
       if (!section) {
         throw new Error("Labor section not found");
       }
 
       await ensureProjectAccess(ctx, section.projectId, true, args.userClerkId);
 
-      await ctx.runMutation(api.labor.updateLaborSection, {
+      await ctx.runMutation(updateLaborSectionMutationRef, {
         sectionId: args.sectionId,
         name: args.updates.name ?? section.name,
       });
@@ -199,13 +218,13 @@ export const deleteConfirmedLaborItem = action({
   }),
   handler: async (ctx, args) => {
     try {
-      const item = await ctx.runQuery(api.labor.getLaborItem, { itemId: args.itemId });
+      const item = await ctx.runQuery(getLaborItemQueryRef, { itemId: args.itemId });
       if (!item) {
         throw new Error("Labor item not found");
       }
       await ensureProjectAccess(ctx, item.projectId, true, args.userClerkId);
 
-      await ctx.runMutation(api.labor.deleteLaborItem, {
+      await ctx.runMutation(deleteLaborItemMutationRef, {
         itemId: args.itemId,
       });
 
@@ -233,15 +252,16 @@ export const deleteConfirmedLaborSection = action({
   }),
   handler: async (ctx, args) => {
     try {
-      const db = (ctx as any).db;
-      const section = db ? await db.get(args.sectionId) : null;
+      const section = await ctx.runQuery(getLaborSectionQueryRef, {
+        sectionId: args.sectionId,
+      });
       if (!section) {
         throw new Error("Labor section not found");
       }
 
       await ensureProjectAccess(ctx, section.projectId, true, args.userClerkId);
 
-      await ctx.runMutation(api.labor.deleteLaborSection, {
+      await ctx.runMutation(deleteLaborSectionMutationRef, {
         sectionId: args.sectionId,
       });
 

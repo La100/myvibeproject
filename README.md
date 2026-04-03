@@ -33,8 +33,6 @@ Myvibe project is a comprehensive project management tool tailored for architect
     - Supports `image`, `video`, `pdf`, etc.
     - Integrated with **AI** for text extraction (`extractedText`) and analysis (`pdfAnalysis`).
 6.  **AI Integration**:
-    - `aiThreads`: Chat sessions with the AI assistant.
-    - `aiMessages`: Individual messages in a thread (user/assistant roles).
     - `aiVisualizationSessions`: Dedicated sessions for image generation/visualization.
     - `aiTokenUsage`: Tracks token consumption per user/team.
 

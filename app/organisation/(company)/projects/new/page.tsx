@@ -8,6 +8,7 @@ import { apiAny } from "@/lib/convexApiAny";
 import { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
 import { AlertTriangle, Check, ImagePlus, Sparkles, X } from "lucide-react";
+import { optimizeCoverImageForUpload } from "@/lib/coverImageUpload";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -45,6 +46,7 @@ export default function NewProjectPage() {
   const { organization } = useOrganization();
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isOptimizingCoverImage, setIsOptimizingCoverImage] = useState(false);
 
   const team = useQuery(apiAny.teams.getTeamByClerkOrg,
     organization?.id ? { clerkOrgId: organization.id } : "skip"
@@ -100,7 +102,7 @@ export default function NewProjectPage() {
     };
   }, [coverImageFile]);
 
-  const handleCoverImageFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCoverImageFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -109,7 +111,23 @@ export default function NewProjectPage() {
       return;
     }
 
-    setCoverImageFile(file);
+    setIsOptimizingCoverImage(true);
+
+    try {
+      const optimized = await optimizeCoverImageForUpload(file);
+      setCoverImageFile(optimized.file);
+
+      if (optimized.optimized) {
+        const savedKb = Math.max(1, Math.round((optimized.originalSize - optimized.file.size) / 1024));
+        toast.success("Cover image optimized", {
+          description: `Reduced by about ${savedKb} KB before upload.`,
+        });
+      }
+    } catch {
+      setCoverImageFile(file);
+    } finally {
+      setIsOptimizingCoverImage(false);
+    }
   };
 
   const clearCoverImageFile = () => {
@@ -296,12 +314,19 @@ export default function NewProjectPage() {
                   variant="outline"
                   size="sm"
                   onClick={() => coverFileInputRef.current?.click()}
+                  disabled={isOptimizingCoverImage}
                 >
                   <ImagePlus className="mr-2 h-4 w-4" />
-                  Upload image
+                  {isOptimizingCoverImage ? "Optimizing..." : "Upload image"}
                 </Button>
                 {coverImageFile ? (
-                  <Button type="button" variant="ghost" size="sm" onClick={clearCoverImageFile}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearCoverImageFile}
+                    disabled={isOptimizingCoverImage}
+                  >
                     <X className="mr-2 h-4 w-4" />
                     Remove upload
                   </Button>
@@ -317,7 +342,7 @@ export default function NewProjectPage() {
                 </div>
               ) : null}
               <p className="text-xs text-muted-foreground">
-                Upload an image to use it as project cover.
+                Upload an image to use it as project cover. Large files are resized and compressed automatically.
               </p>
             </div>
           </div>

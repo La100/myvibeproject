@@ -142,7 +142,6 @@ function ProjectSidebarContent() {
   const projectNavItems = allNavItems.filter((item) => item.group === "project");
   const architectureNavItems = allNavItems.filter((item) => item.group === "architecture");
   const footerItems = [
-    aiItem,
     settingsItem,
     { href: "/help", label: "Help", icon: LifeBuoy },
   ];

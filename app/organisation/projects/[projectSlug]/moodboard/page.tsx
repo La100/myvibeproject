@@ -13,18 +13,6 @@ import { toast } from "sonner";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 
-const DEFAULT_MOODBOARD_ROWS = [
-  { id: "1", title: "CONCEPT" },
-  { id: "2", title: "DETAILS" },
-];
-
-const formatMoodboardSectionLabel = (section: string) => {
-  const normalized = section.trim();
-  if (normalized === "1") return "CONCEPT";
-  if (normalized === "2") return "DETAILS";
-  return normalized.toUpperCase();
-};
-
 interface MoodboardImage {
   id: string;
   url: string;
@@ -33,15 +21,27 @@ interface MoodboardImage {
 interface MoodboardRow {
   id: string;
   title: string;
+  order: number;
 }
 
-function MoodboardRowTitle({ title, isEditing, onEdit, onSave, onUpload, isUploading }: {
+function MoodboardRowTitle({
+  title,
+  isEditing,
+  onEdit,
+  onSave,
+  onUpload,
+  isUploading,
+  onDelete,
+  isDeleting,
+}: {
   title: string;
   isEditing: boolean;
   onEdit: () => void;
   onSave: (newTitle: string) => void;
   onUpload: () => void;
   isUploading: boolean;
+  onDelete: () => void;
+  isDeleting: boolean;
 }) {
   const [editedTitle, setEditedTitle] = useState(title);
 
@@ -57,12 +57,14 @@ function MoodboardRowTitle({ title, isEditing, onEdit, onSave, onUpload, isUploa
           onChange={(e) => setEditedTitle(e.target.value)}
           className="max-w-xs text-xl font-semibold tracking-tight"
           onKeyDown={(e) => {
-            if (e.key === 'Enter') handleSave();
-            if (e.key === 'Escape') onEdit();
+            if (e.key === "Enter") handleSave();
+            if (e.key === "Escape") onEdit();
           }}
           autoFocus
         />
-        <Button onClick={handleSave} size="sm">Save</Button>
+        <Button onClick={handleSave} size="sm">
+          Save
+        </Button>
       </div>
     );
   }
@@ -75,38 +77,53 @@ function MoodboardRowTitle({ title, isEditing, onEdit, onSave, onUpload, isUploa
           variant="outline"
           size="sm"
           onClick={onUpload}
-          disabled={isUploading}
+          disabled={isUploading || isDeleting}
           className="text-xs"
         >
-          <Plus className="h-3 w-3 mr-1" />
-          {isUploading ? 'Uploading...' : 'Add images'}
+          <Plus className="mr-1 h-3 w-3" />
+          {isUploading ? "Uploading..." : "Add images"}
         </Button>
         <Button
           variant="ghost"
           size="sm"
           onClick={onEdit}
-          className="opacity-50 hover:opacity-100 transition-opacity"
+          disabled={isDeleting}
+          className="opacity-50 transition-opacity hover:opacity-100"
         >
           <Edit3 className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onDelete}
+          disabled={isUploading || isDeleting}
+          className="text-destructive opacity-50 transition-opacity hover:text-destructive hover:opacity-100"
+        >
+          <Trash2 className="h-4 w-4" />
         </Button>
       </div>
     </div>
   );
 }
 
-function MoodboardRow({ row, onUpdateTitle }: {
+function MoodboardRow({
+  row,
+  onUpdateTitle,
+  onDeleteSection,
+}: {
   row: MoodboardRow;
-  onUpdateTitle: (rowId: string, newTitle: string) => void;
+  onUpdateTitle: (rowId: string, newTitle: string) => Promise<void>;
+  onDeleteSection: (row: MoodboardRow) => Promise<void>;
 }) {
   const { project } = useProject();
   const [selectedImage, setSelectedImage] = useState<MoodboardImage | null>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isDeletingSection, setIsDeletingSection] = useState(false);
 
-  // Get images for this specific section
   const sectionImages = useQuery(apiAny.files.getMoodboardImagesBySection, {
     projectId: project._id,
-    section: row.id
+    section: row.id,
   });
 
   const generateUploadUrl = useMutation(apiAny.files.generateUploadUrlWithCustomKey);
@@ -114,22 +131,22 @@ function MoodboardRow({ row, onUpdateTitle }: {
   const addFile = useMutation(apiAny.files.addFile);
   const deleteFileByStorageId = useMutation(apiAny.files.deleteFileByStorageId);
 
-  const handleTitleSave = (newTitle: string) => {
-    onUpdateTitle(row.id, newTitle);
+  const handleTitleSave = async (newTitle: string) => {
+    await onUpdateTitle(row.id, newTitle);
     setIsEditingTitle(false);
   };
 
   const handleUploadClick = () => {
-    if (isUploading) return;
+    if (isUploading || isDeletingSection) return;
 
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
     input.multiple = true;
     input.onchange = (e) => {
       const files = (e.target as HTMLInputElement).files;
       if (files) {
-        handleImageUpload(files);
+        void handleImageUpload(files);
       }
     };
     input.click();
@@ -147,24 +164,21 @@ function MoodboardRow({ row, onUpdateTitle }: {
       });
 
       for (const file of fileArray) {
-        // Only process image files
-        if (!file.type.startsWith('image/')) {
+        if (!file.type.startsWith("image/")) {
           toast.error(`${file.name} is not an image file`);
           continue;
         }
 
-        // 1. Generate upload URL with custom folder structure
         const uploadData = await generateUploadUrl({
           projectId: project._id,
           fileName: file.name,
         });
 
-        // 2. Upload file to R2 using the presigned URL
         const response = await fetch(uploadData.url, {
-          method: 'PUT',
+          method: "PUT",
           body: file,
           headers: {
-            'Content-Type': file.type,
+            "Content-Type": file.type,
           },
         });
 
@@ -172,27 +186,21 @@ function MoodboardRow({ row, onUpdateTitle }: {
           throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
         }
 
-        // 3. Extract the file key from the URL 
-        const fileKey = uploadData.key;
-
-        // 4. Attach file to project with moodboard section
         await addFile({
           projectId: project._id,
           folderId: moodboardFolderId,
-          fileKey,
+          fileKey: uploadData.key,
           fileName: file.name,
           fileType: file.type,
           fileSize: file.size,
-          moodboardSection: row.id, // Associate with this section
+          moodboardSection: row.id,
         });
-
-        // Images will appear automatically via query refresh
       }
 
       toast.success("Images uploaded successfully");
     } catch (error) {
       toast.error("Failed to upload images", {
-        description: (error as Error).message
+        description: (error as Error).message,
       });
     } finally {
       setIsUploading(false);
@@ -207,13 +215,32 @@ function MoodboardRow({ row, onUpdateTitle }: {
     try {
       await deleteFileByStorageId({
         projectId: project._id,
-        storageId: imageId
+        storageId: imageId,
       });
       toast.success("Image deleted successfully");
     } catch (error) {
       toast.error("Failed to delete image", {
-        description: (error as Error).message
+        description: (error as Error).message,
       });
+    }
+  };
+
+  const handleDeleteSection = async () => {
+    const imageCount = sectionImages?.length || 0;
+    const confirmationMessage =
+      imageCount > 0
+        ? `Delete "${row.title}" and remove ${imageCount} image${imageCount === 1 ? "" : "s"} from this section?`
+        : `Delete "${row.title}" section?`;
+
+    if (!confirm(confirmationMessage)) {
+      return;
+    }
+
+    setIsDeletingSection(true);
+    try {
+      await onDeleteSection(row);
+    } finally {
+      setIsDeletingSection(false);
     }
   };
 
@@ -222,13 +249,18 @@ function MoodboardRow({ row, onUpdateTitle }: {
       <MoodboardRowTitle
         title={row.title}
         isEditing={isEditingTitle}
-        onEdit={() => setIsEditingTitle(!isEditingTitle)}
-        onSave={handleTitleSave}
+        onEdit={() => setIsEditingTitle((current) => !current)}
+        onSave={(newTitle) => {
+          void handleTitleSave(newTitle);
+        }}
         onUpload={handleUploadClick}
         isUploading={isUploading}
+        onDelete={() => {
+          void handleDeleteSection();
+        }}
+        isDeleting={isDeletingSection}
       />
 
-      {/* Masonry grid with natural image proportions - much larger images */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {(sectionImages || []).map((image) => (
           <Card
@@ -250,7 +282,7 @@ function MoodboardRow({ row, onUpdateTitle }: {
                 className="absolute right-3 top-3 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleDeleteImage(image.id);
+                  void handleDeleteImage(image.id);
                 }}
                 aria-label="Delete image"
               >
@@ -261,17 +293,16 @@ function MoodboardRow({ row, onUpdateTitle }: {
         ))}
       </div>
 
-      {/* Image Preview Modal */}
       {selectedImage && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
           onClick={() => setSelectedImage(null)}
         >
-          <div className="max-w-6xl max-h-full">
+          <div className="max-h-full max-w-6xl">
             <img
               src={selectedImage.url}
               alt=""
-              className="max-w-full max-h-full object-contain"
+              className="max-h-full max-w-full object-contain"
             />
           </div>
         </div>
@@ -286,77 +317,78 @@ export default function MoodboardPage() {
     apiAny.files.getMoodboardSections,
     project?._id ? { projectId: project._id } : "skip",
   );
-  const [localRows, setLocalRows] = useState<MoodboardRow[]>([]);
-  const [titleOverrides, setTitleOverrides] = useState<Record<string, string>>({});
-
-  const persistedSectionIds = useMemo(
-    () => new Set(savedSections || []),
-    [savedSections],
-  );
+  const createMoodboardSection = useMutation(apiAny.files.createMoodboardSection);
+  const renameMoodboardSection = useMutation(apiAny.files.renameMoodboardSection);
+  const deleteMoodboardSection = useMutation(apiAny.files.deleteMoodboardSection);
 
   const rows = useMemo(() => {
-    const merged: MoodboardRow[] = [];
-    const seen = new Set<string>();
+    return ((savedSections as MoodboardRow[] | undefined) || []).map((section) => ({
+      id: section.id,
+      title: section.title,
+      order: section.order,
+    }));
+  }, [savedSections]);
 
-    for (const row of DEFAULT_MOODBOARD_ROWS) {
-      merged.push({
-        ...row,
-        title: titleOverrides[row.id] || row.title,
-      });
-      seen.add(row.id);
-    }
-
-    for (const section of savedSections || []) {
-      if (seen.has(section)) continue;
-      merged.push({
-        id: section,
-        title: titleOverrides[section] || formatMoodboardSectionLabel(section),
-      });
-      seen.add(section);
-    }
-
-    for (const row of localRows) {
-      if (seen.has(row.id)) continue;
-      merged.push({
-        ...row,
-        title: titleOverrides[row.id] || row.title,
-      });
-      seen.add(row.id);
-    }
-
-    return merged;
-  }, [localRows, savedSections, titleOverrides]);
-
-  const handleUpdateTitle = (rowId: string, newTitle: string) => {
+  const handleUpdateTitle = async (rowId: string, newTitle: string) => {
     const trimmedTitle = newTitle.trim();
     if (!trimmedTitle) return;
 
-    setLocalRows((currentRows) =>
-      currentRows.map((row) => {
-        if (row.id !== rowId) return row;
-        const canRenameSectionKey =
-          row.id !== "1" && row.id !== "2" && !persistedSectionIds.has(row.id);
-
-        return canRenameSectionKey
-          ? { id: trimmedTitle, title: trimmedTitle.toUpperCase() }
-          : { ...row, title: trimmedTitle.toUpperCase() };
-      }),
-    );
-
-    setTitleOverrides((current) => ({
-      ...current,
-      [rowId]: trimmedTitle.toUpperCase(),
-    }));
+    try {
+      await renameMoodboardSection({
+        projectId: project._id,
+        sectionId: rowId,
+        title: trimmedTitle,
+      });
+      toast.success("Section updated");
+    } catch (error) {
+      toast.error("Failed to update section", {
+        description: (error as Error).message,
+      });
+      throw error;
+    }
   };
 
-  const handleAddRow = () => {
-    const nextIndex = rows.length + 1;
-    const sectionLabel = `SECTION ${nextIndex}`;
-    const newRow: MoodboardRow = {
-      id: sectionLabel,
-      title: sectionLabel,
-    };
-    setLocalRows((currentRows) => [...currentRows, newRow]);
+  const handleAddRow = async () => {
+    const existingTitles = new Set(rows.map((row) => row.title.trim().toUpperCase()));
+    let nextIndex = rows.length + 1;
+    let sectionLabel = `SECTION ${nextIndex}`;
+
+    while (existingTitles.has(sectionLabel)) {
+      nextIndex += 1;
+      sectionLabel = `SECTION ${nextIndex}`;
+    }
+
+    try {
+      await createMoodboardSection({
+        projectId: project._id,
+        title: sectionLabel,
+      });
+      toast.success("Section created");
+    } catch (error) {
+      toast.error("Failed to create section", {
+        description: (error as Error).message,
+      });
+    }
+  };
+
+  const handleDeleteSection = async (row: MoodboardRow) => {
+    try {
+      const result = await deleteMoodboardSection({
+        projectId: project._id,
+        sectionId: row.id,
+      });
+
+      toast.success(
+        result.deletedFilesCount > 0
+          ? `Section deleted with ${result.deletedFilesCount} image${result.deletedFilesCount === 1 ? "" : "s"}`
+          : "Section deleted",
+      );
+    } catch (error) {
+      toast.error("Failed to delete section", {
+        description: (error as Error).message,
+      });
+      throw error;
+    }
   };
 
   return (
@@ -376,16 +408,17 @@ export default function MoodboardPage() {
         }
         actions={
           <Button
-            onClick={handleAddRow}
+            onClick={() => {
+              void handleAddRow();
+            }}
             className="px-6 transition-transform hover:-translate-y-0.5"
           >
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus className="mr-2 h-4 w-4" />
             Add Section
           </Button>
         }
       />
 
-      {/* Moodboard Content */}
       <div className="w-full">
         <div className="flex flex-col gap-16">
           {rows.map((row) => (
@@ -393,10 +426,10 @@ export default function MoodboardPage() {
               key={row.id}
               row={row}
               onUpdateTitle={handleUpdateTitle}
+              onDeleteSection={handleDeleteSection}
             />
           ))}
         </div>
-
       </div>
     </ProjectPageLayout>
   );

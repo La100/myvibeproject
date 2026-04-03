@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { type LucideIcon, AlertTriangle, ImagePlus, Settings, Shield, Sparkles, Users, X } from "lucide-react";
 
 import { apiAny } from "@/lib/convexApiAny";
+import { optimizeCoverImageForUpload } from "@/lib/coverImageUpload";
 import { Id } from "@/convex/_generated/dataModel";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 import { Button } from "@/components/ui/button";
@@ -124,7 +125,7 @@ const SETTINGS_TABS: SettingsTabConfig[] = [
   {
     value: "ai",
     label: "AI",
-    description: "Assistant behavior and integrations",
+    description: "AI execution and permissions",
     icon: Sparkles,
   },
   {
@@ -626,17 +627,20 @@ function GeneralTab({
 
     setUploadingCoverImage(true);
     try {
+      const optimized = await optimizeCoverImageForUpload(file);
+      const uploadFile = optimized.file;
+
       const uploadData = await generateUploadUrl({
         projectId,
-        fileName: file.name,
-        fileSize: file.size,
+        fileName: uploadFile.name,
+        fileSize: uploadFile.size,
       });
 
       const uploadResponse = await fetch(uploadData.url, {
         method: "PUT",
-        body: file,
+        body: uploadFile,
         headers: {
-          "Content-Type": file.type,
+          "Content-Type": uploadFile.type,
         },
       });
 
@@ -648,19 +652,27 @@ function GeneralTab({
         projectId,
         folderId: undefined,
         fileKey: uploadData.key,
-        fileName: file.name,
-        fileType: file.type,
-        fileSize: file.size,
+        fileName: uploadFile.name,
+        fileType: uploadFile.type,
+        fileSize: uploadFile.size,
         origin: "general",
       });
 
-      replaceLocalCoverPreviewUrl(URL.createObjectURL(file));
+      replaceLocalCoverPreviewUrl(URL.createObjectURL(uploadFile));
       setUploadedCoverPreviewUrl(uploadData.publicUrl || null);
       settingsForm.setValue("coverImageUrl", uploadData.key, {
         shouldDirty: true,
         shouldTouch: true,
       });
-      toast.success("Cover image uploaded. Save changes to apply.");
+
+      if (optimized.optimized) {
+        const savedKb = Math.max(1, Math.round((optimized.originalSize - uploadFile.size) / 1024));
+        toast.success("Cover image uploaded and optimized", {
+          description: `Reduced by about ${savedKb} KB. Save changes to apply.`,
+        });
+      } else {
+        toast.success("Cover image uploaded. Save changes to apply.");
+      }
     } catch (error) {
       toast.error("Failed to upload cover image", {
         description: (error as Error).message,
@@ -849,7 +861,7 @@ function GeneralTab({
                   ) : null}
 
                   <p className="text-xs text-muted-foreground">
-                    Pick a file and save the section to apply the new cover.
+                    Pick a file and save the section to apply the new cover. Large images are optimized automatically.
                   </p>
                 </div>
 

@@ -134,7 +134,7 @@ export default function CompanyLayout({
       <SidebarInset className="xl:overflow-hidden">
         <header className="xl:hidden sticky top-0 z-20 flex h-16 items-center gap-2 border-b border-border/70 bg-background/90 px-4 backdrop-blur-md">
           <SidebarTrigger className="-ml-1 [&.hidden]:flex" />
-          <span className="clean-title text-lg font-medium">Workspace</span>
+          <span className="text-lg font-medium text-foreground">Workspace</span>
         </header>
         <main className="flex-1 min-h-0 overflow-auto">
           <div className="mx-auto flex w-full max-w-[1540px] flex-col px-4 pb-8 pt-4 md:px-6 xl:px-8 xl:pt-8">

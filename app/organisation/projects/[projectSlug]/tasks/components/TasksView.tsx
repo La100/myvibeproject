@@ -609,24 +609,8 @@ export default function TasksView() {
 const TaskCardContent = memo(function TaskCardContent({ task, projectSlug }: { task: KanbanTask, projectSlug: string }) {
   const priority = getPriorityDisplay(task.priority);
 
-  // Priority accent colors
-  const priorityAccentColors = {
-    urgent: "bg-destructive",
-    high: "bg-primary",
-    medium: "bg-primary/70",
-    low: "bg-muted-foreground/40",
-  };
-
   return (
     <div className="relative block hover-lift bg-card border border-border rounded-lg p-4 shadow-sm hover:shadow-md transition-all cursor-pointer">
-      {/* Priority accent bar */}
-      {task.priority && (
-        <div className={cn(
-          "absolute left-0 top-0 bottom-0 w-1 rounded-l-lg",
-          priorityAccentColors[task.priority as keyof typeof priorityAccentColors]
-        )} />
-      )}
-
       <div className="flex justify-between items-start mb-2">
         <Link href={`/organisation/projects/${projectSlug}/tasks/${task.id}`} className="flex-1">
           <h4 className="font-semibold text-sm hover:underline line-clamp-2">{task.title}</h4>

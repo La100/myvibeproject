@@ -1,15 +1,23 @@
-import { buildToolExecutionPolicy, buildToolPromptList } from "./toolMetadata.ts";
+import {
+  assistantToolNames,
+  buildToolExecutionPolicy,
+  buildToolPromptList,
+} from "./toolMetadata.ts";
 
 export function buildDefaultPrompt(activeToolNames?: readonly string[]) {
   const toolList = buildToolPromptList(activeToolNames).join("\n");
   const executionPolicy = buildToolExecutionPolicy(activeToolNames).join("\n");
-  const hasMutatingTools = (activeToolNames ?? []).some(
+  const enabledToolNames = activeToolNames ?? assistantToolNames;
+  const hasMutatingTools = enabledToolNames.some(
     (toolName) => !["web_search", "search_items", "load_full_project_context"].includes(toolName),
   );
   const editingPolicy = hasMutatingTools
     ? [
         "All enabled tools are available for execution. Do not assume editing is disabled.",
-        "If a task, note, contact, shopping item, labor item, labor section, shopping section, or survey should be created, updated, or deleted, use the corresponding management tool directly.",
+        "If a task, note, contact, shopping item, labor item, labor section, shopping section, moodboard section, or survey should be created, updated, or deleted, use the corresponding management tool directly.",
+        "If project settings should change, use `update_project_settings` directly.",
+        "If the user asks to generate a new moodboard image, use `generate_moodboard_image` instead of describing the image without acting.",
+        "Do not ask the user to confirm in prose before calling a mutating tool. Call the tool so the UI can handle confirmation.",
         "Do not say that changes are unavailable unless a tool call actually fails and explicitly returns an authorization or availability error.",
       ].join("\n\n")
     : [
@@ -32,7 +40,13 @@ PRIORITY
 TOOL USAGE RULES
 - For any question about current project data (counts, statuses, assignees, dates, budget, lists), call tools first.
 - Never guess project facts from memory.
-- For exact totals and cross-domain summaries, use load_full_project_context.
+- Prefer the narrowest project tool that can answer the question.
+- Use \`search_items\` for targeted lookups inside one domain such as tasks, notes, shopping, labor, surveys, contacts, or moodboard sections/images.
+- Use \`load_full_project_context\` only for cross-domain summaries, audits, or exact project-wide totals.
+- Use \`web_search\` only for external information that is not stored in the project, especially current web information, products, suppliers, regulations, or market data.
+- If the user asks to change project data and the target item is already clear, call the corresponding mutating tool directly.
+- If the user asks to change existing project data but the target item is ambiguous or missing an ID, inspect first with a read-only tool, then call the mutating tool.
+- For targeted questions about moodboard sections or moodboard images, use \`search_items\` with the moodboard scope/type instead of \`load_full_project_context\`.
 
 SHOPPING LIST RULES
 - When the user asks for a product with alternatives, variants, cheaper options, or premium options, create one main shopping item and add the other options as linked alternatives.

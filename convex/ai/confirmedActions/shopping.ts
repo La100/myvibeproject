@@ -16,6 +16,8 @@ const createShoppingListSectionMutationRef =
   makeFunctionReference<"mutation">("shopping:createShoppingListSection");
 const getShoppingListItemQueryRef =
   makeFunctionReference<"query">("shopping:getShoppingListItem");
+const getShoppingListSectionQueryRef =
+  makeFunctionReference<"query">("shopping:getShoppingListSection");
 const updateShoppingListItemMutationRef =
   makeFunctionReference<"mutation">("shopping:updateShoppingListItem");
 const updateShoppingListSectionMutationRef =
@@ -217,16 +219,17 @@ export const editConfirmedShoppingSection = action({
   }),
   handler: async (ctx, args) => {
     try {
-      const db = (ctx as { db?: { get: (id: unknown) => Promise<unknown> } }).db;
-      const section = (db ? await db.get(args.sectionId) : null) as {
-        projectId: unknown;
+      const section = await ctx.runQuery(getShoppingListSectionQueryRef, {
+        sectionId: args.sectionId,
+      }) as {
+        projectId: Id<"projects">;
         name?: string;
       } | null;
       if (!section) {
         throw new Error("Shopping section not found");
       }
 
-      await ensureProjectAccess(ctx, section.projectId as Id<"projects">, true, args.userClerkId);
+      await ensureProjectAccess(ctx, section.projectId, true, args.userClerkId);
 
       await ctx.runMutation(updateShoppingListSectionMutationRef, {
         sectionId: args.sectionId,
@@ -292,15 +295,16 @@ export const deleteConfirmedShoppingSection = action({
   }),
   handler: async (ctx, args) => {
     try {
-      const db = (ctx as { db?: { get: (id: unknown) => Promise<unknown> } }).db;
-      const section = (db ? await db.get(args.sectionId) : null) as {
-        projectId: unknown;
+      const section = await ctx.runQuery(getShoppingListSectionQueryRef, {
+        sectionId: args.sectionId,
+      }) as {
+        projectId: Id<"projects">;
       } | null;
       if (!section) {
         throw new Error("Shopping section not found");
       }
 
-      await ensureProjectAccess(ctx, section.projectId as Id<"projects">, true, args.userClerkId);
+      await ensureProjectAccess(ctx, section.projectId, true, args.userClerkId);
 
       await ctx.runMutation(deleteShoppingListSectionMutationRef, {
         sectionId: args.sectionId,
@@ -318,7 +322,6 @@ export const deleteConfirmedShoppingSection = action({
     }
   },
 });
-
 
 
 

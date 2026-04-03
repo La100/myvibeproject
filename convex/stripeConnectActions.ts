@@ -5,9 +5,23 @@ import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-11-17.clover",
-});
+let stripe: Stripe | null = null;
+
+const getStripe = () => {
+  if (stripe) {
+    return stripe;
+  }
+
+  const apiKey = process.env.STRIPE_SECRET_KEY;
+  if (!apiKey) {
+    throw new Error("STRIPE_SECRET_KEY is not configured");
+  }
+
+  stripe = new Stripe(apiKey, {
+    apiVersion: "2025-11-17.clover",
+  });
+  return stripe;
+};
 
 const getBaseUrl = () => (process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3001").replace(/\/+$/, "");
 
@@ -83,7 +97,7 @@ export const createOrResumeStripeConnectOnboarding = action({
     let accountId = team.stripeConnectAccountId as string | undefined;
 
     if (!accountId) {
-      const account = await stripe.accounts.create({
+      const account = await getStripe().accounts.create({
         type: "express",
         country: getDefaultConnectCountry(),
         capabilities: {
@@ -102,11 +116,11 @@ export const createOrResumeStripeConnectOnboarding = action({
       accountId = account.id;
       await syncConnectState(ctx, args.teamId, account);
     } else {
-      const account = await stripe.accounts.retrieve(accountId);
+      const account = await getStripe().accounts.retrieve(accountId);
       await syncConnectState(ctx, args.teamId, account);
     }
 
-    const accountLink = await stripe.accountLinks.create({
+    const accountLink = await getStripe().accountLinks.create({
       account: accountId,
       type: "account_onboarding",
       refresh_url: `${getBaseUrl()}${returnPath}`,
@@ -156,7 +170,7 @@ export const refreshStripeConnectAccount = action({
       };
     }
 
-    const account = await stripe.accounts.retrieve(team.stripeConnectAccountId);
+    const account = await getStripe().accounts.retrieve(team.stripeConnectAccountId);
     return await syncConnectState(ctx, args.teamId, account);
   },
 });
@@ -187,7 +201,7 @@ export const createStripeConnectDashboardLink = action({
       throw new Error("Stripe payouts are not connected yet");
     }
 
-    const loginLink = await stripe.accounts.createLoginLink(team.stripeConnectAccountId);
+    const loginLink = await getStripe().accounts.createLoginLink(team.stripeConnectAccountId);
     return { url: loginLink.url };
   },
 });

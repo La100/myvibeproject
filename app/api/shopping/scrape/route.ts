@@ -1,6 +1,42 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import { ConvexHttpClient } from "convex/browser";
+
+import { apiAny } from "@/lib/convexApiAny";
+import {
+  calculateCloudflareBrowserRenderingCostUSD,
+  usdToCredits,
+} from "@/lib/aiPricing";
 
 type JsonLdNode = Record<string, unknown>;
+
+type ScrapeElementAttribute = {
+  name?: string;
+  value?: string;
+};
+
+type ScrapeElementMatch = {
+  text?: string;
+  html?: string;
+  attributes?: ScrapeElementAttribute[];
+};
+
+type ScrapeElementResult = {
+  selector?: string;
+  results?: ScrapeElementMatch[];
+};
+
+type CloudflareScrapeResponse = {
+  success?: boolean;
+  result?: ScrapeElementResult[];
+  errors?: Array<{ message?: string }>;
+};
+
+type CloudflareScrapeResult = {
+  html: string;
+  finalUrl: URL;
+  browserMsUsed: number;
+};
 
 interface ScrapedProductData {
   name?: string;
@@ -17,12 +53,55 @@ interface ScrapedProductData {
 
 const MAX_REDIRECTS = 5;
 const REQUEST_TIMEOUT_MS = 12000;
+const CLOUDFLARE_TIMEOUT_MS = 20000;
 const MAX_HTML_LENGTH = 2_000_000;
 const META_TAG_REGEX = /<meta\b[^>]*>/gi;
 const ATTR_REGEX = /([^\s"'<>/=]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/g;
 const TITLE_REGEX = /<title[^>]*>([\s\S]*?)<\/title>/i;
 const JSON_LD_REGEX =
   /<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+const CLOUDFLARE_SCRAPE_SELECTORS = [
+  "title",
+  "h1",
+  "meta[property], meta[name], meta[itemprop]",
+  "script[type='application/ld+json']",
+  "link[rel='canonical']",
+  "[itemprop='price']",
+  "[itemprop='priceCurrency']",
+  "[data-price]",
+  "[data-product-price]",
+  "[data-testid*='price']",
+];
+const CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4/accounts";
+
+function getCloudflareConfig() {
+  const accountId =
+    process.env.CLOUDFLARE_ACCOUNT_ID?.trim() ??
+    process.env.CF_ACCOUNT_ID?.trim() ??
+    "";
+  const apiToken =
+    process.env.CLOUDFLARE_API_TOKEN?.trim() ??
+    process.env.CLOUDFLARE_BROWSER_RENDERING_API_TOKEN?.trim() ??
+    process.env.CF_API_TOKEN?.trim() ??
+    "";
+
+  if (!accountId || !apiToken) {
+    return null;
+  }
+
+  return { accountId, apiToken };
+}
+
+function getConvexClient(token: string): ConvexHttpClient {
+  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL?.trim();
+  if (!convexUrl) {
+    throw new Error("Missing NEXT_PUBLIC_CONVEX_URL");
+  }
+
+  const client = new ConvexHttpClient(convexUrl);
+  client.setAuth(token);
+  return client;
+}
 
 function decodeHtmlEntities(value: string): string {
   return value
@@ -38,6 +117,21 @@ function decodeHtmlEntities(value: string): string {
 
 function normalizeWhitespace(value: string): string {
   return decodeHtmlEntities(value).replace(/\s+/g, " ").trim();
+}
+
+function escapeHtmlAttribute(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function escapeHtmlText(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 function isPrivateIpv4(hostname: string): boolean {
@@ -152,6 +246,217 @@ async function fetchHtmlWithRedirects(initialUrl: URL): Promise<{ html: string; 
   }
 
   throw new Error("Too many redirects.");
+}
+
+function normalizeScrapeText(value: string | undefined): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const normalized = normalizeWhitespace(value);
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function getScrapeAttributeMap(match: ScrapeElementMatch): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const attribute of match.attributes ?? []) {
+    const name = normalizeScrapeText(attribute.name)?.toLowerCase();
+    const value = normalizeScrapeText(attribute.value);
+    if (!name || !value) continue;
+    map.set(name, value);
+  }
+  return map;
+}
+
+function getScrapeMatchesBySelector(
+  results: ScrapeElementResult[],
+  selector: string,
+): ScrapeElementMatch[] {
+  return results.find((entry) => entry.selector === selector)?.results ?? [];
+}
+
+function detectCurrencyFromText(value: string | undefined): string | undefined {
+  const normalized = value?.trim().toUpperCase();
+  if (!normalized) return undefined;
+
+  if (/\bPLN\b|ZŁ/.test(normalized)) return "PLN";
+  if (/\bEUR\b|€/.test(normalized)) return "EUR";
+  if (/\bUSD\b|\$/.test(normalized)) return "USD";
+  if (/\bGBP\b|£/.test(normalized)) return "GBP";
+  if (/\bCHF\b/.test(normalized)) return "CHF";
+
+  return undefined;
+}
+
+function buildCloudflareHtml(
+  results: ScrapeElementResult[],
+  pageUrl: URL,
+): { html: string; finalUrl: URL } {
+  const htmlParts: string[] = [];
+
+  const titleMatch =
+    getScrapeMatchesBySelector(results, "title")[0] ??
+    getScrapeMatchesBySelector(results, "h1")[0];
+  const titleText = normalizeScrapeText(titleMatch?.text);
+  if (titleText) {
+    htmlParts.push(`<title>${escapeHtmlText(titleText)}</title>`);
+  }
+
+  for (const match of getScrapeMatchesBySelector(results, "meta[property], meta[name], meta[itemprop]")) {
+    const attributes = getScrapeAttributeMap(match);
+    const content = attributes.get("content");
+    if (!content) continue;
+
+    const attrs = ["property", "name", "itemprop"]
+      .map((key) => {
+        const value = attributes.get(key);
+        return value ? `${key}="${escapeHtmlAttribute(value)}"` : null;
+      })
+      .filter((entry): entry is string => Boolean(entry));
+
+    if (attrs.length === 0) continue;
+    htmlParts.push(
+      `<meta ${attrs.join(" ")} content="${escapeHtmlAttribute(content)}">`,
+    );
+  }
+
+  for (const match of getScrapeMatchesBySelector(results, "script[type='application/ld+json']")) {
+    const raw = match.html ?? match.text;
+    const json = typeof raw === "string" ? raw.trim() : "";
+    if (!json) continue;
+    htmlParts.push(`<script type="application/ld+json">${json}</script>`);
+  }
+
+  let finalUrl = pageUrl;
+  const canonicalHref = getScrapeMatchesBySelector(results, "link[rel='canonical']")
+    .map((match) => getScrapeAttributeMap(match).get("href"))
+    .find((value): value is string => Boolean(value));
+
+  if (canonicalHref) {
+    try {
+      finalUrl = new URL(canonicalHref, pageUrl);
+    } catch {
+      finalUrl = pageUrl;
+    }
+  }
+
+  const priceCandidates = [
+    ...getScrapeMatchesBySelector(results, "[itemprop='price']").map((match) => match.text),
+    ...getScrapeMatchesBySelector(results, "[data-price]").map((match) => match.text),
+    ...getScrapeMatchesBySelector(results, "[data-product-price]").map((match) => match.text),
+    ...getScrapeMatchesBySelector(results, "[data-testid*='price']").map((match) => match.text),
+  ]
+    .map((value) => normalizeScrapeText(value))
+    .filter((value): value is string => Boolean(value));
+
+  const priceText = priceCandidates.find((candidate) => parsePrice(candidate) !== undefined);
+  if (priceText) {
+    htmlParts.push(`<meta name="price" content="${escapeHtmlAttribute(priceText)}">`);
+  }
+
+  const currencyText =
+    getScrapeMatchesBySelector(results, "[itemprop='priceCurrency']")
+      .map((match) => normalizeScrapeText(match.text))
+      .find((value): value is string => Boolean(value)) ??
+    detectCurrencyFromText(priceText);
+
+  if (currencyText) {
+    htmlParts.push(`<meta name="currency" content="${escapeHtmlAttribute(currencyText)}">`);
+  }
+
+  return {
+    html: htmlParts.join("\n"),
+    finalUrl,
+  };
+}
+
+async function fetchCloudflareScrape(url: URL): Promise<CloudflareScrapeResult> {
+  const config = getCloudflareConfig();
+  if (!config) {
+    throw new Error("Cloudflare Browser Rendering is not configured.");
+  }
+
+  const response = await fetch(
+    `${CLOUDFLARE_API_BASE}/${config.accountId}/browser-rendering/scrape`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${config.apiToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        url: url.toString(),
+        userAgent:
+          "Mozilla/5.0 (compatible; MyVibeProductScraper/1.0; +https://myvibeproject.com)",
+        gotoOptions: {
+          waitUntil: "networkidle0",
+        },
+        elements: CLOUDFLARE_SCRAPE_SELECTORS.map((selector) => ({ selector })),
+      }),
+      signal: AbortSignal.timeout(CLOUDFLARE_TIMEOUT_MS),
+    },
+  );
+
+  const payload = (await response.json().catch(() => null)) as CloudflareScrapeResponse | null;
+  if (!response.ok || !payload?.success || !Array.isArray(payload.result)) {
+    const message =
+      payload?.errors?.find((entry) => typeof entry?.message === "string")?.message ??
+      `Cloudflare scrape failed with status ${response.status}.`;
+    throw new Error(message);
+  }
+
+  const browserMsUsedHeader = response.headers.get("x-browser-ms-used");
+  const browserMsUsed = browserMsUsedHeader
+    ? Number.parseFloat(browserMsUsedHeader)
+    : 0;
+
+  return {
+    ...buildCloudflareHtml(payload.result, url),
+    browserMsUsed: Number.isFinite(browserMsUsed) ? Math.max(0, browserMsUsed) : 0,
+  };
+}
+
+async function recordScrapeUsage(
+  request: NextRequest,
+  browserMsUsed: number,
+) {
+  if (!Number.isFinite(browserMsUsed) || browserMsUsed <= 0) {
+    return;
+  }
+
+  const projectId = request.nextUrl.searchParams.get("projectId")?.trim();
+  const teamId = request.nextUrl.searchParams.get("teamId")?.trim();
+  if (!projectId || !teamId) {
+    return;
+  }
+
+  const { userId, getToken } = await auth();
+  if (!userId) {
+    return;
+  }
+
+  const convexToken = await getToken({ template: "convex" });
+  if (!convexToken) {
+    return;
+  }
+
+  const estimatedCostUsd = calculateCloudflareBrowserRenderingCostUSD(browserMsUsed);
+  const estimatedCostCents = Math.round(estimatedCostUsd * 100);
+  const billableTokens = usdToCredits(estimatedCostUsd);
+
+  const client = getConvexClient(convexToken);
+  await client.mutation(apiAny.ai.usage.recordSelfHostedChatKitUsage, {
+    projectId,
+    teamId,
+    model: "cloudflare-browser-rendering/scrape",
+    feature: "assistant",
+    requestType: "other",
+    inputTokens: 0,
+    outputTokens: 0,
+    totalTokens: 0,
+    billableTokens,
+    mode: "chatkit_scrape",
+    estimatedCostCents,
+    responseTimeMs: Math.round(browserMsUsed),
+    success: true,
+  });
 }
 
 function parseMetaTags(html: string) {
@@ -528,8 +833,26 @@ export async function GET(request: NextRequest) {
   try {
     const rawUrl = request.nextUrl.searchParams.get("url") ?? "";
     const parsedUrl = normalizeInputUrl(rawUrl);
-    const { html, finalUrl } = await fetchHtmlWithRedirects(parsedUrl);
+    let html: string;
+    let finalUrl: URL;
+    let browserMsUsed = 0;
+
+    try {
+      ({ html, finalUrl, browserMsUsed } = await fetchCloudflareScrape(parsedUrl));
+    } catch (cloudflareError) {
+      console.warn("[SHOPPING_SCRAPE_CLOUDFLARE_FALLBACK]", cloudflareError);
+      ({ html, finalUrl } = await fetchHtmlWithRedirects(parsedUrl));
+    }
+
     const data = extractProductData(html, finalUrl);
+
+    if (browserMsUsed > 0) {
+      try {
+        await recordScrapeUsage(request, browserMsUsed);
+      } catch (usageError) {
+        console.error("[SHOPPING_SCRAPE_USAGE_ERROR]", usageError);
+      }
+    }
 
     if (!data.name) {
       return NextResponse.json(

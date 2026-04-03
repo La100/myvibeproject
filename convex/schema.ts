@@ -179,14 +179,13 @@ export default defineSchema({
     paymentCustomerEmail: v.optional(v.string()),
     paymentCustomerDetails: v.optional(paymentCustomerDetailsValidator),
     stripeProjectCustomerId: v.optional(v.string()),
-    // Custom AI assistant prompt override
-    customAiPrompt: v.optional(v.string()),
     // If true, CRUD tool calls from AI are auto-confirmed in the assistant UI
     aiAutoConfirmCrud: v.optional(v.boolean()),
-    // Assistant runtime selector for gradual migration from v1 to v2
-    aiAssistantRuntime: v.optional(
-      v.union(v.literal("v1"), v.literal("v2")),
-    ),
+    moodboardSections: v.optional(v.array(v.object({
+      id: v.string(),
+      title: v.string(),
+      order: v.number(),
+    }))),
   })
     .index("by_team", ["teamId"])
     .index("by_team_and_slug", ["teamId", "slug"])
@@ -966,66 +965,6 @@ export default defineSchema({
     .index("by_supplier", ["supplier"])
     .index("by_brand", ["brand"])
     .index("by_created_by", ["createdBy"]),
-
-  // AI Chat Threads - conversation sessions
-  aiThreads: defineTable({
-    threadId: v.string(), // Unique thread identifier
-    projectId: v.id("projects"),
-    teamId: v.id("teams"),
-    userClerkId: v.string(), // User who started the thread
-    title: v.optional(v.string()), // Optional thread title
-    lastMessageAt: v.number(), // Timestamp of last message
-    messageCount: v.optional(v.number()), // Total messages in thread
-    lastMessagePreview: v.optional(v.string()),
-    lastMessageRole: v.optional(v.union(v.literal("user"), v.literal("assistant"))),
-    lastResponseId: v.optional(v.string()), // OpenAI Response ID (not currently used)
-    agentThreadId: v.optional(v.string()), // Convex Agent Thread ID
-    abortedAt: v.optional(v.number()), // Timestamp when user requested abort
-    workflowContext: v.optional(
-      v.object({
-        workflowId: v.string(),
-        stepId: v.string(),
-        previousResponses: v.optional(
-          v.array(
-            v.object({
-              stepId: v.string(),
-              response: v.string(),
-            }),
-          ),
-        ),
-      }),
-    ),
-  })
-    .index("by_thread_id", ["threadId"])
-    .index("by_project", ["projectId"])
-    .index("by_user", ["userClerkId"]),
-
-  // AI Chat Messages - individual messages in threads
-  aiMessages: defineTable({
-    threadId: v.string(), // Reference to aiThreads
-    projectId: v.id("projects"),
-    role: v.union(v.literal("user"), v.literal("assistant")), // Message sender
-    content: v.string(), // Message content
-    tokenUsage: v.optional(v.object({
-      inputTokens: v.number(),
-      outputTokens: v.number(),
-      totalTokens: v.number(),
-      estimatedCostUSD: v.number(),
-    })),
-    ragContext: v.optional(v.string()), // RAG context used for this message
-    metadata: v.optional(
-      v.object({
-        fileId: v.optional(v.string()),
-        fileName: v.optional(v.string()),
-        fileType: v.optional(v.string()),
-        fileSize: v.optional(v.number()),
-        mode: v.optional(v.string()),
-      })
-    ),
-    messageIndex: v.number(), // Order of message in thread (0, 1, 2, ...)
-  })
-    .index("by_thread", ["threadId"])
-    .index("by_thread_and_index", ["threadId", "messageIndex"]),
 
   // AI Visualization Sessions - conversation sessions for image generation
   aiVisualizationSessions: defineTable({

@@ -1,9 +1,9 @@
 import { ProjectSidebar } from "@/components/project/ProjectSidebar";
+import { MobileProjectHeader } from "@/components/project/MobileProjectHeader";
 import { ProjectProvider } from "@/components/providers/ProjectProvider";
 import { 
   SidebarProvider, 
   SidebarInset, 
-  SidebarTrigger 
 } from "@/components/ui/sidebar";
 import { Suspense } from "react";
 
@@ -12,10 +12,7 @@ function ProjectLayoutContent({ children }: { children: React.ReactNode }) {
     <SidebarProvider>
       <ProjectSidebar />
       <SidebarInset className="xl:clean-panel xl:overflow-hidden">
-        <header className="xl:hidden sticky top-0 z-20 flex h-16 items-center gap-2 border-b border-border/70 bg-background/90 px-4 backdrop-blur-md">
-          <SidebarTrigger className="-ml-1 [&.hidden]:flex" />
-          <span className="clean-title text-lg font-medium">Project</span>
-        </header>
+        <MobileProjectHeader />
         <main className="flex-1 min-h-0 overflow-auto">
           <Suspense fallback={
             <div className="flex flex-col gap-4">

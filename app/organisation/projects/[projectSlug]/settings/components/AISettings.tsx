@@ -5,26 +5,18 @@ import { useQuery, useMutation } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import {
   Sparkles,
   Loader2,
-  FileText,
-  RotateCcw,
 } from "lucide-react";
-import { defaultPrompt } from "@/convex/ai/prompt";
 
 interface AISettingsProps {
   projectId: Id<"projects">;
 }
 
 export default function AISettings({ projectId }: AISettingsProps) {
-  const [customPrompt, setCustomPrompt] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
   const [aiAutoConfirmCrud, setAiAutoConfirmCrud] = useState(false);
   const [isSavingAiConfirmMode, setIsSavingAiConfirmMode] = useState(false);
 
@@ -34,44 +26,10 @@ export default function AISettings({ projectId }: AISettingsProps) {
   // Mutation to update project settings
   const updateProject = useMutation(apiAny.projects.updateProject);
 
-  // Initialize custom prompt from project data
-  useEffect(() => {
-    if (!project) return;
-    setCustomPrompt(project.customAiPrompt || "");
-  }, [project]);
-
   useEffect(() => {
     if (!project) return;
     setAiAutoConfirmCrud(Boolean((project as { aiAutoConfirmCrud?: boolean }).aiAutoConfirmCrud));
   }, [project]);
-
-  const handleSaveCustomPrompt = async () => {
-    if (!projectId) return;
-
-    setIsSaving(true);
-    try {
-      // Save as additional instructions only when non-empty and different from default body
-      const normalizedPrompt = customPrompt.trim();
-      const promptToSave =
-        normalizedPrompt === "" || normalizedPrompt === defaultPrompt.trim()
-          ? undefined
-          : normalizedPrompt;
-      await updateProject({
-        projectId,
-        customAiPrompt: promptToSave,
-      });
-      toast.success("AI instructions saved");
-    } catch (error) {
-      console.error("Failed to save custom AI prompt:", error);
-      toast.error("Failed to save AI instructions");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleResetToDefault = () => {
-    setCustomPrompt("");
-  };
 
   const handleToggleAutoConfirmCrud = async (checked: boolean) => {
     if (!projectId) return;
@@ -98,19 +56,16 @@ export default function AISettings({ projectId }: AISettingsProps) {
     }
   };
 
-  const isCustomPromptChanged = customPrompt !== (project?.customAiPrompt || "");
-
   return (
     <div className="flex flex-col gap-6">
-      {/* AI Overview Card */}
       <Card>
         <CardHeader className="pb-4">
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
-            <CardTitle className="text-lg lg:text-xl">AI Assistant</CardTitle>
+            <CardTitle className="text-lg lg:text-xl">AI Actions</CardTitle>
           </div>
           <CardDescription className="text-sm">
-            Manage AI assistant settings for this project.
+            Manage AI execution settings for this project.
           </CardDescription>
         </CardHeader>
         <CardContent className="px-4 lg:px-6">
@@ -134,78 +89,6 @@ export default function AISettings({ projectId }: AISettingsProps) {
               />
             </div>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Custom AI Instructions Card */}
-      <Card>
-        <CardHeader className="pb-4">
-          <div className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-primary" />
-            <CardTitle className="text-lg lg:text-xl">Custom AI Instructions</CardTitle>
-          </div>
-          <CardDescription className="text-sm">
-            Add project-specific instructions. These are appended to the default system prompt guardrails.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4 px-4 lg:px-6">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="customPrompt" className="text-sm font-medium">
-              Additional Instructions
-            </Label>
-            <Textarea
-              id="customPrompt"
-              value={customPrompt}
-              onChange={(e) => setCustomPrompt(e.target.value)}
-              rows={12}
-              className="font-mono text-sm resize-none"
-              placeholder="Example: Prefer concise answers. Always include a brief risk note for schedule or budget recommendations."
-            />
-            <p className="text-xs text-muted-foreground">
-              {customPrompt.trim() === "" ? (
-                <>Using only the default system prompt ({defaultPrompt.length} characters)</>
-              ) : (
-                <>Using default prompt + additional instructions ({customPrompt.length} characters)</>
-              )}
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Button
-              onClick={handleSaveCustomPrompt}
-              disabled={isSaving || !isCustomPromptChanged}
-              className="flex-1"
-            >
-              {isSaving ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Save Instructions
-                </>
-              )}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleResetToDefault}
-              disabled={customPrompt.trim() === ""}
-              className="flex-1 sm:flex-initial"
-            >
-              <RotateCcw className="mr-2 h-4 w-4" />
-              Clear Instructions
-            </Button>
-          </div>
-
-          {customPrompt.trim() !== "" && (
-            <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
-              <p className="text-sm text-foreground">
-                <strong>Note:</strong> Additional instructions affect only new conversations. Existing conversations keep their previous system instructions.
-              </p>
-            </div>
-          )}
         </CardContent>
       </Card>
     </div>

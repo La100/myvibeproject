@@ -2,13 +2,165 @@ import { R2 } from "@convex-dev/r2";
 import { components } from "./_generated/api";
 import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
+import { makeFunctionReference } from "convex/server";
 import { getEffectiveLimits } from "./stripe";
-import { Id } from "./_generated/dataModel";
+import { Doc, Id } from "./_generated/dataModel";
 import { aiDebugLog } from "./ai/helpers/debugLog";
 
-const internalAny = require("./_generated/api").internal as any;
-
 export const r2 = new R2(components.r2);
+const checkStorageLimitQueryRef =
+  makeFunctionReference<"query">("files:checkStorageLimit");
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const DEFAULT_MOODBOARD_SECTIONS = [
+  { id: "1", title: "CONCEPT", order: 0 },
+  { id: "2", title: "DETAILS", order: 1 },
+];
+
+const normalizeMoodboardSectionTitle = (title: string) => title.trim().toUpperCase();
+
+const formatMoodboardSectionLabel = (section: string) => {
+  const normalized = section.trim();
+  if (normalized === "1") return "CONCEPT";
+  if (normalized === "2") return "DETAILS";
+  return normalized.toUpperCase();
+};
+
+const sortMoodboardSections = <T extends { order: number; title: string }>(sections: T[]) =>
+  [...sections].sort((a, b) => a.order - b.order || a.title.localeCompare(b.title));
+
+const resolveMoodboardSections = (
+  storedSections: { id: string; title: string; order: number }[] | undefined,
+  fileSectionIds: string[],
+) => {
+  const baseSections =
+    storedSections !== undefined
+      ? storedSections
+      : DEFAULT_MOODBOARD_SECTIONS.map((section) => ({ ...section }));
+
+  const mergedSections = sortMoodboardSections(baseSections);
+  const existingIds = new Set(mergedSections.map((section) => section.id));
+  let nextOrder =
+    mergedSections.length > 0
+      ? Math.max(...mergedSections.map((section) => section.order)) + 1
+      : 0;
+
+  for (const sectionId of fileSectionIds) {
+    if (existingIds.has(sectionId)) continue;
+    mergedSections.push({
+      id: sectionId,
+      title: formatMoodboardSectionLabel(sectionId),
+      order: nextOrder,
+    });
+    existingIds.add(sectionId);
+    nextOrder += 1;
+  }
+
+  return sortMoodboardSections(mergedSections).map((section, index) => ({
+    ...section,
+    order: index,
+  }));
+};
+
+const getProjectAccess = async (ctx: any, projectId: Id<"projects">, clerkUserId: string) => {
+  const project = await ctx.db.get(projectId);
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  const teamMember = await ctx.db
+    .query("teamMembers")
+    .withIndex("by_team_and_user", (q: any) =>
+      q.eq("teamId", project.teamId).eq("clerkUserId", clerkUserId)
+    )
+    .unique();
+
+  if (!teamMember || !teamMember.isActive) {
+    throw new Error("No access to this project");
+  }
+
+  return { project, teamMember };
+};
+
+const listMoodboardFileSectionIds = async (
+  ctx: any,
+  projectId: Id<"projects">,
+): Promise<string[]> => {
+  const files = await ctx.db
+    .query("files")
+    .withIndex("by_project", (q: any) => q.eq("projectId", projectId))
+    .filter((q: any) => q.neq(q.field("moodboardSection"), undefined))
+    .collect();
+
+  return [
+    ...new Set(
+      files
+        .map((file: { moodboardSection?: string }) => file.moodboardSection?.trim())
+        .filter((section: string | undefined): section is string => Boolean(section)),
+    ),
+  ] as string[];
+};
+
+const patchProjectMoodboardSections = async (
+  ctx: any,
+  projectId: Id<"projects">,
+  sections: { id: string; title: string; order: number }[],
+) => {
+  await ctx.db.patch(projectId, {
+    moodboardSections: sortMoodboardSections(sections).map((section, index) => ({
+      id: section.id,
+      title: section.title,
+      order: index,
+    })),
+  } as any);
+};
+
+const getStoredMoodboardSections = (
+  project: unknown,
+): { id: string; title: string; order: number }[] | undefined => {
+  const sections = (project as { moodboardSections?: unknown })?.moodboardSections;
+  if (!Array.isArray(sections)) {
+    return undefined;
+  }
+
+  return sections
+    .map((section) => {
+      if (!section || typeof section !== "object") {
+        return null;
+      }
+
+      const record = section as { id?: unknown; title?: unknown; order?: unknown };
+      if (
+        typeof record.id !== "string" ||
+        typeof record.title !== "string" ||
+        typeof record.order !== "number"
+      ) {
+        return null;
+      }
+
+      return {
+        id: record.id,
+        title: record.title,
+        order: record.order,
+      };
+    })
+    .filter((section): section is { id: string; title: string; order: number } => Boolean(section));
+};
+
+const deleteStoredFile = async (ctx: any, storageId: string) => {
+  try {
+    await ctx.runMutation(components.r2.lib.deleteObject, {
+      accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+      bucket: process.env.R2_BUCKET!,
+      endpoint: process.env.R2_ENDPOINT!,
+      key: storageId,
+      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+    });
+  } catch (error) {
+    console.error(`Failed to delete file from R2: ${error}`);
+  }
+};
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 const buildPublicR2FileUrl = (key: string) => {
   const publicBaseUrl = (process.env.NEXT_PUBLIC_R2_PUBLIC_URL || process.env.R2_PUBLIC_URL || "")
@@ -256,8 +408,13 @@ const resolveFileType = (mimeType: string) => {
   if (mimeType.includes("dwg") || mimeType.includes("dxf")) return "drawing";
   return "other";
 };
-const getProjectAccessForUser = async (ctx: any, projectId: Id<"projects">, actorUserId: string) => {
-  const project = await ctx.db.get(projectId) as any;
+const getProjectAccessForUser = async (
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any,
+  projectId: Id<"projects">,
+  actorUserId: string,
+) => {
+  const project = (await ctx.db.get(projectId)) as Doc<"projects"> | null;
   if (!project) {
     return null;
   }
@@ -295,13 +452,13 @@ export const generateUploadUrlWithCustomKeyInternal = internalMutation({
     if (!access) throw new Error("No access to this project");
 
     const project = access.project;
-    const team = await ctx.db.get(project.teamId) as any;
+    const team = (await ctx.db.get(project.teamId)) as Doc<"teams"> | null;
     if (!team) throw new Error("Team not found");
 
-    const storageCheck = await ctx.runQuery(internalAny.files.checkStorageLimit, {
+    const storageCheck = (await ctx.runQuery(checkStorageLimitQueryRef, {
       teamId: project.teamId,
       additionalBytes: args.fileSize,
-    });
+    })) as { allowed: boolean; message: string };
     if (!storageCheck.allowed) {
       throw new Error(storageCheck.message);
     }
@@ -928,34 +1085,188 @@ export const getMoodboardSections = query({
   args: {
     projectId: v.id("projects"),
   },
-  returns: v.array(v.string()),
+  returns: v.array(v.object({
+    id: v.string(),
+    title: v.string(),
+    order: v.number(),
+  })),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return [];
 
-    const project = await ctx.db.get(args.projectId);
-    if (!project) return [];
+    const { project } = await getProjectAccess(ctx, args.projectId, identity.subject);
+    const fileSectionIds = await listMoodboardFileSectionIds(ctx, args.projectId);
 
-    const hasAccess = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
-      )
-      .unique();
+    return resolveMoodboardSections(getStoredMoodboardSections(project), fileSectionIds);
+  },
+});
 
-    if (!hasAccess || !hasAccess.isActive) return [];
+export const createMoodboardSection = mutation({
+  args: {
+    projectId: v.id("projects"),
+    title: v.string(),
+  },
+  returns: v.object({
+    id: v.string(),
+    title: v.string(),
+    order: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
 
-    const files = await ctx.db
+    const { project } = await getProjectAccess(ctx, args.projectId, identity.subject);
+    const normalizedTitle = normalizeMoodboardSectionTitle(args.title);
+    if (!normalizedTitle) {
+      throw new Error("Section title is required");
+    }
+
+    const fileSectionIds = await listMoodboardFileSectionIds(ctx, args.projectId);
+    const sections = resolveMoodboardSections(getStoredMoodboardSections(project), fileSectionIds);
+    const titleAlreadyExists = sections.some(
+      (section) =>
+        normalizeMoodboardSectionTitle(section.title) === normalizedTitle ||
+        normalizeMoodboardSectionTitle(section.id) === normalizedTitle,
+    );
+
+    if (titleAlreadyExists) {
+      throw new Error("Section with this name already exists");
+    }
+
+    const createdSection = {
+      id: normalizedTitle,
+      title: normalizedTitle,
+      order: sections.length,
+    };
+
+    await patchProjectMoodboardSections(ctx, args.projectId, [...sections, createdSection]);
+
+    return createdSection;
+  },
+});
+
+export const renameMoodboardSection = mutation({
+  args: {
+    projectId: v.id("projects"),
+    sectionId: v.string(),
+    title: v.string(),
+  },
+  returns: v.object({
+    id: v.string(),
+    title: v.string(),
+    order: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const { project } = await getProjectAccess(ctx, args.projectId, identity.subject);
+    const normalizedTitle = normalizeMoodboardSectionTitle(args.title);
+    if (!normalizedTitle) {
+      throw new Error("Section title is required");
+    }
+
+    const fileSectionIds = await listMoodboardFileSectionIds(ctx, args.projectId);
+    const sections = resolveMoodboardSections(getStoredMoodboardSections(project), fileSectionIds);
+    const sectionToRename = sections.find((section) => section.id === args.sectionId);
+
+    if (!sectionToRename) {
+      throw new Error("Section not found");
+    }
+
+    const duplicateSection = sections.find(
+      (section) =>
+        section.id !== args.sectionId &&
+        (normalizeMoodboardSectionTitle(section.title) === normalizedTitle ||
+          normalizeMoodboardSectionTitle(section.id) === normalizedTitle),
+    );
+
+    if (duplicateSection) {
+      throw new Error("Section with this name already exists");
+    }
+
+    const updatedSectionId = normalizedTitle;
+    const nextSections = sections.map((section) =>
+      section.id === args.sectionId
+        ? {
+            id: updatedSectionId,
+            title: normalizedTitle,
+            order: section.order,
+          }
+        : section,
+    );
+
+    if (args.sectionId !== updatedSectionId) {
+      const filesInSection = await ctx.db
+        .query("files")
+        .withIndex("by_moodboard_section", (q) =>
+          q.eq("projectId", args.projectId).eq("moodboardSection", args.sectionId)
+        )
+        .collect();
+
+      for (const file of filesInSection) {
+        await ctx.db.patch(file._id, {
+          moodboardSection: updatedSectionId,
+        });
+      }
+    }
+
+    await patchProjectMoodboardSections(ctx, args.projectId, nextSections);
+
+    return {
+      id: updatedSectionId,
+      title: normalizedTitle,
+      order: sectionToRename.order,
+    };
+  },
+});
+
+export const deleteMoodboardSection = mutation({
+  args: {
+    projectId: v.id("projects"),
+    sectionId: v.string(),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    deletedFilesCount: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const { project } = await getProjectAccess(ctx, args.projectId, identity.subject);
+    const fileSectionIds = await listMoodboardFileSectionIds(ctx, args.projectId);
+    const sections = resolveMoodboardSections(getStoredMoodboardSections(project), fileSectionIds);
+
+    if (!sections.some((section) => section.id === args.sectionId)) {
+      throw new Error("Section not found");
+    }
+
+    const filesInSection = await ctx.db
       .query("files")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .filter((q) => q.neq(q.field("moodboardSection"), undefined))
+      .withIndex("by_moodboard_section", (q) =>
+        q.eq("projectId", args.projectId).eq("moodboardSection", args.sectionId)
+      )
       .collect();
 
-    return [...new Set(
-      files
-        .map((file) => file.moodboardSection?.trim())
-        .filter((section): section is string => Boolean(section))
-    )].sort((a, b) => a.localeCompare(b));
+    for (const file of filesInSection) {
+      await deleteStoredFile(ctx, file.storageId);
+      await ctx.db.delete(file._id);
+    }
+
+    const remainingSections = sections.filter((section) => section.id !== args.sectionId);
+    await patchProjectMoodboardSections(ctx, args.projectId, remainingSections);
+
+    return {
+      success: true,
+      deletedFilesCount: filesInSection.length,
+    };
   },
 });
 
@@ -1070,6 +1381,39 @@ export const getFileByStorageId = query({
   },
 });
 
+export const getFileUrlByStorageId = query({
+  args: {
+    projectId: v.id("projects"),
+    storageId: v.string(),
+  },
+  returns: v.union(v.string(), v.null()),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+
+    const project = await ctx.db.get(args.projectId);
+    if (!project) return null;
+
+    const hasAccess = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
+      )
+      .unique();
+
+    if (!hasAccess || !hasAccess.isActive) return null;
+
+    try {
+      return await r2.getUrl(args.storageId, {
+        expiresIn: 60 * 60 * 2,
+      });
+    } catch (error) {
+      console.error(`Error generating signed URL for storage key ${args.storageId}:`, error);
+      return null;
+    }
+  },
+});
+
 // Delete file by storageId (for moodboard)
 export const deleteFileByStorageId = mutation({
   args: { 
@@ -1121,17 +1465,7 @@ export const deleteFileByStorageId = mutation({
     }
 
     // Delete from R2
-    try {
-      await ctx.runMutation(components.r2.lib.deleteObject, {
-        accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-        bucket: process.env.R2_BUCKET!,
-        endpoint: process.env.R2_ENDPOINT!,
-        key: file.storageId,
-        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-      });
-    } catch (error) {
-      console.error(`Failed to delete file from R2: ${error}`);
-    }
+    await deleteStoredFile(ctx, file.storageId);
     
     // Delete from database
     await ctx.db.delete(file._id);

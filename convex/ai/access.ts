@@ -12,17 +12,6 @@ type ProjectRecord = {
   _id: Id<"projects">;
   name: string;
   teamId: Id<"teams">;
-  aiAssistantRuntime?: "v1" | "v2";
-};
-
-type ThreadRecord = {
-  _id: Id<"aiThreads">;
-  threadId: string;
-  projectId: Id<"projects">;
-  teamId: Id<"teams">;
-  userClerkId: string;
-  title?: string;
-  messageCount?: number;
 };
 
 export const requireIdentity = async (ctx: any) => {
@@ -85,38 +74,5 @@ export const ensureProjectAccess = async (
     clerkUserId: effectiveUserId,
     membership,
     project,
-  };
-};
-
-export const ensureThreadAccess = async (
-  ctx: any,
-  threadId: string,
-  clerkUserId?: string,
-) => {
-  const effectiveUserId = clerkUserId ?? (await requireIdentity(ctx)).subject;
-  const thread = (await ctx.db
-    .query("aiThreads")
-    .withIndex("by_thread_id", (q: any) => q.eq("threadId", threadId))
-    .unique()) as ThreadRecord | null;
-
-  if (!thread) {
-    return null;
-  }
-
-  if (thread.userClerkId !== effectiveUserId) {
-    throw new Error("Forbidden");
-  }
-
-  const membership = await ensureProjectScopedMembership(
-    ctx,
-    thread.teamId,
-    thread.projectId,
-    effectiveUserId,
-  );
-
-  return {
-    clerkUserId: effectiveUserId,
-    membership,
-    thread,
   };
 };

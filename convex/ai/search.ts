@@ -1,12 +1,29 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { internalAction, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
-import { internal } from "../_generated/api";
 
 /**
  * Search tools for AI Agent
  * These allow the AI to search for tasks, shopping items, etc. on-demand
  * instead of loading all data upfront
  */
+
+type InternalRagApi = {
+  getProjectTasks: any;
+  getProjectShoppingItems: any;
+  getProjectNotes: any;
+  getProjectSurveys: any;
+  getSurveyQuestionsById: any;
+  getTeamContacts: any;
+  getProjectLaborItems: any;
+};
+
+const getInternalRagApi = (): InternalRagApi => {
+  // Keep this runtime-loaded to avoid deep type instantiation in TS.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const apiModule = require("../_generated/api") as { internal: unknown };
+  return (apiModule.internal as { rag: InternalRagApi }).rag;
+};
 
 export const searchTasks = internalAction({
   args: {
@@ -27,9 +44,10 @@ export const searchTasks = internalAction({
   }),
   handler: async (ctx, args) => {
     const limit = args.limit || 10;
+    const ragApi = getInternalRagApi();
 
     // Get all tasks for the project
-    const allTasks = await ctx.runQuery(internal.rag.getProjectTasks, {
+    const allTasks = await ctx.runQuery(ragApi.getProjectTasks, {
       projectId: args.projectId,
     }) as any[];
 
@@ -80,9 +98,10 @@ export const searchShoppingItems = internalAction({
   }),
   handler: async (ctx, args) => {
     const limit = args.limit || 10;
+    const ragApi = getInternalRagApi();
 
     // Get all shopping items for the project
-    const allItems = await ctx.runQuery(internal.rag.getProjectShoppingItems, {
+    const allItems = await ctx.runQuery(ragApi.getProjectShoppingItems, {
       projectId: args.projectId,
     }) as any[];
 
@@ -136,9 +155,10 @@ export const searchNotes = internalAction({
   }),
   handler: async (ctx, args) => {
     const limit = args.limit || 10;
+    const ragApi = getInternalRagApi();
 
     // Get all notes for the project
-    const allNotes = await ctx.runQuery(internal.rag.getProjectNotes, {
+    const allNotes = await ctx.runQuery(ragApi.getProjectNotes, {
       projectId: args.projectId,
     }) as any[];
 
@@ -188,9 +208,10 @@ export const searchSurveys = internalAction({
   }),
   handler: async (ctx, args) => {
     const limit = args.limit || 10;
+    const ragApi = getInternalRagApi();
 
     // Get all surveys for the project
-    const allSurveys = await ctx.runQuery(internal.rag.getProjectSurveys, {
+    const allSurveys = await ctx.runQuery(ragApi.getProjectSurveys, {
       projectId: args.projectId,
     }) as any[];
 
@@ -221,7 +242,7 @@ export const searchSurveys = internalAction({
     const results = filteredSurveys.slice(0, limit);
     const surveysWithQuestions = await Promise.all(
       results.map(async (survey: any) => {
-        const questions = await ctx.runQuery(internal.rag.getSurveyQuestionsById, {
+        const questions = await ctx.runQuery(ragApi.getSurveyQuestionsById, {
           surveyId: survey._id,
         }) as any[];
 
@@ -259,9 +280,10 @@ export const searchContacts = internalAction({
   }),
   handler: async (ctx, args) => {
     const limit = args.limit || 10;
+    const ragApi = getInternalRagApi();
 
     // Get all contacts for the team
-    const allContacts = await ctx.runQuery(internal.rag.getTeamContacts, {
+    const allContacts = await ctx.runQuery(ragApi.getTeamContacts, {
       teamSlug: args.teamSlug,
     }) as any[];
 
@@ -312,9 +334,10 @@ export const searchLaborItems = internalAction({
   }),
   handler: async (ctx, args) => {
     const limit = args.limit || 10;
+    const ragApi = getInternalRagApi();
 
     // Get all labor items for the project
-    const allItems = await ctx.runQuery(internal.rag.getProjectLaborItems, {
+    const allItems = await ctx.runQuery(ragApi.getProjectLaborItems, {
       projectId: args.projectId,
     }) as any[];
 
@@ -345,6 +368,150 @@ export const searchLaborItems = internalAction({
   },
 });
 
+export const searchMoodboard = internalQuery({
+  args: {
+    projectId: v.id("projects"),
+    query: v.optional(v.string()),
+    limit: v.optional(v.number()),
+  },
+  returns: v.object({
+    count: v.number(),
+    total: v.number(),
+    sections: v.array(v.any()),
+    images: v.array(v.any()),
+  }),
+  handler: async (ctx, args) => {
+    const limit = args.limit || 10;
+
+    const project = await ctx.db.get(args.projectId);
+    if (!project) {
+      return {
+        count: 0,
+        total: 0,
+        sections: [],
+        images: [],
+      };
+    }
+
+    const files = await ctx.db
+      .query("files")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .filter((q) => q.neq(q.field("moodboardSection"), undefined))
+      .collect();
+
+    const sectionsFromProject = Array.isArray(project.moodboardSections)
+      ? project.moodboardSections
+          .filter(
+            (section): section is { id: string; title: string; order: number } =>
+              !!section &&
+              typeof section === "object" &&
+              typeof (section as { id?: unknown }).id === "string" &&
+              typeof (section as { title?: unknown }).title === "string" &&
+              typeof (section as { order?: unknown }).order === "number",
+          )
+          .map((section) => ({
+            id: section.id.trim(),
+            title: section.title.trim(),
+            order: section.order,
+          }))
+      : [];
+
+    const sectionMap = new Map<
+      string,
+      {
+        id: string;
+        title: string;
+        order: number;
+        imageCount: number;
+        latestImageName?: string;
+        latestCreatedAt?: number;
+      }
+    >();
+
+    for (const section of sectionsFromProject) {
+      sectionMap.set(section.id, {
+        ...section,
+        imageCount: 0,
+      });
+    }
+
+    const allImages = files
+      .map((file) => {
+        const sectionId = file.moodboardSection?.trim();
+        if (!sectionId) return null;
+
+        const existingSection = sectionMap.get(sectionId);
+        if (!existingSection) {
+          sectionMap.set(sectionId, {
+            id: sectionId,
+            title: sectionId,
+            order: Number.MAX_SAFE_INTEGER,
+            imageCount: 0,
+          });
+        }
+
+        const summary = sectionMap.get(sectionId)!;
+        summary.imageCount += 1;
+        if (
+          !summary.latestImageName ||
+          file._creationTime > (summary.latestCreatedAt ?? 0)
+        ) {
+          summary.latestImageName = file.name;
+          summary.latestCreatedAt = file._creationTime;
+        }
+
+        return {
+          id: String(file._id),
+          name: file.name,
+          storageId: file.storageId,
+          sectionId,
+          sectionTitle: summary.title,
+          fileType: file.fileType,
+          createdAt: file._creationTime,
+        };
+      })
+      .filter((image): image is NonNullable<typeof image> => Boolean(image));
+
+    let filteredSections = Array.from(sectionMap.values()).map((section) => {
+      const { latestCreatedAt, ...sectionSummary } = section;
+      void latestCreatedAt;
+      return sectionSummary;
+    });
+    let filteredImages = allImages;
+
+    if (args.query && args.query.trim().length > 0) {
+      const queryLower = args.query.toLowerCase();
+      filteredSections = filteredSections.filter((section) => {
+        return (
+          section.title.toLowerCase().includes(queryLower) ||
+          section.id.toLowerCase().includes(queryLower) ||
+          (section.latestImageName ?? "").toLowerCase().includes(queryLower)
+        );
+      });
+      filteredImages = filteredImages.filter((image) => {
+        return (
+          image.name.toLowerCase().includes(queryLower) ||
+          image.sectionTitle.toLowerCase().includes(queryLower) ||
+          image.sectionId.toLowerCase().includes(queryLower)
+        );
+      });
+    }
+
+    filteredSections.sort((a, b) => a.order - b.order || a.title.localeCompare(b.title));
+    filteredImages.sort((a, b) => b.createdAt - a.createdAt);
+
+    const sectionResults = filteredSections.slice(0, limit);
+    const imageResults = filteredImages.slice(0, limit);
+
+    return {
+      count: sectionResults.length + imageResults.length,
+      total: filteredSections.length + filteredImages.length,
+      sections: sectionResults,
+      images: imageResults,
+    };
+  },
+});
+
 /**
  * Get a single item by ID - used for edit operations to fetch original data
  */
@@ -366,3 +533,4 @@ export const getItemById = internalQuery({
     }
   },
 });
+/* eslint-enable @typescript-eslint/no-explicit-any */
