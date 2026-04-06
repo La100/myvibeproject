@@ -39,7 +39,14 @@ export const buildContextFromSnapshot = (snapshot: ProjectContextSnapshot): stri
   if (snapshot.shoppingItems.length > 0) {
     parts.push(`\nSHOPPING (${snapshot.shoppingItems.length}):`);
     snapshot.shoppingItems.forEach((item) => {
-      parts.push(`- "${item.name}" [${item._id}] - Qty: ${item.quantity} | ${item.realizationStatus}`);
+      const details = [
+        `Qty: ${item.quantity}`,
+        item.realizationStatus,
+        item.sectionName ? `section: ${item.sectionName}` : null,
+        item.setTitle ? `set: ${item.setTitle}` : null,
+        item.imageUrl ? "has image" : null,
+      ].filter((entry): entry is string => Boolean(entry));
+      parts.push(`- "${item.name}" [${item._id}] - ${details.join(" | ")}`);
     });
   }
 

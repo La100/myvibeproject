@@ -35,7 +35,7 @@ interface AddShoppingListItemPayload {
   name: string;
   projectId: Id<"projects">;
   sectionId?: Id<"shoppingListSections">;
-  alternativeToItemId?: Id<"shoppingListItems">;
+  setId?: Id<"shoppingSets">;
   unitPrice?: number;
   quantity: number;
   totalPrice?: number;
@@ -249,11 +249,7 @@ function validateClipperPostPayload(raw: unknown): AddShoppingListItemPayload {
   }
 
   const sectionId = asOptionalBoundedString(body.sectionId, "sectionId", 256);
-  const alternativeToItemId = asOptionalBoundedString(
-    body.alternativeToItemId,
-    "alternativeToItemId",
-    256,
-  );
+  const setId = asOptionalBoundedString(body.setId, "setId", 256);
 
   const priorityRaw = asOptionalBoundedString(body.priority, "priority", 20);
   const priority = (priorityRaw ?? "medium") as Priority;
@@ -281,9 +277,7 @@ function validateClipperPostPayload(raw: unknown): AddShoppingListItemPayload {
     name,
     projectId: projectId as Id<"projects">,
     sectionId: sectionId as Id<"shoppingListSections"> | undefined,
-    alternativeToItemId: alternativeToItemId as
-      | Id<"shoppingListItems">
-      | undefined,
+    setId: setId as Id<"shoppingSets"> | undefined,
     unitPrice,
     quantity,
     totalPrice,
@@ -341,17 +335,17 @@ export async function GET(req: Request) {
     }
 
     if (teamId && projectId) {
-      const [sections, items] = await Promise.all([
+      const [sections, sets] = await Promise.all([
         convexAny.query(apiAny.clipper.getShoppingListSections, {
           projectId: projectId as Id<"projects">,
           teamId: teamId as Id<"teams">,
         }),
-        convexAny.query(apiAny.clipper.getShoppingListItemsForProject, {
+        convexAny.query(apiAny.clipper.getShoppingSetsForProject, {
           projectId: projectId as Id<"projects">,
           teamId: teamId as Id<"teams">,
         }),
       ]);
-      return withCors(req, NextResponse.json({ sections, items }));
+      return withCors(req, NextResponse.json({ sections, sets }));
     }
 
     if (teamId) {

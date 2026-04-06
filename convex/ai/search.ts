@@ -89,6 +89,10 @@ export const searchShoppingItems = internalAction({
     projectId: v.id("projects"),
     query: v.optional(v.string()),
     completed: v.optional(v.boolean()),
+    hasImage: v.optional(v.boolean()),
+    sectionName: v.optional(v.string()),
+    setName: v.optional(v.string()),
+    preferredOnly: v.optional(v.boolean()),
     limit: v.optional(v.number()),
   },
   returns: v.object({
@@ -115,6 +119,31 @@ export const searchShoppingItems = internalAction({
       });
     }
 
+    if (args.hasImage !== undefined) {
+      filteredItems = filteredItems.filter((item: any) => {
+        const hasImage = typeof item.imageUrl === "string" && item.imageUrl.trim().length > 0;
+        return hasImage === args.hasImage;
+      });
+    }
+
+    if (args.sectionName && args.sectionName.trim().length > 0) {
+      const normalizedSectionName = args.sectionName.trim().toLowerCase();
+      filteredItems = filteredItems.filter((item: any) =>
+        item.sectionName?.toLowerCase().includes(normalizedSectionName),
+      );
+    }
+
+    if (args.setName && args.setName.trim().length > 0) {
+      const normalizedSetName = args.setName.trim().toLowerCase();
+      filteredItems = filteredItems.filter((item: any) =>
+        item.setTitle?.toLowerCase().includes(normalizedSetName),
+      );
+    }
+
+    if (args.preferredOnly) {
+      filteredItems = filteredItems.filter((item: any) => item.isPreferredInSet === true);
+    }
+
     // Search by query if provided
     if (args.query && args.query.trim().length > 0) {
       const queryLower = args.query.toLowerCase();
@@ -124,7 +153,15 @@ export const searchShoppingItems = internalAction({
         const categoryMatch = item.category?.toLowerCase().includes(queryLower);
         const supplierMatch = item.supplier?.toLowerCase().includes(queryLower);
         const sectionMatch = item.sectionName?.toLowerCase().includes(queryLower);
-        return nameMatch || notesMatch || categoryMatch || supplierMatch || sectionMatch;
+        const setMatch = item.setTitle?.toLowerCase().includes(queryLower);
+        return (
+          nameMatch ||
+          notesMatch ||
+          categoryMatch ||
+          supplierMatch ||
+          sectionMatch ||
+          setMatch
+        );
       });
     }
 

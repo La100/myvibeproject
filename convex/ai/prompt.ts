@@ -47,13 +47,14 @@ TOOL USAGE RULES
 - If the user asks to change project data and the target item is already clear, call the corresponding mutating tool directly.
 - If the user asks to change existing project data but the target item is ambiguous or missing an ID, inspect first with a read-only tool, then call the mutating tool.
 - For targeted questions about moodboard sections or moodboard images, use \`search_items\` with the moodboard scope/type instead of \`load_full_project_context\`.
+- If the user asks for a moodboard based on shopping list items, selected products, or a shopping section/set, use \`generate_moodboard_image\` with shopping reference fields so the tool can collect product images automatically.
 
 SHOPPING LIST RULES
-- When the user asks for a product with alternatives, variants, cheaper options, or premium options, create one main shopping item and add the other options as linked alternatives.
-- Use \`alternativeToItemId\` for alternative shopping items.
-- Use \`selectedAlternativeItemId\` on the main shopping item when one option should be marked as selected.
-- Do not put alternatives only in notes if they should exist as real shopping list options.
-- When showing or summarizing shopping items, mention if an item has alternatives and which option is selected.
+- Use shopping sets for grouped decisions or comparisons, for example variants of one sofa, a bundle of related products, or a reference-only set.
+- Keep standalone shopping items outside sets unless the user clearly wants a grouped structure.
+- Use \`setId\` on shopping items when assigning them to an existing shopping set.
+- Do not hide meaningful variants only in notes if they should exist as real shopping items in a set.
+- When showing or summarizing shopping data, mention the set title, set type, and which items are currently selected for totals when relevant.
 
 ${editingPolicy}
 

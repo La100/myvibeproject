@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery, query, mutation } from "./_generated/server";
 import { Id, Doc } from "./_generated/dataModel";
 import { r2 } from "./files";
+import { ensureProjectAccess } from "./authz";
 const internalAny = require("./_generated/api").internal as any;
 
 // Utility function to generate a slug from a string
@@ -586,8 +587,10 @@ export const markClientNotificationsRead = mutation({
 export const getProject = query({
   args: { projectId: v.id("projects") },
   async handler(ctx, args) {
-    const project = await ctx.db.get(args.projectId);
-    if (!project) {
+    let project: Doc<"projects">;
+    try {
+      ({ project } = await ensureProjectAccess(ctx, args.projectId));
+    } catch {
       return null;
     }
     const team = await ctx.db.get(project.teamId);
@@ -987,30 +990,18 @@ export const getClientPanelConfiguration = query({
         .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
         .collect()
     ).length;
-    const productFeedback = snapshotItems
-      .filter((item) => !item.alternativeToSourceItemId)
-      .map((item) => ({
-        sourceItemId: item.sourceItemId,
-        itemName: item.name,
-        sectionName: item.sectionName,
-        decision: item.customerDecision ?? null,
-        comment: item.customerDecisionComment ?? null,
-        updatedAt: item.customerDecisionUpdatedAt ?? null,
-      }))
-      .sort((a, b) => {
-        const aDate = a.updatedAt || 0;
-        const bDate = b.updatedAt || 0;
-        if (aDate !== bDate) {
-          return bDate - aDate;
-        }
-        return a.itemName.localeCompare(b.itemName);
-      });
+    const productFeedback: Array<{
+      sourceItemId: Id<"shoppingListItems">;
+      itemName: string;
+      sectionName?: string;
+      decision: null;
+      comment: null;
+      updatedAt: null;
+    }> = [];
     const feedbackSummary = {
-      acceptedCount: productFeedback.filter((item) => item.decision === "accepted").length,
-      rejectedCount: productFeedback.filter((item) => item.decision === "rejected").length,
-      commentedCount: productFeedback.filter(
-        (item) => typeof item.comment === "string" && item.comment.trim().length > 0
-      ).length,
+      acceptedCount: 0,
+      rejectedCount: 0,
+      commentedCount: 0,
     };
     const approvals = await ctx.db
       .query("projectApprovals")
@@ -1069,6 +1060,11 @@ export const publishClientPanelData = mutation({
       .query("shoppingListItems")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
+    const sets = await ctx.db
+      .query("shoppingSets")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+    const setById = new Map(sets.map((set) => [String(set._id), set]));
 
     const existingSnapshotItems = await ctx.db
       .query("clientPanelItems")
@@ -1108,6 +1104,7 @@ export const publishClientPanelData = mutation({
           ? sectionMetaById.get(String(item.sectionId))
           : null;
       const existingSnapshotItem = existingSnapshotItemBySourceId.get(String(item._id));
+      const set = item.setId ? setById.get(String(item.setId)) : null;
 
       await ctx.db.insert("clientPanelItems", {
         projectId: args.projectId,
@@ -1127,16 +1124,15 @@ export const publishClientPanelData = mutation({
         totalPrice: item.totalPrice,
         sectionName: sectionMeta?.name,
         sectionOrder: sectionMeta?.order ?? Number.MAX_SAFE_INTEGER,
-        alternativeToSourceItemId: item.alternativeToItemId || null,
-        selectedAlternativeSourceItemId: item.selectedAlternativeItemId || null,
-        customerDecision: existingSnapshotItem?.customerDecision ?? item.customerDecision ?? null,
-        customerDecisionComment:
-          existingSnapshotItem?.customerDecisionComment ??
-          item.customerDecisionComment ??
-          null,
-        customerDecisionUpdatedAt:
-          existingSnapshotItem?.customerDecisionUpdatedAt ??
-          item.customerDecisionUpdatedAt,
+        setId: item.setId || null,
+        setTitle: set?.title,
+        setType: set?.setType ?? null,
+        setSelectionMode: set?.selectionMode ?? null,
+        setPricingMode: set?.pricingMode ?? null,
+        setStatus: set?.status ?? null,
+        setNotes: set?.notes ?? null,
+        setResolvedSourceItemIds: set?.resolvedItemIds ?? [],
+        setPreferredSourceItemIds: set?.preferredItemIds ?? [],
       });
     }
 

@@ -188,10 +188,15 @@ type PublicSurveyAnswerPayload = {
   numberAnswer?: number;
   booleanAnswer?: boolean;
 };
-type MaterialDecision = "accepted" | "rejected" | null;
-type MaterialFeedbackDraft = {
-  decision: MaterialDecision;
-  comment: string;
+type ShoppingGroup = {
+  key: string;
+  sectionName: string;
+  leadItem: ClientPanelItem;
+  items: ClientPanelItem[];
+  title: string;
+  setId?: Id<"shoppingSets">;
+  selectionMode: "single" | "multiple" | "none";
+  pricingMode: "selected_only" | "all_selected" | "none";
 };
 
 const EMPTY_SECTIONS: ClientPanelSection[] = [];
@@ -252,17 +257,51 @@ const formatAmount = (value: number | undefined, currencySymbol: string) => {
   return `${value.toFixed(2)} ${currencySymbol}`;
 };
 
-const getInitialSelectedOption = (baseItem: ClientPanelItem, options: ClientPanelItem[]) => {
-  const selectedId = baseItem.selectedAlternativeSourceItemId
-    ? String(baseItem.selectedAlternativeSourceItemId)
-    : String(baseItem.sourceItemId);
+const getInitialSelectedOptionIds = (item: ClientPanelItem, options: ClientPanelItem[]) => {
+  const optionIds = new Set(options.map((option) => String(option.sourceItemId)));
+  const selectedIds = (item.setResolvedSourceItemIds || item.setPreferredSourceItemIds || [])
+    .map((entry) => String(entry))
+    .filter((entry) => optionIds.has(entry));
 
-  return options.some((option) => String(option.sourceItemId) === selectedId)
-    ? selectedId
-    : String(baseItem.sourceItemId);
+  if (selectedIds.length > 0) {
+    return selectedIds;
+  }
+
+  if (item.setSelectionMode === "single" && options[0]) {
+    return [String(options[0].sourceItemId)];
+  }
+
+  return [];
 };
 
 const getQtyLabel = (item: ClientPanelItem) => `Qty: ${item.quantity} ${item.unit || "pcs"}`;
+
+const getSelectedIdsForGroup = (
+  group: ShoppingGroup,
+  localSelection: Record<string, string[]>,
+) => localSelection[group.key] || getInitialSelectedOptionIds(group.leadItem, group.items);
+
+const getCountedItemsForGroup = (group: ShoppingGroup, selectedIds: string[]) => {
+  if (!group.setId) {
+    return group.items;
+  }
+
+  if (group.pricingMode === "none") {
+    return [];
+  }
+
+  const selectedIdSet = new Set(selectedIds);
+  if (group.selectionMode === "single") {
+    const selectedItem = group.items.find((item) => selectedIdSet.has(String(item.sourceItemId)));
+    return selectedItem ? [selectedItem] : [];
+  }
+
+  if (group.selectionMode === "multiple") {
+    return group.items.filter((item) => selectedIdSet.has(String(item.sourceItemId)));
+  }
+
+  return group.pricingMode === "all_selected" ? group.items : [];
+};
 
 const getStatusLabel = (status?: string) => {
   if (!status) return null;
@@ -294,12 +333,6 @@ const formatMoodboardSectionLabel = (section?: string) => {
   const normalized = section?.trim();
   if (!normalized) return "Moodboard";
   return /^\d+$/.test(normalized) ? `Section ${normalized}` : normalized;
-};
-
-const getMaterialDecisionLabel = (decision: MaterialDecision) => {
-  if (decision === "accepted") return "Accepted";
-  if (decision === "rejected") return "Rejected";
-  return "Pending";
 };
 
 const approvalTypeLabel = (type: PublicApproval["type"]) =>
@@ -430,8 +463,7 @@ export default function PublicClientPanelPage() {
   const panelData = useQuery(apiAny.shopping.getPublicShoppingListByAccessToken, {
     accessToken,
   });
-  const selectAlternative = useMutation(apiAny.shopping.selectShoppingAlternativeByAccessToken);
-  const setItemFeedback = useMutation(apiAny.shopping.setShoppingItemFeedbackByAccessToken);
+  const selectShoppingSetItems = useMutation(apiAny.shopping.selectShoppingSetItemsByAccessToken);
   const submitPublicSurvey = useMutation(apiAny.surveys.submitPublicSurveyResponseByAccessToken);
   const getInvoiceDownloadUrl = useAction(
     apiAny.projectPaymentActions.getProjectPaymentInvoiceDownloadUrlByAccessToken,
@@ -453,14 +485,12 @@ export default function PublicClientPanelPage() {
       : "skip"
   );
 
-  const [localSelection, setLocalSelection] = useState<Record<string, string>>({});
+  const [localSelection, setLocalSelection] = useState<Record<string, string[]>>({});
   const [savingItemId, setSavingItemId] = useState<string | null>(null);
-  const [savingFeedbackItemId, setSavingFeedbackItemId] = useState<string | null>(null);
   const [openSurveyId, setOpenSurveyId] = useState<string | null>(null);
   const [submittingSurveyId, setSubmittingSurveyId] = useState<string | null>(null);
   const [surveyStartTimes, setSurveyStartTimes] = useState<Record<string, number>>({});
   const [surveyAnswers, setSurveyAnswers] = useState<Record<string, Record<string, unknown>>>({});
-  const [feedbackByItem, setFeedbackByItem] = useState<Record<string, MaterialFeedbackDraft>>({});
   const [isExportingMaterialsPdf, setIsExportingMaterialsPdf] = useState(false);
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const [respondentName, setRespondentName] = useState("");
@@ -529,21 +559,6 @@ export default function PublicClientPanelPage() {
   }, [accessToken]);
 
   useEffect(() => {
-    const baseItems = items.filter((item) => !item.alternativeToSourceItemId);
-    setFeedbackByItem((prev) => {
-      const next: Record<string, MaterialFeedbackDraft> = {};
-      for (const item of baseItems) {
-        const itemId = String(item.sourceItemId);
-        next[itemId] = prev[itemId] ?? {
-          decision: item.customerDecision ?? null,
-          comment: item.customerDecisionComment || "",
-        };
-      }
-      return next;
-    });
-  }, [items]);
-
-  useEffect(() => {
     setApprovalComments((current) => {
       const next = { ...current };
       for (const approval of approvals) {
@@ -556,11 +571,9 @@ export default function PublicClientPanelPage() {
     });
   }, [approvals]);
 
-  const baseItemsBySection = useMemo(() => {
-    const baseItems = items.filter((item) => !item.alternativeToSourceItemId);
+  const shoppingGroupsBySection = useMemo(() => {
     const sectionOrder = new Map(sections.map((section) => [section.name, section.order]));
-
-    const sortedBaseItems = [...baseItems].sort((a, b) => {
+    const sortedItems = [...items].sort((a, b) => {
       const aSectionOrder =
         a.sectionName && sectionOrder.has(a.sectionName)
           ? (sectionOrder.get(a.sectionName) as number)
@@ -577,53 +590,62 @@ export default function PublicClientPanelPage() {
       return a.name.localeCompare(b.name);
     });
 
-    const grouped = new Map<string, ClientPanelItem[]>();
+    const grouped = new Map<string, ShoppingGroup[]>();
+    const seenSetIds = new Set<string>();
 
-    for (const item of sortedBaseItems) {
-      const sectionKey = item.sectionName?.trim() || "No Category";
-      if (!grouped.has(sectionKey)) {
-        grouped.set(sectionKey, []);
+    for (const item of sortedItems) {
+      const sectionKey = item.sectionName?.trim() || "No Section";
+      const existing = grouped.get(sectionKey) ?? [];
+
+      if (item.setId) {
+        const setKey = String(item.setId);
+        if (seenSetIds.has(setKey)) {
+          continue;
+        }
+        seenSetIds.add(setKey);
+        const setItems = sortedItems.filter((entry) => String(entry.setId ?? "") === setKey);
+        existing.push({
+          key: setKey,
+          sectionName: sectionKey,
+          leadItem: setItems[0] || item,
+          items: setItems,
+          title: item.setTitle || setItems[0]?.name || item.name,
+          setId: item.setId,
+          selectionMode: item.setSelectionMode || "none",
+          pricingMode: item.setPricingMode || "none",
+        });
+      } else {
+        existing.push({
+          key: String(item.sourceItemId),
+          sectionName: sectionKey,
+          leadItem: item,
+          items: [item],
+          title: item.name,
+          selectionMode: "none",
+          pricingMode: "all_selected",
+        });
       }
-      grouped.get(sectionKey)?.push(item);
+
+      grouped.set(sectionKey, existing);
     }
 
     return grouped;
   }, [items, sections]);
 
-  const getOptionsForBaseItem = (baseItem: ClientPanelItem) => {
-    const options = items.filter(
-      (item) =>
-        item.sourceItemId === baseItem.sourceItemId ||
-        item.alternativeToSourceItemId === baseItem.sourceItemId
-    );
-
-    return options.sort((a, b) => {
-      const aIsBase = String(a.sourceItemId) === String(baseItem.sourceItemId);
-      const bIsBase = String(b.sourceItemId) === String(baseItem.sourceItemId);
-      if (aIsBase && !bIsBase) return -1;
-      if (!aIsBase && bIsBase) return 1;
-      return a.name.localeCompare(b.name);
-    });
-  };
-
-  const sectionSummaries = Array.from(baseItemsBySection.entries()).map(
-    ([sectionName, sectionItems]) => {
-      const total = sectionItems.reduce((sum, baseItem) => {
-        const options = getOptionsForBaseItem(baseItem);
-        const baseItemId = String(baseItem.sourceItemId);
-        const selectedId =
-          localSelection[baseItemId] || getInitialSelectedOption(baseItem, options);
-        const selectedOption =
-          options.find((option) => String(option.sourceItemId) === selectedId) || baseItem;
-        return sum + (selectedOption.totalPrice || 0);
+  const sectionSummaries = Array.from(shoppingGroupsBySection.entries()).map(
+    ([sectionName, groups]) => {
+      const total = groups.reduce((sum, group) => {
+        const selectedIds = getSelectedIdsForGroup(group, localSelection);
+        const countedItems = getCountedItemsForGroup(group, selectedIds);
+        return sum + countedItems.reduce((sectionSum, item) => sectionSum + (item.totalPrice || 0), 0);
       }, 0);
 
       return {
         sectionName,
-        itemCount: sectionItems.length,
+        itemCount: groups.length,
         total,
       };
-    }
+    },
   );
 
   const grandTotal = sectionSummaries.reduce((sum, section) => sum + section.total, 0);
@@ -763,7 +785,7 @@ export default function PublicClientPanelPage() {
 
       addDocumentMeta(doc, {
         title: `Shopping List - ${project.name}`,
-        subtitle: `Items: ${Array.from(baseItemsBySection.values()).reduce((sum, itemsInSection) => sum + itemsInSection.length, 0)}`,
+        subtitle: `Items: ${Array.from(shoppingGroupsBySection.values()).reduce((sum, groups) => sum + groups.length, 0)}`,
         generatedOn: new Date().toLocaleString(),
         fontFamily: pdfFontFamily,
       });
@@ -780,25 +802,20 @@ export default function PublicClientPanelPage() {
         ...(includeNotesColumn ? ["Notes"] : []),
       ];
 
-      const rows = Array.from(baseItemsBySection.entries()).flatMap(
-        ([sectionName, sectionItems]) =>
-          sectionItems.map((baseItem) => {
-            const options = getOptionsForBaseItem(baseItem);
-            const baseItemId = String(baseItem.sourceItemId);
-            const selectedOptionId =
-              localSelection[baseItemId] || getInitialSelectedOption(baseItem, options);
-            const selectedOption =
-              options.find((option) => String(option.sourceItemId) === selectedOptionId) || baseItem;
-
-            return [
-              sectionName,
-              selectedOption.name || baseItem.name,
-              `${selectedOption.quantity} ${selectedOption.unit || "pcs"}`,
-              ...(includePriceColumn ? [formatMoney(selectedOption.totalPrice, currencySymbol)] : []),
-              ...(includeSupplierColumn ? [selectedOption.supplier || "-"] : []),
-              ...(includeNotesColumn ? [selectedOption.notes || "-"] : []),
-            ];
-          })
+      const rows = Array.from(shoppingGroupsBySection.entries()).flatMap(([sectionName, groups]) =>
+        groups.flatMap((group) => {
+          const selectedIds = getSelectedIdsForGroup(group, localSelection);
+          const countedItems = getCountedItemsForGroup(group, selectedIds);
+          const printableItems = countedItems.length > 0 ? countedItems : group.items;
+          return printableItems.map((item) => [
+            sectionName,
+            item.name,
+            `${item.quantity} ${item.unit || "pcs"}`,
+            ...(includePriceColumn ? [formatMoney(item.totalPrice, currencySymbol)] : []),
+            ...(includeSupplierColumn ? [item.supplier || "-"] : []),
+            ...(includeNotesColumn ? [item.notes || "-"] : []),
+          ]);
+        }),
       );
 
       doc.autoTable({
@@ -839,28 +856,30 @@ export default function PublicClientPanelPage() {
     }
   };
 
-  const handleSelect = async (baseItem: ClientPanelItem, selectedId: string) => {
-    const baseItemId = String(baseItem.sourceItemId);
-    const previousValue = localSelection[baseItemId];
+  const handleSelectSetItems = async (group: ShoppingGroup, nextSelectedIds: string[]) => {
+    if (!group.setId) {
+      return;
+    }
 
-    setLocalSelection((prev) => ({ ...prev, [baseItemId]: selectedId }));
-    setSavingItemId(baseItemId);
+    const previousValue = localSelection[group.key];
+    setLocalSelection((prev) => ({ ...prev, [group.key]: nextSelectedIds }));
+    setSavingItemId(group.key);
 
     try {
-      await selectAlternative({
+      await selectShoppingSetItems({
         accessToken,
-        itemId: baseItem.sourceItemId,
-        selectedItemId: selectedId as Id<"shoppingListItems">,
+        setId: group.setId,
+        selectedItemIds: nextSelectedIds as Id<"shoppingListItems">[],
         respondentName: respondentName.trim() || undefined,
       });
       toast.success("Selection saved");
     } catch (error) {
       if (previousValue) {
-        setLocalSelection((prev) => ({ ...prev, [baseItemId]: previousValue }));
+        setLocalSelection((prev) => ({ ...prev, [group.key]: previousValue }));
       } else {
         setLocalSelection((prev) => {
           const next = { ...prev };
-          delete next[baseItemId];
+          delete next[group.key];
           return next;
         });
       }
@@ -869,92 +888,6 @@ export default function PublicClientPanelPage() {
       });
     } finally {
       setSavingItemId(null);
-    }
-  };
-
-  const updateFeedbackDraft = (
-    itemId: string,
-    update: Partial<MaterialFeedbackDraft>,
-    fallback: MaterialFeedbackDraft
-  ) => {
-    setFeedbackByItem((prev) => ({
-      ...prev,
-      [itemId]: {
-        ...(prev[itemId] || fallback),
-        ...update,
-      },
-    }));
-  };
-
-  const handleSetMaterialDecision = async (
-    baseItem: ClientPanelItem,
-    nextDecision: Exclude<MaterialDecision, null>
-  ) => {
-    const itemId = String(baseItem.sourceItemId);
-    const fallbackDraft: MaterialFeedbackDraft = {
-      decision: baseItem.customerDecision ?? null,
-      comment: baseItem.customerDecisionComment || "",
-    };
-    const currentDraft = feedbackByItem[itemId] || fallbackDraft;
-    const resolvedDecision = currentDraft.decision === nextDecision ? null : nextDecision;
-    const previousDraft = currentDraft;
-
-    updateFeedbackDraft(itemId, { decision: resolvedDecision }, fallbackDraft);
-    setSavingFeedbackItemId(itemId);
-    try {
-      await setItemFeedback({
-        accessToken,
-        itemId: baseItem.sourceItemId,
-        decision: resolvedDecision,
-        comment: currentDraft.comment.trim() || null,
-        respondentName: respondentName.trim() || undefined,
-      });
-      toast.success("Customer decision saved");
-    } catch (error) {
-      setFeedbackByItem((prev) => ({
-        ...prev,
-        [itemId]: previousDraft,
-      }));
-      toast.error("Failed to save customer decision", {
-        description: (error as Error).message,
-      });
-    } finally {
-      setSavingFeedbackItemId(null);
-    }
-  };
-
-  const handleSaveMaterialComment = async (baseItem: ClientPanelItem) => {
-    const itemId = String(baseItem.sourceItemId);
-    const fallbackDraft: MaterialFeedbackDraft = {
-      decision: baseItem.customerDecision ?? null,
-      comment: baseItem.customerDecisionComment || "",
-    };
-    const currentDraft = feedbackByItem[itemId] || fallbackDraft;
-    const normalizedComment = currentDraft.comment.trim();
-
-    setSavingFeedbackItemId(itemId);
-    try {
-      await setItemFeedback({
-        accessToken,
-        itemId: baseItem.sourceItemId,
-        decision: currentDraft.decision,
-        comment: normalizedComment || null,
-        respondentName: respondentName.trim() || undefined,
-      });
-      setFeedbackByItem((prev) => ({
-        ...prev,
-        [itemId]: {
-          ...currentDraft,
-          comment: normalizedComment,
-        },
-      }));
-      toast.success("Comment saved");
-    } catch (error) {
-      toast.error("Failed to save comment", {
-        description: (error as Error).message,
-      });
-    } finally {
-      setSavingFeedbackItemId(null);
     }
   };
 
@@ -2201,7 +2134,7 @@ export default function PublicClientPanelPage() {
             </div>
           ) : (
             sectionSummaries.map(({ sectionName, itemCount, total }) => {
-              const sectionItems = baseItemsBySection.get(sectionName) || [];
+              const sectionGroups = shoppingGroupsBySection.get(sectionName) || [];
 
               return (
                 <div
@@ -2223,260 +2156,148 @@ export default function PublicClientPanelPage() {
                   </div>
 
                   <div className="flex flex-col gap-4">
-                    {sectionItems.map((baseItem) => {
-                      const options = getOptionsForBaseItem(baseItem);
-                      const hasAlternatives = options.length > 1;
-                      const baseItemId = String(baseItem.sourceItemId);
-                      const selectedOptionId =
-                        localSelection[baseItemId] || getInitialSelectedOption(baseItem, options);
-                      const selectedOption =
-                        options.find((option) => String(option.sourceItemId) === selectedOptionId) ||
-                        baseItem;
-                      const feedbackDraft = feedbackByItem[baseItemId] || {
-                        decision: baseItem.customerDecision ?? null,
-                        comment: baseItem.customerDecisionComment || "",
-                      };
-                      const statusLabel = getStatusLabel(
-                        selectedOption.realizationStatus || baseItem.realizationStatus
-                      );
-
+                    {sectionGroups.map((group) => {
+                      const selectedIds = getSelectedIdsForGroup(group, localSelection);
+                      const countedItems = getCountedItemsForGroup(group, selectedIds);
+                      const statusLabel = getStatusLabel(group.leadItem.realizationStatus);
                       return (
                         <div
-                          key={baseItemId}
+                          key={group.key}
                           className="group relative rounded-2xl border border-border/50 bg-card p-5 transition-all hover:border-border hover:shadow-sm"
                         >
-                          {hasAlternatives ? (
-                            <div className="flex flex-col gap-3">
-                              <div className="rounded-md border border-border bg-muted px-3 py-2">
-                                <p className="text-sm font-medium text-foreground">Choose:</p>
-                                <p className="text-xs text-muted-foreground">
-                                  Select one option for this item.
-                                </p>
-                              </div>
-                              <RadioGroup
-                                value={selectedOptionId}
-                                onValueChange={(value) => void handleSelect(baseItem, value)}
-                                className="flex flex-col gap-3"
-                              >
-                                {options.map((option) => {
-                                  const optionId = String(option.sourceItemId);
-                                  const isSelected = optionId === selectedOptionId;
-                                  const optionStatusLabel = getStatusLabel(option.realizationStatus);
-                                  const optionImage = option.imageUrl || baseItem.imageUrl;
-
-                                  return (
-                                    <div
-                                      key={optionId}
-                                      className={`rounded-xl border p-4 transition-all ${
-                                        isSelected
-                                          ? "border-border bg-muted"
-                                          : "border-border/70 bg-card"
-                                      }`}
-                                    >
-                                      <div className="flex items-start gap-3">
-                                        <RadioGroupItem id={`${baseItemId}-${optionId}`} value={optionId} className="mt-1" />
-                                        <div className="flex min-w-0 flex-1 items-start justify-between gap-4">
-                                          <div className="flex min-w-0 flex-1 items-start gap-4">
-                                            <ItemImage imageUrl={optionImage} name={option.name} />
-                                            <div className="min-w-0 flex-1 py-1">
-                                              <Label
-                                                htmlFor={`${baseItemId}-${optionId}`}
-                                                className="cursor-pointer break-words text-lg font-medium text-foreground"
-                                              >
-                                                {option.name}
-                                              </Label>
-                                              <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-foreground">
-                                                <span className="rounded-md border border-border bg-muted px-2 py-0.5 text-xs font-medium">
-                                                  {getQtyLabel(option)}
-                                                </span>
-                                                {settings.showPrice && option.unitPrice !== undefined ? (
-                                                  <span className="text-muted-foreground">
-                                                    {formatAmount(option.unitPrice, currencySymbol)} / unit
-                                                  </span>
-                                                ) : null}
-                                                {settings.showPrice && option.totalPrice !== undefined ? (
-                                                  <span className="font-medium">
-                                                    Total: {formatAmount(option.totalPrice, currencySymbol)}
-                                                  </span>
-                                                ) : null}
-                                                {settings.showSupplier && option.supplier ? (
-                                                  <span>Supplier: {option.supplier}</span>
-                                                ) : null}
-                                              </div>
-                                              {settings.showNotes && option.notes ? (
-                                                <p className="mt-2 text-sm text-muted-foreground">{option.notes}</p>
-                                              ) : null}
-                                            </div>
-                                          </div>
-                                          <div className="flex shrink-0 items-center gap-2">
-                                            <span className="h-2 w-2 rounded-full bg-primary/60" />
-                                            {optionStatusLabel ? (
-                                              <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-foreground">
-                                                {optionStatusLabel}
-                                              </span>
-                                            ) : null}
-                                            {option.productLink ? (
-                                              <a
-                                                href={option.productLink}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-                                              >
-                                                <ExternalLink className="h-4 w-4" />
-                                              </a>
-                                            ) : null}
-                                          </div>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </RadioGroup>
-                            </div>
-                          ) : (
-                            <div className="flex min-w-0 items-start justify-between gap-4">
-                              <div className="flex min-w-0 flex-1 items-start gap-4">
-                                <ItemImage
-                                  imageUrl={selectedOption.imageUrl || baseItem.imageUrl}
-                                  name={selectedOption.name || baseItem.name}
-                                />
-                                <div className="min-w-0 flex-1 py-1">
+                          <div className="mb-4 flex min-w-0 items-start justify-between gap-4">
+                            <div className="flex min-w-0 flex-1 items-start gap-4">
+                              <ItemImage
+                                imageUrl={group.leadItem.imageUrl}
+                                name={group.title}
+                              />
+                              <div className="min-w-0 flex-1 py-1">
+                                <div className="flex flex-wrap items-center gap-2">
                                   <h3 className="break-words text-lg font-medium text-foreground">
-                                    {selectedOption.name || baseItem.name}
+                                    {group.title}
                                   </h3>
-                                  <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-foreground">
-                                    <span className="rounded-md border border-border bg-muted px-2 py-0.5 text-xs font-medium">
-                                      {getQtyLabel(selectedOption)}
-                                    </span>
-                                    {settings.showPrice && selectedOption.unitPrice !== undefined ? (
-                                      <span className="text-muted-foreground">
-                                        {formatAmount(selectedOption.unitPrice, currencySymbol)} / unit
+                                  {group.setId ? (
+                                    <>
+                                      <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
+                                        {group.items.length} options
                                       </span>
-                                    ) : null}
-                                    {settings.showPrice && selectedOption.totalPrice !== undefined ? (
-                                      <span className="font-medium">
-                                        Total: {formatAmount(selectedOption.totalPrice, currencySymbol)}
+                                      <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
+                                        {group.selectionMode}
                                       </span>
-                                    ) : null}
-                                    {settings.showSupplier && selectedOption.supplier ? (
-                                      <span>Supplier: {selectedOption.supplier}</span>
-                                    ) : null}
-                                  </div>
-                                  {settings.showNotes && selectedOption.notes ? (
-                                    <p className="mt-2 text-sm text-muted-foreground">{selectedOption.notes}</p>
+                                    </>
                                   ) : null}
                                 </div>
-                              </div>
-                              <div className="flex shrink-0 items-center gap-2">
-                                <span className="h-2 w-2 rounded-full bg-primary/60" />
                                 {statusLabel ? (
-                                  <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-foreground">
-                                    {statusLabel}
-                                  </span>
+                                  <div className="mt-2">
+                                    <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-foreground">
+                                      {statusLabel}
+                                    </span>
+                                  </div>
                                 ) : null}
-                                {selectedOption.productLink ? (
-                                  <a
-                                    href={selectedOption.productLink}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-                                  >
-                                    <ExternalLink className="h-4 w-4" />
-                                  </a>
-                                ) : null}
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="mt-4 rounded-lg border border-border bg-muted p-4">
-                            <div className="flex flex-wrap items-center justify-between gap-3">
-                              <p className="text-sm font-medium text-foreground">
-                                Customer decision
-                              </p>
-                              <span
-                                className={`inline-flex items-center justify-center rounded-full border px-3 py-1 text-xs font-medium ${
-                                  feedbackDraft.decision === "accepted"
-                                    ? "border-border bg-muted text-foreground"
-                                    : feedbackDraft.decision === "rejected"
-                                      ? "border-border bg-muted text-foreground"
-                                      : "border-border bg-card text-muted-foreground"
-                                }`}
-                              >
-                                {getMaterialDecisionLabel(feedbackDraft.decision)}
-                              </span>
-                            </div>
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant={
-                                  feedbackDraft.decision === "accepted" ? "default" : "outline"
-                                }
-                                onClick={() => void handleSetMaterialDecision(baseItem, "accepted")}
-                                disabled={savingFeedbackItemId === baseItemId}
-                              >
-                                Accept
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant={
-                                  feedbackDraft.decision === "rejected" ? "destructive" : "outline"
-                                }
-                                onClick={() => void handleSetMaterialDecision(baseItem, "rejected")}
-                                disabled={savingFeedbackItemId === baseItemId}
-                              >
-                                Reject
-                              </Button>
-                            </div>
-                            <div className="mt-3 flex flex-col gap-2">
-                              <Label
-                                htmlFor={`comment-${baseItemId}`}
-                                className="text-xs text-muted-foreground"
-                              >
-                                Comment
-                              </Label>
-                              <Textarea
-                                id={`comment-${baseItemId}`}
-                                value={feedbackDraft.comment}
-                                onChange={(event) =>
-                                  updateFeedbackDraft(
-                                    baseItemId,
-                                    { comment: event.target.value },
-                                    {
-                                      decision: baseItem.customerDecision ?? null,
-                                      comment: baseItem.customerDecisionComment || "",
-                                    }
-                                  )
-                                }
-                                placeholder="Add a comment for the project team..."
-                                rows={3}
-                                maxLength={2000}
-                              />
-                              <div className="flex flex-wrap items-center justify-between gap-2">
-                                <p className="text-xs text-muted-foreground">
-                                  {baseItem.customerDecisionUpdatedAt
-                                    ? `Last update: ${new Date(baseItem.customerDecisionUpdatedAt).toLocaleString()}`
-                                    : "No customer feedback yet."}
-                                </p>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => void handleSaveMaterialComment(baseItem)}
-                                  disabled={savingFeedbackItemId === baseItemId}
-                                >
-                                  Save comment
-                                </Button>
                               </div>
                             </div>
                           </div>
 
-                          {savingItemId === baseItemId ? (
+                          <div className="flex flex-col gap-3">
+                            {group.items.map((option) => {
+                              const optionId = String(option.sourceItemId);
+                              const isSelected = selectedIds.includes(optionId);
+                              const optionStatusLabel = getStatusLabel(option.realizationStatus);
+
+                              return (
+                                <div
+                                  key={optionId}
+                                  className={`rounded-xl border p-4 transition-all ${
+                                    isSelected ? "border-border bg-muted" : "border-border/70 bg-card"
+                                  }`}
+                                >
+                                  <div className="flex items-start gap-3">
+                                    {group.selectionMode === "multiple" ? (
+                                      <Checkbox
+                                        checked={isSelected}
+                                        onCheckedChange={(checked) => {
+                                          const next = checked
+                                            ? Array.from(new Set([...selectedIds, optionId]))
+                                            : selectedIds.filter((entry) => entry !== optionId);
+                                          void handleSelectSetItems(group, next);
+                                        }}
+                                        className="mt-1"
+                                      />
+                                    ) : group.selectionMode === "single" ? (
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant={isSelected ? "default" : "outline"}
+                                        className="mt-0.5"
+                                        onClick={() => void handleSelectSetItems(group, [optionId])}
+                                      >
+                                        {isSelected ? "Selected" : "Select"}
+                                      </Button>
+                                    ) : null}
+                                    <div className="flex min-w-0 flex-1 items-start justify-between gap-4">
+                                      <div className="flex min-w-0 flex-1 items-start gap-4">
+                                        <ItemImage imageUrl={option.imageUrl} name={option.name} />
+                                        <div className="min-w-0 flex-1 py-1">
+                                          <Label
+                                            htmlFor={`${group.key}-${optionId}`}
+                                            className="cursor-pointer break-words text-lg font-medium text-foreground"
+                                          >
+                                            {option.name}
+                                          </Label>
+                                          <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-foreground">
+                                            <span className="rounded-md border border-border bg-muted px-2 py-0.5 text-xs font-medium">
+                                              {getQtyLabel(option)}
+                                            </span>
+                                            {settings.showPrice && option.unitPrice !== undefined ? (
+                                              <span className="text-muted-foreground">
+                                                {formatAmount(option.unitPrice, currencySymbol)} / unit
+                                              </span>
+                                            ) : null}
+                                            {settings.showPrice && option.totalPrice !== undefined ? (
+                                              <span className="font-medium">
+                                                Total: {formatAmount(option.totalPrice, currencySymbol)}
+                                              </span>
+                                            ) : null}
+                                            {settings.showSupplier && option.supplier ? (
+                                              <span>Supplier: {option.supplier}</span>
+                                            ) : null}
+                                          </div>
+                                          {settings.showNotes && option.notes ? (
+                                            <p className="mt-2 text-sm text-muted-foreground">{option.notes}</p>
+                                          ) : null}
+                                        </div>
+                                      </div>
+                                      <div className="flex shrink-0 items-center gap-2">
+                                        {countedItems.some((entry) => entry.sourceItemId === option.sourceItemId) ? (
+                                          <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-foreground">
+                                            Counted
+                                          </span>
+                                        ) : null}
+                                        {optionStatusLabel ? (
+                                          <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-foreground">
+                                            {optionStatusLabel}
+                                          </span>
+                                        ) : null}
+                                        {option.productLink ? (
+                                          <a
+                                            href={option.productLink}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                                          >
+                                            <ExternalLink className="h-4 w-4" />
+                                          </a>
+                                        ) : null}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {savingItemId === group.key ? (
                             <p className="pt-3 text-xs text-muted-foreground">Saving selection...</p>
-                          ) : null}
-                          {savingFeedbackItemId === baseItemId ? (
-                            <p className="pt-2 text-xs text-muted-foreground">Saving feedback...</p>
                           ) : null}
                         </div>
                       );

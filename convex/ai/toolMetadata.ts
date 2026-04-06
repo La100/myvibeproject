@@ -71,7 +71,7 @@ const assistantToolMetadata: Record<AssistantToolName, ToolMetadata> = {
   },
   manage_shopping: {
     readOnly: false,
-    promptSummary: "Manage shopping items or sections with one tool. Use entity=item or entity=section.",
+    promptSummary: "Manage shopping items, sections, or sets with one tool. Use entity=item, entity=section, or entity=set.",
     approvalMode: "requires-confirmation",
     defaults: { type: "shopping" },
     shouldPersistPending: () => true,
@@ -118,7 +118,7 @@ const assistantToolMetadata: Record<AssistantToolName, ToolMetadata> = {
   },
   generate_moodboard_image: {
     readOnly: false,
-    promptSummary: "Generate and save a moodboard image to the project.",
+    promptSummary: "Generate and save a moodboard image to the project, optionally grounded in shopping list reference images.",
     approvalMode: "requires-confirmation",
     shouldPersistPending: () => false,
   },

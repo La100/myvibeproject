@@ -389,16 +389,47 @@ test("update_project_settings trims values and rejects too-short name", async ()
   assert.equal(parsed.updates.location, "Warszawa");
 });
 
-test("search_items uses runAction and generate_moodboard_image passes project context", async () => {
+test("search_items uses runAction and generate_moodboard_image can ground output in shopping images", async () => {
   const { createStreamingTools } = await getToolModule();
   const calls: Array<Record<string, unknown>> = [];
 
   const tools = createStreamingTools({
     projectId: "project_1",
     userClerkId: "user_123",
+    loadSnapshot: async () => ({
+      project: null,
+      tasks: [],
+      notes: [],
+      shoppingItems: [
+        {
+          _id: "shopping_1",
+          name: "Boucle sofa",
+          quantity: 1,
+          realizationStatus: "PLANNED",
+          imageUrl: "https://cdn.example.com/sofa.jpg",
+          sectionName: "Living Room",
+          setTitle: "Seating",
+          isPreferredInSet: true,
+        },
+        {
+          _id: "shopping_2",
+          name: "Travertine coffee table",
+          quantity: 1,
+          realizationStatus: "PLANNED",
+          imageUrl: "https://cdn.example.com/table.jpg",
+          sectionName: "Living Room",
+          setTitle: "Seating",
+          isPreferredInSet: true,
+        },
+      ],
+      contacts: [],
+      surveys: [],
+      files: [],
+      summary: "",
+    }),
     runAction: async (_actionRef: unknown, args: Record<string, unknown>) => {
       calls.push(args);
-      if ("prompt" in args) {
+      if ("referenceImages" in args) {
         return {
           success: true,
           sectionKey: "1",
@@ -421,22 +452,41 @@ test("search_items uses runAction and generate_moodboard_image passes project co
     limit: 10,
     filters: {
       completed: true,
+      hasImage: true,
+      sectionName: "Living Room",
+      setName: "Seating",
+      preferredOnly: true,
       status: "done",
       badKey: "ignored",
     } as never,
   });
   const searchParsed = JSON.parse(searchRaw);
   assert.equal(searchParsed.total, 1);
+  const searchCall = calls.find((entry) => entry.query === "farba");
+  assert.equal(searchCall?.hasImage, true);
+  assert.equal(searchCall?.sectionName, "Living Room");
+  assert.equal(searchCall?.setName, "Seating");
+  assert.equal(searchCall?.preferredOnly, true);
 
   const moodboardRaw = await tools.generate_moodboard_image.prepare({
     prompt: "Warm minimal living room with travertine and oak",
     section: "Living room",
+    useShoppingListAsReference: true,
+    shoppingSectionName: "Living Room",
+    onlySetPreferredItems: true,
+    maxReferenceImages: 6,
   });
   const moodboardParsed = JSON.parse(moodboardRaw);
 
   assert.equal(moodboardParsed.success, true);
   assert.equal(calls.some((entry) => entry.projectId === "project_1"), true);
   assert.equal(calls.some((entry) => entry.userClerkId === "user_123"), true);
+  const moodboardCall = calls.find((entry) => Array.isArray(entry.referenceImages));
+  assert.equal(Array.isArray(moodboardCall?.referenceImages), true);
+  assert.equal((moodboardCall?.referenceImages as Array<unknown>).length, 2);
+  assert.match(String(moodboardCall?.prompt), /Boucle sofa/);
+  assert.match(String(moodboardCall?.prompt), /Travertine coffee table/);
+  assert.equal(moodboardParsed.referenceImageCount, 2);
 });
 
 test("manage_tasks execute runs confirmed action instead of only returning prepared payload", async () => {

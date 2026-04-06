@@ -58,6 +58,8 @@ export interface ShoppingItemContext {
   category?: string;
   supplier?: string;
   dimensions?: string;
+  imageUrl?: string;
+  productLink?: string;
   quantity: number;
   unitPrice?: number;
   totalPrice?: number;
@@ -69,6 +71,13 @@ export interface ShoppingItemContext {
     | "COMPLETED"
     | "CANCELLED";
   assignedTo?: string | null;
+  sectionId?: Id<"shoppingListSections"> | null;
+  sectionName?: string;
+  setId?: Id<"shoppingSets"> | null;
+  setTitle?: string;
+  setType?: "variant" | "bundle" | "reference";
+  isPreferredInSet?: boolean;
+  isResolvedInSet?: boolean;
 }
 
 export interface ContactContext {
@@ -148,13 +157,13 @@ export interface PendingItem {
     | "survey"
     | "contact"
     | "shoppingSection"
-    | "labor"
-    | "laborSection"
-    | "projectSettings";
+  | "labor"
+  | "laborSection"
+  | "projectSettings";
   operation?: "create" | "edit" | "delete" | "bulk_edit" | "bulk_create";
-  data: any;
-  updates?: any;
-  originalItem?: any;
+  data: Record<string, unknown>;
+  updates?: Record<string, unknown>;
+  originalItem?: unknown;
   functionCall?: {
     callId: string;
     functionName: string;

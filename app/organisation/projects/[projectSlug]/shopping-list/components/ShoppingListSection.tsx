@@ -1,51 +1,33 @@
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
+import { useMemo, useState } from "react";
+import { Doc, Id } from "@/convex/_generated/dataModel";
+import type { TeamMember } from "@/lib/teamMember";
+import { buildShoppingSetContext, calculateShoppingTotal, isItemCountedInShoppingTotal } from "@/lib/shoppingSets";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { AddItemForm } from "./AddItemForm";
+import { ShoppingListItemDetails } from "./ShoppingListItemDetails";
 import {
-  CalendarIcon,
+  CheckIcon,
   ChevronDownIcon,
   ChevronUpIcon,
-  CheckIcon,
   EditIcon,
   ExternalLinkIcon,
+  Layers3Icon,
   PlusIcon,
   SaveIcon,
   TrashIcon,
   XIcon,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
-import { Doc, Id } from '@/convex/_generated/dataModel';
-import type { TeamMember } from '@/lib/teamMember';
-import { buildAlternativeGroups, buildAlternativeSelection, calculateShoppingTotal, isItemCountedInShoppingTotal } from '@/lib/shoppingAlternatives';
-import { AddItemForm } from './AddItemForm';
-import { ShoppingListItemDetails } from './ShoppingListItemDetails';
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
 
-type ShoppingListItem = Doc<"shoppingListItems"> & {
-  alternativeToItemId?: Id<"shoppingListItems"> | null;
-  selectedAlternativeItemId?: Id<"shoppingListItems"> | null;
-  customerDecision?: "accepted" | "rejected" | null;
-  customerDecisionComment?: string | null;
-  customerDecisionUpdatedAt?: number;
-  customerDecisionByName?: string | null;
-};
+type ShoppingListItem = Doc<"shoppingListItems">;
+type ShoppingSet = Doc<"shoppingSets">;
 type Priority = ShoppingListItem["priority"];
-
-type AlternativeGroup = {
-  root: ShoppingListItem;
-  options: ShoppingListItem[];
-  selectedOptionId: string;
-  selectedOption: ShoppingListItem;
-  hasAlternatives: boolean;
-  isOrphanAlternative: boolean;
-};
 
 interface EditFormData {
   name?: string;
@@ -53,6 +35,7 @@ interface EditFormData {
   supplier?: string;
   category?: string;
   sectionId?: string | Id<"shoppingListSections">;
+  setId?: string | Id<"shoppingSets">;
   catalogNumber?: string;
   dimensions?: string;
   quantity?: number;
@@ -63,13 +46,14 @@ interface EditFormData {
   realizationStatus?: string;
   buyBefore?: string;
   assigneeId?: string;
-  alternativeToItemId?: string | Id<"shoppingListItems">;
 }
 
 interface ShoppingListSectionProps {
   sectionName: string;
   sectionId?: Id<"shoppingListSections">;
   items: ShoppingListItem[];
+  sets: ShoppingSet[];
+  allSets: ShoppingSet[];
   currencySymbol: string;
   teamMembers?: TeamMember[];
   sections: Doc<"shoppingListSections">[];
@@ -81,6 +65,7 @@ interface ShoppingListSectionProps {
     supplier?: string;
     category?: string;
     sectionId?: Id<"shoppingListSections">;
+    setId?: Id<"shoppingSets">;
     catalogNumber?: string;
     dimensions?: string;
     quantity: number;
@@ -92,6 +77,11 @@ interface ShoppingListSectionProps {
     buyBefore?: number;
     assignedTo?: string;
   }) => Promise<void>;
+  onUpdateSet: (
+    id: Id<"shoppingSets">,
+    updates: Partial<Doc<"shoppingSets">>,
+  ) => Promise<void>;
+  onDeleteSet: (id: Id<"shoppingSets">) => Promise<void>;
   isPending: boolean;
 }
 
@@ -99,171 +89,140 @@ export function ShoppingListSection({
   sectionName,
   sectionId,
   items,
+  sets,
+  allSets,
   currencySymbol,
   teamMembers,
   sections,
   onUpdateItem,
   onDeleteItem,
   onAddItem,
-  isPending
+  onUpdateSet,
+  onDeleteSet,
+  isPending,
 }: ShoppingListSectionProps) {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editFormData, setEditFormData] = useState<EditFormData>({});
-  const [showAddForm, setShowAddForm] = useState(false);
   const [expandedDetails, setExpandedDetails] = useState<Record<string, boolean>>({});
+  const [showAddForm, setShowAddForm] = useState(false);
 
-  const toggleDetails = (itemId: string) => {
-    setExpandedDetails((prev) => ({
-      ...prev,
-      [itemId]: !prev[itemId],
-    }));
+  const setsById = useMemo(
+    () => new Map(allSets.map((set) => [String(set._id), set])),
+    [allSets],
+  );
+  const sectionSets = useMemo(
+    () => sets.slice().sort((left, right) => left.order - right.order || left.title.localeCompare(right.title)),
+    [sets],
+  );
+  const standaloneItems = useMemo(
+    () =>
+      items.filter((item) => {
+        if (!item.setId) return true;
+        const set = setsById.get(String(item.setId));
+        return !set || String(set.sectionId ?? "") !== String(sectionId ?? "");
+      }),
+    [items, sectionId, setsById],
+  );
+
+  const setContext = buildShoppingSetContext(items, sets);
+  const sectionTotal = calculateShoppingTotal(items, sets);
+
+  const getAssignedMemberName = (assignedTo?: string) => {
+    if (!assignedTo) return null;
+    const member = teamMembers?.find((entry) => entry.clerkUserId === assignedTo);
+    return member?.name || assignedTo;
   };
 
-  const sectionTotal = calculateShoppingTotal(items);
-  const selection = buildAlternativeSelection(items);
-  const itemsById = new Map(items.map((item) => [String(item._id), item]));
-
-  const alternativeGroups: AlternativeGroup[] = buildAlternativeGroups(items).map((group) => {
-    const root = group.baseItem;
-    const selectedOption =
-      group.options.find((option) => String(option._id) === group.selectedItemId) || root;
-
-    return {
-      root,
-      options: group.options,
-      selectedOptionId: group.selectedItemId,
-      selectedOption,
-      hasAlternatives: group.options.length > 1,
-      isOrphanAlternative: !!root.alternativeToItemId && !itemsById.has(String(root.alternativeToItemId)),
-    };
-  });
-
-  const visibleGroupCount = alternativeGroups.length;
-  const hiddenAlternativeCount = Math.max(0, items.length - visibleGroupCount);
+  const toggleDetails = (itemId: string) => {
+    setExpandedDetails((current) => ({
+      ...current,
+      [itemId]: !current[itemId],
+    }));
+  };
 
   const handleStartEdit = (item: ShoppingListItem) => {
     setEditingItemId(String(item._id));
     setEditFormData({
       name: item.name,
-      notes: item.notes || '',
-      supplier: item.supplier || '',
-      category: item.category || '',
-      sectionId: item.sectionId || 'none',
-      catalogNumber: item.catalogNumber || '',
-      dimensions: item.dimensions || '',
+      notes: item.notes || "",
+      supplier: item.supplier || "",
+      category: item.category || "",
+      sectionId: item.sectionId || "none",
+      setId: item.setId || "none",
+      catalogNumber: item.catalogNumber || "",
+      dimensions: item.dimensions || "",
       quantity: item.quantity,
-      unitPrice: item.unitPrice ? item.unitPrice.toString() : '',
-      productLink: item.productLink || '',
-      imageUrl: item.imageUrl || '',
+      unitPrice: item.unitPrice ? item.unitPrice.toString() : "",
+      productLink: item.productLink || "",
+      imageUrl: item.imageUrl || "",
       priority: item.priority,
       realizationStatus: item.realizationStatus,
-      buyBefore: item.buyBefore ? format(new Date(item.buyBefore), 'yyyy-MM-dd') : '',
-      assigneeId: item.assignedTo || 'none',
-      alternativeToItemId: item.alternativeToItemId || 'none',
+      buyBefore: item.buyBefore ? format(new Date(item.buyBefore), "yyyy-MM-dd") : "",
+      assigneeId: item.assignedTo || "none",
     });
   };
 
   const handleSaveEdit = async (itemId: Id<"shoppingListItems">) => {
-    const unitPrice = parseFloat(editFormData.unitPrice || '0') || undefined;
+    const unitPrice = parseFloat(editFormData.unitPrice || "0") || undefined;
     const buyBefore = editFormData.buyBefore ? new Date(editFormData.buyBefore).getTime() : undefined;
 
-    try {
-      await onUpdateItem(itemId, {
-        name: editFormData.name?.trim() || '',
-        notes: editFormData.notes?.trim() || undefined,
-        supplier: editFormData.supplier?.trim() || undefined,
-        category: editFormData.category?.trim() || undefined,
-        sectionId: editFormData.sectionId === 'none' ? undefined : editFormData.sectionId as Id<"shoppingListSections">,
-        catalogNumber: editFormData.catalogNumber?.trim() || undefined,
-        dimensions: editFormData.dimensions?.trim() || undefined,
-        quantity: editFormData.quantity || 1,
-        unitPrice: unitPrice,
-        productLink: editFormData.productLink?.trim() || undefined,
-        imageUrl: editFormData.imageUrl?.trim() || undefined,
-        priority: editFormData.priority,
-        realizationStatus: editFormData.realizationStatus as "PLANNED" | "ORDERED" | "IN_TRANSIT" | "DELIVERED" | "COMPLETED" | "CANCELLED",
-        buyBefore: buyBefore,
-        assignedTo: editFormData.assigneeId === 'none' ? undefined : editFormData.assigneeId,
-        alternativeToItemId: editFormData.alternativeToItemId === 'none'
-          ? null
-          : editFormData.alternativeToItemId as Id<"shoppingListItems">,
-      });
-      setEditingItemId(null);
-      setEditFormData({});
-    } catch (error) {
-      console.error('Error updating item:', error);
-    }
-  };
-
-  const handleCancelEdit = () => {
+    await onUpdateItem(itemId, {
+      name: editFormData.name?.trim() || "",
+      notes: editFormData.notes?.trim() || undefined,
+      supplier: editFormData.supplier?.trim() || undefined,
+      category: editFormData.category?.trim() || undefined,
+      sectionId:
+        editFormData.sectionId === "none"
+          ? undefined
+          : (editFormData.sectionId as Id<"shoppingListSections">),
+      setId: editFormData.setId === "none" ? null : (editFormData.setId as Id<"shoppingSets">),
+      catalogNumber: editFormData.catalogNumber?.trim() || undefined,
+      dimensions: editFormData.dimensions?.trim() || undefined,
+      quantity: editFormData.quantity || 1,
+      unitPrice,
+      productLink: editFormData.productLink?.trim() || undefined,
+      imageUrl: editFormData.imageUrl?.trim() || undefined,
+      priority: editFormData.priority,
+      realizationStatus: editFormData.realizationStatus as ShoppingListItem["realizationStatus"],
+      buyBefore,
+      assignedTo: editFormData.assigneeId === "none" ? undefined : editFormData.assigneeId,
+    });
     setEditingItemId(null);
     setEditFormData({});
   };
 
-  const getPriorityColor = (priority: Priority) => {
-    switch (priority) {
-      case 'urgent': return 'bg-destructive';
-      case 'high': return 'bg-primary';
-      case 'medium': return 'bg-muted-foreground';
-      case 'low': return 'bg-secondary-foreground';
-      default: return 'bg-border';
-    }
-  };
-
   const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'planned': return 'secondary';
-      case 'ordered': return 'default';
-      case 'in_transit': return 'destructive';
-      case 'delivered': return 'outline';
-      case 'completed': return 'default';
-      case 'cancelled': return 'secondary';
-      default: return 'secondary';
-    }
-  };
-
-  const getAssignedMemberName = (assignedTo: string) => {
-    const member = teamMembers?.find((m) => m.clerkUserId === assignedTo);
-    return member?.name || assignedTo;
-  };
-
-  const handleSelectAlternative = async (
-    rootItemId: Id<"shoppingListItems">,
-    selectedId: string,
-  ) => {
-    try {
-      await onUpdateItem(rootItemId, {
-        selectedAlternativeItemId:
-          selectedId === String(rootItemId)
-            ? null
-            : (selectedId as Id<"shoppingListItems">),
-      });
-    } catch (error) {
-      console.error('Error selecting alternative:', error);
+    switch (status) {
+      case "PLANNED":
+        return "secondary";
+      case "ORDERED":
+      case "COMPLETED":
+        return "default";
+      case "IN_TRANSIT":
+        return "destructive";
+      default:
+        return "outline";
     }
   };
 
   const renderEditForm = (item: ShoppingListItem) => (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <div>
           <label className="text-sm font-medium">Product Name</label>
-          <Input
-            value={editFormData.name || ''}
-            onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
-          />
+          <Input value={editFormData.name || ""} onChange={(event) => setEditFormData({ ...editFormData, name: event.target.value })} />
         </div>
         <div>
           <label className="text-sm font-medium">Section</label>
           <Select
-            value={editFormData.sectionId || 'none'}
+            value={editFormData.sectionId || "none"}
             onValueChange={(value) => setEditFormData({ ...editFormData, sectionId: value })}
           >
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="none">No Category</SelectItem>
+              <SelectItem value="none">No section</SelectItem>
               {sections.map((section) => (
                 <SelectItem key={section._id} value={section._id}>
                   {section.name}
@@ -273,32 +232,27 @@ export function ShoppingListSection({
           </Select>
         </div>
         <div>
-          <label className="text-sm font-medium">Alternative For</label>
+          <label className="text-sm font-medium">Set</label>
           <Select
-            value={editFormData.alternativeToItemId || 'none'}
-            onValueChange={(value) => setEditFormData({ ...editFormData, alternativeToItemId: value })}
+            value={editFormData.setId || "none"}
+            onValueChange={(value) => setEditFormData({ ...editFormData, setId: value })}
           >
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="none">No Alternative Group</SelectItem>
-              {items
-                .filter((candidate) => candidate._id !== item._id && !candidate.alternativeToItemId)
-                .map((candidate) => (
-                  <SelectItem key={candidate._id} value={candidate._id}>
-                    {candidate.name}
-                  </SelectItem>
-                ))}
+              <SelectItem value="none">No set</SelectItem>
+              {allSets.map((set) => (
+                <SelectItem key={set._id} value={set._id}>
+                  {set.title}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
         <div>
           <label className="text-sm font-medium">Supplier</label>
-          <Input
-            value={editFormData.supplier || ''}
-            onChange={(e) => setEditFormData({ ...editFormData, supplier: e.target.value })}
-          />
+          <Input value={editFormData.supplier || ""} onChange={(event) => setEditFormData({ ...editFormData, supplier: event.target.value })} />
         </div>
         <div>
           <label className="text-sm font-medium">Quantity</label>
@@ -306,7 +260,7 @@ export function ShoppingListSection({
             type="number"
             min="1"
             value={editFormData.quantity || 1}
-            onChange={(e) => setEditFormData({ ...editFormData, quantity: parseInt(e.target.value, 10) || 1 })}
+            onChange={(event) => setEditFormData({ ...editFormData, quantity: parseInt(event.target.value, 10) || 1 })}
           />
         </div>
         <div>
@@ -314,160 +268,18 @@ export function ShoppingListSection({
           <Input
             type="number"
             step="0.01"
-            value={editFormData.unitPrice || ''}
-            onChange={(e) => setEditFormData({ ...editFormData, unitPrice: e.target.value })}
-          />
-        </div>
-        <div>
-          <label className="text-sm font-medium">Category</label>
-          <Input
-            value={editFormData.category || ''}
-            onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value })}
-            placeholder="e.g. Furniture"
-          />
-        </div>
-        <div>
-          <label className="text-sm font-medium">Catalog Number</label>
-          <Input
-            value={editFormData.catalogNumber || ''}
-            onChange={(e) => setEditFormData({ ...editFormData, catalogNumber: e.target.value })}
-            placeholder="e.g. BU1K367PH-3BC1"
-          />
-        </div>
-        <div>
-          <label className="text-sm font-medium">Dimensions</label>
-          <Input
-            value={editFormData.dimensions || ''}
-            onChange={(e) => setEditFormData({ ...editFormData, dimensions: e.target.value })}
-            placeholder="e.g. 4100 x 1200"
-          />
-        </div>
-        <div>
-          <label className="text-sm font-medium">Product Link</label>
-          <Input
-            value={editFormData.productLink || ''}
-            onChange={(e) => setEditFormData({ ...editFormData, productLink: e.target.value })}
-            placeholder="https://..."
-          />
-        </div>
-        <div>
-          <label className="text-sm font-medium">Image URL</label>
-          <Input
-            value={editFormData.imageUrl || ''}
-            onChange={(e) => setEditFormData({ ...editFormData, imageUrl: e.target.value })}
-            placeholder="https://..."
-          />
-        </div>
-        <div>
-          <label className="text-sm font-medium">Priority</label>
-          <Select
-            value={editFormData.priority || 'medium'}
-            onValueChange={(value) => setEditFormData({ ...editFormData, priority: value as Priority })}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="low">Low</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="high">High</SelectItem>
-              <SelectItem value="urgent">Urgent</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <label className="text-sm font-medium">Status</label>
-          <Select
-            value={editFormData.realizationStatus || 'PLANNED'}
-            onValueChange={(value) => setEditFormData({ ...editFormData, realizationStatus: value })}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="PLANNED">Planned</SelectItem>
-              <SelectItem value="ORDERED">Ordered</SelectItem>
-              <SelectItem value="IN_TRANSIT">In Transit</SelectItem>
-              <SelectItem value="DELIVERED">Delivered</SelectItem>
-              <SelectItem value="COMPLETED">Completed</SelectItem>
-              <SelectItem value="CANCELLED">Cancelled</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <label className="text-sm font-medium">Assign To</label>
-          <Select
-            value={editFormData.assigneeId || 'none'}
-            onValueChange={(value) => setEditFormData({ ...editFormData, assigneeId: value })}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Unassigned</SelectItem>
-              {teamMembers?.map((member) => (
-                <SelectItem key={member.clerkUserId} value={member.clerkUserId}>
-                  <div className="flex items-center gap-2">
-                    <Avatar className="h-5 w-5">
-                      <AvatarImage src={member.imageUrl} />
-                      <AvatarFallback>{member.name?.[0]}</AvatarFallback>
-                    </Avatar>
-                    {member.name}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <label className="text-sm font-medium">Buy Before</label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "w-full justify-start text-left font-normal",
-                  !editFormData.buyBefore && "text-muted-foreground",
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {editFormData.buyBefore ? format(new Date(editFormData.buyBefore), "PPP") : <span>Pick a date</span>}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
-              <Calendar
-                mode="single"
-                selected={editFormData.buyBefore ? new Date(editFormData.buyBefore) : undefined}
-                onSelect={(date) => setEditFormData({ ...editFormData, buyBefore: date ? format(date, 'yyyy-MM-dd') : '' })}
-                initialFocus
-              />
-            </PopoverContent>
-          </Popover>
-        </div>
-        <div className="md:col-span-2 lg:col-span-3">
-          <label className="text-sm font-medium">Notes</label>
-          <Input
-            value={editFormData.notes || ''}
-            onChange={(e) => setEditFormData({ ...editFormData, notes: e.target.value })}
-            placeholder="Additional notes..."
+            value={editFormData.unitPrice || ""}
+            onChange={(event) => setEditFormData({ ...editFormData, unitPrice: event.target.value })}
           />
         </div>
       </div>
 
       <div className="flex gap-2">
-        <Button
-          size="sm"
-          onClick={() => handleSaveEdit(item._id)}
-          disabled={isPending}
-        >
+        <Button size="sm" onClick={() => handleSaveEdit(item._id)} disabled={isPending}>
           <SaveIcon className="mr-1 h-4 w-4" />
           Save
         </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleCancelEdit}
-        >
+        <Button variant="outline" size="sm" onClick={() => setEditingItemId(null)}>
           <XIcon className="mr-1 h-4 w-4" />
           Cancel
         </Button>
@@ -475,388 +287,221 @@ export function ShoppingListSection({
     </div>
   );
 
-  const renderCustomerFeedback = (item: ShoppingListItem) => {
-    if (
-      item.customerDecision !== "accepted" &&
-      item.customerDecision !== "rejected" &&
-      (!item.customerDecisionComment || item.customerDecisionComment.trim().length === 0)
-    ) {
-      return null;
-    }
+  const renderItemRow = (item: ShoppingListItem, set?: ShoppingSet) => {
+    const itemId = String(item._id);
+    const isCounted = isItemCountedInShoppingTotal(item, setContext);
+    const assignedName = getAssignedMemberName(item.assignedTo);
+    const isEditing = editingItemId === itemId;
 
     return (
-      <div className="rounded-md border bg-muted/40 p-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium text-muted-foreground">
-            Customer feedback:
-          </span>
-          <Badge
-            variant={
-              item.customerDecision === "accepted"
-                ? "default"
-                : item.customerDecision === "rejected"
-                  ? "destructive"
-                  : "secondary"
-            }
-            className={
-              item.customerDecision ? "" : "border-border"
-            }
-          >
-            {item.customerDecision === "accepted"
-              ? "Accepted"
-              : item.customerDecision === "rejected"
-                ? "Rejected"
-                : "Comment only"}
-          </Badge>
-        </div>
-        <p className="mt-2 text-sm text-foreground">
-          {item.customerDecisionComment && item.customerDecisionComment.trim().length > 0
-            ? item.customerDecisionComment
-            : "No comment."}
-        </p>
-        <p className="mt-2 text-xs text-muted-foreground">
-          {item.customerDecisionByName ? `${item.customerDecisionByName} · ` : ""}
-          {item.customerDecisionUpdatedAt
-            ? new Date(item.customerDecisionUpdatedAt).toLocaleString()
-            : "No updates yet."}
-        </p>
-      </div>
-    );
-  };
-
-  const renderItemActions = (item: ShoppingListItem) => (
-    <div className="flex gap-1">
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="size-8 p-0 text-muted-foreground"
-            onClick={() => toggleDetails(String(item._id))}
-          >
-            {expandedDetails[String(item._id)] ? <ChevronUpIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Show details</TooltipContent>
-      </Tooltip>
-      {item.productLink && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-              className="size-8 p-0 text-muted-foreground"
-              onClick={() => window.open(item.productLink, '_blank')}
-            >
-              <ExternalLinkIcon className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Open product link</TooltipContent>
-        </Tooltip>
-      )}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="size-8 p-0 text-muted-foreground"
-            onClick={() => handleStartEdit(item)}
-          >
-            <EditIcon className="h-4 w-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Edit item</TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="size-8 p-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-            onClick={() => onDeleteItem(item._id)}
-          >
-            <TrashIcon className="h-4 w-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Delete item</TooltipContent>
-      </Tooltip>
-    </div>
-  );
-
-  const renderOptionRow = (
-    item: ShoppingListItem,
-    group: AlternativeGroup,
-  ) => {
-    const isAlternativeItem = String(item._id) !== String(group.root._id);
-    const isSelectedOption = String(item._id) === group.selectedOptionId;
-    const isCountedInTotal = isItemCountedInShoppingTotal(item, selection);
-
-    return (
-      <div
-        key={item._id}
-        className={cn(
-          "rounded-2xl border p-4 transition-colors",
-          isSelectedOption
-            ? "bg-muted/40"
-            : "border-border/60 bg-background",
-        )}
-      >
-        {editingItemId === String(item._id) ? (
+      <div key={item._id} className={cn("rounded-2xl border p-4", !isCounted && "opacity-70")}>
+        {isEditing ? (
           renderEditForm(item)
         ) : (
           <div>
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="flex min-w-0 flex-1 items-start gap-4">
-                {item.imageUrl && (
+                {item.imageUrl ? (
                   <div className="h-20 w-20 overflow-hidden rounded-xl border bg-muted/40">
-                    <img
-                      src={item.imageUrl}
-                      alt={item.name}
-                      className="h-full w-full object-cover"
-                    />
+                    <img src={item.imageUrl} alt={item.name} className="h-full w-full object-cover" />
                   </div>
-                )}
+                ) : null}
                 <div className="min-w-0 flex-1">
-                  <div className="mb-1 flex items-start gap-2">
-                    <h4 className="flex-1 break-words pr-2 text-base font-medium leading-snug text-foreground">
-                      {item.name}
-                    </h4>
-                    {item.priority && (
-                      <div className={cn("mt-2 h-2 w-2 flex-shrink-0 rounded-full", getPriorityColor(item.priority))} />
-                    )}
-                  </div>
-
-                  <div className="mb-3 flex flex-wrap items-center gap-2">
-                    {group.isOrphanAlternative && (
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <h4 className="text-base font-medium text-foreground">{item.name}</h4>
+                    {set ? (
                       <Badge variant="outline" className="text-xs">
-                        Alternative linked outside this section
+                        {set.title}
                       </Badge>
-                    )}
-                    {group.hasAlternatives && !isAlternativeItem && (
-                      <Badge variant="outline" className="text-xs">
-                        Base option
-                      </Badge>
-                    )}
-                    {group.hasAlternatives && isAlternativeItem && (
-                      <Badge variant="outline" className="text-xs">
-                        Alternative
-                      </Badge>
-                    )}
-                    {group.hasAlternatives && isSelectedOption && (
-                      <Badge variant="default" className="text-xs">
-                        Selected for total
-                      </Badge>
-                    )}
-                    {group.hasAlternatives && !isSelectedOption && (
+                    ) : null}
+                    {!isCounted ? (
                       <Badge variant="secondary" className="text-xs">
-                        Not counted in totals
+                        Not counted in total
                       </Badge>
-                    )}
+                    ) : null}
                   </div>
-
-                  <div className="flex flex-col gap-1 text-sm text-foreground">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <span className="rounded-md border bg-muted px-2 py-0.5 text-xs font-medium">
-                        Qty: {item.quantity}
-                      </span>
-                      {item.unitPrice && (
-                        <span className="text-muted-foreground">
-                          {item.unitPrice.toFixed(2)} {currencySymbol} / unit
-                        </span>
-                      )}
-                    </div>
-                    {item.totalPrice && (
-                      <span className={cn("mt-1 font-medium", group.hasAlternatives && !isCountedInTotal && "text-muted-foreground")}>
-                        Total: {item.totalPrice.toFixed(2)} {currencySymbol}
-                      </span>
-                    )}
-                    {item.catalogNumber && (
-                      <span className="mt-1 text-xs text-muted-foreground">
-                        Catalog #: <span className="font-medium text-foreground">{item.catalogNumber}</span>
-                      </span>
-                    )}
+                  <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                    <span>Qty: {item.quantity}</span>
+                    {item.unitPrice ? <span>{item.unitPrice.toFixed(2)} {currencySymbol} / unit</span> : null}
+                    {item.totalPrice ? <span className="font-medium text-foreground">{item.totalPrice.toFixed(2)} {currencySymbol}</span> : null}
+                    {item.supplier ? <span>{item.supplier}</span> : null}
                   </div>
-
-                  {item.assignedTo && (
+                  {assignedName ? (
                     <div className="mt-3 flex items-center gap-2">
-                      <Avatar className="h-6 w-6 border border-border/70 shadow-sm">
+                      <Avatar className="h-6 w-6 border border-border/70">
                         <AvatarImage src={teamMembers?.find((member) => member.clerkUserId === item.assignedTo)?.imageUrl} />
-                        <AvatarFallback className="bg-muted text-xs text-foreground">
-                          {getAssignedMemberName(item.assignedTo)?.[0]}
-                        </AvatarFallback>
+                        <AvatarFallback>{assignedName[0]}</AvatarFallback>
                       </Avatar>
-                      <span className="text-xs text-muted-foreground">
-                        {getAssignedMemberName(item.assignedTo)}
-                      </span>
+                      <span className="text-xs text-muted-foreground">{assignedName}</span>
                     </div>
-                  )}
+                  ) : null}
                 </div>
               </div>
 
-              <div className="flex w-full flex-wrap items-center justify-between gap-3 border-t pt-3 lg:w-auto lg:flex-col lg:items-end lg:border-t-0 lg:pt-0">
-                <Badge variant={getStatusColor(item.realizationStatus)} className="text-xs px-2.5 py-0.5">
-                  {item.realizationStatus}
-                </Badge>
-                {group.hasAlternatives && (
-                  <Button
-                    size="sm"
-                    variant={isSelectedOption ? "default" : "outline"}
-                    className={cn("min-w-[124px]", isSelectedOption && "pointer-events-none")}
-                    onClick={() => handleSelectAlternative(group.root._id, String(item._id))}
-                  >
-                    {isSelectedOption ? (
-                      <>
-                        <CheckIcon className="mr-1 h-4 w-4" />
-                        Counted
-                      </>
-                    ) : (
-                      'Use for total'
-                    )}
-                  </Button>
-                )}
-                {renderItemActions(item)}
+              <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                <Badge variant={getStatusColor(item.realizationStatus)}>{item.realizationStatus}</Badge>
+                {item.productLink ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="sm" className="size-8 p-0" onClick={() => window.open(item.productLink, "_blank")}>
+                        <ExternalLinkIcon className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Open link</TooltipContent>
+                  </Tooltip>
+                ) : null}
+                <Button variant="ghost" size="sm" className="size-8 p-0" onClick={() => toggleDetails(itemId)}>
+                  {expandedDetails[itemId] ? <ChevronUpIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
+                </Button>
+                <Button variant="ghost" size="sm" className="size-8 p-0" onClick={() => handleStartEdit(item)}>
+                  <EditIcon className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="sm" className="size-8 p-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive" onClick={() => onDeleteItem(item._id)}>
+                  <TrashIcon className="h-4 w-4" />
+                </Button>
               </div>
             </div>
 
-            {expandedDetails[String(item._id)] && (
-              <div className="mt-4 animate-in slide-in-from-top-2 border-t pt-4 duration-200">
+            {expandedDetails[itemId] ? (
+              <div className="mt-4 border-t pt-4">
                 <ShoppingListItemDetails item={item} teamMembers={teamMembers} />
               </div>
-            )}
+            ) : null}
           </div>
         )}
+      </div>
+    );
+  };
+
+  const renderSetBlock = (set: ShoppingSet) => {
+    const setItems = items.filter((item) => String(item.setId ?? "") === String(set._id));
+    if (setItems.length === 0) {
+      return null;
+    }
+
+    const selectedIds = new Set((set.resolvedItemIds ?? []).map((id) => String(id)));
+    const fallbackSelectedId = setItems[0]?._id ? String(setItems[0]._id) : null;
+    const effectiveSelectedIds =
+      selectedIds.size > 0
+        ? selectedIds
+        : set.selectionMode === "single" && fallbackSelectedId
+          ? new Set([fallbackSelectedId])
+          : new Set((set.preferredItemIds ?? []).map((id) => String(id)));
+
+    const toggleSetSelection = async (itemId: string) => {
+      if (set.selectionMode === "none") return;
+
+      if (set.selectionMode === "single") {
+        await onUpdateSet(set._id, {
+          resolvedItemIds: [itemId as Id<"shoppingListItems">],
+          status: "resolved",
+        });
+        return;
+      }
+
+      const next = new Set(effectiveSelectedIds);
+      if (next.has(itemId)) {
+        next.delete(itemId);
+      } else {
+        next.add(itemId);
+      }
+      await onUpdateSet(set._id, {
+        resolvedItemIds: Array.from(next) as Id<"shoppingListItems">[],
+        status: next.size > 0 ? "resolved" : set.status,
+      });
+    };
+
+    return (
+      <div key={set._id} className="rounded-2xl border border-border/60 bg-muted/20 p-5">
+        <div className="mb-4 flex flex-col gap-3 border-b pb-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Layers3Icon className="h-4 w-4 text-primary" />
+              <h3 className="text-lg font-medium text-foreground">{set.title}</h3>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <Badge variant="outline" className="text-xs">{set.setType}</Badge>
+              <Badge variant="outline" className="text-xs">{set.selectionMode}</Badge>
+              <Badge variant="outline" className="text-xs">{set.pricingMode}</Badge>
+              <Badge variant="secondary" className="text-xs">{set.status}</Badge>
+            </div>
+            {set.notes ? <p className="mt-3 text-sm text-muted-foreground">{set.notes}</p> : null}
+          </div>
+          <Button variant="ghost" size="sm" className="self-start text-muted-foreground hover:bg-destructive/10 hover:text-destructive" onClick={() => onDeleteSet(set._id)}>
+            <TrashIcon className="mr-2 h-4 w-4" />
+            Delete set
+          </Button>
+        </div>
+
+        <div className="flex flex-col gap-3">
+          {setItems.map((item) => {
+            const isSelected = effectiveSelectedIds.has(String(item._id));
+            return (
+              <div key={item._id} className="flex flex-col gap-3">
+                {set.selectionMode !== "none" ? (
+                  <div className="flex justify-end">
+                    <Button
+                      size="sm"
+                      variant={isSelected ? "default" : "outline"}
+                      onClick={() => toggleSetSelection(String(item._id))}
+                    >
+                      {isSelected ? <CheckIcon className="mr-1 h-4 w-4" /> : null}
+                      {set.selectionMode === "single" ? "Select" : isSelected ? "Selected" : "Toggle"}
+                    </Button>
+                  </div>
+                ) : null}
+                {renderItemRow(item, set)}
+              </div>
+            );
+          })}
+        </div>
       </div>
     );
   };
 
   return (
     <div className="mb-10 rounded-3xl border bg-card p-4 shadow-sm sm:p-8">
-      <div className="mb-6 flex flex-col justify-between gap-4 sm:mb-8 sm:flex-row sm:items-center">
-        <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+      <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <div className="flex flex-wrap items-center gap-3">
           <h2 className="text-xl font-medium text-foreground sm:text-2xl">{sectionName}</h2>
           <span className="inline-flex items-center justify-center rounded-full border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-            {visibleGroupCount} {visibleGroupCount === 1 ? 'group' : 'groups'}
+            {items.length} items
           </span>
-          {hiddenAlternativeCount > 0 && (
-            <span className="inline-flex items-center justify-center rounded-full border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-              {hiddenAlternativeCount} hidden in groups
-            </span>
-          )}
-          {sectionTotal > 0 && (
-            <span className="inline-flex items-center justify-center rounded-full border bg-muted px-3 py-1 text-xs font-medium text-foreground">
-              {sectionTotal.toFixed(2)} {currencySymbol}
-            </span>
-          )}
+          <span className="inline-flex items-center justify-center rounded-full border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
+            {sectionSets.length} sets
+          </span>
+          <span className="inline-flex items-center justify-center rounded-full border bg-muted px-3 py-1 text-xs font-medium text-foreground">
+            {sectionTotal.toFixed(2)} {currencySymbol}
+          </span>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="self-end rounded-full sm:self-auto"
-          onClick={() => setShowAddForm(!showAddForm)}
-        >
+        <Button variant="ghost" size="sm" className="self-end rounded-full sm:self-auto" onClick={() => setShowAddForm((current) => !current)}>
           <PlusIcon className="h-4 w-4" />
         </Button>
       </div>
 
-      <div className="flex flex-col gap-4">
-        {showAddForm && (
-          <div className="mb-8 rounded-3xl border bg-muted/40 p-6">
-            <AddItemForm
-              sections={sections}
-              teamMembers={teamMembers}
-              currencySymbol={currencySymbol}
-              onAddItem={async (itemData) => {
-                await onAddItem({
-                  ...itemData,
-                  sectionId: sectionId,
-                });
-                setShowAddForm(false);
-              }}
-              isPending={isPending}
-              defaultSectionId={sectionId}
-            />
-          </div>
-        )}
-
-        <div className="flex flex-col gap-4">
-          {alternativeGroups.map((group) => (
-            (() => {
-              const hasCustomerFeedback =
-                (group.root.customerDecision === "accepted" || group.root.customerDecision === "rejected") ||
-                !!group.root.customerDecisionComment?.trim();
-              const shouldRenderGroupShell =
-                group.hasAlternatives || group.isOrphanAlternative || hasCustomerFeedback;
-
-              if (!shouldRenderGroupShell) {
-                return (
-                  <div key={group.root._id}>
-                    {group.options.map((item) => renderOptionRow(item, group))}
-                  </div>
-                );
-              }
-
-              return (
-                <div
-                  key={group.root._id}
-                  className="rounded-2xl border border-border/40 bg-transparent p-5"
-                >
-                  {(group.hasAlternatives || group.isOrphanAlternative) && (
-                    <div className="mb-4 flex flex-col gap-3 border-b pb-4 lg:flex-row lg:items-start lg:justify-between">
-                      <div className="min-w-0">
-                        <h3 className="text-lg font-medium text-foreground">
-                          {group.root.name}
-                        </h3>
-                        <div className="mt-2 flex flex-wrap items-center gap-2">
-                          {group.hasAlternatives && (
-                            <Badge variant="outline" className="text-xs">
-                              {group.options.length} options in this group
-                            </Badge>
-                          )}
-                          {group.hasAlternatives && (
-                            <Badge variant="secondary" className="text-xs">
-                              Counted in total: {group.selectedOption.name}
-                            </Badge>
-                          )}
-                          {group.isOrphanAlternative && (
-                            <Badge variant="outline" className="text-xs">
-                              Parent item is not in this section
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      {group.hasAlternatives && (
-                        <div className="max-w-xs text-sm text-muted-foreground">
-                          Client choice is handled inside the option rows. The selected row is the only one counted in totals.
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {!group.isOrphanAlternative && renderCustomerFeedback(group.root)}
-
-                  <div className={cn("flex flex-col gap-3", !group.isOrphanAlternative && group.hasAlternatives && "mt-4")}>
-                    {group.options.map((item) => renderOptionRow(item, group))}
-                  </div>
-                </div>
-              );
-            })()
-          ))}
+      {showAddForm ? (
+        <div className="mb-8 rounded-3xl border bg-muted/40 p-6">
+          <AddItemForm
+            sections={sections}
+            sets={sectionSets}
+            teamMembers={teamMembers}
+            currencySymbol={currencySymbol}
+            onAddItem={async (itemData) => {
+              await onAddItem({
+                ...itemData,
+                sectionId,
+              });
+              setShowAddForm(false);
+            }}
+            isPending={isPending}
+            defaultSectionId={sectionId}
+          />
         </div>
+      ) : null}
 
-        {items.length === 0 && !showAddForm && (
-          <Empty className="py-8">
-            <EmptyHeader>
-              <EmptyTitle>No shopping items in this section</EmptyTitle>
-              <EmptyDescription>Add the first product to start building this section.</EmptyDescription>
-            </EmptyHeader>
-            <EmptyContent>
-              <Button variant="outline" size="sm" onClick={() => setShowAddForm(true)}>
-                <PlusIcon className="mr-2 h-4 w-4" />
-                Add first item
-              </Button>
-            </EmptyContent>
-          </Empty>
-        )}
+      <div className="flex flex-col gap-4">
+        {sectionSets.map((set) => renderSetBlock(set))}
+        {standaloneItems.map((item) => renderItemRow(item))}
       </div>
     </div>
   );

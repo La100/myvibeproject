@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { makeFunctionReference } from "convex/server";
 import { mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
+import { ensureProjectAccess } from "./authz";
 
 // Common unit types for labor
 export const LABOR_UNITS = [
@@ -54,11 +55,57 @@ const assertAttachmentBelongsToProject = async (
 const logActivityMutationRef = makeFunctionReference<"mutation">("activityLog:logActivity");
 const normalizeSectionKey = (name: string) => name.trim().toLocaleLowerCase();
 
+const ensureLaborSectionAccess = async (
+  ctx: any,
+  sectionId: Id<"laborSections">,
+  actorClerkUserId?: string,
+) => {
+  const section = await ctx.db.get(sectionId);
+  if (!section) {
+    throw new Error("Section not found");
+  }
+
+  await ensureProjectAccess(ctx, section.projectId, actorClerkUserId);
+  return section;
+};
+
+const ensureLaborItemAccess = async (
+  ctx: any,
+  itemId: Id<"laborItems">,
+  actorClerkUserId?: string,
+) => {
+  const item = await ctx.db.get(itemId);
+  if (!item) {
+    throw new Error("Item not found");
+  }
+
+  await ensureProjectAccess(ctx, item.projectId, actorClerkUserId);
+  return item;
+};
+
+const ensureLaborSectionBelongsToProject = async (
+  ctx: any,
+  sectionId: Id<"laborSections"> | null | undefined,
+  projectId: Id<"projects">,
+) => {
+  if (!sectionId) {
+    return null;
+  }
+
+  const section = await ctx.db.get(sectionId);
+  if (!section || section.projectId !== projectId) {
+    throw new Error("Labor section not found in this project");
+  }
+
+  return section;
+};
+
 // ====== LABOR SECTIONS ======
 
 export const getLaborSections = query({
   args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
+    await ensureProjectAccess(ctx, args.projectId);
     return await ctx.db
       .query("laborSections")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
@@ -70,13 +117,14 @@ export const getLaborSections = query({
 export const getLaborSection = query({
   args: { sectionId: v.id("laborSections") },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.sectionId);
+    return await ensureLaborSectionAccess(ctx, args.sectionId);
   },
 });
 
 export const listLaborSections = query({
   args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
+    await ensureProjectAccess(ctx, args.projectId);
     return await ctx.db
       .query("laborSections")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
@@ -91,11 +139,7 @@ export const createLaborSection = mutation({
     projectId: v.id("projects"),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project) throw new Error("Project not found");
+    const { project, clerkUserId } = await ensureProjectAccess(ctx, args.projectId);
 
     const normalizedName = args.name.trim();
     if (!normalizedName) throw new Error("Section name is required");
@@ -117,7 +161,7 @@ export const createLaborSection = mutation({
       projectId: args.projectId,
       teamId: project.teamId,
       order: existingSections.length,
-      createdBy: identity.subject,
+      createdBy: clerkUserId,
     });
   },
 });
@@ -128,11 +172,7 @@ export const updateLaborSection = mutation({
     name: v.string(),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
-    const section = await ctx.db.get(args.sectionId);
-    if (!section) throw new Error("Section not found");
+    const section = await ensureLaborSectionAccess(ctx, args.sectionId);
 
     const normalizedName = args.name.trim();
     if (!normalizedName) throw new Error("Section name is required");
@@ -159,11 +199,7 @@ export const updateLaborSection = mutation({
 export const deleteLaborSection = mutation({
   args: { sectionId: v.id("laborSections") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
-    const section = await ctx.db.get(args.sectionId);
-    if (!section) throw new Error("Section not found");
+    await ensureLaborSectionAccess(ctx, args.sectionId);
 
     // Move items in this section to no section
     const itemsInSection = await ctx.db
@@ -184,6 +220,7 @@ export const deleteLaborSection = mutation({
 export const listLaborItems = query({
   args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
+    await ensureProjectAccess(ctx, args.projectId);
     return await ctx.db
       .query("laborItems")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
@@ -194,7 +231,7 @@ export const listLaborItems = query({
 export const getLaborItem = query({
   args: { itemId: v.id("laborItems") },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.itemId);
+    return await ensureLaborItemAccess(ctx, args.itemId);
   },
 });
 
@@ -214,11 +251,8 @@ export const createLaborItem = mutation({
     endDate: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project) throw new Error("Project not found");
+    const { project, clerkUserId } = await ensureProjectAccess(ctx, args.projectId);
+    await ensureLaborSectionBelongsToProject(ctx, args.sectionId ?? null, args.projectId);
 
     const normalizedReferenceLink = normalizeReferenceLink(args.referenceLink);
     await assertAttachmentBelongsToProject(ctx, args.projectId, args.attachmentFileId);
@@ -237,7 +271,7 @@ export const createLaborItem = mutation({
       sectionId: args.sectionId || null,
       projectId: args.projectId,
       teamId: project.teamId,
-      createdBy: identity.subject,
+      createdBy: clerkUserId,
       assignedTo: args.assignedTo || undefined,
       updatedAt: Date.now(),
     });
@@ -277,12 +311,12 @@ export const updateLaborItem = mutation({
     endDate: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
     const { itemId, ...updates } = args;
-    const item = await ctx.db.get(itemId);
-    if (!item) throw new Error("Item not found");
+    const item = await ensureLaborItemAccess(ctx, itemId);
+
+    if (Object.prototype.hasOwnProperty.call(updates, "sectionId")) {
+      await ensureLaborSectionBelongsToProject(ctx, updates.sectionId ?? null, item.projectId);
+    }
 
     let totalPrice = item.totalPrice;
     const quantity = updates.quantity ?? item.quantity;
@@ -328,11 +362,7 @@ export const updateLaborItem = mutation({
 export const deleteLaborItem = mutation({
   args: { itemId: v.id("laborItems") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
-    const item = await ctx.db.get(args.itemId);
-    if (!item) throw new Error("Item not found");
+    const item = await ensureLaborItemAccess(ctx, args.itemId);
 
     await ctx.runMutation(logActivityMutationRef, {
       teamId: item.teamId,
@@ -356,6 +386,7 @@ export const deleteLaborItem = mutation({
 export const getLaborItemsByProject = query({
   args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
+    await ensureProjectAccess(ctx, args.projectId);
     return await ctx.db
       .query("laborItems")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
@@ -366,6 +397,7 @@ export const getLaborItemsByProject = query({
 export const getLaborTotalByProject = query({
   args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
+    await ensureProjectAccess(ctx, args.projectId);
     const items = await ctx.db
       .query("laborItems")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
@@ -378,6 +410,7 @@ export const getLaborTotalByProject = query({
 export const getLaborForIndexing = query({
   args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
+    await ensureProjectAccess(ctx, args.projectId);
     return await ctx.db
       .query("laborItems")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))

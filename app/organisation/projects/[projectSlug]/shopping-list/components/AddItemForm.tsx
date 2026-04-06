@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 
 interface AddItemFormProps {
   sections: Doc<"shoppingListSections">[];
+  sets?: Doc<"shoppingSets">[];
   teamMembers?: TeamMember[];
   currencySymbol: string;
   onAddItem: (itemData: {
@@ -22,6 +23,7 @@ interface AddItemFormProps {
     supplier?: string;
     category?: string;
     sectionId?: Id<"shoppingListSections">;
+    setId?: Id<"shoppingSets">;
     catalogNumber?: string;
     dimensions?: string;
     quantity: number;
@@ -35,20 +37,24 @@ interface AddItemFormProps {
   }) => Promise<void>;
   isPending: boolean;
   defaultSectionId?: Id<"shoppingListSections">;
+  defaultSetId?: Id<"shoppingSets">;
 }
 
 export function AddItemForm({
   sections,
+  sets = [],
   teamMembers,
   currencySymbol,
   onAddItem,
   isPending,
   defaultSectionId,
+  defaultSetId,
 }: AddItemFormProps) {
   const [newItemName, setNewItemName] = useState('');
   const [newItemSupplier, setNewItemSupplier] = useState('');
   const [newItemCategory, setNewItemCategory] = useState('');
   const [newItemSectionId, setNewItemSectionId] = useState<Id<"shoppingListSections"> | "none" | "">(defaultSectionId || "");
+  const [newItemSetId, setNewItemSetId] = useState<Id<"shoppingSets"> | "none" | "">(defaultSetId || "");
   const [newItemCatalogNumber, setNewItemCatalogNumber] = useState('');
   const [newItemDimensions, setNewItemDimensions] = useState('');
   const [newItemQuantity, setNewItemQuantity] = useState(1);
@@ -146,6 +152,7 @@ export function AddItemForm({
         supplier: newItemSupplier.trim() || undefined,
         category: newItemCategory.trim() || undefined,
         sectionId: newItemSectionId === "none" ? undefined : (newItemSectionId || undefined),
+        setId: newItemSetId === "none" ? undefined : (newItemSetId || undefined),
         catalogNumber: newItemCatalogNumber.trim() || undefined,
         dimensions: newItemDimensions.trim() || undefined,
         quantity: newItemQuantity,
@@ -162,6 +169,7 @@ export function AddItemForm({
       setNewItemSupplier('');
       setNewItemCategory('');
       setNewItemSectionId(defaultSectionId || '');
+      setNewItemSetId(defaultSetId || '');
       setNewItemCatalogNumber('');
       setNewItemDimensions('');
       setNewItemQuantity(1);
@@ -216,6 +224,25 @@ export function AddItemForm({
             placeholder="e.g. kronosfera.pl"
             className="h-12 text-sm"
           />
+        </Field>
+        <Field>
+          <FieldLabel>Set</FieldLabel>
+          <Select
+            value={newItemSetId}
+            onValueChange={(value) => setNewItemSetId(value as Id<"shoppingSets"> | "none")}
+          >
+            <SelectTrigger className="h-12 text-sm">
+              <SelectValue placeholder="No set" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No set</SelectItem>
+              {sets.map((set) => (
+                <SelectItem key={set._id} value={set._id}>
+                  {set.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
         <Field>
           <FieldLabel>Catalog Number</FieldLabel>

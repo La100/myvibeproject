@@ -30,7 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { calculateShoppingTotal } from "@/lib/shoppingAlternatives";
+import { calculateShoppingTotal } from "@/lib/shoppingSets";
 
 const SHOPPING_STATUSES = [
   "PLANNED",
@@ -64,6 +64,10 @@ export default function CompanyReports() {
     apiAny.shopping.getShoppingListItemsByTeam,
     team && team._id ? { teamId: team._id } : "skip",
   );
+  const shoppingSets = useQuery(
+    apiAny.shopping.getShoppingSetsByTeam,
+    team && team._id ? { teamId: team._id } : "skip",
+  );
 
   const analyticsMetrics = useQuery(
     apiAny.activityLog.getTeamProductKpis,
@@ -77,12 +81,12 @@ export default function CompanyReports() {
   const projectList = projects || [];
   const tasksList = teamTasks || [];
   const shoppingList = shoppingItems || [];
+  const shoppingSetList = shoppingSets || [];
   const shoppingListWithStatus = shoppingList as Array<{
     _id: string;
     totalPrice?: number | null;
     realizationStatus: string;
-    alternativeToItemId?: string | null;
-    selectedAlternativeItemId?: string | null;
+    setId?: string | null;
   }>;
   const activeCurrency = team?.currency || projectList[0]?.currency || "USD";
 
@@ -114,9 +118,26 @@ export default function CompanyReports() {
   const inProgressTasks = tasksList.filter((task) => task.status === "in_progress").length;
   const completionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
-  const totalShoppingCost = calculateShoppingTotal(shoppingListWithStatus);
+  const totalShoppingCost = calculateShoppingTotal(shoppingListWithStatus, shoppingSetList as Array<{
+    _id: string;
+    setType: "variant" | "bundle" | "reference";
+    selectionMode: "single" | "multiple" | "none";
+    pricingMode: "selected_only" | "all_selected" | "none";
+    status: "draft" | "active" | "resolved" | "archived";
+    resolvedItemIds?: string[] | null;
+    preferredItemIds?: string[] | null;
+  }>);
   const orderedShoppingCost = calculateShoppingTotal(
     shoppingListWithStatus,
+    shoppingSetList as Array<{
+      _id: string;
+      setType: "variant" | "bundle" | "reference";
+      selectionMode: "single" | "multiple" | "none";
+      pricingMode: "selected_only" | "all_selected" | "none";
+      status: "draft" | "active" | "resolved" | "archived";
+      resolvedItemIds?: string[] | null;
+      preferredItemIds?: string[] | null;
+    }>,
     (item) => ["ORDERED", "IN_TRANSIT", "DELIVERED", "COMPLETED"].includes(item.realizationStatus),
   );
 
@@ -143,10 +164,23 @@ export default function CompanyReports() {
 
   const shoppingByStatus = SHOPPING_STATUSES.map((status) => {
     const items = shoppingListWithStatus.filter((item) => item.realizationStatus === status);
+    const scopedSetIds = new Set(items.map((item) => item.setId).filter((value): value is string => !!value));
+    const scopedSets = shoppingSetList.filter((set) => scopedSetIds.has(String(set._id)));
     return {
       status,
       count: items.length,
-      total: calculateShoppingTotal(items),
+      total: calculateShoppingTotal(
+        items,
+        scopedSets as Array<{
+          _id: string;
+          setType: "variant" | "bundle" | "reference";
+          selectionMode: "single" | "multiple" | "none";
+          pricingMode: "selected_only" | "all_selected" | "none";
+          status: "draft" | "active" | "resolved" | "archived";
+          resolvedItemIds?: string[] | null;
+          preferredItemIds?: string[] | null;
+        }>,
+      ),
     };
   }).filter((entry) => entry.count > 0);
 

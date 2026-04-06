@@ -490,6 +490,42 @@ export default defineSchema({
   })
     .index("by_project", ["projectId"]),
 
+  shoppingSets: defineTable({
+    title: v.string(),
+    notes: v.optional(v.string()),
+    sectionId: v.optional(v.union(v.id("shoppingListSections"), v.null())),
+    projectId: v.id("projects"),
+    teamId: v.id("teams"),
+    setType: v.union(
+      v.literal("variant"),
+      v.literal("bundle"),
+      v.literal("reference")
+    ),
+    selectionMode: v.union(
+      v.literal("single"),
+      v.literal("multiple"),
+      v.literal("none")
+    ),
+    pricingMode: v.union(
+      v.literal("selected_only"),
+      v.literal("all_selected"),
+      v.literal("none")
+    ),
+    status: v.union(
+      v.literal("draft"),
+      v.literal("active"),
+      v.literal("resolved"),
+      v.literal("archived")
+    ),
+    preferredItemIds: v.optional(v.array(v.id("shoppingListItems"))),
+    resolvedItemIds: v.optional(v.array(v.id("shoppingListItems"))),
+    order: v.number(),
+    createdBy: v.string(),
+    updatedAt: v.optional(v.number()),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_section", ["sectionId"]),
+
   shoppingListItems: defineTable({
     name: v.string(),
     notes: v.optional(v.string()),
@@ -512,11 +548,10 @@ export default defineSchema({
     unit: v.optional(v.string()), // Unit type (pcs, m², m, kg, etc.)
     unitPrice: v.optional(v.number()),
     totalPrice: v.optional(v.number()),
-    // Item can be marked as an alternative for another shopping item
+    setId: v.optional(v.union(v.id("shoppingSets"), v.null())),
+    // Legacy fields kept only so existing dev documents still validate.
     alternativeToItemId: v.optional(v.union(v.id("shoppingListItems"), v.null())),
-    // Stored on base item: which alternative was chosen by customer
     selectedAlternativeItemId: v.optional(v.union(v.id("shoppingListItems"), v.null())),
-    // Customer feedback from public portal (stored on base item)
     customerDecision: v.optional(
       v.union(v.literal("accepted"), v.literal("rejected"), v.null())
     ),
@@ -576,6 +611,37 @@ export default defineSchema({
     totalPrice: v.optional(v.number()),
     sectionName: v.optional(v.string()),
     sectionOrder: v.number(),
+    setId: v.optional(v.union(v.id("shoppingSets"), v.null())),
+    setTitle: v.optional(v.string()),
+    setType: v.optional(v.union(
+      v.literal("variant"),
+      v.literal("bundle"),
+      v.literal("reference"),
+      v.null()
+    )),
+    setSelectionMode: v.optional(v.union(
+      v.literal("single"),
+      v.literal("multiple"),
+      v.literal("none"),
+      v.null()
+    )),
+    setPricingMode: v.optional(v.union(
+      v.literal("selected_only"),
+      v.literal("all_selected"),
+      v.literal("none"),
+      v.null()
+    )),
+    setStatus: v.optional(v.union(
+      v.literal("draft"),
+      v.literal("active"),
+      v.literal("resolved"),
+      v.literal("archived"),
+      v.null()
+    )),
+    setNotes: v.optional(v.union(v.string(), v.null())),
+    setResolvedSourceItemIds: v.optional(v.array(v.id("shoppingListItems"))),
+    setPreferredSourceItemIds: v.optional(v.array(v.id("shoppingListItems"))),
+    // Legacy snapshot fields kept only so existing dev documents still validate.
     alternativeToSourceItemId: v.optional(v.union(v.id("shoppingListItems"), v.null())),
     selectedAlternativeSourceItemId: v.optional(v.union(v.id("shoppingListItems"), v.null())),
     customerDecision: v.optional(

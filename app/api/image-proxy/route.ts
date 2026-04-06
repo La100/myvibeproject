@@ -1,59 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { assertSafeRemoteUrl } from "@/lib/security/remoteUrlSafety";
+
 const REQUEST_TIMEOUT_MS = 10000;
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_REDIRECTS = 3;
+export const runtime = "nodejs";
 
-function isPrivateIpv4(hostname: string): boolean {
-  const parts = hostname.split(".").map((part) => Number.parseInt(part, 10));
-  if (parts.length !== 4 || parts.some((part) => Number.isNaN(part) || part < 0 || part > 255)) {
-    return false;
-  }
-
-  const [a, b] = parts;
-  if (a === 10 || a === 127 || a === 0) return true;
-  if (a === 169 && b === 254) return true;
-  if (a === 172 && b >= 16 && b <= 31) return true;
-  if (a === 192 && b === 168) return true;
-  return false;
-}
-
-function isPrivateIpv6(hostname: string): boolean {
-  const normalized = hostname.toLowerCase();
-  if (normalized === "::1") return true;
-  if (normalized.startsWith("fe80:")) return true;
-  if (normalized.startsWith("fc") || normalized.startsWith("fd")) return true;
-  return false;
-}
-
-function isBlockedHostname(hostname: string): boolean {
-  const normalized = hostname.toLowerCase();
-  if (
-    normalized === "localhost" ||
-    normalized.endsWith(".localhost") ||
-    normalized.endsWith(".local") ||
-    normalized.endsWith(".internal")
-  ) {
-    return true;
-  }
-
-  return isPrivateIpv4(normalized) || isPrivateIpv6(normalized);
-}
-
-function normalizeInputUrl(rawUrl: string): URL {
+async function normalizeInputUrl(rawUrl: string): Promise<URL> {
   const trimmed = rawUrl.trim();
   if (!trimmed) {
     throw new Error("Missing url parameter");
   }
 
   const parsed = new URL(trimmed);
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    throw new Error("Only HTTP/HTTPS URLs are allowed");
-  }
-
-  if (isBlockedHostname(parsed.hostname)) {
-    throw new Error("Blocked URL host");
-  }
+  await assertSafeRemoteUrl(parsed, {
+    blockedHostMessage: "Blocked URL host",
+    unresolvedHostMessage: "Unable to resolve URL host",
+  });
 
   return parsed;
 }
@@ -62,9 +26,10 @@ async function fetchImageWithRedirects(initialUrl: URL) {
   let currentUrl = initialUrl;
 
   for (let redirectCount = 0; redirectCount <= MAX_REDIRECTS; redirectCount += 1) {
-    if (isBlockedHostname(currentUrl.hostname)) {
-      throw new Error("Blocked redirected host");
-    }
+    await assertSafeRemoteUrl(currentUrl, {
+      blockedHostMessage: "Blocked redirected host",
+      unresolvedHostMessage: "Redirected host could not be resolved",
+    });
 
     const response = await fetch(currentUrl.toString(), {
       method: "GET",
@@ -117,7 +82,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const normalizedUrl = normalizeInputUrl(rawUrl);
+    const normalizedUrl = await normalizeInputUrl(rawUrl);
     const { buffer, contentType } = await fetchImageWithRedirects(normalizedUrl);
 
     return new NextResponse(buffer, {

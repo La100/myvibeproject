@@ -2,6 +2,8 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { R2 } from "@convex-dev/r2";
 import { components } from "./_generated/api";
+import { Id } from "./_generated/dataModel";
+import { ensureProjectAccess, ensureTeamAccess } from "./authz";
 const internalAny = require("./_generated/api").internal as any;
 const r2 = new R2(components.r2);
 const normalizeSectionKey = (name: string) => name.trim().toLocaleLowerCase();
@@ -15,6 +17,9 @@ const normalizeClientPortalComment = (rawComment?: string | null) => {
   const trimmed = typeof rawComment === "string" ? rawComment.trim() : "";
   return trimmed.length > 0 ? trimmed : null;
 };
+
+const normalizeIdList = (value?: readonly string[] | null) =>
+  Array.from(new Set((value ?? []).map((entry) => String(entry))));
 
 const stableStringify = (value: unknown): string => {
   if (value === null || value === undefined) {
@@ -79,11 +84,88 @@ const logClientPortalShoppingActivity = async (
   });
 };
 
+const ensureShoppingSectionAccess = async (
+  ctx: any,
+  sectionId: Id<"shoppingListSections">,
+  actorClerkUserId?: string,
+) => {
+  const section = await ctx.db.get(sectionId);
+  if (!section) {
+    throw new Error("Section not found");
+  }
+
+  await ensureProjectAccess(ctx, section.projectId, actorClerkUserId);
+  return section;
+};
+
+const ensureShoppingSetAccess = async (
+  ctx: any,
+  setId: Id<"shoppingSets">,
+  actorClerkUserId?: string,
+) => {
+  const set = await ctx.db.get(setId);
+  if (!set) {
+    throw new Error("Set not found");
+  }
+
+  await ensureProjectAccess(ctx, set.projectId, actorClerkUserId);
+  return set;
+};
+
+const ensureShoppingItemAccess = async (
+  ctx: any,
+  itemId: Id<"shoppingListItems">,
+  actorClerkUserId?: string,
+) => {
+  const item = await ctx.db.get(itemId);
+  if (!item) {
+    throw new Error("Item not found");
+  }
+
+  await ensureProjectAccess(ctx, item.projectId, actorClerkUserId);
+  return item;
+};
+
+const ensureSectionBelongsToProject = async (
+  ctx: any,
+  sectionId: Id<"shoppingListSections"> | null | undefined,
+  projectId: Id<"projects">,
+) => {
+  if (!sectionId) {
+    return null;
+  }
+
+  const section = await ctx.db.get(sectionId);
+  if (!section || section.projectId !== projectId) {
+    throw new Error("Shopping section not found in this project");
+  }
+
+  return section;
+};
+
+const ensureSetBelongsToProject = async (
+  ctx: any,
+  setId: Id<"shoppingSets"> | null | undefined,
+  projectId: Id<"projects">,
+) => {
+  if (!setId) {
+    return null;
+  }
+
+  const set = await ctx.db.get(setId);
+  if (!set || set.projectId !== projectId) {
+    throw new Error("Shopping set not found in this project");
+  }
+
+  return set;
+};
+
 // ====== SHOPPING LIST SECTIONS ======
 
 export const getShoppingListSections = query({
   args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
+    await ensureProjectAccess(ctx, args.projectId);
     return await ctx.db
       .query("shoppingListSections")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
@@ -95,13 +177,14 @@ export const getShoppingListSections = query({
 export const getShoppingListSection = query({
   args: { sectionId: v.id("shoppingListSections") },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.sectionId);
+    return await ensureShoppingSectionAccess(ctx, args.sectionId);
   },
 });
 
 export const listShoppingListSections = query({
   args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
+    await ensureProjectAccess(ctx, args.projectId);
     return await ctx.db
       .query("shoppingListSections")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
@@ -116,11 +199,7 @@ export const createShoppingListSection = mutation({
     projectId: v.id("projects"),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project) throw new Error("Project not found");
+    const { project, clerkUserId } = await ensureProjectAccess(ctx, args.projectId);
 
     const normalizedName = args.name.trim();
     if (!normalizedName) throw new Error("Section name is required");
@@ -142,7 +221,7 @@ export const createShoppingListSection = mutation({
       projectId: args.projectId,
       teamId: project.teamId,
       order: existingSections.length,
-      createdBy: identity.subject,
+      createdBy: clerkUserId,
     });
   },
 });
@@ -153,11 +232,7 @@ export const updateShoppingListSection = mutation({
     name: v.string(),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
-    const section = await ctx.db.get(args.sectionId);
-    if (!section) throw new Error("Section not found");
+    const section = await ensureShoppingSectionAccess(ctx, args.sectionId);
 
     const normalizedName = args.name.trim();
     if (!normalizedName) throw new Error("Section name is required");
@@ -184,13 +259,7 @@ export const updateShoppingListSection = mutation({
 export const deleteShoppingListSection = mutation({
   args: { sectionId: v.id("shoppingListSections") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
-    const section = await ctx.db.get(args.sectionId);
-    if (!section) throw new Error("Section not found");
-
-    // You might want to check for user permissions here
+    await ensureShoppingSectionAccess(ctx, args.sectionId);
 
     const itemsInSection = await ctx.db
       .query("shoppingListItems")
@@ -205,11 +274,146 @@ export const deleteShoppingListSection = mutation({
   },
 });
 
+// ====== SHOPPING SETS ======
+
+export const listShoppingSets = query({
+  args: { projectId: v.id("projects") },
+  handler: async (ctx, args) => {
+    await ensureProjectAccess(ctx, args.projectId);
+    return await ctx.db
+      .query("shoppingSets")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .order("asc")
+      .collect();
+  },
+});
+
+export const getShoppingSet = query({
+  args: { setId: v.id("shoppingSets") },
+  handler: async (ctx, args) => {
+    return await ensureShoppingSetAccess(ctx, args.setId);
+  },
+});
+
+export const createShoppingSet = mutation({
+  args: {
+    projectId: v.id("projects"),
+    title: v.string(),
+    notes: v.optional(v.string()),
+    sectionId: v.optional(v.union(v.id("shoppingListSections"), v.null())),
+    setType: v.union(v.literal("variant"), v.literal("bundle"), v.literal("reference")),
+    selectionMode: v.union(v.literal("single"), v.literal("multiple"), v.literal("none")),
+    pricingMode: v.union(v.literal("selected_only"), v.literal("all_selected"), v.literal("none")),
+    status: v.optional(v.union(v.literal("draft"), v.literal("active"), v.literal("resolved"), v.literal("archived"))),
+    preferredItemIds: v.optional(v.array(v.id("shoppingListItems"))),
+    resolvedItemIds: v.optional(v.array(v.id("shoppingListItems"))),
+  },
+  handler: async (ctx, args) => {
+    const { project, clerkUserId } = await ensureProjectAccess(ctx, args.projectId);
+    await ensureSectionBelongsToProject(ctx, args.sectionId ?? null, args.projectId);
+
+    const existingSets = await ctx.db
+      .query("shoppingSets")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+
+    return await ctx.db.insert("shoppingSets", {
+      projectId: args.projectId,
+      teamId: project.teamId,
+      title: args.title.trim(),
+      notes: args.notes?.trim() || undefined,
+      sectionId: args.sectionId ?? null,
+      setType: args.setType,
+      selectionMode: args.selectionMode,
+      pricingMode: args.pricingMode,
+      status: args.status ?? "active",
+      preferredItemIds: args.preferredItemIds ? normalizeIdList(args.preferredItemIds) as any : undefined,
+      resolvedItemIds: args.resolvedItemIds ? normalizeIdList(args.resolvedItemIds) as any : undefined,
+      order: existingSets.length,
+      createdBy: clerkUserId,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+export const updateShoppingSet = mutation({
+  args: {
+    setId: v.id("shoppingSets"),
+    title: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    sectionId: v.optional(v.union(v.id("shoppingListSections"), v.null())),
+    setType: v.optional(v.union(v.literal("variant"), v.literal("bundle"), v.literal("reference"))),
+    selectionMode: v.optional(v.union(v.literal("single"), v.literal("multiple"), v.literal("none"))),
+    pricingMode: v.optional(v.union(v.literal("selected_only"), v.literal("all_selected"), v.literal("none"))),
+    status: v.optional(v.union(v.literal("draft"), v.literal("active"), v.literal("resolved"), v.literal("archived"))),
+    preferredItemIds: v.optional(v.array(v.id("shoppingListItems"))),
+    resolvedItemIds: v.optional(v.array(v.id("shoppingListItems"))),
+  },
+  handler: async (ctx, args) => {
+    const set = await ensureShoppingSetAccess(ctx, args.setId);
+    if (Object.prototype.hasOwnProperty.call(args, "sectionId")) {
+      await ensureSectionBelongsToProject(ctx, args.sectionId ?? null, set.projectId);
+    }
+
+    const projectItems = await ctx.db
+      .query("shoppingListItems")
+      .withIndex("by_project", (q) => q.eq("projectId", set.projectId))
+      .collect();
+    const validItemIds = new Set(
+      projectItems
+        .filter((item) => String(item.setId ?? "") === String(args.setId))
+        .map((item) => String(item._id)),
+    );
+
+    const normalizeIdsForSet = (ids?: readonly string[]) =>
+      ids ? normalizeIdList(ids).filter((id) => validItemIds.has(id)) : undefined;
+
+    await ctx.db.patch(args.setId, {
+      ...(args.title !== undefined ? { title: args.title.trim() } : {}),
+      ...(args.notes !== undefined ? { notes: args.notes.trim() || undefined } : {}),
+      ...(Object.prototype.hasOwnProperty.call(args, "sectionId") ? { sectionId: args.sectionId ?? null } : {}),
+      ...(args.setType !== undefined ? { setType: args.setType } : {}),
+      ...(args.selectionMode !== undefined ? { selectionMode: args.selectionMode } : {}),
+      ...(args.pricingMode !== undefined ? { pricingMode: args.pricingMode } : {}),
+      ...(args.status !== undefined ? { status: args.status } : {}),
+      ...(args.preferredItemIds !== undefined ? { preferredItemIds: normalizeIdsForSet(args.preferredItemIds) as any } : {}),
+      ...(args.resolvedItemIds !== undefined ? { resolvedItemIds: normalizeIdsForSet(args.resolvedItemIds) as any } : {}),
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+export const deleteShoppingSet = mutation({
+  args: { setId: v.id("shoppingSets") },
+  handler: async (ctx, args) => {
+    const set = await ensureShoppingSetAccess(ctx, args.setId);
+
+    const projectItems = await ctx.db
+      .query("shoppingListItems")
+      .withIndex("by_project", (q) => q.eq("projectId", set.projectId))
+      .collect();
+
+    await Promise.all(
+      projectItems
+        .filter((item) => item.setId === args.setId)
+        .map((item) =>
+          ctx.db.patch(item._id, {
+            setId: null,
+            updatedAt: Date.now(),
+          }),
+        ),
+    );
+
+    await ctx.db.delete(args.setId);
+  },
+});
+
 // ====== SHOPPING LIST ITEMS ======
 
 export const listShoppingListItems = query({
   args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
+    await ensureProjectAccess(ctx, args.projectId);
     return await ctx.db
       .query("shoppingListItems")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
@@ -428,11 +632,11 @@ export const getPublicShoppingListByAccessToken = query({
   },
 });
 
-export const selectShoppingAlternativeByAccessToken = mutation({
+export const selectShoppingSetItemsByAccessToken = mutation({
   args: {
     accessToken: v.string(),
-    itemId: v.id("shoppingListItems"),
-    selectedItemId: v.union(v.id("shoppingListItems"), v.null()),
+    setId: v.id("shoppingSets"),
+    selectedItemIds: v.array(v.id("shoppingListItems")),
     respondentName: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -455,223 +659,69 @@ export const selectShoppingAlternativeByAccessToken = mutation({
       throw new Error("Shopping list is hidden in this portal");
     }
 
-    const item = await ctx.db
-      .query("clientPanelItems")
-      .withIndex("by_project_and_source", (q) =>
-        q.eq("projectId", project._id).eq("sourceItemId", args.itemId)
-      )
-      .unique();
-    if (!item) {
-      throw new Error("Item not found in this published panel");
+    const set = await ctx.db.get(args.setId);
+    if (!set || set.projectId !== project._id) {
+      throw new Error("Set not found in this project");
     }
 
-    const baseItemId = item.alternativeToSourceItemId || item.sourceItemId;
-
-    const projectItems = await ctx.db
+    const snapshotItems = await ctx.db
       .query("clientPanelItems")
       .withIndex("by_project", (q) => q.eq("projectId", project._id))
       .collect();
-
-    const allowedOptionIds = new Set(
-      projectItems
-        .filter(
-          (projectItem) =>
-            projectItem.sourceItemId === baseItemId ||
-            projectItem.alternativeToSourceItemId === baseItemId
-        )
-        .map((projectItem) => projectItem.sourceItemId)
+    const setSnapshotItems = snapshotItems.filter(
+      (item) => String(item.setId ?? "") === String(args.setId),
     );
 
-    if (allowedOptionIds.size === 0) {
-      throw new Error("Alternative options not found");
+    if (setSnapshotItems.length === 0) {
+      throw new Error("Set is not available in this published panel");
     }
 
-    if (args.selectedItemId && !allowedOptionIds.has(args.selectedItemId)) {
-      throw new Error("Selected option does not belong to this alternative group");
+    const allowedItemIds = new Set(setSnapshotItems.map((item) => String(item.sourceItemId)));
+    const requestedIds = normalizeIdList(args.selectedItemIds).filter((id) =>
+      allowedItemIds.has(id),
+    );
+
+    if (requestedIds.length !== args.selectedItemIds.length) {
+      throw new Error("Selected item does not belong to this set");
+    }
+    if (set.selectionMode === "single" && requestedIds.length > 1) {
+      throw new Error("Only one item can be selected for this set");
+    }
+    if (set.selectionMode === "none" && requestedIds.length > 0) {
+      throw new Error("This set does not accept a selection");
     }
 
-    const selectedAlternativeSourceItemId =
-      args.selectedItemId && args.selectedItemId !== baseItemId
-        ? args.selectedItemId
-        : null;
-
-    const basePanelItem = await ctx.db
-      .query("clientPanelItems")
-      .withIndex("by_project_and_source", (q) =>
-        q.eq("projectId", project._id).eq("sourceItemId", baseItemId)
-      )
-      .unique();
-    if (!basePanelItem) {
-      throw new Error("Base item not found in published panel");
-    }
-
-    await ctx.db.patch(basePanelItem._id, {
-      selectedAlternativeSourceItemId,
-    });
-
-    await ctx.db.patch(baseItemId, {
-      selectedAlternativeItemId: selectedAlternativeSourceItemId,
+    await ctx.db.patch(set._id, {
+      resolvedItemIds: requestedIds as any,
+      status: requestedIds.length > 0 ? "resolved" : set.status,
       updatedAt: Date.now(),
     });
 
-    const selectedSourceItemId = selectedAlternativeSourceItemId || baseItemId;
-    const selectedOption = projectItems.find(
-      (projectItem) => projectItem.sourceItemId === selectedSourceItemId
+    await Promise.all(
+      setSnapshotItems.map((snapshotItem) =>
+        ctx.db.patch(snapshotItem._id, {
+          setResolvedSourceItemIds: requestedIds as any,
+          setStatus: requestedIds.length > 0 ? "resolved" : snapshotItem.setStatus ?? null,
+        }),
+      ),
     );
+
     await logClientPortalShoppingActivity(
       ctx,
       { _id: project._id, teamId: project.teamId },
-      "shopping.customer.option_selected",
-      String(baseItemId),
+      "shopping.portal.set_selection_saved",
+      String(args.setId),
       {
         actorName: getClientPortalActorName(args.respondentName),
-        baseItemId: String(baseItemId),
-        selectedItemId: String(selectedSourceItemId),
-        selectedItemName: selectedOption?.name || null,
-      }
+        setId: String(args.setId),
+        selectedItemIds: requestedIds,
+      },
     );
 
     return {
       success: true,
-      baseItemId,
-      selectedItemId: selectedAlternativeSourceItemId || baseItemId,
-    };
-  },
-});
-
-export const setShoppingItemFeedbackByAccessToken = mutation({
-  args: {
-    accessToken: v.string(),
-    itemId: v.id("shoppingListItems"),
-    decision: v.union(v.literal("accepted"), v.literal("rejected"), v.null()),
-    comment: v.optional(v.union(v.string(), v.null())),
-    respondentName: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const token = args.accessToken.trim();
-    if (!token) {
-      throw new Error("Invalid panel link");
-    }
-
-    const project = await ctx.db
-      .query("projects")
-      .withIndex("by_client_panel_access_token", (q) =>
-        q.eq("clientPanelAccessToken", token)
-      )
-      .unique();
-
-    if (!project) {
-      throw new Error("Invalid panel link");
-    }
-    if (project.clientPanelPublishedSettings?.showShoppingList !== true) {
-      throw new Error("Shopping list is hidden in this portal");
-    }
-
-    const item = await ctx.db
-      .query("clientPanelItems")
-      .withIndex("by_project_and_source", (q) =>
-        q.eq("projectId", project._id).eq("sourceItemId", args.itemId)
-      )
-      .unique();
-    if (!item) {
-      throw new Error("Item not found in this published panel");
-    }
-
-    const baseItemId = item.alternativeToSourceItemId || item.sourceItemId;
-    const basePanelItem = await ctx.db
-      .query("clientPanelItems")
-      .withIndex("by_project_and_source", (q) =>
-        q.eq("projectId", project._id).eq("sourceItemId", baseItemId)
-      )
-      .unique();
-    if (!basePanelItem) {
-      throw new Error("Base item not found in published panel");
-    }
-
-    const normalizedComment =
-      typeof args.comment === "string" ? args.comment.trim() : "";
-    if (normalizedComment.length > 2000) {
-      throw new Error("Comment is too long (max 2000 characters)");
-    }
-
-    const customerDecisionUpdatedAt = Date.now();
-    const actorName = getClientPortalActorName(args.respondentName);
-    const normalizedDecisionComment = normalizeClientPortalComment(normalizedComment);
-    const previousDecision = basePanelItem.customerDecision ?? null;
-    const previousDecisionComment = normalizeClientPortalComment(
-      basePanelItem.customerDecisionComment ?? null,
-    );
-    const decisionChanged = previousDecision !== args.decision;
-    const commentChanged = previousDecisionComment !== normalizedDecisionComment;
-
-    if (!decisionChanged && !commentChanged) {
-      return {
-        success: true,
-        baseItemId,
-        decision: args.decision,
-        comment: normalizedDecisionComment,
-      };
-    }
-
-    await ctx.db.patch(basePanelItem._id, {
-      customerDecision: args.decision,
-      customerDecisionComment: normalizedDecisionComment,
-      customerDecisionUpdatedAt,
-    });
-
-    await ctx.db.patch(baseItemId, {
-      customerDecision: args.decision,
-      customerDecisionComment: normalizedDecisionComment,
-      customerDecisionUpdatedAt,
-      customerDecisionByName: actorName,
-      updatedAt: customerDecisionUpdatedAt,
-    });
-
-    if (commentChanged && normalizedDecisionComment) {
-      await logClientPortalShoppingActivity(
-        ctx,
-        { _id: project._id, teamId: project.teamId },
-        "shopping.customer.feedback",
-        String(baseItemId),
-        {
-          actorName,
-          itemName: basePanelItem.name,
-          comment: normalizedDecisionComment,
-        }
-      );
-    }
-
-    if (decisionChanged && (args.decision === "accepted" || args.decision === "rejected")) {
-      await logClientPortalShoppingActivity(
-        ctx,
-        { _id: project._id, teamId: project.teamId },
-        "shopping.customer.decision",
-        String(baseItemId),
-        {
-          actorName,
-          itemName: basePanelItem.name,
-          decision: args.decision,
-        }
-      );
-
-      await ctx.scheduler.runAfter(
-        0,
-        internalAny.notifications.sendClientPortalEventEmail,
-        {
-          projectId: project._id,
-          actionType: "shopping.customer.decision",
-          actorName,
-          itemName: basePanelItem.name,
-          decision: args.decision,
-        }
-      );
-    }
-
-    return {
-      success: true,
-      baseItemId,
-      decision: args.decision,
-      comment: normalizedDecisionComment,
+      setId: args.setId,
+      selectedItemIds: requestedIds,
     };
   },
 });
@@ -691,18 +741,15 @@ export const createShoppingListItem = mutation({
     dimensions: v.optional(v.string()),
     quantity: v.number(),
     unitPrice: v.optional(v.number()),
-    alternativeToItemId: v.optional(v.union(v.id("shoppingListItems"), v.null())),
-    selectedAlternativeItemId: v.optional(v.union(v.id("shoppingListItems"), v.null())),
+    setId: v.optional(v.union(v.id("shoppingSets"), v.null())),
     realizationStatus: v.union(v.literal("PLANNED"), v.literal("ORDERED"), v.literal("IN_TRANSIT"), v.literal("DELIVERED"), v.literal("COMPLETED"), v.literal("CANCELLED")),
     sectionId: v.optional(v.union(v.id("shoppingListSections"), v.null())),
     assignedTo: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project) throw new Error("Project not found");
+    const { project, clerkUserId } = await ensureProjectAccess(ctx, args.projectId);
+    await ensureSectionBelongsToProject(ctx, args.sectionId ?? null, args.projectId);
+    await ensureSetBelongsToProject(ctx, args.setId ?? null, args.projectId);
 
     const totalPrice = args.unitPrice ? args.quantity * args.unitPrice : undefined;
 
@@ -714,16 +761,15 @@ export const createShoppingListItem = mutation({
       priority: args.priority,
       projectId: args.projectId,
       teamId: project.teamId,
-      createdBy: identity.subject,
+      createdBy: clerkUserId,
       assignedTo: args.assignedTo || undefined,
       supplier: args.supplier || undefined,
       category: args.category || undefined,
       realizationStatus: args.realizationStatus,
       sectionId: args.sectionId || null,
+      setId: args.setId || null,
       unitPrice: args.unitPrice || undefined,
       totalPrice: totalPrice,
-      alternativeToItemId: args.alternativeToItemId || null,
-      selectedAlternativeItemId: args.selectedAlternativeItemId || null,
       catalogNumber: args.catalogNumber || undefined,
       productLink: args.productLink || undefined,
       imageUrl: args.imageUrl || undefined,
@@ -767,97 +813,20 @@ export const updateShoppingListItem = mutation({
     dimensions: v.optional(v.string()),
     quantity: v.optional(v.number()),
     unitPrice: v.optional(v.number()),
-    alternativeToItemId: v.optional(v.union(v.id("shoppingListItems"), v.null())),
-    selectedAlternativeItemId: v.optional(v.union(v.id("shoppingListItems"), v.null())),
+    setId: v.optional(v.union(v.id("shoppingSets"), v.null())),
     realizationStatus: v.optional(v.union(v.literal("PLANNED"), v.literal("ORDERED"), v.literal("IN_TRANSIT"), v.literal("DELIVERED"), v.literal("COMPLETED"), v.literal("CANCELLED"))),
     sectionId: v.optional(v.union(v.id("shoppingListSections"), v.null())),
     assignedTo: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
     const { itemId, ...updates } = args;
-    const item = await ctx.db.get(itemId);
-    if (!item) throw new Error("Item not found");
+    const item = await ensureShoppingItemAccess(ctx, itemId);
 
-    const projectItems = await ctx.db
-      .query("shoppingListItems")
-      .withIndex("by_project", (q) => q.eq("projectId", item.projectId))
-      .collect();
-    const projectItemsById = new Map(
-      projectItems.map((projectItem) => [String(projectItem._id), projectItem]),
-    );
-    const hasAlternativeToItemId = Object.prototype.hasOwnProperty.call(
-      updates,
-      "alternativeToItemId",
-    );
-    const hasSelectedAlternativeItemId = Object.prototype.hasOwnProperty.call(
-      updates,
-      "selectedAlternativeItemId",
-    );
-    const finalAlternativeToItemId = hasAlternativeToItemId
-      ? updates.alternativeToItemId ?? null
-      : item.alternativeToItemId ?? null;
-    const finalSelectedAlternativeItemId = hasSelectedAlternativeItemId
-      ? updates.selectedAlternativeItemId ?? null
-      : item.selectedAlternativeItemId ?? null;
-    const itemIdString = String(itemId);
-    const finalAlternativeToItemIdString = finalAlternativeToItemId
-      ? String(finalAlternativeToItemId)
-      : null;
-    const finalSelectedAlternativeItemIdString = finalSelectedAlternativeItemId
-      ? String(finalSelectedAlternativeItemId)
-      : null;
-    const itemHasChildren = projectItems.some(
-      (projectItem) => String(projectItem.alternativeToItemId ?? "") === itemIdString,
-    );
-    const itemIsSelectedInAnotherGroup = projectItems.some(
-      (projectItem) =>
-        projectItem._id !== item._id &&
-        String(projectItem.selectedAlternativeItemId ?? "") === itemIdString,
-    );
-
-    if (finalAlternativeToItemIdString) {
-      if (finalAlternativeToItemIdString === itemIdString) {
-        throw new Error("An item cannot be an alternative of itself");
-      }
-
-      const alternativeTarget = projectItemsById.get(finalAlternativeToItemIdString);
-      if (!alternativeTarget) {
-        throw new Error("Alternative target not found in this project");
-      }
-
-      if (alternativeTarget.alternativeToItemId) {
-        throw new Error("Alternative groups cannot nest");
-      }
-
-      if (itemHasChildren) {
-        throw new Error("Items with alternatives cannot be turned into alternatives");
-      }
-
-      if (itemIsSelectedInAnotherGroup) {
-        throw new Error("Items selected in another alternative group cannot be turned into alternatives");
-      }
+    if (Object.prototype.hasOwnProperty.call(updates, "sectionId")) {
+      await ensureSectionBelongsToProject(ctx, updates.sectionId ?? null, item.projectId);
     }
-
-    if (finalSelectedAlternativeItemIdString) {
-      if (finalAlternativeToItemIdString) {
-        throw new Error("Alternative items cannot store a selected option");
-      }
-
-      const selectedAlternativeTarget = projectItemsById.get(finalSelectedAlternativeItemIdString);
-      if (!selectedAlternativeTarget) {
-        throw new Error("Selected alternative not found in this project");
-      }
-
-      const isValidSelection =
-        finalSelectedAlternativeItemIdString === itemIdString ||
-        String(selectedAlternativeTarget.alternativeToItemId ?? "") === itemIdString;
-
-      if (!isValidSelection) {
-        throw new Error("Selected option does not belong to this alternative group");
-      }
+    if (Object.prototype.hasOwnProperty.call(updates, "setId")) {
+      await ensureSetBelongsToProject(ctx, updates.setId ?? null, item.projectId);
     }
 
     let totalPrice = item.totalPrice;
@@ -875,20 +844,6 @@ export const updateShoppingListItem = mutation({
     };
 
     await ctx.db.patch(itemId, patch);
-
-    const previousParentId = item.alternativeToItemId ? String(item.alternativeToItemId) : null;
-    if (previousParentId && previousParentId !== finalAlternativeToItemIdString) {
-      const previousParent = projectItemsById.get(previousParentId);
-      if (
-        previousParent &&
-        String(previousParent.selectedAlternativeItemId ?? "") === itemIdString
-      ) {
-        await ctx.db.patch(previousParent._id, {
-          selectedAlternativeItemId: null,
-          updatedAt: Date.now(),
-        });
-      }
-    }
 
     await ctx.runMutation(internalAny.activityLog.logActivity, {
       teamId: item.teamId,
@@ -911,11 +866,7 @@ export const updateShoppingListItem = mutation({
 export const cancelShoppingListItem = mutation({
   args: { itemId: v.id("shoppingListItems") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
-    const item = await ctx.db.get(args.itemId);
-    if (!item) throw new Error("Item not found");
+    const item = await ensureShoppingItemAccess(ctx, args.itemId);
 
     await ctx.runMutation(internalAny.activityLog.logActivity, {
       teamId: item.teamId,
@@ -942,11 +893,7 @@ export const cancelShoppingListItem = mutation({
 export const deleteShoppingListItem = mutation({
   args: { itemId: v.id("shoppingListItems") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
-    const item = await ctx.db.get(args.itemId);
-    if (!item) throw new Error("Item not found");
+    const item = await ensureShoppingItemAccess(ctx, args.itemId);
 
     await ctx.runMutation(internalAny.activityLog.logActivity, {
       teamId: item.teamId,
@@ -960,28 +907,29 @@ export const deleteShoppingListItem = mutation({
       },
     });
 
-    const projectItems = await ctx.db
-      .query("shoppingListItems")
+    const projectSets = await ctx.db
+      .query("shoppingSets")
       .withIndex("by_project", (q) => q.eq("projectId", item.projectId))
       .collect();
 
     await Promise.all(
-      projectItems.map(async (projectItem) => {
-        if (projectItem._id === args.itemId) return;
+      projectSets.map(async (set) => {
+        const resolvedItemIds = normalizeIdList(set.resolvedItemIds as string[] | undefined).filter(
+          (id) => id !== String(args.itemId),
+        );
+        const preferredItemIds = normalizeIdList(set.preferredItemIds as string[] | undefined).filter(
+          (id) => id !== String(args.itemId),
+        );
 
-        const patch: Record<string, unknown> = {};
-
-        if (projectItem.alternativeToItemId === args.itemId) {
-          patch.alternativeToItemId = null;
-        }
-
-        if (projectItem.selectedAlternativeItemId === args.itemId) {
-          patch.selectedAlternativeItemId = null;
-        }
-
-        if (Object.keys(patch).length > 0) {
-          patch.updatedAt = Date.now();
-          await ctx.db.patch(projectItem._id, patch);
+        if (
+          resolvedItemIds.length !== normalizeIdList(set.resolvedItemIds as string[] | undefined).length ||
+          preferredItemIds.length !== normalizeIdList(set.preferredItemIds as string[] | undefined).length
+        ) {
+          await ctx.db.patch(set._id, {
+            resolvedItemIds: resolvedItemIds as any,
+            preferredItemIds: preferredItemIds as any,
+            updatedAt: Date.now(),
+          });
         }
       }),
     );
@@ -998,6 +946,7 @@ export const deleteShoppingListItem = mutation({
 export const getShoppingListItemsByProject = query({
   args: { projectId: v.id("projects") },
   async handler(ctx, args) {
+    await ensureProjectAccess(ctx, args.projectId);
     const items = await ctx.db
       .query("shoppingListItems")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
@@ -1009,10 +958,7 @@ export const getShoppingListItemsByProject = query({
 export const getShoppingListItemsByTeam = query({
   args: { teamId: v.id("teams") },
   async handler(ctx, args) {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
-    // Get all shopping list items for this team
+    await ensureTeamAccess(ctx, args.teamId);
     const items = await ctx.db
       .query("shoppingListItems")
       .filter((q) => q.eq(q.field("teamId"), args.teamId))
@@ -1022,11 +968,23 @@ export const getShoppingListItemsByTeam = query({
   },
 });
 
+export const getShoppingSetsByTeam = query({
+  args: { teamId: v.id("teams") },
+  async handler(ctx, args) {
+    await ensureTeamAccess(ctx, args.teamId);
+    return await ctx.db
+      .query("shoppingSets")
+      .filter((q) => q.eq(q.field("teamId"), args.teamId))
+      .collect();
+  },
+});
+
 export const getShoppingListForIndexing = query({
   args: {
     projectId: v.id("projects"),
   },
   handler: async (ctx, args) => {
+    await ensureProjectAccess(ctx, args.projectId);
     return await ctx.db
       .query("shoppingListItems")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
@@ -1039,14 +997,14 @@ export const getShoppingListForIndexing = query({
 export const getShoppingItemById = query({
   args: { itemId: v.id("shoppingListItems") },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.itemId);
+    return await ensureShoppingItemAccess(ctx, args.itemId);
   },
 });
 
 export const getShoppingListItem = query({
   args: { itemId: v.id("shoppingListItems") },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.itemId);
+    return await ensureShoppingItemAccess(ctx, args.itemId);
   },
 });
 
@@ -1056,6 +1014,7 @@ export const getItemsChangedAfter = query({
     since: v.number()
   },
   handler: async (ctx, args) => {
+    await ensureProjectAccess(ctx, args.projectId);
     return await ctx.db
       .query("shoppingListItems")
       .withIndex("by_project", q => q.eq("projectId", args.projectId))

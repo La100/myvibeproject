@@ -90,7 +90,7 @@ export default function CompanyProjects() {
           {filteredProjects.map((project, index) => (
             <motion.div
               key={project._id}
-              className="w-full md:max-w-[30rem] xl:max-w-none"
+              className="h-full w-full md:max-w-[30rem] xl:max-w-none"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.2, delay: index * 0.03 }}
@@ -220,44 +220,21 @@ function ProjectCard({
     <div
       onClick={onClick}
       onMouseEnter={onHover}
-      className="group w-full cursor-pointer"
+      className="group h-full w-full cursor-pointer"
     >
-      <Card className="overflow-hidden border-border transition-transform duration-200 group-hover:-translate-y-0.5">
+      <Card className="h-full gap-0 overflow-hidden border-border py-0 shadow-none transition-transform duration-200 group-hover:-translate-y-0.5">
         <div className="relative aspect-[5/4] overflow-hidden bg-muted md:aspect-[16/10] xl:aspect-[4/3]">
           {showCoverImage ? (
-            <>
-              <Image
-                src={coverImageSrc}
-                alt={project.name}
-                fill
-                sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 25vw"
-                className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                onError={() => setCoverImageFailed(true)}
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/25 to-transparent" />
-              <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 p-5">
-                <div className="max-w-[24rem]">
-                  <p className="text-lg font-medium leading-snug text-background line-clamp-3">
-                    {project.name}
-                  </p>
-                  {project.description ? (
-                    <p className="mt-1.5 line-clamp-2 text-xs text-background/80">
-                      {project.description}
-                    </p>
-                  ) : null}
-                </div>
-                {project.status ? (
-                  <span
-                    className={cn(
-                      "inline-block h-2.5 w-2.5 shrink-0 rounded-full",
-                      statusDotClasses[project.status],
-                    )}
-                  />
-                ) : null}
-              </div>
-            </>
+            <Image
+              src={coverImageSrc}
+              alt={project.name}
+              fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 25vw"
+              className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+              onError={() => setCoverImageFailed(true)}
+            />
           ) : (
-            <div className="flex h-full flex-col justify-between p-5">
+            <div className="flex h-full flex-col p-5">
               <div className="flex items-start justify-between gap-4">
                 {(project.location || project.customer) ? (
                   <span className="rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
@@ -281,21 +258,18 @@ function ProjectCard({
                   </div>
                 </div>
               </div>
-
-              <div className="max-w-[24rem]">
-                <p className="text-xl font-medium leading-tight tracking-tight text-foreground">
-                  {project.name}
-                </p>
-                {project.description ? (
-                  <p className="mt-2 line-clamp-2 max-w-[20rem] text-sm leading-6 text-muted-foreground">
-                    {project.description}
-                  </p>
-                ) : null}
-              </div>
             </div>
           )}
         </div>
-        <CardContent className="flex flex-col gap-1 p-4 pt-3">
+        <CardContent className="flex flex-1 flex-col gap-1 p-4">
+          <p className="line-clamp-3 text-lg font-medium leading-snug text-foreground">
+            {project.name}
+          </p>
+          {project.description ? (
+            <p className="line-clamp-2 text-sm text-muted-foreground">
+              {project.description}
+            </p>
+          ) : null}
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             {project.status ? (
               <>

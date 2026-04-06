@@ -1,6 +1,7 @@
 import { ProjectSidebar } from "@/components/project/ProjectSidebar";
 import { MobileProjectHeader } from "@/components/project/MobileProjectHeader";
 import { ProjectProvider } from "@/components/providers/ProjectProvider";
+import { FloatingChatKitLauncher } from "@/components/ai/chatkit/FloatingChatKitLauncher";
 import { 
   SidebarProvider, 
   SidebarInset, 
@@ -30,6 +31,7 @@ function ProjectLayoutContent({ children }: { children: React.ReactNode }) {
             </div>
           </Suspense>
         </main>
+        <FloatingChatKitLauncher />
       </SidebarInset>
     </SidebarProvider>
   );

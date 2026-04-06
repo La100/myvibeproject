@@ -3,10 +3,12 @@ import { auth } from "@clerk/nextjs/server";
 import { ConvexHttpClient } from "convex/browser";
 
 import { apiAny } from "@/lib/convexApiAny";
+import { verifyAssistantAccess, verifyProjectScope } from "@/lib/assistant/serverAccess";
 import {
   calculateCloudflareBrowserRenderingCostUSD,
   usdToCredits,
 } from "@/lib/aiPricing";
+import { assertSafeRemoteUrl } from "@/lib/security/remoteUrlSafety";
 
 type JsonLdNode = Record<string, unknown>;
 
@@ -73,6 +75,7 @@ const CLOUDFLARE_SCRAPE_SELECTORS = [
   "[data-testid*='price']",
 ];
 const CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4/accounts";
+export const runtime = "nodejs";
 
 function getCloudflareConfig() {
   const accountId =
@@ -134,47 +137,7 @@ function escapeHtmlText(value: string): string {
     .replace(/>/g, "&gt;");
 }
 
-function isPrivateIpv4(hostname: string): boolean {
-  const parts = hostname.split(".").map((part) => Number.parseInt(part, 10));
-  if (parts.length !== 4 || parts.some((part) => Number.isNaN(part) || part < 0 || part > 255)) {
-    return false;
-  }
-
-  const [a, b] = parts;
-  if (a === 10 || a === 127 || a === 0) return true;
-  if (a === 169 && b === 254) return true;
-  if (a === 172 && b >= 16 && b <= 31) return true;
-  if (a === 192 && b === 168) return true;
-  return false;
-}
-
-function isPrivateIpv6(hostname: string): boolean {
-  const normalized = hostname.toLowerCase();
-  if (normalized === "::1") return true;
-  if (normalized.startsWith("fe80:")) return true;
-  if (normalized.startsWith("fc") || normalized.startsWith("fd")) return true;
-  return false;
-}
-
-function isBlockedHostname(hostname: string): boolean {
-  const normalized = hostname.toLowerCase();
-  if (
-    normalized === "localhost" ||
-    normalized.endsWith(".localhost") ||
-    normalized.endsWith(".local") ||
-    normalized.endsWith(".internal")
-  ) {
-    return true;
-  }
-
-  if (isPrivateIpv4(normalized) || isPrivateIpv6(normalized)) {
-    return true;
-  }
-
-  return false;
-}
-
-function normalizeInputUrl(rawUrl: string): URL {
+async function normalizeInputUrl(rawUrl: string): Promise<URL> {
   const trimmed = rawUrl.trim();
   if (!trimmed) {
     throw new Error("URL is required.");
@@ -182,14 +145,10 @@ function normalizeInputUrl(rawUrl: string): URL {
 
   const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
   const parsed = new URL(withProtocol);
-
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    throw new Error("Only HTTP/HTTPS URLs are allowed.");
-  }
-
-  if (isBlockedHostname(parsed.hostname)) {
-    throw new Error("This URL host is blocked for security reasons.");
-  }
+  await assertSafeRemoteUrl(parsed, {
+    blockedHostMessage: "This URL host is blocked for security reasons.",
+    unresolvedHostMessage: "Unable to resolve URL host.",
+  });
 
   return parsed;
 }
@@ -198,9 +157,10 @@ async function fetchHtmlWithRedirects(initialUrl: URL): Promise<{ html: string; 
   let currentUrl = initialUrl;
 
   for (let i = 0; i <= MAX_REDIRECTS; i += 1) {
-    if (isBlockedHostname(currentUrl.hostname)) {
-      throw new Error("Redirected URL host is blocked for security reasons.");
-    }
+    await assertSafeRemoteUrl(currentUrl, {
+      blockedHostMessage: "Redirected URL host is blocked for security reasons.",
+      unresolvedHostMessage: "Redirected URL host could not be resolved.",
+    });
 
     const response = await fetch(currentUrl.toString(), {
       method: "GET",
@@ -831,8 +791,36 @@ function toErrorResponse(error: unknown): NextResponse {
 
 export async function GET(request: NextRequest) {
   try {
+    const projectId = request.nextUrl.searchParams.get("projectId")?.trim();
+    const teamId = request.nextUrl.searchParams.get("teamId")?.trim();
+    if (!projectId || !teamId) {
+      return NextResponse.json(
+        { error: "Missing required project or team scope." },
+        { status: 400 },
+      );
+    }
+
+    const { userId, getToken } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const convexToken = await getToken({ template: "convex" });
+    if (!convexToken) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      await verifyProjectScope(convexToken, projectId, teamId);
+      await verifyAssistantAccess(convexToken, teamId);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Access denied for shopping scrape.";
+      return NextResponse.json({ error: message }, { status: 403 });
+    }
+
     const rawUrl = request.nextUrl.searchParams.get("url") ?? "";
-    const parsedUrl = normalizeInputUrl(rawUrl);
+    const parsedUrl = await normalizeInputUrl(rawUrl);
     let html: string;
     let finalUrl: URL;
     let browserMsUsed = 0;

@@ -37,7 +37,7 @@ import {
 } from "lucide-react";
 import { Suspense } from "react";
 import { Spinner } from "@/components/ui/spinner";
-import { calculateShoppingTotal } from "@/lib/shoppingAlternatives";
+import { calculateShoppingTotal } from "@/lib/shoppingSets";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -67,6 +67,9 @@ function ProjectOverviewContent() {
       projectId: project._id,
     },
   );
+  const shoppingSets = useQuery(apiAny.shopping.listShoppingSets, {
+    projectId: project._id,
+  });
 
   const laborItems = useQuery(apiAny.labor.listLaborItems, {
     projectId: project._id,
@@ -90,6 +93,7 @@ function ProjectOverviewContent() {
   if (
     tasks === undefined ||
     shoppingListItems === undefined ||
+    shoppingSets === undefined ||
     laborItems === undefined ||
     paymentsData === undefined ||
     milestonesSummary === undefined ||
@@ -98,7 +102,7 @@ function ProjectOverviewContent() {
     return <ProjectOverviewSkeleton />;
   }
 
-  const shoppingListCost = calculateShoppingTotal(shoppingListItems);
+  const shoppingListCost = calculateShoppingTotal(shoppingListItems, shoppingSets);
   const laborCost = laborItems.reduce(
     (sum: number, item) => sum + (item.totalPrice || 0),
     0,

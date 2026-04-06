@@ -10,6 +10,7 @@ const isPublicRoute = createRouteMatcher([
   "/sso-callback(.*)",
   "/onboarding(.*)",
   "/client-panel(.*)",
+  "/api/healthz(.*)",
   "/api/clipper(.*)",
   "/auth(.*)",
 ]);

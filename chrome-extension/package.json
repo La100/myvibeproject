@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "node scripts/build.js",
     "preview": "vite preview",
-    "lint": "biome lint src/lib/auth.ts src/lib/messages.ts src/background.ts src/content.tsx src/components/views/LoginView.tsx src/components/views/ClipperView.tsx src/components/App.tsx",
+    "lint": "pnpm dlx @biomejs/biome lint src/lib/auth.ts src/lib/messages.ts src/background.ts src/content.tsx src/components/views/LoginView.tsx src/components/views/ClipperView.tsx src/components/App.tsx",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {

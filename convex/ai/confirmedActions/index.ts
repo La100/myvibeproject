@@ -18,10 +18,13 @@ export { createConfirmedNote, editConfirmedNote, deleteConfirmedNote } from "./n
 export {
   createConfirmedShoppingItem,
   createConfirmedShoppingSection,
+  createConfirmedShoppingSet,
   editConfirmedShoppingItem,
   editConfirmedShoppingSection,
+  editConfirmedShoppingSet,
   deleteConfirmedShoppingItem,
   deleteConfirmedShoppingSection,
+  deleteConfirmedShoppingSet,
 } from "./shopping";
 
 // Labor actions
@@ -46,7 +49,6 @@ export {
   editConfirmedMoodboardSection,
   deleteConfirmedMoodboardSection,
 } from "./moodboard";
-
 
 
 

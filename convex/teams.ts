@@ -3,6 +3,7 @@ import { query, mutation, internalQuery, internalAction } from "./_generated/ser
 import { Doc } from "./_generated/dataModel";
 import { r2 } from "./files";
 import { getEffectiveLimits } from "./stripe";
+import { ensureProjectAccess, ensureTeamAccess, getActiveTeamMembership } from "./authz";
 import {
   billingProfileValidator,
   normalizeBillingProfile,
@@ -64,28 +65,54 @@ export const getTeamByClerkOrg = query({
     clerkOrgId: v.string(),
   },
   async handler(ctx, args) {
-    return await ctx.db
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return null;
+    }
+
+    const team = await ctx.db
       .query("teams")
       .withIndex("by_clerk_org", (q) => q.eq("clerkOrgId", args.clerkOrgId))
       .unique();
+
+    if (!team) {
+      return null;
+    }
+
+    const membership = await getActiveTeamMembership(ctx, team._id, identity.subject);
+    return membership ? team : null;
   },
 });
 
 export const getTeamById = query({
   args: { teamId: v.id("teams") },
   async handler(ctx, args) {
-    return await ctx.db.get(args.teamId);
+    try {
+      return (await ensureTeamAccess(ctx, args.teamId)).team;
+    } catch {
+      return null;
+    }
   },
 });
 
 export const getTeamBySlug = query({
   args: { slug: v.string() },
   async handler(ctx, args) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return null;
+    }
+
     const team = await ctx.db
       .query("teams")
       .withIndex("by_slug", (q) => q.eq("slug", args.slug))
       .unique();
-    return team;
+    if (!team) {
+      return null;
+    }
+
+    const membership = await getActiveTeamMembership(ctx, team._id, identity.subject);
+    return membership ? team : null;
   }
 });
 
@@ -94,7 +121,11 @@ export const getTeam = query({
     teamId: v.id("teams"),
   },
   async handler(ctx, args) {
-    return await ctx.db.get(args.teamId);
+    try {
+      return (await ensureTeamAccess(ctx, args.teamId)).team;
+    } catch {
+      return null;
+    }
   }
 });
 
@@ -417,9 +448,11 @@ export const getTeamMembersWithUserDetails = internalQuery({
 export const getTeamMembers = query({
   args: { teamId: v.id("teams") },
   async handler(ctx, args) {
+    await ensureTeamAccess(ctx, args.teamId);
     const members = await ctx.db
       .query("teamMembers")
       .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+      .filter((q) => q.eq(q.field("isActive"), true))
       .collect();
 
     return Promise.all(
@@ -445,10 +478,19 @@ export const getProjectMembers = query({
     projectId: v.optional(v.id("projects"))
   },
   async handler(ctx, args) {
-    // Fetch all team members
+    if (args.projectId) {
+      const { project } = await ensureProjectAccess(ctx, args.projectId);
+      if (project.teamId !== args.teamId) {
+        throw new Error("Project does not belong to this team");
+      }
+    } else {
+      await ensureTeamAccess(ctx, args.teamId);
+    }
+
     const teamMembers = await ctx.db
       .query("teamMembers")
       .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+      .filter((q) => q.eq(q.field("isActive"), true))
       .collect();
 
     const result: Array<Record<string, unknown>> = [];

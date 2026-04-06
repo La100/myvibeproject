@@ -14,18 +14,26 @@ const createShoppingListItemMutationRef =
   makeFunctionReference<"mutation">("shopping:createShoppingListItem");
 const createShoppingListSectionMutationRef =
   makeFunctionReference<"mutation">("shopping:createShoppingListSection");
+const createShoppingSetMutationRef =
+  makeFunctionReference<"mutation">("shopping:createShoppingSet");
 const getShoppingListItemQueryRef =
   makeFunctionReference<"query">("shopping:getShoppingListItem");
 const getShoppingListSectionQueryRef =
   makeFunctionReference<"query">("shopping:getShoppingListSection");
+const getShoppingSetQueryRef =
+  makeFunctionReference<"query">("shopping:getShoppingSet");
 const updateShoppingListItemMutationRef =
   makeFunctionReference<"mutation">("shopping:updateShoppingListItem");
 const updateShoppingListSectionMutationRef =
   makeFunctionReference<"mutation">("shopping:updateShoppingListSection");
+const updateShoppingSetMutationRef =
+  makeFunctionReference<"mutation">("shopping:updateShoppingSet");
 const deleteShoppingListItemMutationRef =
   makeFunctionReference<"mutation">("shopping:deleteShoppingListItem");
 const deleteShoppingListSectionMutationRef =
   makeFunctionReference<"mutation">("shopping:deleteShoppingListSection");
+const deleteShoppingSetMutationRef =
+  makeFunctionReference<"mutation">("shopping:deleteShoppingSet");
 
 export const createConfirmedShoppingItem = action({
   args: {
@@ -42,8 +50,7 @@ export const createConfirmedShoppingItem = action({
       unitPrice: v.optional(v.number()),
       totalPrice: v.optional(v.number()),
       sectionId: v.optional(v.id("shoppingListSections")),
-      alternativeToItemId: v.optional(v.id("shoppingListItems")),
-      selectedAlternativeItemId: v.optional(v.id("shoppingListItems")),
+      setId: v.optional(v.id("shoppingSets")),
     }),
   },
   returns: v.object({
@@ -72,8 +79,7 @@ export const createConfirmedShoppingItem = action({
         unitPrice: args.itemData.unitPrice,
         realizationStatus: "PLANNED",
         sectionId: args.itemData.sectionId,
-        alternativeToItemId: args.itemData.alternativeToItemId,
-        selectedAlternativeItemId: args.itemData.selectedAlternativeItemId,
+        setId: args.itemData.setId,
       });
 
       return {
@@ -126,6 +132,54 @@ export const createConfirmedShoppingSection = action({
   },
 });
 
+export const createConfirmedShoppingSet = action({
+  args: {
+    projectId: v.id("projects"),
+    userClerkId: v.optional(v.string()),
+    setData: v.object({
+      title: v.string(),
+      notes: v.optional(v.string()),
+      sectionId: v.optional(v.id("shoppingListSections")),
+      setType: v.optional(v.union(v.literal("variant"), v.literal("bundle"), v.literal("reference"))),
+      selectionMode: v.optional(v.union(v.literal("single"), v.literal("multiple"), v.literal("none"))),
+      pricingMode: v.optional(v.union(v.literal("selected_only"), v.literal("all_selected"), v.literal("none"))),
+      status: v.optional(v.union(v.literal("draft"), v.literal("active"), v.literal("resolved"), v.literal("archived"))),
+    }),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    setId: v.optional(v.id("shoppingSets")),
+    message: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    try {
+      await ensureProjectAccess(ctx, args.projectId, true, args.userClerkId);
+
+      const setId = await ctx.runMutation(createShoppingSetMutationRef, {
+        projectId: args.projectId,
+        title: args.setData.title,
+        notes: args.setData.notes,
+        sectionId: args.setData.sectionId,
+        setType: args.setData.setType ?? "variant",
+        selectionMode: args.setData.selectionMode ?? "single",
+        pricingMode: args.setData.pricingMode ?? "selected_only",
+        status: args.setData.status ?? "draft",
+      });
+
+      return {
+        success: true,
+        setId,
+        message: "Shopping set created successfully",
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Failed to create shopping set: ${error}`,
+      };
+    }
+  },
+});
+
 export const editConfirmedShoppingItem = action({
   args: {
     projectId: v.optional(v.id("projects")),
@@ -144,8 +198,7 @@ export const editConfirmedShoppingItem = action({
       dimensions: v.optional(v.string()),
       quantity: v.optional(v.number()),
       unitPrice: v.optional(v.number()),
-      alternativeToItemId: v.optional(v.union(v.id("shoppingListItems"), v.null())),
-      selectedAlternativeItemId: v.optional(v.union(v.id("shoppingListItems"), v.null())),
+      setId: v.optional(v.union(v.id("shoppingSets"), v.null())),
       realizationStatus: v.optional(v.union(v.literal("PLANNED"), v.literal("ORDERED"), v.literal("IN_TRANSIT"), v.literal("DELIVERED"), v.literal("COMPLETED"), v.literal("CANCELLED"))),
       sectionId: v.optional(v.union(v.id("shoppingListSections"), v.null())),
       assignedTo: v.optional(v.string()),
@@ -185,8 +238,7 @@ export const editConfirmedShoppingItem = action({
         dimensions: args.updates.dimensions,
         quantity: args.updates.quantity,
         unitPrice: args.updates.unitPrice,
-        alternativeToItemId: args.updates.alternativeToItemId,
-        selectedAlternativeItemId: args.updates.selectedAlternativeItemId,
+        setId: args.updates.setId,
         realizationStatus: args.updates.realizationStatus,
         sectionId: args.updates.sectionId,
         assignedTo: args.updates.assignedTo,
@@ -244,6 +296,62 @@ export const editConfirmedShoppingSection = action({
       return {
         success: false,
         message: `Failed to update shopping section: ${error}`,
+      };
+    }
+  },
+});
+
+export const editConfirmedShoppingSet = action({
+  args: {
+    setId: v.id("shoppingSets"),
+    userClerkId: v.optional(v.string()),
+    updates: v.object({
+      title: v.optional(v.string()),
+      notes: v.optional(v.string()),
+      sectionId: v.optional(v.union(v.id("shoppingListSections"), v.null())),
+      setType: v.optional(v.union(v.literal("variant"), v.literal("bundle"), v.literal("reference"))),
+      selectionMode: v.optional(v.union(v.literal("single"), v.literal("multiple"), v.literal("none"))),
+      pricingMode: v.optional(v.union(v.literal("selected_only"), v.literal("all_selected"), v.literal("none"))),
+      status: v.optional(v.union(v.literal("draft"), v.literal("active"), v.literal("resolved"), v.literal("archived"))),
+    }),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    message: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    try {
+      const set = await ctx.runQuery(getShoppingSetQueryRef, {
+        setId: args.setId,
+      }) as {
+        projectId: Id<"projects">;
+        title?: string;
+      } | null;
+      if (!set) {
+        throw new Error("Shopping set not found");
+      }
+
+      await ensureProjectAccess(ctx, set.projectId, true, args.userClerkId);
+
+      await ctx.runMutation(updateShoppingSetMutationRef, {
+        setId: args.setId,
+        title: args.updates.title ?? set.title,
+        notes: args.updates.notes,
+        sectionId: args.updates.sectionId,
+        setType: args.updates.setType,
+        selectionMode: args.updates.selectionMode,
+        pricingMode: args.updates.pricingMode,
+        status: args.updates.status,
+      });
+
+      return {
+        success: true,
+        message: "Shopping set updated successfully",
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Failed to update shopping set: ${error}`,
       };
     }
   },
@@ -323,7 +431,44 @@ export const deleteConfirmedShoppingSection = action({
   },
 });
 
+export const deleteConfirmedShoppingSet = action({
+  args: {
+    setId: v.id("shoppingSets"),
+    userClerkId: v.optional(v.string()),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    message: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    try {
+      const set = await ctx.runQuery(getShoppingSetQueryRef, {
+        setId: args.setId,
+      }) as {
+        projectId: Id<"projects">;
+      } | null;
+      if (!set) {
+        throw new Error("Shopping set not found");
+      }
 
+      await ensureProjectAccess(ctx, set.projectId, true, args.userClerkId);
+
+      await ctx.runMutation(deleteShoppingSetMutationRef, {
+        setId: args.setId,
+      });
+
+      return {
+        success: true,
+        message: "Shopping set deleted successfully",
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Failed to delete shopping set: ${error}`,
+      };
+    }
+  },
+});
 
 
 

@@ -16,6 +16,12 @@ import OpenAI from "openai";
 import type { Id } from "../_generated/dataModel";
 import type { ProjectContextSnapshot } from "./types";
 import { assistantToolNames } from "./toolMetadata.ts";
+import {
+  buildMoodboardPromptFromShoppingItems,
+  selectShoppingItemsForMoodboard,
+  toShoppingReferenceImages,
+  type ShoppingMoodboardSourceItem,
+} from "./helpers/shoppingMoodboard.ts";
 
 // RunAction type matches ctx.runAction signature
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -80,6 +86,7 @@ const itemTypeEnum = z.enum([
   "task",
   "note",
   "shopping",
+  "shoppingSet",
   "labor",
   "survey",
   "contact",
@@ -125,8 +132,20 @@ const shoppingFields = z.object({
   catalogNumber: z.string().optional().describe("Product catalog/model number"),
   sectionId: z.string().optional().describe("Shopping list section ID"),
   sectionName: z.string().optional().describe("Shopping list section name"),
-  alternativeToItemId: z.string().optional().describe("Optional base shopping item ID when this item is an alternative option for another item"),
-  selectedAlternativeItemId: z.string().optional().describe("Optional selected alternative item ID stored on the base shopping item"),
+  setId: z.string().optional().describe("Optional shopping set ID when this item belongs to a set"),
+  setName: z.string().optional().describe("Optional shopping set title when grouping related items"),
+}).passthrough();
+
+const shoppingSetFields = z.object({
+  title: z.string().describe("Shopping set title"),
+  name: z.string().optional().describe("Alias for title"),
+  notes: z.string().optional().describe("Context or decision notes for the set"),
+  sectionId: z.string().optional().describe("Shopping list section ID"),
+  sectionName: z.string().optional().describe("Shopping list section name"),
+  setType: z.enum(["variant", "bundle", "reference"]).optional().describe("Type of shopping set"),
+  selectionMode: z.enum(["single", "multiple", "none"]).optional().describe("How selections work inside the set"),
+  pricingMode: z.enum(["selected_only", "all_selected", "none"]).optional().describe("How the set contributes to totals"),
+  status: z.enum(["draft", "active", "resolved", "archived"]).optional().describe("Current lifecycle status of the set"),
 }).passthrough();
 
 const laborFields = z.object({
@@ -216,7 +235,7 @@ export const updateProjectSettingsSchema = z.object({
 // Generic create schema
 export const createItemSchema = z.object({
   type: itemTypeEnum.describe("Type of item to create"),
-  data: z.union([taskFields, noteFields, shoppingFields, laborFields, surveyFields, contactFields, sectionFields]).describe("Item data based on type"),
+  data: z.union([taskFields, noteFields, shoppingFields, shoppingSetFields, laborFields, surveyFields, contactFields, sectionFields]).describe("Item data based on type"),
 });
 
 export const createMultipleItemsSchema = z.object({
@@ -227,6 +246,7 @@ export const createMultipleItemsSchema = z.object({
         taskFields,
         noteFields,
         shoppingFields,
+        shoppingSetFields,
         laborFields,
         surveyFields,
         contactFields,
@@ -239,6 +259,7 @@ export const createMultipleItemsSchema = z.object({
 const updatableTaskFields = taskFields.partial().passthrough();
 const updatableNoteFields = noteFields.partial().passthrough();
 const updatableShoppingFields = shoppingFields.partial().passthrough();
+const updatableShoppingSetFields = shoppingSetFields.partial().passthrough();
 const updatableLaborFields = laborFields.partial().passthrough();
 const updatableSurveyFields = z
   .object({
@@ -259,6 +280,7 @@ const updatableAnyFields = z
     updatableTaskFields,
     updatableNoteFields,
     updatableShoppingFields,
+    updatableShoppingSetFields,
     updatableLaborFields,
     updatableSurveyFields,
     updatableContactFields,
@@ -325,10 +347,42 @@ export const generateMoodboardImageSchema = z.object({
     .string()
     .optional()
     .describe("Moodboard section name, for example Concept, Details, Kitchen, or Materials"),
+  useShoppingListAsReference: z
+    .boolean()
+    .optional()
+    .describe("When true, ground the moodboard in shopping list items that have images"),
+  shoppingItemIds: z
+    .array(z.string())
+    .optional()
+    .describe("Optional shopping item IDs to use as direct visual references"),
+  shoppingQuery: z
+    .string()
+    .optional()
+    .describe("Optional shopping search query to narrow the reference items"),
+  shoppingSectionName: z
+    .string()
+    .optional()
+    .describe("Optional shopping section name to use as the reference source"),
+  shoppingSetName: z
+    .string()
+    .optional()
+    .describe("Optional shopping set title to use as the reference source"),
+  onlySetPreferredItems: z
+    .boolean()
+    .optional()
+    .describe("When using a shopping set, restrict references to preferred/selected items"),
+  maxReferenceImages: z
+    .number()
+    .int()
+    .min(1)
+    .max(12)
+    .optional()
+    .describe("Maximum number of shopping reference images to attach"),
 });
 
 const managedCrudActionEnum = z.enum(["create", "update", "delete"]);
 const managedEntityEnum = z.enum(["item", "section"]);
+const managedShoppingEntityEnum = z.enum(["item", "section", "set"]);
 
 const manageTasksSchema = z
   .object({
@@ -373,11 +427,12 @@ const manageSurveysSchema = z
 const manageShoppingSchema = z
   .object({
     action: managedCrudActionEnum,
-    entity: managedEntityEnum,
+    entity: managedShoppingEntityEnum,
     itemId: z.string().optional(),
     sectionId: z.string().optional(),
+    setId: z.string().optional(),
     id: z.string().optional(),
-    data: z.union([shoppingFields.partial().passthrough(), sectionFields.partial().passthrough()]).optional(),
+    data: z.union([shoppingFields.partial().passthrough(), shoppingSetFields.partial().passthrough(), sectionFields.partial().passthrough()]).optional(),
   })
   .passthrough();
 
@@ -577,6 +632,7 @@ function getOperationType(type: ItemType): string {
     task: "task",
     note: "note",
     shopping: "shopping",
+    shoppingSet: "shoppingSet",
     labor: "labor",
     survey: "survey",
     contact: "contact",
@@ -758,6 +814,7 @@ const BULK_KEYS_BY_TYPE: Record<string, string[]> = {
   task: ["tasks", "items"],
   note: ["notes", "items"],
   shopping: ["items"],
+  shoppingSet: ["items", "sets"],
   labor: ["items", "laborItems"],
   survey: ["surveys", "items"],
   contact: ["contacts", "items"],
@@ -825,11 +882,11 @@ const parsePayloadObject = (
   return payload;
 };
 
-const compactRecord = <T extends Record<string, unknown>>(value: T): T => {
+function compactRecord<T extends Record<string, unknown>>(value: T): T {
   return Object.fromEntries(
     Object.entries(value).filter(([, entry]) => entry !== undefined),
   ) as T;
-};
+}
 
 async function executeSinglePayload(
   payload: Record<string, unknown>,
@@ -912,8 +969,17 @@ async function executeSinglePayload(
     unitPrice: typeof data.unitPrice === "number" ? data.unitPrice : undefined,
     totalPrice: typeof data.totalPrice === "number" ? data.totalPrice : undefined,
     sectionId: data.sectionId,
-    alternativeToItemId: data.alternativeToItemId,
-    selectedAlternativeItemId: data.selectedAlternativeItemId,
+    setId: data.setId,
+  });
+
+  const shoppingSetCreateData = compactRecord({
+    title: pickFirstNonEmptyString(data, ["title", "name"]) ?? "",
+    notes: typeof data.notes === "string" ? data.notes : undefined,
+    sectionId: data.sectionId,
+    setType: data.setType,
+    selectionMode: data.selectionMode,
+    pricingMode: data.pricingMode,
+    status: data.status,
   });
 
   const shoppingUpdateData = compactRecord({
@@ -930,21 +996,26 @@ async function executeSinglePayload(
     dimensions: typeof updates.dimensions === "string" ? updates.dimensions : undefined,
     quantity: typeof updates.quantity === "number" ? updates.quantity : undefined,
     unitPrice: typeof updates.unitPrice === "number" ? updates.unitPrice : undefined,
-    alternativeToItemId:
-      updates.alternativeToItemId === null || typeof updates.alternativeToItemId === "string"
-        ? updates.alternativeToItemId
-        : undefined,
-    selectedAlternativeItemId:
-      updates.selectedAlternativeItemId === null ||
-      typeof updates.selectedAlternativeItemId === "string"
-        ? updates.selectedAlternativeItemId
-        : undefined,
+    setId: updates.setId === null || typeof updates.setId === "string" ? updates.setId : undefined,
     realizationStatus: updates.realizationStatus,
     sectionId:
       updates.sectionId === null || typeof updates.sectionId === "string"
         ? updates.sectionId
         : undefined,
     assignedTo: typeof updates.assignedTo === "string" ? updates.assignedTo : undefined,
+  });
+
+  const shoppingSetUpdateData = compactRecord({
+    title: typeof updates.title === "string" ? updates.title : undefined,
+    notes: typeof updates.notes === "string" ? updates.notes : undefined,
+    sectionId:
+      updates.sectionId === null || typeof updates.sectionId === "string"
+        ? updates.sectionId
+        : undefined,
+    setType: updates.setType,
+    selectionMode: updates.selectionMode,
+    pricingMode: updates.pricingMode,
+    status: updates.status,
   });
 
   const laborCreateData = compactRecord({
@@ -1036,6 +1107,12 @@ async function executeSinglePayload(
           ...actorArgs,
           itemData: shoppingCreateData,
         });
+      case "shoppingSet":
+        return await runAction!(api.ai.confirmedActions.createConfirmedShoppingSet, {
+          projectId,
+          ...actorArgs,
+          setData: shoppingSetCreateData,
+        });
       case "shoppingSection":
         return await runAction!(api.ai.confirmedActions.createConfirmedShoppingSection, {
           projectId,
@@ -1097,6 +1174,12 @@ async function executeSinglePayload(
           ...actorArgs,
           itemId: data.itemId,
           updates: shoppingUpdateData,
+        });
+      case "shoppingSet":
+        return await runAction!(api.ai.confirmedActions.editConfirmedShoppingSet, {
+          ...actorArgs,
+          setId: data.setId ?? data.itemId,
+          updates: shoppingSetUpdateData,
         });
       case "shoppingSection":
         return await runAction!(api.ai.confirmedActions.editConfirmedShoppingSection, {
@@ -1167,6 +1250,11 @@ async function executeSinglePayload(
           ...actorArgs,
           itemId: data.itemId,
           reason: data.reason,
+        });
+      case "shoppingSet":
+        return await runAction!(api.ai.confirmedActions.deleteConfirmedShoppingSet, {
+          ...actorArgs,
+          setId: data.setId ?? data.itemId,
         });
       case "shoppingSection":
         return await runAction!(api.ai.confirmedActions.deleteConfirmedShoppingSection, {
@@ -1329,6 +1417,7 @@ function getRequiredPrimaryField(type: ItemType): "title" | "name" {
   switch (type) {
     case "task":
     case "note":
+    case "shoppingSet":
     case "survey":
       return "title";
     default:
@@ -1350,6 +1439,7 @@ export function getBulkCreatePayload(
     case "contact":
       return { contacts: items };
     case "shopping":
+    case "shoppingSet":
     case "labor":
     case "shoppingSection":
     case "laborSection":
@@ -1465,9 +1555,25 @@ function normalizeSearchFilters(
         ? { status: filters.status }
         : {};
     case "shopping":
-      return typeof filters.completed === "boolean"
-        ? { completed: filters.completed }
-        : {};
+      {
+        const shoppingFilters: Record<string, string | number | boolean> = {};
+        if (typeof filters.completed === "boolean") {
+          shoppingFilters.completed = filters.completed;
+        }
+        if (typeof filters.hasImage === "boolean") {
+          shoppingFilters.hasImage = filters.hasImage;
+        }
+        if (typeof filters.sectionName === "string" && filters.sectionName.trim().length > 0) {
+          shoppingFilters.sectionName = filters.sectionName.trim();
+        }
+        if (typeof filters.setName === "string" && filters.setName.trim().length > 0) {
+          shoppingFilters.setName = filters.setName.trim();
+        }
+        if (typeof filters.preferredOnly === "boolean") {
+          shoppingFilters.preferredOnly = filters.preferredOnly;
+        }
+        return shoppingFilters;
+      }
     case "survey":
       return typeof filters.status === "string" &&
         ["draft", "active", "closed", "completed", "archived"].includes(filters.status)
@@ -1524,6 +1630,69 @@ function extractUpdateData(rawData: unknown): Record<string, unknown> {
   }
 
   return normalized;
+}
+
+function normalizeShoppingMoodboardItems(
+  items: unknown,
+): ShoppingMoodboardSourceItem[] {
+  return toRecordArray(items).map((item) => ({
+    _id: typeof item._id === "string" ? item._id : "",
+    name: typeof item.name === "string" ? item.name : "Unnamed item",
+    notes: typeof item.notes === "string" ? item.notes : undefined,
+    category: typeof item.category === "string" ? item.category : undefined,
+    supplier: typeof item.supplier === "string" ? item.supplier : undefined,
+    dimensions: typeof item.dimensions === "string" ? item.dimensions : undefined,
+    quantity: typeof item.quantity === "number" ? item.quantity : undefined,
+    unitPrice: typeof item.unitPrice === "number" ? item.unitPrice : undefined,
+    imageUrl: typeof item.imageUrl === "string" ? item.imageUrl : undefined,
+    productLink: typeof item.productLink === "string" ? item.productLink : undefined,
+    sectionName: typeof item.sectionName === "string" ? item.sectionName : undefined,
+    setId:
+      typeof item.setId === "string" || item.setId === null
+        ? (item.setId as string | null)
+        : undefined,
+    setTitle: typeof item.setTitle === "string" ? item.setTitle : undefined,
+    setType:
+      typeof item.setType === "string" &&
+      ["variant", "bundle", "reference"].includes(item.setType)
+        ? (item.setType as "variant" | "bundle" | "reference")
+        : undefined,
+    isPreferredInSet: item.isPreferredInSet === true,
+    isResolvedInSet: item.isResolvedInSet === true,
+  }))
+    .filter((item) => item._id.length > 0);
+}
+
+async function loadShoppingMoodboardSourceItems(
+  args: z.infer<typeof generateMoodboardImageSchema>,
+  options?: StreamingToolOptions,
+): Promise<ShoppingMoodboardSourceItem[]> {
+  if (options?.loadSnapshot) {
+    const snapshot = await options.loadSnapshot();
+    return normalizeShoppingMoodboardItems(snapshot.shoppingItems);
+  }
+
+  if (!options?.projectId || !options?.runAction) {
+    return [];
+  }
+
+  const searchApi = getInternalSearchApi();
+  const searchResult = await options.runAction(searchApi.searchShoppingItems, {
+    projectId: options.projectId as Id<"projects">,
+    query: args.shoppingQuery,
+    limit: 200,
+    hasImage: true,
+    ...(typeof args.shoppingSectionName === "string" && args.shoppingSectionName.trim().length > 0
+      ? { sectionName: args.shoppingSectionName.trim() }
+      : {}),
+    ...(typeof args.shoppingSetName === "string" && args.shoppingSetName.trim().length > 0
+      ? { setName: args.shoppingSetName.trim() }
+      : {}),
+    ...(args.onlySetPreferredItems ? { preferredOnly: true } : {}),
+  });
+
+  const resultRecord = toRecord(searchResult);
+  return normalizeShoppingMoodboardItems(resultRecord.items);
 }
 
 export function extractUpdateDataFromSingleArgs(rawArgs: unknown): Record<string, unknown> {
@@ -1649,6 +1818,7 @@ export async function prepareUpdatePayload(
     task: "tasks",
     note: "notes",
     shopping: "shoppingListItems",
+    shoppingSet: "shoppingSets",
     labor: "laborItems",
     survey: "surveys",
     contact: "contacts",
@@ -1759,6 +1929,7 @@ export async function prepareBulkUpdatePayload(
         task: "tasks",
         note: "notes",
         shopping: "shoppingListItems",
+        shoppingSet: "shoppingSets",
         labor: "laborItems",
         survey: "surveys",
         contact: "contacts",
@@ -1833,6 +2004,7 @@ export async function prepareDeletePayload(
         task: "tasks",
         note: "notes",
         shopping: "shoppingListItems",
+        shoppingSet: "shoppingSets",
         shoppingSection: "shoppingListSections",
         labor: "laborItems",
         laborSection: "laborSections",
@@ -1874,18 +2046,19 @@ export async function prepareDeletePayload(
     typeof originalItemRecord.storageId === "string" &&
     typeof originalItemRecord.moodboardSection === "string";
   const resolvedType = isMoodboardFile ? "moodboard" : getOperationType(args.type);
-  const isSectionType =
-    args.type === "shoppingSection" ||
-    args.type === "laborSection" ||
-    args.type === "moodboardSection";
-
   return JSON.stringify({
     type: resolvedType,
     operation: "delete",
     data: {
       itemId: args.itemId,
       fileId: isMoodboardFile ? args.itemId : undefined,
-      sectionId: isSectionType ? args.itemId : undefined,
+      sectionId:
+        args.type === "shoppingSection" ||
+        args.type === "laborSection" ||
+        args.type === "moodboardSection"
+          ? args.itemId
+          : undefined,
+      setId: args.type === "shoppingSet" ? args.itemId : undefined,
       name: args.name || originalItem?.title || originalItem?.name,
       moodboardSection: isMoodboardFile ? originalItemRecord?.moodboardSection : undefined,
       reason: args.reason,
@@ -2144,12 +2317,20 @@ export function createStreamingTools(options?: StreamingToolOptions) {
     }, options),
 
     generate_moodboard_image: createAssistantTool({
-      description: "Generate a moodboard image with the Gemini image model and save it directly to the current project's moodboard. Use this only when the user explicitly asks to create or render a moodboard image, concept image, or visual. After a successful result, reply with a short confirmation and include the returned markdown image preview.",
+      description: "Generate a moodboard image with the Gemini image model and save it directly to the current project's moodboard. Use this when the user explicitly asks to create a moodboard, concept image, or visual. If the moodboard should be based on shopping list items, pass the shopping reference fields so the tool can collect project product images automatically.",
       inputSchema: generateMoodboardImageSchema,
       inputExamples: [
         {
           prompt: "Warm minimalist kitchen with oak fronts, travertine counters, and brushed steel details",
           section: "Kitchen",
+        },
+        {
+          prompt: "Create a cohesive living room moodboard grounded in the selected furniture and lighting.",
+          section: "Living room",
+          useShoppingListAsReference: true,
+          shoppingSectionName: "Living Room",
+          onlySetPreferredItems: true,
+          maxReferenceImages: 6,
         },
       ],
       execute: async (args: z.infer<typeof generateMoodboardImageSchema>) => {
@@ -2160,18 +2341,86 @@ export function createStreamingTools(options?: StreamingToolOptions) {
         }
 
         try {
+          const wantsShoppingReferences =
+            args.useShoppingListAsReference === true ||
+            (Array.isArray(args.shoppingItemIds) && args.shoppingItemIds.length > 0) ||
+            typeof args.shoppingQuery === "string" ||
+            typeof args.shoppingSectionName === "string" ||
+            typeof args.shoppingSetName === "string";
+
+          let finalPrompt = args.prompt.trim();
+          let selectedShoppingItems: ShoppingMoodboardSourceItem[] = [];
+          let referenceImages: Array<{ name: string; imageUrl: string }> = [];
+
+          if (wantsShoppingReferences) {
+            const sourceItems = await loadShoppingMoodboardSourceItems(args, options);
+            selectedShoppingItems = selectShoppingItemsForMoodboard(sourceItems, {
+              itemIds: args.shoppingItemIds,
+              query: args.shoppingQuery,
+              sectionName: args.shoppingSectionName,
+              setName: args.shoppingSetName,
+              onlySetPreferredItems: args.onlySetPreferredItems,
+              maxItems: args.maxReferenceImages ?? 6,
+            });
+
+            if (selectedShoppingItems.length === 0) {
+              return JSON.stringify({
+                error: "No shopping items with images matched the requested criteria.",
+                criteria: compactRecord({
+                  shoppingItemIds: args.shoppingItemIds,
+                  shoppingQuery: args.shoppingQuery,
+                  shoppingSectionName: args.shoppingSectionName,
+                  shoppingSetName: args.shoppingSetName,
+                  onlySetPreferredItems: args.onlySetPreferredItems,
+                }),
+              });
+            }
+
+            referenceImages = toShoppingReferenceImages(
+              selectedShoppingItems,
+              args.maxReferenceImages ?? 6,
+            );
+
+            if (referenceImages.length === 0) {
+              return JSON.stringify({
+                error: "Selected shopping items do not have usable image URLs.",
+              });
+            }
+
+            finalPrompt = buildMoodboardPromptFromShoppingItems(finalPrompt, selectedShoppingItems, {
+              query: args.shoppingQuery,
+              sectionName: args.shoppingSectionName,
+              setName: args.shoppingSetName,
+            });
+          }
+
           // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
           const apiModule = require("../_generated/api") as { api: any };
           const result = await options.runAction(
             apiModule.api.ai.imageGen.generation.generateMoodboardImageForAssistant,
             {
               projectId: options.projectId as Id<"projects">,
-              prompt: args.prompt,
+              prompt: finalPrompt,
               section: args.section,
               userClerkId: options.userClerkId,
+              ...(referenceImages.length > 0 ? { referenceImages } : {}),
             },
           );
-          return JSON.stringify(result);
+          return JSON.stringify({
+            ...result,
+            ...(referenceImages.length > 0
+              ? {
+                  referenceImageCount: referenceImages.length,
+                  sourceShoppingItems: selectedShoppingItems.map((item) => ({
+                    _id: item._id,
+                    name: item.name,
+                    sectionName: item.sectionName,
+                    setTitle: item.setTitle,
+                    imageUrl: item.imageUrl,
+                  })),
+                }
+              : {}),
+          });
         } catch (error) {
           console.error("Failed to generate moodboard image:", error);
           return JSON.stringify({
@@ -2353,14 +2602,24 @@ export function createStreamingTools(options?: StreamingToolOptions) {
     }, options),
 
     manage_shopping: createAssistantTool({
-      description: "Manage shopping items or shopping sections with one tool. Use action=create|update|delete and entity=item|section.",
+      description: "Manage shopping items, shopping sections, or shopping sets with one tool. Use action=create|update|delete and entity=item|section|set.",
       inputSchema: manageShoppingSchema,
       requiresConfirmation: true,
       execute: async (args: z.infer<typeof manageShoppingSchema>) => {
-        const type = args.entity === "section" ? "shoppingSection" : "shopping";
+        const type =
+          args.entity === "section"
+            ? "shoppingSection"
+            : args.entity === "set"
+              ? "shoppingSet"
+              : "shopping";
         const id = pickFirstNonEmptyString(args as Record<string, unknown>, [
-          args.entity === "section" ? "sectionId" : "itemId",
+          args.entity === "section"
+            ? "sectionId"
+            : args.entity === "set"
+              ? "setId"
+              : "itemId",
           "itemId",
+          "setId",
           "sectionId",
           "id",
         ]);
@@ -2369,6 +2628,7 @@ export function createStreamingTools(options?: StreamingToolOptions) {
           "entity",
           "itemId",
           "sectionId",
+          "setId",
           "id",
         ]);
 
@@ -2381,7 +2641,7 @@ export function createStreamingTools(options?: StreamingToolOptions) {
 
         if (!id) {
           return JSON.stringify({
-            error: `manage_shopping requires ${args.entity === "section" ? "sectionId" : "itemId"} for ${args.action}`,
+            error: `manage_shopping requires ${args.entity === "section" ? "sectionId" : args.entity === "set" ? "setId" : "itemId"} for ${args.action}`,
           });
         }
 

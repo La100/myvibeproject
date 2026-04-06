@@ -1,7 +1,8 @@
 import { v } from "convex/values";
-import { query, mutation, internalQuery } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { query, mutation, internalQuery, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { makeFunctionReference, type SchedulableFunctionReference } from "convex/server";
 import { Doc, Id } from "./_generated/dataModel";
+import { ensureProjectAccess } from "./authz";
 
 const getPortalRespondentId = (projectId: Id<"projects">, respondentKey: string) =>
   `portal:${projectId}:${respondentKey.trim().toLowerCase()}`;
@@ -9,13 +10,50 @@ const getPortalActorName = (name?: string) => {
   const trimmed = typeof name === "string" ? name.trim() : "";
   return trimmed.length > 0 ? trimmed : "Client (portal)";
 };
-const logActivityMutation = internal.activityLog.logActivity;
+const logActivityMutation = makeFunctionReference<"mutation">("activityLog:logActivity");
+// Keep internal scheduler refs runtime-loaded here to avoid deep TS instantiation.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const internalAny = require("./_generated/api").internal as {
+  notifications: { sendClientPortalEventEmail: unknown };
+};
+const sendClientPortalEventEmail =
+  internalAny.notifications.sendClientPortalEventEmail as SchedulableFunctionReference;
 
 const isSurveyVisibleInPublicPortal = (survey: Doc<"surveys">, now: number) => {
   if (survey.status === "closed") return false;
   if (typeof survey.startDate === "number" && survey.startDate > now) return false;
   if (typeof survey.endDate === "number" && survey.endDate < now) return false;
   return true;
+};
+
+const getSurveyWithAccess = async (
+  ctx: QueryCtx | MutationCtx,
+  surveyId: Id<"surveys">,
+) => {
+  const survey = await ctx.db.get(surveyId);
+  if (!survey) {
+    throw new Error("Survey not found");
+  }
+
+  const access = await ensureProjectAccess(ctx, survey.projectId);
+  if (access.project.teamId !== survey.teamId) {
+    throw new Error("Survey does not belong to the project");
+  }
+
+  return { survey, ...access };
+};
+
+const getSurveyQuestionWithAccess = async (
+  ctx: QueryCtx | MutationCtx,
+  questionId: Id<"surveyQuestions">,
+) => {
+  const question = await ctx.db.get(questionId);
+  if (!question) {
+    throw new Error("Question not found");
+  }
+
+  const access = await getSurveyWithAccess(ctx, question.surveyId);
+  return { question, ...access };
 };
 
 // ====== SURVEY MANAGEMENT ======
@@ -31,34 +69,14 @@ export const createSurvey = mutation({
     endDate: v.optional(v.number()),
   },
   async handler(ctx, args) {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project) {
-      throw new Error("Project not found");
-    }
-
-    // Check permissions - only admin and members can create surveys
-    const teamMember = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", q => 
-        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
-      )
-      .unique();
-
-    if (!teamMember || (teamMember.role !== "admin" && teamMember.role !== "member")) {
-      throw new Error("Insufficient permissions to create surveys");
-    }
+    const { project, clerkUserId } = await ensureProjectAccess(ctx, args.projectId);
 
     const surveyId = await ctx.db.insert("surveys", {
       title: args.title,
       description: args.description,
       teamId: project.teamId,
       projectId: args.projectId,
-      createdBy: identity.subject,
+      createdBy: clerkUserId,
       status: "draft",
       isRequired: args.isRequired,
       allowMultipleResponses: args.allowMultipleResponses,
@@ -84,25 +102,9 @@ export const createSurvey = mutation({
 export const getSurveysByProject = query({
   args: { projectId: v.id("projects") },
   async handler(ctx, args) {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return [];
-    }
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project) {
-      return [];
-    }
-
-    // Check user access to project
-    const teamMember = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", q => 
-        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
-      )
-      .unique();
-
-    if (!teamMember) {
+    try {
+      await ensureProjectAccess(ctx, args.projectId);
+    } catch {
       return [];
     }
 
@@ -135,25 +137,10 @@ export const getSurveysChangedAfter = internalQuery({
 export const getSurvey = query({
   args: { surveyId: v.id("surveys") },
   async handler(ctx, args) {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return null;
-    }
-
-    const survey = await ctx.db.get(args.surveyId);
-    if (!survey) {
-      return null;
-    }
-
-    // Check user access
-    const teamMember = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", q => 
-        q.eq("teamId", survey.teamId).eq("clerkUserId", identity.subject)
-      )
-      .unique();
-
-    if (!teamMember) {
+    let survey: Doc<"surveys">;
+    try {
+      ({ survey } = await getSurveyWithAccess(ctx, args.surveyId));
+    } catch {
       return null;
     }
 
@@ -505,7 +492,7 @@ export const submitPublicSurveyResponseByAccessToken = mutation({
 
     await ctx.scheduler.runAfter(
       0,
-      internal.notifications.sendClientPortalEventEmail,
+      sendClientPortalEventEmail,
       {
         projectId: project._id,
         actionType: "survey.response.submit",
@@ -529,27 +516,7 @@ export const updateSurvey = mutation({
     endDate: v.optional(v.number()),
   },
   async handler(ctx, args) {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const survey = await ctx.db.get(args.surveyId);
-    if (!survey) {
-      throw new Error("Survey not found");
-    }
-
-    // Check permissions
-    const teamMember = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", q => 
-        q.eq("teamId", survey.teamId).eq("clerkUserId", identity.subject)
-      )
-      .unique();
-
-    if (!teamMember || (teamMember.role !== "admin" && teamMember.role !== "member")) {
-      throw new Error("Insufficient permissions to update survey");
-    }
+    const { survey } = await getSurveyWithAccess(ctx, args.surveyId);
 
     const { surveyId, ...updates } = args;
     await ctx.db.patch(surveyId, { ...updates, updatedAt: Date.now() });
@@ -571,25 +538,9 @@ export const updateSurvey = mutation({
 export const deleteSurvey = mutation({
   args: { surveyId: v.id("surveys") },
   async handler(ctx, args) {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
+    const { survey, membership } = await getSurveyWithAccess(ctx, args.surveyId);
 
-    const survey = await ctx.db.get(args.surveyId);
-    if (!survey) {
-      throw new Error("Survey not found");
-    }
-
-    // Check permissions - only admin can delete
-    const teamMember = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", q => 
-        q.eq("teamId", survey.teamId).eq("clerkUserId", identity.subject)
-      )
-      .unique();
-
-    if (!teamMember || teamMember.role !== "admin") {
+    if (membership.role !== "admin") {
       throw new Error("Only admins can delete surveys");
     }
 
@@ -647,27 +598,7 @@ export const addQuestion = mutation({
     isRequired: v.boolean(),
   },
   async handler(ctx, args) {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const survey = await ctx.db.get(args.surveyId);
-    if (!survey) {
-      throw new Error("Survey not found");
-    }
-
-    // Check permissions
-    const teamMember = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", q => 
-        q.eq("teamId", survey.teamId).eq("clerkUserId", identity.subject)
-      )
-      .unique();
-
-    if (!teamMember || (teamMember.role !== "admin" && teamMember.role !== "member")) {
-      throw new Error("Insufficient permissions to add questions");
-    }
+    const { survey } = await getSurveyWithAccess(ctx, args.surveyId);
 
     // Get next order number
     const existingQuestions = await ctx.db
@@ -718,32 +649,7 @@ export const updateQuestion = mutation({
     order: v.optional(v.number()),
   },
   async handler(ctx, args) {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const question = await ctx.db.get(args.questionId);
-    if (!question) {
-      throw new Error("Question not found");
-    }
-
-    const survey = await ctx.db.get(question.surveyId);
-    if (!survey) {
-      throw new Error("Survey not found");
-    }
-
-    // Check permissions
-    const teamMember = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", q => 
-        q.eq("teamId", survey.teamId).eq("clerkUserId", identity.subject)
-      )
-      .unique();
-
-    if (!teamMember || (teamMember.role !== "admin" && teamMember.role !== "member")) {
-      throw new Error("Insufficient permissions to update question");
-    }
+    const { question, survey } = await getSurveyQuestionWithAccess(ctx, args.questionId);
 
     const { questionId, ...updates } = args;
     await ctx.db.patch(questionId, updates);
@@ -765,32 +671,7 @@ export const updateQuestion = mutation({
 export const deleteQuestion = mutation({
   args: { questionId: v.id("surveyQuestions") },
   async handler(ctx, args) {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const question = await ctx.db.get(args.questionId);
-    if (!question) {
-      throw new Error("Question not found");
-    }
-
-    const survey = await ctx.db.get(question.surveyId);
-    if (!survey) {
-      throw new Error("Survey not found");
-    }
-
-    // Check permissions
-    const teamMember = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", q => 
-        q.eq("teamId", survey.teamId).eq("clerkUserId", identity.subject)
-      )
-      .unique();
-
-    if (!teamMember || (teamMember.role !== "admin" && teamMember.role !== "member")) {
-      throw new Error("Insufficient permissions to delete question");
-    }
+    const { question, survey } = await getSurveyQuestionWithAccess(ctx, args.questionId);
 
     await ctx.runMutation(logActivityMutation, {
       teamId: survey.teamId,
@@ -820,27 +701,7 @@ export const deleteQuestion = mutation({
 export const startSurveyResponse = mutation({
   args: { surveyId: v.id("surveys") },
   async handler(ctx, args) {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const survey = await ctx.db.get(args.surveyId);
-    if (!survey) {
-      throw new Error("Survey not found");
-    }
-
-    // Check if user can respond
-    const teamMember = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", q => 
-        q.eq("teamId", survey.teamId).eq("clerkUserId", identity.subject)
-      )
-      .unique();
-
-    if (!teamMember) {
-      throw new Error("No access to this survey");
-    }
+    const { survey, clerkUserId } = await getSurveyWithAccess(ctx, args.surveyId);
 
 
     // Check if already responded and multiple responses not allowed
@@ -848,7 +709,7 @@ export const startSurveyResponse = mutation({
       const existingResponse = await ctx.db
         .query("surveyResponses")
         .withIndex("by_survey_and_respondent", q => 
-          q.eq("surveyId", args.surveyId).eq("respondentId", identity.subject)
+          q.eq("surveyId", args.surveyId).eq("respondentId", clerkUserId)
         )
         .filter(q => q.eq(q.field("isComplete"), true))
         .first();
@@ -862,7 +723,7 @@ export const startSurveyResponse = mutation({
     let response = await ctx.db
       .query("surveyResponses")
       .withIndex("by_survey_and_respondent", q => 
-        q.eq("surveyId", args.surveyId).eq("respondentId", identity.subject)
+        q.eq("surveyId", args.surveyId).eq("respondentId", clerkUserId)
       )
       .filter(q => q.eq(q.field("isComplete"), false))
       .first();
@@ -870,7 +731,7 @@ export const startSurveyResponse = mutation({
     if (!response) {
       const responseId = await ctx.db.insert("surveyResponses", {
         surveyId: args.surveyId,
-        respondentId: identity.subject,
+        respondentId: clerkUserId,
         teamId: survey.teamId,
         projectId: survey.projectId,
         isComplete: false,
@@ -926,6 +787,13 @@ export const saveAnswer = mutation({
       throw new Error("Question not found");
     }
 
+    const survey = await ctx.db.get(question.surveyId);
+    if (!survey || survey._id !== response.surveyId) {
+      throw new Error("Survey not found");
+    }
+
+    await ensureProjectAccess(ctx, survey.projectId);
+
     // Check if answer already exists
     const existingAnswer = await ctx.db
       .query("surveyAnswers")
@@ -972,6 +840,13 @@ export const submitSurveyResponse = mutation({
       throw new Error("Not authorized to submit this response");
     }
 
+    const survey = await ctx.db.get(response.surveyId);
+    if (!survey) {
+      throw new Error("Survey not found");
+    }
+
+    await ensureProjectAccess(ctx, survey.projectId);
+
     await ctx.db.patch(args.responseId, {
       isComplete: true,
       submittedAt: Date.now(),
@@ -984,25 +859,9 @@ export const submitSurveyResponse = mutation({
 export const getSurveyResponses = query({
   args: { surveyId: v.id("surveys") },
   async handler(ctx, args) {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return [];
-    }
-
-    const survey = await ctx.db.get(args.surveyId);
-    if (!survey) {
-      return [];
-    }
-
-    // Check permissions
-    const teamMember = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", q => 
-        q.eq("teamId", survey.teamId).eq("clerkUserId", identity.subject)
-      )
-      .unique();
-
-    if (!teamMember) {
+    try {
+      await getSurveyWithAccess(ctx, args.surveyId);
+    } catch {
       return [];
     }
 
@@ -1038,6 +897,12 @@ export const getUserSurveyResponses = query({
       return [];
     }
 
+    try {
+      await ensureProjectAccess(ctx, args.projectId);
+    } catch {
+      return [];
+    }
+
     const responses = await ctx.db
       .query("surveyResponses")
       .withIndex("by_project", q => q.eq("projectId", args.projectId))
@@ -1053,6 +918,12 @@ export const getUserSurveyResponse = query({
   async handler(ctx, args) {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
+      return null;
+    }
+
+    try {
+      await getSurveyWithAccess(ctx, args.surveyId);
+    } catch {
       return null;
     }
 
@@ -1146,6 +1017,8 @@ export const createSurveyQuestion = mutation({
     })),
   },
   async handler(ctx, args) {
+    await getSurveyWithAccess(ctx, args.surveyId);
+
     const questionId = await ctx.db.insert("surveyQuestions", {
       surveyId: args.surveyId,
       questionText: args.questionText,
@@ -1168,19 +1041,15 @@ export const createSurveyResponse = mutation({
     submittedAt: v.optional(v.number()),
   },
   async handler(ctx, args) {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project) {
-      throw new Error("Project not found");
+    const { project, clerkUserId } = await ensureProjectAccess(ctx, args.projectId);
+    const survey = await ctx.db.get(args.surveyId);
+    if (!survey || survey.projectId !== args.projectId) {
+      throw new Error("Survey not found");
     }
 
     const responseId = await ctx.db.insert("surveyResponses", {
       surveyId: args.surveyId,
-      respondentId: identity.subject,
+      respondentId: clerkUserId,
       teamId: project.teamId,
       projectId: args.projectId,
       isComplete: args.isComplete,
@@ -1217,6 +1086,32 @@ export const createSurveyAnswer = mutation({
     })),
   },
   async handler(ctx, args) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const response = await ctx.db.get(args.responseId);
+    if (!response) {
+      throw new Error("Survey response not found");
+    }
+
+    const survey = await ctx.db.get(args.surveyId);
+    if (!survey || survey._id !== response.surveyId) {
+      throw new Error("Survey not found");
+    }
+
+    const question = await ctx.db.get(args.questionId);
+    if (!question || question.surveyId !== args.surveyId) {
+      throw new Error("Question not found");
+    }
+
+    await ensureProjectAccess(ctx, survey.projectId);
+
+    if (response.respondentId !== identity.subject) {
+      throw new Error("Permission denied");
+    }
+
     const answerId = await ctx.db.insert("surveyAnswers", {
       responseId: args.responseId,
       questionId: args.questionId,
@@ -1296,6 +1191,8 @@ export const getSurveyById = internalQuery({
 export const getSurveyQuestions = query({
   args: { surveyId: v.id("surveys") },
   handler: async (ctx, args) => {
+    await getSurveyWithAccess(ctx, args.surveyId);
+
     return await ctx.db
       .query("surveyQuestions")
       .withIndex("by_survey", q => q.eq("surveyId", args.surveyId))
@@ -1308,6 +1205,11 @@ export const getSurveyQuestions = query({
 export const deleteSurveyQuestion = mutation({
   args: { questionId: v.id("surveyQuestions") },
   handler: async (ctx, args) => {
+    const { membership } = await getSurveyQuestionWithAccess(ctx, args.questionId);
+    if (membership.role !== "admin") {
+      throw new Error("Only admins can delete survey questions");
+    }
+
     await ctx.db.delete(args.questionId);
   },
 });

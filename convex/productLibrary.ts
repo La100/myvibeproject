@@ -1,11 +1,45 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { Id } from "./_generated/dataModel";
+import { ensureProjectAccess, ensureTeamAccess } from "./authz";
+
+const ensureProductAccess = async (
+  ctx: any,
+  productId: Id<"productLibrary">,
+  actorClerkUserId?: string,
+) => {
+  const product = await ctx.db.get(productId);
+  if (!product) {
+    throw new Error("Product not found");
+  }
+
+  await ensureTeamAccess(ctx, product.teamId, actorClerkUserId);
+  return product;
+};
+
+const ensureShoppingSectionBelongsToProject = async (
+  ctx: any,
+  sectionId: Id<"shoppingListSections"> | undefined,
+  projectId: Id<"projects">,
+) => {
+  if (!sectionId) {
+    return null;
+  }
+
+  const section = await ctx.db.get(sectionId);
+  if (!section || section.projectId !== projectId) {
+    throw new Error("Shopping section not found in this project");
+  }
+
+  return section;
+};
 
 // Get all products for a team with creator info
 export const getAllProducts = query({
   args: { teamId: v.id("teams") },
   handler: async (ctx, args) => {
     const { teamId } = args;
+    await ensureTeamAccess(ctx, teamId);
     
     const products = await ctx.db
       .query("productLibrary")
@@ -41,6 +75,7 @@ export const getProductsByCategory = query({
   },
   handler: async (ctx, args) => {
     const { teamId, category } = args;
+    await ensureTeamAccess(ctx, teamId);
     
     return await ctx.db
       .query("productLibrary")
@@ -64,6 +99,7 @@ export const getProductsBySupplier = query({
   },
   handler: async (ctx, args) => {
     const { teamId, supplier } = args;
+    await ensureTeamAccess(ctx, teamId);
     
     return await ctx.db
       .query("productLibrary")
@@ -87,6 +123,7 @@ export const searchProducts = query({
   },
   handler: async (ctx, args) => {
     const { teamId, searchTerm } = args;
+    await ensureTeamAccess(ctx, teamId);
     
     const products = await ctx.db
       .query("productLibrary")
@@ -110,8 +147,7 @@ export const searchProducts = query({
 export const getProductById = query({
   args: { productId: v.id("productLibrary") },
   handler: async (ctx, args) => {
-    const product = await ctx.db.get(args.productId);
-    if (!product) return null;
+    const product = await ensureProductAccess(ctx, args.productId);
 
     // Get creator user info
     const creator = await ctx.db
@@ -150,8 +186,10 @@ export const createProduct = mutation({
     createdBy: v.string(),
   },
   handler: async (ctx, args) => {
+    const { clerkUserId } = await ensureTeamAccess(ctx, args.teamId);
     return await ctx.db.insert("productLibrary", {
       ...args,
+      createdBy: clerkUserId,
       isActive: true,
     });
   },
@@ -181,6 +219,7 @@ export const updateProduct = mutation({
   },
   handler: async (ctx, args) => {
     const { productId, ...updates } = args;
+    await ensureProductAccess(ctx, productId);
     
     // Remove undefined values
     const cleanUpdates = Object.fromEntries(
@@ -195,6 +234,7 @@ export const updateProduct = mutation({
 export const deleteProduct = mutation({
   args: { productId: v.id("productLibrary") },
   handler: async (ctx, args) => {
+    await ensureProductAccess(ctx, args.productId);
     return await ctx.db.patch(args.productId, { isActive: false });
   },
 });
@@ -203,6 +243,7 @@ export const deleteProduct = mutation({
 export const getCategories = query({
   args: { teamId: v.id("teams") },
   handler: async (ctx, args) => {
+    await ensureTeamAccess(ctx, args.teamId);
     const products = await ctx.db
       .query("productLibrary")
       .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
@@ -224,6 +265,7 @@ export const getCategories = query({
 export const getSuppliers = query({
   args: { teamId: v.id("teams") },
   handler: async (ctx, args) => {
+    await ensureTeamAccess(ctx, args.teamId);
     const products = await ctx.db
       .query("productLibrary")
       .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
@@ -245,6 +287,7 @@ export const getSuppliers = query({
 export const getBrands = query({
   args: { teamId: v.id("teams") },
   handler: async (ctx, args) => {
+    await ensureTeamAccess(ctx, args.teamId);
     const products = await ctx.db
       .query("productLibrary")
       .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
@@ -274,12 +317,17 @@ export const addToShoppingList = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const product = await ctx.db.get(args.productId);
-    
-    if (!product) {
-      throw new Error("Product not found");
+    const { project, clerkUserId } = await ensureProjectAccess(ctx, args.projectId);
+    if (project.teamId !== args.teamId) {
+      throw new Error("Project does not belong to this team");
     }
-    
+
+    const product = await ensureProductAccess(ctx, args.productId, clerkUserId);
+    if (product.teamId !== project.teamId) {
+      throw new Error("Product does not belong to this team");
+    }
+    await ensureShoppingSectionBelongsToProject(ctx, args.sectionId, args.projectId);
+
     return await ctx.db.insert("shoppingListItems", {
       name: product.name,
       notes: args.notes || product.notes,
@@ -297,8 +345,8 @@ export const addToShoppingList = mutation({
       realizationStatus: "PLANNED" as const,
       sectionId: args.sectionId,
       projectId: args.projectId,
-      teamId: args.teamId,
-      createdBy: args.createdBy,
+      teamId: project.teamId,
+      createdBy: clerkUserId,
       updatedAt: Date.now(),
     });
   },

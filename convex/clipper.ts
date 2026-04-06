@@ -1,7 +1,20 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
-import { api } from "./_generated/api";
+import { ensureProjectAccess } from "./authz";
+
+async function getActiveTeamMember(ctx: any, teamId: Id<"teams">, clerkUserId: string) {
+  return await ctx.db
+    .query("teamMembers")
+    .withIndex("by_user", (q: any) => q.eq("clerkUserId", clerkUserId))
+    .filter((q: any) =>
+      q.and(
+        q.eq(q.field("teamId"), teamId),
+        q.eq(q.field("isActive"), true),
+      ),
+    )
+    .unique();
+}
 
 export const getTeamsAndProjects = query({
   async handler(ctx) {
@@ -79,7 +92,12 @@ export const getProjectsForTeam = query({
     teamId: v.id("teams"),
   },
   handler: async (ctx, args) => {
-    const member = await ctx.runQuery(api.teams.getCurrentUserTeamMember, { teamId: args.teamId });
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const member = await getActiveTeamMember(ctx, args.teamId, identity.subject);
 
     if (!member) {
       throw new Error("You are not a member of this team or you must be logged in.");
@@ -106,16 +124,18 @@ export const saveProduct = mutation({
         imageUrl: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) throw new Error("Not authenticated");
+        const { project, clerkUserId } = await ensureProjectAccess(ctx, args.projectId);
+        if (project.teamId !== args.teamId) {
+          throw new Error("Project does not belong to this team");
+        }
 
         const quantity = args.quantity ?? 1;
         const totalPrice = args.price ? quantity * args.price : undefined;
 
         return await ctx.db.insert("shoppingListItems", {
             projectId: args.projectId,
-            teamId: args.teamId,
-            createdBy: identity.subject,
+            teamId: project.teamId,
+            createdBy: clerkUserId,
             name: args.name,
             notes: args.notes,
             supplier: args.supplier,
@@ -146,8 +166,12 @@ export const getShoppingListSections = query({
     if (!project) {
         throw new Error("Project not found");
       }
-      
-      const member: Doc<"teamMembers"> | null = await ctx.runQuery(api.teams.getCurrentUserTeamMember, { teamId: project.teamId });
+
+      const identity = await ctx.auth.getUserIdentity();
+      if (!identity) {
+        throw new Error("Not authenticated");
+      }
+      const member: Doc<"teamMembers"> | null = await getActiveTeamMember(ctx, project.teamId, identity.subject);
   
       if (!member) {
         throw new Error("Current user is not a team member");
@@ -160,7 +184,7 @@ export const getShoppingListSections = query({
   },
 });
 
-export const getShoppingListItemsForProject = query({
+export const getShoppingSetsForProject = query({
   args: {
     projectId: v.id("projects"),
     teamId: v.id("teams"),
@@ -175,24 +199,30 @@ export const getShoppingListItemsForProject = query({
       throw new Error("Project does not belong to the selected team");
     }
 
-    const member: Doc<"teamMembers"> | null = await ctx.runQuery(
-      api.teams.getCurrentUserTeamMember,
-      { teamId: project.teamId },
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+    const member: Doc<"teamMembers"> | null = await getActiveTeamMember(
+      ctx,
+      project.teamId,
+      identity.subject,
     );
 
     if (!member) {
       throw new Error("Current user is not a team member");
     }
 
-    const items = await ctx.db
-      .query("shoppingListItems")
+    const sets = await ctx.db
+      .query("shoppingSets")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
 
-    return items.map((item) => ({
-      _id: item._id,
-      name: item.name,
-      alternativeToItemId: item.alternativeToItemId ?? null,
+    return sets.map((set) => ({
+      _id: set._id,
+      title: set.title,
+      sectionId: set.sectionId ?? null,
+      setType: set.setType,
     }));
   },
 });
@@ -205,6 +235,7 @@ export const addShoppingListItem = mutation({
     name: v.string(),
     projectId: v.id("projects"),
     sectionId: v.optional(v.id("shoppingListSections")),
+    setId: v.optional(v.id("shoppingSets")),
     unitPrice: v.optional(v.number()),
     quantity: v.number(),
     totalPrice: v.optional(v.number()),
@@ -227,39 +258,40 @@ export const addShoppingListItem = mutation({
         v.literal("COMPLETED"),
         v.literal("CANCELLED")
       ),
-    alternativeToItemId: v.optional(v.union(v.id("shoppingListItems"), v.null())),
   },
   handler: async (ctx, args): Promise<Id<"shoppingListItems">> => {
     const project = await ctx.db.get(args.projectId);
     if (!project) {
         throw new Error("Project not found.");
     }
-    
-    const member: Doc<"teamMembers"> | null = await ctx.runQuery(api.teams.getCurrentUserTeamMember, { teamId: project.teamId });
+
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+    const member: Doc<"teamMembers"> | null = await getActiveTeamMember(ctx, project.teamId, identity.subject);
 
     if (!member) {
       throw new Error("You are not a member of this team or you must be logged in.");
+    }
+
+    if (args.setId) {
+      const set = await ctx.db.get(args.setId);
+      if (!set || set.projectId !== args.projectId) {
+        throw new Error("Shopping set not found in this project.");
+      }
     }
 
     // Jeśli nie podano sectionId, pozostaw jako undefined
     // Aplikacja automatycznie zgrupuje takie itemy jako "No Category"
     const finalSectionId = args.sectionId || undefined;
 
-    if (args.alternativeToItemId) {
-      const alternativeTarget = await ctx.db.get(args.alternativeToItemId);
-      if (!alternativeTarget || alternativeTarget.projectId !== args.projectId) {
-        throw new Error("Invalid alternative target");
-      }
-    }
-
     const newItem: Id<"shoppingListItems"> = await ctx.db.insert("shoppingListItems", {
         ...args,
         sectionId: finalSectionId,
-        alternativeToItemId: args.alternativeToItemId ?? null,
-        selectedAlternativeItemId: null,
         teamId: project.teamId,
         createdBy: member.clerkUserId,
-        completed: false, 
+        completed: false,
     });
 
     return newItem;

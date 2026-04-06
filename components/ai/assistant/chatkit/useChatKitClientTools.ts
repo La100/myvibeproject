@@ -365,9 +365,15 @@ function normalizeClientToolCall(
       }
 
       const entity =
-        params.entity === "item" || params.entity === "section"
-          ? params.entity
-          : undefined;
+        call.name === "manage_shopping"
+          ? params.entity === "item" ||
+            params.entity === "section" ||
+            params.entity === "set"
+            ? params.entity
+            : undefined
+          : params.entity === "item" || params.entity === "section"
+            ? params.entity
+            : undefined;
       if (!entity) {
         return { error: `Missing or invalid \`entity\` for ${call.name}.` };
       }
@@ -380,15 +386,19 @@ function normalizeClientToolCall(
         const prefix = call.name === "manage_shopping" ? "shopping" : "labor";
         const items = extractBulkEntries(
           params,
-          entity === "section" ? ["sections"] : ["items"],
+          entity === "section"
+            ? ["sections"]
+            : entity === "set"
+              ? ["sets", "items"]
+              : ["items"],
         );
         return {
           name:
             action === "bulk_create"
-              ? `bulk_create_${prefix}_${entity === "section" ? "sections" : "items"}`
+              ? `bulk_create_${prefix}_${entity === "section" ? "sections" : entity === "set" ? "sets" : "items"}`
               : action === "bulk_update"
-                ? `bulk_update_${prefix}_${entity === "section" ? "sections" : "items"}`
-                : `bulk_delete_${prefix}_${entity === "section" ? "sections" : "items"}`,
+                ? `bulk_update_${prefix}_${entity === "section" ? "sections" : entity === "set" ? "sets" : "items"}`
+                : `bulk_delete_${prefix}_${entity === "section" ? "sections" : entity === "set" ? "sets" : "items"}`,
           params: { items },
         };
       }
@@ -396,6 +406,7 @@ function normalizeClientToolCall(
       const flattened = flattenManagedToolParams(params);
       const itemId = pickFirstNonEmptyString(flattened, ["itemId", "id"]);
       const sectionId = pickFirstNonEmptyString(flattened, ["sectionId", "id"]);
+      const setId = pickFirstNonEmptyString(flattened, ["setId", "id"]);
       const prefix = call.name === "manage_shopping" ? "shopping" : "labor";
 
       return {
@@ -406,15 +417,22 @@ function normalizeClientToolCall(
               : action === "update"
                 ? `update_${prefix}_item`
                 : `delete_${prefix}_item`
-            : action === "create"
-              ? `create_${prefix}_section`
-              : action === "update"
-                ? `update_${prefix}_section`
-                : `delete_${prefix}_section`,
+            : entity === "section"
+              ? action === "create"
+                ? `create_${prefix}_section`
+                : action === "update"
+                  ? `update_${prefix}_section`
+                  : `delete_${prefix}_section`
+              : action === "create"
+                ? `create_${prefix}_set`
+                : action === "update"
+                  ? `update_${prefix}_set`
+                  : `delete_${prefix}_set`,
         params: {
           ...flattened,
           ...(itemId ? { itemId } : {}),
           ...(sectionId ? { sectionId } : {}),
+          ...(setId ? { setId } : {}),
         },
       };
     }
@@ -1258,10 +1276,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 category: asNonEmptyString(item.category),
                 dimensions: asNonEmptyString(item.dimensions),
                 unitPrice: asNumber(item.unitPrice) ?? asNumber(item.price),
-                alternativeToItemId:
-                  asNonEmptyString(item.alternativeToItemId) ?? null,
-                selectedAlternativeItemId:
-                  asNonEmptyString(item.selectedAlternativeItemId) ?? null,
+                setId: asNonEmptyString(item.setId),
                 realizationStatus:
                   asShoppingStatus(item.realizationStatus) ?? "PLANNED",
                 sectionId: asNonEmptyString(item.sectionId) ?? null,
@@ -1325,15 +1340,13 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               if (quantity !== undefined) updates.quantity = quantity;
               const unitPrice = asNumber(item.unitPrice) ?? asNumber(item.price);
               if (unitPrice !== undefined) updates.unitPrice = unitPrice;
-              const alternativeToItemId = asNonEmptyString(item.alternativeToItemId);
-              if (alternativeToItemId !== undefined) {
-                updates.alternativeToItemId = alternativeToItemId;
-              }
-              const selectedAlternativeItemId = asNonEmptyString(
-                item.selectedAlternativeItemId,
-              );
-              if (selectedAlternativeItemId !== undefined) {
-                updates.selectedAlternativeItemId = selectedAlternativeItemId;
+              if (item.setId === null) {
+                updates.setId = null;
+              } else {
+                const setId = asNonEmptyString(item.setId);
+                if (setId !== undefined) {
+                  updates.setId = setId;
+                }
               }
               const realizationStatus = asShoppingStatus(item.realizationStatus);
               if (realizationStatus !== undefined) {
@@ -1442,6 +1455,137 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               );
 
               return { ok: Boolean(result?.success), sectionId };
+            });
+          }
+
+          case "bulk_create_shopping_sets": {
+            const items = asRecordArray(params.items);
+            return runBulk(items, "Bulk shopping set creation", async (item) => {
+              const title = asNonEmptyString(item.title) ?? asNonEmptyString(item.name);
+              if (!title) {
+                return {
+                  ok: false,
+                  error: "Missing required `title` for a bulk-created shopping set.",
+                };
+              }
+
+              const result = await convex.action(
+                apiAny.ai.confirmedActions.createConfirmedShoppingSet,
+                {
+                  projectId,
+                  setData: {
+                    title,
+                    notes: asNonEmptyString(item.notes),
+                    sectionId: asNonEmptyString(item.sectionId),
+                    setType:
+                      item.setType === "variant" ||
+                      item.setType === "bundle" ||
+                      item.setType === "reference"
+                        ? item.setType
+                        : undefined,
+                    selectionMode:
+                      item.selectionMode === "single" ||
+                      item.selectionMode === "multiple" ||
+                      item.selectionMode === "none"
+                        ? item.selectionMode
+                        : undefined,
+                    pricingMode:
+                      item.pricingMode === "selected_only" ||
+                      item.pricingMode === "all_selected" ||
+                      item.pricingMode === "none"
+                        ? item.pricingMode
+                        : undefined,
+                    status:
+                      item.status === "draft" ||
+                      item.status === "active" ||
+                      item.status === "resolved" ||
+                      item.status === "archived"
+                        ? item.status
+                        : undefined,
+                  },
+                },
+              );
+
+              return {
+                ok: Boolean(result?.success),
+                setId: typeof result?.setId === "string" ? result.setId : undefined,
+                title,
+              };
+            });
+          }
+
+          case "bulk_update_shopping_sets": {
+            const items = asRecordArray(params.items);
+            return runBulk(items, "Bulk shopping set update", async (item) => {
+              const setId = asNonEmptyString(item.setId) ?? asNonEmptyString(item.id);
+              if (!setId) {
+                return {
+                  ok: false,
+                  error: "Missing required `setId` for a bulk shopping set update.",
+                };
+              }
+
+              const result = await convex.action(
+                apiAny.ai.confirmedActions.editConfirmedShoppingSet,
+                {
+                  setId,
+                  updates: {
+                    title: asNonEmptyString(item.title) ?? asNonEmptyString(item.name),
+                    notes: asNonEmptyString(item.notes),
+                    sectionId:
+                      item.sectionId === null ? null : asNonEmptyString(item.sectionId),
+                    setType:
+                      item.setType === "variant" ||
+                      item.setType === "bundle" ||
+                      item.setType === "reference"
+                        ? item.setType
+                        : undefined,
+                    selectionMode:
+                      item.selectionMode === "single" ||
+                      item.selectionMode === "multiple" ||
+                      item.selectionMode === "none"
+                        ? item.selectionMode
+                        : undefined,
+                    pricingMode:
+                      item.pricingMode === "selected_only" ||
+                      item.pricingMode === "all_selected" ||
+                      item.pricingMode === "none"
+                        ? item.pricingMode
+                        : undefined,
+                    status:
+                      item.status === "draft" ||
+                      item.status === "active" ||
+                      item.status === "resolved" ||
+                      item.status === "archived"
+                        ? item.status
+                        : undefined,
+                  },
+                },
+              );
+
+              return { ok: Boolean(result?.success), setId };
+            });
+          }
+
+          case "bulk_delete_shopping_sets": {
+            const items = asRecordArray(params.items);
+            return runBulk(items, "Bulk shopping set delete", async (item) => {
+              const setId = asNonEmptyString(item.setId) ?? asNonEmptyString(item.id);
+              if (!setId) {
+                return {
+                  ok: false,
+                  error: "Missing required `setId` for a bulk shopping set delete.",
+                };
+              }
+
+              const result = await convex.action(
+                apiAny.ai.confirmedActions.deleteConfirmedShoppingSet,
+                {
+                  setId,
+                },
+              );
+
+              return { ok: Boolean(result?.success), setId };
             });
           }
 
@@ -1856,9 +2000,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               category: asNonEmptyString(params.category),
               dimensions: asNonEmptyString(params.dimensions),
               unitPrice,
-              alternativeToItemId: asNonEmptyString(params.alternativeToItemId) ?? null,
-              selectedAlternativeItemId:
-                asNonEmptyString(params.selectedAlternativeItemId) ?? null,
+              setId: asNonEmptyString(params.setId),
               realizationStatus: asShoppingStatus(params.realizationStatus) ?? "PLANNED",
               sectionId: asNonEmptyString(params.sectionId) ?? null,
               assignedTo: asNonEmptyString(params.assignedTo),
@@ -1934,12 +2076,11 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             const unitPrice = asNumber(params.unitPrice) ?? asNumber(params.price);
             if (unitPrice !== undefined) updates.unitPrice = unitPrice;
 
-            const alternativeToItemId = asNonEmptyString(params.alternativeToItemId);
-            if (alternativeToItemId !== undefined) updates.alternativeToItemId = alternativeToItemId;
-
-            const selectedAlternativeItemId = asNonEmptyString(params.selectedAlternativeItemId);
-            if (selectedAlternativeItemId !== undefined) {
-              updates.selectedAlternativeItemId = selectedAlternativeItemId;
+            if (params.setId === null) {
+              updates.setId = null;
+            } else {
+              const setId = asNonEmptyString(params.setId);
+              if (setId !== undefined) updates.setId = setId;
             }
 
             const realizationStatus = asShoppingStatus(params.realizationStatus);
@@ -2280,6 +2421,141 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               message:
                 asNonEmptyString(result?.message) ??
                 "Shopping section deleted successfully.",
+            };
+          }
+
+          case "create_shopping_set": {
+            const title = asNonEmptyString(params.title) ?? asNonEmptyString(params.name);
+            if (!title) {
+              return {
+                ok: false,
+                error: "Missing required `title` for create_shopping_set.",
+              };
+            }
+
+            const result = await convex.action(
+              apiAny.ai.confirmedActions.createConfirmedShoppingSet,
+              {
+                projectId,
+                setData: {
+                  title,
+                  notes: asNonEmptyString(params.notes),
+                  sectionId: asNonEmptyString(params.sectionId),
+                  setType:
+                    params.setType === "variant" ||
+                    params.setType === "bundle" ||
+                    params.setType === "reference"
+                      ? params.setType
+                      : undefined,
+                  selectionMode:
+                    params.selectionMode === "single" ||
+                    params.selectionMode === "multiple" ||
+                    params.selectionMode === "none"
+                      ? params.selectionMode
+                      : undefined,
+                  pricingMode:
+                    params.pricingMode === "selected_only" ||
+                    params.pricingMode === "all_selected" ||
+                    params.pricingMode === "none"
+                      ? params.pricingMode
+                      : undefined,
+                  status:
+                    params.status === "draft" ||
+                    params.status === "active" ||
+                    params.status === "resolved" ||
+                    params.status === "archived"
+                      ? params.status
+                      : undefined,
+                },
+              },
+            );
+
+            return {
+              ok: Boolean(result?.success),
+              setId: typeof result?.setId === "string" ? result.setId : undefined,
+              message:
+                asNonEmptyString(result?.message) ?? `Created shopping set: ${title}`,
+            };
+          }
+
+          case "update_shopping_set": {
+            const setId = asNonEmptyString(params.setId);
+            if (!setId) {
+              return {
+                ok: false,
+                error: "Missing required `setId` for update_shopping_set.",
+              };
+            }
+
+            const result = await convex.action(
+              apiAny.ai.confirmedActions.editConfirmedShoppingSet,
+              {
+                setId,
+                updates: {
+                  title: asNonEmptyString(params.title) ?? asNonEmptyString(params.name),
+                  notes: asNonEmptyString(params.notes),
+                  sectionId:
+                    params.sectionId === null ? null : asNonEmptyString(params.sectionId),
+                  setType:
+                    params.setType === "variant" ||
+                    params.setType === "bundle" ||
+                    params.setType === "reference"
+                      ? params.setType
+                      : undefined,
+                  selectionMode:
+                    params.selectionMode === "single" ||
+                    params.selectionMode === "multiple" ||
+                    params.selectionMode === "none"
+                      ? params.selectionMode
+                      : undefined,
+                  pricingMode:
+                    params.pricingMode === "selected_only" ||
+                    params.pricingMode === "all_selected" ||
+                    params.pricingMode === "none"
+                      ? params.pricingMode
+                      : undefined,
+                  status:
+                    params.status === "draft" ||
+                    params.status === "active" ||
+                    params.status === "resolved" ||
+                    params.status === "archived"
+                      ? params.status
+                      : undefined,
+                },
+              },
+            );
+
+            return {
+              ok: Boolean(result?.success),
+              setId,
+              message:
+                asNonEmptyString(result?.message) ??
+                "Shopping set updated successfully.",
+            };
+          }
+
+          case "delete_shopping_set": {
+            const setId = asNonEmptyString(params.setId);
+            if (!setId) {
+              return {
+                ok: false,
+                error: "Missing required `setId` for delete_shopping_set.",
+              };
+            }
+
+            const result = await convex.action(
+              apiAny.ai.confirmedActions.deleteConfirmedShoppingSet,
+              {
+                setId,
+              },
+            );
+
+            return {
+              ok: Boolean(result?.success),
+              setId,
+              message:
+                asNonEmptyString(result?.message) ??
+                "Shopping set deleted successfully.",
             };
           }
 

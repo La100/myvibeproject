@@ -41,7 +41,7 @@ export const getProjectShoppingItems = internalQuery({
   args: { projectId: v.id("projects") },
   returns: v.array(v.any()),
   handler: async (ctx, args) => {
-    const [items, sections] = await Promise.all([
+    const [items, sections, sets] = await Promise.all([
       ctx.db
         .query("shoppingListItems")
         .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
@@ -50,13 +50,36 @@ export const getProjectShoppingItems = internalQuery({
         .query("shoppingListSections")
         .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
         .collect(),
+      ctx.db
+        .query("shoppingSets")
+        .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+        .collect(),
     ]);
 
     const sectionMap = new Map(sections.map((s) => [s._id, s.name]));
+    const setMap = new Map(sets.map((set) => [set._id, set]));
 
     return items.map((item) => ({
-      ...item,
-      sectionName: item.sectionId ? sectionMap.get(item.sectionId) : undefined,
+      ...(item.setId
+        ? (() => {
+            const set = setMap.get(item.setId);
+            return {
+              ...item,
+              sectionName: item.sectionId ? sectionMap.get(item.sectionId) : undefined,
+              setTitle: set?.title,
+              setType: set?.setType,
+              isPreferredInSet: !!set?.preferredItemIds?.some((id) => id === item._id),
+              isResolvedInSet: !!set?.resolvedItemIds?.some((id) => id === item._id),
+            };
+          })()
+        : {
+            ...item,
+            sectionName: item.sectionId ? sectionMap.get(item.sectionId) : undefined,
+            setTitle: undefined,
+            setType: undefined,
+            isPreferredInSet: false,
+            isResolvedInSet: false,
+          }),
     }));
   },
 });

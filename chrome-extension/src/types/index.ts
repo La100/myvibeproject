@@ -17,6 +17,13 @@ export interface Project {
   sections: Section[]
 }
 
+export interface ShoppingSet {
+  _id: string
+  title: string
+  sectionId?: string | null
+  setType: "variant" | "bundle" | "reference"
+}
+
 export interface Team {
   _id: string
   clerkOrgId: string

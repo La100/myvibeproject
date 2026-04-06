@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 
+import { verifyAssistantAccess, verifyProjectScope } from "@/lib/assistant/serverAccess";
+
 const HOP_BY_HOP_RESPONSE_HEADERS = new Set([
   "connection",
   "content-length",
@@ -33,10 +35,39 @@ function buildTargetUrl(request: Request, path: string[]) {
   return targetUrl;
 }
 
+function isAttachmentPath(path: string[]) {
+  return (
+    path.length === 3 &&
+    path[0] === "attachments" &&
+    path[1] !== "" &&
+    (path[2] === "upload" || path[2] === "content")
+  );
+}
+
+function isAllowedProxyPath(method: string, path: string[]) {
+  if (path.length === 0) {
+    return method === "POST" || method === "OPTIONS";
+  }
+
+  if (!isAttachmentPath(path)) {
+    return false;
+  }
+
+  if (path[2] === "upload") {
+    return method === "POST" || method === "PUT" || method === "OPTIONS";
+  }
+
+  return method === "GET" || method === "OPTIONS";
+}
+
 async function proxyRequest(
   request: Request,
   path: string[],
 ) {
+  if (!isAllowedProxyPath(request.method, path)) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const { userId, getToken } = await auth();
 
   if (!userId) {
@@ -56,8 +87,13 @@ async function proxyRequest(
     );
   }
 
-  const projectId = request.headers.get("x-chatkit-project-id")?.trim();
-  const teamId = request.headers.get("x-chatkit-team-id")?.trim();
+  const incomingUrl = new URL(request.url);
+  const projectId =
+    request.headers.get("x-chatkit-project-id")?.trim() ||
+    incomingUrl.searchParams.get("projectId")?.trim();
+  const teamId =
+    request.headers.get("x-chatkit-team-id")?.trim() ||
+    incomingUrl.searchParams.get("teamId")?.trim();
   const canMakeChanges = request.headers.get("x-chatkit-can-make-changes")?.trim();
 
   if (!projectId || !teamId) {
@@ -65,6 +101,18 @@ async function proxyRequest(
       { error: "Missing ChatKit scope headers. Expected project and team identifiers." },
       { status: 400 },
     );
+  }
+
+  try {
+    await verifyProjectScope(convexToken, projectId, teamId);
+
+    if (path.length === 0) {
+      await verifyAssistantAccess(convexToken, teamId);
+    }
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Access denied for this ChatKit request.";
+    return NextResponse.json({ error: message }, { status: 403 });
   }
 
   let targetUrl: URL;
@@ -93,6 +141,10 @@ async function proxyRequest(
   upstreamHeaders.set("x-chatkit-team-id", teamId);
   upstreamHeaders.set("x-chatkit-project-id", projectId);
   upstreamHeaders.set("x-chatkit-convex-token", convexToken);
+  upstreamHeaders.set(
+    "x-chatkit-proxy-base-url",
+    `${incomingUrl.origin}/api/chatkit/self-hosted`,
+  );
 
   if (canMakeChanges === "true" || canMakeChanges === "false") {
     upstreamHeaders.set("x-chatkit-can-make-changes", canMakeChanges);

@@ -6,6 +6,7 @@ import { makeFunctionReference } from "convex/server";
 import { getEffectiveLimits } from "./stripe";
 import { Doc, Id } from "./_generated/dataModel";
 import { aiDebugLog } from "./ai/helpers/debugLog";
+import { canAccessProjectWithMembership } from "./authz";
 
 export const r2 = new R2(components.r2);
 const checkStorageLimitQueryRef =
@@ -76,6 +77,10 @@ const getProjectAccess = async (ctx: any, projectId: Id<"projects">, clerkUserId
     .unique();
 
   if (!teamMember || !teamMember.isActive) {
+    throw new Error("No access to this project");
+  }
+
+  if (!canAccessProjectWithMembership(teamMember, projectId)) {
     throw new Error("No access to this project");
   }
 
@@ -421,13 +426,17 @@ const getProjectAccessForUser = async (
 
   const membership = await ctx.db
     .query("teamMembers")
-    .withIndex("by_team_and_user", (q: any) =>
+    .withIndex("by_team_and_user", (q) =>
       q.eq("teamId", project.teamId).eq("clerkUserId", actorUserId)
     )
-    .filter((q: any) => q.eq(q.field("isActive"), true))
+    .filter((q) => q.eq(q.field("isActive"), true))
     .first();
 
   if (!membership || (membership.role !== "admin" && membership.role !== "member")) {
+    return null;
+  }
+
+  if (!canAccessProjectWithMembership(membership, projectId)) {
     return null;
   }
 
@@ -1030,18 +1039,11 @@ export const getMoodboardImagesBySection = query({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return [];
 
-    const project = await ctx.db.get(args.projectId);
-    if (!project) return [];
-
-    // Check access
-    const hasAccess = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", q => 
-        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
-      )
-      .unique();
-
-    if (!hasAccess || !hasAccess.isActive) return [];
+    try {
+      await getProjectAccess(ctx, args.projectId, identity.subject);
+    } catch {
+      return [];
+    }
 
     // Get only image files for this specific moodboard section
     const files = await ctx.db

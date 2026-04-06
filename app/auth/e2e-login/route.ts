@@ -1,7 +1,10 @@
 import { createClerkClient } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 
-const ensureBypassEnabled = () => process.env.E2E_AUTH_BYPASS === "1";
+const ensureBypassEnabled = () =>
+  process.env.E2E_AUTH_BYPASS === "1" &&
+  (process.env.NODE_ENV !== "production" ||
+    process.env.E2E_AUTH_BYPASS_ALLOW_PRODUCTION === "1");
 
 const normalizeRedirectTarget = (request: NextRequest, redirectTo: string | null) => {
   if (!redirectTo) {

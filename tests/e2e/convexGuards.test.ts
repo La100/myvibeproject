@@ -219,3 +219,97 @@ test("Project and file queries keep team-level authorization checks", async () =
     /export const checkTeamAIAccess = query\([\s\S]*?subscriptionLimits:\s*v\.optional\(v\.any\(\)\)/,
   );
 });
+
+test("Shopping, labor, product library and healthcheck keep release-critical guards", async () => {
+  const shoppingPath = path.join(convexRoot, "shopping.ts");
+  const shoppingSource = await readFile(shoppingPath, "utf8");
+
+  assert.match(
+    shoppingSource,
+    /export const listShoppingListItems = query\([\s\S]*?await ensureProjectAccess\(ctx,\s*args\.projectId\)/,
+  );
+  assert.match(
+    shoppingSource,
+    /export const createShoppingListItem = mutation\([\s\S]*?ensureProjectAccess\(ctx,\s*args\.projectId\)/,
+  );
+  assert.match(
+    shoppingSource,
+    /export const getShoppingSetsByTeam = query\([\s\S]*?await ensureTeamAccess\(ctx,\s*args\.teamId\)/,
+  );
+
+  const laborPath = path.join(convexRoot, "labor.ts");
+  const laborSource = await readFile(laborPath, "utf8");
+
+  assert.match(
+    laborSource,
+    /export const listLaborItems = query\([\s\S]*?await ensureProjectAccess\(ctx,\s*args\.projectId\)/,
+  );
+  assert.match(
+    laborSource,
+    /export const createLaborItem = mutation\([\s\S]*?ensureProjectAccess\(ctx,\s*args\.projectId\)/,
+  );
+
+  const productLibraryPath = path.join(convexRoot, "productLibrary.ts");
+  const productLibrarySource = await readFile(productLibraryPath, "utf8");
+
+  assert.match(
+    productLibrarySource,
+    /export const getAllProducts = query\([\s\S]*?await ensureTeamAccess\(ctx,\s*teamId\)/,
+  );
+  assert.match(
+    productLibrarySource,
+    /export const createProduct = mutation\([\s\S]*?ensureTeamAccess\(ctx,\s*args\.teamId\)/,
+  );
+  assert.match(
+    productLibrarySource,
+    /export const addToShoppingList = mutation\([\s\S]*?ensureProjectAccess\(ctx,\s*args\.projectId\)/,
+  );
+
+  const clipperPath = path.join(convexRoot, "clipper.ts");
+  const clipperSource = await readFile(clipperPath, "utf8");
+
+  assert.match(
+    clipperSource,
+    /export const saveProduct = mutation\([\s\S]*?ensureProjectAccess\(ctx,\s*args\.projectId\)/,
+  );
+
+  const middlewarePath = path.join(workspaceRoot, "middleware.ts");
+  const middlewareSource = await readFile(middlewarePath, "utf8");
+
+  assert.match(middlewareSource, /"\/api\/healthz\(\.\*\)"/);
+});
+
+test("Route security guards keep SSRF and E2E bypass protections", async () => {
+  const remoteUrlSafetyPath = path.join(workspaceRoot, "lib", "security", "remoteUrlSafety.ts");
+  const remoteUrlSafetySource = await readFile(remoteUrlSafetyPath, "utf8");
+
+  assert.match(remoteUrlSafetySource, /lookup\(hostname,\s*\{\s*all:\s*true,\s*verbatim:\s*true\s*\}\)/);
+  assert.match(remoteUrlSafetySource, /if \(isBlockedHostname\(record\.address\)\)/);
+
+  const imageProxyPath = path.join(workspaceRoot, "app", "api", "image-proxy", "route.ts");
+  const imageProxySource = await readFile(imageProxyPath, "utf8");
+
+  assert.match(imageProxySource, /export const runtime = "nodejs"/);
+  assert.match(imageProxySource, /await assertSafeRemoteUrl\(parsed,/);
+  assert.match(imageProxySource, /await assertSafeRemoteUrl\(currentUrl,/);
+
+  const shoppingScrapePath = path.join(
+    workspaceRoot,
+    "app",
+    "api",
+    "shopping",
+    "scrape",
+    "route.ts",
+  );
+  const shoppingScrapeSource = await readFile(shoppingScrapePath, "utf8");
+
+  assert.match(shoppingScrapeSource, /export const runtime = "nodejs"/);
+  assert.match(shoppingScrapeSource, /const parsedUrl = await normalizeInputUrl\(rawUrl\)/);
+  assert.match(shoppingScrapeSource, /await assertSafeRemoteUrl\(currentUrl,/);
+
+  const e2eLoginPath = path.join(workspaceRoot, "app", "auth", "e2e-login", "route.ts");
+  const e2eLoginSource = await readFile(e2eLoginPath, "utf8");
+
+  assert.match(e2eLoginSource, /process\.env\.NODE_ENV !== "production"/);
+  assert.match(e2eLoginSource, /process\.env\.E2E_AUTH_BYPASS_ALLOW_PRODUCTION === "1"/);
+});

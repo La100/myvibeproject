@@ -1,6 +1,9 @@
 import { v } from "convex/values";
 import { mutation, query, internalQuery } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { makeFunctionReference } from "convex/server";
+import { ensureProjectAccess } from "./authz";
+
+const logActivityMutation = makeFunctionReference<"mutation">("activityLog:logActivity");
 
 // Get all contacts for a team
 export const getContacts = query({
@@ -183,7 +186,7 @@ export const createContact = mutation({
       isActive: true,
     });
 
-    await ctx.runMutation(internal.activityLog.logActivity, {
+    await ctx.runMutation(logActivityMutation, {
       teamId: team._id,
       projectId: undefined,
       actionType: "contact.create",
@@ -262,7 +265,7 @@ export const updateContact = mutation({
       notes: args.notes,
     });
 
-    await ctx.runMutation(internal.activityLog.logActivity, {
+    await ctx.runMutation(logActivityMutation, {
       teamId: contact.teamId,
       projectId: undefined,
       actionType: "contact.update",
@@ -308,7 +311,7 @@ export const deleteContact = mutation({
       throw new Error("Access denied");
     }
 
-    await ctx.runMutation(internal.activityLog.logActivity, {
+    await ctx.runMutation(logActivityMutation, {
       teamId: contact.teamId,
       projectId: undefined,
       actionType: "contact.archive",
@@ -329,34 +332,7 @@ export const deleteContact = mutation({
 export const getProjectContacts = query({
   args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    // Verify user has access to this project
-    const project = await ctx.db.get(args.projectId);
-    if (!project) {
-      throw new Error("Project not found");
-    }
-
-    const team = await ctx.db.get(project.teamId);
-    if (!team) {
-      throw new Error("Team not found");
-    }
-
-    // Verify user is member of this team
-    const teamMember = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", q =>
-        q.eq("teamId", team._id).eq("clerkUserId", identity.subject)
-      )
-      .filter(q => q.eq(q.field("isActive"), true))
-      .unique();
-
-    if (!teamMember) {
-      throw new Error("Access denied");
-    }
+    await ensureProjectAccess(ctx, args.projectId);
 
     // Get project contacts
     const projectContacts = await ctx.db

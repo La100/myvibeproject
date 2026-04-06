@@ -10,6 +10,7 @@ import {
 } from "../billing";
 import { IMAGE_GENERATION_CONFIG } from "./config";
 import { aiDebugLog } from "../helpers/debugLog";
+import { assertSafeRemoteUrl } from "../../../lib/security/remoteUrlSafety";
 // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
 const apiAny = require("../../_generated/api").api as any;
 // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
@@ -36,9 +37,13 @@ const historyMessageValidator = v.object({
 const referenceImageValidator = v.object({
   base64: v.optional(v.string()),
   storageKey: v.optional(v.string()),
-  mimeType: v.string(),
+  imageUrl: v.optional(v.string()),
+  mimeType: v.optional(v.string()),
   name: v.string(),
 });
+
+const MAX_REFERENCE_IMAGE_BYTES = 8 * 1024 * 1024;
+const MAX_REFERENCE_REDIRECTS = 3;
 
 const DEFAULT_MOODBOARD_SECTION_KEY = "1";
 const DEFAULT_MOODBOARD_SECTION_LABEL = "CONCEPT";
@@ -157,28 +162,103 @@ export const generateVisualization = action({
       const contents: ContentItem[] = [];
       
       // Helper to resolve image data (base64) from storage key if needed
-      const resolveImage = async (storageKey?: string, base64?: string): Promise<string | null> => {
-        if (base64) return base64;
-        if (!storageKey) return null;
-
+      const fetchRemoteImage = async (
+        inputUrl: string,
+        fallbackMimeType?: string,
+        redirectCount: number = 0,
+      ): Promise<{ data: string; mimeType: string } | null> => {
         try {
-          // Get signed URL for the file
-          const url: string | null = await ctx.runQuery(internalAny.ai.imageGen.helpers.getFileUrl, {
-            fileKey: storageKey,
+          const parsedUrl = new URL(inputUrl);
+          await assertSafeRemoteUrl(parsedUrl, {
+            blockedHostMessage: "Blocked reference image host",
+            unresolvedHostMessage: "Unable to resolve reference image host",
           });
-          
-          if (!url) return null;
-          
-          // Fetch file content
-          const response = await fetch(url);
-          if (!response.ok) return null;
-          
+
+          const response = await fetch(parsedUrl, {
+            redirect: "manual",
+            signal: AbortSignal.timeout(10_000),
+          });
+
+          if ([301, 302, 303, 307, 308].includes(response.status)) {
+            const location = response.headers.get("location");
+            if (!location || redirectCount >= MAX_REFERENCE_REDIRECTS) {
+              return null;
+            }
+
+            const nextUrl = new URL(location, parsedUrl);
+            return fetchRemoteImage(nextUrl.toString(), fallbackMimeType, redirectCount + 1);
+          }
+
+          if (!response.ok) {
+            return null;
+          }
+
+          const mimeType =
+            response.headers.get("content-type")?.split(";")[0].trim() ||
+            fallbackMimeType ||
+            "";
+
+          if (!mimeType.startsWith("image/")) {
+            return null;
+          }
+
+          const contentLength = Number(response.headers.get("content-length"));
+          if (Number.isFinite(contentLength) && contentLength > MAX_REFERENCE_IMAGE_BYTES) {
+            return null;
+          }
+
           const buffer = await response.arrayBuffer();
-          return Buffer.from(buffer).toString("base64");
+          if (buffer.byteLength > MAX_REFERENCE_IMAGE_BYTES) {
+            return null;
+          }
+
+          return {
+            data: Buffer.from(buffer).toString("base64"),
+            mimeType,
+          };
         } catch (error) {
-          console.error("Error fetching image from storage:", error);
+          console.error("Error fetching remote reference image:", error);
           return null;
         }
+      };
+
+      const resolveImage = async ({
+        storageKey,
+        base64,
+        imageUrl,
+        mimeType,
+      }: {
+        storageKey?: string;
+        base64?: string;
+        imageUrl?: string;
+        mimeType?: string;
+      }): Promise<{ data: string; mimeType: string } | null> => {
+        if (base64) {
+          return {
+            data: base64,
+            mimeType: mimeType?.trim() || "image/png",
+          };
+        }
+
+        if (storageKey) {
+          try {
+            const url: string | null = await ctx.runQuery(internalAny.ai.imageGen.helpers.getFileUrl, {
+              fileKey: storageKey,
+            });
+
+            if (!url) return null;
+            return fetchRemoteImage(url, mimeType);
+          } catch (error) {
+            console.error("Error fetching image from storage:", error);
+            return null;
+          }
+        }
+
+        if (imageUrl) {
+          return fetchRemoteImage(imageUrl, mimeType);
+        }
+
+        return null;
       };
       
       // Find the last generated image from history to use as context
@@ -196,11 +276,15 @@ export const generateVisualization = action({
             if (hasImage && msg.imageMimeType) {
               contextParts.push("AI generated an image based on this request.");
               // Keep track of the last generated image
-              const base64 = await resolveImage(msg.imageStorageKey, msg.imageBase64);
-              if (base64) {
+              const resolvedImage = await resolveImage({
+                storageKey: msg.imageStorageKey,
+                base64: msg.imageBase64,
+                mimeType: msg.imageMimeType,
+              });
+              if (resolvedImage) {
                 lastGeneratedImage = {
-                  base64,
-                  mimeType: msg.imageMimeType,
+                  base64: resolvedImage.data,
+                  mimeType: resolvedImage.mimeType,
                 };
               }
             }
@@ -231,16 +315,30 @@ export const generateVisualization = action({
       
       // Add user-provided reference images
       if (args.referenceImages && args.referenceImages.length > 0) {
+        let resolvedReferenceImageCount = 0;
         for (const img of args.referenceImages) {
-          const base64 = await resolveImage(img.storageKey, img.base64);
-          if (base64) {
+          const resolvedImage = await resolveImage({
+            storageKey: img.storageKey,
+            base64: img.base64,
+            imageUrl: img.imageUrl,
+            mimeType: img.mimeType,
+          });
+          if (resolvedImage) {
+            resolvedReferenceImageCount += 1;
             currentParts.push({
               inlineData: {
-                mimeType: img.mimeType,
-                data: base64,
-                },
+                mimeType: resolvedImage.mimeType,
+                data: resolvedImage.data,
+              },
             });
           }
+        }
+
+        if (resolvedReferenceImageCount === 0) {
+          return {
+            success: false,
+            error: "Could not load any valid reference images for generation.",
+          };
         }
       }
       
@@ -528,6 +626,7 @@ export const generateMoodboardImageForAssistant = action({
     projectId: v.id("projects"),
     section: v.optional(v.string()),
     userClerkId: v.optional(v.string()),
+    referenceImages: v.optional(v.array(referenceImageValidator)),
   },
   returns: v.object({
     success: v.boolean(),
@@ -560,6 +659,7 @@ export const generateMoodboardImageForAssistant = action({
       {
         prompt: args.prompt,
         projectId: args.projectId,
+        referenceImages: args.referenceImages,
       },
     );
 

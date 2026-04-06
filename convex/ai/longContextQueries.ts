@@ -102,6 +102,8 @@ export const getProjectContextSnapshot = internalQuery({
       category: v.optional(v.string()),
       supplier: v.optional(v.string()),
       dimensions: v.optional(v.string()),
+      imageUrl: v.optional(v.string()),
+      productLink: v.optional(v.string()),
       quantity: v.number(),
       unitPrice: v.optional(v.number()),
       totalPrice: v.optional(v.number()),
@@ -115,6 +117,16 @@ export const getProjectContextSnapshot = internalQuery({
       ),
       assignedTo: v.optional(v.union(v.string(), v.null())),
       sectionId: v.optional(v.union(v.id("shoppingListSections"), v.null())),
+      sectionName: v.optional(v.string()),
+      setId: v.optional(v.union(v.id("shoppingSets"), v.null())),
+      setTitle: v.optional(v.string()),
+      setType: v.optional(v.union(
+        v.literal("variant"),
+        v.literal("bundle"),
+        v.literal("reference"),
+      )),
+      isPreferredInSet: v.optional(v.boolean()),
+      isResolvedInSet: v.optional(v.boolean()),
     })),
     shoppingSections: v.array(v.object({
       _id: v.id("shoppingListSections"),
@@ -189,16 +201,26 @@ export const getProjectContextSnapshot = internalQuery({
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
 
-    const shopping = await ctx.db
-      .query("shoppingListItems")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .collect();
+    const [shopping, sections, sets] = await Promise.all([
+      ctx.db
+        .query("shoppingListItems")
+        .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+        .collect(),
+      ctx.db
+        .query("shoppingListSections")
+        .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+        .order("asc")
+        .collect(),
+      ctx.db
+        .query("shoppingSets")
+        .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+        .collect(),
+    ]);
 
-    const sections = await ctx.db
-      .query("shoppingListSections")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .order("asc")
-      .collect();
+    const sectionNameById = new Map(
+      sections.map((section) => [String(section._id), section.name]),
+    );
+    const setById = new Map(sets.map((set) => [String(set._id), set]));
 
     const projectContacts = await ctx.db
       .query("projectContacts")
@@ -298,20 +320,35 @@ export const getProjectContextSnapshot = internalQuery({
         content: n.content,
         updatedAt: n.updatedAt,
       })),
-      shoppingItems: shopping.map((s) => ({
-        _id: s._id,
-        name: s.name,
-        notes: s.notes,
-        category: s.category,
-        supplier: s.supplier,
-        dimensions: s.dimensions,
-        quantity: s.quantity,
-        unitPrice: s.unitPrice,
-        totalPrice: s.totalPrice,
-        realizationStatus: s.realizationStatus,
-        assignedTo: s.assignedTo,
-        sectionId: s.sectionId ?? null,
-      })),
+      shoppingItems: shopping.map((s) => {
+        const set = s.setId ? setById.get(String(s.setId)) : null;
+        return {
+          _id: s._id,
+          name: s.name,
+          notes: s.notes,
+          category: s.category,
+          supplier: s.supplier,
+          dimensions: s.dimensions,
+          imageUrl: s.imageUrl,
+          productLink: s.productLink,
+          quantity: s.quantity,
+          unitPrice: s.unitPrice,
+          totalPrice: s.totalPrice,
+          realizationStatus: s.realizationStatus,
+          assignedTo: s.assignedTo,
+          sectionId: s.sectionId ?? null,
+          sectionName: s.sectionId ? sectionNameById.get(String(s.sectionId)) : undefined,
+          setId: s.setId ?? null,
+          setTitle: set?.title,
+          setType: set?.setType,
+          isPreferredInSet: !!set?.preferredItemIds?.some(
+            (itemId) => String(itemId) === String(s._id),
+          ),
+          isResolvedInSet: !!set?.resolvedItemIds?.some(
+            (itemId) => String(itemId) === String(s._id),
+          ),
+        };
+      }),
       shoppingSections: sections.map((section) => ({
         _id: section._id,
         name: section.name,

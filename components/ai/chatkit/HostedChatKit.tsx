@@ -22,20 +22,22 @@ const CHANGE_MODE_STORAGE_KEY = "myvibeproject-chatkit-can-make-changes";
 const DEFAULT_SELF_HOSTED_CHATKIT_URL = "/api/chatkit/self-hosted";
 
 const START_PROMPT_ICONS: Record<string, StartScreenPrompt["icon"]> = {
-  "Set Up Phases": "check-circle",
-  "Material List": "square-text",
-  "Labor Costs": "suitcase",
-  "Add Contractors": "profile",
-  "Week Plan": "calendar",
-  "Status Check": "chart",
+  "Project Status": "chart",
+  "Next Steps": "check-circle",
+  "Budget Check": "suitcase",
 };
 
-export default function HostedChatKit() {
+type HostedChatKitProps = {
+  mode?: "page" | "panel";
+};
+
+export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
   const { user } = useUser();
   const { project, team, isLoading: isProjectLoading } = useProject();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const isPanel = mode === "panel";
   const sessionParam = searchParams.get("session");
   const initialThreadId =
     typeof sessionParam === "string" && sessionParam.trim().length > 0
@@ -89,6 +91,20 @@ export default function HostedChatKit() {
     [],
   );
 
+  const theme = useMemo(
+    () =>
+      isPanel
+        ? {
+            density: "compact" as const,
+            radius: "round" as const,
+            typography: {
+              baseSize: 14 as const,
+            },
+          }
+        : undefined,
+    [isPanel],
+  );
+
   const onClientTool = useChatKitClientTools(
     project?._id && team?._id && team?.slug
       ? {
@@ -125,6 +141,14 @@ export default function HostedChatKit() {
     [canMakeChanges, project?._id, team?._id],
   );
 
+  const handleCanMakeChangesChange = (checked: boolean) => {
+    setCanMakeChanges(checked);
+    setBootError(null);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(CHANGE_MODE_STORAGE_KEY, String(checked));
+    }
+  };
+
   const chatkit = useChatKit({
     api: {
       url: selfHostedChatKitUrl,
@@ -135,6 +159,7 @@ export default function HostedChatKit() {
     onClientTool,
     locale: "en",
     frameTitle: "Vibe assistant",
+    theme,
     initialThread: initialThreadId ?? null,
     header: {
       enabled: true,
@@ -189,6 +214,25 @@ export default function HostedChatKit() {
       (aiAccess.message || "").toLowerCase().includes("exhaust");
 
     if (quotaBlocked) {
+      if (isPanel) {
+        return (
+          <div className="flex h-full min-h-0 flex-col overflow-auto p-4">
+            <Script
+              src="https://cdn.platform.openai.com/deployments/chatkit/chatkit.js"
+              strategy="afterInteractive"
+            />
+            <AIQuotaUpsellCard
+              teamId={team._id}
+              currentPlan={aiAccess.currentPlan}
+              subscriptionStatus={aiAccess.subscriptionStatus}
+              message={aiAccess.message}
+              remainingTokens={aiAccess.remainingTokens}
+              className="border-border/70 bg-background/95 shadow-sm"
+            />
+          </div>
+        );
+      }
+
       return (
         <AIQuotaUpsellCard
           teamId={team._id}
@@ -197,6 +241,36 @@ export default function HostedChatKit() {
           message={aiAccess.message}
           remainingTokens={aiAccess.remainingTokens}
         />
+      );
+    }
+
+    if (isPanel) {
+      return (
+        <div className="flex h-full min-h-0 items-center justify-center p-4">
+          <Script
+            src="https://cdn.platform.openai.com/deployments/chatkit/chatkit.js"
+            strategy="afterInteractive"
+          />
+          <Card className="w-full rounded-3xl border-border/70 bg-background/95 shadow-sm">
+            <CardHeader>
+              <CardTitle>AI assistant unavailable</CardTitle>
+              <CardDescription>
+                Your workspace does not currently have access to the self-hosted assistant.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              <Button onClick={() => router.push("/organisation/subscription")}>
+                Open billing settings
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => router.push(`/organisation/projects/${project.slug}/ai`)}
+              >
+                Open full AI page
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
       );
     }
 
@@ -212,7 +286,7 @@ export default function HostedChatKit() {
 
   if (showUnifiedLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className={isPanel ? "flex h-full items-center justify-center p-6" : "flex min-h-screen items-center justify-center"}>
         <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="Loading" />
       </div>
     );
@@ -222,7 +296,17 @@ export default function HostedChatKit() {
 
   if (effectiveError) {
     return (
-      <div className="flex h-[calc(100vh-4rem)] w-full items-center justify-center p-4 xl:p-6">
+      <div
+        className={
+          isPanel
+            ? "flex h-full w-full items-center justify-center p-4"
+            : "flex h-[calc(100vh-4rem)] w-full items-center justify-center p-4 xl:p-6"
+        }
+      >
+        <Script
+          src="https://cdn.platform.openai.com/deployments/chatkit/chatkit.js"
+          strategy="afterInteractive"
+        />
         <Card className="w-full max-w-xl rounded-3xl border-border/70 bg-background/95">
           <CardHeader>
             <CardTitle>Self-hosted ChatKit error</CardTitle>
@@ -252,6 +336,39 @@ export default function HostedChatKit() {
     );
   }
 
+  if (isPanel) {
+    return (
+      <div className="flex h-full min-h-0 flex-col">
+        <Script
+          src="https://cdn.platform.openai.com/deployments/chatkit/chatkit.js"
+          strategy="afterInteractive"
+        />
+
+        <div className="flex items-center justify-between gap-3 border-b border-border/70 bg-background/95 px-4 py-2.5">
+          <div className="min-w-0">
+            <p className="text-[15px] font-semibold leading-tight text-foreground">Vibe Assistant</p>
+            <p className="text-[11px] text-muted-foreground">
+              {canMakeChanges ? "Live changes enabled" : "Read-only mode"}
+            </p>
+          </div>
+          <Switch
+            checked={canMakeChanges}
+            onCheckedChange={handleCanMakeChangesChange}
+            aria-label="Toggle whether ChatKit can make changes"
+          />
+        </div>
+
+        <div className="min-h-0 flex-1 bg-gradient-to-b from-background to-muted/20">
+          <ChatKit
+            key={refreshKey}
+            control={chatkit.control}
+            className="block h-full min-h-0 w-full"
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-[calc(100vh-4rem)] w-full min-w-0 flex-col p-4 xl:p-6">
       <Script
@@ -271,13 +388,7 @@ export default function HostedChatKit() {
           </div>
           <Switch
             checked={canMakeChanges}
-            onCheckedChange={(checked) => {
-              setCanMakeChanges(checked);
-              setBootError(null);
-              if (typeof window !== "undefined") {
-                window.localStorage.setItem(CHANGE_MODE_STORAGE_KEY, String(checked));
-              }
-            }}
+            onCheckedChange={handleCanMakeChangesChange}
             aria-label="Toggle whether ChatKit can make changes"
           />
         </div>

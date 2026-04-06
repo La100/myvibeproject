@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { Product, Project, Team } from "../../types";
+import type { Product, Project, ShoppingSet, Team } from "../../types";
 import { CONFIG } from "../../config";
 import { ACTIONS, isObjectMessage } from "../../lib/messages";
 import { authenticatedFetch } from "../../lib/auth";
@@ -49,13 +49,7 @@ interface PickerActivationResponse {
 }
 
 const NO_SECTION_VALUE = "__none";
-const NO_ALTERNATIVE_VALUE = "__no_alternative";
-
-type ShoppingListItemOption = {
-  _id: string;
-  name: string;
-  alternativeToItemId?: string | null;
-};
+const NO_SET_VALUE = "__no_set";
 
 function isSupportedUrl(url?: string): boolean {
   return Boolean(url && /^https?:\/\//.test(url));
@@ -102,12 +96,9 @@ const ClipperView = ({
   showToast,
 }: ClipperViewProps) => {
   const [sections, setSections] = useState(project.sections ?? []);
-  const [shoppingItems, setShoppingItems] = useState<ShoppingListItemOption[]>(
-    [],
-  );
+  const [shoppingSets, setShoppingSets] = useState<ShoppingSet[]>([]);
   const [selectedSection, setSelectedSection] = useState(NO_SECTION_VALUE);
-  const [selectedAlternativeToItemId, setSelectedAlternativeToItemId] =
-    useState(NO_ALTERNATIVE_VALUE);
+  const [selectedSetId, setSelectedSetId] = useState(NO_SET_VALUE);
   const [product, setProduct] = useState<Partial<Product>>({ quantity: 1 });
   const [isLoading, setIsLoading] = useState(false);
   const [isDetecting, setIsDetecting] = useState(false);
@@ -177,11 +168,11 @@ const ClipperView = ({
 
       const data = (await response.json()) as {
         sections?: Team["projects"][number]["sections"];
-        items?: ShoppingListItemOption[];
+        sets?: ShoppingSet[];
       };
 
       setSections(Array.isArray(data.sections) ? data.sections : []);
-      setShoppingItems(Array.isArray(data.items) ? data.items : []);
+      setShoppingSets(Array.isArray(data.sets) ? data.sets : []);
     } catch {
       // Non-blocking: keep currently available sections.
     }
@@ -253,15 +244,12 @@ const ClipperView = ({
   }, [sections]);
 
   useEffect(() => {
-    setSelectedAlternativeToItemId((current) =>
-      current === NO_ALTERNATIVE_VALUE ||
-      shoppingItems.some(
-        (item) => item._id === current && !item.alternativeToItemId,
-      )
+    setSelectedSetId((current) =>
+      current === NO_SET_VALUE || shoppingSets.some((set) => set._id === current)
         ? current
-        : NO_ALTERNATIVE_VALUE,
+        : NO_SET_VALUE,
     );
-  }, [shoppingItems]);
+  }, [shoppingSets]);
 
   useEffect(() => {
     const runtimeMessageListener = (message: unknown) => {
@@ -376,10 +364,7 @@ const ClipperView = ({
         projectId: project._id,
         sectionId:
           selectedSection === NO_SECTION_VALUE ? undefined : selectedSection,
-        alternativeToItemId:
-          selectedAlternativeToItemId === NO_ALTERNATIVE_VALUE
-            ? undefined
-            : selectedAlternativeToItemId,
+        setId: selectedSetId === NO_SET_VALUE ? undefined : selectedSetId,
         unitPrice: unitPriceNumber ?? undefined,
         quantity,
         totalPrice,
@@ -614,25 +599,20 @@ const ClipperView = ({
               </div>
 
               <div className="space-y-1.5">
-                <Label>Alternative for</Label>
-                <Select
-                  value={selectedAlternativeToItemId}
-                  onValueChange={setSelectedAlternativeToItemId}
-                >
+                <Label>Set</Label>
+                <Select value={selectedSetId} onValueChange={setSelectedSetId}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Standalone product (default)" />
+                    <SelectValue placeholder="No set (default)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={NO_ALTERNATIVE_VALUE}>
-                      Standalone product (default)
+                    <SelectItem value={NO_SET_VALUE}>
+                      No set (default)
                     </SelectItem>
-                    {shoppingItems
-                      .filter((item) => !item.alternativeToItemId)
-                      .map((item) => (
-                        <SelectItem key={item._id} value={item._id}>
-                          {item.name}
-                        </SelectItem>
-                      ))}
+                    {shoppingSets.map((set) => (
+                      <SelectItem key={set._id} value={set._id}>
+                        {set.title}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
