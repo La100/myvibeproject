@@ -1,6 +1,13 @@
 import { R2 } from "@convex-dev/r2";
 import { components } from "./_generated/api";
-import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
+import {
+  mutation,
+  query,
+  internalMutation,
+  internalQuery,
+  type MutationCtx,
+  type QueryCtx,
+} from "./_generated/server";
 import { v } from "convex/values";
 import { makeFunctionReference } from "convex/server";
 import { getEffectiveLimits } from "./stripe";
@@ -414,8 +421,7 @@ const resolveFileType = (mimeType: string) => {
   return "other";
 };
 const getProjectAccessForUser = async (
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ctx: any,
+  ctx: QueryCtx | MutationCtx,
   projectId: Id<"projects">,
   actorUserId: string,
 ) => {
