@@ -3,17 +3,17 @@ import "./globals.css";
 import ConvexClientProvider from "@/components/providers/ConvexClientProvider";
 import { ClerkProvider } from "@clerk/nextjs";
 import type { ClerkProviderProps } from "@clerk/clerk-react";
+import type { CSSProperties } from "react";
 import { Toaster } from "@/components/ui/sonner";
-import { Geist, Geist_Mono, Newsreader } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import { cn } from "@/lib/utils";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" });
-const newsreader = Newsreader({
-  subsets: ["latin"],
-  variable: "--font-serif",
-  weight: ["400", "500", "600", "700"],
-});
+const brandFontVariables = {
+  "--font-serif": '"Canela", "Noe Display", "Georgia", "Times New Roman", serif',
+  "--font-display-serif": '"Canela", "Noe Display", "Georgia", "Times New Roman", serif',
+} as CSSProperties;
 
 export const metadata: Metadata = {
   title: "Myvibe project",
@@ -70,7 +70,8 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={cn("font-sans", geist.variable, geistMono.variable, newsreader.variable)}
+      className={cn("font-sans", geist.variable, geistMono.variable)}
+      style={brandFontVariables}
     >
       <body className="antialiased">
         <ClerkProvider

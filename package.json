@@ -7,6 +7,7 @@
     "dev:frontend": "next dev -p 3001",
     "dev:backend": "convex dev",
     "build": "next build",
+    "validate:ci": "pnpm lint && pnpm test && pnpm test:coverage && pnpm build && pnpm test:e2e",
     "start": "next start -p 3001",
     "lint": "pnpm run lint:app && pnpm run lint:extension",
     "lint:app": "pnpm run lint:design && pnpm exec eslint app components hooks lib middleware.ts next.config.ts tailwind.config.ts postcss.config.mjs eslint.config.mjs --max-warnings=0",

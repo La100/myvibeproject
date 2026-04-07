@@ -36,7 +36,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `E2E_AUTH_BYPASS=1 pnpm exec next start -p ${PORT}`,
+    command: `E2E_AUTH_BYPASS=1 E2E_AUTH_BYPASS_ALLOW_PRODUCTION=1 pnpm exec next start -p ${PORT}`,
     port: PORT,
     reuseExistingServer: false,
     timeout: 120_000,
