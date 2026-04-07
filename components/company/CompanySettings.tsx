@@ -1162,7 +1162,7 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                         />
                       ) : (
                         <Image
-                          src="/logo.png"
+                          src="/logo.svg"
                           alt="Myvibe Project"
                           fill
                           className="object-contain p-2"

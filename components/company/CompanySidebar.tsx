@@ -69,7 +69,7 @@ function OrganizationAvatar({
   return (
     <div className={`relative overflow-hidden border border-sidebar-border/70 bg-card ${className}`}>
       <Image
-        src="/logo.png"
+        src="/logo.svg"
         alt="Myvibe Project"
         fill
         className={`object-contain ${imagePaddingClassName}`}

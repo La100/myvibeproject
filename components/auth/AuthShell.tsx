@@ -64,7 +64,7 @@ export function AuthShell({
         <div className="flex w-full max-w-[360px] flex-col items-center">
           <Link href="/" className="mb-3 inline-flex">
             <Image
-              src="/logo.png"
+              src="/logo.svg"
               alt="Myvibe project"
               width={1024}
               height={1024}
