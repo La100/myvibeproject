@@ -49,16 +49,47 @@ const forbiddenRules = [
   },
 ]
 
-function getFiles() {
-  const output = execSync(
-    `rg --files ${targetDirs.map((dir) => `"${dir}"`).join(" ")}`,
-    { cwd, encoding: "utf8" },
-  )
+function walkFiles(dir, collected = []) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const absolutePath = path.join(dir, entry.name)
 
-  return output
-    .split("\n")
-    .map((file) => file.trim())
-    .filter(Boolean)
+    if (entry.isDirectory()) {
+      walkFiles(absolutePath, collected)
+      continue
+    }
+
+    if (entry.isFile()) {
+      collected.push(path.relative(cwd, absolutePath))
+    }
+  }
+
+  return collected
+}
+
+function getFilesWithNodeFallback() {
+  return targetDirs
+    .filter((dir) => fs.existsSync(path.join(cwd, dir)))
+    .flatMap((dir) => walkFiles(path.join(cwd, dir)))
+}
+
+function getFiles() {
+  const files = (() => {
+    try {
+      const output = execSync(
+        `rg --files ${targetDirs.map((dir) => `"${dir}"`).join(" ")}`,
+        { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+      )
+
+      return output
+        .split("\n")
+        .map((file) => file.trim())
+        .filter(Boolean)
+    } catch {
+      return getFilesWithNodeFallback()
+    }
+  })()
+
+  return files
     .filter((file) => !excludedPathFragments.some((fragment) => file.includes(fragment)))
     .filter((file) => /\.(ts|tsx|js|jsx|mjs|cjs)$/.test(file))
 }
