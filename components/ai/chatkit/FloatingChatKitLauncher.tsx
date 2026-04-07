@@ -33,7 +33,7 @@ export function FloatingChatKitLauncher() {
       <div className="pointer-events-auto flex max-w-[calc(100vw-2rem)] flex-col items-end gap-2.5">
         {isOpen ? (
           <div className="w-[min(390px,calc(100vw-2rem))] origin-bottom-right translate-y-0 scale-100 opacity-100 transition-all duration-200 ease-out">
-            <div className="h-[min(640px,calc(100vh-6rem))] overflow-hidden rounded-[26px] border border-border/70 bg-background/95 shadow-[0_24px_80px_rgba(15,23,42,0.16)] backdrop-blur-xl">
+            <div className="h-[min(640px,calc(100vh-6rem))] overflow-hidden rounded-3xl border border-border/70 bg-background/95 shadow-lg backdrop-blur-xl">
               <HostedChatKit mode="panel" />
             </div>
           </div>
@@ -42,7 +42,7 @@ export function FloatingChatKitLauncher() {
         <Button
           type="button"
           onClick={() => setIsOpen((current) => !current)}
-          className="h-12 rounded-full px-4 text-sm shadow-[0_18px_40px_rgba(15,23,42,0.16)]"
+          className="h-12 rounded-full px-4 text-sm shadow-lg"
           aria-expanded={isOpen}
           aria-label={isOpen ? "Close AI assistant" : "Open AI assistant"}
         >

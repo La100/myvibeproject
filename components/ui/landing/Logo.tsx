@@ -39,7 +39,9 @@ const Logo = ({
             wordmarkClassName
           )}
         >
-          <span className="font-serif italic leading-[0.9] tracking-[-0.04em]">Myvibe</span>
+          <span className="font-[var(--font-display-serif)] text-[0.98em] font-medium leading-[0.86] tracking-[-0.065em]">
+            Myvibe
+          </span>
           <span className="font-sans font-normal leading-[0.9] tracking-[-0.03em]">Project</span>
         </span>
       ) : null}
