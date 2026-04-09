@@ -3,11 +3,16 @@ import { Doc, Id } from "@/convex/_generated/dataModel";
 import type { TeamMember } from "@/lib/teamMember";
 import { buildShoppingSetContext, calculateShoppingTotal, isItemCountedInShoppingTotal } from "@/lib/shoppingSets";
 import { Button } from "@/components/ui/button";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { toast } from "sonner";
 import { AddItemForm } from "./AddItemForm";
 import { ShoppingListItemDetails } from "./ShoppingListItemDetails";
 import {
@@ -16,10 +21,13 @@ import {
   ChevronUpIcon,
   EditIcon,
   ExternalLinkIcon,
+  CalendarIcon,
   Layers3Icon,
+  Loader2,
   PlusIcon,
   SaveIcon,
   TrashIcon,
+  WandSparkles,
   XIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -35,7 +43,6 @@ interface EditFormData {
   supplier?: string;
   category?: string;
   sectionId?: string | Id<"shoppingListSections">;
-  setId?: string | Id<"shoppingSets">;
   catalogNumber?: string;
   dimensions?: string;
   quantity?: number;
@@ -46,6 +53,7 @@ interface EditFormData {
   realizationStatus?: string;
   buyBefore?: string;
   assigneeId?: string;
+  hasAlternatives?: boolean;
 }
 
 interface ShoppingListSectionProps {
@@ -76,7 +84,12 @@ interface ShoppingListSectionProps {
     realizationStatus?: string;
     buyBefore?: number;
     assignedTo?: string;
-  }) => Promise<void>;
+  }) => Promise<Id<"shoppingListItems"> | void>;
+  onCreateAlternativesForItem: (
+    itemId: Id<"shoppingListItems">,
+    itemName: string,
+    sectionId?: Id<"shoppingListSections">,
+  ) => Promise<Id<"shoppingSets">>;
   onUpdateSet: (
     id: Id<"shoppingSets">,
     updates: Partial<Doc<"shoppingSets">>,
@@ -97,6 +110,7 @@ export function ShoppingListSection({
   onUpdateItem,
   onDeleteItem,
   onAddItem,
+  onCreateAlternativesForItem,
   onUpdateSet,
   onDeleteSet,
   isPending,
@@ -105,6 +119,8 @@ export function ShoppingListSection({
   const [editFormData, setEditFormData] = useState<EditFormData>({});
   const [expandedDetails, setExpandedDetails] = useState<Record<string, boolean>>({});
   const [showAddForm, setShowAddForm] = useState(false);
+  const [addingAlternativeSetId, setAddingAlternativeSetId] = useState<string | null>(null);
+  const [isEditScraping, setIsEditScraping] = useState(false);
 
   const setsById = useMemo(
     () => new Map(allSets.map((set) => [String(set._id), set])),
@@ -140,6 +156,18 @@ export function ShoppingListSection({
     }));
   };
 
+  const normalizeProductUrl = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return "";
+
+    const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    const parsed = new URL(candidate);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      throw new Error("Invalid URL protocol");
+    }
+    return parsed.toString();
+  };
+
   const handleStartEdit = (item: ShoppingListItem) => {
     setEditingItemId(String(item._id));
     setEditFormData({
@@ -148,7 +176,6 @@ export function ShoppingListSection({
       supplier: item.supplier || "",
       category: item.category || "",
       sectionId: item.sectionId || "none",
-      setId: item.setId || "none",
       catalogNumber: item.catalogNumber || "",
       dimensions: item.dimensions || "",
       quantity: item.quantity,
@@ -159,23 +186,54 @@ export function ShoppingListSection({
       realizationStatus: item.realizationStatus,
       buyBefore: item.buyBefore ? format(new Date(item.buyBefore), "yyyy-MM-dd") : "",
       assigneeId: item.assignedTo || "none",
+      hasAlternatives: Boolean(item.setId),
     });
   };
 
   const handleSaveEdit = async (itemId: Id<"shoppingListItems">) => {
+    const item = items.find((entry) => entry._id === itemId);
+    if (!item) {
+      return;
+    }
+
+    const nextName = editFormData.name?.trim() || "";
+    if (!nextName) {
+      toast.error("Product name is required");
+      return;
+    }
+
     const unitPrice = parseFloat(editFormData.unitPrice || "0") || undefined;
     const buyBefore = editFormData.buyBefore ? new Date(editFormData.buyBefore).getTime() : undefined;
+    const nextSectionId =
+      editFormData.sectionId === "none"
+        ? undefined
+        : (editFormData.sectionId as Id<"shoppingListSections"> | undefined);
+    const wantsAlternatives = editFormData.hasAlternatives ?? Boolean(item.setId);
+    const relatedSetItems = item.setId
+      ? items.filter((entry) => String(entry.setId ?? "") === String(item.setId))
+      : [];
+    let nextSetId = item.setId ?? null;
+
+    if (wantsAlternatives && !item.setId) {
+      nextSetId = await onCreateAlternativesForItem(item._id, nextName, nextSectionId);
+    }
+
+    if (!wantsAlternatives && item.setId) {
+      if (relatedSetItems.length > 1) {
+        toast.error("Remove the other alternative options first.");
+        return;
+      }
+      await onDeleteSet(item.setId);
+      nextSetId = null;
+    }
 
     await onUpdateItem(itemId, {
-      name: editFormData.name?.trim() || "",
+      name: nextName,
       notes: editFormData.notes?.trim() || undefined,
       supplier: editFormData.supplier?.trim() || undefined,
       category: editFormData.category?.trim() || undefined,
-      sectionId:
-        editFormData.sectionId === "none"
-          ? undefined
-          : (editFormData.sectionId as Id<"shoppingListSections">),
-      setId: editFormData.setId === "none" ? null : (editFormData.setId as Id<"shoppingSets">),
+      sectionId: nextSectionId,
+      setId: nextSetId,
       catalogNumber: editFormData.catalogNumber?.trim() || undefined,
       dimensions: editFormData.dimensions?.trim() || undefined,
       quantity: editFormData.quantity || 1,
@@ -189,6 +247,64 @@ export function ShoppingListSection({
     });
     setEditingItemId(null);
     setEditFormData({});
+  };
+
+  const handleEditScrapeByUrl = async () => {
+    const rawUrl = editFormData.productLink?.trim() || "";
+    if (!rawUrl || isEditScraping) {
+      return;
+    }
+
+    let normalizedUrl = "";
+    try {
+      normalizedUrl = normalizeProductUrl(rawUrl);
+    } catch {
+      toast.error("Invalid product URL");
+      return;
+    }
+
+    setIsEditScraping(true);
+    setEditFormData((current) => ({ ...current, productLink: normalizedUrl }));
+
+    try {
+      const response = await fetch(`/api/shopping/scrape?url=${encodeURIComponent(normalizedUrl)}`);
+      const payload = (await response.json()) as {
+        message?: string;
+        name?: string;
+        supplier?: string;
+        category?: string;
+        catalogNumber?: string;
+        dimensions?: string;
+        unitPrice?: number;
+        productLink?: string;
+        imageUrl?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.message || "Failed to scrape product details");
+      }
+
+      setEditFormData((current) => ({
+        ...current,
+        name: payload.name ?? current.name,
+        supplier: payload.supplier ?? current.supplier,
+        category: payload.category ?? current.category,
+        catalogNumber: payload.catalogNumber ?? current.catalogNumber,
+        dimensions: payload.dimensions ?? current.dimensions,
+        unitPrice:
+          typeof payload.unitPrice === "number" && Number.isFinite(payload.unitPrice)
+            ? String(payload.unitPrice)
+            : current.unitPrice,
+        imageUrl: payload.imageUrl ?? current.imageUrl,
+        productLink: payload.productLink ?? current.productLink,
+      }));
+
+      toast.success("Product details imported from URL");
+    } catch (error) {
+      toast.error((error as Error).message || "Could not import product details");
+    } finally {
+      setIsEditScraping(false);
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -206,23 +322,28 @@ export function ShoppingListSection({
   };
 
   const renderEditForm = (item: ShoppingListItem) => (
-    <div className="flex flex-col gap-4">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <div>
-          <label className="text-sm font-medium">Product Name</label>
-          <Input value={editFormData.name || ""} onChange={(event) => setEditFormData({ ...editFormData, name: event.target.value })} />
-        </div>
-        <div>
-          <label className="text-sm font-medium">Section</label>
+    <div className="flex flex-col gap-4 rounded-2xl border border-border bg-background p-5 shadow-none">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <Field>
+          <FieldLabel>Product Name *</FieldLabel>
+          <Input
+            value={editFormData.name || ""}
+            onChange={(event) => setEditFormData({ ...editFormData, name: event.target.value })}
+            placeholder="e.g. Kitchen Countertop Navona"
+            className="h-12 text-sm"
+          />
+        </Field>
+        <Field>
+          <FieldLabel>Section</FieldLabel>
           <Select
             value={editFormData.sectionId || "none"}
             onValueChange={(value) => setEditFormData({ ...editFormData, sectionId: value })}
           >
-            <SelectTrigger>
-              <SelectValue />
+            <SelectTrigger className="h-12 text-sm">
+              <SelectValue placeholder="Select section" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="none">No section</SelectItem>
+              <SelectItem value="none">No Category</SelectItem>
               {sections.map((section) => (
                 <SelectItem key={section._id} value={section._id}>
                   {section.name}
@@ -230,52 +351,187 @@ export function ShoppingListSection({
               ))}
             </SelectContent>
           </Select>
-        </div>
-        <div>
-          <label className="text-sm font-medium">Set</label>
-          <Select
-            value={editFormData.setId || "none"}
-            onValueChange={(value) => setEditFormData({ ...editFormData, setId: value })}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">No set</SelectItem>
-              {allSets.map((set) => (
-                <SelectItem key={set._id} value={set._id}>
-                  {set.title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <label className="text-sm font-medium">Supplier</label>
-          <Input value={editFormData.supplier || ""} onChange={(event) => setEditFormData({ ...editFormData, supplier: event.target.value })} />
-        </div>
-        <div>
-          <label className="text-sm font-medium">Quantity</label>
+        </Field>
+        <Field>
+          <FieldLabel>Supplier</FieldLabel>
+          <Input
+            value={editFormData.supplier || ""}
+            onChange={(event) => setEditFormData({ ...editFormData, supplier: event.target.value })}
+            placeholder="e.g. kronosfera.pl"
+            className="h-12 text-sm"
+          />
+        </Field>
+        <Field>
+          <FieldLabel>Catalog Number</FieldLabel>
+          <Input
+            value={editFormData.catalogNumber || ""}
+            onChange={(event) => setEditFormData({ ...editFormData, catalogNumber: event.target.value })}
+            placeholder="e.g. BU1K367PH-3BC1"
+            className="h-12 text-sm"
+          />
+        </Field>
+        <Field>
+          <FieldLabel>Category</FieldLabel>
+          <Input
+            value={editFormData.category || ""}
+            onChange={(event) => setEditFormData({ ...editFormData, category: event.target.value })}
+            placeholder="e.g. Furniture"
+            className="h-12 text-sm"
+          />
+        </Field>
+        <Field>
+          <FieldLabel>Dimensions</FieldLabel>
+          <Input
+            value={editFormData.dimensions || ""}
+            onChange={(event) => setEditFormData({ ...editFormData, dimensions: event.target.value })}
+            placeholder="e.g. 4100 x 1200"
+            className="h-12 text-sm"
+          />
+        </Field>
+        <Field>
+          <FieldLabel>Quantity</FieldLabel>
           <Input
             type="number"
             min="1"
             value={editFormData.quantity || 1}
             onChange={(event) => setEditFormData({ ...editFormData, quantity: parseInt(event.target.value, 10) || 1 })}
+            className="h-12 text-sm"
           />
-        </div>
-        <div>
-          <label className="text-sm font-medium">Unit Price ({currencySymbol})</label>
+        </Field>
+        <Field>
+          <FieldLabel>Unit Price ({currencySymbol})</FieldLabel>
           <Input
             type="number"
             step="0.01"
             value={editFormData.unitPrice || ""}
             onChange={(event) => setEditFormData({ ...editFormData, unitPrice: event.target.value })}
+            placeholder="0.00"
+            className="h-12 text-sm"
           />
+        </Field>
+        <Field>
+          <FieldLabel>Product Link</FieldLabel>
+          <div className="flex items-center gap-2">
+            <Input
+              value={editFormData.productLink || ""}
+              onChange={(event) => setEditFormData({ ...editFormData, productLink: event.target.value })}
+              placeholder="https://..."
+              className="h-12 text-sm"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isPending || isEditScraping || !(editFormData.productLink || "").trim()}
+              onClick={handleEditScrapeByUrl}
+              className="h-12 shrink-0 px-4"
+            >
+              {isEditScraping ? <Loader2 className="h-4 w-4 animate-spin" /> : <WandSparkles className="h-4 w-4" />}
+              <span className="ml-2 hidden xl:inline">{isEditScraping ? "Scraping..." : "Auto-fill"}</span>
+            </Button>
+          </div>
+        </Field>
+        <Field className="md:col-span-2 lg:col-span-3">
+          <FieldLabel>Image URL</FieldLabel>
+          <Input
+            value={editFormData.imageUrl || ""}
+            onChange={(event) => setEditFormData({ ...editFormData, imageUrl: event.target.value })}
+            placeholder="https://..."
+            className="h-12 text-sm"
+          />
+        </Field>
+        <Field>
+          <FieldLabel>Assign To</FieldLabel>
+          <Select
+            value={editFormData.assigneeId || "none"}
+            onValueChange={(value) => setEditFormData({ ...editFormData, assigneeId: value })}
+          >
+            <SelectTrigger className="h-12 text-sm">
+              <SelectValue placeholder="Select user" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Unassigned</SelectItem>
+              {teamMembers?.map((member) => (
+                <SelectItem key={member.clerkUserId} value={member.clerkUserId}>
+                  <div className="flex items-center gap-2">
+                    <Avatar className="h-5 w-5">
+                      <AvatarImage src={member.imageUrl} />
+                      <AvatarFallback>{member.name?.[0]}</AvatarFallback>
+                    </Avatar>
+                    {member.name}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field>
+          <FieldLabel>Buy Before</FieldLabel>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "h-12 w-full justify-start text-left font-normal text-sm",
+                  !editFormData.buyBefore && "text-muted-foreground",
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {editFormData.buyBefore ? (
+                  <span>{format(new Date(editFormData.buyBefore), "PPP")}</span>
+                ) : (
+                  <span>Pick a date</span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0">
+              <Calendar
+                mode="single"
+                selected={editFormData.buyBefore ? new Date(editFormData.buyBefore) : undefined}
+                onSelect={(date) =>
+                  setEditFormData({
+                    ...editFormData,
+                    buyBefore: date ? format(date, "yyyy-MM-dd") : "",
+                  })
+                }
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+        </Field>
+      </div>
+
+      <div className="rounded-2xl border border-border bg-background px-4 py-3">
+        <div className="flex items-start gap-3">
+          <Checkbox
+            id={`item-${item._id}-has-alternatives`}
+            checked={editFormData.hasAlternatives === true}
+            onCheckedChange={(checked) =>
+              setEditFormData({ ...editFormData, hasAlternatives: checked === true })
+            }
+            className="mt-0.5"
+          />
+          <label htmlFor={`item-${item._id}-has-alternatives`} className="cursor-pointer text-sm leading-6">
+            <span className="font-medium text-foreground">Has alternatives?</span>
+            <span className="block text-muted-foreground">
+              Group this product with other options so the client can choose one in the portal.
+            </span>
+          </label>
         </div>
+        {item.setId &&
+        items.filter((entry) => String(entry.setId ?? "") === String(item.setId)).length > 1 ? (
+          <p className="mt-3 text-xs text-foreground/70">
+            To disable alternatives, first delete the other options from this group.
+          </p>
+        ) : null}
       </div>
 
       <div className="flex gap-2">
-        <Button size="sm" onClick={() => handleSaveEdit(item._id)} disabled={isPending}>
+        <Button
+          size="sm"
+          onClick={() => handleSaveEdit(item._id)}
+          disabled={isPending}
+          className="bg-primary text-primary-foreground hover:bg-primary/90"
+        >
           <SaveIcon className="mr-1 h-4 w-4" />
           Save
         </Button>
@@ -294,7 +550,13 @@ export function ShoppingListSection({
     const isEditing = editingItemId === itemId;
 
     return (
-      <div key={item._id} className={cn("rounded-2xl border p-4", !isCounted && "opacity-70")}>
+      <div
+        key={item._id}
+        className={cn(
+          "rounded-2xl border p-4",
+          !isCounted && "border-border/70 bg-muted/10",
+        )}
+      >
         {isEditing ? (
           renderEditForm(item)
         ) : (
@@ -308,10 +570,10 @@ export function ShoppingListSection({
                 ) : null}
                 <div className="min-w-0 flex-1">
                   <div className="mb-2 flex flex-wrap items-center gap-2">
-                    <h4 className="text-base font-medium text-foreground">{item.name}</h4>
+                    <h4 className="text-sm font-medium text-foreground">{item.name}</h4>
                     {set ? (
                       <Badge variant="outline" className="text-xs">
-                        {set.title}
+                        Option
                       </Badge>
                     ) : null}
                     {!isCounted ? (
@@ -379,14 +641,24 @@ export function ShoppingListSection({
       return null;
     }
 
+    const preferredLeadId = String(set.preferredItemIds?.[0] ?? set.resolvedItemIds?.[0] ?? "");
+    const leadItem =
+      setItems.find((item) => String(item._id) === preferredLeadId) ??
+      setItems[0];
+    const orderedSetItems = leadItem
+      ? [leadItem, ...setItems.filter((item) => item._id !== leadItem._id)]
+      : setItems;
     const selectedIds = new Set((set.resolvedItemIds ?? []).map((id) => String(id)));
-    const fallbackSelectedId = setItems[0]?._id ? String(setItems[0]._id) : null;
+    const preferredIds = new Set((set.preferredItemIds ?? []).map((id) => String(id)));
+    const fallbackSelectedId = orderedSetItems[0]?._id ? String(orderedSetItems[0]._id) : null;
     const effectiveSelectedIds =
       selectedIds.size > 0
         ? selectedIds
-        : set.selectionMode === "single" && fallbackSelectedId
+        : preferredIds.size > 0
+          ? preferredIds
+          : set.selectionMode === "single" && fallbackSelectedId
           ? new Set([fallbackSelectedId])
-          : new Set((set.preferredItemIds ?? []).map((id) => String(id)));
+          : new Set<string>();
 
     const toggleSetSelection = async (itemId: string) => {
       if (set.selectionMode === "none") return;
@@ -417,24 +689,66 @@ export function ShoppingListSection({
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <Layers3Icon className="h-4 w-4 text-primary" />
-              <h3 className="text-lg font-medium text-foreground">{set.title}</h3>
+              <h3 className="text-base font-medium text-foreground">{leadItem?.name || set.title}</h3>
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <Badge variant="outline" className="text-xs">{set.setType}</Badge>
-              <Badge variant="outline" className="text-xs">{set.selectionMode}</Badge>
-              <Badge variant="outline" className="text-xs">{set.pricingMode}</Badge>
-              <Badge variant="secondary" className="text-xs">{set.status}</Badge>
+              <Badge variant="outline" className="text-xs">Alternatives</Badge>
+              <Badge variant="secondary" className="text-xs">{setItems.length} options</Badge>
             </div>
             {set.notes ? <p className="mt-3 text-sm text-muted-foreground">{set.notes}</p> : null}
           </div>
-          <Button variant="ghost" size="sm" className="self-start text-muted-foreground hover:bg-destructive/10 hover:text-destructive" onClick={() => onDeleteSet(set._id)}>
-            <TrashIcon className="mr-2 h-4 w-4" />
-            Delete set
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setAddingAlternativeSetId((current) =>
+                  current === String(set._id) ? null : String(set._id),
+                )
+              }
+            >
+              <PlusIcon className="mr-2 h-4 w-4" />
+              Add option
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="self-start text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+              onClick={() => onDeleteSet(set._id)}
+            >
+              <TrashIcon className="mr-2 h-4 w-4" />
+              Remove alternatives
+            </Button>
+          </div>
         </div>
 
+        {addingAlternativeSetId === String(set._id) ? (
+          <div className="mb-4 rounded-2xl border bg-card/80 p-4">
+            <AddItemForm
+              sections={sections}
+              teamMembers={teamMembers}
+              currencySymbol={currencySymbol}
+              onAddItem={async (itemData) => {
+                const itemId = await onAddItem({
+                  ...itemData,
+                  sectionId,
+                  setId: set._id,
+                });
+                setAddingAlternativeSetId(null);
+                return itemId;
+              }}
+              isPending={isPending}
+              defaultSectionId={sectionId}
+              defaultSetId={set._id}
+              hideSectionField
+              hideAlternativeControls
+              submitLabel="Add option"
+            />
+          </div>
+        ) : null}
+
         <div className="flex flex-col gap-3">
-          {setItems.map((item) => {
+          {orderedSetItems.map((item) => {
             const isSelected = effectiveSelectedIds.has(String(item._id));
             return (
               <div key={item._id} className="flex flex-col gap-3">
@@ -442,11 +756,22 @@ export function ShoppingListSection({
                   <div className="flex justify-end">
                     <Button
                       size="sm"
-                      variant={isSelected ? "default" : "outline"}
+                      variant={
+                        set.selectionMode === "single"
+                          ? "default"
+                          : isSelected
+                            ? "default"
+                            : "outline"
+                      }
                       onClick={() => toggleSetSelection(String(item._id))}
+                      className={
+                        set.selectionMode === "single"
+                          ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                          : undefined
+                      }
                     >
                       {isSelected ? <CheckIcon className="mr-1 h-4 w-4" /> : null}
-                      {set.selectionMode === "single" ? "Select" : isSelected ? "Selected" : "Toggle"}
+                      {set.selectionMode === "single" ? (isSelected ? "Default" : "Set default") : isSelected ? "Selected" : "Toggle"}
                     </Button>
                   </div>
                 ) : null}
@@ -463,12 +788,12 @@ export function ShoppingListSection({
     <div className="mb-10 rounded-3xl border bg-card p-4 shadow-sm sm:p-8">
       <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-xl font-medium text-foreground sm:text-2xl">{sectionName}</h2>
+          <h2 className="text-lg font-medium text-foreground sm:text-xl">{sectionName}</h2>
           <span className="inline-flex items-center justify-center rounded-full border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
             {items.length} items
           </span>
           <span className="inline-flex items-center justify-center rounded-full border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-            {sectionSets.length} sets
+            {sectionSets.length} alternative group{sectionSets.length === 1 ? "" : "s"}
           </span>
           <span className="inline-flex items-center justify-center rounded-full border bg-muted px-3 py-1 text-xs font-medium text-foreground">
             {sectionTotal.toFixed(2)} {currencySymbol}
@@ -483,16 +808,17 @@ export function ShoppingListSection({
         <div className="mb-8 rounded-3xl border bg-muted/40 p-6">
           <AddItemForm
             sections={sections}
-            sets={sectionSets}
             teamMembers={teamMembers}
             currencySymbol={currencySymbol}
             onAddItem={async (itemData) => {
-              await onAddItem({
+              const itemId = await onAddItem({
                 ...itemData,
                 sectionId,
               });
               setShowAddForm(false);
+              return itemId;
             }}
+            onEnableAlternatives={onCreateAlternativesForItem}
             isPending={isPending}
             defaultSectionId={sectionId}
           />

@@ -4,12 +4,21 @@ import { useRouter, usePathname } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import { useEffect, useRef, useMemo } from "react";
+import type { CSSProperties } from "react";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Spinner } from "@/components/ui/spinner";
 import { CompanySidebar } from "@/components/company/CompanySidebar";
+import { GuidedTourHost } from "@/components/tours/GuidedTourHost";
 import { useOrganization } from "@clerk/nextjs";
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
+
+const swappedSurfaceVars = {
+  "--workspace-background": "var(--background)",
+  "--workspace-sidebar": "var(--sidebar)",
+  "--background": "var(--workspace-sidebar)",
+  "--sidebar": "var(--workspace-background)",
+} as CSSProperties;
 
 export default function CompanyLayout({
   children,
@@ -129,37 +138,40 @@ export default function CompanyLayout({
   }
 
   return (
-    <SidebarProvider>
-      <CompanySidebar />
-      <SidebarInset className="xl:overflow-hidden">
-        <header className="xl:hidden sticky top-0 z-20 flex h-16 items-center gap-2 border-b border-border/70 bg-background/90 px-4 backdrop-blur-md">
-          <SidebarTrigger className="-ml-1 [&.hidden]:flex" />
-          <span className="text-lg font-medium text-foreground">Workspace</span>
-        </header>
-        <main className="flex-1 min-h-0 overflow-auto">
-          <div className="mx-auto flex w-full max-w-[1540px] flex-col px-4 pb-8 pt-4 md:px-6 xl:px-8 xl:pt-8">
-            {breadcrumbs.length > 1 && (
-              <nav className="mb-4 flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
-                {breadcrumbs.map((crumb, i) => (
-                  <span key={crumb.href} className="flex items-center gap-1">
-                    {i > 0 && <ChevronRight className="h-3.5 w-3.5" />}
-                    {i < breadcrumbs.length - 1 ? (
-                      <Link href={crumb.href} className="hover:text-foreground transition-colors">
-                        {crumb.label}
-                      </Link>
-                    ) : (
-                      <span className="text-foreground font-medium">{crumb.label}</span>
-                    )}
-                  </span>
-                ))}
-              </nav>
-            )}
-            <div className="flex flex-col gap-6">
-              {children}
+    <div style={swappedSurfaceVars}>
+      <SidebarProvider>
+        <CompanySidebar />
+        <GuidedTourHost scope="workspace" />
+        <SidebarInset className="xl:overflow-hidden">
+          <header className="xl:hidden sticky top-0 z-20 flex h-16 items-center gap-2 border-b border-border/70 bg-background/90 px-4 backdrop-blur-md">
+            <SidebarTrigger className="-ml-1 [&.hidden]:flex" />
+            <span className="text-lg font-medium text-foreground">Workspace</span>
+          </header>
+          <main className="flex-1 min-h-0 overflow-auto">
+            <div className="mx-auto flex w-full max-w-[1540px] flex-col px-4 pb-8 pt-4 md:px-6 xl:px-8 xl:pt-8">
+              {breadcrumbs.length > 1 && (
+                <nav className="mb-4 flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
+                  {breadcrumbs.map((crumb, i) => (
+                    <span key={crumb.href} className="flex items-center gap-1">
+                      {i > 0 && <ChevronRight className="h-3.5 w-3.5" />}
+                      {i < breadcrumbs.length - 1 ? (
+                        <Link href={crumb.href} className="hover:text-foreground transition-colors">
+                          {crumb.label}
+                        </Link>
+                      ) : (
+                        <span className="text-foreground font-medium">{crumb.label}</span>
+                      )}
+                    </span>
+                  ))}
+                </nav>
+              )}
+              <div className="flex flex-col gap-6">
+                {children}
+              </div>
             </div>
-          </div>
-        </main>
-      </SidebarInset>
-    </SidebarProvider>
+          </main>
+        </SidebarInset>
+      </SidebarProvider>
+    </div>
   );
 } 

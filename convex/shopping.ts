@@ -894,6 +894,7 @@ export const deleteShoppingListItem = mutation({
   args: { itemId: v.id("shoppingListItems") },
   handler: async (ctx, args) => {
     const item = await ensureShoppingItemAccess(ctx, args.itemId);
+    const itemSetId = item.setId ?? null;
 
     await ctx.runMutation(internalAny.activityLog.logActivity, {
       teamId: item.teamId,
@@ -937,7 +938,34 @@ export const deleteShoppingListItem = mutation({
     // Actually delete the item from database
     await ctx.db.delete(args.itemId);
 
+    if (itemSetId) {
+      const remainingItemsInSet = (
+        await ctx.db
+          .query("shoppingListItems")
+          .withIndex("by_project", (q) => q.eq("projectId", item.projectId))
+          .collect()
+      ).filter((entry) => String(entry.setId ?? "") === String(itemSetId));
 
+      const setId = itemSetId as Id<"shoppingSets">;
+      const currentSet = await ctx.db.get(setId);
+      if (currentSet) {
+        if (remainingItemsInSet.length === 0) {
+          await ctx.db.delete(setId);
+        } else {
+          const fallbackItemId = remainingItemsInSet[0]?._id;
+          if (
+            fallbackItemId &&
+            (!currentSet.preferredItemIds || currentSet.preferredItemIds.length === 0)
+          ) {
+            await ctx.db.patch(setId, {
+              preferredItemIds: [fallbackItemId] as any,
+              title: remainingItemsInSet[0]?.name || currentSet.title,
+              updatedAt: Date.now(),
+            });
+          }
+        }
+      }
+    }
 
     return args.itemId;
   },

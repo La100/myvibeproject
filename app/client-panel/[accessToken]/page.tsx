@@ -257,6 +257,30 @@ const formatAmount = (value: number | undefined, currencySymbol: string) => {
   return `${value.toFixed(2)} ${currencySymbol}`;
 };
 
+const getLeadOption = (item: ClientPanelItem, options: ClientPanelItem[]) => {
+  const preferredIds = new Set(
+    (item.setResolvedSourceItemIds || item.setPreferredSourceItemIds || []).map((entry) =>
+      String(entry),
+    ),
+  );
+
+  return (
+    options.find((option) => preferredIds.has(String(option.sourceItemId))) ||
+    options[0] ||
+    item
+  );
+};
+
+const getChoiceLabel = (selectionMode: ShoppingGroup["selectionMode"]) => {
+  if (selectionMode === "single") {
+    return "Choose 1";
+  }
+  if (selectionMode === "multiple") {
+    return "Choose any";
+  }
+  return "Included";
+};
+
 const getInitialSelectedOptionIds = (item: ClientPanelItem, options: ClientPanelItem[]) => {
   const optionIds = new Set(options.map((option) => String(option.sourceItemId)));
   const selectedIds = (item.setResolvedSourceItemIds || item.setPreferredSourceItemIds || [])
@@ -604,12 +628,13 @@ export default function PublicClientPanelPage() {
         }
         seenSetIds.add(setKey);
         const setItems = sortedItems.filter((entry) => String(entry.setId ?? "") === setKey);
+        const leadItem = getLeadOption(item, setItems);
         existing.push({
           key: setKey,
           sectionName: sectionKey,
-          leadItem: setItems[0] || item,
+          leadItem,
           items: setItems,
-          title: item.setTitle || setItems[0]?.name || item.name,
+          title: leadItem.name,
           setId: item.setId,
           selectionMode: item.setSelectionMode || "none",
           pricingMode: item.setPricingMode || "none",
@@ -872,7 +897,7 @@ export default function PublicClientPanelPage() {
         selectedItemIds: nextSelectedIds as Id<"shoppingListItems">[],
         respondentName: respondentName.trim() || undefined,
       });
-      toast.success("Selection saved");
+      toast.success("Choice saved");
     } catch (error) {
       if (previousValue) {
         setLocalSelection((prev) => ({ ...prev, [group.key]: previousValue }));
@@ -883,7 +908,7 @@ export default function PublicClientPanelPage() {
           return next;
         });
       }
-      toast.error("Failed to save selection", {
+      toast.error("Failed to save choice", {
         description: (error as Error).message,
       });
     } finally {
@@ -2182,7 +2207,7 @@ export default function PublicClientPanelPage() {
                                         {group.items.length} options
                                       </span>
                                       <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-                                        {group.selectionMode}
+                                        {getChoiceLabel(group.selectionMode)}
                                       </span>
                                     </>
                                   ) : null}
@@ -2231,7 +2256,7 @@ export default function PublicClientPanelPage() {
                                         className="mt-0.5"
                                         onClick={() => void handleSelectSetItems(group, [optionId])}
                                       >
-                                        {isSelected ? "Selected" : "Select"}
+                                        {isSelected ? "Chosen" : "Choose"}
                                       </Button>
                                     ) : null}
                                     <div className="flex min-w-0 flex-1 items-start justify-between gap-4">

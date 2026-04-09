@@ -51,7 +51,7 @@ export function SectionManager({
       >
         <div className="flex items-center gap-3">
           <FolderIcon className="h-5 w-5 text-primary" />
-          <span className="text-lg font-medium text-foreground">
+          <span className="text-base font-medium text-foreground">
             Manage Sections
           </span>
           <span className="text-sm text-muted-foreground">

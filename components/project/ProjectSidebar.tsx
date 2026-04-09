@@ -57,6 +57,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { GuidedTourLauncher } from "@/components/tours/GuidedTourHost";
 import { isClientNotificationActivity } from "@/lib/projectClientNotifications";
 
 function ProjectSidebarContent() {
@@ -195,6 +196,17 @@ function ProjectSidebarContent() {
                 >
                   <Link
                     href={item.href}
+                    data-tour={
+                      item.key === "overview"
+                        ? "project-nav-overview"
+                        : item.key === "tasks"
+                          ? "project-nav-tasks"
+                          : item.key === "moodboard"
+                            ? "project-nav-moodboard"
+                            : item.key === "files"
+                              ? "project-nav-files"
+                              : undefined
+                    }
                     onClick={handleLinkClick}
                     onMouseEnter={() => handleLinkHover(item.href)}
                     className="flex min-w-0 flex-1 items-center gap-3"
@@ -245,6 +257,7 @@ function ProjectSidebarContent() {
             <Button asChild className="h-10 w-full justify-center rounded-full text-[13px] font-medium">
               <Link
                 href={aiItem.href}
+                data-tour="project-nav-ai"
                 onClick={handleLinkClick}
                 onMouseEnter={() => handleLinkHover(aiItem.href)}
               >
@@ -252,6 +265,12 @@ function ProjectSidebarContent() {
                 <span className="truncate">{aiItem.label}</span>
               </Link>
             </Button>
+            <GuidedTourLauncher
+              tourId="project"
+              label="Take project tour"
+              variant="outline"
+              className="mt-2 h-10 w-full rounded-full text-[13px] font-medium"
+            />
           </SidebarGroupContent>
         </SidebarGroup>
 

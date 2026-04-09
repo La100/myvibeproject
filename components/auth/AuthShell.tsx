@@ -55,7 +55,17 @@ export function AuthShell({
               className="object-cover object-center"
               sizes="(max-width: 1023px) 100vw, 60vw"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/12 via-transparent to-white/10" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/18 via-transparent to-white/10" />
+            <div className="absolute inset-0 flex items-center justify-center p-6 sm:p-8 lg:p-10">
+              <h1 className="flex flex-wrap items-baseline justify-center gap-x-3 whitespace-nowrap text-center text-white [text-shadow:0_10px_32px_rgba(0,0,0,0.2)]">
+                <span className="font-serif italic text-5xl leading-[0.9] tracking-[-0.04em] sm:text-6xl lg:text-7xl xl:text-[7.5rem]">
+                  Myvibe
+                </span>
+                <span className="font-sans text-5xl font-normal leading-[0.9] tracking-[-0.03em] sm:text-6xl lg:text-7xl xl:text-[7.5rem]">
+                  Project
+                </span>
+              </h1>
+            </div>
           </Card>
         </div>
       </section>
@@ -71,7 +81,9 @@ export function AuthShell({
               className="size-16"
             />
           </Link>
-          <p className="mb-10 text-center text-base text-muted-foreground">AI assistant workspace.</p>
+          <p className="mb-10 max-w-[340px] text-center text-lg leading-relaxed text-foreground">
+            Intelligent platform to manage projects for interior designers and architects.
+          </p>
 
           <Button
             onClick={primaryAction}
@@ -97,7 +109,7 @@ export function AuthShell({
 
           <div id="clerk-captcha" className="mb-8 w-full" />
 
-          <p className="mb-16 text-center text-xs leading-5 text-muted-foreground">
+          <p className="mb-16 text-center text-xs leading-5 text-foreground">
             By signing {termsVerb} you agree to our{" "}
             <Link href="/privacy" className="font-semibold hover:text-foreground">
               Privacy Policy
@@ -111,8 +123,9 @@ export function AuthShell({
 
           <p className="text-sm text-muted-foreground">
             by{" "}
-            <Link href="/" className="font-semibold hover:text-foreground">
-              Myvibe project
+            <Link href="/" className="whitespace-nowrap text-foreground transition-opacity duration-200 hover:opacity-90">
+              <span className="font-serif italic leading-[0.9] tracking-[-0.04em]">Myvibe</span>{" "}
+              <span className="font-sans font-normal leading-[0.9] tracking-[-0.03em]">Project</span>
             </Link>
           </p>
         </div>

@@ -393,33 +393,34 @@ export default function MoodboardPage() {
 
   return (
     <ProjectPageLayout>
-      <ProjectPageHeader
-        title="Moodboard"
-        icon={<Images className="h-8 w-8 text-primary" />}
-        tags={
-          <>
-            <Badge variant="outline" className="px-4 py-2 text-sm font-medium text-primary">
-              {project.name}
-            </Badge>
-            <Badge variant="secondary" className="px-4 py-2 text-sm font-medium">
-              {rows.length} sections
-            </Badge>
-          </>
-        }
-        actions={
-          <Button
-            onClick={() => {
-              void handleAddRow();
-            }}
-            className="px-6 transition-transform hover:-translate-y-0.5"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Add Section
-          </Button>
-        }
-      />
+      <div data-tour="project-moodboard-root" className="w-full">
+        <ProjectPageHeader
+          title="Moodboard"
+          icon={<Images className="h-8 w-8 text-primary" />}
+          tags={
+            <>
+              <Badge variant="outline" className="px-4 py-2 text-sm font-medium text-primary">
+                {project.name}
+              </Badge>
+              <Badge variant="secondary" className="px-4 py-2 text-sm font-medium">
+                {rows.length} sections
+              </Badge>
+            </>
+          }
+          actions={
+            <Button
+              data-tour="project-moodboard-add-section"
+              onClick={() => {
+                void handleAddRow();
+              }}
+              className="px-6 transition-transform hover:-translate-y-0.5"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add Section
+            </Button>
+          }
+        />
 
-      <div className="w-full">
         <div className="flex flex-col gap-16">
           {rows.map((row) => (
             <MoodboardRow

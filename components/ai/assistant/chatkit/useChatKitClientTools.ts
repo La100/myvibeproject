@@ -37,6 +37,17 @@ const READ_ONLY_TOOL_NAMES = new Set([
   "search_items",
   "scrape_shopping_product",
 ]);
+const TASK_UPDATE_MUTATION_FIELDS = new Set([
+  "title",
+  "description",
+  "content",
+  "status",
+  "priority",
+  "assignedTo",
+  "startDate",
+  "endDate",
+  "tags",
+]);
 
 function asCrudAction(value: unknown): CrudAction | undefined {
   if (
@@ -547,6 +558,24 @@ function extractTaskTitle(params: Record<string, unknown>): string | undefined {
   );
 }
 
+function extractTaskAssigneeIdentifier(
+  params: Record<string, unknown>,
+): string | undefined {
+  return (
+    asNonEmptyString(params.assignedTo) ??
+    asNonEmptyString(params.assignee) ??
+    asNonEmptyString(params.assigneeId) ??
+    asNonEmptyString(params.assigneeUserId) ??
+    asNonEmptyString(params.assigneeClerkUserId) ??
+    asNonEmptyString(params.assignedToUserId) ??
+    asNonEmptyString(params.assignedToClerkUserId)
+  );
+}
+
+function hasTaskMutationFields(payload: Record<string, unknown>): boolean {
+  return Object.keys(payload).some((key) => TASK_UPDATE_MUTATION_FIELDS.has(key));
+}
+
 function extractShoppingName(params: Record<string, unknown>): string | undefined {
   return (
     asNonEmptyString(params.name) ??
@@ -740,6 +769,23 @@ function summarizeMoodboardImage(
   };
 }
 
+function summarizeProjectFile(file: Record<string, unknown>) {
+  return {
+    id: typeof file._id === "string" ? file._id : undefined,
+    name: asNonEmptyString(file.name) ?? "Untitled file",
+    description: truncate(asNonEmptyString(file.description)),
+    fileType: asNonEmptyString(file.fileType) ?? "other",
+    mimeType: asNonEmptyString(file.mimeType),
+    size: asNumber(file.size),
+    aiKnowledgeStatus: asNonEmptyString(file.aiKnowledgeStatus) ?? "ready",
+    excerpt: truncate(asNonEmptyString(file.excerpt), 320),
+    matchScore: asNumber(file.score),
+    extractedText: truncate(asNonEmptyString(file.extractedText), 220),
+    pdfAnalysis: truncate(asNonEmptyString(file.pdfAnalysis), 220),
+    url: asNonEmptyString(file.url),
+  };
+}
+
 function summarizeProject(project: Record<string, unknown> | null) {
   if (!project) return null;
 
@@ -863,6 +909,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             return {
               ok: true,
               canMakeChanges,
+              currentUserClerkId: userClerkId ?? null,
               mode: canMakeChanges ? "read_write" : "read_only",
               allowedTools: canMakeChanges
                 ? [
@@ -954,8 +1001,9 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 };
               }
 
-              const assignedTo = await resolveTaskAssignee(item.assignedTo);
-              if (asNonEmptyString(item.assignedTo) && assignedTo === null) {
+              const assigneeInput = extractTaskAssigneeIdentifier(item);
+              const assignedTo = await resolveTaskAssignee(assigneeInput);
+              if (assigneeInput && assignedTo === null) {
                 return {
                   ok: false,
                   error:
@@ -1010,8 +1058,9 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               const priority = asTaskPriority(item.priority);
               if (priority !== undefined) updates.priority = priority;
 
-              const assignedTo = await resolveTaskAssignee(item.assignedTo);
-              if (asNonEmptyString(item.assignedTo) && assignedTo === null) {
+              const assigneeInput = extractTaskAssigneeIdentifier(item);
+              const assignedTo = await resolveTaskAssignee(assigneeInput);
+              if (assigneeInput && assignedTo === null) {
                 return {
                   ok: false,
                   error:
@@ -1028,6 +1077,14 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
 
               const tags = asStringArray(item.tags);
               if (tags !== undefined) updates.tags = tags;
+
+              if (!hasTaskMutationFields(updates)) {
+                return {
+                  ok: false,
+                  error:
+                    "No valid task update fields were provided. Use at least one of: title, description, content, status, priority, assignedTo (or assignee), startDate, endDate, tags.",
+                };
+              }
 
               await convex.mutation(apiAny.tasks.updateTask, updates);
               return { ok: true, taskId };
@@ -1852,8 +1909,9 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               };
             }
 
-            const assignedTo = await resolveTaskAssignee(params.assignedTo);
-            if (asNonEmptyString(params.assignedTo) && assignedTo === null) {
+            const assigneeInput = extractTaskAssigneeIdentifier(params);
+            const assignedTo = await resolveTaskAssignee(assigneeInput);
+            if (assigneeInput && assignedTo === null) {
               return {
                 ok: false,
                 error:
@@ -1913,8 +1971,9 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             const priority = asTaskPriority(params.priority);
             if (priority !== undefined) updates.priority = priority;
 
-            const assignedTo = await resolveTaskAssignee(params.assignedTo);
-            if (asNonEmptyString(params.assignedTo) && assignedTo === null) {
+            const assigneeInput = extractTaskAssigneeIdentifier(params);
+            const assignedTo = await resolveTaskAssignee(assigneeInput);
+            if (assigneeInput && assignedTo === null) {
               return {
                 ok: false,
                 error:
@@ -1931,6 +1990,14 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
 
             const tags = asStringArray(params.tags);
             if (tags !== undefined) updates.tags = tags;
+
+            if (!hasTaskMutationFields(updates)) {
+              return {
+                ok: false,
+                error:
+                  "No valid task update fields were provided. Use at least one of: title, description, content, status, priority, assignedTo (or assignee), startDate, endDate, tags.",
+              };
+            }
 
             await convex.mutation(apiAny.tasks.updateTask, updates);
 
@@ -2898,7 +2965,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
           }
 
           case "search_items": {
-            const query = asNonEmptyString(params.query)?.toLowerCase() ?? "";
+            const rawQuery = asNonEmptyString(params.query) ?? "";
+            const query = rawQuery.toLowerCase();
             const scope = asNonEmptyString(params.scope) ?? asNonEmptyString(params.type) ?? "all";
             const limit = asNumber(params.limit) ?? 8;
 
@@ -2912,6 +2980,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               surveys,
               contacts,
               moodboardSections,
+              aiKnowledgeFiles,
+              aiKnowledgeSearch,
             ] = await Promise.all([
               scope === "all" || scope === "tasks"
                 ? convex.query(apiAny.tasks.listProjectTasks, {
@@ -2943,6 +3013,16 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               scope === "all" || scope === "moodboard"
                 ? convex.query(apiAny.files.getMoodboardSections, { projectId })
                 : Promise.resolve([]),
+              scope === "all" || scope === "files"
+                ? convex.query(apiAny.files.getProjectAiKnowledgeFiles, { projectId })
+                : Promise.resolve([]),
+              (scope === "all" || scope === "files") && rawQuery
+                ? convex.action(apiAny.fileKnowledgeActions.searchProjectAiKnowledge, {
+                    projectId,
+                    query: rawQuery,
+                    limit,
+                  })
+                : Promise.resolve({ ok: true, text: "", matches: [] }),
             ]);
 
             const moodboardSectionRecords = moodboardSections as Array<Record<string, unknown>>;
@@ -3119,6 +3199,27 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               )
               .slice(0, limit);
 
+            const semanticFileMatches = asRecordArray(
+              asRecord(aiKnowledgeSearch).matches,
+            ).map(summarizeProjectFile);
+
+            const filteredFiles =
+              semanticFileMatches.length > 0
+                ? semanticFileMatches.slice(0, limit)
+                : (aiKnowledgeFiles as Array<Record<string, unknown>>)
+                    .map(summarizeProjectFile)
+                    .filter(
+                      (file) =>
+                        includes(file.name) ||
+                        includes(file.description) ||
+                        includes(file.fileType) ||
+                        includes(file.mimeType) ||
+                        includes(file.excerpt) ||
+                        includes(file.extractedText) ||
+                        includes(file.pdfAnalysis),
+                    )
+                    .slice(0, limit);
+
             return {
               ok: true,
               query,
@@ -3134,6 +3235,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 contacts: filteredContacts,
                 moodboardSections: filteredMoodboardSections,
                 moodboardImages: filteredMoodboardImages,
+                files: filteredFiles,
               },
               counts: {
                 tasks: filteredTasks.length,
@@ -3146,6 +3248,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 contacts: filteredContacts.length,
                 moodboardSections: filteredMoodboardSections.length,
                 moodboardImages: filteredMoodboardImages.length,
+                files: filteredFiles.length,
               },
             };
           }
@@ -3162,6 +3265,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               surveys,
               contacts,
               teamMembers,
+              aiKnowledgeFiles,
             ] =
               await Promise.all([
               convex.query(apiAny.projects.getProject, { projectId }),
@@ -3174,6 +3278,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               convex.query(apiAny.surveys.getSurveysByProject, { projectId }),
               convex.query(apiAny.contacts.getProjectContacts, { projectId }),
               convex.query(apiAny.teams.getTeamMembers, { teamId }),
+              convex.query(apiAny.files.getProjectAiKnowledgeFiles, { projectId }),
             ]);
 
             const taskSummaries = (tasks as Array<Record<string, unknown>>).map(summarizeTask);
@@ -3215,6 +3320,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             const contactSummaries = (contacts as Array<Record<string, unknown>>).map(
               summarizeContact,
             );
+            const aiKnowledgeFileSummaries = (aiKnowledgeFiles as Array<Record<string, unknown>>)
+              .map(summarizeProjectFile);
 
             const openTasks = taskSummaries.filter((task) => task.status !== "done");
 
@@ -3231,6 +3338,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 laborSections: laborSectionSummaries.length,
                 surveys: surveySummaries.length,
                 contacts: contactSummaries.length,
+                aiKnowledgeFiles: aiKnowledgeFileSummaries.length,
                 teamMembers: Array.isArray(teamMembers) ? teamMembers.length : 0,
               },
               currentUserClerkId: userClerkId,
@@ -3252,6 +3360,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               laborSections: laborSectionSummaries.slice(0, 8),
               surveys: surveySummaries.slice(0, 6),
               contacts: contactSummaries.slice(0, 6),
+              files: aiKnowledgeFileSummaries.slice(0, 8),
             };
           }
 

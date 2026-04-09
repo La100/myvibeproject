@@ -99,7 +99,7 @@ const assistantToolMetadata: Record<AssistantToolName, ToolMetadata> = {
   },
   search_items: {
     readOnly: true,
-    promptSummary: "Search existing tasks, notes, shopping, labor, surveys, contacts, or moodboard sections/images.",
+    promptSummary: "Search existing tasks, notes, shopping, labor, surveys, contacts, moodboard content, or semantically search AI knowledge files.",
     approvalMode: "read-only",
     shouldPersistPending: () => false,
   },
@@ -112,7 +112,7 @@ const assistantToolMetadata: Record<AssistantToolName, ToolMetadata> = {
   },
   load_full_project_context: {
     readOnly: true,
-    promptSummary: "Load a broad project snapshot for summaries or audits.",
+    promptSummary: "Load a broad project snapshot for summaries or audits, including AI knowledge files.",
     approvalMode: "read-only",
     shouldPersistPending: () => false,
   },

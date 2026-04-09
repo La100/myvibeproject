@@ -1150,7 +1150,7 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                 </p>
               </div>
 
-              <Card className="overflow-hidden border-border/40 shadow-sm">
+              <Card id="organization-profile" className="overflow-hidden border-border/40 shadow-sm">
                 <CardContent className="flex flex-col gap-4 p-6">
                   <div className="flex items-center gap-4 rounded-lg border border-border/40 bg-muted/20 p-4">
                     <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-border/40 bg-background">

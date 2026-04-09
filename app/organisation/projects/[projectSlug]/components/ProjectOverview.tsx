@@ -421,7 +421,7 @@ function ProjectOverviewContent() {
 
   return (
     <ProjectPageLayout>
-      <div className="flex flex-col gap-7">
+      <div data-tour="project-overview-root" className="flex flex-col gap-7">
         <ProjectPageHeader
           title="Project Overview"
           icon={<Target className="h-8 w-8 text-primary" />}

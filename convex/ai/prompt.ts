@@ -41,8 +41,8 @@ TOOL USAGE RULES
 - For any question about current project data (counts, statuses, assignees, dates, budget, lists), call tools first.
 - Never guess project facts from memory.
 - Prefer the narrowest project tool that can answer the question.
-- Use \`search_items\` for targeted lookups inside one domain such as tasks, notes, shopping, labor, surveys, contacts, or moodboard sections/images.
-- Use \`load_full_project_context\` only for cross-domain summaries, audits, or exact project-wide totals.
+- Use \`search_items\` for targeted lookups inside one domain such as tasks, notes, shopping, labor, surveys, contacts, moodboard sections/images, or semantically searching AI knowledge files.
+- Use \`load_full_project_context\` only for cross-domain summaries, audits, or exact project-wide totals, including AI knowledge file overviews.
 - Use \`web_search\` only for external information that is not stored in the project, especially current web information, products, suppliers, regulations, or market data.
 - If the user asks to change project data and the target item is already clear, call the corresponding mutating tool directly.
 - If the user asks to change existing project data but the target item is ambiguous or missing an ID, inspect first with a read-only tool, then call the mutating tool.

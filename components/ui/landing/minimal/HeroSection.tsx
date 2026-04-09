@@ -1,38 +1,32 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { ArrowRight } from "lucide-react";
+import { ArrowDownToLine } from "lucide-react";
 import Link from "next/link";
 import { SignedIn, SignedOut } from "@clerk/nextjs";
 
 export function HeroSection() {
   return (
-    <section className="relative min-h-[calc(100vh-4rem)] px-6 pt-24 pb-20 flex items-center justify-center">
-      <div className="mx-auto max-w-3xl text-center">
-        <h1 className="font-[var(--font-display-serif)] text-[clamp(2.5rem,7vw,5.5rem)] font-normal tracking-tight leading-[0.95]">
-          <span className="text-foreground">Your projects</span>
-          <br />
-          <span className="text-foreground">deserve a </span>
-          <span className="text-foreground/70">smarter</span>
-          <br />
-          <span className="text-foreground">workflow.</span>
-        </h1>
+    <section className="px-6 pb-16 pt-2 lg:px-8">
+      <div className="mx-auto w-full max-w-[1240px]">
+        <div className="max-w-[690px] pt-10">
+          <h1 className="text-balance text-[clamp(1.2rem,1.65vw,2rem)] font-medium leading-[1.2] tracking-tight text-foreground">
+            Built to make you extraordinarily productive,
+            <br />
+            Myvibe is the best way to run projects with AI.
+          </h1>
+        </div>
 
-        <p className="mx-auto mt-8 max-w-xl text-lg text-muted-foreground leading-relaxed">
-          One AI workspace for architectural teams: manage tasks, files,
-          calendars, notes, and visualizations without switching tools.
-        </p>
-
-        <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center items-center">
+        <div className="mt-8 flex items-center gap-3">
           <SignedOut>
             <Button
               asChild
               size="lg"
-              className="rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 px-8 h-14 text-base font-medium"
+              className="h-12 rounded-full bg-foreground px-6 text-[1.07rem] font-medium text-background hover:bg-foreground/92"
             >
               <Link href="/sign-up">
-                Start Planning Free
-                <ArrowRight className="ml-2 h-4 w-4" />
+                Download for macOS
+                <ArrowDownToLine className="ml-2 h-4 w-4" />
               </Link>
             </Button>
           </SignedOut>
@@ -40,29 +34,23 @@ export function HeroSection() {
             <Button
               asChild
               size="lg"
-              className="rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 px-8 h-14 text-base font-medium"
+              className="h-12 rounded-full bg-foreground px-6 text-[1.07rem] font-medium text-background hover:bg-foreground/92"
             >
               <Link href="/organisation">
                 Go to Dashboard
-                <ArrowRight className="ml-2 h-4 w-4" />
+                <ArrowDownToLine className="ml-2 h-4 w-4" />
               </Link>
             </Button>
           </SignedIn>
         </div>
 
-        <div className="mt-8 flex items-center justify-center gap-8 text-xs text-muted-foreground">
-          <span className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            Projects, files, calendar
-          </span>
-          <span className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-            No credit card
-          </span>
-          <span className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-violet-500" />
-            AI assistant + image generation
-          </span>
+        <div className="mt-14 overflow-hidden rounded-md border border-black/8 bg-[#ebe8e1]">
+          <img
+            src="https://cursor.com/marketing-static/_next/image?url=https%3A%2F%2Fptht05hbb1ssoooe.public.blob.vercel-storage.com%2Fassets%2Fmisc%2Fasset-cc24ca462279ca23250c.jpg&w=1920&q=70"
+            alt="Cursor-style hero demo"
+            className="block h-auto w-full"
+            loading="eager"
+          />
         </div>
       </div>
     </section>
