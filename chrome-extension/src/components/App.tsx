@@ -22,6 +22,11 @@ type LocalStorageSnapshot = {
   [STORAGE_KEYS.SELECTED_PROJECT_ID]?: string;
 };
 
+type SessionRefreshResult =
+  | { user: User; teams: Team[] }
+  | { authFailed: true }
+  | null;
+
 const initialState: AppState = {
   user: null,
   teams: [],
@@ -94,7 +99,7 @@ const App = () => {
   }, []);
 
   const refreshSession = useCallback(
-    async (token: string): Promise<{ user: User; teams: Team[] } | null> => {
+    async (token: string): Promise<SessionRefreshResult> => {
       try {
         const response = await authenticatedFetch(
           `${CONFIG.API_BASE}/clipper`,
@@ -102,10 +107,14 @@ const App = () => {
           {
             retryOnAuthFailure: true,
             preferredToken: token,
+            allowInteractiveAuth: true,
           },
         );
 
         if (!response.ok) {
+          if (response.status === 401) {
+            return { authFailed: true };
+          }
           return null;
         }
 
@@ -123,7 +132,10 @@ const App = () => {
           user: data.user,
           teams: data.teams,
         };
-      } catch {
+      } catch (error) {
+        if (error instanceof Error && error.message === "AUTH_REQUIRED") {
+          return { authFailed: true };
+        }
         return null;
       }
     },
@@ -192,7 +204,7 @@ const App = () => {
         await applySession(cachedUser, cachedTeams, snapshot);
       } else {
         const refreshed = await refreshSession(token);
-        if (!refreshed) {
+        if (!refreshed || "authFailed" in refreshed) {
           await clearCachedData();
           setState((prev) => ({
             ...prev,
@@ -206,10 +218,26 @@ const App = () => {
       }
 
       const refreshed = await refreshSession(token);
-      if (refreshed) {
-        const latestSnapshot = await loadStorage();
-        await applySession(refreshed.user, refreshed.teams, latestSnapshot);
+      if (!refreshed) {
+        return;
       }
+
+      if ("authFailed" in refreshed) {
+        await clearCachedData();
+        setState({
+          user: null,
+          teams: [],
+          selectedTeam: null,
+          selectedProject: null,
+          sections: [],
+          currentView: "login",
+          isLoading: false,
+        });
+        return;
+      }
+
+      const latestSnapshot = await loadStorage();
+      await applySession(refreshed.user, refreshed.teams, latestSnapshot);
     };
 
     void initialize();
