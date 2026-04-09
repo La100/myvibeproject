@@ -103,7 +103,7 @@
 
 :root {
   --radius: 1rem;
-  --background: oklch(0.985 0.012 82);
+  --background: #f7f7f4;
   --foreground: oklch(0.24 0.018 65);
   --card: oklch(0.992 0.008 80);
   --card-foreground: oklch(0.24 0.018 65);
@@ -289,9 +289,7 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "liga" 1, "cv03" 1, "cv04" 1;
-    background-image:
-      radial-gradient(circle at 14% 0%, rgba(255, 251, 244, 0.92), transparent 36%),
-      radial-gradient(circle at 100% 100%, rgba(224, 212, 194, 0.38), transparent 40%);
+    background-image: none;
     background-attachment: fixed;
   }
 

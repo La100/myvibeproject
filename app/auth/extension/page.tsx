@@ -4,6 +4,10 @@
 import { useAuth, useUser } from "@clerk/nextjs"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import {
+  ONBOARDING_EXTENSION_READY_KEY,
+  writeOnboardingFlag,
+} from "@/lib/onboardingJourney"
 
 const TOKEN_SYNC_KEY = "myvibeproject_extension_token_sync"
 const TOKEN_SYNC_META_KEY = "myvibeproject_extension_token_sync_meta"
@@ -66,6 +70,7 @@ export default function ExtensionAuthPage() {
             expiresAt: extractTokenExpiry(token),
           }),
         )
+        writeOnboardingFlag(ONBOARDING_EXTENSION_READY_KEY, true)
 
         setStatus("Success. You can close this tab.")
         setError("")

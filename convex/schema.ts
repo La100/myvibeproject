@@ -379,9 +379,21 @@ export default defineSchema({
     aiPrompt: v.optional(v.string()),
     // If true, file is included in the next published customer portal snapshot
     showInClientPortal: v.optional(v.boolean()),
+    // If true, this file is intentionally exposed to AI assistants as project knowledge
+    aiKnowledgeEnabled: v.optional(v.boolean()),
+    aiKnowledgeStatus: v.optional(v.union(
+      v.literal("excluded"),
+      v.literal("pending"),
+      v.literal("ready"),
+      v.literal("failed")
+    )),
+    aiKnowledgeError: v.optional(v.string()),
+    aiKnowledgeEntryId: v.optional(v.string()),
+    aiKnowledgeIndexedAt: v.optional(v.number()),
   })
     .index("by_team", ["teamId"])
     .index("by_project", ["projectId"])
+    .index("by_project_and_ai_knowledge", ["projectId", "aiKnowledgeEnabled"])
     .index("by_task", ["taskId"])
     .index("by_folder", ["folderId"])
     .index("by_uploaded_by", ["uploadedBy"])

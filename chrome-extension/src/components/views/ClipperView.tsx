@@ -159,6 +159,7 @@ const ClipperView = ({
         undefined,
         {
           retryOnAuthFailure: true,
+          allowInteractiveAuth: true,
         },
       );
 
@@ -265,6 +266,30 @@ const ClipperView = ({
           setIsImagePickerActive(false);
           setIsScreenshotPickerActive(false);
           showToast("Image updated.", "success");
+        }
+        return;
+      }
+
+      if (message.action === ACTIONS.PICKER_STATUS_CHANGED) {
+        const incoming = message as {
+          picker?: "image" | "screenshot";
+          active?: boolean;
+          reason?: "selected" | "cancelled" | "error" | "idle";
+        };
+
+        if (incoming.picker === "image" && incoming.active === false) {
+          setIsImagePickerActive(false);
+          return;
+        }
+
+        if (incoming.picker === "screenshot" && incoming.active === false) {
+          setIsScreenshotPickerActive(false);
+
+          if (incoming.reason === "cancelled") {
+            showToast("Area capture cancelled.", "info");
+          } else if (incoming.reason === "error") {
+            showToast("Area capture failed. Try again.", "error");
+          }
         }
       }
     };
@@ -388,6 +413,7 @@ const ClipperView = ({
         },
         {
           retryOnAuthFailure: true,
+          allowInteractiveAuth: true,
         },
       );
 

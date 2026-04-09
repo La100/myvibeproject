@@ -128,6 +128,10 @@ export interface FileContext {
   moodboardSection?: string;
   extractedText?: string;
   pdfAnalysis?: string;
+  aiKnowledgeEnabled?: boolean;
+  aiKnowledgeStatus?: "excluded" | "pending" | "ready" | "failed";
+  aiKnowledgeEntryId?: string;
+  aiKnowledgeIndexedAt?: number;
 }
 
 // Additional types for AI processing

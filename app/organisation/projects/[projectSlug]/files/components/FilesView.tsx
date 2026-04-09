@@ -42,6 +42,7 @@ export default function FilesView() {
   const [folderPath, setFolderPath] = useState<Array<{ id: Id<"folders"> | undefined, name: string }>>([]);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
+  const [aiKnowledgeBusyFileId, setAiKnowledgeBusyFileId] = useState<Id<"files"> | null>(null);
   const [fileForPreview, setFileForPreview] = useState<{
     _id: string;
     name: string;
@@ -71,6 +72,7 @@ export default function FilesView() {
   const deleteFile = useMutation(apiAny.files.deleteFile);
   const deleteFolder = useMutation(apiAny.files.deleteFolder);
   const setFileCustomerPortalVisibility = useMutation(apiAny.files.setFileCustomerPortalVisibility);
+  const setFileAiKnowledgeInclusion = useMutation(apiAny.files.setFileAiKnowledgeInclusion);
 
   // Navigation functions
   const navigateToFolder = (folderId: Id<"folders"> | undefined, folderName: string) => {
@@ -230,6 +232,27 @@ export default function FilesView() {
     }
   };
 
+  const handleSetAiKnowledgeInclusion = async (
+    fileId: Id<"files">,
+    enabled: boolean,
+  ) => {
+    setAiKnowledgeBusyFileId(fileId);
+    try {
+      await setFileAiKnowledgeInclusion({ fileId, enabled });
+      toast.success(
+        enabled
+          ? "File added to AI knowledge"
+          : "File removed from AI knowledge",
+      );
+    } catch (error) {
+      toast.error("Failed to update AI knowledge", {
+        description: (error as Error).message,
+      });
+    } finally {
+      setAiKnowledgeBusyFileId(null);
+    }
+  };
+
   const getFileTypeIcon = (fileType: string) => {
     if (fileType === "image") return <ImageIcon className="h-8 w-8" />;
     if (fileType === "video") return <Play className="h-8 w-8" />;
@@ -247,9 +270,39 @@ export default function FilesView() {
     return (file.fileType === "image" || file.mimeType?.startsWith("image/")) && !isVideoFile(file);
   };
 
+  const getAiKnowledgeBadgeVariant = (status?: string) => {
+    if (status === "failed") return "destructive" as const;
+    if (status === "pending") return "outline" as const;
+    return "secondary" as const;
+  };
+
+  const getAiKnowledgeStatusText = (file: Record<string, unknown>) => {
+    if (aiKnowledgeBusyFileId === file._id) {
+      return "Updating AI knowledge status...";
+    }
+
+    if (file.aiKnowledgeEnabled !== true) {
+      return null;
+    }
+
+    if (file.aiKnowledgeStatus === "pending") {
+      return "Indexing document for AI search...";
+    }
+
+    if (file.aiKnowledgeStatus === "failed") {
+      return "AI indexing failed.";
+    }
+
+    if (typeof file.aiKnowledgeIndexedAt === "number") {
+      return `Indexed ${formatDistanceToNow(new Date(file.aiKnowledgeIndexedAt), { addSuffix: true })}`;
+    }
+
+    return "Indexed and ready for AI search.";
+  };
+
   return (
     <ProjectPageLayout>
-      <div>
+      <div data-tour="project-files-root">
         <div className="mb-6">
           <ProjectPageHeader
             title="Files"
@@ -325,7 +378,7 @@ export default function FilesView() {
               id="file-upload"
             />
             <Button asChild>
-              <label htmlFor="file-upload" className="cursor-pointer">
+              <label data-tour="project-files-upload" htmlFor="file-upload" className="cursor-pointer">
                 <Upload className="h-4 w-4 mr-2" />
                 Upload File
               </label>
@@ -334,7 +387,7 @@ export default function FilesView() {
         </div>
 
         {/* Content Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {/* Folders */}
           {content.folders.map((folder) => (
             <Card
@@ -357,107 +410,169 @@ export default function FilesView() {
 
           {/* Files */}
           {content.files.map((file) => (
-            <Card key={file._id} className="hover:shadow-lg transition-shadow">
-              <CardContent className="p-4">
-                <div className="mb-3 flex aspect-square items-center justify-center overflow-hidden rounded-2xl bg-muted/50">
-                  {isImageFile(file) && file.url ? (
-                    <Image
-                      src={file.url}
-                      alt={file.name}
-                      className="w-full h-full object-cover cursor-pointer rounded-lg"
-                      width={100}
-                      height={100}
-                      onClick={() => setFileForPreview(file)}
-                    />
-                  ) : isVideoFile(file) && file.url ? (
-                    <div className="relative w-full h-full cursor-pointer" onClick={() => setFileForPreview(file)}>
-                      <video
-                        src={file.url + "#t=0.1"}
-                        className="w-full h-full object-cover rounded-lg"
-                        muted
-                        preload="metadata"
+            <Card
+              key={file._id}
+              className="group overflow-hidden border-border/70 bg-card/95 py-0 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl"
+            >
+              <CardContent className="p-3 sm:p-4">
+                <div className="relative mb-3">
+                  <div className="flex aspect-[5/4] items-center justify-center overflow-hidden rounded-2xl border border-border/60 bg-muted/40">
+                    {isImageFile(file) && file.url ? (
+                      <Image
+                        src={file.url}
+                        alt={file.name}
+                        className="h-full w-full cursor-pointer object-cover"
+                        width={100}
+                        height={100}
+                        onClick={() => setFileForPreview(file)}
                       />
-                      <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/20">
-                        <Play className="h-8 w-8 text-background" />
+                    ) : isVideoFile(file) && file.url ? (
+                      <div
+                        className="relative h-full w-full cursor-pointer"
+                        onClick={() => setFileForPreview(file)}
+                      >
+                        <video
+                          src={file.url + "#t=0.1"}
+                          className="h-full w-full object-cover"
+                          muted
+                          preload="metadata"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/25">
+                          <Play className="h-8 w-8 text-background" />
+                        </div>
                       </div>
-                    </div>
-                  ) : file.fileType === "document" && file.url && file.mimeType === "application/pdf" ? (
-                    <PDFThumbnail
-                      url={file.url}
-                      className="w-full h-full"
-                      onClick={() => setFileForPreview(file)}
-                    />
-                  ) : (
-                    <div className="text-muted-foreground">
-                      {getFileTypeIcon(file.fileType)}
+                    ) : file.fileType === "document" && file.url && file.mimeType === "application/pdf" ? (
+                      <PDFThumbnail
+                        url={file.url}
+                        className="h-full w-full rounded-xl"
+                        onClick={() => setFileForPreview(file)}
+                      />
+                    ) : (
+                      <div className="text-muted-foreground">
+                        {getFileTypeIcon(file.fileType)}
+                      </div>
+                    )}
+                  </div>
+
+                  {file.url && (
+                    <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full border border-border/80 bg-background/90 p-1 opacity-100 shadow-sm backdrop-blur-sm sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
+                      <Button
+                        size="icon-xs"
+                        variant="outline"
+                        className="rounded-full bg-background/90"
+                        onClick={() => window.open(file.url, "_blank")}
+                        aria-label={`Preview ${file.name}`}
+                      >
+                        <Eye className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        size="icon-xs"
+                        variant="outline"
+                        className="rounded-full bg-background/90"
+                        onClick={() => {
+                          const a = document.createElement("a");
+                          a.href = file.url!;
+                          a.download = file.name;
+                          a.click();
+                        }}
+                        aria-label={`Download ${file.name}`}
+                      >
+                        <Download className="h-3 w-3" />
+                      </Button>
                     </div>
                   )}
                 </div>
 
-                <div className="flex flex-col gap-2">
-                  <h3 className="font-medium text-sm truncate" title={file.name}>
+                <div className="space-y-3">
+                  <h3 className="line-clamp-2 text-sm font-semibold leading-snug" title={file.name}>
                     {file.name}
                   </h3>
 
-                  <div className="flex flex-wrap gap-1">
-                    <Badge variant="secondary" className="text-xs">
+                  <div className="flex flex-wrap gap-1.5">
+                    <Badge variant="secondary" className="bg-secondary/80 text-[11px]">
                       {isVideoFile(file) ? "video" : file.fileType}
                     </Badge>
                     {file.size > 0 && (
-                      <Badge variant="outline" className="text-xs">
+                      <Badge variant="outline" className="text-[11px]">
                         {(file.size / 1024 / 1024).toFixed(1)}MB
                       </Badge>
                     )}
                     {file.aiPrompt && (
-                      <Badge variant="secondary" className="text-xs">
+                      <Badge variant="secondary" className="text-[11px]">
                         AI
+                      </Badge>
+                    )}
+                    {file.aiKnowledgeEnabled === true && (
+                      <Badge
+                        variant={getAiKnowledgeBadgeVariant(file.aiKnowledgeStatus)}
+                        className="text-[11px]"
+                      >
+                        {file.aiKnowledgeStatus === "pending"
+                          ? "AI pending"
+                          : file.aiKnowledgeStatus === "failed"
+                            ? "AI failed"
+                            : "AI knowledge"}
                       </Badge>
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between rounded-xl border border-border/70 px-2 py-1">
-                    <span className="text-xs text-muted-foreground">Customer portal</span>
-                    <Switch
-                      checked={file.showInClientPortal === true}
-                      onCheckedChange={(checked) =>
-                        void handleSetCustomerPortalVisibility(file._id, checked)
-                      }
-                    />
+                  <div className="space-y-2 rounded-xl border border-border/70 bg-muted/25 p-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-medium text-foreground/80">Customer portal</span>
+                      <Switch
+                        checked={file.showInClientPortal === true}
+                        onCheckedChange={(checked) =>
+                          void handleSetCustomerPortalVisibility(file._id, checked)
+                        }
+                      />
+                    </div>
+                    <div className="h-px bg-border/70" />
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-medium text-foreground/80">
+                        {aiKnowledgeBusyFileId === file._id
+                          ? "AI knowledge updating..."
+                          : "AI knowledge"}
+                      </span>
+                      <Switch
+                        checked={file.aiKnowledgeEnabled === true}
+                        disabled={aiKnowledgeBusyFileId === file._id}
+                        onCheckedChange={(checked) =>
+                          void handleSetAiKnowledgeInclusion(file._id, checked)
+                        }
+                      />
+                    </div>
                   </div>
 
-                  <div className="flex gap-1">
-                    {file.url && (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 w-8 p-0"
-                          onClick={() => window.open(file.url, '_blank')}
-                        >
-                          <Eye className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 w-8 p-0"
-                          onClick={() => {
-                            const a = document.createElement('a');
-                            a.href = file.url!;
-                            a.download = file.name;
-                            a.click();
-                          }}
-                        >
-                          <Download className="h-3 w-3" />
-                        </Button>
-                      </>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10"
-                      onClick={() => handleDeleteFile(file._id)}
+                  {getAiKnowledgeStatusText(file) && (
+                    <p
+                      className={`text-xs ${
+                        file.aiKnowledgeStatus === "failed"
+                          ? "text-destructive"
+                          : "text-muted-foreground"
+                      }`}
                     >
-                      <Trash2 className="h-3 w-3" />
+                      {getAiKnowledgeStatusText(file)}
+                    </p>
+                  )}
+
+                  {file.aiKnowledgeError && (
+                    <p className="text-xs text-destructive">
+                      {file.aiKnowledgeError}
+                    </p>
+                  )}
+
+                  <div className="flex items-center justify-between gap-2 pt-0.5">
+                    <p className="text-[11px] text-muted-foreground">
+                      Uploaded {formatDistanceToNow(new Date(file._creationTime), { addSuffix: true })}
+                    </p>
+                    <Button
+                      size="icon-sm"
+                      variant="outline"
+                      className="text-destructive hover:bg-destructive/10"
+                      onClick={() => handleDeleteFile(file._id)}
+                      aria-label={`Delete ${file.name}`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 </div>

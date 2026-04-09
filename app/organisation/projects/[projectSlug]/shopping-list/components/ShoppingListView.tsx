@@ -33,7 +33,6 @@ import { ExportModal } from './ExportModal';
 import { SectionManager } from './SectionManager';
 import { ShoppingListHeader } from './ShoppingListHeader';
 import { ShoppingListSection } from './ShoppingListSection';
-import { ShoppingSetManager } from './ShoppingSetManager';
 
 type ShoppingListItem = Doc<"shoppingListItems">;
 type ShoppingSet = Doc<"shoppingSets">;
@@ -216,28 +215,40 @@ export default function ShoppingListView() {
     await deleteSection({ sectionId });
   };
 
-  const handleCreateSet = async (input: {
-    title: string;
-    sectionId?: Id<"shoppingListSections">;
-    setType: "variant" | "bundle" | "reference";
-    selectionMode: "single" | "multiple" | "none";
-    pricingMode: "selected_only" | "all_selected" | "none";
-  }) => {
-    await createSet({
-      projectId: project._id,
-      title: input.title,
-      sectionId: input.sectionId,
-      setType: input.setType,
-      selectionMode: input.selectionMode,
-      pricingMode: input.pricingMode,
-      status: 'active',
-    });
-    toast.success('Set created');
-  };
-
   const handleDeleteSet = async (setId: Id<"shoppingSets">) => {
     await deleteSet({ setId });
-    toast.success('Set deleted');
+    toast.success('Alternatives removed');
+  };
+
+  const handleEnableAlternativesForItem = async (
+    itemId: Id<"shoppingListItems">,
+    itemName: string,
+    sectionId?: Id<"shoppingListSections">,
+  ) => {
+    const setId = await createSet({
+      projectId: project._id,
+      title: itemName.trim(),
+      sectionId,
+      setType: 'variant',
+      selectionMode: 'single',
+      pricingMode: 'selected_only',
+      status: 'active',
+    });
+
+    await updateItem({
+      itemId,
+      setId,
+    });
+
+    await updateSet({
+      setId,
+      preferredItemIds: [itemId],
+      resolvedItemIds: [],
+      status: 'active',
+    });
+
+    toast.success('Alternatives enabled');
+    return setId;
   };
 
   const handleAddItem = async (itemData: {
@@ -259,16 +270,47 @@ export default function ShoppingListView() {
     buyBefore?: number;
   }) => {
     const { realizationStatus, ...rest } = itemData;
-    await createItem({
+    const itemId = await createItem({
       projectId: project._id,
       ...rest,
       realizationStatus: (realizationStatus as ShoppingListItem["realizationStatus"]) || 'PLANNED',
     });
     toast.success('Product added');
+    return itemId;
   };
 
   const handleUpdateItem = async (itemId: Id<"shoppingListItems">, updates: Partial<ShoppingListItem>) => {
     await updateItem({ itemId, ...updates });
+
+    const currentItem = items.find((item) => item._id === itemId);
+    if (!currentItem?.setId) {
+      return;
+    }
+
+    const currentSet = sets.find((set) => set._id === currentItem.setId);
+    if (!currentSet) {
+      return;
+    }
+
+    const primaryItemId =
+      currentSet.preferredItemIds?.[0] ??
+      currentSet.resolvedItemIds?.[0] ??
+      currentItem._id;
+
+    const nextSetUpdates: Partial<ShoppingSet> = {};
+    if (updates.name !== undefined && String(primaryItemId) === String(itemId)) {
+      nextSetUpdates.title = updates.name.trim();
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, 'sectionId')) {
+      nextSetUpdates.sectionId = updates.sectionId ?? null;
+    }
+
+    if (Object.keys(nextSetUpdates).length > 0) {
+      await updateSet({
+        setId: currentSet._id,
+        ...nextSetUpdates,
+      });
+    }
   };
 
   const handleDeleteItem = async (itemId: Id<"shoppingListItems">) => {
@@ -313,10 +355,10 @@ export default function ShoppingListView() {
     }
 
     const rows = filteredItemsForExport.map((item) => {
-      const setTitle = item.setId ? sets.find((set) => set._id === item.setId)?.title || '' : '';
+      const alternativesTitle = item.setId ? sets.find((set) => set._id === item.setId)?.title || '' : '';
       return [
         resolveSectionName(item),
-        setTitle,
+        alternativesTitle,
         item.name,
         item.supplier || '',
         item.category || '',
@@ -334,7 +376,7 @@ export default function ShoppingListView() {
 
     const headers = [
       'Section',
-      'Set',
+      'Alternatives',
       'Product Name',
       'Supplier',
       'Category',
@@ -415,7 +457,7 @@ export default function ShoppingListView() {
       ]);
 
     const head = [[
-      'Set',
+      'Alternatives',
       'Product',
       'Qty',
       'Total',
@@ -471,162 +513,158 @@ export default function ShoppingListView() {
   return (
     <TooltipProvider>
       <ProjectPageLayout>
-        <ShoppingListHeader
-          projectName={project.name}
-          grandTotal={grandTotal}
-          currencySymbol={currencySymbol}
-          onExportClick={() => setIsExportModalOpen(true)}
-          onAddProductClick={() => setShowMainAddForm((current) => !current)}
-        />
+        <div className="text-sm">
+          <ShoppingListHeader
+            projectName={project.name}
+            grandTotal={grandTotal}
+            currencySymbol={currencySymbol}
+            onExportClick={() => setIsExportModalOpen(true)}
+            onAddProductClick={() => setShowMainAddForm((current) => !current)}
+          />
 
-        {showMainAddForm ? (
-          <div className="mb-8 rounded-3xl border bg-card p-6 shadow-sm">
-            <AddItemForm
+          {showMainAddForm ? (
+            <div className="mb-8 rounded-3xl border bg-card p-6 shadow-sm">
+              <AddItemForm
+                sections={sections}
+                teamMembers={teamMembers}
+                currencySymbol={currencySymbol}
+                onAddItem={handleAddItem}
+                onEnableAlternatives={handleEnableAlternativesForItem}
+                isPending={isPending}
+              />
+            </div>
+          ) : null}
+
+          <div className="mb-8">
+            <SectionManager
               sections={sections}
-              sets={sets}
-              teamMembers={teamMembers}
-              currencySymbol={currencySymbol}
-              onAddItem={handleAddItem}
+              onCreateSection={handleCreateSection}
+              onDeleteSection={handleDeleteSection}
               isPending={isPending}
             />
           </div>
-        ) : null}
 
-        <div className="mb-8 grid gap-4 xl:grid-cols-[1.3fr_1fr]">
-          <SectionManager
-            sections={sections}
-            onCreateSection={handleCreateSection}
-            onDeleteSection={handleDeleteSection}
-            isPending={isPending}
-          />
-          <ShoppingSetManager
-            sets={sets}
-            sections={sections}
-            onCreateSet={handleCreateSet}
-            onDeleteSet={handleDeleteSet}
-            isPending={isPending}
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle className="text-base">Filters</CardTitle>
+              <CardDescription>
+                Visible total: {visibleGrandTotal.toFixed(2)} {currencySymbol}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                <div className="relative">
+                  <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Search items, alternatives, suppliers..."
+                    className="pl-9"
+                  />
+                </div>
+                <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All statuses</SelectItem>
+                    {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={priorityFilter} onValueChange={(value) => setPriorityFilter(value as typeof priorityFilter)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All priorities</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="urgent">Urgent</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={sectionFilter} onValueChange={setSectionFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Section" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All sections</SelectItem>
+                    {availableSections.map((section) => (
+                      <SelectItem key={section} value={section}>
+                        {section}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All categories</SelectItem>
+                    {availableCategories.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {(searchQuery || statusFilter !== 'all' || priorityFilter !== 'all' || sectionFilter !== 'all' || categoryFilter !== 'all') ? (
+                <div className="mt-4 flex items-center gap-3">
+                  <Badge variant="secondary">
+                    {filteredItems.length} visible item{filteredItems.length === 1 ? '' : 's'}
+                  </Badge>
+                  <Button variant="ghost" size="sm" onClick={resetFilters}>
+                    <XIcon className="mr-2 h-4 w-4" />
+                    Reset
+                  </Button>
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
+
+          {visibleSectionEntries.map((entry) => (
+            <ShoppingListSection
+              key={entry.sectionId || entry.name}
+              sectionName={entry.name}
+              sectionId={entry.sectionId}
+              items={entry.items}
+              sets={entry.sets}
+              allSets={sets}
+              currencySymbol={currencySymbol}
+              teamMembers={teamMembers}
+              sections={sections}
+              onUpdateItem={handleUpdateItem}
+              onDeleteItem={handleDeleteItem}
+              onAddItem={handleAddItem}
+              onCreateAlternativesForItem={handleEnableAlternativesForItem}
+              onUpdateSet={handleUpdateSet}
+              onDeleteSet={handleDeleteSet}
+              isPending={isPending}
+            />
+          ))}
+
+          <ExportModal
+            isOpen={isExportModalOpen}
+            onClose={() => setIsExportModalOpen(false)}
+            exportOptions={exportOptions}
+            onExportOptionsChange={setExportOptions}
+            onExport={async () => {
+              if (exportOptions.format === 'csv') {
+                handleExportCSV();
+                return;
+              }
+              await handleExportPDF();
+            }}
+            isPending={false}
           />
         </div>
-
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Filters</CardTitle>
-            <CardDescription>
-              Visible total: {visibleGrandTotal.toFixed(2)} {currencySymbol}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-              <div className="relative">
-                <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search items, sets, suppliers..."
-                  className="pl-9"
-                />
-              </div>
-              <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All statuses</SelectItem>
-                  {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={priorityFilter} onValueChange={(value) => setPriorityFilter(value as typeof priorityFilter)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Priority" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All priorities</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={sectionFilter} onValueChange={setSectionFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Section" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All sections</SelectItem>
-                  {availableSections.map((section) => (
-                    <SelectItem key={section} value={section}>
-                      {section}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All categories</SelectItem>
-                  {availableCategories.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {(searchQuery || statusFilter !== 'all' || priorityFilter !== 'all' || sectionFilter !== 'all' || categoryFilter !== 'all') ? (
-              <div className="mt-4 flex items-center gap-3">
-                <Badge variant="secondary">
-                  {filteredItems.length} visible item{filteredItems.length === 1 ? '' : 's'}
-                </Badge>
-                <Button variant="ghost" size="sm" onClick={resetFilters}>
-                  <XIcon className="mr-2 h-4 w-4" />
-                  Reset
-                </Button>
-              </div>
-            ) : null}
-          </CardContent>
-        </Card>
-
-        {visibleSectionEntries.map((entry) => (
-          <ShoppingListSection
-            key={entry.sectionId || entry.name}
-            sectionName={entry.name}
-            sectionId={entry.sectionId}
-            items={entry.items}
-            sets={entry.sets}
-            allSets={sets}
-            currencySymbol={currencySymbol}
-            teamMembers={teamMembers}
-            sections={sections}
-            onUpdateItem={handleUpdateItem}
-            onDeleteItem={handleDeleteItem}
-            onAddItem={handleAddItem}
-            onUpdateSet={handleUpdateSet}
-            onDeleteSet={handleDeleteSet}
-            isPending={isPending}
-          />
-        ))}
-
-        <ExportModal
-          isOpen={isExportModalOpen}
-          onClose={() => setIsExportModalOpen(false)}
-          exportOptions={exportOptions}
-          onExportOptionsChange={setExportOptions}
-          onExport={async () => {
-            if (exportOptions.format === 'csv') {
-              handleExportCSV();
-              return;
-            }
-            await handleExportPDF();
-          }}
-          isPending={false}
-        />
       </ProjectPageLayout>
     </TooltipProvider>
   );

@@ -10,6 +10,7 @@ const ACTIONS = {
   CLOSE_IFRAME_POPUP: "closeIframePopup",
   CAPTURE_VISIBLE_TAB: "captureVisibleTab",
   IMAGE_SELECTED: "imageSelected",
+  PICKER_STATUS_CHANGED: "pickerStatusChanged",
 } as const
 
 type RuntimeMessage = {
@@ -19,6 +20,23 @@ type RuntimeMessage = {
 
 function isObjectMessage(value: unknown): value is RuntimeMessage {
   return typeof value === "object" && value !== null && "action" in value
+}
+
+function notifyPickerStatus(
+  picker: "image" | "screenshot",
+  active: boolean,
+  reason: "selected" | "cancelled" | "error" | "idle" = "idle",
+): void {
+  chrome.runtime
+    .sendMessage({
+      action: ACTIONS.PICKER_STATUS_CHANGED,
+      picker,
+      active,
+      reason,
+    })
+    .catch(() => {
+      // Popup listener may be gone; state cleanup in content script still matters.
+    })
 }
 
 function hasStructuredProductSignal(): boolean {
@@ -243,6 +261,7 @@ function disableImagePicker(): void {
 
   imagePickerElements.clear()
   setOverlayInteractivity(true)
+  notifyPickerStatus("image", false, "idle")
 }
 
 function hideClipperForScreenshotPicker(): void {
@@ -386,8 +405,12 @@ async function cropCapturedScreenshot(
   return canvas.toDataURL("image/png")
 }
 
-function disableScreenshotPicker(options?: { restoreClipper?: boolean }): void {
+function disableScreenshotPicker(options?: {
+  restoreClipper?: boolean
+  reason?: "selected" | "cancelled" | "error" | "idle"
+}): void {
   const restoreClipper = options?.restoreClipper !== false
+  const reason = options?.reason ?? "idle"
 
   if (screenshotEscapeListener) {
     window.removeEventListener("keydown", screenshotEscapeListener)
@@ -403,6 +426,7 @@ function disableScreenshotPicker(options?: { restoreClipper?: boolean }): void {
   screenshotStartPoint = null
   screenshotPickerActive = false
   setOverlayInteractivity(true)
+  notifyPickerStatus("screenshot", false, reason)
 
   if (restoreClipper) {
     restoreClipperAfterScreenshotPicker()
@@ -418,7 +442,7 @@ async function finalizeScreenshotSelection(rect: {
   const viewportWidth = window.innerWidth
   const viewportHeight = window.innerHeight
 
-  disableScreenshotPicker({ restoreClipper: false })
+  disableScreenshotPicker({ restoreClipper: false, reason: "selected" })
 
   // Let the browser repaint without the picker overlay before capture.
   await new Promise<void>((resolve) => {
@@ -438,8 +462,10 @@ async function finalizeScreenshotSelection(rect: {
       action: ACTIONS.IMAGE_SELECTED,
       imageUrl: croppedImage,
     })
+    notifyPickerStatus("screenshot", false, "selected")
   } catch (error) {
     console.warn("[MyVibeProject Content] Failed to capture selected area", error)
+    notifyPickerStatus("screenshot", false, "error")
   } finally {
     restoreClipperAfterScreenshotPicker()
   }
@@ -543,7 +569,7 @@ function enableScreenshotPicker(): boolean {
     screenshotStartPoint = null
 
     if (rect.width < 8 || rect.height < 8) {
-      disableScreenshotPicker()
+      disableScreenshotPicker({ reason: "cancelled" })
       return
     }
 
@@ -552,7 +578,7 @@ function enableScreenshotPicker(): boolean {
 
   screenshotEscapeListener = (event: KeyboardEvent) => {
     if (event.key === "Escape") {
-      disableScreenshotPicker()
+      disableScreenshotPicker({ reason: "cancelled" })
     }
   }
   window.addEventListener("keydown", screenshotEscapeListener)

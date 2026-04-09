@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Script from "next/script";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
+import { useAuth } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
 import { ChatKit, useChatKit, type StartScreenPrompt } from "@openai/chatkit-react";
 import { Loader2, RefreshCw } from "lucide-react";
@@ -32,7 +32,7 @@ type HostedChatKitProps = {
 };
 
 export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
-  const { user } = useUser();
+  const { userId, isLoaded: isAuthLoaded } = useAuth();
   const { project, team, isLoading: isProjectLoading } = useProject();
   const router = useRouter();
   const pathname = usePathname();
@@ -111,7 +111,7 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
           projectId: project._id,
           teamId: team._id,
           teamSlug: team.slug,
-          userClerkId: user?.id,
+          userClerkId: userId ?? undefined,
           canMakeChanges,
         }
       : null,
@@ -216,7 +216,7 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
     if (quotaBlocked) {
       if (isPanel) {
         return (
-          <div className="flex h-full min-h-0 flex-col overflow-auto p-4">
+          <div data-tour="project-ai-root" className="flex h-full min-h-0 flex-col overflow-auto p-4">
             <Script
               src="https://cdn.platform.openai.com/deployments/chatkit/chatkit.js"
               strategy="afterInteractive"
@@ -234,13 +234,15 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
       }
 
       return (
-        <AIQuotaUpsellCard
-          teamId={team._id}
-          currentPlan={aiAccess.currentPlan}
-          subscriptionStatus={aiAccess.subscriptionStatus}
-          message={aiAccess.message}
-          remainingTokens={aiAccess.remainingTokens}
-        />
+        <div data-tour="project-ai-root">
+          <AIQuotaUpsellCard
+            teamId={team._id}
+            currentPlan={aiAccess.currentPlan}
+            subscriptionStatus={aiAccess.subscriptionStatus}
+            message={aiAccess.message}
+            remainingTokens={aiAccess.remainingTokens}
+          />
+        </div>
       );
     }
 
@@ -274,11 +276,17 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
       );
     }
 
-    return <AISubscriptionWall teamId={team._id} teamSlug={team.slug} />;
+    return (
+      <div data-tour="project-ai-root">
+        <AISubscriptionWall teamId={team._id} teamSlug={team.slug} />
+      </div>
+    );
   }
 
   const showUnifiedLoading =
     isProjectLoading ||
+    !isAuthLoaded ||
+    !userId ||
     !team?._id ||
     !project?._id ||
     aiAccess === undefined ||
@@ -286,7 +294,10 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
 
   if (showUnifiedLoading) {
     return (
-      <div className={isPanel ? "flex h-full items-center justify-center p-6" : "flex min-h-screen items-center justify-center"}>
+      <div
+        data-tour="project-ai-root"
+        className={isPanel ? "flex h-full items-center justify-center p-6" : "flex min-h-screen items-center justify-center"}
+      >
         <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="Loading" />
       </div>
     );
@@ -297,6 +308,7 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
   if (effectiveError) {
     return (
       <div
+        data-tour="project-ai-root"
         className={
           isPanel
             ? "flex h-full w-full items-center justify-center p-4"
@@ -338,7 +350,7 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
 
   if (isPanel) {
     return (
-      <div className="flex h-full min-h-0 flex-col">
+      <div data-tour="project-ai-root" className="flex h-full min-h-0 flex-col">
         <Script
           src="https://cdn.platform.openai.com/deployments/chatkit/chatkit.js"
           strategy="afterInteractive"
@@ -358,7 +370,7 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
           />
         </div>
 
-        <div className="min-h-0 flex-1 bg-gradient-to-b from-background to-muted/20">
+        <div data-tour="project-ai-surface" className="min-h-0 flex-1 bg-gradient-to-b from-background to-muted/20">
           <ChatKit
             key={refreshKey}
             control={chatkit.control}
@@ -370,7 +382,7 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
   }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] w-full min-w-0 flex-col p-4 xl:p-6">
+    <div data-tour="project-ai-root" className="flex h-[calc(100vh-4rem)] w-full min-w-0 flex-col p-4 xl:p-6">
       <Script
         src="https://cdn.platform.openai.com/deployments/chatkit/chatkit.js"
         strategy="afterInteractive"
@@ -394,7 +406,10 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
         </div>
       </div>
 
-      <div className="relative mx-auto flex h-full w-full max-w-[1220px] overflow-hidden rounded-3xl border border-border/70 bg-gradient-to-b from-background to-muted/20 shadow-lg">
+      <div
+        data-tour="project-ai-surface"
+        className="relative mx-auto flex h-full w-full max-w-[1220px] overflow-hidden rounded-3xl border border-border/70 bg-gradient-to-b from-background to-muted/20 shadow-lg"
+      >
         <ChatKit
           key={refreshKey}
           control={chatkit.control}

@@ -240,6 +240,13 @@ export const getProjectContextSnapshot = internalQuery({
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
 
+    const aiKnowledgeFiles = await ctx.db
+      .query("files")
+      .withIndex("by_project_and_ai_knowledge", (q) =>
+        q.eq("projectId", args.projectId).eq("aiKnowledgeEnabled", true)
+      )
+      .collect();
+
     const surveyDetails: SurveySnapshot[] = [];
     for (const survey of surveys) {
       const questions = await ctx.db
@@ -279,6 +286,7 @@ export const getProjectContextSnapshot = internalQuery({
     summaryLines.push(`Shopping items: ${shopping.length}`);
     summaryLines.push(`Contacts: ${contactDocs.length}`);
     summaryLines.push(`Surveys: ${surveyDetails.length}`);
+    summaryLines.push(`AI knowledge files: ${aiKnowledgeFiles.length}`);
     if (project) {
       summaryLines.push(`Project budget: ${project.budget ?? "not set"}`);
       summaryLines.push(`Project currency: ${project.currency ?? "not set"}`);
@@ -356,7 +364,30 @@ export const getProjectContextSnapshot = internalQuery({
       })),
       contacts: contactDocs,
       surveys: surveyDetails,
-      files: [],
+      files: aiKnowledgeFiles
+        .filter((file) => file.origin !== "ai")
+        .slice(0, 12)
+        .map((file) => ({
+          _id: file._id,
+          name: file.name,
+          description: file.description,
+          fileType: file.fileType,
+          size: file.size,
+          mimeType: file.mimeType,
+          moodboardSection: file.moodboardSection,
+          extractedText:
+            typeof file.extractedText === "string"
+              ? file.extractedText.slice(0, 2000)
+              : undefined,
+          pdfAnalysis:
+            typeof file.pdfAnalysis === "string"
+              ? file.pdfAnalysis.slice(0, 2000)
+              : undefined,
+          aiKnowledgeEnabled: file.aiKnowledgeEnabled,
+          aiKnowledgeStatus: file.aiKnowledgeStatus,
+          aiKnowledgeEntryId: file.aiKnowledgeEntryId,
+          aiKnowledgeIndexedAt: file.aiKnowledgeIndexedAt,
+        })),
       summary: summaryLines.join(" | "),
     };
   },

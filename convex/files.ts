@@ -18,6 +18,8 @@ import { canAccessProjectWithMembership } from "./authz";
 export const r2 = new R2(components.r2);
 const checkStorageLimitQueryRef =
   makeFunctionReference<"query">("files:checkStorageLimit");
+const FILE_KNOWLEDGE_INDEX_ACTION = "fileKnowledgeActions:indexProjectFileKnowledge";
+const FILE_KNOWLEDGE_REMOVE_ACTION = "fileKnowledgeActions:removeProjectFileKnowledgeEntry";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const DEFAULT_MOODBOARD_SECTIONS = [
@@ -92,6 +94,35 @@ const getProjectAccess = async (ctx: any, projectId: Id<"projects">, clerkUserId
   }
 
   return { project, teamMember };
+};
+
+const scheduleKnowledgeIndex = async (ctx: MutationCtx, fileId: Id<"files">) => {
+  const scheduler = ctx.scheduler as {
+    runAfter: (
+      delayMs: number,
+      functionReference: string,
+      args: { fileId: Id<"files"> },
+    ) => Promise<unknown>;
+  };
+
+  await scheduler.runAfter(0, FILE_KNOWLEDGE_INDEX_ACTION, { fileId });
+};
+
+const scheduleKnowledgeRemoval = async (
+  ctx: MutationCtx,
+  entryId: string | undefined,
+) => {
+  if (!entryId) return;
+
+  const scheduler = ctx.scheduler as {
+    runAfter: (
+      delayMs: number,
+      functionReference: string,
+      args: { entryId: string },
+    ) => Promise<unknown>;
+  };
+
+  await scheduler.runAfter(0, FILE_KNOWLEDGE_REMOVE_ACTION, { entryId });
 };
 
 const listMoodboardFileSectionIds = async (
@@ -520,6 +551,10 @@ export const createFileRecordInternal = internalMutation({
       version: 1,
       isLatest: true,
       origin,
+      aiKnowledgeEnabled: false,
+      aiKnowledgeStatus: "excluded",
+      aiKnowledgeEntryId: undefined,
+      aiKnowledgeIndexedAt: undefined,
       showInClientPortal: false,
     });
 
@@ -726,6 +761,10 @@ export const addFile = mutation({
       isLatest: true,
       origin,
       moodboardSection: args.moodboardSection,
+      aiKnowledgeEnabled: false,
+      aiKnowledgeStatus: "excluded",
+      aiKnowledgeEntryId: undefined,
+      aiKnowledgeIndexedAt: undefined,
       // Moodboard uploads should be visible in the client portal by default.
       showInClientPortal: hasMoodboardSection,
     });
@@ -976,6 +1015,8 @@ export const deleteFile = mutation({
       // Continue with database deletion even if R2 deletion fails
       // This prevents orphaned database records if R2 service is temporarily unavailable
     }
+
+    await scheduleKnowledgeRemoval(ctx, file.aiKnowledgeEntryId);
     
     // Usuń z bazy danych
     await ctx.db.delete(args.fileId);
@@ -1032,6 +1073,162 @@ export const setFileCustomerPortalVisibility = mutation({
       fileId: args.fileId,
       showInClientPortal: args.showInClientPortal,
     };
+  },
+});
+
+export const setFileAiKnowledgeInclusion = mutation({
+  args: {
+    fileId: v.id("files"),
+    enabled: v.boolean(),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    fileId: v.id("files"),
+    aiKnowledgeEnabled: v.boolean(),
+    aiKnowledgeStatus: v.union(
+      v.literal("excluded"),
+      v.literal("pending"),
+      v.literal("ready"),
+      v.literal("failed"),
+    ),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const file = await ctx.db.get(args.fileId);
+    if (!file || !file.projectId) throw new Error("File not found");
+
+    const project = await ctx.db.get(file.projectId);
+    if (!project) throw new Error("Project not found");
+
+    const member = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
+      )
+      .unique();
+
+    if (!member || !member.isActive) {
+      throw new Error("No access to this project");
+    }
+
+    if (member.role === "member" && member.projectIds && member.projectIds.length > 0) {
+      if (!member.projectIds.includes(project._id)) {
+        throw new Error("No access to this project");
+      }
+    } else if (member.role !== "admin" && member.role !== "member") {
+      throw new Error("No permission to manage AI knowledge files");
+    }
+
+    const nextStatus: "pending" | "excluded" = args.enabled ? "pending" : "excluded";
+    await ctx.db.patch(args.fileId, {
+      aiKnowledgeEnabled: args.enabled,
+      aiKnowledgeStatus: nextStatus,
+      aiKnowledgeError: undefined,
+      aiKnowledgeEntryId: args.enabled ? file.aiKnowledgeEntryId : undefined,
+      aiKnowledgeIndexedAt: args.enabled ? file.aiKnowledgeIndexedAt : undefined,
+    });
+
+    if (args.enabled) {
+      await scheduleKnowledgeIndex(ctx, args.fileId);
+    } else {
+      await scheduleKnowledgeRemoval(ctx, file.aiKnowledgeEntryId);
+      await ctx.db.patch(args.fileId, {
+        aiKnowledgeEntryId: undefined,
+        aiKnowledgeIndexedAt: undefined,
+      });
+    }
+
+    return {
+      success: true,
+      fileId: args.fileId,
+      aiKnowledgeEnabled: args.enabled,
+      aiKnowledgeStatus: nextStatus,
+    };
+  },
+});
+
+export const setFileAiKnowledgeStateInternal = internalMutation({
+  args: {
+    fileId: v.id("files"),
+    status: v.optional(v.union(
+      v.literal("excluded"),
+      v.literal("pending"),
+      v.literal("ready"),
+      v.literal("failed"),
+    )),
+    error: v.optional(v.union(v.string(), v.null())),
+    entryId: v.optional(v.union(v.string(), v.null())),
+    indexedAt: v.optional(v.union(v.number(), v.null())),
+    extractedText: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const patch: Record<string, unknown> = {};
+
+    if (args.status !== undefined) {
+      patch.aiKnowledgeStatus = args.status;
+    }
+    if (args.error !== undefined) {
+      patch.aiKnowledgeError = args.error ?? undefined;
+    }
+    if (args.entryId !== undefined) {
+      patch.aiKnowledgeEntryId = args.entryId ?? undefined;
+    }
+    if (args.indexedAt !== undefined) {
+      patch.aiKnowledgeIndexedAt = args.indexedAt ?? undefined;
+    }
+    if (args.extractedText !== undefined) {
+      patch.extractedText = args.extractedText;
+      patch.textExtractionStatus = "completed";
+    }
+
+    await ctx.db.patch(args.fileId, patch);
+  },
+});
+
+export const getProjectAiKnowledgeFiles = query({
+  args: {
+    projectId: v.id("projects"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+
+    const project = await ctx.db.get(args.projectId);
+    if (!project) return [];
+
+    const hasAccess = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
+      )
+      .unique();
+
+    if (!hasAccess || !hasAccess.isActive) return [];
+
+    const files = await ctx.db
+      .query("files")
+      .withIndex("by_project_and_ai_knowledge", (q) =>
+        q.eq("projectId", args.projectId).eq("aiKnowledgeEnabled", true)
+      )
+      .collect();
+
+    const visibleFiles = files.filter((file) => file.origin !== "ai");
+
+    return Promise.all(
+      visibleFiles.map(async (file) => {
+        try {
+          const url = await r2.getUrl(file.storageId as string, {
+            expiresIn: 60 * 60 * 24,
+          });
+          return { ...file, url };
+        } catch (error) {
+          console.error(`Error generating URL for AI knowledge file ${file._id}:`, error);
+          return { ...file, url: null };
+        }
+      })
+    );
   },
 });
 
@@ -1265,6 +1462,7 @@ export const deleteMoodboardSection = mutation({
 
     for (const file of filesInSection) {
       await deleteStoredFile(ctx, file.storageId);
+      await scheduleKnowledgeRemoval(ctx, file.aiKnowledgeEntryId);
       await ctx.db.delete(file._id);
     }
 
@@ -1474,6 +1672,8 @@ export const deleteFileByStorageId = mutation({
 
     // Delete from R2
     await deleteStoredFile(ctx, file.storageId);
+
+    await scheduleKnowledgeRemoval(ctx, file.aiKnowledgeEntryId);
     
     // Delete from database
     await ctx.db.delete(file._id);
