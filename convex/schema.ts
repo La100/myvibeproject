@@ -2,6 +2,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import {
   billingProfileValidator,
+  invoiceFieldRequirementsValidator,
   invoiceCustomerSnapshotValidator,
   invoiceSellerSnapshotValidator,
   paymentCustomerDetailsValidator,
@@ -96,6 +97,7 @@ export default defineSchema({
     stripeConnectAccountType: v.optional(v.union(v.literal("express"), v.literal("standard"))),
     stripeConnectLastSyncedAt: v.optional(v.number()),
     billingProfile: v.optional(billingProfileValidator),
+    invoiceFieldRequirements: v.optional(invoiceFieldRequirementsValidator),
   })
     .index("by_clerk_org", ["clerkOrgId"])
     .index("by_slug", ["slug"])
@@ -942,7 +944,7 @@ export default defineSchema({
     createdBy: v.string(), // Clerk user ID
     isActive: v.boolean(),
     website: v.optional(v.string()),
-    taxId: v.optional(v.string()), // NIP/VAT ID
+    taxId: v.optional(v.string()), // Tax ID / VAT ID
   })
     .index("by_team", ["teamId"])
     .index("by_type", ["type"])

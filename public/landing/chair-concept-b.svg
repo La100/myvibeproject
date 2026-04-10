@@ -1,0 +1,26 @@
+<svg width="720" height="720" viewBox="0 0 720 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="720" height="720" rx="48" fill="url(#bg)"/>
+  <circle cx="195" cy="164" r="116" fill="#D9E5D8" fill-opacity="0.9"/>
+  <circle cx="570" cy="556" r="142" fill="#E7C3A9" fill-opacity="0.7"/>
+  <rect x="142" y="502" width="442" height="22" rx="11" fill="#B8B59F"/>
+  <path d="M278 302C278 252.294 318.294 212 368 212C417.706 212 458 252.294 458 302V334C458 383.706 417.706 424 368 424C318.294 424 278 383.706 278 334V302Z" fill="#D8D0C8"/>
+  <path d="M272 304C272 278.595 292.595 258 318 258H418C443.405 258 464 278.595 464 304V338H272V304Z" fill="#70806A"/>
+  <path d="M310 420H426L464 497H272L310 420Z" fill="#8D9B82"/>
+  <path d="M310 497L274 610" stroke="#596357" stroke-width="16" stroke-linecap="round"/>
+  <path d="M426 497L462 610" stroke="#596357" stroke-width="16" stroke-linecap="round"/>
+  <path d="M338 422V610" stroke="#596357" stroke-width="14" stroke-linecap="round"/>
+  <path d="M398 422V610" stroke="#596357" stroke-width="14" stroke-linecap="round"/>
+  <path d="M285 616H252" stroke="#596357" stroke-width="16" stroke-linecap="round"/>
+  <path d="M484 616H451" stroke="#596357" stroke-width="16" stroke-linecap="round"/>
+  <path d="M353 616H322" stroke="#596357" stroke-width="14" stroke-linecap="round"/>
+  <path d="M414 616H383" stroke="#596357" stroke-width="14" stroke-linecap="round"/>
+  <rect x="126" y="126" width="168" height="36" rx="18" fill="#FFFFFF" fill-opacity="0.72"/>
+  <text x="150" y="150" fill="#5C6759" font-family="Arial, sans-serif" font-size="24" font-weight="700" letter-spacing="0.18em">CHAIR B</text>
+  <defs>
+    <linearGradient id="bg" x1="82" y1="74" x2="638" y2="650" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F5F1E7"/>
+      <stop offset="0.54" stop-color="#E3E1D1"/>
+      <stop offset="1" stop-color="#D7D3C6"/>
+    </linearGradient>
+  </defs>
+</svg>

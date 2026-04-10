@@ -1,21 +1,31 @@
 "use node";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import Stripe from "stripe";
 import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { r2 } from "./files";
 import { generateInvoicePdf, sanitizeFileName, type InvoicePdfInput } from "../lib/invoicePdf";
 import {
+  applyInvoiceFieldVisibilityToBillingProfile,
+  applyInvoiceFieldVisibilityToCustomer,
   normalizeBillingProfile,
   normalizeOptionalEmail,
   normalizeOptionalString,
   normalizePaymentCustomerDetails,
+  resolveInvoiceFieldRequirements,
 } from "./projectPaymentHelpers";
 
 type InvoiceActionResult = {
   invoiceNumber: string;
   status: string;
   url: string;
+};
+
+type StripePaymentLinkResult = {
+  url: string;
+  stripeInvoiceId: string;
+  status: string;
 };
 
 type InvoicePayload = {
@@ -26,19 +36,39 @@ type InvoicePayload = {
 
 type BillingProfile = NonNullable<ReturnType<typeof normalizeBillingProfile>>;
 type CustomerDetails = NonNullable<ReturnType<typeof normalizePaymentCustomerDetails>>;
+
 const BASE_URL = (process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3001").replace(/\/+$/, "");
+
 // Keep generated refs runtime-loaded here to avoid deep TS instantiation.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const internalAny = require("./_generated/api").internal as any;
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+let stripe: Stripe | null = null;
+
+const getStripe = () => {
+  if (stripe) {
+    return stripe;
+  }
+
+  const apiKey = process.env.STRIPE_SECRET_KEY;
+  if (!apiKey) {
+    throw new Error("STRIPE_SECRET_KEY is not configured");
+  }
+
+  stripe = new Stripe(apiKey, {
+    apiVersion: "2025-11-17.clover",
+  });
+  return stripe;
+};
+
 const escapeHtml = (value: string) =>
   value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
+    .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
 const formatAmount = (amount: number, currency: string) =>
@@ -71,6 +101,40 @@ const buildAddressBlock = (value: {
     [normalizeOptionalString(value.postalCode), normalizeOptionalString(value.city)].filter(Boolean).join(" "),
     normalizeOptionalString(value.country),
   ].filter(Boolean) as string[];
+
+const getInvoicePaymentIntentId = (invoice: Stripe.Invoice) => {
+  const paymentIntent = (invoice as any).payment_intent;
+  if (!paymentIntent) return undefined;
+  return typeof paymentIntent === "string" ? paymentIntent : paymentIntent.id;
+};
+
+const mapStripeInvoiceStatusToProjectPaymentStatus = (
+  status: Stripe.Invoice.Status | null,
+): "open" | "paid" | "void" | "uncollectible" => {
+  if (status === "paid") return "paid";
+  if (status === "void") return "void";
+  if (status === "uncollectible") return "uncollectible";
+  return "open";
+};
+
+const isStripeConnectOnboardingComplete = (team: any) =>
+  team?.stripeConnectOnboardingComplete === true ||
+  (team?.stripeConnectChargesEnabled === true && team?.stripeConnectPayoutsEnabled === true);
+
+const assertStripeConnectReady = (team: any) => {
+  const accountId = normalizeOptionalString(team?.stripeConnectAccountId);
+  if (!accountId) {
+    throw new Error("Stripe Connect is not set up for this organization yet");
+  }
+
+  const onboardingComplete = isStripeConnectOnboardingComplete(team);
+
+  if (!onboardingComplete) {
+    throw new Error("Complete Stripe Connect onboarding before generating payment links");
+  }
+
+  return accountId;
+};
 
 const getInvoiceCustomerDetails = (project: any, installment: any): CustomerDetails => {
   const snapshot = normalizePaymentCustomerDetails(installment.invoiceCustomerSnapshot);
@@ -120,18 +184,24 @@ const getBillingProfile = (team: any, installment: any): BillingProfile => {
   };
 };
 
-const validateInvoiceReadiness = (billingProfile: BillingProfile, customer: CustomerDetails) => {
+const validateInvoiceReadiness = (
+  billingProfile: BillingProfile,
+  customer: CustomerDetails,
+  options?: {
+    stripeConnectReady?: boolean;
+  },
+) => {
   const missing: string[] = [];
 
-  if (!billingProfile.sellerName) missing.push("seller name");
-  if (!billingProfile.sellerAddressLine1) missing.push("seller address");
-  if (!billingProfile.sellerCity) missing.push("seller city");
-  if (!billingProfile.sellerCountry) missing.push("seller country");
-  if (!billingProfile.bankAccountNumber) missing.push("bank account number");
-  if (!(customer.companyName || customer.name)) missing.push("customer name");
-  if (!customer.addressLine1) missing.push("customer address");
-  if (!customer.city) missing.push("customer city");
-  if (!customer.country) missing.push("customer country");
+  if (!normalizeOptionalString(billingProfile.sellerName)) {
+    missing.push("seller name");
+  }
+  if (!(normalizeOptionalString(customer.companyName) || normalizeOptionalString(customer.name))) {
+    missing.push("customer name or company");
+  }
+  if (!options?.stripeConnectReady && !normalizeOptionalString(billingProfile.bankAccountNumber)) {
+    missing.push("bank account number or Stripe payments");
+  }
 
   if (missing.length > 0) {
     throw new Error(`Complete the billing profile before issuing an invoice: ${missing.join(", ")}`);
@@ -306,9 +376,18 @@ const ensureInvoiceDocument = async (
   actorUserId: string,
 ) => {
   let payload = await loadInvoicePayload(ctx, installmentId);
-  const billingProfile = getBillingProfile(payload.team, payload.installment);
-  const customer = getInvoiceCustomerDetails(payload.project, payload.installment);
-  validateInvoiceReadiness(billingProfile, customer);
+  const invoiceFieldRequirements = resolveInvoiceFieldRequirements(payload.team?.invoiceFieldRequirements);
+  const billingProfile = applyInvoiceFieldVisibilityToBillingProfile(
+    getBillingProfile(payload.team, payload.installment),
+    invoiceFieldRequirements,
+  ) as BillingProfile;
+  const customer = applyInvoiceFieldVisibilityToCustomer(
+    getInvoiceCustomerDetails(payload.project, payload.installment),
+    invoiceFieldRequirements,
+  ) as CustomerDetails;
+  validateInvoiceReadiness(billingProfile, customer, {
+    stripeConnectReady: isStripeConnectOnboardingComplete(payload.team),
+  });
 
   if (!payload.installment.invoiceNumber) {
     const invoiceIssuedAt = Date.now();
@@ -333,6 +412,35 @@ const ensureInvoiceDocument = async (
   }
 
   return payload;
+};
+
+const buildInvoicePreviewPayload = (payload: InvoicePayload) => {
+  const invoiceFieldRequirements = resolveInvoiceFieldRequirements(payload.team?.invoiceFieldRequirements);
+  const billingProfile = applyInvoiceFieldVisibilityToBillingProfile(
+    getBillingProfile(payload.team, payload.installment),
+    invoiceFieldRequirements,
+  ) as BillingProfile;
+  const customer = applyInvoiceFieldVisibilityToCustomer(
+    getInvoiceCustomerDetails(payload.project, payload.installment),
+    invoiceFieldRequirements,
+  ) as CustomerDetails;
+
+  validateInvoiceReadiness(billingProfile, customer, {
+    stripeConnectReady: isStripeConnectOnboardingComplete(payload.team),
+  });
+
+  return {
+    ...payload,
+    installment: {
+      ...payload.installment,
+      invoiceNumber: payload.installment.invoiceNumber || "DRAFT",
+      invoiceIssuedAt: payload.installment.invoiceIssuedAt || Date.now(),
+      paymentReference:
+        payload.installment.paymentReference || `${payload.project.name} / ${payload.installment.title}`,
+      invoiceSellerSnapshot: billingProfile,
+      invoiceCustomerSnapshot: customer,
+    },
+  } as InvoicePayload;
 };
 
 const buildInvoiceEmail = async (payload: InvoicePayload) => {
@@ -409,6 +517,200 @@ const issueInvoice = async (
     invoiceNumber: ready.installment.invoiceNumber,
     status: ready.installment.status,
     url,
+  };
+};
+
+const getInvoiceMetadata = (payload: InvoicePayload) => ({
+  teamId: String(payload.team._id),
+  projectId: String(payload.project._id),
+  installmentId: String(payload.installment._id),
+  invoiceNumber: String(payload.installment.invoiceNumber || ""),
+});
+
+const syncInstallmentFromStripeInvoice = async (
+  ctx: any,
+  installmentId: any,
+  invoice: Stripe.Invoice,
+) => {
+  if (!invoice.id) {
+    throw new Error("Stripe invoice ID is missing");
+  }
+
+  await ctx.runMutation(internalAny.projectPayments.attachStripeInvoiceToProjectPayment, {
+    installmentId,
+    status: mapStripeInvoiceStatusToProjectPaymentStatus(invoice.status),
+    stripeInvoiceId: invoice.id,
+    stripeHostedInvoiceUrl: invoice.hosted_invoice_url || undefined,
+    stripeInvoiceNumber: invoice.number || undefined,
+    stripePaymentIntentId: getInvoicePaymentIntentId(invoice),
+    sentAt: invoice.status_transitions.finalized_at
+      ? invoice.status_transitions.finalized_at * 1000
+      : undefined,
+    paidAt: invoice.status_transitions.paid_at
+      ? invoice.status_transitions.paid_at * 1000
+      : undefined,
+    lastStripeSyncAt: Date.now(),
+  });
+};
+
+const getOrCreateProjectStripeCustomer = async (
+  ctx: any,
+  payload: InvoicePayload,
+  stripeConnectAccountId: string,
+  customer: CustomerDetails,
+) => {
+  const existingCustomerId = normalizeOptionalString(payload.project.stripeProjectCustomerId);
+  const requestOptions: Stripe.RequestOptions = {
+    stripeAccount: stripeConnectAccountId,
+  };
+
+  if (existingCustomerId) {
+    try {
+      await getStripe().customers.retrieve(existingCustomerId, {}, requestOptions);
+      return existingCustomerId;
+    } catch (error: any) {
+      if (error?.statusCode !== 404) {
+        throw error;
+      }
+    }
+  }
+
+  const createdCustomer = await getStripe().customers.create(
+    {
+      name:
+        normalizeOptionalString(customer.companyName) ||
+        normalizeOptionalString(customer.name) ||
+        normalizeOptionalString(payload.project.paymentCustomerName) ||
+        normalizeOptionalString(payload.project.customer) ||
+        payload.project.name,
+      email: normalizeOptionalEmail(customer.email),
+      phone: normalizeOptionalString(customer.phone),
+      address: {
+        line1: normalizeOptionalString(customer.addressLine1),
+        line2: normalizeOptionalString(customer.addressLine2),
+        city: normalizeOptionalString(customer.city),
+        postal_code: normalizeOptionalString(customer.postalCode),
+        country: normalizeOptionalString(customer.country),
+      },
+      metadata: getInvoiceMetadata(payload),
+    },
+    requestOptions,
+  );
+
+  await ctx.runMutation(internalAny.projectPayments.setProjectStripeCustomer, {
+    projectId: payload.project._id,
+    stripeProjectCustomerId: createdCustomer.id,
+    paymentCustomerName: customer.name || customer.companyName,
+    paymentCustomerEmail: customer.email,
+  });
+
+  return createdCustomer.id;
+};
+
+const createStripePaymentLinkForInstallment = async (
+  ctx: any,
+  payload: InvoicePayload,
+): Promise<StripePaymentLinkResult> => {
+  const invoiceFieldRequirements = resolveInvoiceFieldRequirements(payload.team?.invoiceFieldRequirements);
+  const billingProfile = applyInvoiceFieldVisibilityToBillingProfile(
+    getBillingProfile(payload.team, payload.installment),
+    invoiceFieldRequirements,
+  ) as BillingProfile;
+  const customer = applyInvoiceFieldVisibilityToCustomer(
+    getInvoiceCustomerDetails(payload.project, payload.installment),
+    invoiceFieldRequirements,
+  ) as CustomerDetails;
+  validateInvoiceReadiness(billingProfile, customer, {
+    stripeConnectReady: isStripeConnectOnboardingComplete(payload.team),
+  });
+
+  const stripeConnectAccountId = assertStripeConnectReady(payload.team);
+  const requestOptions: Stripe.RequestOptions = {
+    stripeAccount: stripeConnectAccountId,
+  };
+
+  const existingStripeInvoiceId = normalizeOptionalString(payload.installment.stripeInvoiceId);
+
+  if (existingStripeInvoiceId) {
+    let existingInvoice = await getStripe().invoices.retrieve(
+      existingStripeInvoiceId,
+      { expand: ["payment_intent"] },
+      requestOptions,
+    );
+
+    if (existingInvoice.status === "draft") {
+      await getStripe().invoices.finalizeInvoice(existingStripeInvoiceId, {}, requestOptions);
+      existingInvoice = await getStripe().invoices.retrieve(
+        existingStripeInvoiceId,
+        { expand: ["payment_intent"] },
+        requestOptions,
+      );
+    }
+
+    if (existingInvoice.status === "open" || existingInvoice.status === "paid") {
+      await syncInstallmentFromStripeInvoice(ctx, payload.installment._id, existingInvoice);
+      return {
+        url: existingInvoice.hosted_invoice_url || "",
+        stripeInvoiceId: existingInvoice.id,
+        status: mapStripeInvoiceStatusToProjectPaymentStatus(existingInvoice.status),
+      };
+    }
+  }
+
+  const customerId = await getOrCreateProjectStripeCustomer(ctx, payload, stripeConnectAccountId, customer);
+  const amountMinor = Math.round(Number(payload.installment.amount) * 100);
+
+  if (!Number.isFinite(amountMinor) || amountMinor <= 0) {
+    throw new Error("Installment amount must be greater than zero");
+  }
+
+  const lineDescription = payload.installment.description?.trim()
+    ? `${payload.installment.title} - ${payload.installment.description.trim()}`
+    : payload.installment.title;
+
+  await getStripe().invoiceItems.create(
+    {
+      customer: customerId,
+      amount: amountMinor,
+      currency: String(payload.installment.currency || "pln").toLowerCase(),
+      description: lineDescription,
+      metadata: getInvoiceMetadata(payload),
+    },
+    requestOptions,
+  );
+
+  const createParams: Stripe.InvoiceCreateParams = {
+    customer: customerId,
+    collection_method: "send_invoice",
+    auto_advance: false,
+    metadata: getInvoiceMetadata(payload),
+    description: payload.installment.invoiceNumber
+      ? `Invoice ${payload.installment.invoiceNumber}`
+      : payload.installment.title,
+    footer: normalizeOptionalString(billingProfile.paymentInstructions),
+  };
+
+  if (typeof payload.installment.dueDate === "number" && payload.installment.dueDate > Date.now()) {
+    createParams.due_date = Math.floor(payload.installment.dueDate / 1000);
+  } else {
+    createParams.days_until_due = Math.max(1, billingProfile.defaultPaymentTermDays || 14);
+  }
+
+  const createdInvoice = await getStripe().invoices.create(createParams, requestOptions);
+  await getStripe().invoices.finalizeInvoice(createdInvoice.id, {}, requestOptions);
+
+  const finalizedInvoice = await getStripe().invoices.retrieve(
+    createdInvoice.id,
+    { expand: ["payment_intent"] },
+    requestOptions,
+  );
+
+  await syncInstallmentFromStripeInvoice(ctx, payload.installment._id, finalizedInvoice);
+
+  return {
+    url: finalizedInvoice.hosted_invoice_url || "",
+    stripeInvoiceId: finalizedInvoice.id,
+    status: mapStripeInvoiceStatusToProjectPaymentStatus(finalizedInvoice.status),
   };
 };
 
@@ -523,6 +825,35 @@ export const cancelProjectPaymentInvoice = action({
   },
 });
 
+export const createProjectPaymentStripeLink = action({
+  args: {
+    installmentId: v.id("projectPayments"),
+  },
+  returns: v.object({
+    url: v.string(),
+    stripeInvoiceId: v.string(),
+    status: v.string(),
+  }),
+  async handler(ctx, args): Promise<StripePaymentLinkResult> {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const payload = await loadInvoicePayload(ctx, args.installmentId);
+    await ensureProjectPaymentAccess(ctx, payload.project, identity.subject);
+
+    const readyPayload = await ensureInvoiceDocument(ctx, args.installmentId, identity.subject);
+    const result = await createStripePaymentLinkForInstallment(ctx, readyPayload);
+
+    if (!result.url) {
+      throw new Error("Stripe payment link is not available yet");
+    }
+
+    return result;
+  },
+});
+
 export const getProjectPaymentInvoiceDownloadUrl = action({
   args: {
     installmentId: v.id("projectPayments"),
@@ -551,6 +882,36 @@ export const getProjectPaymentInvoiceDownloadUrl = action({
 
     return {
       url: await getInvoiceDownloadUrl(payload.installment.invoicePdfStorageKey),
+    };
+  },
+});
+
+export const previewProjectPaymentInvoice = action({
+  args: {
+    installmentId: v.id("projectPayments"),
+  },
+  returns: v.object({
+    url: v.string(),
+    fileName: v.string(),
+  }),
+  async handler(ctx, args) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const payload = await loadInvoicePayload(ctx, args.installmentId);
+    await ensureProjectPaymentAccess(ctx, payload.project, identity.subject);
+
+    const previewPayload = buildInvoicePreviewPayload(payload);
+    const pdfBuffer = generateInvoicePdf(buildInvoicePdfInput(previewPayload));
+    const fileName = payload.installment.invoiceNumber
+      ? `invoice-${sanitizeFileName(payload.installment.invoiceNumber)}.pdf`
+      : `invoice-preview-${sanitizeFileName(payload.installment.title || "draft")}.pdf`;
+
+    return {
+      url: `data:application/pdf;base64,${pdfBuffer.toString("base64")}`,
+      fileName,
     };
   },
 });
@@ -588,6 +949,59 @@ export const getProjectPaymentInvoiceDownloadUrlByAccessToken = action({
   },
 });
 
+export const getProjectPaymentStripeLinkByAccessToken = action({
+  args: {
+    accessToken: v.string(),
+    installmentId: v.id("projectPayments"),
+  },
+  returns: v.object({
+    url: v.string(),
+  }),
+  async handler(ctx, args) {
+    const project = await ctx.runQuery(internalAny.projectPayments.getProjectForPortalAccess, {
+      accessToken: args.accessToken,
+    });
+    if (!project) {
+      throw new Error("Invalid client portal link");
+    }
+    if (project.clientPanelPublishedSettings?.showPayments !== true) {
+      throw new Error("Payments are hidden in this client portal");
+    }
+
+    let payload = await loadInvoicePayload(ctx, args.installmentId);
+    if (String(payload.project._id) !== String(project._id)) {
+      throw new Error("This payment does not belong to the shared project");
+    }
+
+    const existingUrl = normalizeOptionalString(payload.installment.stripeHostedInvoiceUrl);
+    if (existingUrl) {
+      return { url: existingUrl };
+    }
+
+    const stripeInvoiceId = normalizeOptionalString(payload.installment.stripeInvoiceId);
+    if (!stripeInvoiceId) {
+      throw new Error("Online payment is not available for this installment yet");
+    }
+
+    const stripeConnectAccountId = assertStripeConnectReady(payload.team);
+    const refreshedInvoice = await getStripe().invoices.retrieve(
+      stripeInvoiceId,
+      { expand: ["payment_intent"] },
+      { stripeAccount: stripeConnectAccountId },
+    );
+
+    await syncInstallmentFromStripeInvoice(ctx, payload.installment._id, refreshedInvoice);
+    payload = await loadInvoicePayload(ctx, args.installmentId);
+
+    const refreshedUrl = normalizeOptionalString(payload.installment.stripeHostedInvoiceUrl);
+    if (!refreshedUrl) {
+      throw new Error("Stripe payment link is not available yet");
+    }
+
+    return { url: refreshedUrl };
+  },
+});
+
 export const createProjectCustomerPortalSession = action({
   args: {
     projectId: v.id("projects"),
@@ -596,7 +1010,7 @@ export const createProjectCustomerPortalSession = action({
     url: v.string(),
   }),
   async handler() {
-    throw new Error("Stripe customer portal is disabled for bank-transfer invoices");
+    throw new Error("Stripe customer portal is disabled for project payments");
   },
 });
 

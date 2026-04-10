@@ -6,7 +6,10 @@ import { getEffectiveLimits } from "./stripe";
 import { ensureProjectAccess, ensureTeamAccess, getActiveTeamMembership } from "./authz";
 import {
   billingProfileValidator,
+  invoiceFieldRequirementsValidator,
+  normalizeInvoiceFieldRequirements,
   normalizeBillingProfile,
+  resolveInvoiceFieldRequirements,
   resolveOrganizationBillingProfile,
 } from "./projectPaymentHelpers";
 
@@ -332,6 +335,7 @@ export const getTeamSettingsByClerkOrg = query({
       currency: team.currency || "PLN",
       timezone: team.timezone,
       billingProfile: resolveOrganizationBillingProfile(team.billingProfile, team),
+      invoiceFieldRequirements: resolveInvoiceFieldRequirements(team.invoiceFieldRequirements),
       userRole: teamMember.role,
     };
   }
@@ -914,6 +918,7 @@ export const updateTeamSettings = mutation({
     )),
     timezone: v.optional(v.string()),
     billingProfile: v.optional(v.union(billingProfileValidator, v.null())),
+    invoiceFieldRequirements: v.optional(v.union(invoiceFieldRequirementsValidator, v.null())),
   },
   async handler(ctx, args) {
     const identity = await ctx.auth.getUserIdentity();
@@ -938,6 +943,7 @@ export const updateTeamSettings = mutation({
       timezone?: string;
       imageUrl?: string | undefined;
       billingProfile?: ReturnType<typeof normalizeBillingProfile>;
+      invoiceFieldRequirements?: ReturnType<typeof normalizeInvoiceFieldRequirements>;
     } = {};
 
     if (args.currency !== undefined) {
@@ -955,6 +961,10 @@ export const updateTeamSettings = mutation({
 
     if (Object.prototype.hasOwnProperty.call(args, "billingProfile")) {
       patch.billingProfile = normalizeBillingProfile(args.billingProfile);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(args, "invoiceFieldRequirements")) {
+      patch.invoiceFieldRequirements = normalizeInvoiceFieldRequirements(args.invoiceFieldRequirements);
     }
 
     if (Object.keys(patch).length > 0) {

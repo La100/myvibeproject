@@ -48,7 +48,7 @@ export function sanitizeFileName(value: string): string {
 }
 
 const formatAmount = (amount: number, currency: string) =>
-  new Intl.NumberFormat("pl-PL", {
+  new Intl.NumberFormat("en", {
     style: "currency",
     currency,
     minimumFractionDigits: 2,
@@ -57,11 +57,11 @@ const formatAmount = (amount: number, currency: string) =>
 
 const formatDate = (timestamp?: number) => {
   if (!timestamp) return "-";
-  return new Intl.DateTimeFormat("pl-PL", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date(timestamp));
+  const date = new Date(timestamp);
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
 };
 
 const ensurePdfFonts = (doc: jsPDF) => {
@@ -166,7 +166,7 @@ export const generateInvoicePdf = (input: InvoicePdfInput) => {
 
   const rightColumnX = pageWidth - margin - rightColumnWidth;
   const metaRows = [
-    ["Invoice no.", input.invoiceNumber],
+    ["Invoice #", input.invoiceNumber],
     ["Issue date", formatDate(input.issuedAt)],
     ["Due date", formatDate(input.dueDate)],
     ["Status", status.label],

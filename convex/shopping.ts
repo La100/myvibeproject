@@ -583,6 +583,35 @@ export const getPublicShoppingListByAccessToken = query({
           .order("asc")
           .collect()
       : [];
+    const paymentsForPortal = settings.showPayments
+      ? payments
+          .filter((payment) => payment.status !== "void" && payment.status !== "draft")
+          .map((payment) => ({
+            _id: payment._id,
+            title: payment.title,
+            description: payment.description,
+            amount: payment.amount,
+            currency: payment.currency,
+            dueDate: payment.dueDate,
+            status: payment.status,
+            invoiceNumber: payment.invoiceNumber || payment.stripeInvoiceNumber,
+            hasInvoicePdf: !!payment.invoicePdfStorageKey,
+            paymentReference: payment.paymentReference,
+            bankAccountHolder: payment.invoiceSellerSnapshot?.bankAccountHolder,
+            bankName: payment.invoiceSellerSnapshot?.bankName,
+            bankAccountNumber: payment.invoiceSellerSnapshot?.bankAccountNumber,
+            bankSwift: payment.invoiceSellerSnapshot?.bankSwift,
+            paymentInstructions: payment.invoiceSellerSnapshot?.paymentInstructions,
+            hasOnlinePaymentLink: Boolean(payment.stripeHostedInvoiceUrl || payment.stripeInvoiceId),
+            canPayOnline:
+              payment.status === "open" && Boolean(payment.stripeHostedInvoiceUrl || payment.stripeInvoiceId),
+            paidAt: payment.paidAt,
+            isOverdue:
+              payment.status === "open" &&
+              typeof payment.dueDate === "number" &&
+              payment.dueDate < Date.now(),
+          }))
+      : [];
 
     return {
       project: {
@@ -601,33 +630,8 @@ export const getPublicShoppingListByAccessToken = query({
       tasks: settings.showTasks ? tasksForPortal : [],
       labor: settings.showLabor ? laborForPortal : [],
       contacts: settings.showContacts ? contactsForPortal : [],
-      payments: settings.showPayments
-        ? payments
-            .filter((payment) => payment.status !== "void" && payment.status !== "draft")
-            .map((payment) => ({
-              _id: payment._id,
-              title: payment.title,
-              description: payment.description,
-              amount: payment.amount,
-              currency: payment.currency,
-              dueDate: payment.dueDate,
-              status: payment.status,
-              invoiceNumber: payment.invoiceNumber || payment.stripeInvoiceNumber,
-              hasInvoicePdf: !!payment.invoicePdfStorageKey,
-              paymentReference: payment.paymentReference,
-              bankAccountHolder: payment.invoiceSellerSnapshot?.bankAccountHolder,
-              bankName: payment.invoiceSellerSnapshot?.bankName,
-              bankAccountNumber: payment.invoiceSellerSnapshot?.bankAccountNumber,
-              bankSwift: payment.invoiceSellerSnapshot?.bankSwift,
-              paymentInstructions: payment.invoiceSellerSnapshot?.paymentInstructions,
-              paidAt: payment.paidAt,
-              isOverdue:
-                payment.status === "open" &&
-                typeof payment.dueDate === "number" &&
-                payment.dueDate < Date.now(),
-            }))
-        : [],
-      paymentsPortalAvailable: false,
+      payments: paymentsForPortal,
+      paymentsPortalAvailable: paymentsForPortal.some((payment) => payment.canPayOnline),
     };
   },
 });

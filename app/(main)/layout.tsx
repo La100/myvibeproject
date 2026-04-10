@@ -1,5 +1,4 @@
 import { Navbar } from "@/components/ui/landing/minimal/Navbar";
-import { Footer } from "@/components/ui/landing/minimal/Footer";
 
 export default function MainLayout({
   children,
@@ -12,7 +11,6 @@ export default function MainLayout({
       <main className="flex-1">
         {children}
       </main>
-      <Footer />
     </div>
   );
 }

@@ -30,8 +30,9 @@ const toThreadList = (sessions: VisualizationSession[] | undefined): ThreadListI
     threadId: session._id,
     title: session.title || "New visualization",
     lastMessageAt: session.lastMessageAt,
-    lastMessagePreview: `${session.imageCount} image${session.imageCount !== 1 ? "s" : ""}`,
+    lastMessagePreview: "",
     messageCount: session.messageCount,
+    imageCount: session.imageCount,
   }));
 
 const toDisplayMessages = (messages: VisualizationMessage[] | undefined): VisualizationDisplayMessage[] =>

@@ -60,7 +60,6 @@ type BillingProfileForm = {
   bankName: string;
   bankAccountNumber: string;
   bankSwift: string;
-  invoicePrefix: string;
   paymentInstructions: string;
   defaultPaymentTermDays: string;
 };
@@ -79,7 +78,6 @@ const EMPTY_BILLING_PROFILE: BillingProfileForm = {
   bankName: "",
   bankAccountNumber: "",
   bankSwift: "",
-  invoicePrefix: "FV",
   paymentInstructions: "",
   defaultPaymentTermDays: "14",
 };
@@ -224,7 +222,6 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
         bankName: teamData.billingProfile?.bankName || "",
         bankAccountNumber: teamData.billingProfile?.bankAccountNumber || "",
         bankSwift: teamData.billingProfile?.bankSwift || "",
-        invoicePrefix: teamData.billingProfile?.invoicePrefix || "FV",
         paymentInstructions: teamData.billingProfile?.paymentInstructions || "",
         defaultPaymentTermDays: String(teamData.billingProfile?.defaultPaymentTermDays || 14),
       });
@@ -488,6 +485,7 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
         teamId: teamData.teamId,
         billingProfile: {
           ...billingProfile,
+          invoicePrefix: "",
           defaultPaymentTermDays: Number.parseInt(billingProfile.defaultPaymentTermDays || "14", 10),
         },
       });
@@ -1334,7 +1332,7 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                       <Input value={billingProfile.sellerName} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerName: e.target.value }))} />
                     </div>
                     <div className="flex flex-col gap-2">
-                      <Label>Tax ID / NIP</Label>
+                      <Label>Tax ID / VAT ID</Label>
                       <Input value={billingProfile.sellerTaxId} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerTaxId: e.target.value }))} />
                     </div>
                     <div className="flex flex-col gap-2">
@@ -1383,10 +1381,6 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                     <div className="flex flex-col gap-2">
                       <Label>SWIFT</Label>
                       <Input value={billingProfile.bankSwift} onChange={(e) => setBillingProfile((prev) => ({ ...prev, bankSwift: e.target.value }))} />
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <Label>Invoice prefix</Label>
-                      <Input value={billingProfile.invoicePrefix} onChange={(e) => setBillingProfile((prev) => ({ ...prev, invoicePrefix: e.target.value }))} />
                     </div>
                     <div className="flex flex-col gap-2">
                       <Label>Default due days</Label>

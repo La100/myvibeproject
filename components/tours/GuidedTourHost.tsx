@@ -352,7 +352,7 @@ export function GuidedTourHost({ scope }: GuidedTourHostProps) {
                   <p className="text-sm leading-6 text-muted-foreground">
                     {scope === "workspace"
                       ? "A short guided walkthrough will show where projects start, where settings live, and how the workspace is organized."
-                      : "A short guided walkthrough will take you through overview, tasks, moodboard, AI, and files."}
+                      : "A short guided walkthrough will take you through overview, customer portal, tasks, moodboard, AI, payments, and files."}
                   </p>
                 </div>
 

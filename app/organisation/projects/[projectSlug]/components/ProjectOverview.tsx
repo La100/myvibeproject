@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import { useProject } from "@/components/providers/ProjectProvider";
@@ -22,6 +23,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
 import {
   Calendar,
   TrendingUp,
@@ -34,12 +36,20 @@ import {
   Wallet,
   Flag,
   AlertTriangle,
+  Sparkles,
+  X,
 } from "lucide-react";
-import { Suspense } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { calculateShoppingTotal } from "@/lib/shoppingSets";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
+import {
+  getProjectOnboardingQuestsHiddenKey,
+  ONBOARDING_PROJECT_DASHBOARD_QUESTS_GLOBAL_HIDDEN_KEY,
+  readOnboardingFlag,
+  writeOnboardingFlag,
+} from "@/lib/onboardingJourney";
 import { cn, formatCurrency } from "@/lib/utils";
 
 function ProjectOverviewSkeleton() {
@@ -55,7 +65,14 @@ const formatPercent = (value: number | null) =>
     : `${Math.round(value)}%`;
 
 function ProjectOverviewContent() {
+  const router = useRouter();
   const { project } = useProject();
+  const [projectQuestsHidden, setProjectQuestsHidden] = useState(false);
+  const [projectQuestsGloballyHidden, setProjectQuestsGloballyHidden] = useState(false);
+  const projectOnboardingStorageKey = useMemo(
+    () => getProjectOnboardingQuestsHiddenKey(String(project._id)),
+    [project._id],
+  );
 
   const tasks = useQuery(apiAny.tasks.listProjectTasks, {
     projectId: project._id,
@@ -89,6 +106,48 @@ function ProjectOverviewContent() {
   const budgetSummary = useQuery(apiAny.projectBudget.getProjectBudgetSummary, {
     projectId: project._id,
   });
+  const notes = useQuery(apiAny.notes.getProjectNotes, {
+    projectId: project._id,
+  });
+  const projectTokenUsage = useQuery(apiAny.ai.usage.getProjectTokenUsage, {
+    projectId: project._id,
+    days: 365,
+  });
+
+  useEffect(() => {
+    const syncQuestVisibility = () => {
+      setProjectQuestsHidden(readOnboardingFlag(projectOnboardingStorageKey));
+      setProjectQuestsGloballyHidden(
+        readOnboardingFlag(ONBOARDING_PROJECT_DASHBOARD_QUESTS_GLOBAL_HIDDEN_KEY),
+      );
+    };
+
+    syncQuestVisibility();
+    window.addEventListener("storage", syncQuestVisibility);
+    window.addEventListener("focus", syncQuestVisibility);
+
+    return () => {
+      window.removeEventListener("storage", syncQuestVisibility);
+      window.removeEventListener("focus", syncQuestVisibility);
+    };
+  }, [projectOnboardingStorageKey]);
+
+  const preflightCompletedQuestCount = [
+    (tasks?.length ?? 0) > 0,
+    (shoppingListItems?.length ?? 0) > 0,
+    (projectTokenUsage?.summary.totalRequests ?? 0) > 0,
+    (notes?.length ?? 0) > 0,
+    (paymentsData?.totals.installmentCount ?? 0) > 0,
+  ].filter(Boolean).length;
+
+  useEffect(() => {
+    if (preflightCompletedQuestCount < 5 || projectQuestsGloballyHidden) {
+      return;
+    }
+
+    setProjectQuestsGloballyHidden(true);
+    writeOnboardingFlag(ONBOARDING_PROJECT_DASHBOARD_QUESTS_GLOBAL_HIDDEN_KEY, true);
+  }, [preflightCompletedQuestCount, projectQuestsGloballyHidden]);
 
   if (
     tasks === undefined ||
@@ -97,10 +156,98 @@ function ProjectOverviewContent() {
     laborItems === undefined ||
     paymentsData === undefined ||
     milestonesSummary === undefined ||
-    budgetSummary === undefined
+    budgetSummary === undefined ||
+    notes === undefined ||
+    projectTokenUsage === undefined
   ) {
     return <ProjectOverviewSkeleton />;
   }
+
+  const projectBasePath = `/organisation/projects/${project.slug}`;
+  const projectQuests = [
+    {
+      id: "project-first-task",
+      title: "Create first task",
+      description: "Open execution flow and add at least one task.",
+      xp: 30,
+      done: tasks.length > 0,
+      action: () => router.push(`${projectBasePath}/tasks?createTask=1`),
+      actionLabel: tasks.length > 0 ? "Done" : "Create task",
+    },
+    {
+      id: "project-first-shopping-item",
+      title: "Add shopping item",
+      description: "Capture first material or product for project scope.",
+      xp: 25,
+      done: shoppingListItems.length > 0,
+      action: () => router.push(`${projectBasePath}/shopping-list`),
+      actionLabel: shoppingListItems.length > 0 ? "Done" : "Open shopping list",
+    },
+    {
+      id: "project-first-ai-message",
+      title: "Send test message to AI assistant",
+      description: "Open AI and send one short test message to verify the assistant flow.",
+      xp: 20,
+      done: (projectTokenUsage.summary.totalRequests ?? 0) > 0,
+      action: () => router.push(`${projectBasePath}/ai`),
+      actionLabel:
+        (projectTokenUsage.summary.totalRequests ?? 0) > 0
+          ? "Done"
+          : "Open AI assistant",
+    },
+    {
+      id: "project-first-note",
+      title: "Drop first project note",
+      description: "Document key decisions directly in project context.",
+      xp: 20,
+      done: notes.length > 0,
+      action: () => router.push(`${projectBasePath}/notes`),
+      actionLabel: notes.length > 0 ? "Done" : "Open notes",
+    },
+    {
+      id: "project-first-payment",
+      title: "Plan first payment",
+      description: "Add at least one installment to start financial tracking.",
+      xp: 20,
+      done: (paymentsData.totals.installmentCount ?? 0) > 0,
+      action: () => router.push(`${projectBasePath}/payments`),
+      actionLabel:
+        (paymentsData.totals.installmentCount ?? 0) > 0
+          ? "Done"
+          : "Open payments",
+    },
+  ];
+
+  const projectQuestXpTotal = projectQuests.reduce((sum, quest) => sum + quest.xp, 0);
+  const projectQuestXpEarned = projectQuests.reduce(
+    (sum, quest) => sum + (quest.done ? quest.xp : 0),
+    0,
+  );
+  const completedProjectQuestCount = projectQuests.filter((quest) => quest.done).length;
+  const openProjectQuests = projectQuests.filter((quest) => !quest.done);
+  const showProjectQuestBoard =
+    !projectQuestsGloballyHidden &&
+    !projectQuestsHidden &&
+    completedProjectQuestCount < projectQuests.length;
+
+  const dismissProjectQuestBoard = () => {
+    setProjectQuestsHidden(true);
+    writeOnboardingFlag(projectOnboardingStorageKey, true);
+  };
+
+  const disableProjectQuestBoardGlobally = () => {
+    setProjectQuestsHidden(true);
+    setProjectQuestsGloballyHidden(true);
+    writeOnboardingFlag(projectOnboardingStorageKey, true);
+    writeOnboardingFlag(ONBOARDING_PROJECT_DASHBOARD_QUESTS_GLOBAL_HIDDEN_KEY, true);
+  };
+
+  const reopenProjectQuestBoard = () => {
+    setProjectQuestsHidden(false);
+    setProjectQuestsGloballyHidden(false);
+    writeOnboardingFlag(projectOnboardingStorageKey, false);
+    writeOnboardingFlag(ONBOARDING_PROJECT_DASHBOARD_QUESTS_GLOBAL_HIDDEN_KEY, false);
+  };
 
   const shoppingListCost = calculateShoppingTotal(shoppingListItems, shoppingSets);
   const laborCost = laborItems.reduce(
@@ -427,6 +574,116 @@ function ProjectOverviewContent() {
           icon={<Target className="h-8 w-8 text-primary" />}
           subtitle={`A summary of ${project.name}`}
         />
+
+        {showProjectQuestBoard ? (
+          <section className="overflow-hidden rounded-[2rem] border border-border/70 bg-gradient-to-br from-background via-background to-muted/35">
+            <div className="grid gap-6 p-6 lg:grid-cols-[1.2fr_0.8fr] lg:p-8">
+              <div className="space-y-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-3">
+                    <Badge variant="secondary" className="w-fit">
+                      <Sparkles className="mr-1 h-3.5 w-3.5" />
+                      Project quests
+                    </Badge>
+                    <div className="space-y-2">
+                      <h2 className="clean-title text-3xl font-medium tracking-tight md:text-4xl">
+                        Finish project setup once, then focus on execution
+                      </h2>
+                      <p className="max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
+                        This onboarding is project-specific. Complete these steps to activate tasks, AI, scope,
+                        notes, and payments in one working loop.
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={disableProjectQuestBoardGlobally}
+                    className="rounded-xl"
+                  >
+                    <X className="h-4 w-4" />
+                    <span className="sr-only">Hide project onboarding quests on all projects</span>
+                  </Button>
+                </div>
+
+                <div className="rounded-2xl border border-border/70 bg-background/80 p-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Progress</p>
+                  <p className="mt-3 text-3xl font-semibold tracking-tight">
+                    {completedProjectQuestCount}/{projectQuests.length}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {projectQuestXpEarned}/{projectQuestXpTotal} XP
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-medium">Quest progress</span>
+                    <span className="text-muted-foreground">
+                      {completedProjectQuestCount}/{projectQuests.length} quests closed
+                    </span>
+                  </div>
+                  <Progress value={projectQuestXpEarned} max={projectQuestXpTotal} className="h-2.5" />
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {openProjectQuests.slice(0, 2).map((quest, index) => (
+                    <Button
+                      key={quest.id}
+                      variant={index === 0 ? "default" : "outline"}
+                      onClick={quest.action}
+                      className="rounded-xl"
+                    >
+                      {quest.actionLabel}
+                    </Button>
+                  ))}
+                  <Button
+                    variant="ghost"
+                    onClick={dismissProjectQuestBoard}
+                    className="rounded-xl text-muted-foreground"
+                  >
+                    Skip for now
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-3 rounded-[1.5rem] border border-border/70 bg-background/85 p-4">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Target className="h-4 w-4" />
+                  Active quests
+                </div>
+                {openProjectQuests.map((quest) => (
+                  <div
+                    key={quest.id}
+                    className="rounded-2xl border border-border/70 bg-background px-4 py-3 transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline">Open</Badge>
+                          <span className="text-xs text-muted-foreground">+{quest.xp} XP</span>
+                        </div>
+                        <p className="text-sm font-medium">{quest.title}</p>
+                        <p className="text-sm text-muted-foreground">{quest.description}</p>
+                      </div>
+                      <Button size="sm" variant="default" onClick={quest.action} className="rounded-xl">
+                        {quest.actionLabel}
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        ) : !projectQuestsGloballyHidden && completedProjectQuestCount < projectQuests.length ? (
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={reopenProjectQuestBoard} className="rounded-xl">
+              <Sparkles className="mr-2 h-4 w-4" />
+              Show onboarding quests
+            </Button>
+          </div>
+        ) : null}
 
         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:mb-8 lg:grid-cols-3 lg:gap-5">
           {/* Total Project Cost */}

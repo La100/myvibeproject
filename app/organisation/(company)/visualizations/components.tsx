@@ -109,25 +109,30 @@ export const VisualizationSuggestions = memo(function VisualizationSuggestions({
       >
         {suggestions.map((suggestion) => (
           <button
-            key={suggestion.text}
+            key={suggestion.title}
             onClick={() => textInput.setInput(suggestion.text)}
             className="group relative aspect-[5/3] min-w-[70vw] flex-shrink-0 snap-center overflow-hidden rounded-2xl border border-border/70 bg-card text-left shadow-lg transition-all duration-300 hover:-translate-y-1.5 hover:border-border hover:shadow-xl sm:min-w-[300px] md:min-w-[280px] lg:min-w-[260px]"
           >
             <div className="absolute inset-0 z-0">
               <img
                 src={suggestion.image}
-                alt=""
+                alt={suggestion.title}
                 className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
                 loading="lazy"
                 decoding="async"
               />
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-background/90 via-background/40 to-transparent" />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/78 via-black/28 via-38% to-transparent" />
             </div>
 
-            <div className="relative z-10 flex h-full flex-col justify-end p-5">
-              <p className="text-sm font-semibold leading-snug text-foreground drop-shadow-sm">
-                {suggestion.text}
-              </p>
+            <div className="relative z-10 flex h-full flex-col justify-start p-5">
+              <div className="max-w-[85%] rounded-2xl border border-white/12 bg-black/42 p-4 backdrop-blur-md">
+                <p className="text-base font-semibold leading-tight text-white drop-shadow-md">
+                  {suggestion.title}
+                </p>
+                <p className="mt-2 line-clamp-3 text-sm leading-snug text-white/85 drop-shadow-sm">
+                  {suggestion.description}
+                </p>
+              </div>
             </div>
           </button>
         ))}

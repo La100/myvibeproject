@@ -6,6 +6,7 @@ import { AISubscriptionWall, AIQuotaUpsellCard } from "@/components/ai/shared";
 import { PromptInputProvider } from "@/components/ai/primitives/prompt-input";
 import { Message as AssistantMessage, ThinkingMessage } from "@/components/ai/assistant/ui/messages";
 import { ChatSidebar } from "@/components/ai/assistant/ui/Sidebar";
+import { cn } from "@/lib/utils";
 
 import { VISUALIZATION_SUGGESTIONS } from "./constants";
 import {
@@ -61,8 +62,13 @@ export default function VisualizationsPage() {
 
   return (
     <PromptInputProvider>
-      <div className="flex h-[calc(100vh-4rem)] overflow-hidden text-foreground">
-        <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="relative flex h-[calc(100vh-4rem)] overflow-hidden text-foreground">
+        <div
+          className={cn(
+            "flex flex-1 flex-col overflow-hidden transition-[padding] duration-300",
+            showHistory && "md:pr-[27rem]"
+          )}
+        >
           <VisualizationHeader
             currentSession={currentSession}
             showHistory={showHistory}

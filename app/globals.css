@@ -944,3 +944,151 @@ button, a, [role="button"] {
 .animate-fadeIn {
   animation: fadeIn 300ms ease-out;
 }
+
+@keyframes hero-chatkit-float {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes hero-chatkit-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(16px);
+    filter: blur(6px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0px);
+    filter: blur(0px);
+  }
+}
+
+@keyframes hero-chatkit-typing {
+  0%,
+  10% {
+    width: 0%;
+  }
+
+  38%,
+  82%,
+  100% {
+    width: 100%;
+  }
+}
+
+@keyframes hero-chatkit-reveal {
+  0%,
+  14% {
+    opacity: 0;
+    transform: translateY(14px);
+    filter: blur(6px);
+  }
+
+  24%,
+  80% {
+    opacity: 1;
+    transform: translateY(0px);
+    filter: blur(0px);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-4px);
+    filter: blur(2px);
+  }
+}
+
+@keyframes hero-chatkit-progress {
+  0%,
+  24% {
+    transform: scaleX(0);
+    opacity: 0.35;
+  }
+
+  58%,
+  100% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+@keyframes hero-chatkit-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.18);
+  }
+}
+
+@keyframes hero-chatkit-thread-drift {
+  0%,
+  16% {
+    transform: translateY(0px);
+  }
+
+  52%,
+  100% {
+    transform: translateY(118px);
+  }
+}
+
+.hero-chatkit-window {
+  animation: hero-chatkit-float 7s ease-in-out infinite;
+}
+
+.hero-chatkit-enter {
+  animation: hero-chatkit-enter 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.hero-chatkit-typing {
+  width: 0%;
+  animation: hero-chatkit-typing 8s steps(78, end) infinite;
+}
+
+.hero-chatkit-reveal {
+  opacity: 0;
+  animation: hero-chatkit-reveal 8s ease-in-out infinite;
+  will-change: transform, opacity, filter;
+}
+
+.hero-chatkit-progress {
+  transform-origin: left center;
+  animation: hero-chatkit-progress 8s ease-in-out infinite;
+}
+
+.hero-chatkit-pulse {
+  animation: hero-chatkit-pulse 1.8s ease-in-out infinite;
+}
+
+.hero-chatkit-thread-drift {
+  animation: hero-chatkit-thread-drift 9s cubic-bezier(0.22, 1, 0.36, 1) infinite alternate;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-chatkit-window,
+  .hero-chatkit-enter,
+  .hero-chatkit-typing,
+  .hero-chatkit-reveal,
+  .hero-chatkit-progress,
+  .hero-chatkit-pulse,
+  .hero-chatkit-thread-drift {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    filter: none;
+    width: auto;
+  }
+}

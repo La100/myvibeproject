@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { BrandWordmark } from "@/components/ui/brand/BrandWordmark";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 
@@ -57,13 +58,12 @@ export function AuthShell({
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/18 via-transparent to-white/10" />
             <div className="absolute inset-0 flex items-center justify-center p-6 sm:p-8 lg:p-10">
-              <h1 className="flex flex-wrap items-baseline justify-center gap-x-3 whitespace-nowrap text-center text-white [text-shadow:0_10px_32px_rgba(0,0,0,0.2)]">
-                <span className="font-serif italic text-5xl leading-[0.9] tracking-[-0.04em] sm:text-6xl lg:text-7xl xl:text-[7.5rem]">
-                  Myvibe
-                </span>
-                <span className="font-sans text-5xl font-normal leading-[0.9] tracking-[-0.03em] sm:text-6xl lg:text-7xl xl:text-[7.5rem]">
-                  Project
-                </span>
+              <h1 className="text-center text-white [text-shadow:0_10px_32px_rgba(0,0,0,0.2)]">
+                <BrandWordmark
+                  className="flex flex-wrap items-baseline justify-center gap-x-3 whitespace-nowrap"
+                  myvibeClassName="text-5xl sm:text-6xl lg:text-7xl xl:text-[7.5rem]"
+                  projectClassName="text-5xl sm:text-6xl lg:text-7xl xl:text-[7.5rem]"
+                />
               </h1>
             </div>
           </Card>
@@ -124,8 +124,7 @@ export function AuthShell({
           <p className="text-sm text-muted-foreground">
             by{" "}
             <Link href="/" className="whitespace-nowrap text-foreground transition-opacity duration-200 hover:opacity-90">
-              <span className="font-serif italic leading-[0.9] tracking-[-0.04em]">Myvibe</span>{" "}
-              <span className="font-sans font-normal leading-[0.9] tracking-[-0.03em]">Project</span>
+              <BrandWordmark className="gap-x-1.5" />
             </Link>
           </p>
         </div>

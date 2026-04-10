@@ -19,6 +19,44 @@ export const billingProfileValidator = v.object({
   defaultPaymentTermDays: v.optional(v.number()),
 });
 
+const sellerInvoiceFieldRequirementsValidator = v.object({
+  sellerName: v.optional(v.boolean()),
+  sellerEmail: v.optional(v.boolean()),
+  sellerPhone: v.optional(v.boolean()),
+  sellerTaxId: v.optional(v.boolean()),
+  sellerAddressLine1: v.optional(v.boolean()),
+  sellerAddressLine2: v.optional(v.boolean()),
+  sellerPostalCode: v.optional(v.boolean()),
+  sellerCity: v.optional(v.boolean()),
+  sellerCountry: v.optional(v.boolean()),
+  bankAccountHolder: v.optional(v.boolean()),
+  bankName: v.optional(v.boolean()),
+  bankAccountNumber: v.optional(v.boolean()),
+  bankSwift: v.optional(v.boolean()),
+  invoicePrefix: v.optional(v.boolean()),
+  paymentInstructions: v.optional(v.boolean()),
+  defaultPaymentTermDays: v.optional(v.boolean()),
+});
+
+const customerInvoiceFieldRequirementsValidator = v.object({
+  nameOrCompany: v.optional(v.boolean()),
+  name: v.optional(v.boolean()),
+  companyName: v.optional(v.boolean()),
+  email: v.optional(v.boolean()),
+  phone: v.optional(v.boolean()),
+  taxId: v.optional(v.boolean()),
+  addressLine1: v.optional(v.boolean()),
+  addressLine2: v.optional(v.boolean()),
+  postalCode: v.optional(v.boolean()),
+  city: v.optional(v.boolean()),
+  country: v.optional(v.boolean()),
+});
+
+export const invoiceFieldRequirementsValidator = v.object({
+  seller: v.optional(sellerInvoiceFieldRequirementsValidator),
+  customer: v.optional(customerInvoiceFieldRequirementsValidator),
+});
+
 export const paymentCustomerDetailsValidator = v.object({
   name: v.optional(v.string()),
   companyName: v.optional(v.string()),
@@ -34,6 +72,74 @@ export const paymentCustomerDetailsValidator = v.object({
 
 export const invoiceSellerSnapshotValidator = billingProfileValidator;
 export const invoiceCustomerSnapshotValidator = paymentCustomerDetailsValidator;
+
+const DEFAULT_INVOICE_FIELD_REQUIREMENTS = {
+  seller: {
+    sellerName: true,
+    sellerEmail: true,
+    sellerPhone: true,
+    sellerTaxId: true,
+    sellerAddressLine1: true,
+    sellerAddressLine2: true,
+    sellerPostalCode: true,
+    sellerCity: true,
+    sellerCountry: false,
+    bankAccountHolder: false,
+    bankName: false,
+    bankAccountNumber: true,
+    bankSwift: false,
+    invoicePrefix: false,
+    paymentInstructions: false,
+    defaultPaymentTermDays: false,
+  },
+  customer: {
+    nameOrCompany: false,
+    name: true,
+    companyName: true,
+    email: true,
+    phone: true,
+    taxId: true,
+    addressLine1: true,
+    addressLine2: true,
+    postalCode: true,
+    city: true,
+    country: false,
+  },
+} as const;
+
+const LEGACY_REQUIRED_DEFAULTS = {
+  seller: {
+    sellerName: true,
+    sellerEmail: false,
+    sellerPhone: false,
+    sellerTaxId: false,
+    sellerAddressLine1: true,
+    sellerAddressLine2: false,
+    sellerPostalCode: false,
+    sellerCity: true,
+    sellerCountry: true,
+    bankAccountHolder: false,
+    bankName: false,
+    bankAccountNumber: true,
+    bankSwift: false,
+    invoicePrefix: false,
+    paymentInstructions: false,
+    defaultPaymentTermDays: false,
+  },
+  customer: {
+    nameOrCompany: true,
+    name: false,
+    companyName: false,
+    email: false,
+    phone: false,
+    taxId: false,
+    addressLine1: true,
+    addressLine2: false,
+    postalCode: false,
+    city: true,
+    country: true,
+  },
+} as const;
 
 export const normalizeOptionalString = (value?: string | null) => {
   const trimmed = typeof value === "string" ? value.trim() : "";
@@ -127,6 +233,204 @@ export const resolveOrganizationBillingProfile = (
   return {
     ...normalized,
     sellerName: normalized?.sellerName ?? fallbackSellerName,
+  };
+};
+
+export const normalizeInvoiceFieldRequirements = (
+  value?: {
+    seller?: {
+      sellerName?: boolean | null;
+      sellerEmail?: boolean | null;
+      sellerPhone?: boolean | null;
+      sellerTaxId?: boolean | null;
+      sellerAddressLine1?: boolean | null;
+      sellerAddressLine2?: boolean | null;
+      sellerPostalCode?: boolean | null;
+      sellerCity?: boolean | null;
+      sellerCountry?: boolean | null;
+      bankAccountHolder?: boolean | null;
+      bankName?: boolean | null;
+      bankAccountNumber?: boolean | null;
+      bankSwift?: boolean | null;
+      invoicePrefix?: boolean | null;
+      paymentInstructions?: boolean | null;
+      defaultPaymentTermDays?: boolean | null;
+    } | null;
+    customer?: {
+      nameOrCompany?: boolean | null;
+      name?: boolean | null;
+      companyName?: boolean | null;
+      email?: boolean | null;
+      phone?: boolean | null;
+      taxId?: boolean | null;
+      addressLine1?: boolean | null;
+      addressLine2?: boolean | null;
+      postalCode?: boolean | null;
+      city?: boolean | null;
+      country?: boolean | null;
+    } | null;
+  } | null,
+) => {
+  if (!value) {
+    return undefined;
+  }
+
+  const normalizeBoolean = (input: boolean | null | undefined, fallback: boolean) =>
+    typeof input === "boolean" ? input : fallback;
+
+  return {
+    seller: {
+      sellerName: normalizeBoolean(value.seller?.sellerName, DEFAULT_INVOICE_FIELD_REQUIREMENTS.seller.sellerName),
+      sellerEmail: normalizeBoolean(value.seller?.sellerEmail, DEFAULT_INVOICE_FIELD_REQUIREMENTS.seller.sellerEmail),
+      sellerPhone: normalizeBoolean(value.seller?.sellerPhone, DEFAULT_INVOICE_FIELD_REQUIREMENTS.seller.sellerPhone),
+      sellerTaxId: normalizeBoolean(value.seller?.sellerTaxId, DEFAULT_INVOICE_FIELD_REQUIREMENTS.seller.sellerTaxId),
+      sellerAddressLine1: normalizeBoolean(
+        value.seller?.sellerAddressLine1,
+        DEFAULT_INVOICE_FIELD_REQUIREMENTS.seller.sellerAddressLine1,
+      ),
+      sellerAddressLine2: normalizeBoolean(
+        value.seller?.sellerAddressLine2,
+        DEFAULT_INVOICE_FIELD_REQUIREMENTS.seller.sellerAddressLine2,
+      ),
+      sellerPostalCode: normalizeBoolean(
+        value.seller?.sellerPostalCode,
+        DEFAULT_INVOICE_FIELD_REQUIREMENTS.seller.sellerPostalCode,
+      ),
+      sellerCity: normalizeBoolean(value.seller?.sellerCity, DEFAULT_INVOICE_FIELD_REQUIREMENTS.seller.sellerCity),
+      sellerCountry: normalizeBoolean(
+        value.seller?.sellerCountry,
+        DEFAULT_INVOICE_FIELD_REQUIREMENTS.seller.sellerCountry,
+      ),
+      bankAccountHolder: normalizeBoolean(
+        value.seller?.bankAccountHolder,
+        DEFAULT_INVOICE_FIELD_REQUIREMENTS.seller.bankAccountHolder,
+      ),
+      bankName: normalizeBoolean(value.seller?.bankName, DEFAULT_INVOICE_FIELD_REQUIREMENTS.seller.bankName),
+      bankAccountNumber: normalizeBoolean(
+        value.seller?.bankAccountNumber,
+        DEFAULT_INVOICE_FIELD_REQUIREMENTS.seller.bankAccountNumber,
+      ),
+      bankSwift: normalizeBoolean(value.seller?.bankSwift, DEFAULT_INVOICE_FIELD_REQUIREMENTS.seller.bankSwift),
+      invoicePrefix: normalizeBoolean(value.seller?.invoicePrefix, DEFAULT_INVOICE_FIELD_REQUIREMENTS.seller.invoicePrefix),
+      paymentInstructions: normalizeBoolean(
+        value.seller?.paymentInstructions,
+        DEFAULT_INVOICE_FIELD_REQUIREMENTS.seller.paymentInstructions,
+      ),
+      defaultPaymentTermDays: normalizeBoolean(
+        value.seller?.defaultPaymentTermDays,
+        DEFAULT_INVOICE_FIELD_REQUIREMENTS.seller.defaultPaymentTermDays,
+      ),
+    },
+    customer: {
+      nameOrCompany: normalizeBoolean(
+        value.customer?.nameOrCompany,
+        DEFAULT_INVOICE_FIELD_REQUIREMENTS.customer.nameOrCompany,
+      ),
+      name: normalizeBoolean(value.customer?.name, DEFAULT_INVOICE_FIELD_REQUIREMENTS.customer.name),
+      companyName: normalizeBoolean(value.customer?.companyName, DEFAULT_INVOICE_FIELD_REQUIREMENTS.customer.companyName),
+      email: normalizeBoolean(value.customer?.email, DEFAULT_INVOICE_FIELD_REQUIREMENTS.customer.email),
+      phone: normalizeBoolean(value.customer?.phone, DEFAULT_INVOICE_FIELD_REQUIREMENTS.customer.phone),
+      taxId: normalizeBoolean(value.customer?.taxId, DEFAULT_INVOICE_FIELD_REQUIREMENTS.customer.taxId),
+      addressLine1: normalizeBoolean(value.customer?.addressLine1, DEFAULT_INVOICE_FIELD_REQUIREMENTS.customer.addressLine1),
+      addressLine2: normalizeBoolean(value.customer?.addressLine2, DEFAULT_INVOICE_FIELD_REQUIREMENTS.customer.addressLine2),
+      postalCode: normalizeBoolean(value.customer?.postalCode, DEFAULT_INVOICE_FIELD_REQUIREMENTS.customer.postalCode),
+      city: normalizeBoolean(value.customer?.city, DEFAULT_INVOICE_FIELD_REQUIREMENTS.customer.city),
+      country: normalizeBoolean(value.customer?.country, DEFAULT_INVOICE_FIELD_REQUIREMENTS.customer.country),
+    },
+  };
+};
+
+export const resolveInvoiceFieldRequirements = (
+  value?: {
+    seller?: {
+      sellerName?: boolean | null;
+      sellerEmail?: boolean | null;
+      sellerPhone?: boolean | null;
+      sellerTaxId?: boolean | null;
+      sellerAddressLine1?: boolean | null;
+      sellerAddressLine2?: boolean | null;
+      sellerPostalCode?: boolean | null;
+      sellerCity?: boolean | null;
+      sellerCountry?: boolean | null;
+      bankAccountHolder?: boolean | null;
+      bankName?: boolean | null;
+      bankAccountNumber?: boolean | null;
+      bankSwift?: boolean | null;
+      invoicePrefix?: boolean | null;
+      paymentInstructions?: boolean | null;
+      defaultPaymentTermDays?: boolean | null;
+    } | null;
+    customer?: {
+      nameOrCompany?: boolean | null;
+      name?: boolean | null;
+      companyName?: boolean | null;
+      email?: boolean | null;
+      phone?: boolean | null;
+      taxId?: boolean | null;
+      addressLine1?: boolean | null;
+      addressLine2?: boolean | null;
+      postalCode?: boolean | null;
+      city?: boolean | null;
+      country?: boolean | null;
+    } | null;
+  } | null,
+) => {
+  const normalized = normalizeInvoiceFieldRequirements(value) ?? DEFAULT_INVOICE_FIELD_REQUIREMENTS;
+
+  const looksLikeLegacyDefaults =
+    JSON.stringify(normalized.seller) === JSON.stringify(LEGACY_REQUIRED_DEFAULTS.seller) &&
+    JSON.stringify(normalized.customer) === JSON.stringify(LEGACY_REQUIRED_DEFAULTS.customer);
+
+  return looksLikeLegacyDefaults ? DEFAULT_INVOICE_FIELD_REQUIREMENTS : normalized;
+};
+
+export const applyInvoiceFieldVisibilityToBillingProfile = (
+  profile: ReturnType<typeof normalizeBillingProfile>,
+  visibility: ReturnType<typeof resolveInvoiceFieldRequirements>,
+) => {
+  if (!profile) {
+    return profile;
+  }
+
+  return {
+    sellerName: visibility.seller.sellerName ? profile.sellerName : undefined,
+    sellerEmail: visibility.seller.sellerEmail ? profile.sellerEmail : undefined,
+    sellerPhone: visibility.seller.sellerPhone ? profile.sellerPhone : undefined,
+    sellerTaxId: visibility.seller.sellerTaxId ? profile.sellerTaxId : undefined,
+    sellerAddressLine1: visibility.seller.sellerAddressLine1 ? profile.sellerAddressLine1 : undefined,
+    sellerAddressLine2: visibility.seller.sellerAddressLine2 ? profile.sellerAddressLine2 : undefined,
+    sellerPostalCode: visibility.seller.sellerPostalCode ? profile.sellerPostalCode : undefined,
+    sellerCity: visibility.seller.sellerCity ? profile.sellerCity : undefined,
+    sellerCountry: visibility.seller.sellerCountry ? profile.sellerCountry : undefined,
+    bankAccountHolder: visibility.seller.bankAccountHolder ? profile.bankAccountHolder : undefined,
+    bankName: visibility.seller.bankName ? profile.bankName : undefined,
+    bankAccountNumber: visibility.seller.bankAccountNumber ? profile.bankAccountNumber : undefined,
+    bankSwift: visibility.seller.bankSwift ? profile.bankSwift : undefined,
+    invoicePrefix: visibility.seller.invoicePrefix ? profile.invoicePrefix : undefined,
+    paymentInstructions: visibility.seller.paymentInstructions ? profile.paymentInstructions : undefined,
+    defaultPaymentTermDays: visibility.seller.defaultPaymentTermDays ? profile.defaultPaymentTermDays : undefined,
+  };
+};
+
+export const applyInvoiceFieldVisibilityToCustomer = (
+  customer: ReturnType<typeof normalizePaymentCustomerDetails>,
+  visibility: ReturnType<typeof resolveInvoiceFieldRequirements>,
+) => {
+  if (!customer) {
+    return customer;
+  }
+
+  return {
+    name: visibility.customer.name ? customer.name : undefined,
+    companyName: visibility.customer.companyName ? customer.companyName : undefined,
+    email: visibility.customer.email ? customer.email : undefined,
+    phone: visibility.customer.phone ? customer.phone : undefined,
+    taxId: visibility.customer.taxId ? customer.taxId : undefined,
+    addressLine1: visibility.customer.addressLine1 ? customer.addressLine1 : undefined,
+    addressLine2: visibility.customer.addressLine2 ? customer.addressLine2 : undefined,
+    postalCode: visibility.customer.postalCode ? customer.postalCode : undefined,
+    city: visibility.customer.city ? customer.city : undefined,
+    country: visibility.customer.country ? customer.country : undefined,
   };
 };
 

@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-require-imports */
 import { httpRouter } from "convex/server";
 import { components } from "./_generated/api";
 import handleClerkWebhook from "./clerk";
@@ -12,6 +14,11 @@ const getInvoicePaymentIntentId = (invoice: Stripe.Invoice) => {
   if (!paymentIntent) return undefined;
   return typeof paymentIntent === "string" ? paymentIntent : paymentIntent.id;
 };
+
+const isConnectOnboardingComplete = (account: Stripe.Account) =>
+  account.details_submitted === true &&
+  account.charges_enabled === true &&
+  account.payouts_enabled === true;
 
 http.route({
   path: "/clerk",
@@ -196,6 +203,29 @@ registerRoutes(http, components.stripe, {
           : undefined,
         paidAt: undefined,
         lastStripeSyncAt: Date.now(),
+      });
+    },
+
+    "account.updated": async (ctx, event: Stripe.AccountUpdatedEvent) => {
+      const account = event.data.object;
+      if (!account?.id) return;
+
+      const teamId = account.metadata?.teamId;
+      if (!teamId) {
+        console.log(`Stripe Connect account.updated without teamId metadata: ${account.id}`);
+        return;
+      }
+
+      await ctx.runMutation(internalAny.stripe.updateTeamStripeConnect, {
+        teamId: teamId as any,
+        stripeConnectAccountId: account.id,
+        stripeConnectAccountType:
+          account.type === "express" || account.type === "standard" ? account.type : "express",
+        stripeConnectChargesEnabled: account.charges_enabled === true,
+        stripeConnectPayoutsEnabled: account.payouts_enabled === true,
+        stripeConnectDetailsSubmitted: account.details_submitted === true,
+        stripeConnectOnboardingComplete: isConnectOnboardingComplete(account),
+        stripeConnectLastSyncedAt: Date.now(),
       });
     },
   },

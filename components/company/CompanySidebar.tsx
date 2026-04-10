@@ -316,7 +316,6 @@ function CompanySidebarContent() {
                     >
                       <Link
                         href={item.href}
-                        data-tour={item.href === "/organisation/settings" ? "workspace-settings-link" : undefined}
                         onClick={handleLinkClick}
                         onMouseEnter={() => handleLinkHover(item.href)}
                         className="flex flex-1 items-center gap-3"
@@ -352,6 +351,7 @@ function CompanySidebarContent() {
                     >
                       <Link
                         href={item.href}
+                        data-tour={item.href === "/organisation/settings" ? "workspace-settings-link" : undefined}
                         onClick={handleLinkClick}
                         onMouseEnter={() => handleLinkHover(item.href)}
                         className="flex flex-1 items-center gap-3"
