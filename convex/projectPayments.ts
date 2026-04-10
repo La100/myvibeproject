@@ -3,6 +3,8 @@ import { v } from "convex/values";
 import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 import {
+  applyInvoiceFieldVisibilityToBillingProfile,
+  applyInvoiceFieldVisibilityToCustomer,
   invoiceCustomerSnapshotValidator,
   invoiceSellerSnapshotValidator,
   normalizeBillingProfile,
@@ -10,6 +12,7 @@ import {
   normalizeOptionalString,
   normalizePaymentCustomerDetails,
   paymentCustomerDetailsValidator,
+  resolveInvoiceFieldRequirements,
   resolveOrganizationBillingProfile,
 } from "./projectPaymentHelpers";
 
@@ -93,28 +96,40 @@ const resolveProjectCustomerDetails = (project: any) => {
   };
 };
 
-const buildBillingSetup = (
-  billingProfile: ReturnType<typeof resolveOrganizationBillingProfile>,
-  customer: ReturnType<typeof resolveProjectCustomerDetails>,
-) => {
+const buildBillingSetup = ({
+  sellerName,
+  customerName,
+  customerCompanyName,
+  bankAccountNumber,
+  stripeConnectOnboardingComplete,
+}: {
+  sellerName?: string;
+  customerName?: string;
+  customerCompanyName?: string;
+  bankAccountNumber?: string;
+  stripeConnectOnboardingComplete: boolean;
+}) => {
   const missingSellerFields: string[] = [];
   const missingCustomerFields: string[] = [];
 
-  if (!billingProfile?.sellerName) missingSellerFields.push("Seller name");
-  if (!billingProfile?.sellerAddressLine1) missingSellerFields.push("Seller address");
-  if (!billingProfile?.sellerCity) missingSellerFields.push("Seller city");
-  if (!billingProfile?.sellerCountry) missingSellerFields.push("Seller country");
-  if (!billingProfile?.bankAccountNumber) missingSellerFields.push("Bank account number");
+  if (!normalizeOptionalString(sellerName)) {
+    missingSellerFields.push("seller name");
+  }
 
-  if (!customer.name && !customer.companyName) missingCustomerFields.push("Customer name");
-  if (!customer.addressLine1) missingCustomerFields.push("Customer address");
-  if (!customer.city) missingCustomerFields.push("Customer city");
-  if (!customer.country) missingCustomerFields.push("Customer country");
+  const hasCustomerIdentity =
+    !!normalizeOptionalString(customerCompanyName) || !!normalizeOptionalString(customerName);
+  if (!hasCustomerIdentity) {
+    missingCustomerFields.push("customer name or company");
+  }
+
+  const hasBankAccountNumber = !!normalizeOptionalString(bankAccountNumber);
+  if (!stripeConnectOnboardingComplete && !hasBankAccountNumber) {
+    missingSellerFields.push("bank account number or Stripe payments");
+  }
 
   return {
     sellerReady: missingSellerFields.length === 0,
     customerReady: missingCustomerFields.length === 0,
-    canEmailInvoices: !!customer.email && emailPattern.test(customer.email),
     missingSellerFields,
     missingCustomerFields,
   };
@@ -124,6 +139,8 @@ const toPublicInstallment = (installment: any) => ({
   ...installment,
   invoiceNumber: installment.invoiceNumber || installment.stripeInvoiceNumber,
   hasInvoicePdf: Boolean(installment.invoicePdfStorageKey),
+  invoiceSellerSnapshot: normalizeBillingProfile(installment.invoiceSellerSnapshot),
+  invoiceCustomerSnapshot: normalizePaymentCustomerDetails(installment.invoiceCustomerSnapshot),
   isOverdue:
     installment.status === "open" &&
     typeof installment.dueDate === "number" &&
@@ -132,7 +149,7 @@ const toPublicInstallment = (installment: any) => ({
 
 const buildInvoiceNumber = (prefix: string | undefined, sequence: number, issuedAt: number) => {
   const year = new Date(issuedAt).getFullYear();
-  const normalizedPrefix = normalizeOptionalString(prefix) || "FV";
+  const normalizedPrefix = normalizeOptionalString(prefix) || "INV";
   return `${normalizedPrefix}/${year}/${String(sequence).padStart(4, "0")}`;
 };
 
@@ -150,8 +167,32 @@ export const getProjectPaymentsOverview = query({
     const team: any = await ctx.db.get(project.teamId);
     const installments = await listInstallmentsForProject(ctx, args.projectId);
     const billingProfile = resolveOrganizationBillingProfile(team?.billingProfile, team) || undefined;
+    const invoiceFieldRequirements = resolveInvoiceFieldRequirements(team?.invoiceFieldRequirements);
     const customer = resolveProjectCustomerDetails(project);
-    const billingSetup = buildBillingSetup(billingProfile, customer);
+    const stripeConnectOnboardingComplete =
+      team?.stripeConnectOnboardingComplete === true ||
+      (team?.stripeConnectChargesEnabled === true && team?.stripeConnectPayoutsEnabled === true);
+    const visibleBillingProfile = applyInvoiceFieldVisibilityToBillingProfile(
+      billingProfile as ReturnType<typeof normalizeBillingProfile>,
+      invoiceFieldRequirements,
+    );
+    const visibleCustomer = applyInvoiceFieldVisibilityToCustomer(customer, invoiceFieldRequirements);
+    const sellerName = normalizeOptionalString(visibleBillingProfile?.sellerName);
+    const customerName = normalizeOptionalString(visibleCustomer?.name);
+    const customerCompanyName = normalizeOptionalString(visibleCustomer?.companyName);
+    const bankAccountNumber = normalizeOptionalString(visibleBillingProfile?.bankAccountNumber);
+    const billingSetup = {
+      ...buildBillingSetup({
+        sellerName,
+        customerName,
+        customerCompanyName,
+        bankAccountNumber,
+        stripeConnectOnboardingComplete,
+      }),
+      canEmailInvoices:
+        !!normalizeOptionalEmail(visibleCustomer?.email) &&
+        emailPattern.test(normalizeOptionalEmail(visibleCustomer?.email) || ""),
+    };
 
     const visibleInstallments = installments.filter((installment: any) => installment.status !== "void");
     const paidTotal = visibleInstallments
@@ -170,7 +211,16 @@ export const getProjectPaymentsOverview = query({
     return {
       customer,
       billingProfile: billingProfile || null,
+      invoiceFieldRequirements,
       billingSetup,
+      stripeConnect: {
+        accountId: team?.stripeConnectAccountId ?? null,
+        accountType: team?.stripeConnectAccountType ?? null,
+        chargesEnabled: team?.stripeConnectChargesEnabled === true,
+        payoutsEnabled: team?.stripeConnectPayoutsEnabled === true,
+        detailsSubmitted: team?.stripeConnectDetailsSubmitted === true,
+        onboardingComplete: stripeConnectOnboardingComplete,
+      },
       currency: project.currency || "PLN",
       totals: {
         scheduled: visibleInstallments.reduce((sum: number, installment: any) => sum + installment.amount, 0),
@@ -232,6 +282,8 @@ export const createProjectPayment = mutation({
     description: v.optional(v.string()),
     amount: v.number(),
     dueDate: v.optional(v.union(v.number(), v.null())),
+    invoiceSellerSnapshot: v.optional(invoiceSellerSnapshotValidator),
+    invoiceCustomerSnapshot: v.optional(invoiceCustomerSnapshotValidator),
   },
   async handler(ctx, args) {
     const identity = await ctx.auth.getUserIdentity();
@@ -262,6 +314,8 @@ export const createProjectPayment = mutation({
       amount: normalizedAmount,
       currency: project.currency || "PLN",
       dueDate: args.dueDate ?? undefined,
+      invoiceSellerSnapshot: normalizeBillingProfile(args.invoiceSellerSnapshot),
+      invoiceCustomerSnapshot: normalizePaymentCustomerDetails(args.invoiceCustomerSnapshot),
       order: nextOrder,
       status: "draft",
       createdBy: identity.subject,
@@ -277,6 +331,8 @@ export const updateProjectPayment = mutation({
     description: v.optional(v.union(v.string(), v.null())),
     amount: v.optional(v.number()),
     dueDate: v.optional(v.union(v.number(), v.null())),
+    invoiceSellerSnapshot: v.optional(invoiceSellerSnapshotValidator),
+    invoiceCustomerSnapshot: v.optional(invoiceCustomerSnapshotValidator),
   },
   async handler(ctx, args) {
     const identity = await ctx.auth.getUserIdentity();
@@ -322,7 +378,93 @@ export const updateProjectPayment = mutation({
       patch.dueDate = args.dueDate ?? undefined;
     }
 
+    if (args.invoiceSellerSnapshot !== undefined) {
+      patch.invoiceSellerSnapshot = normalizeBillingProfile(args.invoiceSellerSnapshot);
+    }
+
+    if (args.invoiceCustomerSnapshot !== undefined) {
+      patch.invoiceCustomerSnapshot = normalizePaymentCustomerDetails(args.invoiceCustomerSnapshot);
+    }
+
     await ctx.db.patch(args.installmentId, patch);
+    return args.installmentId;
+  },
+});
+
+export const updateIssuedProjectPaymentInvoice = mutation({
+  args: {
+    installmentId: v.id("projectPayments"),
+    title: v.string(),
+    description: v.optional(v.union(v.string(), v.null())),
+    amount: v.number(),
+    dueDate: v.optional(v.union(v.number(), v.null())),
+    invoiceNumber: v.string(),
+    invoiceSellerSnapshot: v.optional(invoiceSellerSnapshotValidator),
+    invoiceCustomerSnapshot: v.optional(invoiceCustomerSnapshotValidator),
+  },
+  async handler(ctx, args) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const installment = await ctx.db.get(args.installmentId);
+    if (!installment) {
+      throw new Error("Installment not found");
+    }
+
+    await getProjectPaymentManager(ctx as any, installment.projectId, identity.subject);
+
+    if (!installment.invoiceNumber) {
+      throw new Error("Issue the invoice before editing it");
+    }
+
+    if (installment.stripeInvoiceId) {
+      throw new Error("Stripe-linked invoices cannot be fully edited here");
+    }
+
+    const title = args.title.trim();
+    if (!title) {
+      throw new Error("Invoice title is required");
+    }
+
+    if (!Number.isFinite(args.amount) || args.amount <= 0) {
+      throw new Error("Invoice amount must be greater than zero");
+    }
+
+    const invoiceNumber = args.invoiceNumber.trim();
+    if (!invoiceNumber) {
+      throw new Error("Invoice number is required");
+    }
+
+    const teamPayments = await ctx.db
+      .query("projectPayments")
+      .withIndex("by_team", (q) => q.eq("teamId", installment.teamId))
+      .collect();
+
+    const duplicate = teamPayments.find(
+      (payment: any) =>
+        payment._id !== installment._id &&
+        (payment.invoiceNumber === invoiceNumber || payment.stripeInvoiceNumber === invoiceNumber),
+    );
+
+    if (duplicate) {
+      throw new Error("This invoice number is already in use");
+    }
+
+    await ctx.db.patch(args.installmentId, {
+      title,
+      description: normalizeOptionalString(args.description ?? undefined),
+      amount: Math.round(args.amount * 100) / 100,
+      dueDate: args.dueDate ?? undefined,
+      invoiceNumber,
+      invoiceSellerSnapshot: normalizeBillingProfile(args.invoiceSellerSnapshot),
+      invoiceCustomerSnapshot: normalizePaymentCustomerDetails(args.invoiceCustomerSnapshot),
+      invoicePdfStorageKey: undefined,
+      invoicePdfFileName: undefined,
+      updatedAt: Date.now(),
+    });
+
     return args.installmentId;
   },
 });

@@ -5,7 +5,7 @@ import test from "node:test";
 import { generateInvoicePdf, sanitizeFileName } from "../../lib/invoicePdf.ts";
 
 const createInvoiceInput = () => ({
-  invoiceNumber: "FV/1/03/2026",
+  invoiceNumber: "INV/2026/0001",
   issuedAt: Date.parse("2026-03-15T00:00:00Z"),
   dueDate: Date.parse("2026-03-20T00:00:00Z"),
   amount: 1234.56,

@@ -2,6 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
+import { BrandWordmark } from '@/components/ui/brand/BrandWordmark';
 
 type LogoProps = {
   className?: string;
@@ -33,17 +34,12 @@ const Logo = ({
         )}
       />
       {showWordmark ? (
-        <span
+        <BrandWordmark
           className={cn(
             "flex items-baseline gap-x-3 whitespace-nowrap text-foreground transition-opacity duration-200 group-hover:opacity-90",
             wordmarkClassName
           )}
-        >
-          <span className="font-serif italic leading-[0.9] tracking-[-0.04em]">
-            Myvibe
-          </span>
-          <span className="font-sans font-normal leading-[0.9] tracking-[-0.03em]">Project</span>
-        </span>
+        />
       ) : null}
     </Link>
   );

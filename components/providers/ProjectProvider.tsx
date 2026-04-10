@@ -4,8 +4,9 @@ import { createContext, useCallback, useContext, ReactNode, useEffect, useState 
 import { useQuery } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import { Doc } from "@/convex/_generated/dataModel";
+import { BrandWordmark } from "@/components/ui/brand/BrandWordmark";
+import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
-import { Building } from "lucide-react";
 import { useOrganization } from "@clerk/nextjs";
 
 interface ProjectContextType {
@@ -142,13 +143,19 @@ export function ProjectProvider({ children }: {
       <div className="fixed inset-0 flex items-center justify-center bg-muted/30">
         <div className="flex flex-col items-center gap-4 text-center">
           <div className="mb-6 flex items-center justify-center gap-3">
-            <Building className="h-8 w-8 text-foreground animate-pulse" />
-            <span className="text-2xl font-semibold text-foreground">Myvibe project</span>
-          </div>
-          <div className="flex items-center justify-center gap-2">
-            <div className="w-2 h-2 bg-foreground rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-            <div className="w-2 h-2 bg-foreground rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-            <div className="w-2 h-2 bg-foreground rounded-full animate-bounce"></div>
+            <Image
+              src="/logo.svg"
+              alt="Myvibe project logo"
+              width={40}
+              height={40}
+              className="h-10 w-10 animate-spin object-contain"
+              priority
+            />
+            <BrandWordmark
+              className="text-foreground"
+              myvibeClassName="text-2xl"
+              projectClassName="text-2xl"
+            />
           </div>
         </div>
       </div>

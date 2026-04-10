@@ -57,7 +57,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { GuidedTourLauncher } from "@/components/tours/GuidedTourHost";
 import { isClientNotificationActivity } from "@/lib/projectClientNotifications";
 
 function ProjectSidebarContent() {
@@ -199,6 +198,10 @@ function ProjectSidebarContent() {
                     data-tour={
                       item.key === "overview"
                         ? "project-nav-overview"
+                        : item.key === "customer_panel"
+                          ? "project-nav-customer-portal"
+                          : item.key === "payments"
+                            ? "project-nav-payments"
                         : item.key === "tasks"
                           ? "project-nav-tasks"
                           : item.key === "moodboard"
@@ -265,12 +268,6 @@ function ProjectSidebarContent() {
                 <span className="truncate">{aiItem.label}</span>
               </Link>
             </Button>
-            <GuidedTourLauncher
-              tourId="project"
-              label="Take project tour"
-              variant="outline"
-              className="mt-2 h-10 w-full rounded-full text-[13px] font-medium"
-            />
           </SidebarGroupContent>
         </SidebarGroup>
 

@@ -8,10 +8,8 @@ import { useQuery } from "convex/react";
 import { motion } from "framer-motion";
 import { apiAny } from "@/lib/convexApiAny";
 import {
-  CheckCircle2,
   Plus,
   FolderOpen,
-  Rocket,
   Search,
   Sparkles,
   Target,
@@ -56,6 +54,10 @@ export default function CompanyProjects() {
     apiAny.projects.listProjectsByClerkOrg,
     organization?.id ? { clerkOrgId: organization.id } : "skip",
   );
+  const teamSettings = useQuery(
+    apiAny.teams.getTeamSettingsByClerkOrg,
+    organization?.id ? { clerkOrgId: organization.id } : "skip",
+  );
 
   const filteredProjects = useMemo(
     () =>
@@ -73,11 +75,11 @@ export default function CompanyProjects() {
   const projectGridClass = "grid grid-cols-1 justify-items-start gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4";
   const hasProjects = filteredProjects.length > 0;
   const totalProjects = projects?.length ?? 0;
-  const completedTasks = useMemo(
-    () => (projects ?? []).reduce((sum, project) => sum + (project.completedTasks || 0), 0),
+  const hasCreatedTask = useMemo(
+    () => (projects ?? []).some((project) => (project.taskCount || 0) > 0 || (project.completedTasks || 0) > 0),
     [projects],
   );
-  const organizationImageReady = Boolean(organization?.hasImage && organization.imageUrl);
+  const organizationImageReady = Boolean(teamSettings?.imageUrl?.trim() || organization?.imageUrl || organization?.hasImage);
 
   useEffect(() => {
     const syncJourney = () => {
@@ -129,26 +131,28 @@ export default function CompanyProjects() {
       },
       {
         id: "dashboard-delivery",
-        title: "Close your first execution task",
-        description: "Complete at least one task to prove the workspace is live.",
+        title: "Create your first task",
+        description: "Add at least one task to prove the workspace is live.",
         xp: 15,
-        done: completedTasks > 0,
+        done: hasCreatedTask,
         action: () => {
           if (projects?.[0]?.slug) {
-            router.push(`/organisation/projects/${projects[0].slug}`);
+            router.push(`/organisation/projects/${projects[0].slug}/tasks?createTask=1`);
             return;
           }
           router.push("/organisation/projects/new");
         },
-        actionLabel: completedTasks > 0 ? "Done" : totalProjects > 0 ? "Open workspace" : "Create project",
+        actionLabel: hasCreatedTask ? "Done" : totalProjects > 0 ? "Create task" : "Create project",
       },
     ],
-    [completedTasks, extensionReady, organizationImageReady, projects, router, totalProjects],
+    [extensionReady, hasCreatedTask, organizationImageReady, projects, router, totalProjects],
   );
 
   const dashboardXpTotal = dashboardQuests.reduce((sum, quest) => sum + quest.xp, 0);
   const dashboardXpEarned = dashboardQuests.reduce((sum, quest) => sum + (quest.done ? quest.xp : 0), 0);
   const questCompletionCount = dashboardQuests.filter((quest) => quest.done).length;
+  const openDashboardQuests = dashboardQuests.filter((quest) => !quest.done);
+  const compactQuestLayout = openDashboardQuests.length <= 2;
   const showQuestBoard = !questsHidden && questCompletionCount < dashboardQuests.length;
 
   const dismissQuestBoard = () => {
@@ -165,7 +169,7 @@ export default function CompanyProjects() {
     <div className="flex min-h-[calc(100dvh-10rem)] flex-col gap-6">
       {showQuestBoard ? (
         <section className="overflow-hidden rounded-[2rem] border border-border/70 bg-gradient-to-br from-background via-background to-muted/35">
-          <div className="grid gap-6 p-6 lg:grid-cols-[1.15fr_0.85fr] lg:p-8">
+          <div className={cn("grid gap-6 p-6 lg:p-8", !compactQuestLayout ? "lg:grid-cols-[1.15fr_0.85fr]" : "")}>
             <div className="space-y-5">
               <div className="flex items-start justify-between gap-4">
                 <div className="space-y-3">
@@ -208,19 +212,16 @@ export default function CompanyProjects() {
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <Button onClick={() => router.push("/organisation/projects/new")} className="rounded-xl">
-                  <Rocket className="mr-2 h-4 w-4" />
-                  Create project
-                </Button>
-                <GuidedTourLauncher tourId="workspace" label="Take workspace tour" className="rounded-xl" />
-                <Button
-                  variant="outline"
-                  onClick={() => router.push("/organisation/settings#organization-profile")}
-                  className="rounded-xl"
-                >
-                  <Target className="mr-2 h-4 w-4" />
-                  Set organization image
-                </Button>
+                {openDashboardQuests.slice(0, 2).map((quest, index) => (
+                  <Button
+                    key={quest.id}
+                    variant={index === 0 ? "default" : "outline"}
+                    onClick={quest.action}
+                    className="rounded-xl"
+                  >
+                    {quest.actionLabel}
+                  </Button>
+                ))}
                 <Button
                   variant="ghost"
                   onClick={dismissQuestBoard}
@@ -236,20 +237,15 @@ export default function CompanyProjects() {
                 <Target className="h-4 w-4" />
                 Active quests
               </div>
-              {dashboardQuests.map((quest) => (
+              {openDashboardQuests.map((quest) => (
                 <div
                   key={quest.id}
-                  className={cn(
-                    "rounded-2xl border px-4 py-3 transition-colors",
-                    quest.done ? "border-primary/35 bg-primary/5" : "border-border/70 bg-background",
-                  )}
+                  className="rounded-2xl border border-border/70 bg-background px-4 py-3 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <Badge variant={quest.done ? "default" : "outline"}>
-                          {quest.done ? "Done" : "Open"}
-                        </Badge>
+                        <Badge variant="outline">Open</Badge>
                         <span className="text-xs text-muted-foreground">+{quest.xp} XP</span>
                       </div>
                       <p className="text-sm font-medium">{quest.title}</p>
@@ -257,12 +253,10 @@ export default function CompanyProjects() {
                     </div>
                     <Button
                       size="sm"
-                      variant={quest.done ? "outline" : "default"}
+                      variant="default"
                       onClick={quest.action}
-                      disabled={quest.done && quest.id !== "dashboard-extension"}
                       className="rounded-xl"
                     >
-                      {quest.done ? <CheckCircle2 className="mr-2 h-4 w-4" /> : null}
                       {quest.actionLabel}
                     </Button>
                   </div>

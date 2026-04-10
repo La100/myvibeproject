@@ -34,6 +34,8 @@ export type VisualizationLightboxState = {
 };
 
 export type VisualizationSuggestion = {
+  title: string;
+  description: string;
   text: string;
   image: string;
 };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import { Id } from "@/convex/_generated/dataModel";
@@ -194,6 +194,9 @@ export function TasksViewSkeleton({ viewMode = "kanban" }: { viewMode?: "kanban"
 
 export default function TasksView() {
   const params = useParams<{ projectSlug: string }>();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
   const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
   const [activeDragTaskId, setActiveDragTaskId] = useState<Id<"tasks"> | null>(null);
@@ -218,9 +221,6 @@ export default function TasksView() {
   const teamMembers = useQuery(apiAny.teams.getTeamMembers, {
     teamId: project.teamId,
   }) as TeamMemberWithUser[] | undefined;
-  const milestones = useQuery(apiAny.projectMilestones.listProjectMilestones, {
-    projectId: project._id,
-  }) as Array<{ _id: Id<"projectMilestones">; name: string }> | undefined;
 
   const tasks = useQuery(apiAny.tasks.listProjectTasks, {
     projectId: project._id,
@@ -286,6 +286,19 @@ export default function TasksView() {
   })) || [], [tasksToDisplay]);
   
   const [localKanbanTasks, setLocalKanbanTasks] = useState<KanbanTask[]>(kanbanTasks);
+
+  useEffect(() => {
+    if (searchParams.get("createTask") !== "1") {
+      return;
+    }
+
+    setIsTaskFormOpen(true);
+
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.delete("createTask");
+    const nextQuery = nextParams.toString();
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname);
+  }, [pathname, router, searchParams]);
 
   useEffect(() => {
     setLocalKanbanTasks((previous) => reconcileKanbanTasks(previous, kanbanTasks));
@@ -453,7 +466,6 @@ export default function TasksView() {
               projectId={project._id}
               teamId={project.teamId}
               teamMembers={teamMembers || []}
-              milestones={milestones}
               setIsOpen={setIsTaskFormOpen}
               onTaskCreated={() => {
                 // Optionally refetch tasks or handle UI update

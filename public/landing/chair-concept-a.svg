@@ -1,0 +1,26 @@
+<svg width="720" height="720" viewBox="0 0 720 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="720" height="720" rx="48" fill="url(#bg)"/>
+  <circle cx="535" cy="156" r="112" fill="#F7D7C1" fill-opacity="0.75"/>
+  <circle cx="178" cy="576" r="156" fill="#B7C7D8" fill-opacity="0.55"/>
+  <rect x="110" y="488" width="500" height="24" rx="12" fill="#D5C0AF"/>
+  <path d="M274 270C274 229.131 307.131 196 348 196H390C430.869 196 464 229.131 464 270V353C464 393.869 430.869 427 390 427H348C307.131 427 274 393.869 274 353V270Z" fill="#F3E7D9"/>
+  <path d="M295 259C295 228.072 320.072 203 351 203H387C417.928 203 443 228.072 443 259V314H295V259Z" fill="#8E5A43"/>
+  <path d="M305 429H433L478 507H260L305 429Z" fill="#A46C51"/>
+  <path d="M320 429L281 604" stroke="#5F4538" stroke-width="16" stroke-linecap="round"/>
+  <path d="M416 429L458 604" stroke="#5F4538" stroke-width="16" stroke-linecap="round"/>
+  <path d="M344 507L322 604" stroke="#5F4538" stroke-width="14" stroke-linecap="round"/>
+  <path d="M394 507L416 604" stroke="#5F4538" stroke-width="14" stroke-linecap="round"/>
+  <path d="M289 611H252" stroke="#5F4538" stroke-width="16" stroke-linecap="round"/>
+  <path d="M469 611H432" stroke="#5F4538" stroke-width="16" stroke-linecap="round"/>
+  <path d="M329 611H307" stroke="#5F4538" stroke-width="14" stroke-linecap="round"/>
+  <path d="M430 611H408" stroke="#5F4538" stroke-width="14" stroke-linecap="round"/>
+  <rect x="126" y="126" width="168" height="36" rx="18" fill="#FFFFFF" fill-opacity="0.72"/>
+  <text x="150" y="150" fill="#6E5748" font-family="Arial, sans-serif" font-size="24" font-weight="700" letter-spacing="0.18em">CHAIR A</text>
+  <defs>
+    <linearGradient id="bg" x1="82" y1="74" x2="642" y2="662" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F7F2EB"/>
+      <stop offset="0.52" stop-color="#EDE2D4"/>
+      <stop offset="1" stop-color="#D5C2B7"/>
+    </linearGradient>
+  </defs>
+</svg>

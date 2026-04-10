@@ -197,6 +197,15 @@ export function getProjectTourSteps(projectSlug: string): TourStep[] {
       placement: "bottom",
     },
     {
+      id: "project-customer-portal",
+      route: `${projectBase}/customer-panel`,
+      selector: '[data-tour="project-nav-customer-portal"]',
+      title: "Customer portal",
+      description:
+        "This is the client-facing layer of the project. Use it to share progress, align expectations, and keep communication structured.",
+      placement: "right",
+    },
+    {
       id: "project-tasks",
       route: `${projectBase}/tasks`,
       selector: '[data-tour="project-tasks-add-button"]',
@@ -219,6 +228,15 @@ export function getProjectTourSteps(projectSlug: string): TourStep[] {
       title: "AI assistant",
       description: "Use the assistant to plan, reason, and move faster inside the project instead of working in disconnected tools.",
       placement: "left",
+    },
+    {
+      id: "project-payments",
+      route: `${projectBase}/payments`,
+      selector: '[data-tour="project-nav-payments"]',
+      title: "Payments and cashflow",
+      description:
+        "Track installments, paid vs outstanding amounts, and keep delivery aligned with financial execution.",
+      placement: "right",
     },
     {
       id: "project-files",

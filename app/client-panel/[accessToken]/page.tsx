@@ -77,6 +77,8 @@ type PublicPayment = {
   bankAccountNumber?: string;
   bankSwift?: string;
   paymentInstructions?: string;
+  hasOnlinePaymentLink?: boolean;
+  canPayOnline?: boolean;
   paidAt?: number;
   isOverdue?: boolean;
 };
@@ -492,6 +494,9 @@ export default function PublicClientPanelPage() {
   const getInvoiceDownloadUrl = useAction(
     apiAny.projectPaymentActions.getProjectPaymentInvoiceDownloadUrlByAccessToken,
   );
+  const getStripePaymentLinkUrl = useAction(
+    apiAny.projectPaymentActions.getProjectPaymentStripeLinkByAccessToken,
+  );
   const publicApprovalsData = useQuery(
     apiAny.projectApprovals.getPublicProjectApprovalsByAccessToken,
     panelData?.settings?.showApprovals ? { accessToken } : "skip"
@@ -520,6 +525,7 @@ export default function PublicClientPanelPage() {
   const [respondentName, setRespondentName] = useState("");
   const [selectedMoodboardFile, setSelectedMoodboardFile] = useState<ClientPanelFile | null>(null);
   const [downloadingPaymentId, setDownloadingPaymentId] = useState<string | null>(null);
+  const [openingPaymentId, setOpeningPaymentId] = useState<string | null>(null);
   const [approvalComments, setApprovalComments] = useState<Record<string, string>>({});
   const [respondingApprovalId, setRespondingApprovalId] = useState<string | null>(null);
 
@@ -744,6 +750,23 @@ export default function PublicClientPanelPage() {
       });
     } finally {
       setDownloadingPaymentId(null);
+    }
+  };
+
+  const handleOpenPaymentLink = async (paymentId: string) => {
+    setOpeningPaymentId(paymentId);
+    try {
+      const result = await getStripePaymentLinkUrl({
+        accessToken,
+        installmentId: paymentId as Id<"projectPayments">,
+      });
+      window.open(result.url, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      toast.error("Could not open payment link", {
+        description: (error as Error).message,
+      });
+    } finally {
+      setOpeningPaymentId(null);
     }
   };
 
@@ -2123,26 +2146,40 @@ export default function PublicClientPanelPage() {
                       ) : null}
                     </div>
 
-                    {payment.hasInvoicePdf ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant={payment.status === "paid" ? "outline" : "default"}
-                        onClick={() => void handleDownloadInvoice(payment._id)}
-                        disabled={downloadingPaymentId === payment._id}
-                      >
-                        {payment.status === "paid" ? (
-                          <CheckCircle2 data-icon="inline-start" />
-                        ) : (
-                          <Download data-icon="inline-start" />
-                        )}
-                        {downloadingPaymentId === payment._id
-                          ? "Opening..."
-                          : payment.status === "paid"
-                            ? "Download invoice"
-                            : "Download PDF"}
-                      </Button>
-                    ) : null}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {payment.canPayOnline ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="default"
+                          onClick={() => void handleOpenPaymentLink(payment._id)}
+                          disabled={openingPaymentId === payment._id}
+                        >
+                          <ExternalLink data-icon="inline-start" />
+                          {openingPaymentId === payment._id ? "Opening..." : "Pay online"}
+                        </Button>
+                      ) : null}
+                      {payment.hasInvoicePdf ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={payment.status === "paid" ? "outline" : "default"}
+                          onClick={() => void handleDownloadInvoice(payment._id)}
+                          disabled={downloadingPaymentId === payment._id}
+                        >
+                          {payment.status === "paid" ? (
+                            <CheckCircle2 data-icon="inline-start" />
+                          ) : (
+                            <Download data-icon="inline-start" />
+                          )}
+                          {downloadingPaymentId === payment._id
+                            ? "Opening..."
+                            : payment.status === "paid"
+                              ? "Download invoice"
+                              : "Download PDF"}
+                        </Button>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               ))}
