@@ -66,7 +66,16 @@ export function getTaskPreview(
   return ""
 }
 
-export function formatCurrency(amount: number, currencyCode: string = "USD"): string {
+type FormatCurrencyOptions = {
+  minimumFractionDigits?: number;
+  maximumFractionDigits?: number;
+};
+
+export function formatCurrency(
+  amount: number,
+  currencyCode: string = "USD",
+  options: FormatCurrencyOptions = {},
+): string {
   const currencyMap: Record<string, { symbol: string; locale: string }> = {
     USD: { symbol: "$", locale: "en-US" },
     EUR: { symbol: "€", locale: "de-DE" },
@@ -91,15 +100,18 @@ export function formatCurrency(amount: number, currencyCode: string = "USD"): st
   }
 
   const currency = currencyMap[currencyCode] || currencyMap.USD
+  const minimumFractionDigits = options.minimumFractionDigits ?? 2
+  const maximumFractionDigits =
+    options.maximumFractionDigits ?? minimumFractionDigits
 
   try {
     return new Intl.NumberFormat(currency.locale, {
       style: "currency",
       currency: currencyCode,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+      minimumFractionDigits,
+      maximumFractionDigits,
     }).format(amount)
   } catch {
-    return `${amount.toFixed(2)} ${currency.symbol || "$"}`
+    return `${amount.toFixed(maximumFractionDigits)} ${currency.symbol || "$"}`
   }
 }

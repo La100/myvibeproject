@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Product, Project, ShoppingSet, Team } from "../../types";
 import { CONFIG } from "../../config";
 import { ACTIONS, isObjectMessage } from "../../lib/messages";
 import { authenticatedFetch } from "../../lib/auth";
+import { STORAGE_KEYS } from "../../lib/storageKeys";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,6 +49,12 @@ interface PickerActivationResponse {
   error?: string;
 }
 
+interface PendingClipperImage {
+  kind?: "url" | "data";
+  value?: string;
+  updatedAt?: number;
+}
+
 const NO_SECTION_VALUE = "__none";
 const NO_SET_VALUE = "__no_set";
 
@@ -89,6 +96,10 @@ function parseNumber(value?: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+async function clearPendingClipperImage(): Promise<void> {
+  await chrome.storage.local.remove(STORAGE_KEYS.CLIPPER_PENDING_IMAGE);
+}
+
 const ClipperView = ({
   team,
   project,
@@ -105,8 +116,13 @@ const ClipperView = ({
   const [isImagePickerActive, setIsImagePickerActive] = useState(false);
   const [isScreenshotPickerActive, setIsScreenshotPickerActive] =
     useState(false);
+  const [capturedImageDataUrl, setCapturedImageDataUrl] = useState<
+    string | null
+  >(null);
+  const lastAppliedPendingImageAt = useRef<number | null>(null);
 
   const isIframeMode = useMemo(() => window.self !== window.top, []);
+  const previewImageUrl = capturedImageDataUrl ?? product.imageUrl ?? "";
 
   const handleProductChange = (
     field: keyof Product,
@@ -152,6 +168,49 @@ const ClipperView = ({
     [getActiveTab],
   );
 
+  const applyPendingImageSelection = useCallback(
+    (selection: PendingClipperImage | null | undefined) => {
+      if (!selection || typeof selection.value !== "string" || !selection.value) {
+        return false;
+      }
+
+      if (
+        typeof selection.updatedAt === "number" &&
+        lastAppliedPendingImageAt.current === selection.updatedAt
+      ) {
+        return false;
+      }
+
+      if (selection.kind === "data") {
+        setCapturedImageDataUrl(selection.value);
+      } else {
+        setCapturedImageDataUrl(null);
+        setProduct((prev) => ({ ...prev, imageUrl: selection.value }));
+      }
+
+      lastAppliedPendingImageAt.current = selection.updatedAt ?? Date.now();
+      setIsImagePickerActive(false);
+      setIsScreenshotPickerActive(false);
+      showToast("Image updated.", "success");
+      return true;
+    },
+    [showToast],
+  );
+
+  const hydratePendingImageSelection = useCallback(async () => {
+    const stored = await chrome.storage.local.get(STORAGE_KEYS.CLIPPER_PENDING_IMAGE);
+    const selection = stored[
+      STORAGE_KEYS.CLIPPER_PENDING_IMAGE
+    ] as PendingClipperImage | undefined;
+
+    if (!applyPendingImageSelection(selection)) {
+      return false;
+    }
+
+    await clearPendingClipperImage();
+    return true;
+  }, [applyPendingImageSelection]);
+
   const refreshSections = useCallback(async () => {
     try {
       const response = await authenticatedFetch(
@@ -159,7 +218,7 @@ const ClipperView = ({
         undefined,
         {
           retryOnAuthFailure: true,
-          allowInteractiveAuth: true,
+          allowInteractiveAuth: false,
         },
       );
 
@@ -179,7 +238,10 @@ const ClipperView = ({
     }
   }, [project._id, team._id]);
 
-  const detectProductFromPage = useCallback(async () => {
+  const detectProductFromPage = useCallback(async (options?: {
+    replaceAll?: boolean;
+  }) => {
+    const replaceAll = options?.replaceAll === true;
     setIsDetecting(true);
 
     try {
@@ -198,6 +260,30 @@ const ClipperView = ({
       });
 
       if (!response.success || !response.product) {
+        return;
+      }
+
+      if (replaceAll) {
+        setCapturedImageDataUrl(null);
+        await clearPendingClipperImage();
+
+        setProduct((prev) => ({
+          ...prev,
+          name: response.product?.name ?? "",
+          price:
+            response.product?.unitPrice ??
+            response.product?.price ??
+            "",
+          productLink: response.product?.productLink ?? tab.url ?? "",
+          supplier:
+            response.product?.supplier ??
+            extractDomain(tab.url ?? "") ??
+            "",
+          catalogNumber: response.product?.catalogNumber ?? "",
+          notes: "",
+          imageUrl: response.product?.imageUrl ?? "",
+          quantity: 1,
+        }));
         return;
       }
 
@@ -257,16 +343,7 @@ const ClipperView = ({
       if (!isObjectMessage(message)) return;
 
       if (message.action === ACTIONS.IMAGE_SELECTED) {
-        const incoming = message as { imageUrl?: string };
-        if (
-          typeof incoming.imageUrl === "string" &&
-          incoming.imageUrl.length > 0
-        ) {
-          setProduct((prev) => ({ ...prev, imageUrl: incoming.imageUrl }));
-          setIsImagePickerActive(false);
-          setIsScreenshotPickerActive(false);
-          showToast("Image updated.", "success");
-        }
+        void hydratePendingImageSelection();
         return;
       }
 
@@ -294,12 +371,33 @@ const ClipperView = ({
       }
     };
 
+    const storageListener = (
+      changes: Record<string, chrome.storage.StorageChange>,
+      areaName: string,
+    ) => {
+      if (areaName !== "local") {
+        return;
+      }
+
+      const change = changes[STORAGE_KEYS.CLIPPER_PENDING_IMAGE];
+      if (!change?.newValue) {
+        return;
+      }
+
+      const selection = change.newValue as PendingClipperImage;
+      if (applyPendingImageSelection(selection)) {
+        void clearPendingClipperImage();
+      }
+    };
+
     chrome.runtime.onMessage.addListener(runtimeMessageListener);
+    chrome.storage.onChanged.addListener(storageListener);
 
     return () => {
       chrome.runtime.onMessage.removeListener(runtimeMessageListener);
+      chrome.storage.onChanged.removeListener(storageListener);
     };
-  }, [showToast]);
+  }, [applyPendingImageSelection, hydratePendingImageSelection, showToast]);
 
   const handleOpenProductLink = () => {
     if (!product.productLink) {
@@ -313,6 +411,7 @@ const ClipperView = ({
     if (isImagePickerActive || isScreenshotPickerActive) return;
 
     try {
+      await clearPendingClipperImage();
       const response = await sendMessageToActiveTab<PickerActivationResponse>({
         action: ACTIONS.ENABLE_IMAGE_PICKER,
       });
@@ -338,6 +437,7 @@ const ClipperView = ({
     if (isScreenshotPickerActive || isImagePickerActive) return;
 
     try {
+      await clearPendingClipperImage();
       const response = await sendMessageToActiveTab<PickerActivationResponse>({
         action: ACTIONS.ENABLE_SCREENSHOT_PICKER,
       });
@@ -397,7 +497,8 @@ const ClipperView = ({
         catalogNumber: product.catalogNumber?.trim() || undefined,
         notes: product.notes?.trim() || undefined,
         productLink: product.productLink?.trim() || undefined,
-        imageUrl: product.imageUrl?.trim() || undefined,
+        imageUrl: capturedImageDataUrl ? undefined : product.imageUrl?.trim() || undefined,
+        capturedImageDataUrl: capturedImageDataUrl ?? undefined,
         priority: "medium",
         realizationStatus: "PLANNED",
       };
@@ -430,6 +531,7 @@ const ClipperView = ({
       }
 
       showToast("Product added to shopping list.", "success");
+      await clearPendingClipperImage();
 
       if (isIframeMode) {
         await handleCloseIframe();
@@ -477,7 +579,7 @@ const ClipperView = ({
               variant="outline"
               size="sm"
               className="h-8 w-8 p-0"
-              onClick={detectProductFromPage}
+              onClick={() => void detectProductFromPage({ replaceAll: true })}
               disabled={isDetecting}
               title="Refresh data"
             >
@@ -510,10 +612,10 @@ const ClipperView = ({
               <CardTitle className="text-sm">Product image</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {product.imageUrl ? (
+              {previewImageUrl ? (
                 <div className="h-40 overflow-hidden rounded-xl border border-border/85 bg-background/80">
                   <img
-                    src={product.imageUrl}
+                    src={previewImageUrl}
                     alt={product.name ?? "Product"}
                     className="h-full w-full object-cover"
                   />
@@ -625,14 +727,14 @@ const ClipperView = ({
               </div>
 
               <div className="space-y-1.5">
-                <Label>Set</Label>
+                <Label>Alternative for</Label>
                 <Select value={selectedSetId} onValueChange={setSelectedSetId}>
                   <SelectTrigger>
-                    <SelectValue placeholder="No set (default)" />
+                    <SelectValue placeholder="No alternatives (default)" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={NO_SET_VALUE}>
-                      No set (default)
+                      No alternatives (default)
                     </SelectItem>
                     {shoppingSets.map((set) => (
                       <SelectItem key={set._id} value={set._id}>

@@ -121,6 +121,17 @@ test("formatCurrency uses locale-aware formatting when possible", () => {
   assert.match(value, /zł/);
 });
 
+test("formatCurrency supports custom fraction digits", () => {
+  const value = formatCurrency(200000, "PLN", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  });
+
+  assert.match(value, /200[\s\xa0]?000/);
+  assert.doesNotMatch(value, /[,.]00/);
+  assert.match(value, /zł/);
+});
+
 test("formatCurrency falls back when Intl.NumberFormat throws", () => {
   const originalNumberFormat = Intl.NumberFormat;
 

@@ -204,7 +204,7 @@ export default function CustomerPanelPage() {
                   <Label htmlFor="show-shopping-list" className="font-medium">
                     Shopping List
                   </Label>
-                  <p className="text-xs text-muted-foreground">Share products and shopping sets.</p>
+                  <p className="text-xs text-muted-foreground">Share products and alternative groups.</p>
                 </div>
                 <Switch
                   id="show-shopping-list"

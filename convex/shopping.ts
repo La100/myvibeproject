@@ -982,6 +982,7 @@ export const getShoppingListItemsByProject = query({
     const items = await ctx.db
       .query("shoppingListItems")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .order("desc")
       .collect();
     return items;
   },

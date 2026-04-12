@@ -24,6 +24,10 @@ const deleteLaborItemMutationRef =
 const deleteLaborSectionMutationRef =
   makeFunctionReference<"mutation">("labor:deleteLaborSection");
 
+function hasDefinedUpdates(updates: Record<string, unknown>): boolean {
+  return Object.values(updates).some((value) => value !== undefined);
+}
+
 export const createConfirmedLaborItem = action({
   args: {
     projectId: v.id("projects"),
@@ -132,6 +136,10 @@ export const editConfirmedLaborItem = action({
   }),
   handler: async (ctx, args) => {
     try {
+      if (!hasDefinedUpdates(args.updates)) {
+        throw new Error("No valid labor item update fields were provided");
+      }
+
       const item = await ctx.runQuery(getLaborItemQueryRef, { itemId: args.itemId });
       if (!item) {
         throw new Error("Labor item not found");
@@ -179,6 +187,10 @@ export const editConfirmedLaborSection = action({
   }),
   handler: async (ctx, args) => {
     try {
+      if (!hasDefinedUpdates(args.updates)) {
+        throw new Error("No valid labor section update fields were provided");
+      }
+
       const section = await ctx.runQuery(getLaborSectionQueryRef, {
         sectionId: args.sectionId,
       });

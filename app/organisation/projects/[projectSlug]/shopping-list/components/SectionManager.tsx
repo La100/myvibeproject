@@ -9,16 +9,28 @@ interface SectionManagerProps {
   onCreateSection: (name: string) => Promise<void>;
   onDeleteSection: (sectionId: Id<"shoppingListSections">) => Promise<void>;
   isPending: boolean;
+  expanded?: boolean;
+  onExpandedChange?: (expanded: boolean) => void;
 }
 
 export function SectionManager({
   sections,
   onCreateSection,
   onDeleteSection,
-  isPending
+  isPending,
+  expanded,
+  onExpandedChange,
 }: SectionManagerProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [internalExpanded, setInternalExpanded] = useState(false);
   const [newSectionName, setNewSectionName] = useState('');
+  const isExpanded = expanded ?? internalExpanded;
+
+  const setExpanded = (nextExpanded: boolean) => {
+    if (expanded === undefined) {
+      setInternalExpanded(nextExpanded);
+    }
+    onExpandedChange?.(nextExpanded);
+  };
 
   const handleCreateSection = async () => {
     if (!newSectionName.trim()) return;
@@ -46,7 +58,7 @@ export function SectionManager({
   return (
     <div className="mb-8 rounded-3xl border bg-card p-6 shadow-sm">
       <button
-        onClick={() => setIsExpanded(!isExpanded)}
+        onClick={() => setExpanded(!isExpanded)}
         className="flex items-center justify-between w-full text-left"
       >
         <div className="flex items-center gap-3">

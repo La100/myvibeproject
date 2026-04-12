@@ -517,16 +517,16 @@ export function ShoppingListSection({
             className="mt-0.5"
           />
           <label htmlFor={`item-${item._id}-has-alternatives`} className="cursor-pointer text-sm leading-6">
-            <span className="font-medium text-foreground">Has alternatives?</span>
+            <span className="font-medium text-foreground">Offer alternatives?</span>
             <span className="block text-muted-foreground">
-              Group this product with other options so the client can choose one in the portal.
+              Add this product to an alternative group so the client can choose one option in the portal.
             </span>
           </label>
         </div>
         {item.setId &&
         items.filter((entry) => String(entry.setId ?? "") === String(item.setId)).length > 1 ? (
           <p className="mt-3 text-xs text-foreground/70">
-            To disable alternatives, first delete the other options from this group.
+            To remove this alternative group, first delete the other options in it.
           </p>
         ) : null}
       </div>
@@ -579,7 +579,7 @@ export function ShoppingListSection({
                     <h4 className="text-sm font-medium text-foreground">{item.name}</h4>
                     {set ? (
                       <Badge variant="outline" className="text-xs">
-                        Option
+                        Alternative
                       </Badge>
                     ) : null}
                     {!isCounted ? (
@@ -698,7 +698,7 @@ export function ShoppingListSection({
               <h3 className="text-base font-medium text-foreground">{leadItem?.name || set.title}</h3>
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <Badge variant="outline" className="text-xs">Alternatives</Badge>
+              <Badge variant="outline" className="text-xs">Alternative group</Badge>
               <Badge variant="secondary" className="text-xs">{setItems.length} options</Badge>
             </div>
             {set.notes ? <p className="mt-3 text-sm text-muted-foreground">{set.notes}</p> : null}
@@ -714,7 +714,7 @@ export function ShoppingListSection({
               }
             >
               <PlusIcon className="mr-2 h-4 w-4" />
-              Add option
+              Add alternative
             </Button>
             <Button
               variant="ghost"
@@ -723,7 +723,7 @@ export function ShoppingListSection({
               onClick={() => onDeleteSet(set._id)}
             >
               <TrashIcon className="mr-2 h-4 w-4" />
-              Remove alternatives
+              Remove group
             </Button>
           </div>
         </div>
@@ -750,7 +750,7 @@ export function ShoppingListSection({
               defaultSetId={set._id}
               hideSectionField
               hideAlternativeControls
-              submitLabel="Add option"
+              submitLabel="Add alternative"
             />
           </div>
         ) : null}
@@ -779,7 +779,13 @@ export function ShoppingListSection({
                       }
                     >
                       {isSelected ? <CheckIcon className="mr-1 h-4 w-4" /> : null}
-                      {set.selectionMode === "single" ? (isSelected ? "Default" : "Set default") : isSelected ? "Selected" : "Toggle"}
+                      {set.selectionMode === "single"
+                        ? isSelected
+                          ? "Default option"
+                          : "Set default"
+                        : isSelected
+                          ? "Included"
+                          : "Include"}
                     </Button>
                   </div>
                 ) : null}
@@ -799,9 +805,6 @@ export function ShoppingListSection({
           <h2 className="text-lg font-medium text-foreground sm:text-xl">{sectionName}</h2>
           <span className="inline-flex items-center justify-center rounded-full border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
             {items.length} items
-          </span>
-          <span className="inline-flex items-center justify-center rounded-full border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-            {sectionSets.length} alternative group{sectionSets.length === 1 ? "" : "s"}
           </span>
           <span className="inline-flex items-center justify-center rounded-full border bg-muted px-3 py-1 text-xs font-medium text-foreground">
             {sectionTotal.toFixed(2)} {currencySymbol}

@@ -10,6 +10,10 @@ import { api } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
 import { ensureTeamMembership } from "./helpers";
 
+function hasDefinedUpdates(updates: Record<string, unknown>): boolean {
+  return Object.values(updates).some((value) => value !== undefined);
+}
+
 export const createConfirmedContact = action({
   args: {
     teamSlug: v.string(),
@@ -101,6 +105,10 @@ export const editConfirmedContact = action({
   }),
   handler: async (ctx, args) => {
     try {
+      if (!hasDefinedUpdates(args.updates)) {
+        throw new Error("No valid contact update fields were provided");
+      }
+
       const contact = await ctx.runQuery(api.contacts.getContact, { contactId: args.contactId });
       if (!contact) {
         throw new Error("Contact not found");
@@ -170,7 +178,6 @@ export const deleteConfirmedContact = action({
     }
   },
 });
-
 
 
 

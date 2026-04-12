@@ -21,7 +21,8 @@ export interface BaseMessage {
 
 export interface ImageSelectedMessage extends BaseMessage {
   action: typeof ACTIONS.IMAGE_SELECTED
-  imageUrl: string
+  imageUrl?: string
+  imageDataUrl?: string
 }
 
 export interface DetectProductMessage extends BaseMessage {

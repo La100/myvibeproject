@@ -275,10 +275,10 @@ const getLeadOption = (item: ClientPanelItem, options: ClientPanelItem[]) => {
 
 const getChoiceLabel = (selectionMode: ShoppingGroup["selectionMode"]) => {
   if (selectionMode === "single") {
-    return "Choose 1";
+    return "Choose 1 option";
   }
   if (selectionMode === "multiple") {
-    return "Choose any";
+    return "Choose any options";
   }
   return "Included";
 };
@@ -2293,7 +2293,7 @@ export default function PublicClientPanelPage() {
                                         className="mt-0.5"
                                         onClick={() => void handleSelectSetItems(group, [optionId])}
                                       >
-                                        {isSelected ? "Chosen" : "Choose"}
+                                        {isSelected ? "Selected" : "Select"}
                                       </Button>
                                     ) : null}
                                     <div className="flex min-w-0 flex-1 items-start justify-between gap-4">

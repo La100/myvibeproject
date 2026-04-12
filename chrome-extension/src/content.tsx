@@ -18,8 +18,31 @@ type RuntimeMessage = {
   [key: string]: unknown
 }
 
+type PendingClipperImage = {
+  kind: "url" | "data"
+  value: string
+  updatedAt: number
+}
+
+const CLIPPER_PENDING_IMAGE_STORAGE_KEY = "clipper_pending_image"
+
 function isObjectMessage(value: unknown): value is RuntimeMessage {
   return typeof value === "object" && value !== null && "action" in value
+}
+
+function isExtensionContextInvalidatedError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    /Extension context invalidated/i.test(error.message)
+  )
+}
+
+function isRuntimeContextAvailable(): boolean {
+  try {
+    return typeof chrome !== "undefined" && Boolean(chrome.runtime?.id)
+  } catch {
+    return false
+  }
 }
 
 function notifyPickerStatus(
@@ -27,16 +50,12 @@ function notifyPickerStatus(
   active: boolean,
   reason: "selected" | "cancelled" | "error" | "idle" = "idle",
 ): void {
-  chrome.runtime
-    .sendMessage({
-      action: ACTIONS.PICKER_STATUS_CHANGED,
-      picker,
-      active,
-      reason,
-    })
-    .catch(() => {
-      // Popup listener may be gone; state cleanup in content script still matters.
-    })
+  void sendRuntimeMessage({
+    action: ACTIONS.PICKER_STATUS_CHANGED,
+    picker,
+    active,
+    reason,
+  })
 }
 
 function hasStructuredProductSignal(): boolean {
@@ -142,6 +161,88 @@ let screenshotEscapeListener: ((event: KeyboardEvent) => void) | null = null
 let previousIframeVisibility: string | null = null
 let previousOverlayVisibility: string | null = null
 
+function cleanupInvalidatedContext(): void {
+  if (screenshotEscapeListener) {
+    window.removeEventListener("keydown", screenshotEscapeListener)
+    screenshotEscapeListener = null
+  }
+
+  if (escapeListener) {
+    window.removeEventListener("keydown", escapeListener)
+    escapeListener = null
+  }
+
+  if (screenshotOverlayElement) {
+    screenshotOverlayElement.remove()
+    screenshotOverlayElement = null
+  }
+
+  screenshotSelectionElement = null
+  screenshotStartPoint = null
+  screenshotPickerActive = false
+
+  for (const img of imagePickerElements) {
+    img.removeEventListener("click", handleImageClick, true)
+    img.removeEventListener("mouseenter", handleImageMouseEnter)
+    img.removeEventListener("mouseleave", handleImageMouseLeave)
+    resetImageStyles(img)
+  }
+
+  imagePickerElements.clear()
+  imagePickerActive = false
+
+  if (iframePopup) {
+    iframePopup.remove()
+    iframePopup = null
+  }
+
+  if (overlayElement) {
+    overlayElement.remove()
+    overlayElement = null
+  }
+
+  previousIframeVisibility = null
+  previousOverlayVisibility = null
+}
+
+async function sendRuntimeMessage(payload: RuntimeMessage): Promise<void> {
+  if (!isRuntimeContextAvailable()) {
+    cleanupInvalidatedContext()
+    return
+  }
+
+  try {
+    await chrome.runtime.sendMessage(payload)
+  } catch (error) {
+    if (isExtensionContextInvalidatedError(error)) {
+      cleanupInvalidatedContext()
+      return
+    }
+
+    throw error
+  }
+}
+
+async function persistPendingImageSelection(selection: PendingClipperImage): Promise<void> {
+  if (!isRuntimeContextAvailable()) {
+    cleanupInvalidatedContext()
+    return
+  }
+
+  try {
+    await chrome.storage.local.set({
+      [CLIPPER_PENDING_IMAGE_STORAGE_KEY]: selection,
+    })
+  } catch (error) {
+    if (isExtensionContextInvalidatedError(error)) {
+      cleanupInvalidatedContext()
+      return
+    }
+
+    throw error
+  }
+}
+
 function setOverlayInteractivity(enabled: boolean): void {
   if (!overlayElement) {
     return
@@ -193,23 +294,69 @@ function handleImageMouseLeave(event: Event): void {
   img.style.boxShadow = ""
 }
 
-function handleImageClick(event: Event): void {
+async function handleImageClick(event: Event): Promise<void> {
   event.preventDefault()
   event.stopPropagation()
+  if ("stopImmediatePropagation" in event) {
+    event.stopImmediatePropagation()
+  }
 
   const img = event.currentTarget as HTMLImageElement | null
   if (!img?.src) {
     return
   }
 
-  chrome.runtime
-    .sendMessage({
-      action: ACTIONS.IMAGE_SELECTED,
-      imageUrl: img.src,
-    })
-    .catch(() => {
-      // If popup isn't open, we can ignore this.
-    })
+  try {
+    const rect = createSelectionRect(
+      {
+        x: img.getBoundingClientRect().left,
+        y: img.getBoundingClientRect().top,
+      },
+      {
+        x: img.getBoundingClientRect().right,
+        y: img.getBoundingClientRect().bottom,
+      },
+    )
+
+    let selection: PendingClipperImage = {
+      kind: "url",
+      value: img.currentSrc || img.src,
+      updatedAt: Date.now(),
+    }
+
+    if (rect.width >= 8 && rect.height >= 8) {
+      hideClipperForScreenshotPicker()
+
+      try {
+        await new Promise<void>((resolve) => {
+          requestAnimationFrame(() => resolve())
+        })
+
+        const screenshot = await requestVisibleTabCapture()
+        const croppedImage = await cropCapturedScreenshot(
+          screenshot,
+          rect,
+          window.innerWidth,
+          window.innerHeight,
+        )
+
+        selection = {
+          kind: "data",
+          value: croppedImage,
+          updatedAt: Date.now(),
+        }
+      } catch (error) {
+        console.warn("[MyVibeProject Content] Failed to capture clicked image", error)
+      } finally {
+        restoreClipperAfterScreenshotPicker()
+      }
+    }
+
+    await persistPendingImageSelection(selection)
+    await sendRuntimeMessage({ action: ACTIONS.IMAGE_SELECTED })
+  } catch (error) {
+    console.warn("[MyVibeProject Content] Failed to persist selected image", error)
+  }
 
   disableImagePicker()
 }
@@ -321,6 +468,7 @@ function updateSelectionElement(rect: {
     return
   }
 
+  screenshotSelectionElement.style.display = "block"
   screenshotSelectionElement.style.left = `${rect.x}px`
   screenshotSelectionElement.style.top = `${rect.y}px`
   screenshotSelectionElement.style.width = `${rect.width}px`
@@ -329,23 +477,40 @@ function updateSelectionElement(rect: {
 
 function requestVisibleTabCapture(): Promise<string> {
   return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage(
-      { action: ACTIONS.CAPTURE_VISIBLE_TAB },
-      (response: { success?: boolean; dataUrl?: string; error?: string }) => {
-        const runtimeError = chrome.runtime.lastError
-        if (runtimeError) {
-          reject(new Error(runtimeError.message))
-          return
-        }
+    if (!isRuntimeContextAvailable()) {
+      cleanupInvalidatedContext()
+      reject(new Error("Extension context invalidated"))
+      return
+    }
 
-        if (!response?.success || typeof response.dataUrl !== "string") {
-          reject(new Error(response?.error ?? "Failed to capture screenshot"))
-          return
-        }
+    try {
+      chrome.runtime.sendMessage(
+        { action: ACTIONS.CAPTURE_VISIBLE_TAB },
+        (response: { success?: boolean; dataUrl?: string; error?: string }) => {
+          const runtimeError = chrome.runtime.lastError
+          if (runtimeError) {
+            const error = new Error(runtimeError.message)
+            if (isExtensionContextInvalidatedError(error)) {
+              cleanupInvalidatedContext()
+            }
+            reject(error)
+            return
+          }
 
-        resolve(response.dataUrl)
-      },
-    )
+          if (!response?.success || typeof response.dataUrl !== "string") {
+            reject(new Error(response?.error ?? "Failed to capture screenshot"))
+            return
+          }
+
+          resolve(response.dataUrl)
+        },
+      )
+    } catch (error) {
+      if (isExtensionContextInvalidatedError(error)) {
+        cleanupInvalidatedContext()
+      }
+      reject(error instanceof Error ? error : new Error("Failed to capture screenshot"))
+    }
   })
 }
 
@@ -458,9 +623,13 @@ async function finalizeScreenshotSelection(rect: {
       viewportHeight,
     )
 
-    await chrome.runtime.sendMessage({
+    await persistPendingImageSelection({
+      kind: "data",
+      value: croppedImage,
+      updatedAt: Date.now(),
+    })
+    await sendRuntimeMessage({
       action: ACTIONS.IMAGE_SELECTED,
-      imageUrl: croppedImage,
     })
     notifyPickerStatus("screenshot", false, "selected")
   } catch (error) {
@@ -489,7 +658,7 @@ function enableScreenshotPicker(): boolean {
     inset: 0 !important;
     z-index: 2147483647 !important;
     cursor: crosshair !important;
-    background: rgba(2, 6, 23, 0.24) !important;
+    background: transparent !important;
     user-select: none !important;
   `
 
@@ -514,14 +683,18 @@ function enableScreenshotPicker(): boolean {
   const selection = document.createElement("div")
   selection.style.cssText = `
     position: fixed !important;
+    display: none !important;
     left: 0 !important;
     top: 0 !important;
     width: 0 !important;
     height: 0 !important;
-    border: 2px solid #3b82f6 !important;
-    background: rgba(59, 130, 246, 0.18) !important;
+    border: 2px solid #2563eb !important;
+    background: rgba(255, 255, 255, 0.08) !important;
     border-radius: 8px !important;
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.8) inset !important;
+    box-shadow:
+      0 0 0 9999px rgba(2, 6, 23, 0.42),
+      0 0 0 1px rgba(255, 255, 255, 0.95) inset,
+      0 12px 32px rgba(2, 6, 23, 0.28) !important;
     pointer-events: none !important;
   `
   pickerOverlay.appendChild(selection)
@@ -617,6 +790,23 @@ function createIframePopup(): void {
     return
   }
 
+  if (!isRuntimeContextAvailable()) {
+    cleanupInvalidatedContext()
+    return
+  }
+
+  let popupUrl: string
+  try {
+    popupUrl = chrome.runtime.getURL("popup.html")
+  } catch (error) {
+    if (isExtensionContextInvalidatedError(error)) {
+      cleanupInvalidatedContext()
+      return
+    }
+
+    throw error
+  }
+
   const overlay = document.createElement("div")
   overlay.id = OVERLAY_ID
   overlay.style.cssText = `
@@ -629,7 +819,7 @@ function createIframePopup(): void {
 
   const iframe = document.createElement("iframe")
   iframe.id = IFRAME_ID
-  iframe.src = chrome.runtime.getURL("popup.html")
+  iframe.src = popupUrl
   iframe.title = "MyVibeProject Clipper"
   iframe.style.cssText = `
     position: fixed !important;
@@ -658,68 +848,70 @@ function createIframePopup(): void {
   iframePopup = iframe
 }
 
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (sender.id !== chrome.runtime.id || !isObjectMessage(request)) {
-    return false
-  }
+if (isRuntimeContextAvailable()) {
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (sender.id !== chrome.runtime.id || !isObjectMessage(request)) {
+      return false
+    }
 
-  if (request.action === ACTIONS.PING) {
-    sendResponse({ status: "ready" })
-    return false
-  }
+    if (request.action === ACTIONS.PING) {
+      sendResponse({ status: "ready" })
+      return false
+    }
 
-  if (request.action === ACTIONS.CAN_OPEN_CLIPPER) {
-    sendResponse(canOpenClipperOnThisPage())
-    return false
-  }
+    if (request.action === ACTIONS.CAN_OPEN_CLIPPER) {
+      sendResponse(canOpenClipperOnThisPage())
+      return false
+    }
 
-  if (request.action === ACTIONS.OPEN_IFRAME_POPUP) {
-    createIframePopup()
-    sendResponse({ success: true })
-    return false
-  }
+    if (request.action === ACTIONS.OPEN_IFRAME_POPUP) {
+      createIframePopup()
+      sendResponse({ success: true })
+      return false
+    }
 
-  if (request.action === ACTIONS.CLOSE_IFRAME_POPUP) {
-    removeIframePopup()
-    sendResponse({ success: true })
-    return false
-  }
+    if (request.action === ACTIONS.CLOSE_IFRAME_POPUP) {
+      removeIframePopup()
+      sendResponse({ success: true })
+      return false
+    }
 
-  if (request.action === ACTIONS.ENABLE_IMAGE_PICKER) {
-    const selectableCount = enableImagePicker()
-    sendResponse({ success: selectableCount > 0, count: selectableCount })
-    return false
-  }
+    if (request.action === ACTIONS.ENABLE_IMAGE_PICKER) {
+      const selectableCount = enableImagePicker()
+      sendResponse({ success: selectableCount > 0, count: selectableCount })
+      return false
+    }
 
-  if (request.action === ACTIONS.ENABLE_SCREENSHOT_PICKER) {
-    const success = enableScreenshotPicker()
-    sendResponse({
-      success,
-      error: success ? undefined : "Could not start screenshot picker on this page.",
-    })
-    return false
-  }
-
-  if (request.action === ACTIONS.DETECT_PRODUCT) {
-    const detector = new ProductDetector({ debug: false })
-
-    void detector
-      .detectFromPage()
-      .then((product) => {
-        if (product) {
-          sendResponse({ success: true, product })
-        } else {
-          sendResponse({ success: false, error: "No product detected" })
-        }
+    if (request.action === ACTIONS.ENABLE_SCREENSHOT_PICKER) {
+      const success = enableScreenshotPicker()
+      sendResponse({
+        success,
+        error: success ? undefined : "Could not start screenshot picker on this page.",
       })
-      .catch((error: unknown) => {
-        const message = error instanceof Error ? error.message : "Detection failed"
-        sendResponse({ success: false, error: message })
-      })
+      return false
+    }
 
-    return true
-  }
+    if (request.action === ACTIONS.DETECT_PRODUCT) {
+      const detector = new ProductDetector({ debug: false })
 
-  sendResponse({ success: false, error: `Unknown action: ${request.action}` })
-  return false
-})
+      void detector
+        .detectFromPage()
+        .then((product) => {
+          if (product) {
+            sendResponse({ success: true, product })
+          } else {
+            sendResponse({ success: false, error: "No product detected" })
+          }
+        })
+        .catch((error: unknown) => {
+          const message = error instanceof Error ? error.message : "Detection failed"
+          sendResponse({ success: false, error: message })
+        })
+
+      return true
+    }
+
+    sendResponse({ success: false, error: `Unknown action: ${request.action}` })
+    return false
+  })
+}

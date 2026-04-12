@@ -35,6 +35,10 @@ const deleteShoppingListSectionMutationRef =
 const deleteShoppingSetMutationRef =
   makeFunctionReference<"mutation">("shopping:deleteShoppingSet");
 
+function hasDefinedUpdates(updates: Record<string, unknown>): boolean {
+  return Object.values(updates).some((value) => value !== undefined);
+}
+
 export const createConfirmedShoppingItem = action({
   args: {
     projectId: v.id("projects"),
@@ -210,6 +214,10 @@ export const editConfirmedShoppingItem = action({
   }),
   handler: async (ctx, args) => {
     try {
+      if (!hasDefinedUpdates(args.updates)) {
+        throw new Error("No valid shopping item update fields were provided");
+      }
+
       const item = await ctx.runQuery(getShoppingListItemQueryRef, { itemId: args.itemId });
       if (!item) {
         throw new Error("Shopping item not found");
@@ -271,6 +279,10 @@ export const editConfirmedShoppingSection = action({
   }),
   handler: async (ctx, args) => {
     try {
+      if (!hasDefinedUpdates(args.updates)) {
+        throw new Error("No valid shopping section update fields were provided");
+      }
+
       const section = await ctx.runQuery(getShoppingListSectionQueryRef, {
         sectionId: args.sectionId,
       }) as {
@@ -321,6 +333,10 @@ export const editConfirmedShoppingSet = action({
   }),
   handler: async (ctx, args) => {
     try {
+      if (!hasDefinedUpdates(args.updates)) {
+        throw new Error("No valid shopping set update fields were provided");
+      }
+
       const set = await ctx.runQuery(getShoppingSetQueryRef, {
         setId: args.setId,
       }) as {
@@ -469,8 +485,6 @@ export const deleteConfirmedShoppingSet = action({
     }
   },
 });
-
-
 
 
 

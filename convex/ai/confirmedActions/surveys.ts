@@ -19,6 +19,17 @@ const updateQuestionMutationRef = makeFunctionReference<"mutation">("surveys:upd
 const deleteQuestionMutationRef = makeFunctionReference<"mutation">("surveys:deleteQuestion");
 const deleteSurveyMutationRef = makeFunctionReference<"mutation">("surveys:deleteSurvey");
 
+function hasDefinedSurveyUpdates(
+  updates: Record<string, unknown>,
+): boolean {
+  return Object.values(updates).some((value) => {
+    if (Array.isArray(value)) {
+      return value.length > 0;
+    }
+    return value !== undefined;
+  });
+}
+
 export const createConfirmedSurvey = action({
   args: {
     projectId: v.id("projects"),
@@ -142,6 +153,10 @@ export const editConfirmedSurvey = action({
   }),
   handler: async (ctx, args) => {
     try {
+      if (!hasDefinedSurveyUpdates(args.updates)) {
+        throw new Error("No valid survey update fields were provided");
+      }
+
       const survey = await ctx.runQuery(getSurveyQueryRef, { surveyId: args.surveyId });
       if (!survey) {
         throw new Error("Survey not found");
@@ -350,7 +365,6 @@ export const deleteConfirmedSurvey = action({
     }
   },
 });
-
 
 
 

@@ -101,12 +101,49 @@ function extractBulkEntries(
     for (const key of ["items", ...keys]) {
       const entries = asRecordArray(source[key]);
       if (entries.length > 0) {
-        return entries;
+        return entries
+          .map((entry) => flattenManagedToolParams(entry))
+          .filter((entry) => Object.keys(entry).length > 0);
       }
     }
   }
 
   return [];
+}
+
+function hasManagedUpdateFields(
+  payload: Record<string, unknown>,
+  idKeys: string[],
+): boolean {
+  return Object.keys(payload).some((key) => !idKeys.includes(key));
+}
+
+function compactDefinedFields(
+  payload: Record<string, unknown>,
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(payload).filter(([, value]) => value !== undefined),
+  );
+}
+
+function formatConfirmedActionResult(
+  result: unknown,
+  successFallback: string,
+  failureFallback = "The requested operation could not be completed.",
+): { ok: true; message: string } | { ok: false; error: string } {
+  const success = asRecord(result).success === true;
+  const message = asNonEmptyString(asRecord(result).message);
+  if (success) {
+    return {
+      ok: true,
+      message: message ?? successFallback,
+    };
+  }
+
+  return {
+    ok: false,
+    error: message ?? failureFallback,
+  };
 }
 
 function buildNameMap(
@@ -481,10 +518,44 @@ function asNonEmptyString(value: unknown): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
+function normalizeNumericString(value: string): string | undefined {
+  const match = value.trim().match(/-?\d[\d\s.,]*/);
+  if (!match) return undefined;
+
+  let numeric = match[0].replace(/\s+/g, "");
+  const commaCount = (numeric.match(/,/g) ?? []).length;
+  const dotCount = (numeric.match(/\./g) ?? []).length;
+
+  if (commaCount > 0 && dotCount > 0) {
+    if (numeric.lastIndexOf(",") > numeric.lastIndexOf(".")) {
+      numeric = numeric.replace(/\./g, "").replace(",", ".");
+    } else {
+      numeric = numeric.replace(/,/g, "");
+    }
+  } else if (commaCount > 0) {
+    if (commaCount > 1) {
+      numeric = numeric.replace(/,/g, "");
+    } else {
+      const [left, right] = numeric.split(",");
+      numeric =
+        right && right.length !== 3 ? `${left}.${right}` : `${left}${right ?? ""}`;
+    }
+  } else if (dotCount > 1) {
+    numeric = numeric.replace(/\./g, "");
+  } else if (dotCount === 1) {
+    const [left, right] = numeric.split(".");
+    if (right && right.length === 3) {
+      numeric = `${left}${right}`;
+    }
+  }
+
+  return numeric;
+}
+
 function asNumber(value: unknown): number | undefined {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string" && value.trim().length > 0) {
-    const parsed = Number(value);
+    const parsed = Number(normalizeNumericString(value) ?? value);
     return Number.isFinite(parsed) ? parsed : undefined;
   }
   return undefined;
@@ -1409,10 +1480,22 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               if (realizationStatus !== undefined) {
                 updates.realizationStatus = realizationStatus;
               }
-              const sectionId = asNonEmptyString(item.sectionId);
-              if (sectionId !== undefined) updates.sectionId = sectionId;
+              if (item.sectionId === null) {
+                updates.sectionId = null;
+              } else {
+                const sectionId = asNonEmptyString(item.sectionId);
+                if (sectionId !== undefined) updates.sectionId = sectionId;
+              }
               const assignedTo = asNonEmptyString(item.assignedTo);
               if (assignedTo !== undefined) updates.assignedTo = assignedTo;
+
+              if (!hasManagedUpdateFields(updates, ["itemId"])) {
+                return {
+                  ok: false,
+                  error:
+                    "No valid shopping item update fields were provided. Use at least one editable field such as notes, quantity, unitPrice, supplier, status, sectionId, or assignedTo.",
+                };
+              }
 
               await convex.mutation(apiAny.shopping.updateShoppingListItem, updates);
               return { ok: true, itemId };
@@ -1456,7 +1539,10 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               );
 
               return {
-                ok: Boolean(result?.success),
+                ...formatConfirmedActionResult(
+                  result,
+                  `Created shopping section: ${sectionName}`,
+                ),
                 sectionId:
                   typeof result?.sectionId === "string" ? result.sectionId : undefined,
                 name: sectionName,
@@ -1476,19 +1562,34 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 };
               }
 
+              const updates = compactDefinedFields({
+                name:
+                  asNonEmptyString(item.name) ??
+                  asNonEmptyString(item.sectionName),
+              });
+              if (!hasManagedUpdateFields(updates, [])) {
+                return {
+                  ok: false,
+                  error:
+                    "No valid shopping section update fields were provided. Use at least `name`.",
+                };
+              }
+
               const result = await convex.action(
                 apiAny.ai.confirmedActions.editConfirmedShoppingSection,
                 {
                   sectionId,
-                  updates: {
-                    name:
-                      asNonEmptyString(item.name) ??
-                      asNonEmptyString(item.sectionName),
-                  },
+                  updates,
                 },
               );
 
-              return { ok: Boolean(result?.success), sectionId };
+              return {
+                ...formatConfirmedActionResult(
+                  result,
+                  "Shopping section updated successfully.",
+                ),
+                sectionId,
+              };
             });
           }
 
@@ -1511,7 +1612,13 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 },
               );
 
-              return { ok: Boolean(result?.success), sectionId };
+              return {
+                ...formatConfirmedActionResult(
+                  result,
+                  "Shopping section deleted successfully.",
+                ),
+                sectionId,
+              };
             });
           }
 
@@ -1564,7 +1671,10 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               );
 
               return {
-                ok: Boolean(result?.success),
+                ...formatConfirmedActionResult(
+                  result,
+                  `Created shopping set: ${title}`,
+                ),
                 setId: typeof result?.setId === "string" ? result.setId : undefined,
                 title,
               };
@@ -1582,45 +1692,60 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 };
               }
 
+              const updates = compactDefinedFields({
+                title: asNonEmptyString(item.title) ?? asNonEmptyString(item.name),
+                notes: asNonEmptyString(item.notes),
+                sectionId:
+                  item.sectionId === null ? null : asNonEmptyString(item.sectionId),
+                setType:
+                  item.setType === "variant" ||
+                  item.setType === "bundle" ||
+                  item.setType === "reference"
+                    ? item.setType
+                    : undefined,
+                selectionMode:
+                  item.selectionMode === "single" ||
+                  item.selectionMode === "multiple" ||
+                  item.selectionMode === "none"
+                    ? item.selectionMode
+                    : undefined,
+                pricingMode:
+                  item.pricingMode === "selected_only" ||
+                  item.pricingMode === "all_selected" ||
+                  item.pricingMode === "none"
+                    ? item.pricingMode
+                    : undefined,
+                status:
+                  item.status === "draft" ||
+                  item.status === "active" ||
+                  item.status === "resolved" ||
+                  item.status === "archived"
+                    ? item.status
+                    : undefined,
+              });
+              if (!hasManagedUpdateFields(updates, [])) {
+                return {
+                  ok: false,
+                  error:
+                    "No valid shopping set update fields were provided. Use at least one editable field such as title, notes, sectionId, setType, selectionMode, pricingMode, or status.",
+                };
+              }
+
               const result = await convex.action(
                 apiAny.ai.confirmedActions.editConfirmedShoppingSet,
                 {
                   setId,
-                  updates: {
-                    title: asNonEmptyString(item.title) ?? asNonEmptyString(item.name),
-                    notes: asNonEmptyString(item.notes),
-                    sectionId:
-                      item.sectionId === null ? null : asNonEmptyString(item.sectionId),
-                    setType:
-                      item.setType === "variant" ||
-                      item.setType === "bundle" ||
-                      item.setType === "reference"
-                        ? item.setType
-                        : undefined,
-                    selectionMode:
-                      item.selectionMode === "single" ||
-                      item.selectionMode === "multiple" ||
-                      item.selectionMode === "none"
-                        ? item.selectionMode
-                        : undefined,
-                    pricingMode:
-                      item.pricingMode === "selected_only" ||
-                      item.pricingMode === "all_selected" ||
-                      item.pricingMode === "none"
-                        ? item.pricingMode
-                        : undefined,
-                    status:
-                      item.status === "draft" ||
-                      item.status === "active" ||
-                      item.status === "resolved" ||
-                      item.status === "archived"
-                        ? item.status
-                        : undefined,
-                  },
+                  updates,
                 },
               );
 
-              return { ok: Boolean(result?.success), setId };
+              return {
+                ...formatConfirmedActionResult(
+                  result,
+                  "Shopping set updated successfully.",
+                ),
+                setId,
+              };
             });
           }
 
@@ -1642,7 +1767,13 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 },
               );
 
-              return { ok: Boolean(result?.success), setId };
+              return {
+                ...formatConfirmedActionResult(
+                  result,
+                  "Shopping set deleted successfully.",
+                ),
+                setId,
+              };
             });
           }
 
@@ -1674,7 +1805,10 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               );
 
               return {
-                ok: Boolean(result?.success),
+                ...formatConfirmedActionResult(
+                  result,
+                  `Created labor item: ${laborName}`,
+                ),
                 itemId: typeof result?.itemId === "string" ? result.itemId : undefined,
                 name: laborName,
               };
@@ -1692,24 +1826,40 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 };
               }
 
+              const updates = compactDefinedFields({
+                name: asNonEmptyString(item.name),
+                notes: asNonEmptyString(item.notes),
+                quantity: asNumber(item.quantity),
+                unit: asNonEmptyString(item.unit),
+                unitPrice: asNumber(item.unitPrice) ?? asNumber(item.price),
+                sectionId:
+                  item.sectionId === null ? null : asNonEmptyString(item.sectionId),
+                assignedTo: asNonEmptyString(item.assignedTo),
+              });
+              if (!hasManagedUpdateFields(updates, [])) {
+                return {
+                  ok: false,
+                  error:
+                    "No valid labor item update fields were provided. Use at least one editable field such as name, notes, quantity, unit, unitPrice, sectionId, or assignedTo.",
+                };
+              }
+
               const result = await convex.action(
                 apiAny.ai.confirmedActions.editConfirmedLaborItem,
                 {
                   projectId,
                   itemId,
-                  updates: {
-                    name: asNonEmptyString(item.name),
-                    notes: asNonEmptyString(item.notes),
-                    quantity: asNumber(item.quantity),
-                    unit: asNonEmptyString(item.unit),
-                    unitPrice: asNumber(item.unitPrice) ?? asNumber(item.price),
-                    sectionId: asNonEmptyString(item.sectionId) ?? undefined,
-                    assignedTo: asNonEmptyString(item.assignedTo),
-                  },
+                  updates,
                 },
               );
 
-              return { ok: Boolean(result?.success), itemId };
+              return {
+                ...formatConfirmedActionResult(
+                  result,
+                  "Labor item updated successfully.",
+                ),
+                itemId,
+              };
             });
           }
 
@@ -1732,7 +1882,13 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 },
               );
 
-              return { ok: Boolean(result?.success), itemId };
+              return {
+                ...formatConfirmedActionResult(
+                  result,
+                  "Labor item deleted successfully.",
+                ),
+                itemId,
+              };
             });
           }
 
@@ -1757,7 +1913,10 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               );
 
               return {
-                ok: Boolean(result?.success),
+                ...formatConfirmedActionResult(
+                  result,
+                  `Created labor section: ${sectionName}`,
+                ),
                 sectionId:
                   typeof result?.sectionId === "string" ? result.sectionId : undefined,
                 name: sectionName,
@@ -1777,19 +1936,34 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 };
               }
 
+              const updates = compactDefinedFields({
+                name:
+                  asNonEmptyString(item.name) ??
+                  asNonEmptyString(item.sectionName),
+              });
+              if (!hasManagedUpdateFields(updates, [])) {
+                return {
+                  ok: false,
+                  error:
+                    "No valid labor section update fields were provided. Use at least `name`.",
+                };
+              }
+
               const result = await convex.action(
                 apiAny.ai.confirmedActions.editConfirmedLaborSection,
                 {
                   sectionId,
-                  updates: {
-                    name:
-                      asNonEmptyString(item.name) ??
-                      asNonEmptyString(item.sectionName),
-                  },
+                  updates,
                 },
               );
 
-              return { ok: Boolean(result?.success), sectionId };
+              return {
+                ...formatConfirmedActionResult(
+                  result,
+                  "Labor section updated successfully.",
+                ),
+                sectionId,
+              };
             });
           }
 
@@ -1812,7 +1986,13 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 },
               );
 
-              return { ok: Boolean(result?.success), sectionId };
+              return {
+                ...formatConfirmedActionResult(
+                  result,
+                  "Labor section deleted successfully.",
+                ),
+                sectionId,
+              };
             });
           }
 
@@ -1836,7 +2016,10 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               );
 
               return {
-                ok: Boolean(result?.success),
+                ...formatConfirmedActionResult(
+                  result,
+                  `Created survey: ${title}`,
+                ),
                 surveyId:
                   typeof result?.surveyId === "string" ? result.surveyId : undefined,
                 title,
@@ -1848,10 +2031,18 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             const items = asRecordArray(params.items);
             return runBulk(items, "Bulk survey update", async (item) => {
               const { surveyId, updates } = buildUpdateSurveyPayload(item);
-              if (!surveyId || !updates) {
+              const compactUpdates = updates ? compactDefinedFields(updates) : undefined;
+              if (!surveyId) {
                 return {
                   ok: false,
                   error: "Missing required `surveyId` for a bulk survey update.",
+                };
+              }
+              if (!compactUpdates || !hasManagedUpdateFields(compactUpdates, [])) {
+                return {
+                  ok: false,
+                  error:
+                    "No valid survey update fields were provided. Use at least one editable field such as title, description, dates, flags, or questions.",
                 };
               }
 
@@ -1860,11 +2051,17 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 {
                   projectId,
                   surveyId,
-                  updates,
+                  updates: compactUpdates,
                 },
               );
 
-              return { ok: Boolean(result?.success), surveyId };
+              return {
+                ...formatConfirmedActionResult(
+                  result,
+                  "Survey updated successfully.",
+                ),
+                surveyId,
+              };
             });
           }
 
@@ -1896,7 +2093,13 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 },
               );
 
-              return { ok: Boolean(result?.success), surveyId };
+              return {
+                ...formatConfirmedActionResult(
+                  result,
+                  "Survey deleted successfully.",
+                ),
+                surveyId,
+              };
             });
           }
 
@@ -2083,7 +2286,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
           }
 
           case "update_shopping_item": {
-            const itemId = asNonEmptyString(params.itemId);
+            const itemId = pickFirstNonEmptyString(params, ["itemId", "id"]);
             if (!itemId) {
               return {
                 ok: false,
@@ -2153,11 +2356,23 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             const realizationStatus = asShoppingStatus(params.realizationStatus);
             if (realizationStatus !== undefined) updates.realizationStatus = realizationStatus;
 
-            const sectionId = asNonEmptyString(params.sectionId);
-            if (sectionId !== undefined) updates.sectionId = sectionId;
+            if (params.sectionId === null) {
+              updates.sectionId = null;
+            } else {
+              const sectionId = asNonEmptyString(params.sectionId);
+              if (sectionId !== undefined) updates.sectionId = sectionId;
+            }
 
             const assignedTo = asNonEmptyString(params.assignedTo);
             if (assignedTo !== undefined) updates.assignedTo = assignedTo;
+
+            if (!hasManagedUpdateFields(updates, ["itemId"])) {
+              return {
+                ok: false,
+                error:
+                  "No valid shopping item update fields were provided. Use at least one editable field such as notes, quantity, unitPrice, supplier, status, sectionId, or assignedTo.",
+              };
+            }
 
             await convex.mutation(apiAny.shopping.updateShoppingListItem, updates);
 
@@ -2169,7 +2384,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
           }
 
           case "delete_shopping_item": {
-            const itemId = asNonEmptyString(params.itemId);
+            const itemId = pickFirstNonEmptyString(params, ["itemId", "id"]);
             if (!itemId) {
               return {
                 ok: false,
@@ -2437,15 +2652,16 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             });
 
             return {
-              ok: Boolean(result?.success),
+              ...formatConfirmedActionResult(
+                result,
+                `Created shopping section: ${name}`,
+              ),
               sectionId: typeof result?.sectionId === "string" ? result.sectionId : undefined,
-              message:
-                asNonEmptyString(result?.message) ?? `Created shopping section: ${name}`,
             };
           }
 
           case "update_shopping_section": {
-            const sectionId = asNonEmptyString(params.sectionId);
+            const sectionId = pickFirstNonEmptyString(params, ["sectionId", "id"]);
             if (!sectionId) {
               return {
                 ok: false,
@@ -2453,24 +2669,33 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               };
             }
 
+            const updates = compactDefinedFields({
+              name: asNonEmptyString(params.name),
+            });
+            if (!hasManagedUpdateFields(updates, [])) {
+              return {
+                ok: false,
+                error:
+                  "No valid shopping section update fields were provided. Use at least `name`.",
+              };
+            }
+
             const result = await convex.action(apiAny.ai.confirmedActions.editConfirmedShoppingSection, {
               sectionId,
-              updates: {
-                name: asNonEmptyString(params.name),
-              },
+              updates,
             });
 
             return {
-              ok: Boolean(result?.success),
-              sectionId,
-              message:
-                asNonEmptyString(result?.message) ??
+              ...formatConfirmedActionResult(
+                result,
                 "Shopping section updated successfully.",
+              ),
+              sectionId,
             };
           }
 
           case "delete_shopping_section": {
-            const sectionId = asNonEmptyString(params.sectionId);
+            const sectionId = pickFirstNonEmptyString(params, ["sectionId", "id"]);
             if (!sectionId) {
               return {
                 ok: false,
@@ -2483,11 +2708,11 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             });
 
             return {
-              ok: Boolean(result?.success),
-              sectionId,
-              message:
-                asNonEmptyString(result?.message) ??
+              ...formatConfirmedActionResult(
+                result,
                 "Shopping section deleted successfully.",
+              ),
+              sectionId,
             };
           }
 
@@ -2538,15 +2763,16 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             );
 
             return {
-              ok: Boolean(result?.success),
+              ...formatConfirmedActionResult(
+                result,
+                `Created shopping set: ${title}`,
+              ),
               setId: typeof result?.setId === "string" ? result.setId : undefined,
-              message:
-                asNonEmptyString(result?.message) ?? `Created shopping set: ${title}`,
             };
           }
 
           case "update_shopping_set": {
-            const setId = asNonEmptyString(params.setId);
+            const setId = pickFirstNonEmptyString(params, ["setId", "id"]);
             if (!setId) {
               return {
                 ok: false,
@@ -2554,55 +2780,64 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               };
             }
 
+            const updates = compactDefinedFields({
+              title: asNonEmptyString(params.title) ?? asNonEmptyString(params.name),
+              notes: asNonEmptyString(params.notes),
+              sectionId:
+                params.sectionId === null ? null : asNonEmptyString(params.sectionId),
+              setType:
+                params.setType === "variant" ||
+                params.setType === "bundle" ||
+                params.setType === "reference"
+                  ? params.setType
+                  : undefined,
+              selectionMode:
+                params.selectionMode === "single" ||
+                params.selectionMode === "multiple" ||
+                params.selectionMode === "none"
+                  ? params.selectionMode
+                  : undefined,
+              pricingMode:
+                params.pricingMode === "selected_only" ||
+                params.pricingMode === "all_selected" ||
+                params.pricingMode === "none"
+                  ? params.pricingMode
+                  : undefined,
+              status:
+                params.status === "draft" ||
+                params.status === "active" ||
+                params.status === "resolved" ||
+                params.status === "archived"
+                  ? params.status
+                  : undefined,
+            });
+            if (!hasManagedUpdateFields(updates, [])) {
+              return {
+                ok: false,
+                error:
+                  "No valid shopping set update fields were provided. Use at least one editable field such as title, notes, sectionId, setType, selectionMode, pricingMode, or status.",
+              };
+            }
+
             const result = await convex.action(
               apiAny.ai.confirmedActions.editConfirmedShoppingSet,
               {
                 setId,
-                updates: {
-                  title: asNonEmptyString(params.title) ?? asNonEmptyString(params.name),
-                  notes: asNonEmptyString(params.notes),
-                  sectionId:
-                    params.sectionId === null ? null : asNonEmptyString(params.sectionId),
-                  setType:
-                    params.setType === "variant" ||
-                    params.setType === "bundle" ||
-                    params.setType === "reference"
-                      ? params.setType
-                      : undefined,
-                  selectionMode:
-                    params.selectionMode === "single" ||
-                    params.selectionMode === "multiple" ||
-                    params.selectionMode === "none"
-                      ? params.selectionMode
-                      : undefined,
-                  pricingMode:
-                    params.pricingMode === "selected_only" ||
-                    params.pricingMode === "all_selected" ||
-                    params.pricingMode === "none"
-                      ? params.pricingMode
-                      : undefined,
-                  status:
-                    params.status === "draft" ||
-                    params.status === "active" ||
-                    params.status === "resolved" ||
-                    params.status === "archived"
-                      ? params.status
-                      : undefined,
-                },
+                updates,
               },
             );
 
             return {
-              ok: Boolean(result?.success),
-              setId,
-              message:
-                asNonEmptyString(result?.message) ??
+              ...formatConfirmedActionResult(
+                result,
                 "Shopping set updated successfully.",
+              ),
+              setId,
             };
           }
 
           case "delete_shopping_set": {
-            const setId = asNonEmptyString(params.setId);
+            const setId = pickFirstNonEmptyString(params, ["setId", "id"]);
             if (!setId) {
               return {
                 ok: false,
@@ -2618,11 +2853,11 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             );
 
             return {
-              ok: Boolean(result?.success),
-              setId,
-              message:
-                asNonEmptyString(result?.message) ??
+              ...formatConfirmedActionResult(
+                result,
                 "Shopping set deleted successfully.",
+              ),
+              setId,
             };
           }
 
@@ -2649,16 +2884,17 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             });
 
             return {
-              ok: Boolean(result?.success),
+              ...formatConfirmedActionResult(
+                result,
+                `Created labor item: ${name}`,
+              ),
               itemId: typeof result?.itemId === "string" ? result.itemId : undefined,
               name,
-              message:
-                asNonEmptyString(result?.message) ?? `Created labor item: ${name}`,
             };
           }
 
           case "update_labor_item": {
-            const itemId = asNonEmptyString(params.itemId);
+            const itemId = pickFirstNonEmptyString(params, ["itemId", "id"]);
             if (!itemId) {
               return {
                 ok: false,
@@ -2666,30 +2902,41 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               };
             }
 
+            const updates = compactDefinedFields({
+              name: asNonEmptyString(params.name),
+              notes: asNonEmptyString(params.notes),
+              quantity: asNumber(params.quantity),
+              unit: asNonEmptyString(params.unit),
+              unitPrice: asNumber(params.unitPrice) ?? asNumber(params.price),
+              sectionId:
+                params.sectionId === null ? null : asNonEmptyString(params.sectionId),
+              assignedTo: asNonEmptyString(params.assignedTo),
+            });
+            if (!hasManagedUpdateFields(updates, [])) {
+              return {
+                ok: false,
+                error:
+                  "No valid labor item update fields were provided. Use at least one editable field such as name, notes, quantity, unit, unitPrice, sectionId, or assignedTo.",
+              };
+            }
+
             const result = await convex.action(apiAny.ai.confirmedActions.editConfirmedLaborItem, {
               projectId,
               itemId,
-              updates: {
-                name: asNonEmptyString(params.name),
-                notes: asNonEmptyString(params.notes),
-                quantity: asNumber(params.quantity),
-                unit: asNonEmptyString(params.unit),
-                unitPrice: asNumber(params.unitPrice) ?? asNumber(params.price),
-                sectionId: asNonEmptyString(params.sectionId) ?? undefined,
-                assignedTo: asNonEmptyString(params.assignedTo),
-              },
+              updates,
             });
 
             return {
-              ok: Boolean(result?.success),
+              ...formatConfirmedActionResult(
+                result,
+                "Labor item updated successfully.",
+              ),
               itemId,
-              message:
-                asNonEmptyString(result?.message) ?? "Labor item updated successfully.",
             };
           }
 
           case "delete_labor_item": {
-            const itemId = asNonEmptyString(params.itemId);
+            const itemId = pickFirstNonEmptyString(params, ["itemId", "id"]);
             if (!itemId) {
               return {
                 ok: false,
@@ -2703,10 +2950,11 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             });
 
             return {
-              ok: Boolean(result?.success),
+              ...formatConfirmedActionResult(
+                result,
+                "Labor item deleted successfully.",
+              ),
               itemId,
-              message:
-                asNonEmptyString(result?.message) ?? "Labor item deleted successfully.",
             };
           }
 
@@ -2725,15 +2973,16 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             });
 
             return {
-              ok: Boolean(result?.success),
+              ...formatConfirmedActionResult(
+                result,
+                `Created labor section: ${name}`,
+              ),
               sectionId: typeof result?.sectionId === "string" ? result.sectionId : undefined,
-              message:
-                asNonEmptyString(result?.message) ?? `Created labor section: ${name}`,
             };
           }
 
           case "update_labor_section": {
-            const sectionId = asNonEmptyString(params.sectionId);
+            const sectionId = pickFirstNonEmptyString(params, ["sectionId", "id"]);
             if (!sectionId) {
               return {
                 ok: false,
@@ -2741,24 +2990,33 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               };
             }
 
+            const updates = compactDefinedFields({
+              name: asNonEmptyString(params.name),
+            });
+            if (!hasManagedUpdateFields(updates, [])) {
+              return {
+                ok: false,
+                error:
+                  "No valid labor section update fields were provided. Use at least `name`.",
+              };
+            }
+
             const result = await convex.action(apiAny.ai.confirmedActions.editConfirmedLaborSection, {
               sectionId,
-              updates: {
-                name: asNonEmptyString(params.name),
-              },
+              updates,
             });
 
             return {
-              ok: Boolean(result?.success),
-              sectionId,
-              message:
-                asNonEmptyString(result?.message) ??
+              ...formatConfirmedActionResult(
+                result,
                 "Labor section updated successfully.",
+              ),
+              sectionId,
             };
           }
 
           case "delete_labor_section": {
-            const sectionId = asNonEmptyString(params.sectionId);
+            const sectionId = pickFirstNonEmptyString(params, ["sectionId", "id"]);
             if (!sectionId) {
               return {
                 ok: false,
@@ -2771,11 +3029,11 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             });
 
             return {
-              ok: Boolean(result?.success),
-              sectionId,
-              message:
-                asNonEmptyString(result?.message) ??
+              ...formatConfirmedActionResult(
+                result,
                 "Labor section deleted successfully.",
+              ),
+              sectionId,
             };
           }
 
@@ -2794,11 +3052,12 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             });
 
             return {
-              ok: Boolean(result?.success),
+              ...formatConfirmedActionResult(
+                result,
+                `Created survey: ${title}`,
+              ),
               surveyId: typeof result?.surveyId === "string" ? result.surveyId : undefined,
               title,
-              message:
-                asNonEmptyString(result?.message) ?? `Created survey: ${title}`,
             };
           }
 
@@ -2811,22 +3070,32 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               };
             }
 
+            const compactUpdates = updates ? compactDefinedFields(updates) : undefined;
+            if (!compactUpdates || !hasManagedUpdateFields(compactUpdates, [])) {
+              return {
+                ok: false,
+                error:
+                  "No valid survey update fields were provided. Use at least one editable field such as title, description, dates, flags, or questions.",
+              };
+            }
+
             const result = await convex.action(apiAny.ai.confirmedActions.editConfirmedSurvey, {
               projectId,
               surveyId,
-              updates: updates!,
+              updates: compactUpdates,
             });
 
             return {
-              ok: Boolean(result?.success),
+              ...formatConfirmedActionResult(
+                result,
+                "Survey updated successfully.",
+              ),
               surveyId,
-              message:
-                asNonEmptyString(result?.message) ?? "Survey updated successfully.",
             };
           }
 
           case "delete_survey": {
-            const surveyId = asNonEmptyString(params.surveyId);
+            const surveyId = pickFirstNonEmptyString(params, ["surveyId", "id"]);
             if (!surveyId) {
               return {
                 ok: false,
@@ -2847,10 +3116,11 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             });
 
             return {
-              ok: Boolean(result?.success),
+              ...formatConfirmedActionResult(
+                result,
+                `Deleted survey: ${title}`,
+              ),
               surveyId,
-              message:
-                asNonEmptyString(result?.message) ?? `Deleted survey: ${title}`,
             };
           }
 
@@ -2873,16 +3143,16 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             );
 
             return {
-              ok: Boolean(result?.success),
+              ...formatConfirmedActionResult(
+                result,
+                "Moodboard image generated successfully.",
+              ),
               imageUrl: asNonEmptyString(result?.imageUrl),
               fileId: typeof result?.fileId === "string" ? result.fileId : undefined,
               fileName: asNonEmptyString(result?.fileName),
               sectionKey: asNonEmptyString(result?.sectionKey),
               sectionLabel: asNonEmptyString(result?.sectionLabel),
               markdown: asNonEmptyString(result?.markdown),
-              message:
-                asNonEmptyString(result?.message) ??
-                "Moodboard image generated successfully.",
               error: asNonEmptyString(result?.error),
             };
           }
@@ -2902,10 +3172,11 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             });
 
             return {
-              ok: Boolean(result?.success),
+              ...formatConfirmedActionResult(
+                result,
+                `Created moodboard section: ${name}`,
+              ),
               sectionId: asNonEmptyString(result?.sectionId),
-              message:
-                asNonEmptyString(result?.message) ?? `Created moodboard section: ${name}`,
             };
           }
 
@@ -2933,10 +3204,11 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             });
 
             return {
-              ok: Boolean(result?.success),
+              ...formatConfirmedActionResult(
+                result,
+                "Moodboard section updated successfully.",
+              ),
               sectionId: asNonEmptyString(result?.sectionId) ?? sectionId,
-              message:
-                asNonEmptyString(result?.message) ?? "Moodboard section updated successfully.",
             };
           }
 
@@ -2956,16 +3228,23 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             });
 
             return {
-              ok: Boolean(result?.success),
+              ...formatConfirmedActionResult(
+                result,
+                "Moodboard section deleted successfully.",
+              ),
               sectionId,
               deletedFilesCount: asNumber(result?.deletedFilesCount),
-              message:
-                asNonEmptyString(result?.message) ?? "Moodboard section deleted successfully.",
             };
           }
 
           case "search_items": {
-            const rawQuery = asNonEmptyString(params.query) ?? "";
+            const rawQueryInput = asNonEmptyString(params.query) ?? "";
+            const rawQuery =
+              rawQueryInput.trim() === "*" ||
+              rawQueryInput.trim().toLowerCase() === "all" ||
+              rawQueryInput.trim().toLowerCase() == "wszystko"
+                ? ""
+                : rawQueryInput;
             const query = rawQuery.toLowerCase();
             const scope = asNonEmptyString(params.scope) ?? asNonEmptyString(params.type) ?? "all";
             const limit = asNumber(params.limit) ?? 8;
@@ -3354,9 +3633,9 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 recent: taskSummaries.slice(0, 8),
               },
               notes: noteSummaries.slice(0, 6),
-              shoppingItems: shoppingSummaries.slice(0, 6),
+              shoppingItems: shoppingSummaries.slice(0, 15),
               shoppingSections: shoppingSectionSummaries.slice(0, 8),
-              laborItems: laborSummaries.slice(0, 6),
+              laborItems: laborSummaries.slice(0, 15),
               laborSections: laborSectionSummaries.slice(0, 8),
               surveys: surveySummaries.slice(0, 6),
               contacts: contactSummaries.slice(0, 6),

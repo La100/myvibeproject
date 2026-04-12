@@ -286,11 +286,6 @@ export function HeroSection() {
                         ref={threadViewportRef}
                         className="flex-1 space-y-3.5 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                       >
-                        <div className="inline-flex items-center gap-2 rounded-full border border-black/8 bg-white/70 px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.24em] text-foreground/55">
-                          <Sparkles className="h-3.5 w-3.5 text-foreground/65" />
-                          Full conversation
-                        </div>
-
                         {stage >= 1 ? (
                           <div
                             key={`${cycle}-message-request`}

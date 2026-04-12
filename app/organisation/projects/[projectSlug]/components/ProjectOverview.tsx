@@ -263,8 +263,6 @@ function ProjectOverviewContent() {
   const taxRate = project.taxEnabled ? (project.taxRate ?? 23) : 0;
   const taxAmount = taxRate > 0 ? netCost * (taxRate / 100) : 0;
   const totalCost = netCost + taxAmount;
-  const currencySymbol =
-    project.currency === "EUR" ? "€" : project.currency === "PLN" ? "zł" : "$";
   const unpaidInstallments = (
     (paymentsData?.installments as
       | Array<{
@@ -701,7 +699,7 @@ function ProjectOverviewContent() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {totalCost.toFixed(2)} {currencySymbol}
+                {formatCurrency(totalCost, project.currency)}
               </div>
               <p className="text-xs text-muted-foreground">
                 {taxRate > 0
@@ -721,7 +719,7 @@ function ProjectOverviewContent() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {shoppingListCost.toFixed(2)} {currencySymbol}
+                {formatCurrency(shoppingListCost, project.currency)}
               </div>
               <p className="text-xs text-muted-foreground">
                 Net cost from all items
@@ -739,7 +737,7 @@ function ProjectOverviewContent() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {laborCost.toFixed(2)} {currencySymbol}
+                {formatCurrency(laborCost, project.currency)}
               </div>
               <p className="text-xs text-muted-foreground">
                 Net cost from all labor items
@@ -757,7 +755,7 @@ function ProjectOverviewContent() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {taxAmount.toFixed(2)} {currencySymbol}
+                  {formatCurrency(taxAmount, project.currency)}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Calculated at {taxRate}% on current net costs
@@ -826,7 +824,10 @@ function ProjectOverviewContent() {
               </CardHeader>
               <CardContent>
                 <div className="text-lg font-semibold">
-                  {project.budget.toLocaleString()} {currencySymbol}
+                  {formatCurrency(project.budget, project.currency, {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0,
+                  })}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Allocated budget

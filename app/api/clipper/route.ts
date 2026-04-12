@@ -44,6 +44,7 @@ interface AddShoppingListItemPayload {
   notes?: string;
   productLink?: string;
   imageUrl?: string;
+  capturedImageDataUrl?: string;
   priority: Priority;
   realizationStatus: RealizationStatus;
 }
@@ -231,6 +232,22 @@ function asOptionalHttpUrl(
   return normalized;
 }
 
+function asOptionalImageDataUrl(
+  value: unknown,
+  fieldName: string,
+): string | undefined {
+  const normalized = asOptionalBoundedString(value, fieldName, 20_000_000);
+  if (!normalized) {
+    return undefined;
+  }
+
+  if (!/^data:image\/[a-zA-Z0-9.+-]+;base64,/.test(normalized)) {
+    throw new Error(`Invalid image data field: ${fieldName}`);
+  }
+
+  return normalized;
+}
+
 function validateClipperPostPayload(raw: unknown): AddShoppingListItemPayload {
   if (!raw || typeof raw !== "object") {
     throw new Error("Invalid request body");
@@ -290,9 +307,80 @@ function validateClipperPostPayload(raw: unknown): AddShoppingListItemPayload {
     notes: asOptionalBoundedString(body.notes, "notes", 8_000),
     productLink: asOptionalHttpUrl(body.productLink, "productLink"),
     imageUrl: asOptionalHttpUrl(body.imageUrl, "imageUrl"),
+    capturedImageDataUrl: asOptionalImageDataUrl(
+      body.capturedImageDataUrl,
+      "capturedImageDataUrl",
+    ),
     priority,
     realizationStatus,
   };
+}
+
+function parseImageDataUrl(dataUrl: string): {
+  mimeType: string;
+  extension: string;
+  bytes: Uint8Array;
+} {
+  const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(dataUrl);
+  if (!match) {
+    throw new Error("Invalid image data field: capturedImageDataUrl");
+  }
+
+  const mimeType = match[1];
+  const base64 = match[2];
+  const bytes = Uint8Array.from(Buffer.from(base64, "base64"));
+
+  const extensionByMimeType: Record<string, string> = {
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/webp": "webp",
+    "image/gif": "gif",
+  };
+
+  return {
+    mimeType,
+    extension: extensionByMimeType[mimeType] ?? "png",
+    bytes,
+  };
+}
+
+async function uploadCapturedClipperImage(
+  convexAny: {
+    mutation: (ref: unknown, args: unknown) => Promise<unknown>;
+  },
+  payload: AddShoppingListItemPayload,
+): Promise<string> {
+  if (!payload.capturedImageDataUrl) {
+    throw new Error("Missing captured clipper image");
+  }
+
+  const { mimeType, extension, bytes } = parseImageDataUrl(
+    payload.capturedImageDataUrl,
+  );
+  const uploadData = (await convexAny.mutation(
+    apiAny.files.generateUploadUrlWithCustomKey,
+    {
+      projectId: payload.projectId,
+      fileName: `clipper-capture.${extension}`,
+      fileSize: bytes.byteLength,
+    },
+  )) as { url: string; publicUrl: string };
+  const uploadBody = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(uploadBody).set(bytes);
+
+  const uploadResponse = await fetch(uploadData.url, {
+    method: "PUT",
+    body: uploadBody,
+    headers: {
+      "Content-Type": mimeType,
+    },
+  });
+
+  if (!uploadResponse.ok) {
+    throw new Error(`Failed to upload captured image (${uploadResponse.status})`);
+  }
+
+  return uploadData.publicUrl;
 }
 
 function extractErrorMessage(error: unknown): string {
@@ -387,9 +475,18 @@ export async function POST(req: Request) {
       mutation: (ref: unknown, args: unknown) => Promise<unknown>;
     };
 
+    const uploadedImageUrl = payload.capturedImageDataUrl
+      ? await uploadCapturedClipperImage(convexAny, payload)
+      : payload.imageUrl;
+    const payloadWithoutCapture = { ...payload };
+    delete payloadWithoutCapture.capturedImageDataUrl;
+
     const newItem = await convexAny.mutation(
       apiAny.clipper.addShoppingListItem,
-      payload,
+      {
+        ...payloadWithoutCapture,
+        imageUrl: uploadedImageUrl,
+      },
     );
     return withCors(req, NextResponse.json(newItem));
   } catch (error: unknown) {

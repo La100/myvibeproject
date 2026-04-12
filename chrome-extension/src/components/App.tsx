@@ -107,13 +107,13 @@ const App = () => {
           {
             retryOnAuthFailure: true,
             preferredToken: token,
-            allowInteractiveAuth: true,
+            allowInteractiveAuth: false,
           },
         );
 
         if (!response.ok) {
           if (response.status === 401) {
-            return { authFailed: true };
+            return null;
           }
           return null;
         }
@@ -134,7 +134,7 @@ const App = () => {
         };
       } catch (error) {
         if (error instanceof Error && error.message === "AUTH_REQUIRED") {
-          return { authFailed: true };
+          return null;
         }
         return null;
       }
@@ -216,28 +216,6 @@ const App = () => {
 
         await applySession(refreshed.user, refreshed.teams, snapshot);
       }
-
-      const refreshed = await refreshSession(token);
-      if (!refreshed) {
-        return;
-      }
-
-      if ("authFailed" in refreshed) {
-        await clearCachedData();
-        setState({
-          user: null,
-          teams: [],
-          selectedTeam: null,
-          selectedProject: null,
-          sections: [],
-          currentView: "login",
-          isLoading: false,
-        });
-        return;
-      }
-
-      const latestSnapshot = await loadStorage();
-      await applySession(refreshed.user, refreshed.teams, latestSnapshot);
     };
 
     void initialize();

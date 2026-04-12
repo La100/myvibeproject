@@ -1,15 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useOrganization } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
+import { formatDistanceToNow } from "date-fns";
 import { motion } from "framer-motion";
 import { apiAny } from "@/lib/convexApiAny";
 import {
   Plus,
   FolderOpen,
+  MoreHorizontal,
   Search,
   Sparkles,
   Target,
@@ -19,10 +20,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import {
-  Card,
-  CardContent,
-} from "@/components/ui/card";
 import {
   Empty,
   EmptyContent,
@@ -73,7 +70,7 @@ export default function CompanyProjects() {
     [projects, searchQuery],
   );
 
-  const projectGridClass = "grid grid-cols-1 justify-items-start gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4";
+  const projectGridClass = "grid grid-cols-1 gap-x-6 gap-y-8 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4";
   const hasProjects = filteredProjects.length > 0;
   const totalProjects = projects?.length ?? 0;
   const hasCreatedTask = useMemo(
@@ -317,7 +314,7 @@ export default function CompanyProjects() {
           {filteredProjects.map((project, index) => (
             <motion.div
               key={project._id}
-              className="h-full w-full md:max-w-[30rem] xl:max-w-none"
+              className="h-full w-full"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.2, delay: index * 0.03 }}
@@ -332,6 +329,8 @@ export default function CompanyProjects() {
                   budget: project.budget,
                   currency: project.currency,
                   status: project.status as ProjectStatus,
+                  updatedAt: typeof project.updatedAt === "number" ? project.updatedAt : undefined,
+                  createdAt: project._creationTime,
                   taskCount: project.taskCount || 0,
                   completedTasks: project.completedTasks || 0,
                 }}
@@ -403,6 +402,8 @@ function ProjectCard({
     budget?: number;
     currency?: string;
     status?: ProjectStatus;
+    updatedAt?: number;
+    createdAt?: number;
     taskCount: number;
     completedTasks: number;
   };
@@ -410,11 +411,11 @@ function ProjectCard({
   onHover: () => void;
 }) {
   const statusDotClasses: Record<ProjectStatus, string> = {
-    active: "bg-primary",
+    active: "bg-muted-foreground",
     planning: "bg-muted-foreground",
     on_hold: "bg-muted-foreground",
-    completed: "bg-primary",
-    cancelled: "bg-destructive",
+    completed: "bg-muted-foreground",
+    cancelled: "bg-muted-foreground",
   };
 
   const getStatusLabel = (status: ProjectStatus) => {
@@ -433,16 +434,10 @@ function ProjectCard({
         return "Unknown";
     }
   };
-
-  const [coverImageFailed, setCoverImageFailed] = useState(false);
-
-  useEffect(() => {
-    setCoverImageFailed(false);
-  }, [project.coverImageUrl]);
-
-  const coverImageSrc = project.coverImageUrl ?? "";
-  const showCoverImage = Boolean(coverImageSrc && !coverImageFailed);
-  const projectInitials = getProjectInitials(project.name);
+  const lastEditedAt = project.updatedAt ?? project.createdAt;
+  const editedLabel = lastEditedAt
+    ? `Edited ${formatDistanceToNow(new Date(lastEditedAt), { addSuffix: true })}`
+    : null;
 
   return (
     <div
@@ -450,89 +445,44 @@ function ProjectCard({
       onMouseEnter={onHover}
       className="group h-full w-full cursor-pointer"
     >
-      <Card className="h-full gap-0 overflow-hidden border-border py-0 shadow-none transition-transform duration-200 group-hover:-translate-y-0.5">
-        <div className="relative aspect-[5/4] overflow-hidden bg-muted md:aspect-[16/10] xl:aspect-[4/3]">
-          {showCoverImage ? (
-            <Image
-              src={coverImageSrc}
-              alt={project.name}
-              fill
-              sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 25vw"
-              className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-              onError={() => setCoverImageFailed(true)}
-            />
-          ) : (
-            <div className="flex h-full flex-col p-5">
-              <div className="flex items-start justify-between gap-4">
-                {(project.location || project.customer) ? (
-                  <span className="rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
-                    {project.location || project.customer}
-                  </span>
-                ) : <span />}
-                {project.status ? (
+      <article className="flex h-full flex-col gap-4">
+        <div className="relative aspect-[1.92/1] overflow-hidden rounded-[1.35rem] border border-border bg-card shadow-sm transition-transform duration-200 group-hover:-translate-y-0.5">
+          <div className="relative flex h-full items-start p-4 sm:p-5 md:p-6">
+            <h3 className="max-w-[11ch] text-[clamp(2rem,3vw,3.75rem)] font-normal leading-[1.02] tracking-tight text-muted-foreground">
+              {project.name}
+            </h3>
+          </div>
+        </div>
+        <div className="flex flex-1 items-start justify-between gap-4 px-1">
+          <div className="min-w-0 space-y-1.5">
+            <p className="line-clamp-2 text-xl font-semibold leading-tight tracking-tight text-foreground sm:text-2xl">
+              {project.name}
+            </p>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-base text-muted-foreground">
+              {project.status ? (
+                <span className="inline-flex items-center gap-2">
                   <span
                     className={cn(
-                      "inline-block h-2.5 w-2.5 shrink-0 rounded-full",
+                      "inline-block h-2.5 w-2.5 shrink-0 rounded-[2px]",
                       statusDotClasses[project.status],
                     )}
                   />
-                ) : null}
-              </div>
-
-              <div className="flex flex-1 items-center justify-center">
-                <div className="text-center">
-                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-border bg-background text-xl font-semibold tracking-tight text-foreground">
-                    {projectInitials}
-                  </div>
-                </div>
-              </div>
+                  <span>{getStatusLabel(project.status)}</span>
+                </span>
+              ) : null}
+              {editedLabel ? (
+                <>
+                  <span aria-hidden="true">&middot;</span>
+                  <span>{editedLabel}</span>
+                </>
+              ) : null}
             </div>
-          )}
-        </div>
-        <CardContent className="flex flex-1 flex-col gap-1 p-4">
-          <p className="line-clamp-3 text-lg font-medium leading-snug text-foreground">
-            {project.name}
-          </p>
-          {project.description ? (
-            <p className="line-clamp-2 text-sm text-muted-foreground">
-              {project.description}
-            </p>
-          ) : null}
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            {project.status ? (
-              <>
-                <span
-                  className={cn(
-                    "inline-block h-2 w-2 rounded-full",
-                    statusDotClasses[project.status],
-                  )}
-                />
-                <span>{getStatusLabel(project.status)}</span>
-              </>
-            ) : null}
-            {project.customer ? (
-              <>
-                <span className="mx-0.5">·</span>
-                <span className="line-clamp-1">{project.customer}</span>
-              </>
-            ) : null}
           </div>
-        </CardContent>
-      </Card>
+          <div className="flex shrink-0 items-start pt-0.5 text-muted-foreground">
+            <MoreHorizontal className="h-5 w-5" />
+          </div>
+        </div>
+      </article>
     </div>
   );
-}
-
-function getProjectInitials(name: string) {
-  const parts = name
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2);
-
-  if (parts.length === 0) {
-    return "PR";
-  }
-
-  return parts.map((part) => part[0]?.toUpperCase() ?? "").join("");
 }

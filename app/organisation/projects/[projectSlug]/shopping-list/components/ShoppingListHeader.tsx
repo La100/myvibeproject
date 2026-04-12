@@ -1,12 +1,13 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ProjectPageHeader } from '@/components/project/ProjectPageHeader';
+import { formatCurrency } from '@/lib/utils';
 import { DownloadIcon, PlusIcon, ShoppingCart } from 'lucide-react';
 
 interface ShoppingListHeaderProps {
   projectName: string;
   grandTotal: number;
-  currencySymbol: string;
+  currencyCode?: string;
   onExportClick: () => void;
   onAddProductClick: () => void;
 }
@@ -14,7 +15,7 @@ interface ShoppingListHeaderProps {
 export function ShoppingListHeader({
   projectName,
   grandTotal,
-  currencySymbol,
+  currencyCode,
   onExportClick,
   onAddProductClick
 }: ShoppingListHeaderProps) {
@@ -28,7 +29,7 @@ export function ShoppingListHeader({
             {projectName}
           </Badge>
           <Badge variant="secondary">
-            Total: {grandTotal.toFixed(2)} {currencySymbol}
+            Total: {formatCurrency(grandTotal, currencyCode)}
           </Badge>
         </>
       )}

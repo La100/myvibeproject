@@ -17,6 +17,10 @@ const updateTaskInternalMutationRef =
 const deleteTaskInternalMutationRef =
   makeFunctionReference<"mutation">("tasks:deleteTaskInternal");
 
+function hasDefinedUpdates(updates: Record<string, unknown>): boolean {
+  return Object.values(updates).some((value) => value !== undefined);
+}
+
 export const createConfirmedTask = action({
   args: {
     projectId: v.id("projects"),
@@ -108,6 +112,10 @@ export const editConfirmedTask = action({
   }),
   handler: async (ctx, args) => {
     try {
+      if (!hasDefinedUpdates(args.updates)) {
+        throw new Error("No valid task update fields were provided");
+      }
+
       const task = await ctx.runQuery(getTaskQueryRef, { taskId: args.taskId });
       if (!task) {
         throw new Error("Task not found");
@@ -198,7 +206,6 @@ export const deleteConfirmedTask = action({
     }
   },
 });
-
 
 
 

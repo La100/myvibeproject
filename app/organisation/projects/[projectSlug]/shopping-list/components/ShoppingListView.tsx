@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -10,14 +10,15 @@ import { ProjectPageLayout } from '@/components/project/ProjectPageLayout';
 import { Spinner } from '@/components/ui/spinner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { SearchIcon, XIcon } from 'lucide-react';
 import { apiAny } from '@/lib/convexApiAny';
+import { ONBOARDING_EXTENSION_READY_KEY, readOnboardingFlag } from '@/lib/onboardingJourney';
 import type { TeamMember } from '@/lib/teamMember';
 import { calculateShoppingTotal, buildShoppingSetContext, isItemCountedInShoppingTotal } from '@/lib/shoppingSets';
+import { formatCurrency } from '@/lib/utils';
 import {
   addBrandHeader,
   addDocumentMeta,
@@ -32,6 +33,7 @@ import { AddItemForm } from './AddItemForm';
 import { ExportModal } from './ExportModal';
 import { SectionManager } from './SectionManager';
 import { ShoppingListHeader } from './ShoppingListHeader';
+import { ShoppingListOnboarding } from './ShoppingListOnboarding';
 import { ShoppingListSection } from './ShoppingListSection';
 
 type ShoppingListItem = Doc<"shoppingListItems">;
@@ -53,6 +55,27 @@ const STATUS_LABELS: Record<ShoppingListItem["realizationStatus"], string> = {
 };
 
 const getStatusLabel = (status: ShoppingListItem["realizationStatus"]) => STATUS_LABELS[status] ?? status;
+const getToolbarStatusLabel = (status: ShoppingListItem["realizationStatus"]) => {
+  switch (status) {
+    case 'PLANNED':
+      return 'Planned';
+    case 'ORDERED':
+      return 'Ordered';
+    case 'IN_TRANSIT':
+      return 'In transit';
+    case 'DELIVERED':
+      return 'Delivered';
+    case 'COMPLETED':
+      return 'Completed';
+    case 'CANCELLED':
+      return 'Cancelled';
+    default:
+      return status;
+  }
+};
+const getSectionOptionLabel = (section: string) => section === 'No Section' ? 'No section' : section;
+const formatToolbarAmount = (value: number, currencyCode?: string) =>
+  formatCurrency(value, currencyCode);
 
 export function ShoppingListViewSkeleton() {
   return <Spinner className="p-4 sm:p-6" />;
@@ -61,6 +84,8 @@ export function ShoppingListViewSkeleton() {
 export default function ShoppingListView() {
   const [isPending] = useTransition();
   const [showMainAddForm, setShowMainAddForm] = useState(false);
+  const [isSectionManagerOpen, setIsSectionManagerOpen] = useState(false);
+  const [extensionReady, setExtensionReady] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | ShoppingListItem["realizationStatus"]>('all');
   const [priorityFilter, setPriorityFilter] = useState<'all' | NonNullable<ShoppingListItem["priority"]>>('all');
@@ -91,6 +116,20 @@ export default function ShoppingListView() {
   const createSet = useMutation(apiAny.shopping.createShoppingSet);
   const updateSet = useMutation(apiAny.shopping.updateShoppingSet);
   const deleteSet = useMutation(apiAny.shopping.deleteShoppingSet);
+
+  useEffect(() => {
+    const syncExtensionReady = () => {
+      setExtensionReady(readOnboardingFlag(ONBOARDING_EXTENSION_READY_KEY));
+    };
+
+    syncExtensionReady();
+    window.addEventListener('storage', syncExtensionReady);
+    window.addEventListener('focus', syncExtensionReady);
+    return () => {
+      window.removeEventListener('storage', syncExtensionReady);
+      window.removeEventListener('focus', syncExtensionReady);
+    };
+  }, []);
 
   if (items === undefined || sections === undefined || sets === undefined || team === undefined) {
     return null;
@@ -198,6 +237,13 @@ export default function ShoppingListView() {
 
   const grandTotal = calculateShoppingTotal(items, sets);
   const visibleGrandTotal = calculateShoppingTotal(filteredItems, sets);
+  const showFirstRunOnboarding = items.length === 0;
+  const hasActiveFilters =
+    normalizedSearchQuery.length > 0 ||
+    statusFilter !== 'all' ||
+    priorityFilter !== 'all' ||
+    sectionFilter !== 'all' ||
+    categoryFilter !== 'all';
 
   const resetFilters = () => {
     setSearchQuery('');
@@ -215,9 +261,21 @@ export default function ShoppingListView() {
     await deleteSection({ sectionId });
   };
 
+  const handleOpenSectionSetup = () => {
+    setIsSectionManagerOpen(true);
+  };
+
+  const handleConnectClipper = () => {
+    window.open('/auth/extension', '_blank', 'noopener,noreferrer');
+  };
+
+  const handleOpenAddProduct = () => {
+    setShowMainAddForm(true);
+  };
+
   const handleDeleteSet = async (setId: Id<"shoppingSets">) => {
     await deleteSet({ setId });
-    toast.success('Alternatives removed');
+    toast.success('Alternative group removed');
   };
 
   const handleEnableAlternativesForItem = async (
@@ -247,7 +305,7 @@ export default function ShoppingListView() {
       status: 'active',
     });
 
-    toast.success('Alternatives enabled');
+    toast.success('Alternative group created');
     return setId;
   };
 
@@ -376,7 +434,7 @@ export default function ShoppingListView() {
 
     const headers = [
       'Section',
-      'Alternatives',
+      'Alternative Group',
       'Product Name',
       'Supplier',
       'Category',
@@ -457,7 +515,7 @@ export default function ShoppingListView() {
       ]);
 
     const head = [[
-      'Alternatives',
+      'Alternative Group',
       'Product',
       'Qty',
       'Total',
@@ -517,7 +575,7 @@ export default function ShoppingListView() {
           <ShoppingListHeader
             projectName={project.name}
             grandTotal={grandTotal}
-            currencySymbol={currencySymbol}
+            currencyCode={project.currency}
             onExportClick={() => setIsExportModalOpen(true)}
             onAddProductClick={() => setShowMainAddForm((current) => !current)}
           />
@@ -537,48 +595,117 @@ export default function ShoppingListView() {
             </div>
           ) : null}
 
+          {showFirstRunOnboarding ? (
+            <ShoppingListOnboarding
+              projectName={project.name}
+              sectionsCount={sections.length}
+              extensionReady={extensionReady}
+              itemsCount={items.length}
+              onCreateSectionClick={handleOpenSectionSetup}
+              onConnectClipperClick={handleConnectClipper}
+              onAddProductClick={handleOpenAddProduct}
+            />
+          ) : null}
+
           <div className="mb-8">
             <SectionManager
               sections={sections}
               onCreateSection={handleCreateSection}
               onDeleteSection={handleDeleteSection}
               isPending={isPending}
+              expanded={isSectionManagerOpen}
+              onExpandedChange={setIsSectionManagerOpen}
             />
           </div>
 
-          <Card className="mb-8">
-            <CardHeader>
-              <CardTitle className="text-base">Filters</CardTitle>
-              <CardDescription>
-                Visible total: {visibleGrandTotal.toFixed(2)} {currencySymbol}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-                <div className="relative">
-                  <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    value={searchQuery}
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                    placeholder="Search items, alternatives, suppliers..."
-                    className="pl-9"
-                  />
-                </div>
-                <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Status" />
+          <div className="sticky top-16 z-10 mb-8 rounded-[30px] border border-border/70 bg-card/95 p-3 shadow-[0_18px_40px_-32px_rgba(22,22,22,0.45)] backdrop-blur-sm xl:top-0">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex flex-1 flex-wrap items-center gap-2.5">
+                <Badge variant="secondary" className="h-11 rounded-full px-4 text-[12px] font-semibold">
+                  {filteredItems.length} items
+                </Badge>
+
+                <Select value={sectionFilter} onValueChange={setSectionFilter}>
+                  <SelectTrigger className="h-11 min-w-[220px] rounded-full border-transparent bg-muted/55 px-5 shadow-none">
+                    <SelectValue placeholder="Show sections" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All statuses</SelectItem>
-                    {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
+                    <SelectItem value="all">Show all sections</SelectItem>
+                    {availableSections.map((section) => (
+                      <SelectItem key={section} value={section}>
+                        {getSectionOptionLabel(section)}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger className="h-11 min-w-[220px] rounded-full border-transparent bg-muted/55 px-5 shadow-none">
+                    <SelectValue placeholder="Show categories" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Show all categories</SelectItem>
+                    {availableCategories.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}>
+                  <SelectTrigger className="h-11 min-w-[220px] rounded-full border-transparent bg-muted/55 px-5 shadow-none">
+                    <SelectValue placeholder="Show statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Show all statuses</SelectItem>
+                    {Object.keys(STATUS_LABELS).map((value) => (
+                      <SelectItem key={value} value={value}>
+                        {getToolbarStatusLabel(value as ShoppingListItem["realizationStatus"])}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <InputGroup className="h-11 min-w-[280px] flex-1 rounded-full border-border/70 bg-background shadow-none">
+                  <InputGroupAddon align="inline-start" className="pointer-events-none pl-4 text-muted-foreground">
+                    <SearchIcon className="h-4 w-4" />
+                  </InputGroupAddon>
+                  <InputGroupInput
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Search by name, notes, supplier, or SKU"
+                    className="h-11 rounded-full pr-4"
+                  />
+                </InputGroup>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                {hasActiveFilters ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={resetFilters}
+                    className="h-11 rounded-full border border-border/70 px-4"
+                  >
+                    <XIcon className="mr-2 h-4 w-4" />
+                    Clear
+                  </Button>
+                ) : null}
+
+                <div className="inline-flex h-11 items-center justify-end gap-2 rounded-full px-2 text-sm">
+                  <span className="font-medium text-muted-foreground">total:</span>
+                  <span className="text-[1.75rem] font-semibold leading-none tracking-[-0.03em] text-foreground">
+                    {formatToolbarAmount(visibleGrandTotal, project.currency)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {(priorityFilter !== 'all' || hasActiveFilters) ? (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
                 <Select value={priorityFilter} onValueChange={(value) => setPriorityFilter(value as typeof priorityFilter)}>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-10 min-w-[200px] rounded-full border-border/70 bg-background px-4 shadow-none">
                     <SelectValue placeholder="Priority" />
                   </SelectTrigger>
                   <SelectContent>
@@ -589,47 +716,39 @@ export default function ShoppingListView() {
                     <SelectItem value="urgent">Urgent</SelectItem>
                   </SelectContent>
                 </Select>
-                <Select value={sectionFilter} onValueChange={setSectionFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Section" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All sections</SelectItem>
-                    {availableSections.map((section) => (
-                      <SelectItem key={section} value={section}>
-                        {section}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All categories</SelectItem>
-                    {availableCategories.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
 
-              {(searchQuery || statusFilter !== 'all' || priorityFilter !== 'all' || sectionFilter !== 'all' || categoryFilter !== 'all') ? (
-                <div className="mt-4 flex items-center gap-3">
-                  <Badge variant="secondary">
-                    {filteredItems.length} visible item{filteredItems.length === 1 ? '' : 's'}
+                {searchQuery ? (
+                  <Badge variant="outline" className="rounded-full px-3 py-1.5">
+                    Search: {searchQuery}
                   </Badge>
-                  <Button variant="ghost" size="sm" onClick={resetFilters}>
-                    <XIcon className="mr-2 h-4 w-4" />
-                    Reset
-                  </Button>
-                </div>
-              ) : null}
-            </CardContent>
-          </Card>
+                ) : null}
+
+                {sectionFilter !== 'all' ? (
+                  <Badge variant="outline" className="rounded-full px-3 py-1.5">
+                    Section: {getSectionOptionLabel(sectionFilter)}
+                  </Badge>
+                ) : null}
+
+                {categoryFilter !== 'all' ? (
+                  <Badge variant="outline" className="rounded-full px-3 py-1.5">
+                    Category: {categoryFilter}
+                  </Badge>
+                ) : null}
+
+                {statusFilter !== 'all' ? (
+                  <Badge variant="outline" className="rounded-full px-3 py-1.5">
+                    Status: {getToolbarStatusLabel(statusFilter)}
+                  </Badge>
+                ) : null}
+
+                {priorityFilter !== 'all' ? (
+                  <Badge variant="outline" className="rounded-full px-3 py-1.5">
+                    Priority: {priorityFilter === 'low' ? 'Low' : priorityFilter === 'medium' ? 'Medium' : priorityFilter === 'high' ? 'High' : 'Urgent'}
+                  </Badge>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
 
           {visibleSectionEntries.map((entry) => (
             <ShoppingListSection

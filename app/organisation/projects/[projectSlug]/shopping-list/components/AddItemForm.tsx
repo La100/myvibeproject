@@ -404,9 +404,9 @@ export function AddItemForm({
             className="mt-0.5"
           />
           <label htmlFor="new-item-has-alternatives" className="cursor-pointer text-sm leading-6">
-            <span className="font-medium text-foreground">Has alternatives?</span>
+            <span className="font-medium text-foreground">Offer alternatives?</span>
             <span className="block text-muted-foreground">
-              Enable this if the client should choose one option from a few versions of this product.
+              Create an alternative group if the client should choose one option from a few versions of this product.
             </span>
           </label>
         </div>

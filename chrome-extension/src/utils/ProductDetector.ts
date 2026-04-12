@@ -249,15 +249,41 @@ export default class ProductDetector {
       candidates.push({ value: cleaned, score })
     }
 
-    push(structured.name, 120)
+    if (context.titleElement) {
+      push(this.getElementValue(context.titleElement), 160)
+    }
+
+    push(structured.name, 84)
 
     for (const selector of TITLE_SELECTORS) {
-      const node = document.querySelector(selector)
-      if (!node) continue
+      const nodes = document.querySelectorAll(selector)
+      for (const node of nodes) {
+        if (this.isInsideRecommendationContainer(node)) {
+          continue
+        }
 
-      const score =
-        node === context.titleElement ? 110 : node.tagName.toLowerCase() === "h1" ? 95 : 70
-      push(this.getElementValue(node), score)
+        let score = node === context.titleElement ? 140 : 70
+        if (node.tagName.toLowerCase() === "h1") {
+          score += 24
+        }
+
+        score += Math.min(22, this.getFontSizePx(node))
+
+        const rect = this.getVisibleRect(node)
+        if (rect) {
+          if (rect.top <= window.innerHeight * 0.75) {
+            score += 18
+          } else if (rect.top <= window.innerHeight * 1.4) {
+            score += 8
+          }
+        } else if (selector === 'meta[property="og:title"]' || selector === 'meta[name="twitter:title"]') {
+          score -= 18
+        } else {
+          continue
+        }
+
+        push(this.getElementValue(node), score)
+      }
     }
 
     const documentTitle = this.getTitleFallback()
@@ -298,9 +324,9 @@ export default class ProductDetector {
     context: ProductPageContext,
   ): string | undefined {
     return this.pickFirstNonEmpty([
+      this.findBestImageInContext(context),
       structured.imageUrl,
       this.extractFromSelectors(IMAGE_SELECTORS),
-      this.findBestImageInContext(context),
       this.findLargestImageOnPage(),
     ])
   }
@@ -328,12 +354,13 @@ export default class ProductDetector {
     if (structuredPrice) {
       const parsed = this.parseAmountFromText(structuredPrice)
       if (parsed !== null) {
+        const structuredScore = context.titleElement || context.buyActionElement ? 72 : 112
         pushCandidate({
           amount: parsed,
           rawText: structuredPrice,
           source: "structured",
           element: null,
-          score: 112,
+          score: structuredScore,
           reasons: ["structured-offer"],
         })
       }
@@ -1404,21 +1431,54 @@ export default class ProductDetector {
   }
 
   private findPrimaryTitleElement(): Element | null {
+    let bestElement: Element | null = null
+    let bestScore = Number.NEGATIVE_INFINITY
+
     for (const selector of TITLE_SELECTORS) {
-      const element = document.querySelector(selector)
-      if (!element) continue
+      const elements = document.querySelectorAll(selector)
+      for (const element of elements) {
+        if (this.isInsideRecommendationContainer(element)) {
+          continue
+        }
 
-      const text = this.toCleanText(this.getElementValue(element))
-      if (!text || text.length < 4) {
-        continue
-      }
+        const text = this.toCleanText(this.getElementValue(element))
+        if (!text || text.length < 4) {
+          continue
+        }
 
-      if (this.getVisibleRect(element)) {
-        return element
+        const rect = this.getVisibleRect(element)
+        if (!rect) {
+          continue
+        }
+
+        let score = 0
+        if (selector === "h1" || selector === "main h1" || selector === "article h1") {
+          score += 40
+        }
+        if (element.tagName.toLowerCase() === "h1") {
+          score += 30
+        }
+
+        score += Math.min(28, this.getFontSizePx(element))
+
+        if (rect.top <= window.innerHeight * 0.8) {
+          score += 24
+        } else if (rect.top <= window.innerHeight * 1.5) {
+          score += 12
+        }
+
+        if (rect.width >= 160) {
+          score += 8
+        }
+
+        if (score > bestScore) {
+          bestScore = score
+          bestElement = element
+        }
       }
     }
 
-    return null
+    return bestElement
   }
 
   private findPrimaryBuyAction(): Element | null {
@@ -1589,15 +1649,35 @@ export default class ProductDetector {
 
   private extractFromSelectors(selectors: string[]): string | undefined {
     for (const selector of selectors) {
-      const element = document.querySelector(selector)
-      if (!element) {
-        continue
+      const elements = document.querySelectorAll(selector)
+      let fallback: string | undefined
+
+      for (const element of elements) {
+        const value = this.getElementValue(element)
+        const cleaned = this.toCleanText(value)
+        if (!cleaned) {
+          continue
+        }
+
+        if (!fallback) {
+          fallback = cleaned
+        }
+
+        if (element instanceof HTMLMetaElement) {
+          continue
+        }
+
+        if (this.isInsideRecommendationContainer(element)) {
+          continue
+        }
+
+        if (this.getVisibleRect(element)) {
+          return cleaned
+        }
       }
 
-      const value = this.getElementValue(element)
-      const cleaned = this.toCleanText(value)
-      if (cleaned) {
-        return cleaned
+      if (fallback) {
+        return fallback
       }
     }
 

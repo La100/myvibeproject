@@ -6,8 +6,17 @@
 
 import { action } from "../../_generated/server";
 import { v } from "convex/values";
-import { api } from "../../_generated/api";
+import { makeFunctionReference } from "convex/server";
 import { ensureProjectAccess } from "./helpers";
+
+const createNoteMutationRef = makeFunctionReference<"mutation">("notes:createNote");
+const getNoteQueryRef = makeFunctionReference<"query">("notes:getNote");
+const updateNoteMutationRef = makeFunctionReference<"mutation">("notes:updateNote");
+const deleteNoteMutationRef = makeFunctionReference<"mutation">("notes:deleteNote");
+
+function hasDefinedUpdates(updates: Record<string, unknown>): boolean {
+  return Object.values(updates).some((value) => value !== undefined);
+}
 
 export const createConfirmedNote = action({
   args: {
@@ -27,7 +36,7 @@ export const createConfirmedNote = action({
     try {
       await ensureProjectAccess(ctx, args.projectId, true, args.userClerkId);
 
-      const noteId: any = await ctx.runMutation(api.notes.createNote, {
+      const noteId: any = await ctx.runMutation(createNoteMutationRef, {
         projectId: args.projectId,
         title: args.noteData.title,
         content: args.noteData.content,
@@ -63,7 +72,11 @@ export const editConfirmedNote = action({
   }),
   handler: async (ctx, args) => {
     try {
-      const currentNote = await ctx.runQuery(api.notes.getNote, { noteId: args.noteId });
+      if (!hasDefinedUpdates(args.updates)) {
+        throw new Error("No valid note update fields were provided");
+      }
+
+      const currentNote = await ctx.runQuery(getNoteQueryRef, { noteId: args.noteId });
       if (!currentNote) {
         return {
           success: false,
@@ -80,10 +93,16 @@ export const editConfirmedNote = action({
 
       await ensureProjectAccess(ctx, args.projectId ?? currentNote.projectId, true, args.userClerkId);
 
-      await ctx.runMutation(api.notes.updateNote, {
+      await ctx.runMutation(updateNoteMutationRef, {
         noteId: args.noteId,
-        title: args.updates.title || currentNote.title,
-        content: args.updates.content || currentNote.content,
+        title:
+          Object.prototype.hasOwnProperty.call(args.updates, "title")
+            ? args.updates.title ?? currentNote.title
+            : currentNote.title,
+        content:
+          Object.prototype.hasOwnProperty.call(args.updates, "content")
+            ? args.updates.content ?? currentNote.content
+            : currentNote.content,
       });
 
       return {
@@ -111,13 +130,13 @@ export const deleteConfirmedNote = action({
   }),
   handler: async (ctx, args) => {
     try {
-      const note = await ctx.runQuery(api.notes.getNote, { noteId: args.noteId });
+      const note = await ctx.runQuery(getNoteQueryRef, { noteId: args.noteId });
       if (!note) {
         throw new Error("Note not found");
       }
       await ensureProjectAccess(ctx, note.projectId, true, args.userClerkId);
 
-      await ctx.runMutation(api.notes.deleteNote, {
+      await ctx.runMutation(deleteNoteMutationRef, {
         noteId: args.noteId,
       });
 
@@ -133,8 +152,6 @@ export const deleteConfirmedNote = action({
     }
   },
 });
-
-
 
 
 
