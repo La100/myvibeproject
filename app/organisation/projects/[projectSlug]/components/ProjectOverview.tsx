@@ -67,6 +67,7 @@ const formatPercent = (value: number | null) =>
 function ProjectOverviewContent() {
   const router = useRouter();
   const { project } = useProject();
+  const [questVisibilityReady, setQuestVisibilityReady] = useState(false);
   const [projectQuestsHidden, setProjectQuestsHidden] = useState(false);
   const [projectQuestsGloballyHidden, setProjectQuestsGloballyHidden] = useState(false);
   const projectOnboardingStorageKey = useMemo(
@@ -120,6 +121,7 @@ function ProjectOverviewContent() {
       setProjectQuestsGloballyHidden(
         readOnboardingFlag(ONBOARDING_PROJECT_DASHBOARD_QUESTS_GLOBAL_HIDDEN_KEY),
       );
+      setQuestVisibilityReady(true);
     };
 
     syncQuestVisibility();
@@ -225,10 +227,13 @@ function ProjectOverviewContent() {
   );
   const completedProjectQuestCount = projectQuests.filter((quest) => quest.done).length;
   const openProjectQuests = projectQuests.filter((quest) => !quest.done);
-  const showProjectQuestBoard =
-    !projectQuestsGloballyHidden &&
-    !projectQuestsHidden &&
+  const canRenderProjectQuestBoard =
+    questVisibilityReady &&
     completedProjectQuestCount < projectQuests.length;
+  const showProjectQuestBoard =
+    canRenderProjectQuestBoard &&
+    !projectQuestsGloballyHidden &&
+    !projectQuestsHidden;
 
   const dismissProjectQuestBoard = () => {
     setProjectQuestsHidden(true);
@@ -676,7 +681,7 @@ function ProjectOverviewContent() {
               </div>
             </div>
           </section>
-        ) : !projectQuestsGloballyHidden && completedProjectQuestCount < projectQuests.length ? (
+        ) : canRenderProjectQuestBoard && !projectQuestsGloballyHidden ? (
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={reopenProjectQuestBoard} className="rounded-xl">
               <Sparkles className="mr-2 h-4 w-4" />

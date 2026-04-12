@@ -525,6 +525,8 @@ export default function ShoppingListView() {
           {showMainAddForm ? (
             <div className="mb-8 rounded-3xl border bg-card p-6 shadow-sm">
               <AddItemForm
+                projectId={project._id}
+                teamId={project.teamId}
                 sections={sections}
                 teamMembers={teamMembers}
                 currencySymbol={currencySymbol}
@@ -632,6 +634,8 @@ export default function ShoppingListView() {
           {visibleSectionEntries.map((entry) => (
             <ShoppingListSection
               key={entry.sectionId || entry.name}
+              projectId={project._id}
+              teamId={project.teamId}
               sectionName={entry.name}
               sectionId={entry.sectionId}
               items={entry.items}

@@ -12,20 +12,23 @@ const INITIAL_PROMPT =
   "Create the concept pack with blueprint, room visuals, materials, and review notes.";
 const FOLLOW_UP_PROMPT =
   "Keep the oak palette, open shelving, and a softer sofa option for the client review.";
-const STAGE_DURATIONS = [1800, 1000, 1300, 1700, 1100, 1400, 1600, 3200];
+const DEMO_PACE_MULTIPLIER = 1.35;
+const STAGE_DURATIONS = [1800, 1000, 1300, 1700, 1100, 1400, 1600, 3200].map(
+  (duration) => Math.round(duration * DEMO_PACE_MULTIPLIER),
+);
 
 const generatedOutputs = [
   {
     title: "Blueprint view",
-    src: "/samplevisuals/sample1.jpeg",
+    src: "/samplevisuals/sample1-hero.jpg",
   },
   {
     title: "Room direction",
-    src: "/landing/generated/barcelona-chair-room.png",
+    src: "/landing/generated/barcelona-chair-room.jpg",
   },
   {
     title: "Material palette",
-    src: "/landing/generated/barcelona-chair-materials.png",
+    src: "/landing/generated/barcelona-chair-materials.jpg",
   },
 ];
 
@@ -203,11 +206,12 @@ export function HeroSection() {
         <div className="mt-8 overflow-hidden rounded-[32px] border border-black/8 bg-[#ebe8e1] shadow-[0_20px_80px_rgba(20,20,20,0.08)]">
           <div className="relative min-h-[560px] overflow-hidden lg:h-[820px]">
             <Image
-              src="/visualization-1773318760233.png"
+              src="/visualization-1773318760233.jpg"
               alt="Myvibe sign up visual"
               fill
               priority
               className="object-cover object-center"
+              quality={74}
               sizes="(max-width: 1023px) 100vw, 1520px"
             />
 
@@ -246,7 +250,7 @@ export function HeroSection() {
                       {demoThreads.map((thread) => (
                         <div
                           key={thread.title}
-                          className={`rounded-2xl border px-3 py-3 shadow-[0_10px_24px_rgba(28,24,19,0.06)] transition-all duration-500 ${
+                          className={`rounded-2xl border px-3 py-3 shadow-[0_10px_24px_rgba(28,24,19,0.06)] transition-all duration-700 ${
                             thread.status === "active"
                               ? "border-black/10 bg-white/82"
                               : "border-black/6 bg-white/66"
@@ -363,6 +367,7 @@ export function HeroSection() {
                                   alt={generatedOutputs[0].title}
                                   fill
                                   className="object-cover"
+                                  quality={72}
                                   sizes="(max-width: 1023px) 88vw, 620px"
                                 />
                               </div>
@@ -382,6 +387,7 @@ export function HeroSection() {
                                     alt={output.title}
                                     fill
                                     className="object-cover"
+                                    quality={72}
                                     sizes="(max-width: 1023px) 44vw, 280px"
                                   />
                                 </div>
@@ -454,7 +460,7 @@ export function HeroSection() {
                       {demoActions.map((action) => (
                         <div
                           key={action.title}
-                          className={`rounded-2xl border px-4 py-3 shadow-[0_14px_30px_rgba(28,24,19,0.06)] transition-all duration-500 ${
+                          className={`rounded-2xl border px-4 py-3 shadow-[0_14px_30px_rgba(28,24,19,0.06)] transition-all duration-700 ${
                             action.state === "active"
                               ? "border-black/10 bg-white/82"
                               : "border-black/8 bg-white/74"
@@ -480,7 +486,7 @@ export function HeroSection() {
 
                           <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-black/6">
                             <div
-                              className={`h-full origin-left rounded-full transition-[width] duration-700 ${
+                              className={`h-full origin-left rounded-full transition-[width] duration-1000 ${
                                 action.state === "done"
                                   ? "bg-emerald-500/80"
                                   : action.state === "active"

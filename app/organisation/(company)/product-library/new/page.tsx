@@ -61,7 +61,7 @@ export default function NewProductPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-8">
       <div className="flex items-center gap-3">
         <div className="flex h-11 w-11 items-center justify-center rounded-xl border bg-card">
           <Package className="h-5 w-5" />
@@ -69,7 +69,7 @@ export default function NewProductPage() {
         <div>
           <h1 className="text-2xl font-bold">Add Product</h1>
           <p className="text-sm text-muted-foreground">
-            Save a reusable product entry for your organization.
+            Save a reusable product entry for your organization with sourcing details, specifications, and an uploaded image.
           </p>
         </div>
       </div>

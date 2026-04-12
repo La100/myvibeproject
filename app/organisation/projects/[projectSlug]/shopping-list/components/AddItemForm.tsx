@@ -16,6 +16,8 @@ import type { TeamMember } from '@/lib/teamMember';
 import { toast } from 'sonner';
 
 interface AddItemFormProps {
+  projectId: Id<"projects">;
+  teamId: Id<"teams">;
   sections: Doc<"shoppingListSections">[];
   teamMembers?: TeamMember[];
   currencySymbol: string;
@@ -50,6 +52,8 @@ interface AddItemFormProps {
 }
 
 export function AddItemForm({
+  projectId,
+  teamId,
   sections,
   teamMembers,
   currencySymbol,
@@ -107,7 +111,9 @@ export function AddItemForm({
     setNewItemProductLink(normalizedUrl);
 
     try {
-      const response = await fetch(`/api/shopping/scrape?url=${encodeURIComponent(normalizedUrl)}`);
+      const response = await fetch(
+        `/api/shopping/scrape?projectId=${encodeURIComponent(String(projectId))}&teamId=${encodeURIComponent(String(teamId))}&url=${encodeURIComponent(normalizedUrl)}`,
+      );
       const payload = (await response.json()) as {
         message?: string;
         name?: string;

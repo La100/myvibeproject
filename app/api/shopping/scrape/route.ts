@@ -3,7 +3,11 @@ import { auth } from "@clerk/nextjs/server";
 import { ConvexHttpClient } from "convex/browser";
 
 import { apiAny } from "@/lib/convexApiAny";
-import { verifyAssistantAccess, verifyProjectScope } from "@/lib/assistant/serverAccess";
+import {
+  verifyAssistantAccess,
+  verifyProjectScope,
+  verifyTeamScope,
+} from "@/lib/assistant/serverAccess";
 import {
   calculateCloudflareBrowserRenderingCostUSD,
   usdToCredits,
@@ -383,7 +387,7 @@ async function recordScrapeUsage(
 
   const projectId = request.nextUrl.searchParams.get("projectId")?.trim();
   const teamId = request.nextUrl.searchParams.get("teamId")?.trim();
-  if (!projectId || !teamId) {
+  if (!teamId) {
     return;
   }
 
@@ -793,9 +797,9 @@ export async function GET(request: NextRequest) {
   try {
     const projectId = request.nextUrl.searchParams.get("projectId")?.trim();
     const teamId = request.nextUrl.searchParams.get("teamId")?.trim();
-    if (!projectId || !teamId) {
+    if (!teamId) {
       return NextResponse.json(
-        { error: "Missing required project or team scope." },
+        { error: "Missing required team scope." },
         { status: 400 },
       );
     }
@@ -811,7 +815,11 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-      await verifyProjectScope(convexToken, projectId, teamId);
+      if (projectId) {
+        await verifyProjectScope(convexToken, projectId, teamId);
+      } else {
+        await verifyTeamScope(convexToken, teamId);
+      }
       await verifyAssistantAccess(convexToken, teamId);
     } catch (error) {
       const message =

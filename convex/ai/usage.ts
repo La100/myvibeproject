@@ -1,7 +1,9 @@
 import { v } from "convex/values";
 import { internalMutation, mutation, query } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
 import { getBillingWindow, getEffectiveLimits, SUBSCRIPTION_PLANS } from "../stripe";
 import { ensureProjectAccess } from "./access";
+import { ensureTeamAccess } from "../authz";
 
 // ====== TOKEN USAGE TRACKING ======
 
@@ -21,6 +23,22 @@ const getTeamTokenBalance = (team: {
   }
 
   return Math.max(0, team.aiTokens);
+};
+
+type DailyUsageRow = {
+  date: string;
+  requests: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  costCents: number;
+};
+
+type ProjectUsageRow = {
+  projectId: Id<"projects"> | "unknown";
+  requests: number;
+  tokens: number;
+  costCents: number;
 };
 
 /**
@@ -79,7 +97,7 @@ export const saveTokenUsage = internalMutation({
 
 export const recordSelfHostedChatKitUsage = mutation({
   args: {
-    projectId: v.id("projects"),
+    projectId: v.optional(v.id("projects")),
     teamId: v.id("teams"),
     threadId: v.optional(v.string()),
     model: v.string(),
@@ -100,9 +118,17 @@ export const recordSelfHostedChatKitUsage = mutation({
   },
   returns: v.any(),
   handler: async (ctx, args) => {
-    const { clerkUserId, project } = await ensureProjectAccess(ctx, args.projectId);
-    if (project.teamId !== args.teamId) {
-      throw new Error("Project does not belong to the provided team");
+    let clerkUserId: string;
+
+    if (args.projectId) {
+      const { clerkUserId: nextClerkUserId, project } = await ensureProjectAccess(ctx, args.projectId);
+      if (project.teamId !== args.teamId) {
+        throw new Error("Project does not belong to the provided team");
+      }
+      clerkUserId = nextClerkUserId;
+    } else {
+      const teamAccess = await ensureTeamAccess(ctx, args.teamId);
+      clerkUserId = teamAccess.clerkUserId;
     }
 
     const payload = {
@@ -229,7 +255,7 @@ export const getProjectTokenUsage = query({
     const smartModeUsage = usage.filter(r => r.mode === "smart");
 
     // Daily breakdown
-    const dailyUsage = usage.reduce((acc, record) => {
+    const dailyUsage = usage.reduce<Record<string, DailyUsageRow>>((acc, record) => {
       const date = new Date(record._creationTime).toISOString().split('T')[0];
       if (!acc[date]) {
         acc[date] = {
@@ -247,7 +273,7 @@ export const getProjectTokenUsage = query({
       acc[date].totalTokens += record.billableTokens ?? record.totalTokens;
       acc[date].costCents += record.estimatedCostCents || 0;
       return acc;
-    }, {} as Record<string, any>);
+    }, {});
 
     return {
       summary: {
@@ -280,7 +306,7 @@ export const getProjectTokenUsage = query({
           cost: smartModeUsage.reduce((sum, r) => sum + (r.estimatedCostCents || 0), 0),
         }
       },
-      dailyBreakdown: Object.values(dailyUsage).sort((a: any, b: any) => b.date.localeCompare(a.date)),
+      dailyBreakdown: Object.values(dailyUsage).sort((a, b) => b.date.localeCompare(a.date)),
       recentRequests: usage
         .sort((a, b) => b._creationTime - a._creationTime)
         .slice(0, 10)
@@ -339,7 +365,7 @@ export const getTeamTokenUsage = query({
     const totalCostCents = usage.reduce((sum, record) => sum + (record.estimatedCostCents || 0), 0);
 
     // By project breakdown
-    const byProject = usage.reduce((acc, record) => {
+    const byProject = usage.reduce<Record<string, ProjectUsageRow>>((acc, record) => {
       const projectId = record.projectId ?? "unknown";
       if (!acc[projectId]) {
         acc[projectId] = {
@@ -353,14 +379,14 @@ export const getTeamTokenUsage = query({
       acc[projectId].tokens += record.billableTokens ?? record.totalTokens;
       acc[projectId].costCents += record.estimatedCostCents || 0;
       return acc;
-    }, {} as Record<string, any>);
+    }, {});
 
     return {
       totalRequests: usage.length,
       totalTokens,
       totalCostCents,
       totalCostUSD: totalCostCents / 100,
-      byProject: Object.values(byProject).sort((a: any, b: any) => b.tokens - a.tokens),
+      byProject: Object.values(byProject).sort((a, b) => b.tokens - a.tokens),
     };
   },
 });

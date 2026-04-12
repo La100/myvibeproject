@@ -42,6 +42,22 @@ export async function verifyProjectScope(
   return project;
 }
 
+export async function verifyTeamScope(
+  convexToken: string,
+  teamId: string,
+) {
+  const client = getServerConvexClient(convexToken);
+  const team = await client.query(apiAny.teams.getTeamById, {
+    teamId: teamId as never,
+  });
+
+  if (!team) {
+    throw new Error("Team not found or access denied.");
+  }
+
+  return team;
+}
+
 export async function verifyAssistantAccess(
   convexToken: string,
   teamId: string,

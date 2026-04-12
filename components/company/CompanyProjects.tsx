@@ -48,6 +48,7 @@ export default function CompanyProjects() {
   const { organization } = useOrganization();
   const [searchQuery, setSearchQuery] = useState("");
   const [extensionReady, setExtensionReady] = useState(false);
+  const [journeyStateReady, setJourneyStateReady] = useState(false);
   const [questsHidden, setQuestsHidden] = useState(false);
 
   const projects = useQuery(
@@ -85,6 +86,7 @@ export default function CompanyProjects() {
     const syncJourney = () => {
       setExtensionReady(readOnboardingFlag(ONBOARDING_EXTENSION_READY_KEY));
       setQuestsHidden(readOnboardingFlag(ONBOARDING_DASHBOARD_QUESTS_HIDDEN_KEY));
+      setJourneyStateReady(true);
     };
 
     syncJourney();
@@ -153,7 +155,12 @@ export default function CompanyProjects() {
   const questCompletionCount = dashboardQuests.filter((quest) => quest.done).length;
   const openDashboardQuests = dashboardQuests.filter((quest) => !quest.done);
   const compactQuestLayout = openDashboardQuests.length <= 2;
-  const showQuestBoard = !questsHidden && questCompletionCount < dashboardQuests.length;
+  const dashboardQuestDataReady =
+    journeyStateReady &&
+    projects !== undefined &&
+    teamSettings !== undefined;
+  const canRenderQuestBoard = dashboardQuestDataReady && questCompletionCount < dashboardQuests.length;
+  const showQuestBoard = canRenderQuestBoard && !questsHidden;
 
   const dismissQuestBoard = () => {
     setQuestsHidden(true);
@@ -265,7 +272,7 @@ export default function CompanyProjects() {
             </div>
           </div>
         </section>
-      ) : questCompletionCount < dashboardQuests.length ? (
+      ) : canRenderQuestBoard ? (
         <div className="flex justify-end">
           <div className="flex gap-2">
             <GuidedTourLauncher tourId="workspace" label="Take workspace tour" variant="outline" className="rounded-xl" />

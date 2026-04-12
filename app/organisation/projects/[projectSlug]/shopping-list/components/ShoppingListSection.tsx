@@ -57,6 +57,8 @@ interface EditFormData {
 }
 
 interface ShoppingListSectionProps {
+  projectId: Id<"projects">;
+  teamId: Id<"teams">;
   sectionName: string;
   sectionId?: Id<"shoppingListSections">;
   items: ShoppingListItem[];
@@ -99,6 +101,8 @@ interface ShoppingListSectionProps {
 }
 
 export function ShoppingListSection({
+  projectId,
+  teamId,
   sectionName,
   sectionId,
   items,
@@ -267,7 +271,9 @@ export function ShoppingListSection({
     setEditFormData((current) => ({ ...current, productLink: normalizedUrl }));
 
     try {
-      const response = await fetch(`/api/shopping/scrape?url=${encodeURIComponent(normalizedUrl)}`);
+      const response = await fetch(
+        `/api/shopping/scrape?projectId=${encodeURIComponent(String(projectId))}&teamId=${encodeURIComponent(String(teamId))}&url=${encodeURIComponent(normalizedUrl)}`,
+      );
       const payload = (await response.json()) as {
         message?: string;
         name?: string;
@@ -725,6 +731,8 @@ export function ShoppingListSection({
         {addingAlternativeSetId === String(set._id) ? (
           <div className="mb-4 rounded-2xl border bg-card/80 p-4">
             <AddItemForm
+              projectId={projectId}
+              teamId={teamId}
               sections={sections}
               teamMembers={teamMembers}
               currencySymbol={currencySymbol}
@@ -807,6 +815,8 @@ export function ShoppingListSection({
       {showAddForm ? (
         <div className="mb-8 rounded-3xl border bg-muted/40 p-6">
           <AddItemForm
+            projectId={projectId}
+            teamId={teamId}
             sections={sections}
             teamMembers={teamMembers}
             currencySymbol={currencySymbol}

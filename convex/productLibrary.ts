@@ -1,10 +1,23 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 import { ensureProjectAccess, ensureTeamAccess } from "./authz";
+import { r2 } from "./files";
+
+const buildPublicR2FileUrl = (key: string) => {
+  const publicBaseUrl = (process.env.NEXT_PUBLIC_R2_PUBLIC_URL || process.env.R2_PUBLIC_URL || "")
+    .trim()
+    .replace(/\/+$/, "");
+
+  if (!publicBaseUrl) {
+    return "";
+  }
+
+  return `${publicBaseUrl}/${key}`;
+};
 
 const ensureProductAccess = async (
-  ctx: any,
+  ctx: QueryCtx | MutationCtx,
   productId: Id<"productLibrary">,
   actorClerkUserId?: string,
 ) => {
@@ -18,7 +31,7 @@ const ensureProductAccess = async (
 };
 
 const ensureShoppingSectionBelongsToProject = async (
-  ctx: any,
+  ctx: MutationCtx,
   sectionId: Id<"shoppingListSections"> | undefined,
   projectId: Id<"projects">,
 ) => {
@@ -195,6 +208,55 @@ export const createProduct = mutation({
   },
 });
 
+export const generateImageUploadUrl = mutation({
+  args: {
+    teamId: v.id("teams"),
+    fileName: v.string(),
+    fileSize: v.optional(v.number()),
+  },
+  returns: v.object({
+    url: v.string(),
+    key: v.string(),
+    publicUrl: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    const teamAccess = await ensureTeamAccess(ctx, args.teamId);
+    const team = await ctx.db.get(args.teamId);
+
+    if (!team) {
+      throw new Error("Team not found");
+    }
+
+    if (typeof args.fileSize === "number" && args.fileSize > 5 * 1024 * 1024) {
+      throw new Error("Image must be smaller than 5 MB");
+    }
+
+    const fileExtension = args.fileName.includes(".")
+      ? args.fileName.split(".").pop()
+      : "";
+    const baseName = args.fileName.replace(/\.[^/.]+$/, "");
+    const safeBaseName =
+      baseName.replace(/[^a-zA-Z0-9-_]/g, "-").replace(/-+/g, "-").slice(0, 80) || "product-image";
+    const key = `${team.slug}/product-library/images/${crypto.randomUUID()}-${safeBaseName}${fileExtension ? `.${fileExtension}` : ""}`;
+    const uploadData = await r2.generateUploadUrl(key);
+    const publicUrl = buildPublicR2FileUrl(key);
+
+    if (!publicUrl) {
+      throw new Error("Public R2 URL is not configured");
+    }
+
+    if (!teamAccess?.clerkUserId) {
+      throw new Error("Not authorized");
+    }
+
+    return {
+      url: uploadData.url,
+      key,
+      publicUrl,
+    };
+  },
+});
+
 // Update product
 export const updateProduct = mutation({
   args: {
@@ -223,7 +285,7 @@ export const updateProduct = mutation({
     
     // Remove undefined values
     const cleanUpdates = Object.fromEntries(
-      Object.entries(updates).filter(([_, value]) => value !== undefined)
+      Object.entries(updates).filter(([, value]) => value !== undefined)
     );
     
     return await ctx.db.patch(productId, cleanUpdates);
