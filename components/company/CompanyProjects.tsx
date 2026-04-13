@@ -446,19 +446,19 @@ function ProjectCard({
       className="group h-full w-full cursor-pointer"
     >
       <article className="flex h-full flex-col gap-4">
-        <div className="relative aspect-[1.92/1] overflow-hidden rounded-[1.35rem] border border-border bg-card shadow-sm transition-transform duration-200 group-hover:-translate-y-0.5">
+        <div className="relative aspect-[1.92/1] overflow-hidden rounded-[1rem] border border-border bg-card shadow-sm transition-transform duration-200 group-hover:-translate-y-0.5">
           <div className="relative flex h-full items-start p-4 sm:p-5 md:p-6">
-            <h3 className="max-w-[11ch] text-[clamp(2rem,3vw,3.75rem)] font-normal leading-[1.02] tracking-tight text-muted-foreground">
+            <h3 className="max-w-[11ch] text-[clamp(1.625rem,2.35vw,2.5rem)] font-normal leading-[1.05] tracking-tight text-muted-foreground">
               {project.name}
             </h3>
           </div>
         </div>
         <div className="flex flex-1 items-start justify-between gap-4 px-1">
           <div className="min-w-0 space-y-1.5">
-            <p className="line-clamp-2 text-xl font-semibold leading-tight tracking-tight text-foreground sm:text-2xl">
+            <p className="line-clamp-2 text-sm font-normal leading-tight tracking-tight text-foreground sm:text-base">
               {project.name}
             </p>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-base text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs leading-5 text-muted-foreground">
               {project.status ? (
                 <span className="inline-flex items-center gap-2">
                   <span

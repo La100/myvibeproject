@@ -1,6 +1,4 @@
 import { useState } from 'react';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PlusIcon, TrashIcon, FolderIcon, ChevronDownIcon, ChevronUpIcon } from 'lucide-react';
@@ -11,16 +9,28 @@ interface LaborSectionManagerProps {
   onCreateSection: (name: string) => Promise<void>;
   onDeleteSection: (sectionId: Id<"laborSections">) => Promise<void>;
   isPending: boolean;
+  expanded?: boolean;
+  onExpandedChange?: (expanded: boolean) => void;
 }
 
 export function LaborSectionManager({
   sections,
   onCreateSection,
   onDeleteSection,
-  isPending
+  isPending,
+  expanded,
+  onExpandedChange,
 }: LaborSectionManagerProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [internalExpanded, setInternalExpanded] = useState(false);
   const [newSectionName, setNewSectionName] = useState('');
+  const isExpanded = expanded ?? internalExpanded;
+
+  const setExpanded = (nextExpanded: boolean) => {
+    if (expanded === undefined) {
+      setInternalExpanded(nextExpanded);
+    }
+    onExpandedChange?.(nextExpanded);
+  };
 
   const handleCreateSection = async () => {
     if (!newSectionName.trim()) return;
@@ -28,37 +38,36 @@ export function LaborSectionManager({
     setNewSectionName('');
   };
 
-  // Default section suggestions for labor
   const defaultSections = [
-    "Tiling",
-    "Plumbing",
-    "Electrical",
-    "Painting",
-    "Carpentry",
-    "Demolition",
-    "Installation",
-    "Finishing",
+    'Tiling',
+    'Plumbing',
+    'Electrical',
+    'Painting',
+    'Carpentry',
+    'Demolition',
+    'Installation',
+    'Finishing',
   ];
 
-  const existingSectionNames = sections.map(s => s.name.toLowerCase());
+  const existingSectionNames = sections.map((section) => section.name.toLowerCase());
   const suggestedSections = defaultSections.filter(
-    name => !existingSectionNames.includes(name.toLowerCase())
+    (name) => !existingSectionNames.includes(name.toLowerCase()),
   );
 
   return (
-    <Card className="mb-8 gap-4">
+    <div className="mb-8 rounded-3xl border bg-card p-6 shadow-sm">
       <button
-        onClick={() => setIsExpanded(!isExpanded)}
+        onClick={() => setExpanded(!isExpanded)}
         className="flex w-full items-center justify-between text-left"
       >
         <div className="flex items-center gap-3">
           <FolderIcon className="h-5 w-5 text-primary" />
-          <span className="text-lg font-semibold text-foreground">
+          <span className="text-base font-medium text-foreground">
             Manage Sections
           </span>
-          <Badge variant="outline" className="text-xs font-medium">
+          <span className="text-sm text-muted-foreground">
             ({sections.length} sections)
-          </Badge>
+          </span>
         </div>
         {isExpanded ? (
           <ChevronUpIcon className="h-5 w-5 text-muted-foreground" />
@@ -67,15 +76,15 @@ export function LaborSectionManager({
         )}
       </button>
 
-      {isExpanded && (
-        <CardContent className="flex flex-col gap-6 pt-0">
+      {isExpanded ? (
+        <div className="mt-6 flex flex-col gap-6">
           <div className="flex gap-3">
             <Input
               value={newSectionName}
               onChange={(e) => setNewSectionName(e.target.value)}
               placeholder="New section name..."
-              className="h-11 text-sm"
               onKeyDown={(e) => e.key === 'Enter' && handleCreateSection()}
+              className="h-11 text-sm"
             />
             <Button
               onClick={handleCreateSection}
@@ -87,40 +96,39 @@ export function LaborSectionManager({
             </Button>
           </div>
 
-          {suggestedSections.length > 0 && (
-            <div className="flex flex-col gap-2">
-              <p className="text-xs font-medium text-muted-foreground">Quick add:</p>
+          {suggestedSections.length > 0 ? (
+            <div>
+              <p className="mb-2 text-xs font-medium text-muted-foreground">Quick add:</p>
               <div className="flex flex-wrap gap-2">
                 {suggestedSections.map((name) => (
-                  <Button
+                  <button
                     key={name}
-                    type="button"
-                    variant="outline"
-                    size="sm"
                     onClick={() => onCreateSection(name)}
-                    className="h-8 px-3 text-xs font-medium"
+                    disabled={isPending}
+                    className="rounded-lg border border-border bg-muted px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted/80 disabled:opacity-50"
                   >
                     + {name}
-                  </Button>
+                  </button>
                 ))}
               </div>
             </div>
-          )}
+          ) : null}
 
-          {sections.length > 0 && (
-            <div className="flex flex-col gap-3">
-              <p className="text-xs font-medium text-muted-foreground">Existing sections:</p>
+          {sections.length > 0 ? (
+            <div>
+              <p className="mb-3 text-xs font-medium text-muted-foreground">Existing sections:</p>
               <div className="flex flex-col gap-2">
                 {sections.map((section) => (
                   <div
                     key={section._id}
-                    className="flex items-center justify-between rounded-2xl border border-border bg-muted/35 p-3"
+                    className="flex items-center justify-between rounded-2xl border border-border bg-muted/40 p-3"
                   >
                     <span className="text-sm font-medium text-foreground">{section.name}</span>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => onDeleteSection(section._id)}
+                      disabled={isPending}
                       className="h-8 w-8 p-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                     >
                       <TrashIcon className="h-4 w-4" />
@@ -129,9 +137,9 @@ export function LaborSectionManager({
                 ))}
               </div>
             </div>
-          )}
-        </CardContent>
-      )}
-    </Card>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
   );
 }

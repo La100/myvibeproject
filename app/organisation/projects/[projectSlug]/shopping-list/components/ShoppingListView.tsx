@@ -26,6 +26,7 @@ import {
   ensurePdfUnicodeFont,
   formatMoney,
   pdfTableTheme,
+  renderPdfTable,
   sanitizeFileName,
 } from '@/lib/pdfExport';
 
@@ -473,7 +474,6 @@ export default function ShoppingListView() {
 
     const jsPdfModule = await import('jspdf');
     const jsPDF = jsPdfModule.jsPDF ?? jsPdfModule.default;
-    await import('jspdf-autotable');
 
     const doc = new jsPDF({
       putOnlyUsedFonts: true,
@@ -530,7 +530,7 @@ export default function ShoppingListView() {
         doc.setFontSize(12);
         doc.text(sectionName, 18, yPosition);
         yPosition += 4;
-        doc.autoTable({
+        await renderPdfTable(doc, {
           ...pdfTableTheme,
           startY: yPosition,
           head,
@@ -547,7 +547,7 @@ export default function ShoppingListView() {
         yPosition = ((doc as typeof doc & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY || yPosition) + 8;
       }
     } else {
-      doc.autoTable({
+      await renderPdfTable(doc, {
         ...pdfTableTheme,
         startY: yPosition,
         head,

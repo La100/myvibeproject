@@ -145,6 +145,10 @@ export default defineSchema({
       v.literal("SGD"), // Singapore Dollar
       v.literal("HKD"), // Hong Kong Dollar
     )),
+    measurements: v.optional(v.union(
+      v.literal("metric"),
+      v.literal("imperial")
+    )),
     taxEnabled: v.optional(v.boolean()),
     taxRate: v.optional(v.number()),
     createdBy: v.string(), // Clerk user ID
@@ -170,7 +174,6 @@ export default defineSchema({
       showContacts: v.optional(v.boolean()),
       showBudget: v.optional(v.boolean()),
       showPayments: v.optional(v.boolean()),
-      showApprovals: v.optional(v.boolean()),
       showNotes: v.optional(v.boolean()),
       showSupplier: v.optional(v.boolean()),
       showPrice: v.optional(v.boolean()),
@@ -224,70 +227,6 @@ export default defineSchema({
     .index("by_project", ["projectId"])
     .index("by_project_and_order", ["projectId", "order"])
     .index("by_project_and_status", ["projectId", "status"]),
-
-  projectApprovals: defineTable({
-    projectId: v.id("projects"),
-    teamId: v.id("teams"),
-    type: v.union(
-      v.literal("material"),
-      v.literal("estimate"),
-      v.literal("visualization"),
-      v.literal("moodboard"),
-      v.literal("scope"),
-      v.literal("milestone"),
-      v.literal("payment"),
-      v.literal("other")
-    ),
-    title: v.string(),
-    description: v.optional(v.string()),
-    status: v.union(
-      v.literal("draft"),
-      v.literal("sent"),
-      v.literal("viewed"),
-      v.literal("commented"),
-      v.literal("approved"),
-      v.literal("rejected"),
-      v.literal("expired")
-    ),
-    dueDate: v.optional(v.number()),
-    currentVersion: v.number(),
-    requesterUserId: v.string(),
-    sentAt: v.optional(v.number()),
-    viewedAt: v.optional(v.number()),
-    decidedAt: v.optional(v.number()),
-    lastCommentAt: v.optional(v.number()),
-    clientDecision: v.optional(v.union(v.literal("approved"), v.literal("rejected"), v.null())),
-    clientComment: v.optional(v.union(v.string(), v.null())),
-    clientRespondentName: v.optional(v.union(v.string(), v.null())),
-    clientRespondentKey: v.optional(v.union(v.string(), v.null())),
-    resolvedVersion: v.optional(v.number()),
-    latestVersionSummary: v.optional(v.string()),
-    latestVersionDetails: v.optional(v.string()),
-    latestVersionItems: v.optional(v.array(v.string())),
-    latestVersionReferenceIds: v.optional(v.array(v.string())),
-    updatedAt: v.number(),
-  })
-    .index("by_project", ["projectId"])
-    .index("by_project_and_status", ["projectId", "status"])
-    .index("by_project_and_updated", ["projectId", "updatedAt"]),
-
-  projectApprovalVersions: defineTable({
-    approvalId: v.id("projectApprovals"),
-    projectId: v.id("projects"),
-    teamId: v.id("teams"),
-    version: v.number(),
-    title: v.string(),
-    summary: v.optional(v.string()),
-    details: v.optional(v.string()),
-    items: v.optional(v.array(v.string())),
-    referenceIds: v.optional(v.array(v.string())),
-    dueDate: v.optional(v.number()),
-    createdBy: v.string(),
-    createdAt: v.number(),
-  })
-    .index("by_approval", ["approvalId"])
-    .index("by_approval_and_version", ["approvalId", "version"])
-    .index("by_project", ["projectId"]),
 
   // Tasks in projects
   tasks: defineTable({
@@ -481,6 +420,11 @@ export default defineSchema({
     )),
     preferredTimezone: v.optional(v.string()),
     onboardingCompletedAt: v.optional(v.number()),
+    guidedTours: v.optional(v.object({
+      completedTourIds: v.array(v.union(v.literal("workspace"), v.literal("project"))),
+      skippedTourIds: v.array(v.union(v.literal("workspace"), v.literal("project"))),
+      dismissedPromptIds: v.array(v.union(v.literal("workspace"), v.literal("project"))),
+    })),
   })
     .index("by_clerk_user_id", ["clerkUserId"])
     .index("by_email", ["email"]),

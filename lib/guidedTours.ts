@@ -11,54 +11,103 @@ export type TourStep = {
   placement?: TourPlacement;
 };
 
-export type GuidedTourState = {
+export type LocalGuidedTourState = {
   activeTourId: TourId | null;
   activeStepIndex: number;
+};
+
+export type PersistentGuidedTourState = {
   completedTourIds: TourId[];
   skippedTourIds: TourId[];
   dismissedPromptIds: TourId[];
 };
 
+export type PersistentGuidedTourStatus = "completed" | "skipped" | "dismissed";
+
 export const GUIDED_TOUR_STATE_KEY = "myvibeproject-guided-tour-state";
 export const GUIDED_TOUR_START_EVENT = "myvibeproject:start-guided-tour";
 
-const defaultState: GuidedTourState = {
+export const defaultLocalGuidedTourState: LocalGuidedTourState = {
   activeTourId: null,
   activeStepIndex: 0,
+};
+
+export const defaultPersistentGuidedTourState: PersistentGuidedTourState = {
   completedTourIds: [],
   skippedTourIds: [],
   dismissedPromptIds: [],
 };
 
+export function applyPersistentGuidedTourStatus(
+  state: PersistentGuidedTourState,
+  tourId: TourId,
+  status: PersistentGuidedTourStatus,
+): PersistentGuidedTourState {
+  const nextState: PersistentGuidedTourState = {
+    completedTourIds: state.completedTourIds.filter((id) => id !== tourId),
+    skippedTourIds: state.skippedTourIds.filter((id) => id !== tourId),
+    dismissedPromptIds: state.dismissedPromptIds.filter((id) => id !== tourId),
+  };
+
+  if (status === "completed") {
+    nextState.completedTourIds.push(tourId);
+  } else if (status === "skipped") {
+    nextState.skippedTourIds.push(tourId);
+  } else {
+    nextState.dismissedPromptIds.push(tourId);
+  }
+
+  return nextState;
+}
+
 function canUseStorage() {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 }
 
-export function readGuidedTourState(): GuidedTourState {
+export function readGuidedTourState(): LocalGuidedTourState {
   if (!canUseStorage()) {
-    return defaultState;
+    return defaultLocalGuidedTourState;
   }
 
   const rawValue = window.localStorage.getItem(GUIDED_TOUR_STATE_KEY);
   if (!rawValue) {
-    return defaultState;
+    return defaultLocalGuidedTourState;
   }
 
   try {
-    const parsed = JSON.parse(rawValue) as Partial<GuidedTourState>;
+    const parsed = JSON.parse(rawValue) as Partial<LocalGuidedTourState>;
     return {
       activeTourId: parsed.activeTourId ?? null,
       activeStepIndex: parsed.activeStepIndex ?? 0,
+    };
+  } catch {
+    return defaultLocalGuidedTourState;
+  }
+}
+
+export function readLegacyPersistentGuidedTourState(): PersistentGuidedTourState {
+  if (!canUseStorage()) {
+    return defaultPersistentGuidedTourState;
+  }
+
+  const rawValue = window.localStorage.getItem(GUIDED_TOUR_STATE_KEY);
+  if (!rawValue) {
+    return defaultPersistentGuidedTourState;
+  }
+
+  try {
+    const parsed = JSON.parse(rawValue) as Partial<PersistentGuidedTourState>;
+    return {
       completedTourIds: Array.isArray(parsed.completedTourIds) ? parsed.completedTourIds : [],
       skippedTourIds: Array.isArray(parsed.skippedTourIds) ? parsed.skippedTourIds : [],
       dismissedPromptIds: Array.isArray(parsed.dismissedPromptIds) ? parsed.dismissedPromptIds : [],
     };
   } catch {
-    return defaultState;
+    return defaultPersistentGuidedTourState;
   }
 }
 
-export function writeGuidedTourState(nextState: GuidedTourState) {
+export function writeGuidedTourState(nextState: LocalGuidedTourState) {
   if (!canUseStorage()) {
     return;
   }
@@ -66,7 +115,9 @@ export function writeGuidedTourState(nextState: GuidedTourState) {
   window.localStorage.setItem(GUIDED_TOUR_STATE_KEY, JSON.stringify(nextState));
 }
 
-export function updateGuidedTourState(updater: (current: GuidedTourState) => GuidedTourState) {
+export function updateGuidedTourState(
+  updater: (current: LocalGuidedTourState) => LocalGuidedTourState,
+) {
   const nextState = updater(readGuidedTourState());
   writeGuidedTourState(nextState);
   return nextState;
@@ -77,7 +128,6 @@ export function startGuidedTour(tourId: TourId) {
     ...current,
     activeTourId: tourId,
     activeStepIndex: 0,
-    skippedTourIds: current.skippedTourIds.filter((id) => id !== tourId),
   }));
 }
 
@@ -86,38 +136,6 @@ export function stopGuidedTour() {
     ...current,
     activeTourId: null,
     activeStepIndex: 0,
-  }));
-}
-
-export function markGuidedTourCompleted(tourId: TourId) {
-  return updateGuidedTourState((current) => ({
-    ...current,
-    activeTourId: null,
-    activeStepIndex: 0,
-    completedTourIds: current.completedTourIds.includes(tourId)
-      ? current.completedTourIds
-      : [...current.completedTourIds, tourId],
-    skippedTourIds: current.skippedTourIds.filter((id) => id !== tourId),
-  }));
-}
-
-export function markGuidedTourSkipped(tourId: TourId) {
-  return updateGuidedTourState((current) => ({
-    ...current,
-    activeTourId: null,
-    activeStepIndex: 0,
-    skippedTourIds: current.skippedTourIds.includes(tourId)
-      ? current.skippedTourIds
-      : [...current.skippedTourIds, tourId],
-  }));
-}
-
-export function dismissGuidedTourPrompt(tourId: TourId) {
-  return updateGuidedTourState((current) => ({
-    ...current,
-    dismissedPromptIds: current.dismissedPromptIds.includes(tourId)
-      ? current.dismissedPromptIds
-      : [...current.dismissedPromptIds, tourId],
   }));
 }
 

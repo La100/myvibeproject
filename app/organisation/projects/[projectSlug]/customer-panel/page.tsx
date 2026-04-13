@@ -11,7 +11,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
-import { ProjectApprovalsManager } from "@/components/project/ProjectApprovalsManager";
 
 const DEFAULT_CLIENT_PANEL_SETTINGS = {
   showShoppingList: false,
@@ -23,7 +22,6 @@ const DEFAULT_CLIENT_PANEL_SETTINGS = {
   showContacts: false,
   showBudget: false,
   showPayments: false,
-  showApprovals: false,
   showNotes: true,
   showSupplier: true,
   showPrice: true,
@@ -337,22 +335,6 @@ export default function CustomerPanelPage() {
                   disabled={isPublishingPortal}
                 />
               </div>
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <Label htmlFor="show-approvals" className="font-medium">
-                    Approvals
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    Let clients review and formally approve decision requests.
-                  </p>
-                </div>
-                <Switch
-                  id="show-approvals"
-                  checked={portalSettings.showApprovals}
-                  onCheckedChange={(checked) => handleToggleSetting("showApprovals", checked)}
-                  disabled={isPublishingPortal}
-                />
-              </div>
             </div>
           </div>
         </div>
@@ -400,37 +382,6 @@ export default function CustomerPanelPage() {
         </div>
       </section>
 
-      <section className="flex flex-col gap-5">
-        <div>
-          <h2 className="text-lg font-semibold">Approval Summary</h2>
-          <p className="text-sm text-muted-foreground">
-            Current approval workflow status for this project.
-          </p>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-lg border bg-card p-5">
-            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Pending</p>
-            <p className="mt-2 text-2xl font-semibold">{panelConfig?.approvalSummary?.pendingCount || 0}</p>
-          </div>
-          <div className="rounded-lg border bg-card p-5">
-            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Approved</p>
-            <p className="mt-2 text-2xl font-semibold">{panelConfig?.approvalSummary?.approvedCount || 0}</p>
-          </div>
-          <div className="rounded-lg border bg-card p-5">
-            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Rejected</p>
-            <p className="mt-2 text-2xl font-semibold">{panelConfig?.approvalSummary?.rejectedCount || 0}</p>
-          </div>
-          <div className="rounded-lg border bg-card p-5">
-            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Drafts</p>
-            <p className="mt-2 text-2xl font-semibold">{panelConfig?.approvalSummary?.draftCount || 0}</p>
-          </div>
-        </div>
-      </section>
-
-      <section className="flex flex-col gap-5">
-        <ProjectApprovalsManager />
-      </section>
       </div>
     </div>
   );

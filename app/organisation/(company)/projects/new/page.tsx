@@ -200,6 +200,7 @@ export default function NewProjectPage() {
         startDate: newProject.startDate ? new Date(newProject.startDate).getTime() : undefined,
         endDate: newProject.endDate ? new Date(newProject.endDate).getTime() : undefined,
         currency: selectedCurrency,
+        measurements: newProject.measurements === "imperial" ? "imperial" : "metric",
         taxEnabled: newProject.tax,
         taxRate: newProject.tax
           ? Math.min(Math.max(parseFloat(newProject.taxRate) || 0, 0), 100)

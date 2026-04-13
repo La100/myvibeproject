@@ -26,19 +26,11 @@ import {
 } from 'lucide-react';
 import { Doc, Id } from '@/convex/_generated/dataModel';
 import { AddLaborItemForm } from './AddLaborItemForm';
-
-// Common units for labor
-const LABOR_UNITS = [
-  { value: "m²", label: "m²" },
-  { value: "m", label: "m" },
-  { value: "hours", label: "hours" },
-  { value: "pcs", label: "pcs" },
-  { value: "m³", label: "m³" },
-  { value: "kg", label: "kg" },
-  { value: "set", label: "set" },
-  { value: "room", label: "room" },
-  { value: "item", label: "item" },
-];
+import {
+  getDefaultLaborUnit,
+  getLaborUnitsForMeasurementSystem,
+  type MeasurementSystem,
+} from './laborUnits';
 
 type LaborItem = Doc<"laborItems">;
 
@@ -90,6 +82,7 @@ interface LaborListSectionProps {
     attachmentFileId?: Id<"files"> | null;
   }) => Promise<void>;
   isPending: boolean;
+  measurementSystem?: MeasurementSystem;
 }
 
 export function LaborListSection({
@@ -103,11 +96,14 @@ export function LaborListSection({
   onUpdateItem,
   onDeleteItem,
   onAddItem,
-  isPending
+  isPending,
+  measurementSystem = 'metric',
 }: LaborListSectionProps) {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editFormData, setEditFormData] = useState<EditFormData>({});
   const [showAddForm, setShowAddForm] = useState(false);
+  const laborUnits = getLaborUnitsForMeasurementSystem(measurementSystem);
+  const defaultLaborUnit = getDefaultLaborUnit(measurementSystem);
 
   const sectionTotal = items.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
 
@@ -120,7 +116,7 @@ export function LaborListSection({
       quantity: item.quantity,
       unit: item.unit,
       unitPrice: item.unitPrice ? item.unitPrice.toString() : '',
-      assignedTo: item.assignedTo || 'none'
+      assignedTo: item.assignedTo || 'none',
     });
   };
 
@@ -133,8 +129,8 @@ export function LaborListSection({
         notes: editFormData.notes?.trim() || undefined,
         sectionId: editFormData.sectionId === 'none' ? undefined : editFormData.sectionId as Id<"laborSections">,
         quantity: editFormData.quantity || 1,
-        unit: editFormData.unit || 'm²',
-        unitPrice: unitPrice,
+        unit: editFormData.unit || defaultLaborUnit,
+        unitPrice,
         assignedTo: editFormData.assignedTo === 'none' ? undefined : editFormData.assignedTo,
       });
       setEditingItemId(null);
@@ -150,37 +146,37 @@ export function LaborListSection({
   };
 
   const getAssignedMemberName = (assignedTo: string) => {
-    const member = teamMembers?.find(m => m.clerkUserId === assignedTo);
+    const member = teamMembers?.find((entry) => entry.clerkUserId === assignedTo);
     return member?.name || assignedTo;
   };
 
   return (
-    <Card className="mb-10 gap-4 rounded-3xl p-4 sm:p-8">
-      <CardHeader className="flex flex-col gap-4 px-0 sm:flex-row sm:items-center sm:justify-between">
+    <Card className="mb-10 rounded-3xl border bg-card p-4 shadow-sm sm:p-8">
+      <CardHeader className="mb-6 flex flex-col justify-between gap-4 px-0 pt-0 sm:flex-row sm:items-center">
         <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-          <CardTitle className="text-xl sm:text-2xl">{sectionName}</CardTitle>
-          <Badge variant="outline">
+          <CardTitle className="text-lg font-medium text-foreground sm:text-xl">{sectionName}</CardTitle>
+          <Badge variant="outline" className="rounded-full px-3 py-1 text-xs font-medium">
             {items.length} items
           </Badge>
-          {sectionTotal > 0 && (
-            <Badge variant="secondary">
+          {sectionTotal > 0 ? (
+            <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs font-medium">
               {sectionTotal.toFixed(2)} {currencySymbol}
             </Badge>
-          )}
+          ) : null}
         </div>
         <Button
           variant="ghost"
           size="sm"
-          className="self-end sm:self-auto"
+          className="self-end rounded-full sm:self-auto"
           onClick={() => setShowAddForm(!showAddForm)}
         >
           <PlusIcon className="h-4 w-4" />
         </Button>
       </CardHeader>
 
-      <CardContent className="flex flex-col gap-4 px-0">
-        {showAddForm && (
-          <div className="rounded-3xl border border-border/70 bg-muted/35 p-6">
+      <CardContent className="flex flex-col gap-4 px-0 pb-0">
+        {showAddForm ? (
+          <div className="mb-8 rounded-3xl border bg-muted/40 p-6">
             <AddLaborItemForm
               projectId={projectId}
               sections={sections}
@@ -189,30 +185,32 @@ export function LaborListSection({
               onAddItem={async (itemData) => {
                 await onAddItem({
                   ...itemData,
-                  sectionId: sectionId
+                  sectionId,
                 });
                 setShowAddForm(false);
               }}
               isPending={isPending}
               defaultSectionId={sectionId}
               isInline={true}
+              measurementSystem={measurementSystem}
             />
           </div>
-        )}
+        ) : null}
 
-        {items.length > 0 && (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Work Description</TableHead>
-                <TableHead className="w-24 text-right">Qty</TableHead>
-                <TableHead className="w-20 text-center">Unit</TableHead>
-                <TableHead className="w-32 text-right">Price/Unit</TableHead>
-                <TableHead className="w-32 text-right">Total</TableHead>
-                <TableHead className="w-24 text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+        {items.length > 0 ? (
+          <div className="overflow-hidden rounded-2xl border border-border/70">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Work Description</TableHead>
+                  <TableHead className="w-24 text-right">Qty</TableHead>
+                  <TableHead className="w-20 text-center">Unit</TableHead>
+                  <TableHead className="w-32 text-right">Price/Unit</TableHead>
+                  <TableHead className="w-32 text-right">Total</TableHead>
+                  <TableHead className="w-24 text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {items.map((item) => (
                   <TableRow key={item._id}>
                     {editingItemId === item._id ? (
@@ -221,7 +219,7 @@ export function LaborListSection({
                           <Input
                             value={editFormData.name || ''}
                             onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
-                            className="h-9 rounded-lg text-sm"
+                            className="h-9 w-full rounded-lg text-sm"
                           />
                         </TableCell>
                         <TableCell>
@@ -231,19 +229,19 @@ export function LaborListSection({
                             step="0.01"
                             value={editFormData.quantity || 1}
                             onChange={(e) => setEditFormData({ ...editFormData, quantity: parseFloat(e.target.value) || 1 })}
-                            className="h-9 rounded-lg text-sm text-right w-20"
+                            className="h-9 w-20 rounded-lg text-right text-sm"
                           />
                         </TableCell>
                         <TableCell>
                           <Select
-                            value={editFormData.unit || 'm²'}
+                            value={editFormData.unit || defaultLaborUnit}
                             onValueChange={(value) => setEditFormData({ ...editFormData, unit: value })}
                           >
-                            <SelectTrigger className="h-9 rounded-lg text-sm w-20">
+                            <SelectTrigger className="h-9 w-20 rounded-lg text-sm">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              {LABOR_UNITS.map((unit) => (
+                              {laborUnits.map((unit) => (
                                 <SelectItem key={unit.value} value={unit.value}>
                                   {unit.label}
                                 </SelectItem>
@@ -257,7 +255,7 @@ export function LaborListSection({
                             step="0.01"
                             value={editFormData.unitPrice || ''}
                             onChange={(e) => setEditFormData({ ...editFormData, unitPrice: e.target.value })}
-                            className="h-9 rounded-lg text-sm text-right w-28"
+                            className="h-9 w-28 rounded-lg text-right text-sm"
                           />
                         </TableCell>
                         <TableCell className="text-right text-sm font-medium text-foreground">
@@ -290,11 +288,11 @@ export function LaborListSection({
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <span className="font-medium text-foreground">{item.name}</span>
-                            {item.assignedTo && (
+                            {item.assignedTo ? (
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <Avatar className="h-6 w-6 border border-border/70 shadow-sm">
-                                    <AvatarImage src={teamMembers?.find(m => m.clerkUserId === item.assignedTo)?.imageUrl} />
+                                    <AvatarImage src={teamMembers?.find((member) => member.clerkUserId === item.assignedTo)?.imageUrl} />
                                     <AvatarFallback className="bg-muted text-[10px] text-foreground">
                                       {getAssignedMemberName(item.assignedTo)?.[0]}
                                     </AvatarFallback>
@@ -302,13 +300,13 @@ export function LaborListSection({
                                 </TooltipTrigger>
                                 <TooltipContent>{getAssignedMemberName(item.assignedTo)}</TooltipContent>
                               </Tooltip>
-                            )}
+                            ) : null}
                           </div>
-                          {item.notes && (
+                          {item.notes ? (
                             <p className="mt-1 text-xs text-muted-foreground">{item.notes}</p>
-                          )}
+                          ) : null}
                           <div className="mt-1 flex flex-wrap items-center gap-3">
-                            {item.referenceLink && (
+                            {item.referenceLink ? (
                               <a
                                 href={item.referenceLink}
                                 target="_blank"
@@ -318,13 +316,13 @@ export function LaborListSection({
                                 <ExternalLinkIcon className="h-3 w-3" />
                                 Link
                               </a>
-                            )}
-                            {item.attachmentFileId && (
+                            ) : null}
+                            {item.attachmentFileId ? (
                               <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                                 <PaperclipIcon className="h-3 w-3" />
                                 Attachment in Files/labor
                               </span>
-                            )}
+                            ) : null}
                           </div>
                         </TableCell>
                         <TableCell className="text-right text-sm text-foreground">{item.quantity}</TableCell>
@@ -369,35 +367,36 @@ export function LaborListSection({
                     )}
                   </TableRow>
                 ))}
-            </TableBody>
-            <TableFooter>
-              <TableRow>
-                <TableCell colSpan={4} className="text-right text-sm font-medium text-foreground">
+              </TableBody>
+              <TableFooter>
+                <TableRow>
+                  <TableCell colSpan={4} className="text-right text-sm font-medium text-foreground">
                     Section Total:
-                </TableCell>
-                <TableCell className="text-right text-sm font-semibold text-foreground">
+                  </TableCell>
+                  <TableCell className="text-right text-sm font-semibold text-foreground">
                     {sectionTotal.toFixed(2)} {currencySymbol}
-                </TableCell>
-                <TableCell />
-              </TableRow>
-            </TableFooter>
-          </Table>
-        )}
+                  </TableCell>
+                  <TableCell />
+                </TableRow>
+              </TableFooter>
+            </Table>
+          </div>
+        ) : null}
 
-        {items.length === 0 && !showAddForm && (
-          <div className="py-8 text-center text-muted-foreground">
+        {items.length === 0 && !showAddForm ? (
+          <div className="rounded-2xl border border-dashed border-border/70 bg-muted/10 py-8 text-center text-muted-foreground">
             <p className="text-sm">No labor items in this section</p>
             <Button
               variant="ghost"
               size="sm"
-              className="mt-2"
+              className="mt-2 rounded-full"
               onClick={() => setShowAddForm(true)}
             >
-              <PlusIcon className="h-4 w-4 mr-2" />
+              <PlusIcon className="mr-2 h-4 w-4" />
               Add first item
             </Button>
           </div>
-        )}
+        ) : null}
       </CardContent>
     </Card>
   );

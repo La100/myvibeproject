@@ -450,7 +450,6 @@ export const getPublicShoppingListByAccessToken = query({
       showContacts: project.clientPanelPublishedSettings?.showContacts ?? false,
       showBudget: project.clientPanelPublishedSettings?.showBudget ?? false,
       showPayments: project.clientPanelPublishedSettings?.showPayments ?? false,
-      showApprovals: project.clientPanelPublishedSettings?.showApprovals ?? false,
       showNotes: project.clientPanelPublishedSettings?.showNotes ?? true,
       showSupplier: project.clientPanelPublishedSettings?.showSupplier ?? true,
       showPrice: project.clientPanelPublishedSettings?.showPrice ?? true,
@@ -503,6 +502,12 @@ export const getPublicShoppingListByAccessToken = query({
     const laborItems = settings.showLabor
       ? await ctx.db
           .query("laborItems")
+          .withIndex("by_project", (q) => q.eq("projectId", project._id))
+          .collect()
+      : [];
+    const laborSections = settings.showLabor
+      ? await ctx.db
+          .query("laborSections")
           .withIndex("by_project", (q) => q.eq("projectId", project._id))
           .collect()
       : [];
@@ -559,10 +564,14 @@ export const getPublicShoppingListByAccessToken = query({
         _id: item._id,
         name: item.name,
         notes: item.notes,
+        sectionId: item.sectionId,
         quantity: item.quantity,
         unit: item.unit,
         unitPrice: item.unitPrice,
         totalPrice: item.totalPrice,
+        assignedTo: item.assignedTo,
+        referenceLink: item.referenceLink,
+        attachmentFileId: item.attachmentFileId,
         startDate: item.startDate,
         endDate: item.endDate,
       }))
@@ -629,6 +638,7 @@ export const getPublicShoppingListByAccessToken = query({
       moodboardFiles: settings.showMoodboard ? moodboardFiles : [],
       tasks: settings.showTasks ? tasksForPortal : [],
       labor: settings.showLabor ? laborForPortal : [],
+      laborSections: settings.showLabor ? laborSections : [],
       contacts: settings.showContacts ? contactsForPortal : [],
       payments: paymentsForPortal,
       paymentsPortalAvailable: paymentsForPortal.some((payment) => payment.canPayOnline),
@@ -726,6 +736,98 @@ export const selectShoppingSetItemsByAccessToken = mutation({
       success: true,
       setId: args.setId,
       selectedItemIds: requestedIds,
+    };
+  },
+});
+
+export const respondToShoppingItemByAccessToken = mutation({
+  args: {
+    accessToken: v.string(),
+    itemId: v.id("shoppingListItems"),
+    decision: v.union(v.literal("accepted"), v.literal("rejected")),
+    comment: v.optional(v.union(v.string(), v.null())),
+    respondentName: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const token = args.accessToken.trim();
+    if (!token) {
+      throw new Error("Invalid panel link");
+    }
+
+    const project = await ctx.db
+      .query("projects")
+      .withIndex("by_client_panel_access_token", (q) =>
+        q.eq("clientPanelAccessToken", token)
+      )
+      .unique();
+
+    if (!project) {
+      throw new Error("Invalid panel link");
+    }
+    if (project.clientPanelPublishedSettings?.showShoppingList !== true) {
+      throw new Error("Shopping list is hidden in this portal");
+    }
+
+    const item = await ctx.db.get(args.itemId);
+    if (!item || item.projectId !== project._id) {
+      throw new Error("Shopping item not found");
+    }
+
+    const snapshotItem = await ctx.db
+      .query("clientPanelItems")
+      .withIndex("by_project_and_source", (q) =>
+        q.eq("projectId", project._id).eq("sourceItemId", args.itemId),
+      )
+      .unique();
+
+    const now = Date.now();
+    const normalizedComment = normalizeClientPortalComment(args.comment);
+    const normalizedRespondentName = typeof args.respondentName === "string" ? args.respondentName.trim() : "";
+
+    await ctx.db.patch(args.itemId, {
+      customerDecision: args.decision,
+      customerDecisionComment: normalizedComment,
+      customerDecisionUpdatedAt: now,
+      customerDecisionByName: normalizedRespondentName || undefined,
+      updatedAt: now,
+    });
+
+    if (snapshotItem) {
+      await ctx.db.patch(snapshotItem._id, {
+        customerDecision: args.decision,
+        customerDecisionComment: normalizedComment,
+        customerDecisionUpdatedAt: now,
+      });
+    }
+
+    await logClientPortalShoppingActivity(
+      ctx,
+      { _id: project._id, teamId: project.teamId },
+      "shopping.customer.decision",
+      String(args.itemId),
+      {
+        actorName: getClientPortalActorName(args.respondentName),
+        itemId: String(args.itemId),
+        itemName: item.name,
+        decision: args.decision,
+        comment: normalizedComment,
+      },
+    );
+
+    await ctx.scheduler.runAfter(0, internalAny.notifications.sendClientPortalEventEmail, {
+      projectId: project._id,
+      actionType: "shopping.customer.decision",
+      actorName: getClientPortalActorName(args.respondentName),
+      itemName: item.name,
+      decision: args.decision,
+    });
+
+    return {
+      success: true,
+      itemId: args.itemId,
+      decision: args.decision,
+      comment: normalizedComment,
+      updatedAt: now,
     };
   },
 });

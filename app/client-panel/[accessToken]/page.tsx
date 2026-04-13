@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { Banknote, CheckCircle2, ClipboardList, Download, ExternalLink, Send, Users, Wallet, Wrench, XCircle } from "lucide-react";
+import { Banknote, CheckCircle2, ClipboardList, Download, ExternalLink, Send, Users, Wallet, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Doc, Id } from "@/convex/_generated/dataModel";
 import { apiAny } from "@/lib/convexApiAny";
@@ -14,8 +14,18 @@ import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { addDocumentMeta, addPageNumbers, ensurePdfUnicodeFont, formatMoney, sanitizeFileName } from "@/lib/pdfExport";
+import { addDocumentMeta, addPageNumbers, ensurePdfUnicodeFont, formatMoney, renderPdfTable, sanitizeFileName } from "@/lib/pdfExport";
+import { cn } from "@/lib/utils";
 
 type ClientPanelItem = Doc<"clientPanelItems">;
 type ClientPanelSection = Doc<"clientPanelSections">;
@@ -43,13 +53,18 @@ type PublicLaborItem = {
   _id: string;
   name: string;
   notes?: string;
+  sectionId?: Id<"laborSections">;
   quantity: number;
   unit: string;
   unitPrice?: number;
   totalPrice?: number;
+  assignedTo?: string;
+  referenceLink?: string | null;
+  attachmentFileId?: Id<"files"> | null;
   startDate?: number;
   endDate?: number;
 };
+type PublicLaborSection = Doc<"laborSections">;
 type PublicContact = {
   _id: string;
   name: string;
@@ -82,33 +97,6 @@ type PublicPayment = {
   paidAt?: number;
   isOverdue?: boolean;
 };
-type PublicApproval = {
-  _id: Id<"projectApprovals">;
-  type:
-    | "material"
-    | "estimate"
-    | "visualization"
-    | "moodboard"
-    | "scope"
-    | "milestone"
-    | "payment"
-    | "other";
-  title: string;
-  description?: string;
-  status: "draft" | "sent" | "viewed" | "commented" | "approved" | "rejected" | "expired";
-  dueDate?: number;
-  currentVersion: number;
-  clientDecision?: "approved" | "rejected" | null;
-  clientComment?: string | null;
-  clientRespondentName?: string | null;
-  decidedAt?: number;
-  currentVersionRecord?: {
-    summary?: string;
-    details?: string;
-    items?: string[];
-    referenceIds?: string[];
-  } | null;
-};
 type PublicBudgetSummary = {
   currency: string;
   budget: number;
@@ -131,7 +119,7 @@ type PublicBudgetSummary = {
       actual: number;
     };
   };
-  revenue: {
+  clientFunding: {
     acceptedEstimations: number;
     pipelineEstimations: number;
     scheduledPayments: number;
@@ -207,9 +195,9 @@ const EMPTY_FILES: ClientPanelFile[] = [];
 const EMPTY_SURVEYS: PublicSurvey[] = [];
 const EMPTY_TASKS: PublicTask[] = [];
 const EMPTY_LABOR_ITEMS: PublicLaborItem[] = [];
+const EMPTY_LABOR_SECTIONS: PublicLaborSection[] = [];
 const EMPTY_CONTACTS: PublicContact[] = [];
 const EMPTY_PAYMENTS: PublicPayment[] = [];
-const EMPTY_APPROVALS: PublicApproval[] = [];
 const DEFAULT_CLIENT_PANEL_SETTINGS = {
   showShoppingList: false,
   showFiles: false,
@@ -220,7 +208,6 @@ const DEFAULT_CLIENT_PANEL_SETTINGS = {
   showContacts: false,
   showBudget: false,
   showPayments: false,
-  showApprovals: false,
   showNotes: true,
   showSupplier: true,
   showPrice: true,
@@ -361,18 +348,6 @@ const formatMoodboardSectionLabel = (section?: string) => {
   return /^\d+$/.test(normalized) ? `Section ${normalized}` : normalized;
 };
 
-const approvalTypeLabel = (type: PublicApproval["type"]) =>
-  ({
-    material: "Material",
-    estimate: "Estimate",
-    visualization: "Visualization",
-    moodboard: "Moodboard",
-    scope: "Scope",
-    milestone: "Milestone",
-    payment: "Payment",
-    other: "Other",
-  })[type];
-
 const getOrCreatePublicRespondentKey = (accessToken: string) => {
   const storageKey = `client-panel-respondent:${accessToken}`;
   const existing = window.localStorage.getItem(storageKey);
@@ -490,6 +465,7 @@ export default function PublicClientPanelPage() {
     accessToken,
   });
   const selectShoppingSetItems = useMutation(apiAny.shopping.selectShoppingSetItemsByAccessToken);
+  const respondToShoppingItem = useMutation(apiAny.shopping.respondToShoppingItemByAccessToken);
   const submitPublicSurvey = useMutation(apiAny.surveys.submitPublicSurveyResponseByAccessToken);
   const getInvoiceDownloadUrl = useAction(
     apiAny.projectPaymentActions.getProjectPaymentInvoiceDownloadUrlByAccessToken,
@@ -497,16 +473,10 @@ export default function PublicClientPanelPage() {
   const getStripePaymentLinkUrl = useAction(
     apiAny.projectPaymentActions.getProjectPaymentStripeLinkByAccessToken,
   );
-  const publicApprovalsData = useQuery(
-    apiAny.projectApprovals.getPublicProjectApprovalsByAccessToken,
-    panelData?.settings?.showApprovals ? { accessToken } : "skip"
-  );
   const publicBudgetSummaryData = useQuery(
     apiAny.projectBudget.getPublicProjectBudgetSummaryByAccessToken,
     panelData?.settings?.showBudget ? { accessToken } : "skip"
   );
-  const respondToApproval = useMutation(apiAny.projectApprovals.respondToProjectApprovalByAccessToken);
-  const markApprovalViewed = useMutation(apiAny.projectApprovals.markProjectApprovalViewedByAccessToken);
   const publicSurveysData = useQuery(
     apiAny.surveys.getPublicSurveysByAccessToken,
     respondentKey && (panelData?.settings?.showSurveys ?? false)
@@ -526,8 +496,9 @@ export default function PublicClientPanelPage() {
   const [selectedMoodboardFile, setSelectedMoodboardFile] = useState<ClientPanelFile | null>(null);
   const [downloadingPaymentId, setDownloadingPaymentId] = useState<string | null>(null);
   const [openingPaymentId, setOpeningPaymentId] = useState<string | null>(null);
-  const [approvalComments, setApprovalComments] = useState<Record<string, string>>({});
-  const [respondingApprovalId, setRespondingApprovalId] = useState<string | null>(null);
+  const [shoppingItemComments, setShoppingItemComments] = useState<Record<string, string>>({});
+  const [respondingShoppingItemId, setRespondingShoppingItemId] = useState<string | null>(null);
+  const [expandedShoppingItemComments, setExpandedShoppingItemComments] = useState<Record<string, boolean>>({});
 
   const project = panelData?.project;
   const sections = (panelData?.sections as ClientPanelSection[] | undefined) ?? EMPTY_SECTIONS;
@@ -538,13 +509,12 @@ export default function PublicClientPanelPage() {
   const surveys = (publicSurveysData?.surveys as PublicSurvey[] | undefined) ?? EMPTY_SURVEYS;
   const tasks = (panelData?.tasks as PublicTask[] | undefined) ?? EMPTY_TASKS;
   const laborItems = (panelData?.labor as PublicLaborItem[] | undefined) ?? EMPTY_LABOR_ITEMS;
+  const laborSections =
+    (panelData?.laborSections as PublicLaborSection[] | undefined) ?? EMPTY_LABOR_SECTIONS;
   const contacts = (panelData?.contacts as PublicContact[] | undefined) ?? EMPTY_CONTACTS;
   const payments = (panelData?.payments as PublicPayment[] | undefined) ?? EMPTY_PAYMENTS;
-  const approvals =
-    (publicApprovalsData?.approvals as PublicApproval[] | undefined) ?? EMPTY_APPROVALS;
   const publicBudgetSummary = publicBudgetSummaryData as PublicBudgetSummary | null | undefined;
   const settings = panelData?.settings ?? DEFAULT_CLIENT_PANEL_SETTINGS;
-
   const currencySymbol = getCurrencySymbol(project?.currency);
   const moodboardSections = useMemo(() => {
     const grouped = new Map<
@@ -589,17 +559,17 @@ export default function PublicClientPanelPage() {
   }, [accessToken]);
 
   useEffect(() => {
-    setApprovalComments((current) => {
+    setShoppingItemComments((current) => {
       const next = { ...current };
-      for (const approval of approvals) {
-        const approvalId = String(approval._id);
-        if (typeof next[approvalId] !== "string") {
-          next[approvalId] = approval.clientComment || "";
+      for (const item of items) {
+        const itemId = String(item.sourceItemId);
+        if (typeof next[itemId] !== "string") {
+          next[itemId] = item.customerDecisionComment || "";
         }
       }
       return next;
     });
-  }, [approvals]);
+  }, [items]);
 
   const shoppingGroupsBySection = useMemo(() => {
     const sectionOrder = new Map(sections.map((section) => [section.name, section.order]));
@@ -684,6 +654,43 @@ export default function PublicClientPanelPage() {
     (sum, section) => sum + section.itemCount,
     0
   );
+  const laborSectionEntries = useMemo(() => {
+    const sectionOrder = new Map(laborSections.map((section) => [String(section._id), section.order]));
+    const sectionNameById = new Map(laborSections.map((section) => [String(section._id), section.name]));
+    const buckets = new Map<string, { name: string; items: PublicLaborItem[] }>();
+
+    const ensureBucket = (key: string, name: string) => {
+      if (!buckets.has(key)) {
+        buckets.set(key, { name, items: [] });
+      }
+      return buckets.get(key)!;
+    };
+
+    for (const item of laborItems) {
+      const key = item.sectionId ? String(item.sectionId) : "__none__";
+      const name = item.sectionId ? sectionNameById.get(String(item.sectionId)) || "No Category" : "No Category";
+      ensureBucket(key, name).items.push(item);
+    }
+
+    for (const section of laborSections) {
+      ensureBucket(String(section._id), section.name);
+    }
+
+    return Array.from(buckets.entries())
+      .map(([key, value]) => ({
+        key,
+        name: value.name,
+        items: value.items.slice().sort((left, right) => left.name.localeCompare(right.name)),
+      }))
+      .sort((left, right) => {
+        if (left.name === "No Category") return 1;
+        if (right.name === "No Category") return -1;
+        const leftOrder = sectionOrder.get(left.key) ?? Number.MAX_SAFE_INTEGER;
+        const rightOrder = sectionOrder.get(right.key) ?? Number.MAX_SAFE_INTEGER;
+        if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+        return left.name.localeCompare(right.name);
+      });
+  }, [laborItems, laborSections]);
 
   const sectionCards = [
     settings.showShoppingList
@@ -698,7 +705,6 @@ export default function PublicClientPanelPage() {
     settings.showLabor ? { id: "portal-labor", label: "Labor", count: laborItems.length } : null,
     settings.showContacts ? { id: "portal-contacts", label: "Contacts", count: contacts.length } : null,
     settings.showPayments ? { id: "portal-payments", label: "Payments", count: payments.length } : null,
-    settings.showApprovals ? { id: "portal-approvals", label: "Approvals", count: approvals.length } : null,
     settings.showBudget
       ? {
           id: "portal-budget",
@@ -719,22 +725,6 @@ export default function PublicClientPanelPage() {
         : sectionCards[0].id
     );
   }, [sectionCards]);
-
-  useEffect(() => {
-    if (activeSectionId !== "portal-approvals") return;
-    if (!settings.showApprovals) return;
-    if (approvals.length === 0) return;
-
-    approvals
-      .filter((approval) => approval.status === "sent")
-      .forEach((approval) => {
-        void markApprovalViewed({
-          accessToken,
-          approvalId: approval._id,
-          respondentName: respondentName.trim() || undefined,
-        }).catch(() => undefined);
-      });
-  }, [accessToken, activeSectionId, approvals, markApprovalViewed, respondentName, settings.showApprovals]);
 
   const handleDownloadInvoice = async (paymentId: string) => {
     setDownloadingPaymentId(paymentId);
@@ -770,39 +760,126 @@ export default function PublicClientPanelPage() {
     }
   };
 
-  const handleRespondToApproval = async (
-    approval: PublicApproval,
-    decision: "approved" | "rejected"
+  const handleRespondToShoppingItem = async (
+    item: ClientPanelItem,
+    decision: "accepted" | "rejected",
   ) => {
     const cleanedRespondentName = respondentName.trim();
-    if (!cleanedRespondentName) {
-      toast.error(`Please enter who is making the decision for "${approval.title}".`);
-      return;
-    }
+    const itemId = String(item.sourceItemId);
+    setRespondingShoppingItemId(itemId);
 
-    const approvalId = String(approval._id);
-    setRespondingApprovalId(approvalId);
     try {
-      if (typeof window !== "undefined") {
+      if (typeof window !== "undefined" && cleanedRespondentName) {
         const storageKey = `client-panel-respondent-name:${accessToken}`;
         window.localStorage.setItem(storageKey, cleanedRespondentName);
       }
-      await respondToApproval({
+
+      await respondToShoppingItem({
         accessToken,
-        approvalId: approval._id,
+        itemId: item.sourceItemId,
         decision,
-        comment: approvalComments[approvalId]?.trim() || null,
+        comment: shoppingItemComments[itemId]?.trim() || null,
         respondentName: cleanedRespondentName,
-        respondentKey: respondentKey || undefined,
       });
-      toast.success(`Decision recorded for "${approval.title}"`);
+
+      toast.success(`Feedback saved for "${item.name}"`);
     } catch (error) {
-      toast.error("Failed to save decision", {
+      toast.error("Failed to save shopping item feedback", {
         description: (error as Error).message,
       });
     } finally {
-      setRespondingApprovalId(null);
+      setRespondingShoppingItemId(null);
     }
+  };
+
+  const renderShoppingItemFeedback = (item: ClientPanelItem) => {
+    const itemId = String(item.sourceItemId);
+    const isSaving = respondingShoppingItemId === itemId;
+    const hasDecision = item.customerDecision === "accepted" || item.customerDecision === "rejected";
+    const hasDraftComment = (shoppingItemComments[itemId] || "").trim().length > 0;
+    const isCommentExpanded = expandedShoppingItemComments[itemId] || hasDraftComment || Boolean(item.customerDecisionComment);
+
+    return (
+      <div className="mt-4 rounded-2xl border border-border/70 bg-muted/20 px-4 py-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="outline" className="text-xs">
+            Client feedback
+          </Badge>
+          {item.customerDecision ? (
+            <Badge variant="secondary" className="text-xs">
+              {item.customerDecision === "accepted" ? "Accepted" : "Rejected"}
+            </Badge>
+          ) : (
+            <span className="text-xs text-muted-foreground">Awaiting decision</span>
+          )}
+          {item.customerDecisionUpdatedAt ? (
+            <span className="text-xs text-muted-foreground">
+              Updated {new Date(item.customerDecisionUpdatedAt).toLocaleString()}
+            </span>
+          ) : null}
+        </div>
+
+        {hasDecision && item.customerDecisionComment ? (
+          <p className="mt-3 text-sm leading-6 text-foreground">{item.customerDecisionComment}</p>
+        ) : null}
+
+        <div className="mt-4 flex flex-col gap-3">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => void handleRespondToShoppingItem(item, "accepted")}
+              disabled={isSaving}
+            >
+              <CheckCircle2 data-icon="inline-start" />
+              {isSaving ? "Saving..." : "Approve"}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => void handleRespondToShoppingItem(item, "rejected")}
+              disabled={isSaving}
+            >
+              <XCircle data-icon="inline-start" />
+              Reject
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() =>
+                setExpandedShoppingItemComments((current) => ({
+                  ...current,
+                  [itemId]: !isCommentExpanded,
+                }))
+              }
+            >
+              {isCommentExpanded ? "Hide comment" : "Add comment"}
+            </Button>
+          </div>
+          {isCommentExpanded ? (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor={`shopping-item-comment-${itemId}`} className="text-sm font-medium">
+                Optional comment
+              </Label>
+              <Textarea
+                id={`shopping-item-comment-${itemId}`}
+                value={shoppingItemComments[itemId] || ""}
+                onChange={(event) =>
+                  setShoppingItemComments((current) => ({
+                    ...current,
+                    [itemId]: event.target.value,
+                  }))
+                }
+                rows={3}
+                placeholder="Add context, preferences or constraints for this item..."
+              />
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
   };
 
   const handleExportMaterialsPdf = async () => {
@@ -815,7 +892,6 @@ export default function PublicClientPanelPage() {
     try {
       const jsPdfModule = await import("jspdf");
       const jsPDF = jsPdfModule.jsPDF ?? jsPdfModule.default;
-      await import("jspdf-autotable");
 
       const doc = new jsPDF({
         putOnlyUsedFonts: true,
@@ -866,7 +942,7 @@ export default function PublicClientPanelPage() {
         }),
       );
 
-      doc.autoTable({
+      await renderPdfTable(doc, {
         head: [headers],
         body: rows,
         startY: 36,
@@ -1088,19 +1164,35 @@ export default function PublicClientPanelPage() {
           ) : null}
           {sectionCards.length > 0 ? (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {sectionCards.map((section) => (
-                <Button
-                  key={section.id}
-                  type="button"
-                  onClick={() => setActiveSectionId(section.id)}
-                  variant={activeSectionId === section.id ? "default" : "outline"}
-                  size="sm"
-                  className="h-auto flex flex-col items-start gap-1 px-4 py-3 text-left"
-                >
-                  <span className="text-sm font-medium">{section.label}</span>
-                  <span className="text-xs text-muted-foreground">{section.count} items</span>
-                </Button>
-              ))}
+              {sectionCards.map((section) => {
+                const isActive = activeSectionId === section.id;
+
+                return (
+                  <Button
+                    key={section.id}
+                    type="button"
+                    onClick={() => setActiveSectionId(section.id)}
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      "h-auto min-h-24 flex-col items-start gap-2 rounded-[28px] border px-5 py-4 text-left transition-all duration-200",
+                      isActive
+                        ? "border-primary/15 bg-primary/[0.05] text-foreground shadow-[0_14px_40px_-28px_rgba(43,31,23,0.55)]"
+                        : "bg-card/80 text-foreground hover:border-primary/15 hover:bg-background"
+                    )}
+                  >
+                    <span className="text-sm font-medium">{section.label}</span>
+                    <span
+                      className={cn(
+                        "text-xs",
+                        isActive ? "text-foreground/70" : "text-muted-foreground"
+                      )}
+                    >
+                      {section.count} items
+                    </span>
+                  </Button>
+                );
+              })}
             </div>
           ) : null}
         </div>
@@ -1594,43 +1686,104 @@ export default function PublicClientPanelPage() {
       ) : null}
 
       {settings.showLabor && activeSectionId === "portal-labor" ? (
-        <div className="mb-10 rounded-3xl border border-border bg-card p-4 shadow-sm sm:rounded-3xl sm:p-8">
-          <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
-            <h2 className="text-xl font-medium font-serif text-foreground sm:text-2xl">
-              Labor
-            </h2>
-            <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-              {laborItems.length} items
-            </span>
-          </div>
+        <div>
           {laborItems.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No labor entries shared.</p>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {laborItems.map((item) => (
-                <div
-                  key={item._id}
-                  className="rounded-xl border border-border/70 bg-card p-4"
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Wrench className="h-4 w-4 text-primary" />
-                    <p className="text-sm font-medium text-foreground">{item.name}</p>
-                  </div>
-                  <p className="mt-2 text-sm text-foreground">
-                    Qty: {item.quantity} {item.unit}
-                    {settings.showPrice && item.totalPrice !== undefined
-                      ? ` · Total: ${formatAmount(item.totalPrice, currencySymbol)}`
-                      : ""}
-                  </p>
-                  {item.notes ? (
-                    <p className="mt-2 text-sm text-muted-foreground">{item.notes}</p>
-                  ) : null}
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Start: {formatPortalDate(item.startDate)} · End: {formatPortalDate(item.endDate)}
-                  </p>
-                </div>
-              ))}
+            <div className="mb-10 rounded-3xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
+              No labor entries shared.
             </div>
+          ) : (
+            laborSectionEntries.map((section) => {
+              const sectionTotal = section.items.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
+
+              return (
+                <div
+                  key={section.key}
+                  className="mb-10 rounded-3xl border border-border bg-card p-4 shadow-sm sm:rounded-3xl sm:p-8"
+                >
+                  <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
+                    <h2 className="text-lg font-medium text-foreground sm:text-xl">{section.name}</h2>
+                    <Badge variant="outline" className="rounded-full px-3 py-1 text-xs font-medium">
+                      {section.items.length} items
+                    </Badge>
+                    {sectionTotal > 0 ? (
+                      <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs font-medium">
+                        {formatAmount(sectionTotal, currencySymbol)}
+                      </Badge>
+                    ) : null}
+                  </div>
+
+                  {section.items.length > 0 ? (
+                    <div className="overflow-hidden rounded-2xl border border-border/70">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Work Description</TableHead>
+                            <TableHead className="w-24 text-right">Qty</TableHead>
+                            <TableHead className="w-20 text-center">Unit</TableHead>
+                            <TableHead className="w-32 text-right">Price/Unit</TableHead>
+                            <TableHead className="w-32 text-right">Total</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {section.items.map((item) => (
+                            <TableRow key={item._id}>
+                              <TableCell>
+                                <div className="flex items-center gap-3">
+                                  <span className="font-medium text-foreground">{item.name}</span>
+                                </div>
+                                {item.notes ? (
+                                  <p className="mt-1 text-xs text-muted-foreground">{item.notes}</p>
+                                ) : null}
+                                <div className="mt-1 flex flex-wrap items-center gap-3">
+                                  {item.referenceLink ? (
+                                    <a
+                                      href={item.referenceLink}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                                    >
+                                      <ExternalLink className="h-3 w-3" />
+                                      Link
+                                    </a>
+                                  ) : null}
+                                  {item.attachmentFileId ? (
+                                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                                      Attachment in Files/labor
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right text-sm text-foreground">{item.quantity}</TableCell>
+                              <TableCell className="text-center text-sm text-muted-foreground">{item.unit}</TableCell>
+                              <TableCell className="text-right text-sm text-foreground">
+                                {item.unitPrice ? `${item.unitPrice.toFixed(2)} ${currencySymbol}` : "-"}
+                              </TableCell>
+                              <TableCell className="text-right text-sm font-medium text-foreground">
+                                {item.totalPrice ? `${item.totalPrice.toFixed(2)} ${currencySymbol}` : "-"}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                        <TableFooter>
+                          <TableRow>
+                            <TableCell colSpan={4} className="text-right text-sm font-medium text-foreground">
+                              Section Total:
+                            </TableCell>
+                            <TableCell className="text-right text-sm font-semibold text-foreground">
+                              {formatAmount(sectionTotal, currencySymbol)}
+                            </TableCell>
+                          </TableRow>
+                        </TableFooter>
+                      </Table>
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-border/70 bg-muted/10 py-8 text-center text-muted-foreground">
+                      <p className="text-sm">No labor items in this section</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
       ) : null}
@@ -1677,160 +1830,6 @@ export default function PublicClientPanelPage() {
                   ) : null}
                 </div>
               ))}
-            </div>
-          )}
-        </div>
-      ) : null}
-
-      {settings.showApprovals && activeSectionId === "portal-approvals" ? (
-        <div className="mb-10 rounded-3xl border border-border bg-card p-4 shadow-sm sm:rounded-3xl sm:p-8">
-          <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
-            <h2 className="text-xl font-medium font-serif text-foreground sm:text-2xl">
-              Approvals
-            </h2>
-            <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-              {approvals.length} requests
-            </span>
-          </div>
-
-          {approvals.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No approval requests shared yet.</p>
-          ) : (
-            <div className="flex flex-col gap-5">
-              <div className="max-w-md flex flex-col gap-2">
-                <Label htmlFor="approval-respondent-name" className="text-sm font-medium">
-                  Who is reviewing approvals?
-                </Label>
-                <Input
-                  id="approval-respondent-name"
-                  value={respondentName}
-                  onChange={(event) => setRespondentName(event.target.value)}
-                  placeholder="Your name"
-                />
-              </div>
-
-              {approvals.map((approval) => {
-                const approvalId = String(approval._id);
-                const canDecide =
-                  approval.status === "sent" ||
-                  approval.status === "viewed" ||
-                  approval.status === "commented";
-
-                return (
-                  <div
-                    key={approvalId}
-                    className="rounded-2xl border border-border/70 bg-card p-5"
-                  >
-                    <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                      <div className="flex flex-col gap-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Badge variant="outline">{approvalTypeLabel(approval.type)}</Badge>
-                          <Badge
-                            variant="outline"
-                            className="border-border bg-muted text-foreground"
-                          >
-                            {approval.status.toUpperCase()}
-                          </Badge>
-                          <Badge variant="secondary">v{approval.currentVersion}</Badge>
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-medium text-foreground">{approval.title}</h3>
-                          {approval.description ? (
-                            <p className="mt-1 text-sm text-muted-foreground">{approval.description}</p>
-                          ) : null}
-                        </div>
-                      </div>
-
-                      <div className="shrink-0 text-sm text-muted-foreground">
-                        {approval.dueDate
-                          ? `Decision deadline: ${new Date(approval.dueDate).toLocaleDateString()}`
-                          : "No deadline"}
-                      </div>
-                    </div>
-
-                    {approval.currentVersionRecord?.summary ? (
-                      <div className="mt-4 rounded-xl border border-border bg-muted px-4 py-3 text-sm text-foreground">
-                        {approval.currentVersionRecord.summary}
-                      </div>
-                    ) : null}
-
-                    {approval.currentVersionRecord?.details ? (
-                      <p className="mt-4 text-sm text-muted-foreground">
-                        {approval.currentVersionRecord.details}
-                      </p>
-                    ) : null}
-
-                    {approval.currentVersionRecord?.items?.length ? (
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {approval.currentVersionRecord.items.map((item) => (
-                          <Badge key={item} variant="secondary">
-                            {item}
-                          </Badge>
-                        ))}
-                      </div>
-                    ) : null}
-
-                    {canDecide ? (
-                      <div className="mt-5 flex flex-col gap-3 border-t border-border pt-4">
-                        <div className="flex flex-col gap-2">
-                          <Label htmlFor={`approval-comment-${approvalId}`}>Comment for the project team</Label>
-                          <Textarea
-                            id={`approval-comment-${approvalId}`}
-                            value={approvalComments[approvalId] || ""}
-                            onChange={(event) =>
-                              setApprovalComments((current) => ({
-                                ...current,
-                                [approvalId]: event.target.value,
-                              }))
-                            }
-                            rows={3}
-                            placeholder="Add context, constraints or conditions for your decision..."
-                          />
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            type="button"
-                            onClick={() => void handleRespondToApproval(approval, "approved")}
-                            disabled={respondingApprovalId === approvalId}
-                          >
-                            <CheckCircle2 data-icon="inline-start" />
-                            {respondingApprovalId === approvalId ? "Saving..." : "Approve"}
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => void handleRespondToApproval(approval, "rejected")}
-                            disabled={respondingApprovalId === approvalId}
-                          >
-                            <XCircle data-icon="inline-start" />
-                            Reject
-                          </Button>
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {!canDecide && approval.clientDecision ? (
-                      <div className="mt-5 rounded-xl border border-border bg-muted px-4 py-3 text-sm text-foreground">
-                        <div className="flex items-center gap-2 font-medium">
-                          {approval.clientDecision === "approved" ? (
-                            <CheckCircle2 className="h-4 w-4 text-foreground" />
-                          ) : (
-                            <XCircle className="h-4 w-4 text-foreground" />
-                          )}
-                          Decision: {approval.clientDecision}
-                        </div>
-                        <p className="mt-2 text-muted-foreground">
-                          By {approval.clientRespondentName || "client"}
-                          {approval.decidedAt ? ` on ${new Date(approval.decidedAt).toLocaleString()}` : ""}
-                        </p>
-                        {approval.clientComment ? (
-                          <p className="mt-3">{approval.clientComment}</p>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              })}
             </div>
           )}
         </div>
@@ -1947,31 +1946,31 @@ export default function PublicClientPanelPage() {
 
                 <div className="rounded-xl border border-border/70 bg-card p-5">
                   <p className="text-base font-medium text-foreground">
-                    Revenue and collections
+                    Estimates and payments
                   </p>
                   <div className="mt-4 flex flex-col gap-3 text-sm">
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-muted-foreground">Accepted estimations</span>
+                      <span className="text-muted-foreground">Accepted estimates</span>
                       <span className="font-medium text-foreground">
-                        {formatAmount(publicBudgetSummary.revenue.acceptedEstimations, currencySymbol)}
+                        {formatAmount(publicBudgetSummary.clientFunding.acceptedEstimations, currencySymbol)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
                       <span className="text-muted-foreground">Scheduled payments</span>
                       <span className="font-medium text-foreground">
-                        {formatAmount(publicBudgetSummary.revenue.scheduledPayments, currencySymbol)}
+                        {formatAmount(publicBudgetSummary.clientFunding.scheduledPayments, currencySymbol)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
                       <span className="text-muted-foreground">Collected payments</span>
                       <span className="font-medium text-foreground">
-                        {formatAmount(publicBudgetSummary.revenue.collectedPayments, currencySymbol)}
+                        {formatAmount(publicBudgetSummary.clientFunding.collectedPayments, currencySymbol)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
                       <span className="text-muted-foreground">Outstanding payments</span>
                       <span className="font-medium text-foreground">
-                        {formatAmount(publicBudgetSummary.revenue.outstandingPayments, currencySymbol)}
+                        {formatAmount(publicBudgetSummary.clientFunding.outstandingPayments, currencySymbol)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
@@ -2204,7 +2203,7 @@ export default function PublicClientPanelPage() {
                   className="mb-10 rounded-3xl border border-border bg-card p-4 shadow-sm sm:rounded-3xl sm:p-8"
                 >
                   <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
-                    <h2 className="text-xl font-medium font-serif text-foreground sm:text-2xl">
+                    <h2 className="text-lg font-medium text-foreground sm:text-xl">
                       {sectionName}
                     </h2>
                     <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
@@ -2221,41 +2220,89 @@ export default function PublicClientPanelPage() {
                     {sectionGroups.map((group) => {
                       const selectedIds = getSelectedIdsForGroup(group, localSelection);
                       const countedItems = getCountedItemsForGroup(group, selectedIds);
-                      const statusLabel = getStatusLabel(group.leadItem.realizationStatus);
+
+                      if (!group.setId) {
+                        const option = group.items[0];
+                        const optionStatusLabel = getStatusLabel(option.realizationStatus);
+
+                        return (
+                          <div
+                            key={group.key}
+                            className={cn(
+                              "rounded-2xl border p-4",
+                              !countedItems.some((entry) => entry.sourceItemId === option.sourceItemId) &&
+                                "border-border/70 bg-muted/10",
+                            )}
+                          >
+                            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                              <div className="flex min-w-0 flex-1 items-start gap-4">
+                                <ItemImage imageUrl={option.imageUrl} name={option.name} size="sm" />
+                                <div className="min-w-0 flex-1">
+                                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                                    <h4 className="text-sm font-medium text-foreground">{option.name}</h4>
+                                    {!countedItems.some((entry) => entry.sourceItemId === option.sourceItemId) ? (
+                                      <Badge variant="secondary" className="text-xs">
+                                        Not counted in total
+                                      </Badge>
+                                    ) : null}
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                                    <span>{getQtyLabel(option)}</span>
+                                    {settings.showPrice && option.unitPrice !== undefined ? (
+                                      <span>{formatAmount(option.unitPrice, currencySymbol)} / unit</span>
+                                    ) : null}
+                                    {settings.showPrice && option.totalPrice !== undefined ? (
+                                      <span className="font-medium text-foreground">
+                                        {formatAmount(option.totalPrice, currencySymbol)}
+                                      </span>
+                                    ) : null}
+                                    {settings.showSupplier && option.supplier ? <span>{option.supplier}</span> : null}
+                                  </div>
+                                  {settings.showNotes && option.notes ? (
+                                    <p className="mt-2 text-sm text-muted-foreground">{option.notes}</p>
+                                  ) : null}
+                                  {renderShoppingItemFeedback(option)}
+                                </div>
+                              </div>
+
+                              <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                                {optionStatusLabel ? (
+                                  <Badge variant="secondary">{optionStatusLabel}</Badge>
+                                ) : null}
+                                {option.productLink ? (
+                                  <a
+                                    href={option.productLink}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </a>
+                                ) : null}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+
                       return (
                         <div
                           key={group.key}
-                          className="group relative rounded-2xl border border-border/50 bg-card p-5 transition-all hover:border-border hover:shadow-sm"
+                          className="rounded-2xl border border-border/60 bg-muted/20 p-5"
                         >
-                          <div className="mb-4 flex min-w-0 items-start justify-between gap-4">
-                            <div className="flex min-w-0 flex-1 items-start gap-4">
-                              <ItemImage
-                                imageUrl={group.leadItem.imageUrl}
-                                name={group.title}
-                              />
-                              <div className="min-w-0 flex-1 py-1">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <h3 className="break-words text-lg font-medium text-foreground">
-                                    {group.title}
-                                  </h3>
-                                  {group.setId ? (
-                                    <>
-                                      <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-                                        {group.items.length} options
-                                      </span>
-                                      <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-                                        {getChoiceLabel(group.selectionMode)}
-                                      </span>
-                                    </>
-                                  ) : null}
-                                </div>
-                                {statusLabel ? (
-                                  <div className="mt-2">
-                                    <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-foreground">
-                                      {statusLabel}
-                                    </span>
-                                  </div>
-                                ) : null}
+                          <div className="mb-4 flex flex-col gap-3 border-b pb-4 lg:flex-row lg:items-start lg:justify-between">
+                            <div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="text-base font-medium text-foreground">{group.title}</h3>
+                                <Badge variant="outline" className="text-xs">
+                                  Alternative group
+                                </Badge>
+                                <Badge variant="secondary" className="text-xs">
+                                  {group.items.length} options
+                                </Badge>
+                                <Badge variant="secondary" className="text-xs">
+                                  {getChoiceLabel(group.selectionMode)}
+                                </Badge>
                               </div>
                             </div>
                           </div>
@@ -2267,78 +2314,78 @@ export default function PublicClientPanelPage() {
                               const optionStatusLabel = getStatusLabel(option.realizationStatus);
 
                               return (
-                                <div
-                                  key={optionId}
-                                  className={`rounded-xl border p-4 transition-all ${
-                                    isSelected ? "border-border bg-muted" : "border-border/70 bg-card"
-                                  }`}
-                                >
-                                  <div className="flex items-start gap-3">
-                                    {group.selectionMode === "multiple" ? (
-                                      <Checkbox
-                                        checked={isSelected}
-                                        onCheckedChange={(checked) => {
-                                          const next = checked
-                                            ? Array.from(new Set([...selectedIds, optionId]))
-                                            : selectedIds.filter((entry) => entry !== optionId);
-                                          void handleSelectSetItems(group, next);
-                                        }}
-                                        className="mt-1"
-                                      />
-                                    ) : group.selectionMode === "single" ? (
-                                      <Button
-                                        type="button"
-                                        size="sm"
-                                        variant={isSelected ? "default" : "outline"}
-                                        className="mt-0.5"
-                                        onClick={() => void handleSelectSetItems(group, [optionId])}
-                                      >
-                                        {isSelected ? "Selected" : "Select"}
-                                      </Button>
-                                    ) : null}
-                                    <div className="flex min-w-0 flex-1 items-start justify-between gap-4">
+                                <div key={optionId} className="flex flex-col gap-3">
+                                  {group.selectionMode !== "none" ? (
+                                    <div className="flex justify-end">
+                                      {group.selectionMode === "multiple" ? (
+                                        <Button
+                                          size="sm"
+                                          variant={isSelected ? "default" : "outline"}
+                                          onClick={() => {
+                                            const next = isSelected
+                                              ? selectedIds.filter((entry) => entry !== optionId)
+                                              : Array.from(new Set([...selectedIds, optionId]));
+                                            void handleSelectSetItems(group, next);
+                                          }}
+                                        >
+                                          {isSelected ? "Included" : "Include"}
+                                        </Button>
+                                      ) : (
+                                        <Button
+                                          size="sm"
+                                          variant="default"
+                                          onClick={() => void handleSelectSetItems(group, [optionId])}
+                                        >
+                                          {isSelected ? "Default option" : "Set default"}
+                                        </Button>
+                                      )}
+                                    </div>
+                                  ) : null}
+
+                                  <div
+                                    className={cn(
+                                      "rounded-2xl border p-4",
+                                      !countedItems.some((entry) => entry.sourceItemId === option.sourceItemId) &&
+                                        "border-border/70 bg-muted/10",
+                                    )}
+                                  >
+                                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                                       <div className="flex min-w-0 flex-1 items-start gap-4">
-                                        <ItemImage imageUrl={option.imageUrl} name={option.name} />
-                                        <div className="min-w-0 flex-1 py-1">
-                                          <Label
-                                            htmlFor={`${group.key}-${optionId}`}
-                                            className="cursor-pointer break-words text-lg font-medium text-foreground"
-                                          >
-                                            {option.name}
-                                          </Label>
-                                          <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-foreground">
-                                            <span className="rounded-md border border-border bg-muted px-2 py-0.5 text-xs font-medium">
-                                              {getQtyLabel(option)}
-                                            </span>
+                                        <ItemImage imageUrl={option.imageUrl} name={option.name} size="sm" />
+                                        <div className="min-w-0 flex-1">
+                                          <div className="mb-2 flex flex-wrap items-center gap-2">
+                                            <h4 className="text-sm font-medium text-foreground">{option.name}</h4>
+                                            <Badge variant="outline" className="text-xs">
+                                              Alternative
+                                            </Badge>
+                                            {!countedItems.some((entry) => entry.sourceItemId === option.sourceItemId) ? (
+                                              <Badge variant="secondary" className="text-xs">
+                                                Not counted in total
+                                              </Badge>
+                                            ) : null}
+                                          </div>
+                                          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                                            <span>{getQtyLabel(option)}</span>
                                             {settings.showPrice && option.unitPrice !== undefined ? (
-                                              <span className="text-muted-foreground">
-                                                {formatAmount(option.unitPrice, currencySymbol)} / unit
-                                              </span>
+                                              <span>{formatAmount(option.unitPrice, currencySymbol)} / unit</span>
                                             ) : null}
                                             {settings.showPrice && option.totalPrice !== undefined ? (
-                                              <span className="font-medium">
-                                                Total: {formatAmount(option.totalPrice, currencySymbol)}
+                                              <span className="font-medium text-foreground">
+                                                {formatAmount(option.totalPrice, currencySymbol)}
                                               </span>
                                             ) : null}
-                                            {settings.showSupplier && option.supplier ? (
-                                              <span>Supplier: {option.supplier}</span>
-                                            ) : null}
+                                            {settings.showSupplier && option.supplier ? <span>{option.supplier}</span> : null}
                                           </div>
                                           {settings.showNotes && option.notes ? (
                                             <p className="mt-2 text-sm text-muted-foreground">{option.notes}</p>
                                           ) : null}
+                                          {renderShoppingItemFeedback(option)}
                                         </div>
                                       </div>
-                                      <div className="flex shrink-0 items-center gap-2">
-                                        {countedItems.some((entry) => entry.sourceItemId === option.sourceItemId) ? (
-                                          <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-foreground">
-                                            Counted
-                                          </span>
-                                        ) : null}
+
+                                      <div className="flex flex-wrap items-center gap-2 lg:justify-end">
                                         {optionStatusLabel ? (
-                                          <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-foreground">
-                                            {optionStatusLabel}
-                                          </span>
+                                          <Badge variant="secondary">{optionStatusLabel}</Badge>
                                         ) : null}
                                         {option.productLink ? (
                                           <a
@@ -2391,8 +2438,8 @@ export default function PublicClientPanelPage() {
               </div>
             ))}
             <div className="flex items-center justify-between border-t border-border pt-4">
-              <span className="text-xl font-medium font-serif text-foreground">Grand Total</span>
-              <span className="text-2xl font-medium font-serif text-foreground">
+              <span className="text-xl font-medium text-foreground">Grand Total</span>
+              <span className="text-2xl font-medium text-foreground">
                 {formatAmount(grandTotal, currencySymbol)}
               </span>
             </div>

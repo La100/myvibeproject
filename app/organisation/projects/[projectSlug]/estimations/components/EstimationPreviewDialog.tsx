@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { FileTextIcon, DownloadIcon, PrinterIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { useProject } from '@/components/providers/ProjectProvider';
+import { renderPdfTable } from '@/lib/pdfExport';
 
 interface EstimationPreviewDialogProps {
   open: boolean;
@@ -57,7 +58,6 @@ export function EstimationPreviewDialog({
     try {
       const jsPdfModule = await import("jspdf");
       const jsPDF = jsPdfModule.jsPDF ?? jsPdfModule.default;
-      await import('jspdf-autotable');
 
       const doc = new jsPDF({
         format: 'a4',
@@ -131,7 +131,7 @@ export function EstimationPreviewDialog({
         doc.text('Labor', 20, y);
         y += 5;
 
-        doc.autoTable({
+        await renderPdfTable(doc, {
           startY: y,
           head: [['Description', 'Qty', 'Unit', 'Price/Unit', 'Total']],
           body: estimation.laborItems.filter(Boolean).map(item => [
@@ -158,7 +158,7 @@ export function EstimationPreviewDialog({
         doc.text('Shopping List', 20, y);
         y += 5;
 
-        doc.autoTable({
+        await renderPdfTable(doc, {
           startY: y,
           head: [['Product', 'Qty', 'Price/Unit', 'Total']],
           body: estimation.materialItems.filter(Boolean).map(item => [

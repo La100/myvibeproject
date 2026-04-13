@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { useOrganization } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
+import { toast } from "sonner";
 import { apiAny } from "@/lib/convexApiAny";
 import {
   Download,
@@ -30,6 +31,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  type ReportExportOptions,
+  ReportsExportDialog,
+  type ReportSectionKey,
+} from "@/components/company/ReportsExportDialog";
+import {
+  addBrandHeader,
+  addDocumentMeta,
+  addPageNumbers,
+  ensurePdfUnicodeFont,
+  pdfTableTheme,
+  renderPdfTable,
+  resolvePageBreak,
+  sanitizeFileName,
+} from "@/lib/pdfExport";
 import { calculateShoppingTotal } from "@/lib/shoppingSets";
 
 const SHOPPING_STATUSES = [
@@ -41,9 +57,56 @@ const SHOPPING_STATUSES = [
   "CANCELLED",
 ] as const;
 
+const TIME_RANGE_CONFIG = {
+  "7d": { days: 7, label: "Last 7 days", metricLabel: "7d" },
+  "30d": { days: 30, label: "Last 30 days", metricLabel: "30d" },
+  "90d": { days: 90, label: "Last 3 months", metricLabel: "90d" },
+  "1y": { days: 365, label: "Last year", metricLabel: "1y" },
+} as const satisfies Record<string, { days: number; label: string; metricLabel: string }>;
+
+const ALL_REPORT_SECTIONS: Record<ReportSectionKey, boolean> = {
+  overview: true,
+  projects: true,
+  tasks: true,
+  financial: true,
+};
+
+const REPORT_SECTION_LABELS: Record<ReportSectionKey, string> = {
+  overview: "Overview",
+  projects: "Projects",
+  tasks: "Tasks",
+  financial: "Financial",
+};
+
+const REPORT_SECTION_ORDER: ReportSectionKey[] = ["overview", "projects", "tasks", "financial"];
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function csvCell(value: string | number) {
+  return `"${String(value).replace(/"/g, '""')}"`;
+}
+
 export default function CompanyReports() {
   const { organization, isLoaded } = useOrganization();
   const [timeRange, setTimeRange] = useState<string>("30d");
+  const [activeTab, setActiveTab] = useState<ReportSectionKey>("overview");
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportOptions, setExportOptions] = useState<ReportExportOptions>({
+    format: "pdf",
+    includeDetails: true,
+    sections: ALL_REPORT_SECTIONS,
+  });
+  const timeRangeConfig = TIME_RANGE_CONFIG[timeRange as keyof typeof TIME_RANGE_CONFIG] ?? TIME_RANGE_CONFIG["30d"];
 
   const team = useQuery(
     apiAny.teams.getTeamByClerkOrg,
@@ -71,7 +134,7 @@ export default function CompanyReports() {
 
   const analyticsMetrics = useQuery(
     apiAny.activityLog.getTeamProductKpis,
-    team && team._id ? { teamId: team._id, days: 30 } : "skip",
+    team && team._id ? { teamId: team._id, days: timeRangeConfig.days } : "skip",
   );
 
   if (!isLoaded || !organization) {
@@ -184,6 +247,396 @@ export default function CompanyReports() {
     };
   }).filter((entry) => entry.count > 0);
 
+  const analyticsRangeSuffix = timeRangeConfig.metricLabel;
+  const generatedOn = new Date();
+  const generatedOnLabel = generatedOn.toLocaleString("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+  const fileDate = generatedOn.toISOString().slice(0, 10);
+
+  const overviewExportRows = [
+    ["Total Projects", totalProjects],
+    ["Active Projects", activeProjects],
+    ["Total Budget", formatMoney(totalBudget)],
+    ["Total Tasks", totalTasks],
+    ["Completed Tasks", completedTasks],
+    ["Tasks In Progress", inProgressTasks],
+    ["Completion Rate", `${completionRate.toFixed(1)}%`],
+    ["Overdue Tasks", overdueTasks],
+    [`Onboarding (${analyticsRangeSuffix})`, analyticsMetrics?.onboardingCompleted ?? 0],
+    [`Projects Created (${analyticsRangeSuffix})`, analyticsMetrics?.projectsCreated ?? 0],
+    [`AI Messages (${analyticsRangeSuffix})`, analyticsMetrics?.aiMessagesSent ?? 0],
+    [`Active Users (${analyticsRangeSuffix})`, analyticsMetrics?.activeUsers ?? 0],
+  ] as Array<[string, string | number]>;
+
+  const projectStatusExportRows = Object.entries(projectsByStatus).map(([status, count]) => [
+    status.toUpperCase(),
+    String(Number(count)),
+    `${totalProjects > 0 ? ((Number(count) / totalProjects) * 100).toFixed(1) : "0.0"}%`,
+  ]);
+
+  const projectDetailExportRows = projectList
+    .slice()
+    .sort((a, b) => b._creationTime - a._creationTime)
+    .map((project) => {
+      const projectTasks = tasksByProject.get(String(project._id)) || [];
+      const done = projectTasks.filter((task) => task.status === "done").length;
+      const progress = projectTasks.length > 0 ? (done / projectTasks.length) * 100 : 0;
+
+      return [
+        project.name,
+        project.customer || "-",
+        project.status || "-",
+        `${Math.round(progress)}%`,
+        String(projectTasks.length),
+        typeof project.budget === "number"
+          ? formatMoney(project.budget, project.currency || activeCurrency)
+          : "-",
+        project.startDate ? new Date(project.startDate).toLocaleDateString() : "-",
+        new Date(project._creationTime).toLocaleDateString(),
+      ];
+    });
+
+  const taskStatusExportRows = Object.entries(tasksByStatus).map(([status, count]) => [
+    status.replaceAll("_", " ").toUpperCase(),
+    String(Number(count)),
+    `${totalTasks > 0 ? ((Number(count) / totalTasks) * 100).toFixed(1) : "0.0"}%`,
+  ]);
+
+  const taskDetailExportRows = tasksList
+    .slice()
+    .sort((a, b) => (a.endDate || a.startDate || 0) - (b.endDate || b.startDate || 0))
+    .map((task) => {
+      const dueDate = task.endDate || task.startDate;
+      const isOverdue = !!dueDate && dueDate < now && task.status !== "done";
+      return [
+        task.title,
+        projectById.get(String(task.projectId))?.name || "-",
+        task.status.replaceAll("_", " "),
+        task.priority || "-",
+        dueDate ? new Date(dueDate).toLocaleDateString() : "-",
+        isOverdue ? "Yes" : "No",
+      ];
+    });
+
+  const overdueTaskExportRows = overdueTaskList.map((task) => [
+    task.title,
+    projectById.get(String(task.projectId))?.name || "-",
+    task.priority || "medium",
+    new Date(task.endDate || task.startDate || now).toLocaleDateString(),
+  ]);
+
+  const financialSummaryRows = [
+    ["Total Budget", formatMoney(totalBudget)],
+    ["Shopping List", formatMoney(totalShoppingCost)],
+    ["Ordered Items", formatMoney(orderedShoppingCost)],
+  ] as Array<[string, string]>;
+
+  const shoppingStatusExportRows = shoppingByStatus.map((entry) => [
+    entry.status,
+    String(entry.count),
+    formatMoney(entry.total),
+  ]);
+
+  const topBudgetExportRows = projectList
+    .filter((project) => (project.budget || 0) > 0)
+    .sort((a, b) => (b.budget || 0) - (a.budget || 0))
+    .slice(0, 5)
+    .map((project) => [
+      project.name,
+      project.status || "-",
+      project.currency || activeCurrency,
+      formatMoney(project.budget || 0, project.currency || activeCurrency),
+    ]);
+
+  const applyCurrentTabSelection = () => {
+    setExportOptions((current) => ({
+      ...current,
+      sections: {
+        overview: activeTab === "overview",
+        projects: activeTab === "projects",
+        tasks: activeTab === "tasks",
+        financial: activeTab === "financial",
+      },
+    }));
+  };
+
+  const openExportModal = () => {
+    applyCurrentTabSelection();
+    setIsExportModalOpen(true);
+  };
+
+  const exportCsv = () => {
+    const selectedSections = REPORT_SECTION_ORDER.filter((section) => exportOptions.sections[section]);
+    if (selectedSections.length === 0) {
+      toast.error("Select at least one section to export.");
+      return;
+    }
+
+    const rows: string[][] = [];
+    const addTable = (title: string, headers: string[], body: Array<Array<string | number>>) => {
+      rows.push([title]);
+      rows.push(headers);
+      if (body.length === 0) {
+        rows.push(["No data"]);
+      } else {
+        rows.push(...body.map((row) => row.map((cell) => String(cell))));
+      }
+      rows.push([]);
+    };
+
+    if (exportOptions.sections.overview) {
+      addTable("Overview Summary", ["Metric", "Value"], overviewExportRows);
+    }
+
+    if (exportOptions.sections.projects) {
+      addTable("Project Status Distribution", ["Status", "Projects", "Share"], projectStatusExportRows);
+      if (exportOptions.includeDetails) {
+        addTable(
+          "Project Details",
+          ["Project", "Customer", "Status", "Progress", "Tasks", "Budget", "Start", "Created"],
+          projectDetailExportRows,
+        );
+      }
+    }
+
+    if (exportOptions.sections.tasks) {
+      addTable("Task Status Breakdown", ["Status", "Tasks", "Share"], taskStatusExportRows);
+      if (exportOptions.includeDetails) {
+        addTable("Overdue Tasks", ["Task", "Project", "Priority", "Due"], overdueTaskExportRows);
+        addTable(
+          "Task Details",
+          ["Task", "Project", "Status", "Priority", "Due", "Overdue"],
+          taskDetailExportRows,
+        );
+      }
+    }
+
+    if (exportOptions.sections.financial) {
+      addTable("Financial Summary", ["Metric", "Value"], financialSummaryRows);
+      addTable("Shopping List by Status", ["Status", "Items", "Total"], shoppingStatusExportRows);
+      if (exportOptions.includeDetails) {
+        addTable("Top Projects by Budget", ["Project", "Status", "Currency", "Budget"], topBudgetExportRows);
+      }
+    }
+
+    const csvContent = rows
+      .map((row) => row.map((cell) => csvCell(cell)).join(","))
+      .join("\n");
+
+    downloadBlob(
+      new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" }),
+      `reports-${sanitizeFileName(organization.name || "organization")}-${fileDate}.csv`,
+    );
+    setIsExportModalOpen(false);
+    toast.success(`Exported ${selectedSections.map((section) => REPORT_SECTION_LABELS[section]).join(", ")} as CSV.`);
+  };
+
+  const exportPdf = async () => {
+    const selectedSections = REPORT_SECTION_ORDER.filter((section) => exportOptions.sections[section]);
+    if (selectedSections.length === 0) {
+      toast.error("Select at least one section to export.");
+      return;
+    }
+
+    const jsPdfModule = await import("jspdf");
+    const jsPDF = jsPdfModule.jsPDF ?? jsPdfModule.default;
+    const doc = new jsPDF({
+      format: "a4",
+      putOnlyUsedFonts: true,
+      unit: "mm",
+    });
+
+    let pdfFontFamily = "helvetica";
+    try {
+      pdfFontFamily = await ensurePdfUnicodeFont(doc);
+    } catch (error) {
+      console.warn("Unicode PDF font unavailable, using helvetica", error);
+    }
+    doc.setFont(pdfFontFamily, "normal");
+
+    let yPosition = await addBrandHeader(doc, {
+      teamName: team?.name || organization.name || "Organization",
+      teamImageUrl: team?.imageUrl,
+      fontFamily: pdfFontFamily,
+    });
+
+    yPosition = addDocumentMeta(doc, {
+      title: "Reports & Analytics",
+      subtitle: `${timeRangeConfig.label} | ${selectedSections.map((section) => REPORT_SECTION_LABELS[section]).join(", ")}`,
+      generatedOn: generatedOnLabel,
+      startY: yPosition,
+      fontFamily: pdfFontFamily,
+    });
+
+    const renderSectionTitle = (title: string, description?: string) => {
+      yPosition = resolvePageBreak(doc, yPosition, description ? 16 : 12);
+      doc.setFont(pdfFontFamily, "bold");
+      doc.setFontSize(13);
+      doc.setTextColor(24, 24, 24);
+      doc.text(title, 18, yPosition);
+      yPosition += 5;
+      if (description) {
+        doc.setFont(pdfFontFamily, "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(110, 110, 110);
+        doc.text(description, 18, yPosition);
+        yPosition += 5;
+      }
+    };
+
+    const renderTable = async (
+      head: string[][],
+      body: Array<Array<string | number>>,
+      options?: {
+        columnStyles?: Record<number, { cellWidth?: number | "auto"; halign?: "left" | "center" | "right" }>;
+      },
+    ) => {
+      const safeBody = body.length > 0 ? body : [Array.from({ length: head[0]?.length || 1 }, (_, index) => (index === 0 ? "No data" : ""))];
+      await renderPdfTable(doc, {
+        ...pdfTableTheme,
+        startY: yPosition,
+        head,
+        body: safeBody,
+        styles: {
+          ...pdfTableTheme.styles,
+          font: pdfFontFamily,
+        },
+        headStyles: {
+          ...pdfTableTheme.headStyles,
+          font: pdfFontFamily,
+        },
+        columnStyles: options?.columnStyles,
+      });
+      yPosition =
+        ((doc as typeof doc & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY || yPosition) + 8;
+    };
+
+    if (exportOptions.sections.overview) {
+      renderSectionTitle("Overview", "Organization summary");
+      await renderTable([["Metric", "Value"]], overviewExportRows, {
+        columnStyles: {
+          0: { cellWidth: 90 },
+          1: { cellWidth: "auto" },
+        },
+      });
+    }
+
+    if (exportOptions.sections.projects) {
+      renderSectionTitle("Projects", "Status distribution");
+      await renderTable([["Status", "Projects", "Share"]], projectStatusExportRows, {
+        columnStyles: {
+          1: { halign: "right" },
+          2: { halign: "right" },
+        },
+      });
+
+      if (exportOptions.includeDetails) {
+        renderSectionTitle("Project Details");
+        await renderTable(
+          [["Project", "Customer", "Status", "Progress", "Tasks", "Budget", "Start", "Created"]],
+          projectDetailExportRows,
+          {
+            columnStyles: {
+              0: { cellWidth: 34 },
+              1: { cellWidth: 28 },
+              2: { cellWidth: 20 },
+              3: { cellWidth: 18, halign: "right" },
+              4: { cellWidth: 16, halign: "right" },
+              5: { cellWidth: 28, halign: "right" },
+              6: { cellWidth: 20 },
+              7: { cellWidth: 20 },
+            },
+          },
+        );
+      }
+    }
+
+    if (exportOptions.sections.tasks) {
+      renderSectionTitle("Tasks", "Status breakdown");
+      await renderTable([["Status", "Tasks", "Share"]], taskStatusExportRows, {
+        columnStyles: {
+          1: { halign: "right" },
+          2: { halign: "right" },
+        },
+      });
+
+      if (exportOptions.includeDetails) {
+        renderSectionTitle("Overdue Tasks");
+        await renderTable([["Task", "Project", "Priority", "Due"]], overdueTaskExportRows, {
+          columnStyles: {
+            0: { cellWidth: 72 },
+            1: { cellWidth: 48 },
+            2: { cellWidth: 24 },
+            3: { cellWidth: 24 },
+          },
+        });
+
+        renderSectionTitle("Task Details");
+        await renderTable([["Task", "Project", "Status", "Priority", "Due", "Overdue"]], taskDetailExportRows, {
+          columnStyles: {
+            0: { cellWidth: 58 },
+            1: { cellWidth: 40 },
+            2: { cellWidth: 28 },
+            3: { cellWidth: 24 },
+            4: { cellWidth: 22 },
+            5: { cellWidth: 18, halign: "center" },
+          },
+        });
+      }
+    }
+
+    if (exportOptions.sections.financial) {
+      renderSectionTitle("Financial", "Budget and procurement summary");
+      await renderTable([["Metric", "Value"]], financialSummaryRows, {
+        columnStyles: {
+          0: { cellWidth: 90 },
+          1: { cellWidth: "auto", halign: "right" },
+        },
+      });
+      await renderTable([["Status", "Items", "Total"]], shoppingStatusExportRows, {
+        columnStyles: {
+          1: { halign: "right" },
+          2: { halign: "right" },
+        },
+      });
+
+      if (exportOptions.includeDetails) {
+        renderSectionTitle("Top Projects by Budget");
+        await renderTable([["Project", "Status", "Currency", "Budget"]], topBudgetExportRows, {
+          columnStyles: {
+            0: { cellWidth: 74 },
+            1: { cellWidth: 32 },
+            2: { cellWidth: 24 },
+            3: { cellWidth: 34, halign: "right" },
+          },
+        });
+      }
+    }
+
+    addPageNumbers(doc, pdfFontFamily);
+    doc.save(`reports-${sanitizeFileName(organization.name || "organization")}-${fileDate}.pdf`);
+    setIsExportModalOpen(false);
+    toast.success(`Exported ${selectedSections.map((section) => REPORT_SECTION_LABELS[section]).join(", ")} as PDF.`);
+  };
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      if (exportOptions.format === "csv") {
+        exportCsv();
+      } else {
+        await exportPdf();
+      }
+    } catch (error) {
+      console.error("Reports export failed:", error);
+      toast.error("Failed to export reports.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
       <div className="flex items-center justify-between gap-3">
@@ -191,7 +644,7 @@ export default function CompanyReports() {
 
         <div className="flex items-center gap-3">
           <Select value={timeRange} onValueChange={setTimeRange}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-[12.5rem]">
               <Calendar className="h-4 w-4 mr-2" />
               <SelectValue />
             </SelectTrigger>
@@ -202,14 +655,14 @@ export default function CompanyReports() {
               <SelectItem value="1y">Last year</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline">
+          <Button onClick={openExportModal} variant="outline">
             <Download className="mr-2 h-4 w-4" />
             Export
           </Button>
         </div>
       </div>
 
-      <Tabs defaultValue="overview" className="w-full">
+      <Tabs className="w-full" value={activeTab} onValueChange={(value) => setActiveTab(value as ReportSectionKey)}>
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="projects">Projects</TabsTrigger>
@@ -276,7 +729,7 @@ export default function CompanyReports() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Onboarding (30d)</CardTitle>
+                  <CardTitle className="text-sm font-medium">{`Onboarding (${analyticsRangeSuffix})`}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{analyticsMetrics?.onboardingCompleted ?? 0}</div>
@@ -284,7 +737,7 @@ export default function CompanyReports() {
               </Card>
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Projects Created (30d)</CardTitle>
+                  <CardTitle className="text-sm font-medium">{`Projects Created (${analyticsRangeSuffix})`}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{analyticsMetrics?.projectsCreated ?? 0}</div>
@@ -292,7 +745,7 @@ export default function CompanyReports() {
               </Card>
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">AI Messages (30d)</CardTitle>
+                  <CardTitle className="text-sm font-medium">{`AI Messages (${analyticsRangeSuffix})`}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{analyticsMetrics?.aiMessagesSent ?? 0}</div>
@@ -300,7 +753,7 @@ export default function CompanyReports() {
               </Card>
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Active Users (30d)</CardTitle>
+                  <CardTitle className="text-sm font-medium">{`Active Users (${analyticsRangeSuffix})`}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{analyticsMetrics?.activeUsers ?? 0}</div>
@@ -519,6 +972,24 @@ export default function CompanyReports() {
           </div>
         </TabsContent>
       </Tabs>
+
+      <ReportsExportDialog
+        activeSection={activeTab}
+        exportOptions={exportOptions}
+        isOpen={isExportModalOpen}
+        isPending={isExporting}
+        onClose={() => setIsExportModalOpen(false)}
+        onExport={() => void handleExport()}
+        onExportOptionsChange={setExportOptions}
+        onSelectAllSections={() =>
+          setExportOptions((current) => ({
+            ...current,
+            sections: ALL_REPORT_SECTIONS,
+          }))
+        }
+        onSelectCurrentSection={applyCurrentTabSelection}
+        timeRangeLabel={timeRangeConfig.label}
+      />
     </div>
   );
 }

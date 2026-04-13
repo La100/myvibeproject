@@ -3,21 +3,27 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { usePathname, useRouter } from "next/navigation";
+import { useMutation, useQuery } from "convex/react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { apiAny } from "@/lib/convexApiAny";
 import {
   GUIDED_TOUR_START_EVENT,
   advanceGuidedTourStep,
-  dismissGuidedTourPrompt,
+  applyPersistentGuidedTourStatus,
+  defaultPersistentGuidedTourState,
   dispatchStartGuidedTour,
   getProjectTourSteps,
   getWorkspaceTourSteps,
-  markGuidedTourCompleted,
-  markGuidedTourSkipped,
+  readLegacyPersistentGuidedTourState,
   readGuidedTourState,
   regressGuidedTourStep,
   startGuidedTour,
-  type GuidedTourState,
+  stopGuidedTour,
+  type LocalGuidedTourState,
+  type PersistentGuidedTourState,
+  type PersistentGuidedTourStatus,
   type TourId,
   type TourPlacement,
   writeGuidedTourState,
@@ -117,15 +123,20 @@ function getArrowStyle(rect: RectSnapshot, placement: TourPlacement) {
   }
 }
 
-function shouldShowPrompt(scope: TourId, pathname: string, state: GuidedTourState) {
-  if (state.activeTourId) {
+function shouldShowPrompt(
+  scope: TourId,
+  pathname: string,
+  localState: LocalGuidedTourState,
+  persistentState: PersistentGuidedTourState,
+) {
+  if (localState.activeTourId) {
     return false;
   }
 
   if (
-    state.completedTourIds.includes(scope) ||
-    state.dismissedPromptIds.includes(scope) ||
-    state.skippedTourIds.includes(scope)
+    persistentState.completedTourIds.includes(scope) ||
+    persistentState.dismissedPromptIds.includes(scope) ||
+    persistentState.skippedTourIds.includes(scope)
   ) {
     return false;
   }
@@ -141,12 +152,17 @@ function shouldShowPrompt(scope: TourId, pathname: string, state: GuidedTourStat
 export function GuidedTourHost({ scope }: GuidedTourHostProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const backendPersistentTourState = useQuery(apiAny.guidedTours.getState);
+  const markGuidedTourStatus = useMutation(apiAny.guidedTours.markStatus);
+  const replaceGuidedTourState = useMutation(apiAny.guidedTours.replaceState);
   const [mounted, setMounted] = useState(false);
-  const [tourState, setTourState] = useState<GuidedTourState | null>(null);
+  const [tourState, setTourState] = useState<LocalGuidedTourState | null>(null);
+  const [persistentTourState, setPersistentTourState] = useState<PersistentGuidedTourState | null>(null);
   const [targetRect, setTargetRect] = useState<RectSnapshot | null>(null);
   const [targetReady, setTargetReady] = useState(false);
   const lastScrolledStepRef = useRef<string | null>(null);
   const routeRedirectRef = useRef<string | null>(null);
+  const hasMigratedLegacyStateRef = useRef(false);
 
   const projectSlug = useMemo(() => getProjectSlug(pathname), [pathname]);
 
@@ -167,6 +183,48 @@ export function GuidedTourHost({ scope }: GuidedTourHostProps) {
   }, [projectSlug, tourState?.activeTourId]);
 
   const currentStep = steps[tourState?.activeStepIndex ?? 0] ?? null;
+
+  useEffect(() => {
+    if (backendPersistentTourState !== undefined) {
+      setPersistentTourState(backendPersistentTourState);
+    }
+  }, [backendPersistentTourState]);
+
+  useEffect(() => {
+    if (!mounted || backendPersistentTourState === undefined || hasMigratedLegacyStateRef.current) {
+      return;
+    }
+
+    const hasBackendState =
+      backendPersistentTourState.completedTourIds.length > 0 ||
+      backendPersistentTourState.skippedTourIds.length > 0 ||
+      backendPersistentTourState.dismissedPromptIds.length > 0;
+
+    if (hasBackendState) {
+      hasMigratedLegacyStateRef.current = true;
+      return;
+    }
+
+    const legacyState = readLegacyPersistentGuidedTourState();
+    const hasLegacyState =
+      legacyState.completedTourIds.length > 0 ||
+      legacyState.skippedTourIds.length > 0 ||
+      legacyState.dismissedPromptIds.length > 0;
+
+    if (!hasLegacyState) {
+      hasMigratedLegacyStateRef.current = true;
+      return;
+    }
+
+    hasMigratedLegacyStateRef.current = true;
+    setPersistentTourState(legacyState);
+
+    void replaceGuidedTourState({ state: legacyState }).catch(() => {
+      setPersistentTourState(backendPersistentTourState);
+      toast.error("Could not migrate guided tour state.");
+      hasMigratedLegacyStateRef.current = false;
+    });
+  }, [backendPersistentTourState, mounted, replaceGuidedTourState]);
 
   useEffect(() => {
     setMounted(true);
@@ -283,36 +341,57 @@ export function GuidedTourHost({ scope }: GuidedTourHostProps) {
     };
   }, [currentStep, mounted, pathname, tourState?.activeTourId]);
 
-  const syncAndSetState = (nextState: GuidedTourState) => {
+  const syncAndSetState = (nextState: LocalGuidedTourState) => {
     writeGuidedTourState(nextState);
     setTourState(nextState);
+  };
+
+  const persistTourStatus = async (
+    tourId: TourId,
+    status: PersistentGuidedTourStatus,
+  ) => {
+    const previousState = persistentTourState ?? backendPersistentTourState ?? defaultPersistentGuidedTourState;
+    const optimisticState = applyPersistentGuidedTourStatus(previousState, tourId, status);
+    setPersistentTourState(optimisticState);
+
+    try {
+      const savedState = await markGuidedTourStatus({ tourId, status });
+      setPersistentTourState(savedState);
+      return savedState;
+    } catch (error) {
+      setPersistentTourState(previousState);
+      toast.error("Could not save guided tour preference.");
+      throw error;
+    }
   };
 
   const handleStartTour = (tourId: TourId) => {
     syncAndSetState(startGuidedTour(tourId));
   };
 
-  const handleDismissPrompt = (tourId: TourId) => {
-    syncAndSetState(dismissGuidedTourPrompt(tourId));
+  const handleDismissPrompt = async (tourId: TourId) => {
+    await persistTourStatus(tourId, "dismissed");
   };
 
-  const handleSkipTour = () => {
+  const handleSkipTour = async () => {
     if (!tourState?.activeTourId) {
       return;
     }
 
-    syncAndSetState(markGuidedTourSkipped(tourState.activeTourId));
+    await persistTourStatus(tourState.activeTourId, "skipped");
+    syncAndSetState(stopGuidedTour());
     setTargetRect(null);
     setTargetReady(false);
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (!tourState?.activeTourId || !currentStep) {
       return;
     }
 
     if ((tourState.activeStepIndex ?? 0) >= steps.length - 1) {
-      syncAndSetState(markGuidedTourCompleted(tourState.activeTourId));
+      await persistTourStatus(tourState.activeTourId, "completed");
+      syncAndSetState(stopGuidedTour());
       setTargetRect(null);
       setTargetReady(false);
       return;
@@ -329,7 +408,11 @@ export function GuidedTourHost({ scope }: GuidedTourHostProps) {
     syncAndSetState(regressGuidedTourStep());
   };
 
-  const promptVisible = mounted && tourState && shouldShowPrompt(scope, pathname, tourState);
+  const promptVisible =
+    mounted &&
+    tourState &&
+    persistentTourState &&
+    shouldShowPrompt(scope, pathname, tourState, persistentTourState);
   const activeTourVisible = mounted && tourState?.activeTourId === scope;
 
   if (!mounted) {
@@ -360,7 +443,7 @@ export function GuidedTourHost({ scope }: GuidedTourHostProps) {
                   <Button onClick={() => handleStartTour(scope)} className="rounded-xl">
                     Start tour
                   </Button>
-                  <Button variant="outline" onClick={() => handleDismissPrompt(scope)} className="rounded-xl">
+                  <Button variant="outline" onClick={() => void handleDismissPrompt(scope)} className="rounded-xl">
                     Skip for now
                   </Button>
                 </div>
@@ -431,10 +514,14 @@ export function GuidedTourHost({ scope }: GuidedTourHostProps) {
                           >
                             Back
                           </Button>
-                          <Button onClick={handleNext} className="rounded-xl">
+                          <Button onClick={() => void handleNext()} className="rounded-xl">
                             {(tourState?.activeStepIndex ?? 0) >= steps.length - 1 ? "Finish" : "Next"}
                           </Button>
-                          <Button variant="ghost" onClick={handleSkipTour} className="rounded-xl text-muted-foreground">
+                          <Button
+                            variant="ghost"
+                            onClick={() => void handleSkipTour()}
+                            className="rounded-xl text-muted-foreground"
+                          >
                             Skip
                           </Button>
                         </div>
@@ -453,7 +540,7 @@ export function GuidedTourHost({ scope }: GuidedTourHostProps) {
                       </div>
                     </div>
                     <div className="mt-4 flex gap-2">
-                      <Button variant="outline" onClick={handleSkipTour} className="rounded-xl">
+                      <Button variant="outline" onClick={() => void handleSkipTour()} className="rounded-xl">
                         Skip
                       </Button>
                     </div>

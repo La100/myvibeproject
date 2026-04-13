@@ -96,7 +96,7 @@ export function summarizeProjectBudget(
   const variance = budget - actualCost;
   const projectedVariance = budget - plannedCost;
 
-  const acceptedRevenue = estimations
+  const acceptedEstimateValue = estimations
     .filter((estimation) => estimation.status === "accepted")
     .reduce(
       (sum, estimation) =>
@@ -105,7 +105,7 @@ export function summarizeProjectBudget(
         (estimation.grossTotal ? 0 : asAmount(estimation.netTotal)),
       0,
     );
-  const pipelineRevenue = estimations
+  const pipelineEstimateValue = estimations
     .filter((estimation) => estimation.status === "sent")
     .reduce(
       (sum, estimation) =>
@@ -116,14 +116,14 @@ export function summarizeProjectBudget(
     );
 
   const visiblePayments = payments.filter((payment) => payment.status !== "void");
-  const scheduledRevenue = visiblePayments.reduce(
+  const scheduledPaymentValue = visiblePayments.reduce(
     (sum, payment) => sum + asAmount(payment.amount),
     0,
   );
-  const collectedRevenue = visiblePayments
+  const collectedPaymentValue = visiblePayments
     .filter((payment) => payment.status === "paid")
     .reduce((sum, payment) => sum + asAmount(payment.amount), 0);
-  const outstandingRevenue = visiblePayments
+  const outstandingPaymentValue = visiblePayments
     .filter(
       (payment) => payment.status === "draft" || payment.status === "open",
     )
@@ -158,12 +158,12 @@ export function summarizeProjectBudget(
         actual: laborActual,
       },
     },
-    revenue: {
-      acceptedEstimations: acceptedRevenue,
-      pipelineEstimations: pipelineRevenue,
-      scheduledPayments: scheduledRevenue,
-      collectedPayments: collectedRevenue,
-      outstandingPayments: outstandingRevenue,
+    clientFunding: {
+      acceptedEstimations: acceptedEstimateValue,
+      pipelineEstimations: pipelineEstimateValue,
+      scheduledPayments: scheduledPaymentValue,
+      collectedPayments: collectedPaymentValue,
+      outstandingPayments: outstandingPaymentValue,
     },
     milestones: {
       count: milestones.length,
@@ -176,7 +176,7 @@ export function summarizeProjectBudget(
       budget > 0 && plannedCost > budget
         ? { severity: "medium", label: "Projected cost exceeds budget" }
         : null,
-      outstandingRevenue > 0 && collectedRevenue < actualCost
+      outstandingPaymentValue > 0 && collectedPaymentValue < actualCost
         ? {
             severity: "medium",
             label: "Collected payments are below current actual cost",

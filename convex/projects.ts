@@ -112,7 +112,6 @@ const clientPanelDisplaySettingsValidator = {
   showContacts: v.optional(v.boolean()),
   showBudget: v.optional(v.boolean()),
   showPayments: v.optional(v.boolean()),
-  showApprovals: v.optional(v.boolean()),
   showNotes: v.optional(v.boolean()),
   showSupplier: v.optional(v.boolean()),
   showPrice: v.optional(v.boolean()),
@@ -128,7 +127,6 @@ const defaultClientPanelDisplaySettings = {
   showContacts: false,
   showBudget: false,
   showPayments: false,
-  showApprovals: false,
   showNotes: true,
   showSupplier: true,
   showPrice: true,
@@ -155,7 +153,6 @@ const getResolvedClientPanelDisplaySettings = (
   showContacts: settings?.showContacts ?? defaultClientPanelDisplaySettings.showContacts,
   showBudget: settings?.showBudget ?? defaultClientPanelDisplaySettings.showBudget,
   showPayments: settings?.showPayments ?? defaultClientPanelDisplaySettings.showPayments,
-  showApprovals: settings?.showApprovals ?? defaultClientPanelDisplaySettings.showApprovals,
   showNotes: settings?.showNotes ?? defaultClientPanelDisplaySettings.showNotes,
   showSupplier: settings?.showSupplier ?? defaultClientPanelDisplaySettings.showSupplier,
   showPrice: settings?.showPrice ?? defaultClientPanelDisplaySettings.showPrice,
@@ -382,6 +379,7 @@ export const createProjectInOrg = mutation({
       v.literal("HUF"), v.literal("CNY"), v.literal("INR"), v.literal("BRL"),
       v.literal("MXN"), v.literal("KRW"), v.literal("SGD"), v.literal("HKD")
     )),
+    measurements: v.optional(v.union(v.literal("metric"), v.literal("imperial"))),
     taxEnabled: v.optional(v.boolean()),
     taxRate: v.optional(v.number()),
   },
@@ -464,6 +462,7 @@ export const createProjectInOrg = mutation({
       location: args.location,
       budget: args.budget,
       currency: args.currency || team.currency || "PLN",
+      measurements: args.measurements || "metric",
       taxEnabled,
       taxRate,
       startDate: args.startDate,
@@ -639,6 +638,7 @@ export const updateProject = mutation({
       v.literal("HUF"), v.literal("CNY"), v.literal("INR"), v.literal("BRL"),
       v.literal("MXN"), v.literal("KRW"), v.literal("SGD"), v.literal("HKD")
     )),
+    measurements: v.optional(v.union(v.literal("metric"), v.literal("imperial"))),
     taxEnabled: v.optional(v.boolean()),
     taxRate: v.optional(v.number()),
     responsibleClerkUserId: v.optional(v.string()),
@@ -1003,20 +1003,6 @@ export const getClientPanelConfiguration = query({
       rejectedCount: 0,
       commentedCount: 0,
     };
-    const approvals = await ctx.db
-      .query("projectApprovals")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .collect();
-    const approvalSummary = {
-      total: approvals.length,
-      pendingCount: approvals.filter((approval) =>
-        approval.status === "sent" || approval.status === "viewed" || approval.status === "commented"
-      ).length,
-      approvedCount: approvals.filter((approval) => approval.status === "approved").length,
-      rejectedCount: approvals.filter((approval) => approval.status === "rejected").length,
-      draftCount: approvals.filter((approval) => approval.status === "draft").length,
-    };
-
     return {
       accessToken: project.clientPanelAccessToken || null,
       settings: getResolvedClientPanelDisplaySettings(
@@ -1028,7 +1014,6 @@ export const getClientPanelConfiguration = query({
       fileCount,
       productFeedback,
       feedbackSummary,
-      approvalSummary,
     };
   },
 });

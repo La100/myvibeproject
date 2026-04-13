@@ -10,19 +10,11 @@ import { apiAny } from '@/lib/convexApiAny';
 import type { TeamMember } from '@/lib/teamMember';
 import { LinkIcon, PaperclipIcon, XIcon } from 'lucide-react';
 import { toast } from 'sonner';
-
-// Common units for labor
-const LABOR_UNITS = [
-  { value: "m²", label: "Square meters (m²)" },
-  { value: "m", label: "Linear meters (m)" },
-  { value: "hours", label: "Hours" },
-  { value: "pcs", label: "Pieces (pcs)" },
-  { value: "m³", label: "Cubic meters (m³)" },
-  { value: "kg", label: "Kilograms (kg)" },
-  { value: "set", label: "Complete set" },
-  { value: "room", label: "Per room" },
-  { value: "item", label: "Per item" },
-];
+import {
+  getDefaultLaborUnit,
+  getLaborUnitsForMeasurementSystem,
+  type MeasurementSystem,
+} from './laborUnits';
 
 
 interface AddLaborItemFormProps {
@@ -44,6 +36,7 @@ interface AddLaborItemFormProps {
   isPending: boolean;
   defaultSectionId?: Id<"laborSections">;
   isInline?: boolean;
+  measurementSystem?: MeasurementSystem;
 }
 
 export function AddLaborItemForm({
@@ -54,16 +47,19 @@ export function AddLaborItemForm({
   onAddItem,
   isPending,
   defaultSectionId,
+  measurementSystem = 'metric',
 }: AddLaborItemFormProps) {
   const ensureLaborFolder = useMutation(apiAny.files.ensureLaborFolder);
   const generateUploadUrl = useMutation(apiAny.files.generateUploadUrlWithCustomKey);
   const addFile = useMutation(apiAny.files.addFile);
+  const laborUnits = getLaborUnitsForMeasurementSystem(measurementSystem);
+  const defaultLaborUnit = getDefaultLaborUnit(measurementSystem);
 
   const [newItemName, setNewItemName] = useState('');
   const [newItemNotes, setNewItemNotes] = useState('');
   const [newItemSectionId, setNewItemSectionId] = useState<Id<"laborSections"> | "none" | "">(defaultSectionId || "");
   const [newItemQuantity, setNewItemQuantity] = useState(1);
-  const [newItemUnit, setNewItemUnit] = useState('m²');
+  const [newItemUnit, setNewItemUnit] = useState(defaultLaborUnit);
   const [newItemUnitPrice, setNewItemUnitPrice] = useState('');
   const [newItemAssignedTo, setNewItemAssignedTo] = useState<string>('none');
   const [newItemReferenceLink, setNewItemReferenceLink] = useState('');
@@ -143,7 +139,7 @@ export function AddLaborItemForm({
       setNewItemNotes('');
       setNewItemSectionId(defaultSectionId || '');
       setNewItemQuantity(1);
-      setNewItemUnit('m²');
+      setNewItemUnit(defaultLaborUnit);
       setNewItemUnitPrice('');
       setNewItemAssignedTo('none');
       setNewItemReferenceLink('');
@@ -209,7 +205,7 @@ export function AddLaborItemForm({
               <SelectValue placeholder="Select unit" />
             </SelectTrigger>
             <SelectContent>
-              {LABOR_UNITS.map((unit) => (
+              {laborUnits.map((unit) => (
                 <SelectItem key={unit.value} value={unit.value}>
                   {unit.label}
                 </SelectItem>

@@ -1,3 +1,4 @@
+import type { UserOptions } from "jspdf-autotable";
 import type { jsPDF } from "jspdf";
 
 const PAGE_MARGIN = 18;
@@ -84,6 +85,12 @@ export async function ensurePdfUnicodeFont(doc: jsPDF): Promise<string> {
   doc.addFont(PDF_UNICODE_BOLD_FILE, PDF_UNICODE_FONT_FAMILY, "bold");
 
   return PDF_UNICODE_FONT_FAMILY;
+}
+
+export async function renderPdfTable(doc: jsPDF, options: UserOptions): Promise<void> {
+  const autoTableModule = await import("jspdf-autotable");
+  const autoTable = autoTableModule.default ?? autoTableModule.autoTable;
+  autoTable(doc, options);
 }
 
 export async function addBrandHeader(

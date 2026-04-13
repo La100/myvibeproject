@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { summarizeProjectBudget } from "../../lib/projectBudgetSummary.ts";
 
-test("summarizeProjectBudget computes costs, revenue and alerts", () => {
+test("summarizeProjectBudget computes costs, client funding, and alerts", () => {
   const summary = summarizeProjectBudget(
     {
       project: { _id: "project-1", budget: 1000, currency: "EUR" },
@@ -50,7 +50,7 @@ test("summarizeProjectBudget computes costs, revenue and alerts", () => {
     committed: 575,
     actual: 200,
   });
-  assert.deepEqual(summary.revenue, {
+  assert.deepEqual(summary.clientFunding, {
     acceptedEstimations: 1200,
     pipelineEstimations: 400,
     scheduledPayments: 850,

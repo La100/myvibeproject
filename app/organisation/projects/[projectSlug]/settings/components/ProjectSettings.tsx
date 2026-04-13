@@ -935,10 +935,11 @@ function GeneralTab({
                   control={settingsForm.control}
                   name="budget"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem id="project-budget">
                       <FormLabel className="text-sm font-medium">Budget</FormLabel>
                       <FormControl>
                         <Input
+                          id="project-budget-input"
                           type="number"
                           placeholder="Project budget"
                           {...field}

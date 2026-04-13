@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
@@ -63,6 +64,8 @@ const formatPercent = (value: number | null) =>
   value === null || !Number.isFinite(value)
     ? "No baseline"
     : `${Math.round(value)}%`;
+
+const isPresent = <T,>(value: T): value is NonNullable<T> => value != null;
 
 function ProjectOverviewContent() {
   const router = useRouter();
@@ -166,6 +169,7 @@ function ProjectOverviewContent() {
   }
 
   const projectBasePath = `/organisation/projects/${project.slug}`;
+  const projectBudgetSettingsHref = `${projectBasePath}/settings#project-budget`;
   const projectQuests = [
     {
       id: "project-first-task",
@@ -296,9 +300,9 @@ function ProjectOverviewContent() {
     budgetSummary.plannedCost > 0 ||
     budgetSummary.committedCost > 0 ||
     budgetSummary.actualCost > 0 ||
-    budgetSummary.revenue.acceptedEstimations > 0 ||
-    budgetSummary.revenue.scheduledPayments > 0 ||
-    budgetSummary.revenue.collectedPayments > 0;
+    budgetSummary.clientFunding.acceptedEstimations > 0 ||
+    budgetSummary.clientFunding.scheduledPayments > 0 ||
+    budgetSummary.clientFunding.collectedPayments > 0;
   const shouldShowBudgetEmptyState =
     !hasBudgetBaseline && !hasFinancialActivity;
   const budgetReference = hasBudgetBaseline
@@ -320,20 +324,20 @@ function ProjectOverviewContent() {
     ? percentageOf(budgetSummary.plannedCost, budgetSummary.budget)
     : null;
   const collectedCoveragePercent = percentageOf(
-    budgetSummary.revenue.collectedPayments,
+    budgetSummary.clientFunding.collectedPayments,
     budgetSummary.actualCost,
   );
   const acceptedCoveragePercent = percentageOf(
-    budgetSummary.revenue.acceptedEstimations,
+    budgetSummary.clientFunding.acceptedEstimations,
     budgetSummary.plannedCost,
   );
   const scheduledCoveragePercent = percentageOf(
-    budgetSummary.revenue.scheduledPayments,
+    budgetSummary.clientFunding.scheduledPayments,
     budgetSummary.committedCost,
   );
-  const materialsSharePercent = percentageOf(
-    budgetSummary.breakdown.shopping.actual,
-    budgetSummary.actualCost,
+  const shoppingListSharePercent = percentageOf(
+    budgetSummary.breakdown.shopping.planned,
+    budgetSummary.plannedCost,
   );
   const laborSharePercent = percentageOf(
     budgetSummary.breakdown.labor.actual,
@@ -351,7 +355,7 @@ function ProjectOverviewContent() {
             badgeVariant: "outline" as const,
             label: "No budget baseline",
             description:
-              "Costs or revenue are already moving, but the project still has no budget ceiling.",
+              "Costs, approved estimates, or payments are already moving, but the project still has no budget ceiling.",
           };
         }
 
@@ -393,7 +397,7 @@ function ProjectOverviewContent() {
         ) {
           return {
             badgeVariant: "secondary" as const,
-            label: "High burn",
+            label: "High spend",
             description: `${formatPercent(
               actualBudgetPercent,
             )} of the budget is already consumed by actual spend.`,
@@ -408,7 +412,7 @@ function ProjectOverviewContent() {
                 Math.max(remainingBudget ?? 0, 0),
                 budgetSummary.currency,
               )} remains before the current actual spend hits the budget limit.`
-            : "Financial activity is being tracked and ready for a budget baseline.",
+            : "Project costs, estimates, and payments are being tracked and ready for a budget baseline.",
         };
       })();
 
@@ -450,12 +454,12 @@ function ProjectOverviewContent() {
 
   const spendMixRows = [
     {
-      label: "Materials actual",
-      amount: budgetSummary.breakdown.shopping.actual,
+      label: "Shopping list total",
+      amount: budgetSummary.breakdown.shopping.planned,
       note:
-        materialsSharePercent !== null
-          ? `${formatPercent(materialsSharePercent)} of actual spend`
-          : "No delivered material cost yet",
+        shoppingListSharePercent !== null
+          ? `${formatPercent(shoppingListSharePercent)} of planned cost`
+          : "No shopping list items yet",
     },
     {
       label: "Labor actual",
@@ -478,14 +482,14 @@ function ProjectOverviewContent() {
       : {
           label: "Forecast total",
           amount: budgetSummary.plannedCost,
-          note: "Budget is missing, so runway cannot be measured yet",
+          note: "Budget is missing, so remaining budget cannot be measured yet",
         },
   ];
 
-  const revenueRows = [
+  const coverageRows = [
     {
       label: "Accepted estimates",
-      amount: budgetSummary.revenue.acceptedEstimations,
+      amount: budgetSummary.clientFunding.acceptedEstimations,
       note:
         acceptedCoveragePercent !== null
           ? `${formatPercent(acceptedCoveragePercent)} of planned cost covered`
@@ -493,7 +497,7 @@ function ProjectOverviewContent() {
     },
     {
       label: "Scheduled payments",
-      amount: budgetSummary.revenue.scheduledPayments,
+      amount: budgetSummary.clientFunding.scheduledPayments,
       note:
         scheduledCoveragePercent !== null
           ? `${formatPercent(scheduledCoveragePercent)} of committed cost covered`
@@ -501,10 +505,10 @@ function ProjectOverviewContent() {
     },
     {
       label: "Collected payments",
-      amount: budgetSummary.revenue.collectedPayments,
+      amount: budgetSummary.clientFunding.collectedPayments,
       note:
         collectedCoveragePercent !== null
-          ? `${formatPercent(collectedCoveragePercent)} of actual spend recovered`
+          ? `${formatPercent(collectedCoveragePercent)} of actual cost covered`
           : "No actual spend recorded yet",
     },
   ];
@@ -514,7 +518,9 @@ function ProjectOverviewContent() {
       ? {
           title: "Missing budget baseline",
           description:
-            "Add a project budget so burn rate, runway, and variance can be measured against a real ceiling.",
+            "Add a project budget so actual spend, remaining budget, and variance can be measured against a real ceiling.",
+          actionHref: projectBudgetSettingsHref,
+          actionLabel: "Open project settings",
           variant: "default" as const,
           className: "border-border/60 bg-muted/30",
         }
@@ -544,11 +550,11 @@ function ProjectOverviewContent() {
         }
       : null,
     budgetSummary.actualCost > 0 &&
-    budgetSummary.revenue.collectedPayments < budgetSummary.actualCost
+    budgetSummary.clientFunding.collectedPayments < budgetSummary.actualCost
       ? {
-          title: "Collected cash is behind real spend",
+          title: "Collected payments are behind actual cost",
           description: `${formatCurrency(
-            budgetSummary.revenue.collectedPayments,
+            budgetSummary.clientFunding.collectedPayments,
             budgetSummary.currency,
           )} has been collected against ${formatCurrency(
             budgetSummary.actualCost,
@@ -558,16 +564,7 @@ function ProjectOverviewContent() {
           className: "border-border/60 bg-muted/30",
         }
       : null,
-  ].filter(
-    (
-      alert,
-    ): alert is {
-      title: string;
-      description: string;
-      variant: "default" | "destructive";
-      className: string;
-    } => alert !== null,
-  );
+  ].filter(isPresent);
 
   return (
     <ProjectPageLayout>
@@ -1006,7 +1003,7 @@ function ProjectOverviewContent() {
               </CardTitle>
               <CardDescription>
                 {shouldShowBudgetEmptyState
-                  ? "This block becomes useful once the project has a budget, tracked costs, or revenue activity."
+                  ? "This block becomes useful once the project has a budget, tracked costs, approved estimates, or payment activity."
                   : budgetHealth?.description}
               </CardDescription>
               {budgetHealth ? (
@@ -1024,12 +1021,12 @@ function ProjectOverviewContent() {
                     <EmptyMedia variant="icon">
                       <TrendingUp />
                     </EmptyMedia>
-                    <EmptyTitle>No financial baseline yet</EmptyTitle>
+                    <EmptyTitle>No budget baseline yet</EmptyTitle>
                     <EmptyDescription>
                       Set a project budget and start logging materials, labor,
-                      estimates, or payments. Then this area will show burn,
-                      forecast variance, and revenue coverage instead of a wall
-                      of zeros.
+                      estimates, or payments. Then this area will show actual
+                      cost, forecast variance, and payment coverage instead of
+                      empty values.
                     </EmptyDescription>
                   </EmptyHeader>
                   <EmptyContent className="max-w-xl">
@@ -1052,7 +1049,7 @@ function ProjectOverviewContent() {
                       )}
                     >
                       <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                        {hasBudgetBaseline ? "Budget runway" : "Actual burn"}
+                        {hasBudgetBaseline ? "Budget remaining" : "Actual cost"}
                       </p>
                       <p className="mt-2 text-2xl font-semibold">
                         {hasBudgetBaseline
@@ -1100,30 +1097,30 @@ function ProjectOverviewContent() {
 
                     <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
                       <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                        Cash coverage
+                        Payment coverage
                       </p>
                       <p className="mt-2 text-2xl font-semibold">
                         {collectedCoveragePercent !== null
                           ? formatPercent(collectedCoveragePercent)
                           : formatCurrency(
-                              budgetSummary.revenue.collectedPayments,
+                              budgetSummary.clientFunding.collectedPayments,
                               budgetSummary.currency,
                             )}
                       </p>
                       <p className="mt-1 text-sm text-muted-foreground">
                         {budgetSummary.actualCost > 0
-                          ? "collected payments against actual spend"
+                          ? "collected payments against actual cost"
                           : "collected payments recorded so far"}
                       </p>
                     </div>
 
                     <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
                       <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                        Booked revenue
+                        Approved estimates
                       </p>
                       <p className="mt-2 text-2xl font-semibold">
                         {formatCurrency(
-                          budgetSummary.revenue.acceptedEstimations,
+                          budgetSummary.clientFunding.acceptedEstimations,
                           budgetSummary.currency,
                         )}
                       </p>
@@ -1138,7 +1135,7 @@ function ProjectOverviewContent() {
                   <div className="rounded-2xl border border-border/60 bg-muted/10 p-4">
                     <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                       <div className="flex flex-col gap-1">
-                        <p className="text-sm font-medium">Spend ladder</p>
+                        <p className="text-sm font-medium">Cost ladder</p>
                         <p className="text-sm text-muted-foreground">
                           Compare realized spend, committed work, and full
                           planned scope against the current ceiling.
@@ -1184,7 +1181,7 @@ function ProjectOverviewContent() {
                   <div className="grid gap-4 xl:grid-cols-2">
                     <div className="rounded-2xl border border-border/60 bg-muted/10 p-4">
                       <p className="text-sm font-medium">
-                        Where the money is going
+                        Cost breakdown
                       </p>
                       <div className="mt-4 flex flex-col gap-3">
                         {spendMixRows.map((row) => (
@@ -1212,9 +1209,11 @@ function ProjectOverviewContent() {
                     </div>
 
                     <div className="rounded-2xl border border-border/60 bg-muted/10 p-4">
-                      <p className="text-sm font-medium">Revenue coverage</p>
+                      <p className="text-sm font-medium">
+                        Estimates and payment coverage
+                      </p>
                       <div className="mt-4 flex flex-col gap-3">
-                        {revenueRows.map((row) => (
+                        {coverageRows.map((row) => (
                           <div
                             key={row.label}
                             className="flex items-start justify-between gap-4"
@@ -1251,6 +1250,13 @@ function ProjectOverviewContent() {
                           <AlertTitle>{alert.title}</AlertTitle>
                           <AlertDescription>
                             {alert.description}
+                            {alert.actionHref && alert.actionLabel ? (
+                              <div className="mt-2">
+                                <Button asChild variant="link" className="h-auto px-0">
+                                  <Link href={alert.actionHref}>{alert.actionLabel}</Link>
+                                </Button>
+                              </div>
+                            ) : null}
                           </AlertDescription>
                         </Alert>
                       ))}
