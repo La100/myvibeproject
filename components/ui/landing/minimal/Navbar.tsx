@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
+import { UserButton, useUser } from "@clerk/nextjs";
 import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import Logo from "../Logo";
 
@@ -14,6 +14,8 @@ const navLinks = [
 ];
 
 export function Navbar() {
+  const { isSignedIn } = useUser();
+
   return (
     <header className="relative z-30">
       <div className="mx-auto flex h-24 w-full max-w-[1520px] items-center justify-between px-6 lg:px-10">
@@ -36,7 +38,8 @@ export function Navbar() {
         </nav>
 
         <div className="hidden items-center gap-2.5 md:flex">
-          <SignedIn>
+          {isSignedIn ? (
+            <>
             <Button
               asChild
               variant="ghost"
@@ -49,15 +52,15 @@ export function Navbar() {
                 elements: { userButtonAvatarBox: "rounded-full" },
               }}
             />
-          </SignedIn>
-          <SignedOut>
+            </>
+          ) : (
             <Button
               asChild
               className="h-9 rounded-full bg-foreground px-4 text-sm font-medium text-background hover:bg-foreground/90"
             >
               <Link href="/sign-in">Sign in</Link>
             </Button>
-          </SignedOut>
+          )}
         </div>
 
         <div className="flex items-center gap-2 md:hidden">
@@ -87,7 +90,7 @@ export function Navbar() {
                   ))}
                 </div>
 
-                <SignedIn>
+                {isSignedIn ? (
                   <div className="flex items-center gap-3">
                     <SheetClose asChild>
                       <Button asChild className="h-11 flex-1 rounded-full">
@@ -100,9 +103,9 @@ export function Navbar() {
                       }}
                     />
                   </div>
-                </SignedIn>
+                ) : null}
 
-                <SignedOut>
+                {!isSignedIn ? (
                   <div className="flex flex-col gap-3">
                     <SheetClose asChild>
                       <Button asChild className="h-11 rounded-full">
@@ -110,7 +113,7 @@ export function Navbar() {
                       </Button>
                     </SheetClose>
                   </div>
-                </SignedOut>
+                ) : null}
               </div>
             </SheetContent>
           </Sheet>

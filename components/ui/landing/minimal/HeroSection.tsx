@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { SignedIn, SignedOut } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
 import { ArrowUp, Check, Loader2, Sparkles } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -86,6 +86,7 @@ function getDemoActions(stage: number) {
 }
 
 export function HeroSection() {
+  const { isSignedIn } = useUser();
   const [stage, setStage] = useState(0);
   const [cycle, setCycle] = useState(0);
   const [typedPrompt, setTypedPrompt] = useState("");
@@ -170,16 +171,16 @@ export function HeroSection() {
   return (
     <section className="px-6 pb-10 pt-2 lg:px-10">
       <div className="mx-auto w-full max-w-[1520px]">
-        <div className="max-w-[620px] pt-8">
-          <h1 className="text-balance text-[clamp(1.15rem,1.55vw,1.95rem)] font-medium leading-[1.18] tracking-tight text-foreground">
+        <div className="max-w-[720px] pt-8 sm:max-w-[820px] sm:pt-10 md:max-w-[900px] lg:max-w-[760px] xl:max-w-[860px] 2xl:max-w-[620px]">
+          <h1 className="text-balance text-[2.25rem] font-medium leading-[0.98] tracking-[-0.04em] text-foreground sm:text-[2.85rem] md:text-[3.35rem] lg:text-[2.6rem] xl:text-[3rem] 2xl:text-[clamp(1.15rem,1.55vw,1.95rem)] 2xl:leading-[1.18] 2xl:tracking-tight">
             For architects and interior designers,
             <br />
             Myvibe is the best way to run projects with AI.
           </h1>
         </div>
 
-        <div className="mt-5 flex items-center gap-3">
-          <SignedOut>
+        <div className="mt-6 flex items-center gap-3 md:mt-7">
+          {!isSignedIn ? (
             <Button
               asChild
               className="h-9 rounded-full bg-foreground px-4 text-sm font-medium text-background hover:bg-foreground/92"
@@ -189,8 +190,7 @@ export function HeroSection() {
                 Sign in
               </Link>
             </Button>
-          </SignedOut>
-          <SignedIn>
+          ) : (
             <Button
               asChild
               className="h-9 rounded-full bg-foreground px-4 text-sm font-medium text-background hover:bg-foreground/92"
@@ -200,7 +200,7 @@ export function HeroSection() {
                 Dashboard
               </Link>
             </Button>
-          </SignedIn>
+          )}
         </div>
 
         <div className="mt-8 overflow-hidden rounded-[32px] border border-black/8 bg-[#ebe8e1] shadow-[0_20px_80px_rgba(20,20,20,0.08)]">

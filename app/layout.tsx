@@ -77,6 +77,8 @@ const clerkAppearance: ClerkProviderProps["appearance"] = {
   },
 };
 
+const clerkProxyUrl = process.env.NEXT_PUBLIC_CLERK_PROXY_URL || undefined;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -91,6 +93,7 @@ export default function RootLayout({
       <body className="antialiased">
         <ClerkProvider
           appearance={clerkAppearance}
+          proxyUrl={clerkProxyUrl}
           signInUrl={signInUrl}
           signUpUrl={signUpUrl}
           signInFallbackRedirectUrl={signInFallbackRedirectUrl}
