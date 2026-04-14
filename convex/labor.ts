@@ -3,6 +3,7 @@ import { makeFunctionReference } from "convex/server";
 import { mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { ensureProjectAccess } from "./authz";
+const internalAny = require("./_generated/api").internal as any;
 
 // Common unit types for labor
 export const LABOR_UNITS = [
@@ -34,6 +35,35 @@ const normalizeReferenceLink = (input?: string | null) => {
   }
 };
 
+const getClientPortalActorName = (rawName?: string | null) => {
+  const trimmed = typeof rawName === "string" ? rawName.trim() : "";
+  return trimmed.length > 0 ? trimmed : "Client (portal)";
+};
+
+const normalizeClientPortalComment = (rawComment?: string | null) => {
+  const trimmed = typeof rawComment === "string" ? rawComment.trim() : "";
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+const stableStringify = (value: unknown): string => {
+  if (value === null || value === undefined) {
+    return String(value);
+  }
+
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringify(item)).join(",")}]`;
+  }
+
+  if (typeof value === "object") {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, entryValue]) => `${key}:${stableStringify(entryValue)}`)
+      .join(",")}}`;
+  }
+
+  return JSON.stringify(value);
+};
+
 const assertAttachmentBelongsToProject = async (
   ctx: {
     db: {
@@ -54,6 +84,82 @@ const assertAttachmentBelongsToProject = async (
 // Use a lightweight function reference to avoid deep generated type instantiation.
 const logActivityMutationRef = makeFunctionReference<"mutation">("activityLog:logActivity");
 const normalizeSectionKey = (name: string) => name.trim().toLocaleLowerCase();
+
+const logClientPortalLaborActivity = async (
+  ctx: any,
+  project: { _id: Id<"projects">; teamId: Id<"teams"> },
+  actionType: "labor.customer.decision" | "labor.customer.feedback",
+  entityId: string,
+  details: Record<string, unknown>,
+) => {
+  const recentActivities = await ctx.db
+    .query("activityLog")
+    .withIndex("by_entity", (q: any) => q.eq("entityId", entityId).eq("entityType", "labor"))
+    .order("desc")
+    .take(10);
+  const normalizedDetails = stableStringify(details);
+  const isDuplicateRecentActivity = recentActivities.some((activity: any) => {
+    if (
+      activity.projectId !== project._id ||
+      activity.actionType !== actionType ||
+      typeof activity._creationTime !== "number"
+    ) {
+      return false;
+    }
+
+    if (Math.abs(Date.now() - activity._creationTime) > 5_000) {
+      return false;
+    }
+
+    return stableStringify((activity.details ?? {}) as Record<string, unknown>) === normalizedDetails;
+  });
+
+  if (isDuplicateRecentActivity) {
+    return;
+  }
+
+  await ctx.db.insert("activityLog", {
+    teamId: project.teamId,
+    projectId: project._id,
+    userId: `client-portal:${project._id}`,
+    actionType,
+    details,
+    entityId,
+    entityType: "labor",
+  });
+};
+
+const updatePublishedLaborSnapshot = async (
+  ctx: any,
+  project: any,
+  itemId: Id<"laborItems">,
+  updates: Record<string, unknown>,
+) => {
+  const publishedSnapshot = project.clientPanelPublishedSnapshot;
+  if (!publishedSnapshot || !Array.isArray(publishedSnapshot.labor)) {
+    return;
+  }
+
+  let hasMatch = false;
+  const nextLabor = publishedSnapshot.labor.map((entry: any) => {
+    if (String(entry._id) !== String(itemId)) {
+      return entry;
+    }
+    hasMatch = true;
+    return { ...entry, ...updates };
+  });
+
+  if (!hasMatch) {
+    return;
+  }
+
+  await ctx.db.patch(project._id, {
+    clientPanelPublishedSnapshot: {
+      ...publishedSnapshot,
+      labor: nextLabor,
+    },
+  });
+};
 
 const ensureLaborSectionAccess = async (
   ctx: any,
@@ -378,6 +484,186 @@ export const deleteLaborItem = mutation({
     await ctx.db.delete(args.itemId);
 
     return args.itemId;
+  },
+});
+
+export const respondToLaborItemByAccessToken = mutation({
+  args: {
+    accessToken: v.string(),
+    itemId: v.id("laborItems"),
+    decision: v.union(v.literal("accepted"), v.literal("rejected")),
+    comment: v.optional(v.union(v.string(), v.null())),
+    respondentName: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const token = args.accessToken.trim();
+    if (!token) {
+      throw new Error("Invalid panel link");
+    }
+
+    const project = await ctx.db
+      .query("projects")
+      .withIndex("by_client_panel_access_token", (q) => q.eq("clientPanelAccessToken", token))
+      .unique();
+
+    if (!project) {
+      throw new Error("Invalid panel link");
+    }
+    if (project.clientPanelPublishedSettings?.showLabor !== true) {
+      throw new Error("Labor is hidden in this portal");
+    }
+
+    const item = await ctx.db.get(args.itemId);
+    if (!item || item.projectId !== project._id) {
+      throw new Error("Labor item not found");
+    }
+
+    const now = Date.now();
+    const normalizedComment = normalizeClientPortalComment(args.comment);
+    const normalizedRespondentName =
+      typeof args.respondentName === "string" ? args.respondentName.trim() : "";
+
+    await ctx.db.patch(args.itemId, {
+      customerDecision: args.decision,
+      customerDecisionComment: normalizedComment,
+      customerDecisionUpdatedAt: now,
+      customerDecisionByName: normalizedRespondentName || undefined,
+      updatedAt: now,
+    });
+
+    await updatePublishedLaborSnapshot(ctx, project, args.itemId, {
+      customerDecision: args.decision,
+      customerDecisionComment: normalizedComment,
+      customerDecisionUpdatedAt: now,
+      customerDecisionByName: normalizedRespondentName || null,
+    });
+
+    await logClientPortalLaborActivity(
+      ctx,
+      { _id: project._id, teamId: project.teamId },
+      "labor.customer.decision",
+      String(args.itemId),
+      {
+        actorName: getClientPortalActorName(args.respondentName),
+        itemId: String(args.itemId),
+        itemName: item.name,
+        decision: args.decision,
+        comment: normalizedComment,
+      },
+    );
+
+    await ctx.scheduler.runAfter(0, internalAny.notifications.sendClientPortalEventEmail, {
+      projectId: project._id,
+      actionType: "labor.customer.decision",
+      actorName: getClientPortalActorName(args.respondentName),
+      itemName: item.name,
+      decision: args.decision,
+    });
+
+    return {
+      success: true,
+      itemId: args.itemId,
+      decision: args.decision,
+      comment: normalizedComment,
+      updatedAt: now,
+    };
+  },
+});
+
+export const saveLaborItemCommentByAccessToken = mutation({
+  args: {
+    accessToken: v.string(),
+    itemId: v.id("laborItems"),
+    comment: v.optional(v.union(v.string(), v.null())),
+    respondentName: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const token = args.accessToken.trim();
+    if (!token) {
+      throw new Error("Invalid panel link");
+    }
+
+    const project = await ctx.db
+      .query("projects")
+      .withIndex("by_client_panel_access_token", (q) => q.eq("clientPanelAccessToken", token))
+      .unique();
+
+    if (!project) {
+      throw new Error("Invalid panel link");
+    }
+    if (project.clientPanelPublishedSettings?.showLabor !== true) {
+      throw new Error("Labor is hidden in this portal");
+    }
+
+    const item = await ctx.db.get(args.itemId);
+    if (!item || item.projectId !== project._id) {
+      throw new Error("Labor item not found");
+    }
+
+    const now = Date.now();
+    const normalizedComment = normalizeClientPortalComment(args.comment);
+    const normalizedRespondentName =
+      typeof args.respondentName === "string" ? args.respondentName.trim() : "";
+
+    const patch: {
+      customerDecisionComment: string | null;
+      updatedAt: number;
+      customerDecisionUpdatedAt?: number;
+      customerDecisionByName?: string | undefined;
+    } = {
+      customerDecisionComment: normalizedComment,
+      updatedAt: now,
+    };
+
+    if (item.customerDecision) {
+      patch.customerDecisionUpdatedAt = now;
+      patch.customerDecisionByName = normalizedRespondentName || undefined;
+    }
+
+    await ctx.db.patch(args.itemId, patch);
+
+    await updatePublishedLaborSnapshot(ctx, project, args.itemId, {
+      customerDecisionComment: normalizedComment,
+      ...(item.customerDecision ? { customerDecisionUpdatedAt: now } : {}),
+      ...(item.customerDecision ? { customerDecisionByName: normalizedRespondentName || null } : {}),
+    });
+
+    const previousComment = normalizeClientPortalComment(item.customerDecisionComment);
+    const shouldNotifyCommentOnlyFeedback =
+      !item.customerDecision &&
+      normalizedComment !== null &&
+      normalizedComment !== previousComment &&
+      previousComment === null;
+
+    if (shouldNotifyCommentOnlyFeedback) {
+      await logClientPortalLaborActivity(
+        ctx,
+        { _id: project._id, teamId: project.teamId },
+        "labor.customer.feedback",
+        String(args.itemId),
+        {
+          actorName: getClientPortalActorName(args.respondentName),
+          itemId: String(args.itemId),
+          itemName: item.name,
+          comment: normalizedComment,
+        },
+      );
+
+      await ctx.scheduler.runAfter(0, internalAny.notifications.sendClientPortalEventEmail, {
+        projectId: project._id,
+        actionType: "labor.customer.feedback",
+        actorName: getClientPortalActorName(args.respondentName),
+        itemName: item.name,
+        comment: normalizedComment,
+      });
+    }
+
+    return {
+      success: true,
+      itemId: args.itemId,
+      comment: normalizedComment,
+      updatedAt: now,
+    };
   },
 });
 

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useQuery } from 'convex/react';
 import { apiAny } from '@/lib/convexApiAny';
 import { Id } from '@/convex/_generated/dataModel';
@@ -17,6 +18,7 @@ import { FileTextIcon, DownloadIcon, PrinterIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { useProject } from '@/components/providers/ProjectProvider';
 import { renderPdfTable } from '@/lib/pdfExport';
+import { toast } from 'sonner';
 
 interface EstimationPreviewDialogProps {
   open: boolean;
@@ -33,6 +35,7 @@ export function EstimationPreviewDialog({
 }: EstimationPreviewDialogProps) {
   const { team } = useProject();
   const estimation = useQuery(apiAny.costEstimations.getCostEstimationWithItems, { estimationId });
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -56,6 +59,7 @@ export function EstimationPreviewDialog({
     if (!estimation) return;
 
     try {
+      setIsExportingPdf(true);
       const jsPdfModule = await import("jspdf");
       const jsPDF = jsPdfModule.jsPDF ?? jsPdfModule.default;
 
@@ -226,15 +230,19 @@ export function EstimationPreviewDialog({
       // Save
       const filename = `estimation-${estimation.estimationNumber || estimation._id}-${format(new Date(), 'yyyy-MM-dd')}.pdf`;
       doc.save(filename);
+      toast.success('PDF exported');
     } catch (error) {
       console.error('PDF export error:', error);
+      toast.error('Failed to export PDF');
+    } finally {
+      setIsExportingPdf(false);
     }
   };
 
-  if (!estimation) {
+  if (estimation === undefined) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[94vh] w-[min(96vw,1500px)] max-w-none overflow-y-auto">
         <DialogHeader className="sr-only">
           <DialogTitle>Loading estimation preview</DialogTitle>
         </DialogHeader>
@@ -244,9 +252,30 @@ export function EstimationPreviewDialog({
     );
   }
 
+  if (estimation === null) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-h-[94vh] w-[min(96vw,1500px)] max-w-none overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Estimation Preview</DialogTitle>
+          </DialogHeader>
+          <div className="flex min-h-64 flex-col items-center justify-center gap-3 text-center">
+            <p className="text-lg font-medium">Estimation not found</p>
+            <p className="max-w-md text-sm text-muted-foreground">
+              This estimation could not be loaded. It may have been deleted in another session.
+            </p>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[94vh] w-[min(96vw,1500px)] max-w-none overflow-y-auto">
         <DialogHeader className="flex flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <FileTextIcon className="h-6 w-6 text-primary" />
@@ -259,14 +288,14 @@ export function EstimationPreviewDialog({
               <PrinterIcon className="h-4 w-4 mr-2" />
               Print
             </Button>
-            <Button size="sm" onClick={handleExportPDF}>
+            <Button size="sm" onClick={handleExportPDF} disabled={isExportingPdf}>
               <DownloadIcon className="h-4 w-4 mr-2" />
-              Export PDF
+              {isExportingPdf ? 'Exporting...' : 'Export PDF'}
             </Button>
           </div>
         </DialogHeader>
 
-        <Card className="mt-6 gap-6 rounded-2xl p-0 shadow-none">
+        <Card className="mt-4 gap-6 rounded-2xl p-0 shadow-none">
           <CardHeader className="flex flex-row items-start justify-between gap-6 border-b px-6 pb-6">
             <div className="flex flex-col gap-1">
               {team && (

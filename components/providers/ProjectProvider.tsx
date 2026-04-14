@@ -55,8 +55,13 @@ export function ProjectProvider({ children }: {
   const teamMember = useQuery(apiAny.teams.getCurrentUserTeamMember,
     project ? { teamId: project.teamId } : "skip"
   );
+  const clientNotificationsReadState = useQuery(
+    apiAny.projects.getMyClientNotificationsReadState,
+    project ? { projectId: project._id } : "skip",
+  );
   const projectId = project ? String(project._id) : null;
-  const serverClientNotificationsLastReadAt = project?.clientNotificationsLastReadAt ?? 0;
+  const serverClientNotificationsLastReadAt =
+    clientNotificationsReadState?.lastReadAt ?? project?.clientNotificationsLastReadAt ?? 0;
 
   useEffect(() => {
     if (!projectId) {

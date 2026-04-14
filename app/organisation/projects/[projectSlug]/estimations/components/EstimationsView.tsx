@@ -54,6 +54,7 @@ export default function EstimationsView() {
   const updateStatus = useMutation(apiAny.costEstimations.updateEstimationStatus);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingEstimationId, setEditingEstimationId] = useState<Id<"costEstimations"> | null>(null);
   const [previewEstimationId, setPreviewEstimationId] = useState<Id<"costEstimations"> | null>(null);
 
   if (estimations === undefined || stats === undefined) {
@@ -225,7 +226,7 @@ export default function EstimationsView() {
                         <EyeIcon className="h-4 w-4 mr-2" />
                         Preview
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setEditingEstimationId(estimation._id)}>
                         <EditIcon className="h-4 w-4 mr-2" />
                         Edit
                       </DropdownMenuItem>
@@ -285,6 +286,16 @@ export default function EstimationsView() {
         projectId={project._id}
         currencySymbol={currencySymbol}
       />
+
+      {editingEstimationId && (
+        <CreateEstimationDialog
+          open={!!editingEstimationId}
+          onOpenChange={(open) => !open && setEditingEstimationId(null)}
+          projectId={project._id}
+          currencySymbol={currencySymbol}
+          estimationId={editingEstimationId}
+        />
+      )}
 
       {/* Preview Dialog */}
       {previewEstimationId && (

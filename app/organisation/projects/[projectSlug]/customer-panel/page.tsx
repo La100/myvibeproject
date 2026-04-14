@@ -14,6 +14,8 @@ import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 
 const DEFAULT_CLIENT_PANEL_SETTINGS = {
   showShoppingList: false,
+  allowShoppingItemDecisions: true,
+  allowShoppingItemComments: true,
   showFiles: false,
   showMoodboard: false,
   showSurveys: false,
@@ -209,6 +211,38 @@ export default function CustomerPanelPage() {
                   checked={portalSettings.showShoppingList}
                   onCheckedChange={(checked) => handleToggleSetting("showShoppingList", checked)}
                   disabled={isPublishingPortal}
+                />
+              </div>
+              <div className="ml-4 flex items-start justify-between gap-4 border-l border-border/60 pl-4">
+                <div>
+                  <Label htmlFor="allow-shopping-item-decisions" className="font-medium">
+                    Allow decisions
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Let clients approve or reject shopping items in the portal.
+                  </p>
+                </div>
+                <Switch
+                  id="allow-shopping-item-decisions"
+                  checked={portalSettings.allowShoppingItemDecisions}
+                  onCheckedChange={(checked) => handleToggleSetting("allowShoppingItemDecisions", checked)}
+                  disabled={isPublishingPortal || !portalSettings.showShoppingList}
+                />
+              </div>
+              <div className="ml-4 flex items-start justify-between gap-4 border-l border-border/60 pl-4">
+                <div>
+                  <Label htmlFor="allow-shopping-item-comments" className="font-medium">
+                    Allow comments
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Let clients leave shopping item comments in the portal.
+                  </p>
+                </div>
+                <Switch
+                  id="allow-shopping-item-comments"
+                  checked={portalSettings.allowShoppingItemComments}
+                  onCheckedChange={(checked) => handleToggleSetting("allowShoppingItemComments", checked)}
+                  disabled={isPublishingPortal || !portalSettings.showShoppingList}
                 />
               </div>
               <div className="flex items-start justify-between gap-4">

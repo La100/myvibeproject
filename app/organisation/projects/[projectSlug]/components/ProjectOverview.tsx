@@ -27,6 +27,7 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import {
   Calendar,
+  Download,
   TrendingUp,
   MapPin,
   DollarSign,
@@ -42,16 +43,20 @@ import {
 } from "lucide-react";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { Spinner } from "@/components/ui/spinner";
-import { calculateShoppingTotal } from "@/lib/shoppingSets";
+import { exportProjectBookPdf, type ProjectBookChapter } from "@/lib/projectBookPdfExport";
+import { sanitizeFileName } from "@/lib/pdfExport";
+import { buildShoppingSetContext, calculateShoppingTotal, isItemCountedInShoppingTotal } from "@/lib/shoppingSets";
+import { formatShoppingExportProductLabel } from "@/lib/shoppingListExport";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
+import { ProjectBookExportDialog, type ProjectBookExportOptions } from "./ProjectBookExportDialog";
 import {
   getProjectOnboardingQuestsHiddenKey,
   ONBOARDING_PROJECT_DASHBOARD_QUESTS_GLOBAL_HIDDEN_KEY,
   readOnboardingFlag,
   writeOnboardingFlag,
 } from "@/lib/onboardingJourney";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency, getTaskPreview } from "@/lib/utils";
 
 function ProjectOverviewSkeleton() {
   return <Spinner />;
@@ -67,12 +72,70 @@ const formatPercent = (value: number | null) =>
 
 const isPresent = <T,>(value: T): value is NonNullable<T> => value != null;
 
+const DEFAULT_PROJECT_BOOK_OPTIONS: ProjectBookExportOptions = {
+  preset: "internal",
+  sections: {
+    shoppingList: true,
+    labor: true,
+    tasks: true,
+    budget: true,
+    payments: true,
+  },
+  showNotes: true,
+  showPrice: true,
+  showSupplier: true,
+};
+
+const SHOPPING_STATUS_LABELS = {
+  PLANNED: "Planned",
+  ORDERED: "Ordered",
+  IN_TRANSIT: "In Transit",
+  DELIVERED: "Delivered",
+  COMPLETED: "Completed",
+  CANCELLED: "Cancelled",
+} as const;
+
+const getShoppingStatusLabel = (status?: keyof typeof SHOPPING_STATUS_LABELS | string) =>
+  status && status in SHOPPING_STATUS_LABELS
+    ? SHOPPING_STATUS_LABELS[status as keyof typeof SHOPPING_STATUS_LABELS]
+    : status || "-";
+
+const resolveProjectBookClientOptions = (
+  settings?: {
+    showShoppingList?: boolean;
+    showTasks?: boolean;
+    showLabor?: boolean;
+    showBudget?: boolean;
+    showPayments?: boolean;
+    showNotes?: boolean;
+    showSupplier?: boolean;
+    showPrice?: boolean;
+  } | null,
+): ProjectBookExportOptions => ({
+  preset: "client",
+  sections: {
+    shoppingList: settings?.showShoppingList ?? false,
+    labor: settings?.showLabor ?? false,
+    tasks: settings?.showTasks ?? false,
+    budget: settings?.showBudget ?? false,
+    payments: settings?.showPayments ?? false,
+  },
+  showNotes: settings?.showNotes ?? true,
+  showPrice: settings?.showPrice ?? true,
+  showSupplier: settings?.showSupplier ?? true,
+});
+
 function ProjectOverviewContent() {
   const router = useRouter();
   const { project } = useProject();
   const [questVisibilityReady, setQuestVisibilityReady] = useState(false);
   const [projectQuestsHidden, setProjectQuestsHidden] = useState(false);
   const [projectQuestsGloballyHidden, setProjectQuestsGloballyHidden] = useState(false);
+  const [isProjectBookExportOpen, setIsProjectBookExportOpen] = useState(false);
+  const [isExportingProjectBook, setIsExportingProjectBook] = useState(false);
+  const [projectBookExportOptions, setProjectBookExportOptions] = useState<ProjectBookExportOptions>(
+    DEFAULT_PROJECT_BOOK_OPTIONS,
+  );
   const projectOnboardingStorageKey = useMemo(
     () => getProjectOnboardingQuestsHiddenKey(String(project._id)),
     [project._id],
@@ -91,8 +154,14 @@ function ProjectOverviewContent() {
   const shoppingSets = useQuery(apiAny.shopping.listShoppingSets, {
     projectId: project._id,
   });
+  const shoppingSections = useQuery(apiAny.shopping.listShoppingListSections, {
+    projectId: project._id,
+  });
 
   const laborItems = useQuery(apiAny.labor.listLaborItems, {
+    projectId: project._id,
+  });
+  const laborSections = useQuery(apiAny.labor.listLaborSections, {
     projectId: project._id,
   });
   const paymentsData = useQuery(
@@ -111,6 +180,15 @@ function ProjectOverviewContent() {
     projectId: project._id,
   });
   const notes = useQuery(apiAny.notes.getProjectNotes, {
+    projectId: project._id,
+  });
+  const team = useQuery(apiAny.teams.getTeamById, {
+    teamId: project.teamId,
+  });
+  const teamMembers = useQuery(apiAny.teams.getTeamMembers, {
+    teamId: project.teamId,
+  });
+  const clientPanelConfig = useQuery(apiAny.projects.getClientPanelConfiguration, {
     projectId: project._id,
   });
   const projectTokenUsage = useQuery(apiAny.ai.usage.getProjectTokenUsage, {
@@ -158,11 +236,16 @@ function ProjectOverviewContent() {
     tasks === undefined ||
     shoppingListItems === undefined ||
     shoppingSets === undefined ||
+    shoppingSections === undefined ||
     laborItems === undefined ||
+    laborSections === undefined ||
     paymentsData === undefined ||
     milestonesSummary === undefined ||
     budgetSummary === undefined ||
     notes === undefined ||
+    team === undefined ||
+    teamMembers === undefined ||
+    clientPanelConfig === undefined ||
     projectTokenUsage === undefined
   ) {
     return <ProjectOverviewSkeleton />;
@@ -263,6 +346,263 @@ function ProjectOverviewContent() {
     (sum: number, item) => sum + (item.totalPrice || 0),
     0,
   );
+  const shoppingSectionMap = new Map<string, string>(
+    shoppingSections.map((section) => [String(section._id), section.name]),
+  );
+  const shoppingSetTitleById = new Map<string, string>(
+    shoppingSets.map((set) => [String(set._id), set.title]),
+  );
+  const shoppingExportContext = buildShoppingSetContext(shoppingListItems, shoppingSets);
+  const shoppingBookRows = shoppingListItems
+    .filter((item) => isItemCountedInShoppingTotal(item, shoppingExportContext))
+    .map((item) => ({
+      section: item.sectionId ? shoppingSectionMap.get(String(item.sectionId)) || "No Section" : "No Section",
+      product: formatShoppingExportProductLabel(
+        item.name,
+        item.setId ? shoppingSetTitleById.get(String(item.setId)) : undefined,
+      ),
+      qty: String(item.quantity),
+      unitPrice: formatCurrency(item.unitPrice || 0, project.currency),
+      total: formatCurrency(item.totalPrice || 0, project.currency),
+      status: getShoppingStatusLabel(item.realizationStatus),
+      supplier: item.supplier || "-",
+      notes: item.notes || "-",
+    }));
+  const laborSectionMap = new Map<string, string>(
+    laborSections.map((section) => [String(section._id), section.name]),
+  );
+  const laborBookRows = laborItems.map((item) => ({
+    section: item.sectionId ? laborSectionMap.get(String(item.sectionId)) || "No Category" : "No Category",
+    work: item.name,
+    qty: String(item.quantity),
+    unit: item.unit || "-",
+    unitPrice: formatCurrency(item.unitPrice || 0, project.currency),
+    total: formatCurrency(item.totalPrice || 0, project.currency),
+    notes: item.notes || "-",
+  }));
+  const getAssignedMemberName = (assignedTo?: string | null) => {
+    if (!assignedTo) return "-";
+    return teamMembers.find((member) => member.clerkUserId === assignedTo)?.name || assignedTo;
+  };
+  const taskBookRows = tasks.map((task) => ({
+    title: task.title,
+    status: task.status.replace(/_/g, " "),
+    priority: task.priority || "-",
+    assignee: getAssignedMemberName(task.assignedTo),
+    timeline:
+      task.endDate || task.startDate
+        ? `${task.startDate ? new Date(task.startDate).toLocaleDateString() : "-"} -> ${task.endDate ? new Date(task.endDate).toLocaleDateString() : "-"}`
+        : "-",
+    summary: getTaskPreview(task, 12) || "-",
+  }));
+  const paymentBookRows = (paymentsData.installments || [])
+    .filter((installment) => installment.status !== "void")
+    .map((installment) => ({
+      title: installment.title,
+      status: installment.status.replace(/_/g, " "),
+      dueDate: installment.dueDate ? new Date(installment.dueDate).toLocaleDateString() : "-",
+      amount: formatCurrency(installment.amount, installment.currency),
+      reference: installment.paymentReference || installment.invoiceNumber || "-",
+    }));
+  const budgetBookRows = [
+    {
+      metric: "Budget",
+      value: formatCurrency(budgetSummary.budget, budgetSummary.currency),
+      note: "Project budget baseline",
+    },
+    {
+      metric: "Planned cost",
+      value: formatCurrency(budgetSummary.plannedCost, budgetSummary.currency),
+      note: "Current planned scope",
+    },
+    {
+      metric: "Committed cost",
+      value: formatCurrency(budgetSummary.committedCost, budgetSummary.currency),
+      note: "Booked cost not yet fully realized",
+    },
+    {
+      metric: "Actual cost",
+      value: formatCurrency(budgetSummary.actualCost, budgetSummary.currency),
+      note: "Realized project spend",
+    },
+    {
+      metric: "Projected variance",
+      value: formatCurrency(Math.abs(budgetSummary.projectedVariance), budgetSummary.currency),
+      note: budgetSummary.projectedVariance >= 0 ? "Projected buffer" : "Projected overrun",
+    },
+    {
+      metric: "Collected payments",
+      value: formatCurrency(budgetSummary.clientFunding.collectedPayments, budgetSummary.currency),
+      note: "Payments collected so far",
+    },
+  ];
+  const clientPresetOptions = resolveProjectBookClientOptions(clientPanelConfig.settings);
+  const clientPresetHasSections = Object.values(clientPresetOptions.sections).some(Boolean);
+
+  const applyProjectBookPreset = (
+    preset: ProjectBookExportOptions["preset"],
+  ): ProjectBookExportOptions => {
+    if (preset === "client") {
+      return clientPresetOptions;
+    }
+
+    if (preset === "internal") {
+      return DEFAULT_PROJECT_BOOK_OPTIONS;
+    }
+
+    return {
+      ...projectBookExportOptions,
+      preset: "custom",
+    };
+  };
+
+  const openProjectBookExport = () => {
+    setProjectBookExportOptions(
+      clientPresetHasSections ? clientPresetOptions : DEFAULT_PROJECT_BOOK_OPTIONS,
+    );
+    setIsProjectBookExportOpen(true);
+  };
+
+  const handleProjectBookOptionsChange = (nextOptions: ProjectBookExportOptions) => {
+    if (
+      nextOptions.preset !== projectBookExportOptions.preset &&
+      nextOptions.preset !== "custom"
+    ) {
+      setProjectBookExportOptions(applyProjectBookPreset(nextOptions.preset));
+      return;
+    }
+
+    setProjectBookExportOptions(nextOptions);
+  };
+
+  const handleExportProjectBook = async () => {
+    const selectedSections = Object.entries(projectBookExportOptions.sections)
+      .filter(([, enabled]) => enabled)
+      .map(([key]) => key as keyof ProjectBookExportOptions["sections"]);
+
+    if (selectedSections.length === 0) {
+      return;
+    }
+
+    setIsExportingProjectBook(true);
+    try {
+      const chapters: ProjectBookChapter[] = [];
+
+      if (projectBookExportOptions.sections.shoppingList) {
+        chapters.push({
+          title: "Shopping List",
+          description: "Materials and products currently counted in the project shopping scope.",
+          columns: [
+            { key: "section", label: "Section" },
+            { key: "product", label: "Product" },
+            { key: "qty", label: "Qty" },
+            ...(projectBookExportOptions.showPrice ? [{ key: "total", label: "Total" }] : []),
+            { key: "status", label: "Status" },
+            ...(projectBookExportOptions.showSupplier ? [{ key: "supplier", label: "Supplier" }] : []),
+            ...(projectBookExportOptions.showNotes ? [{ key: "notes", label: "Notes" }] : []),
+          ],
+          rows: shoppingBookRows.map((row) => ({
+            section: row.section,
+            product: row.product,
+            qty: row.qty,
+            ...(projectBookExportOptions.showPrice ? { total: row.total } : {}),
+            status: row.status,
+            ...(projectBookExportOptions.showSupplier ? { supplier: row.supplier } : {}),
+            ...(projectBookExportOptions.showNotes ? { notes: row.notes } : {}),
+          })),
+          emptyMessage: "No shopping list items available.",
+        });
+      }
+
+      if (projectBookExportOptions.sections.labor) {
+        chapters.push({
+          title: "Labor",
+          description: "Labor scope and service entries tracked for the project.",
+          columns: [
+            { key: "section", label: "Section" },
+            { key: "work", label: "Work" },
+            { key: "qty", label: "Qty" },
+            { key: "unit", label: "Unit" },
+            ...(projectBookExportOptions.showPrice ? [{ key: "total", label: "Total" }] : []),
+            ...(projectBookExportOptions.showNotes ? [{ key: "notes", label: "Notes" }] : []),
+          ],
+          rows: laborBookRows.map((row) => ({
+            section: row.section,
+            work: row.work,
+            qty: row.qty,
+            unit: row.unit,
+            ...(projectBookExportOptions.showPrice ? { total: row.total } : {}),
+            ...(projectBookExportOptions.showNotes ? { notes: row.notes } : {}),
+          })),
+          emptyMessage: "No labor entries available.",
+        });
+      }
+
+      if (projectBookExportOptions.sections.tasks) {
+        chapters.push({
+          title: "Tasks",
+          description: "Execution status of tracked project tasks.",
+          columns: [
+            { key: "title", label: "Task" },
+            { key: "status", label: "Status" },
+            { key: "priority", label: "Priority" },
+            { key: "assignee", label: "Assigned" },
+            { key: "timeline", label: "Timeline" },
+            { key: "summary", label: "Summary" },
+          ],
+          rows: taskBookRows,
+          emptyMessage: "No tasks available.",
+        });
+      }
+
+      if (projectBookExportOptions.sections.budget) {
+        chapters.push({
+          title: "Budget",
+          description: "Current budget position including planned, committed, and actual spend.",
+          columns: [
+            { key: "metric", label: "Metric" },
+            { key: "value", label: "Value" },
+            { key: "note", label: "Note" },
+          ],
+          rows: budgetBookRows,
+        });
+      }
+
+      if (projectBookExportOptions.sections.payments) {
+        chapters.push({
+          title: "Payments",
+          description: "Scheduled and collected project payments.",
+          columns: [
+            { key: "title", label: "Installment" },
+            { key: "status", label: "Status" },
+            { key: "dueDate", label: "Due date" },
+            { key: "amount", label: "Amount" },
+            { key: "reference", label: "Reference" },
+          ],
+          rows: paymentBookRows,
+          emptyMessage: "No payments available.",
+        });
+      }
+
+      await exportProjectBookPdf({
+        brand: {
+          teamName: team.name || "Organization",
+          teamImageUrl: team.imageUrl,
+        },
+        chapters,
+        fileName: `project-book-${sanitizeFileName(project.name)}-${new Date().toISOString().slice(0, 10)}.pdf`,
+        generatedOn: new Date().toLocaleString(),
+        subtitle: `${selectedSections.length} sections selected`,
+        title: `Project Book - ${project.name}`,
+      });
+
+      setIsProjectBookExportOpen(false);
+    } catch (error) {
+      console.error("Project book export failed:", error);
+    } finally {
+      setIsExportingProjectBook(false);
+    }
+  };
   const netCost = shoppingListCost + laborCost;
   const taxRate = project.taxEnabled ? (project.taxRate ?? 23) : 0;
   const taxAmount = taxRate > 0 ? netCost * (taxRate / 100) : 0;
@@ -573,6 +913,12 @@ function ProjectOverviewContent() {
           title="Project Overview"
           icon={<Target className="h-8 w-8 text-primary" />}
           subtitle={`A summary of ${project.name}`}
+          actions={(
+            <Button type="button" variant="outline" onClick={openProjectBookExport}>
+              <Download className="mr-2 h-4 w-4" />
+              Export Project Book
+            </Button>
+          )}
         />
 
         {showProjectQuestBoard ? (
@@ -1268,6 +1614,14 @@ function ProjectOverviewContent() {
           </Card>
         ) : null}
       </div>
+      <ProjectBookExportDialog
+        exportOptions={projectBookExportOptions}
+        isOpen={isProjectBookExportOpen}
+        isPending={isExportingProjectBook}
+        onClose={() => setIsProjectBookExportOpen(false)}
+        onExport={() => void handleExportProjectBook()}
+        onExportOptionsChange={handleProjectBookOptionsChange}
+      />
     </ProjectPageLayout>
   );
 }

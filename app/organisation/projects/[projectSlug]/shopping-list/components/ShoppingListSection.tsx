@@ -32,10 +32,29 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import {
+  calculateTaxBreakdown,
+  getPrimaryAmountKindForDisplay,
+  getTaxAmountKindLabel,
+  getTaxAmountKindsForDisplay,
+  type OrganizationTaxSettings,
+} from "@/lib/organizationTax";
 
 type ShoppingListItem = Doc<"shoppingListItems">;
 type ShoppingSet = Doc<"shoppingSets">;
 type Priority = ShoppingListItem["priority"];
+
+const SHOPPING_STATUS_OPTIONS: Array<{
+  value: ShoppingListItem["realizationStatus"];
+  label: string;
+}> = [
+  { value: "PLANNED", label: "Planned" },
+  { value: "ORDERED", label: "Ordered" },
+  { value: "IN_TRANSIT", label: "In transit" },
+  { value: "DELIVERED", label: "Delivered" },
+  { value: "COMPLETED", label: "Completed" },
+  { value: "CANCELLED", label: "Cancelled" },
+];
 
 interface EditFormData {
   name?: string;
@@ -67,6 +86,7 @@ interface ShoppingListSectionProps {
   currencySymbol: string;
   teamMembers?: TeamMember[];
   sections: Doc<"shoppingListSections">[];
+  organizationTaxSettings: OrganizationTaxSettings;
   onUpdateItem: (id: Id<"shoppingListItems">, updates: Partial<ShoppingListItem>) => Promise<void>;
   onDeleteItem: (id: Id<"shoppingListItems">) => Promise<void>;
   onAddItem: (itemData: {
@@ -111,6 +131,7 @@ export function ShoppingListSection({
   currencySymbol,
   teamMembers,
   sections,
+  organizationTaxSettings,
   onUpdateItem,
   onDeleteItem,
   onAddItem,
@@ -146,6 +167,36 @@ export function ShoppingListSection({
 
   const setContext = buildShoppingSetContext(items, sets);
   const sectionTotal = calculateShoppingTotal(items, sets);
+  const sectionTotalBreakdown = calculateTaxBreakdown(
+    sectionTotal,
+    organizationTaxSettings,
+  );
+  const primarySectionAmountKind = getPrimaryAmountKindForDisplay(
+    organizationTaxSettings,
+  );
+  const primarySectionTotal =
+    sectionTotalBreakdown[primarySectionAmountKind];
+  const renderPriceSpans = (
+    netAmount: number | undefined,
+    scope: "unit" | "total",
+  ) => {
+    if (netAmount === undefined) {
+      return null;
+    }
+
+    const breakdown = calculateTaxBreakdown(netAmount, organizationTaxSettings);
+
+    return getTaxAmountKindsForDisplay(organizationTaxSettings).map((kind) => (
+      <span
+        key={`${scope}-${kind}`}
+        className={kind === "gross" ? "font-medium text-foreground" : undefined}
+      >
+        {scope === "unit"
+          ? `${getTaxAmountKindLabel(kind, organizationTaxSettings)}/unit: ${breakdown[kind].toFixed(2)} ${currencySymbol}`
+          : `${getTaxAmountKindLabel(kind, organizationTaxSettings)}: ${breakdown[kind].toFixed(2)} ${currencySymbol}`}
+      </span>
+    ));
+  };
 
   const getAssignedMemberName = (assignedTo?: string) => {
     if (!assignedTo) return null;
@@ -327,8 +378,28 @@ export function ShoppingListSection({
     }
   };
 
+  const getCustomerDecisionTone = (
+    decision: ShoppingListItem["customerDecision"] | undefined,
+  ) => {
+    if (decision === "accepted") {
+      return "border-emerald-500/30 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300";
+    }
+    if (decision === "rejected") {
+      return "border-destructive/20 bg-destructive/10 text-destructive";
+    }
+    return null;
+  };
+
+  const getCustomerDecisionLabel = (
+    decision: ShoppingListItem["customerDecision"] | undefined,
+  ) => {
+    if (decision === "accepted") return "Accepted";
+    if (decision === "rejected") return "Rejected";
+    return null;
+  };
+
   const renderEditForm = (item: ShoppingListItem) => (
-    <div className="flex flex-col gap-4 rounded-2xl border border-border bg-background p-5 shadow-none">
+    <div className="flex flex-col gap-4 rounded-2xl border border-border bg-white p-5 shadow-none">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Field>
           <FieldLabel>Product Name *</FieldLabel>
@@ -405,7 +476,7 @@ export function ShoppingListSection({
           />
         </Field>
         <Field>
-          <FieldLabel>Unit Price ({currencySymbol})</FieldLabel>
+          <FieldLabel>Unit Net Price ({currencySymbol})</FieldLabel>
           <Input
             type="number"
             step="0.01"
@@ -414,6 +485,29 @@ export function ShoppingListSection({
             placeholder="0.00"
             className="h-12 text-sm"
           />
+        </Field>
+        <Field>
+          <FieldLabel>Status</FieldLabel>
+          <Select
+            value={editFormData.realizationStatus || "PLANNED"}
+            onValueChange={(value) =>
+              setEditFormData({
+                ...editFormData,
+                realizationStatus: value as ShoppingListItem["realizationStatus"],
+              })
+            }
+          >
+            <SelectTrigger className="h-12 text-sm">
+              <SelectValue placeholder="Select status" />
+            </SelectTrigger>
+            <SelectContent>
+              {SHOPPING_STATUS_OPTIONS.map((status) => (
+                <SelectItem key={status.value} value={status.value}>
+                  {status.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
         <Field>
           <FieldLabel>Product Link</FieldLabel>
@@ -506,7 +600,7 @@ export function ShoppingListSection({
         </Field>
       </div>
 
-      <div className="rounded-2xl border border-border bg-background px-4 py-3">
+      <div className="rounded-2xl border border-border bg-white px-4 py-3">
         <div className="flex items-start gap-3">
           <Checkbox
             id={`item-${item._id}-has-alternatives`}
@@ -554,13 +648,20 @@ export function ShoppingListSection({
     const isCounted = isItemCountedInShoppingTotal(item, setContext);
     const assignedName = getAssignedMemberName(item.assignedTo);
     const isEditing = editingItemId === itemId;
+    const customerDecisionTone = getCustomerDecisionTone(item.customerDecision);
+    const customerDecisionLabel = getCustomerDecisionLabel(item.customerDecision);
 
     return (
       <div
         key={item._id}
         className={cn(
           "rounded-2xl border p-4",
-          !isCounted && "border-border/70 bg-muted/10",
+          customerDecisionTone &&
+            (item.customerDecision === "accepted"
+              ? "border-emerald-500/25 bg-emerald-500/6"
+              : "border-destructive/20 bg-destructive/5"),
+          !isCounted && "border-border/70 bg-white",
+          !customerDecisionTone && "bg-white",
         )}
       >
         {isEditing ? (
@@ -570,13 +671,18 @@ export function ShoppingListSection({
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="flex min-w-0 flex-1 items-start gap-4">
                 {item.imageUrl ? (
-                  <div className="h-20 w-20 overflow-hidden rounded-xl border bg-muted/40">
+                  <div className="h-20 w-20 overflow-hidden rounded-xl border bg-white">
                     <img src={item.imageUrl} alt={item.name} className="h-full w-full object-cover" />
                   </div>
                 ) : null}
                 <div className="min-w-0 flex-1">
                   <div className="mb-2 flex flex-wrap items-center gap-2">
                     <h4 className="text-sm font-medium text-foreground">{item.name}</h4>
+                    {customerDecisionLabel ? (
+                      <Badge variant="outline" className={cn("text-xs", customerDecisionTone)}>
+                        {customerDecisionLabel}
+                      </Badge>
+                    ) : null}
                     {set ? (
                       <Badge variant="outline" className="text-xs">
                         Alternative
@@ -590,8 +696,8 @@ export function ShoppingListSection({
                   </div>
                   <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                     <span>Qty: {item.quantity}</span>
-                    {item.unitPrice ? <span>{item.unitPrice.toFixed(2)} {currencySymbol} / unit</span> : null}
-                    {item.totalPrice ? <span className="font-medium text-foreground">{item.totalPrice.toFixed(2)} {currencySymbol}</span> : null}
+                    {renderPriceSpans(item.unitPrice, "unit")}
+                    {renderPriceSpans(item.totalPrice, "total")}
                     {item.supplier ? <span>{item.supplier}</span> : null}
                   </div>
                   {assignedName ? (
@@ -690,7 +796,7 @@ export function ShoppingListSection({
     };
 
     return (
-      <div key={set._id} className="rounded-2xl border border-border/60 bg-muted/20 p-5">
+      <div key={set._id} className="rounded-2xl border border-border/60 bg-white p-5">
         <div className="mb-4 flex flex-col gap-3 border-b pb-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <div className="flex flex-wrap items-center gap-2">
@@ -729,7 +835,7 @@ export function ShoppingListSection({
         </div>
 
         {addingAlternativeSetId === String(set._id) ? (
-          <div className="mb-4 rounded-2xl border bg-card/80 p-4">
+          <div className="mb-4 rounded-2xl border bg-white p-4">
             <AddItemForm
               projectId={projectId}
               teamId={teamId}
@@ -799,15 +905,16 @@ export function ShoppingListSection({
   };
 
   return (
-    <div className="mb-10 rounded-3xl border bg-card p-4 shadow-sm sm:p-8">
+    <div className="mb-10 rounded-3xl border bg-white p-4 shadow-sm sm:p-8">
       <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div className="flex flex-wrap items-center gap-3">
           <h2 className="text-lg font-medium text-foreground sm:text-xl">{sectionName}</h2>
-          <span className="inline-flex items-center justify-center rounded-full border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
+          <span className="inline-flex items-center justify-center rounded-full border bg-white px-3 py-1 text-xs font-medium text-muted-foreground">
             {items.length} items
           </span>
-          <span className="inline-flex items-center justify-center rounded-full border bg-muted px-3 py-1 text-xs font-medium text-foreground">
-            {sectionTotal.toFixed(2)} {currencySymbol}
+          <span className="inline-flex items-center justify-center rounded-full border bg-white px-3 py-1 text-xs font-medium text-foreground">
+            {getTaxAmountKindLabel(primarySectionAmountKind, organizationTaxSettings)} total:{" "}
+            {primarySectionTotal.toFixed(2)} {currencySymbol}
           </span>
         </div>
         <Button variant="ghost" size="sm" className="self-end rounded-full sm:self-auto" onClick={() => setShowAddForm((current) => !current)}>
@@ -816,7 +923,7 @@ export function ShoppingListSection({
       </div>
 
       {showAddForm ? (
-        <div className="mb-8 rounded-3xl border bg-muted/40 p-6">
+        <div className="mb-8 rounded-3xl border bg-white p-6">
           <AddItemForm
             projectId={projectId}
             teamId={teamId}

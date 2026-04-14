@@ -8,6 +8,9 @@ import {
   buildCreateSurveyPayload,
   buildUpdateSurveyPayload,
 } from "@/lib/assistant/chatkitSurveyPayload";
+import {
+  extractShoppingRealizationStatus,
+} from "@/lib/assistant/normalizeShoppingRealizationStatus";
 import { apiAny } from "@/lib/convexApiAny";
 
 type ToolCall = {
@@ -590,22 +593,6 @@ function asTaskPriority(
   value: unknown,
 ): "low" | "medium" | "high" | "urgent" | undefined {
   if (value === "low" || value === "medium" || value === "high" || value === "urgent") {
-    return value;
-  }
-  return undefined;
-}
-
-function asShoppingStatus(
-  value: unknown,
-): "PLANNED" | "ORDERED" | "IN_TRANSIT" | "DELIVERED" | "COMPLETED" | "CANCELLED" | undefined {
-  if (
-    value === "PLANNED" ||
-    value === "ORDERED" ||
-    value === "IN_TRANSIT" ||
-    value === "DELIVERED" ||
-    value === "COMPLETED" ||
-    value === "CANCELLED"
-  ) {
     return value;
   }
   return undefined;
@@ -1405,8 +1392,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 dimensions: asNonEmptyString(item.dimensions),
                 unitPrice: asNumber(item.unitPrice) ?? asNumber(item.price),
                 setId: asNonEmptyString(item.setId),
-                realizationStatus:
-                  asShoppingStatus(item.realizationStatus) ?? "PLANNED",
+                realizationStatus: extractShoppingRealizationStatus(item) ?? "PLANNED",
                 sectionId: asNonEmptyString(item.sectionId) ?? null,
                 assignedTo: asNonEmptyString(item.assignedTo),
               });
@@ -1476,7 +1462,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                   updates.setId = setId;
                 }
               }
-              const realizationStatus = asShoppingStatus(item.realizationStatus);
+              const realizationStatus = extractShoppingRealizationStatus(item);
               if (realizationStatus !== undefined) {
                 updates.realizationStatus = realizationStatus;
               }
@@ -1493,7 +1479,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 return {
                   ok: false,
                   error:
-                    "No valid shopping item update fields were provided. Use at least one editable field such as notes, quantity, unitPrice, supplier, status, sectionId, or assignedTo.",
+                    "No valid shopping item update fields were provided. Use at least one editable field such as notes, quantity, unitPrice, supplier, status or realizationStatus, sectionId, or assignedTo.",
                 };
               }
 
@@ -2267,14 +2253,14 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               productLink,
               supplier,
               catalogNumber: asNonEmptyString(params.catalogNumber),
-              category: asNonEmptyString(params.category),
-              dimensions: asNonEmptyString(params.dimensions),
-              unitPrice,
-              setId: asNonEmptyString(params.setId),
-              realizationStatus: asShoppingStatus(params.realizationStatus) ?? "PLANNED",
-              sectionId: asNonEmptyString(params.sectionId) ?? null,
-              assignedTo: asNonEmptyString(params.assignedTo),
-            });
+                category: asNonEmptyString(params.category),
+                dimensions: asNonEmptyString(params.dimensions),
+                unitPrice,
+                setId: asNonEmptyString(params.setId),
+                realizationStatus: extractShoppingRealizationStatus(params) ?? "PLANNED",
+                sectionId: asNonEmptyString(params.sectionId) ?? null,
+                assignedTo: asNonEmptyString(params.assignedTo),
+              });
 
             return {
               ok: true,
@@ -2353,7 +2339,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               if (setId !== undefined) updates.setId = setId;
             }
 
-            const realizationStatus = asShoppingStatus(params.realizationStatus);
+            const realizationStatus = extractShoppingRealizationStatus(params);
             if (realizationStatus !== undefined) updates.realizationStatus = realizationStatus;
 
             if (params.sectionId === null) {
@@ -2370,7 +2356,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               return {
                 ok: false,
                 error:
-                  "No valid shopping item update fields were provided. Use at least one editable field such as notes, quantity, unitPrice, supplier, status, sectionId, or assignedTo.",
+                  "No valid shopping item update fields were provided. Use at least one editable field such as notes, quantity, unitPrice, supplier, status or realizationStatus, sectionId, or assignedTo.",
               };
             }
 

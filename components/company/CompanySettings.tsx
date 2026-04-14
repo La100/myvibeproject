@@ -32,8 +32,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { TimezonePicker } from "@/components/ui/timezone-picker";
 import { Badge } from "@/components/ui/badge";
@@ -44,6 +46,10 @@ import {
   GEMINI_FLASH_IMAGE_TYPICAL_CREDITS,
   formatTokens,
 } from "@/lib/aiPricing";
+import {
+  DEFAULT_ORGANIZATION_TAX_SETTINGS,
+  type OrganizationPriceDisplay,
+} from "@/lib/organizationTax";
 import { cn } from "@/lib/utils";
 
 type BillingProfileForm = {
@@ -142,9 +148,17 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
   const [teamSettings, setTeamSettings] = useState<{
     currency: "USD" | "EUR" | "PLN" | "GBP" | "CAD" | "AUD" | "JPY" | "CHF" | "SEK" | "NOK" | "DKK" | "CZK" | "HUF" | "CNY" | "INR" | "BRL" | "MXN" | "KRW" | "SGD" | "HKD";
     timezone: string;
+    taxEnabled: boolean;
+    taxRate: string;
+    taxLabel: string;
+    priceDisplay: OrganizationPriceDisplay;
   }>({
     currency: "PLN",
     timezone: "UTC",
+    taxEnabled: DEFAULT_ORGANIZATION_TAX_SETTINGS.taxEnabled,
+    taxRate: String(DEFAULT_ORGANIZATION_TAX_SETTINGS.taxRate),
+    taxLabel: DEFAULT_ORGANIZATION_TAX_SETTINGS.taxLabel,
+    priceDisplay: DEFAULT_ORGANIZATION_TAX_SETTINGS.priceDisplay,
   });
   const [organizationImagePreviewUrl, setOrganizationImagePreviewUrl] = useState("");
   const [organizationImageFile, setOrganizationImageFile] = useState<File | null>(null);
@@ -204,6 +218,19 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
       setTeamSettings({
         currency: (teamData.currency as "USD" | "EUR" | "PLN" | "GBP" | "CAD" | "AUD" | "JPY" | "CHF" | "SEK" | "NOK" | "DKK" | "CZK" | "HUF" | "CNY" | "INR" | "BRL" | "MXN" | "KRW" | "SGD" | "HKD") || "PLN",
         timezone: teamData.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+        taxEnabled:
+          teamData.organizationTaxSettings?.taxEnabled ??
+          DEFAULT_ORGANIZATION_TAX_SETTINGS.taxEnabled,
+        taxRate: String(
+          teamData.organizationTaxSettings?.taxRate ??
+            DEFAULT_ORGANIZATION_TAX_SETTINGS.taxRate,
+        ),
+        taxLabel:
+          teamData.organizationTaxSettings?.taxLabel ??
+          DEFAULT_ORGANIZATION_TAX_SETTINGS.taxLabel,
+        priceDisplay:
+          (teamData.organizationTaxSettings?.priceDisplay as OrganizationPriceDisplay) ??
+          DEFAULT_ORGANIZATION_TAX_SETTINGS.priceDisplay,
       });
       if (!organizationImageFile) {
         setOrganizationImagePreviewUrl(resolvedOrganizationImageUrl);
@@ -342,10 +369,21 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
   const handleSaveTeamSettings = async () => {
     setSavingPreferences(true);
     try {
+      const normalizedTaxRate = Math.min(
+        Math.max(Number.parseFloat(teamSettings.taxRate || "0") || 0, 0),
+        100,
+      );
+
       await updateTeamSettings({
         teamId: teamData.teamId,
         currency: teamSettings.currency,
         timezone: teamSettings.timezone,
+        organizationTaxSettings: {
+          taxEnabled: teamSettings.taxEnabled,
+          taxRate: normalizedTaxRate,
+          taxLabel: teamSettings.taxLabel.trim() || DEFAULT_ORGANIZATION_TAX_SETTINGS.taxLabel,
+          priceDisplay: teamSettings.priceDisplay,
+        },
       });
       toast.success("Preferences updated successfully");
     } catch (error) {
@@ -1215,7 +1253,7 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
               <div className="flex flex-col gap-1">
                 <h2 className="text-lg font-medium">Regional Settings</h2>
                 <p className="text-sm text-muted-foreground">
-                  Configure your currency and timezone preferences.
+                  Configure currency, timezone, and organization-wide tax presentation.
                 </p>
               </div>
 
@@ -1269,6 +1307,155 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                 <CardFooter className="flex items-center justify-between border-t border-border/40 bg-muted/30 px-6 py-4">
                   <p className="text-xs text-muted-foreground">
                     Changes apply to all new projects and AI date handling.
+                  </p>
+                  <Button
+                    onClick={handleSaveTeamSettings}
+                    disabled={savingPreferences}
+                    className="min-w-[100px]"
+                  >
+                    {savingPreferences ? (
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
+                    ) : (
+                      <>
+                        <Check data-icon="inline-start" />
+                        Save Changes
+                      </>
+                    )}
+                  </Button>
+                </CardFooter>
+              </Card>
+
+              <Card className="border-border/40 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base font-medium">
+                    <Coins className="h-4 w-4 text-primary" />
+                    Tax & Price Display
+                  </CardTitle>
+                  <CardDescription>
+                    Prices stay stored as net amounts. These settings control how shopping lists,
+                    customer portal views, and exports render net, tax, and gross values.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-6">
+                  <div className="flex items-start justify-between gap-4 rounded-2xl border border-border/60 bg-muted/20 px-4 py-4">
+                    <div className="space-y-1">
+                      <Label htmlFor="organization-tax-enabled" className="text-sm font-medium">
+                        Enable tax calculations
+                      </Label>
+                      <p className="text-sm text-muted-foreground">
+                        Turn this on when customer-facing totals should include tax.
+                      </p>
+                    </div>
+                    <Switch
+                      id="organization-tax-enabled"
+                      checked={teamSettings.taxEnabled}
+                      onCheckedChange={(checked) =>
+                        setTeamSettings((current) => ({
+                          ...current,
+                          taxEnabled: checked,
+                        }))
+                      }
+                    />
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-2">
+                      <Label htmlFor="organization-tax-label">Tax label</Label>
+                      <Input
+                        id="organization-tax-label"
+                        value={teamSettings.taxLabel}
+                        onChange={(event) =>
+                          setTeamSettings((current) => ({
+                            ...current,
+                            taxLabel: event.target.value,
+                          }))
+                        }
+                        placeholder="Tax"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Examples: VAT, Sales Tax, GST.
+                      </p>
+                    </div>
+
+                    <div className="grid gap-2">
+                      <Label htmlFor="organization-tax-rate">Tax rate (%)</Label>
+                      <Input
+                        id="organization-tax-rate"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        value={teamSettings.taxRate}
+                        onChange={(event) =>
+                          setTeamSettings((current) => ({
+                            ...current,
+                            taxRate: event.target.value,
+                          }))
+                        }
+                        placeholder="0"
+                        disabled={!teamSettings.taxEnabled}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Used for gross totals in shopping lists, portal views, CSV, and PDF.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3">
+                    <Label>Price display</Label>
+                    <RadioGroup
+                      value={teamSettings.priceDisplay}
+                      onValueChange={(value) =>
+                        setTeamSettings((current) => ({
+                          ...current,
+                          priceDisplay: value as OrganizationPriceDisplay,
+                        }))
+                      }
+                      className="grid gap-3 md:grid-cols-3"
+                    >
+                      {[
+                        {
+                          value: "net",
+                          label: "Net only",
+                          description: "Show net amounts only.",
+                        },
+                        {
+                          value: "gross",
+                          label: "Gross only",
+                          description: "Show totals including tax.",
+                        },
+                        {
+                          value: "both",
+                          label: "Net, tax, gross",
+                          description: "Show the full breakdown everywhere.",
+                        },
+                      ].map((option) => (
+                        <label
+                          key={option.value}
+                          className={cn(
+                            "flex cursor-pointer items-start gap-3 rounded-2xl border px-4 py-4 transition-colors",
+                            teamSettings.priceDisplay === option.value
+                              ? "border-primary bg-primary/[0.05]"
+                              : "border-border/60 bg-background",
+                          )}
+                        >
+                          <RadioGroupItem value={option.value} className="mt-0.5" />
+                          <div className="space-y-1">
+                            <div className="text-sm font-medium text-foreground">
+                              {option.label}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {option.description}
+                            </p>
+                          </div>
+                        </label>
+                      ))}
+                    </RadioGroup>
+                  </div>
+                </CardContent>
+                <CardFooter className="flex items-center justify-between border-t border-border/40 bg-muted/30 px-6 py-4">
+                  <p className="text-xs text-muted-foreground">
+                    Stored item prices remain net. Display mode affects shopping list, portal, CSV, and PDF.
                   </p>
                   <Button
                     onClick={handleSaveTeamSettings}

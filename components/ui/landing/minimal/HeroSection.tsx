@@ -184,9 +184,9 @@ export function HeroSection() {
               asChild
               className="h-9 rounded-full bg-foreground px-4 text-sm font-medium text-background hover:bg-foreground/92"
             >
-              <Link href="/sign-up">
+              <Link href="/sign-in">
                 <Sparkles className="mr-2 h-4 w-4" />
-                Download
+                Sign in
               </Link>
             </Button>
           </SignedOut>
@@ -332,6 +332,27 @@ export function HeroSection() {
 
                         {stage >= 4 ? (
                           <div
+                            key={`${cycle}-message-blueprint-preview`}
+                            className="hero-chatkit-enter overflow-hidden rounded-2xl border border-black/8 bg-white/78 shadow-[0_14px_30px_rgba(28,24,19,0.06)] sm:max-w-[88%]"
+                          >
+                            <div className="relative aspect-[2.1/1]">
+                              <Image
+                                src={generatedOutputs[0].src}
+                                alt={generatedOutputs[0].title}
+                                fill
+                                className="object-cover"
+                                quality={72}
+                                sizes="(max-width: 1023px) 88vw, 620px"
+                              />
+                            </div>
+                            <div className="border-t border-black/8 px-3 py-2 text-[11px] font-medium text-foreground/70">
+                              {generatedOutputs[0].title}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {stage >= 4 ? (
+                          <div
                             key={`${cycle}-message-revision`}
                             className="hero-chatkit-enter ml-auto max-w-[92%] rounded-[24px] bg-[#f4ede3] px-4 py-3 text-[13px] leading-relaxed text-foreground shadow-[0_18px_40px_rgba(28,24,19,0.08)] sm:max-w-[72%]"
                           >
@@ -355,22 +376,6 @@ export function HeroSection() {
                             key={`${cycle}-message-outputs`}
                             className="hero-chatkit-enter grid gap-2 pt-1 sm:max-w-[88%] sm:grid-cols-2"
                           >
-                            <div className="overflow-hidden rounded-2xl border border-black/8 bg-white/78 shadow-[0_14px_30px_rgba(28,24,19,0.06)] sm:col-span-2">
-                              <div className="relative aspect-[2.1/1]">
-                                <Image
-                                  src={generatedOutputs[0].src}
-                                  alt={generatedOutputs[0].title}
-                                  fill
-                                  className="object-cover"
-                                  quality={72}
-                                  sizes="(max-width: 1023px) 88vw, 620px"
-                                />
-                              </div>
-                              <div className="border-t border-black/8 px-3 py-2 text-[11px] font-medium text-foreground/70">
-                                {generatedOutputs[0].title}
-                              </div>
-                            </div>
-
                             {generatedOutputs.slice(1).map((output) => (
                               <div
                                 key={output.title}

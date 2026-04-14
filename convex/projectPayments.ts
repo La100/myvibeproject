@@ -566,13 +566,13 @@ export const getProjectPaymentsByAccessToken = query({
     if (!project) {
       return null;
     }
+    if (project.clientPanelPublishedSettings?.showPayments !== true) {
+      return null;
+    }
 
-    const installments = await listInstallmentsForProject(ctx, project._id);
     return {
       customer: resolveProjectCustomerDetails(project),
-      installments: installments
-        .filter((installment: any) => installment.status !== "void" && installment.status !== "draft")
-        .map(toPublicInstallment),
+      installments: project.clientPanelPublishedSnapshot?.payments ?? [],
     };
   },
 });

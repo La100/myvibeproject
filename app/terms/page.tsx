@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-const LAST_UPDATED = "March 12, 2026";
+const LAST_UPDATED = "April 14, 2026";
 
 const sections = [
   {
@@ -24,6 +24,8 @@ const sections = [
     title: "3. The Service We Provide",
     body: [
       "MyVibeProject is a SaaS workspace built for architectural and project-delivery teams. Features may include project tracking, tasks, schedules, contacts, shopping lists, labor tracking, estimates, invoices, client collaboration, file storage, AI assistance, and image or visualization generation.",
+      "The MyVibeProject Web Clipper browser extension is an optional companion feature that helps signed-in users collect product information from the currently viewed merchant or product page and save it into MyVibeProject shopping lists.",
+      "When you actively launch the extension on a page, it may read visible page information such as product title, price, URL, image, and other product-related metadata, and it may allow you to select an image or a visible screen area for upload as part of the item you choose to save.",
       "We may improve, add, remove, or modify features from time to time. If a change materially reduces core functionality of a paid plan during an active billing period, we will use commercially reasonable efforts to provide advance notice.",
       "Some features may be marked beta, preview, experimental, or subject to usage caps. Those features may change more frequently and may be unavailable from time to time.",
     ],
@@ -44,6 +46,7 @@ const sections = [
       "As between you and MyVibeProject, you retain ownership of the files, project data, notes, contact records, images, prompts, and other content you submit or store in the Service (\"Customer Data\").",
       "You grant us a limited, non-exclusive license to host, copy, process, transmit, display, and back up Customer Data solely as necessary to operate, secure, improve, and support the Service.",
       "You are responsible for ensuring that you have all rights, permissions, notices, and legal bases needed to upload Customer Data, invite collaborators, and share client-facing content through the Service.",
+      "If you use the Web Clipper to collect information from third-party websites, you are responsible for ensuring that you are permitted to collect, store, and use that information, including product images, descriptions, supplier details, and linked page content.",
       "You must not upload unlawful content, malware, deceptive material, or content that infringes intellectual property, privacy, confidentiality, or other third-party rights.",
     ],
   },
@@ -61,6 +64,7 @@ const sections = [
     body: [
       "You may not use the Service to violate any law, infringe rights, harass others, distribute spam, interfere with security, bypass access controls, scrape the Service at scale, probe for vulnerabilities, or disrupt the platform.",
       "You may not resell, sublicense, or provide unauthorized third-party access to the Service except through features expressly intended for collaboration, client panels, or invited users.",
+      "You may not use the Web Clipper or any other part of the Service to harvest data in bulk, capture non-public content without authorization, monitor browsing unrelated to the clipper workflow, or collect content from websites in violation of their terms or applicable law.",
       "You may not use the Service to store or transmit sensitive regulated data unless the Service expressly supports that use and you have completed your own legal and security review.",
     ],
   },

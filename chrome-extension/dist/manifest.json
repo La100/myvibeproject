@@ -1,30 +1,17 @@
 {
   "manifest_version": 3,
   "name": "MyVibeProject Web Clipper",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Web clipper for MyVibeProject shopping lists",
   "permissions": [
-    "tabs",
     "activeTab",
     "storage",
     "scripting",
     "commands"
   ],
   "host_permissions": [
-    "http://*/*",
-    "https://*/*"
-  ],
-  "content_scripts": [
-    {
-      "matches": [
-        "http://*/*",
-        "https://*/*"
-      ],
-      "js": [
-        "content.js"
-      ],
-      "run_at": "document_idle"
-    }
+    "https://myvibeproject.com/*",
+    "https://www.myvibeproject.com/*"
   ],
   "background": {
     "service_worker": "background.js",

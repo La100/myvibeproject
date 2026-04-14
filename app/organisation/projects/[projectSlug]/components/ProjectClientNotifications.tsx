@@ -120,20 +120,30 @@ export function ProjectClientNotifications({
               const itemName =
                 typeof details.itemName === "string" && details.itemName.length > 0
                   ? details.itemName
-                  : "shopping item";
+                  : "item";
               const surveyTitle =
                 typeof details.surveyTitle === "string" && details.surveyTitle.length > 0
                   ? details.surveyTitle
                   : "survey";
-              const isDecision = activity.actionType === "shopping.customer.decision";
+              const isDecision =
+                activity.actionType === "shopping.customer.decision" ||
+                activity.actionType === "labor.customer.decision";
+              const isCommentOnlyFeedback =
+                activity.actionType === "shopping.customer.feedback" ||
+                activity.actionType === "labor.customer.feedback";
+              const isSurveySubmission = activity.actionType === "survey.response.submit";
+              const comment =
+                typeof details.comment === "string" && details.comment.trim().length > 0
+                  ? details.comment.trim()
+                  : null;
               const isAccepted = details.decision === "accepted";
               const notificationTone = isDecision
                 ? isAccepted
-                  ? "border-primary/20 bg-primary/5"
+                  ? "border-emerald-500/25 bg-emerald-500/8"
                   : "border-destructive/20 bg-destructive/5"
                 : "border-border bg-muted/40";
               const statusTone = isAccepted
-                ? "border-primary/20 bg-primary/10 text-primary"
+                ? "border-emerald-500/30 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
                 : "border-destructive/20 bg-destructive/10 text-destructive";
 
               return (
@@ -147,28 +157,44 @@ export function ProjectClientNotifications({
                   <div className="flex min-w-0 items-start gap-2">
                     {isDecision ? (
                       isAccepted ? (
-                        <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
                       ) : (
                         <XCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-destructive" />
                       )
+                    ) : isCommentOnlyFeedback ? (
+                      <ClipboardList className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
                     ) : (
                       <ClipboardList className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
                     )}
-                    <p className="text-sm leading-6 text-foreground">
+                    <div className="min-w-0">
+                      <p className="text-sm leading-6 text-foreground">
                       {isDecision ? (
                         <>
                           <span className="font-medium">{actorName}</span>{" "}
                           {isAccepted ? "accepted" : "rejected"}{" "}
                           <span className="font-medium">"{itemName}"</span> in client portal
                         </>
-                      ) : (
+                      ) : isCommentOnlyFeedback ? (
+                        <>
+                          <span className="font-medium">{actorName}</span> left a comment on{" "}
+                          <span className="font-medium">"{itemName}"</span> in client portal
+                        </>
+                      ) : isSurveySubmission ? (
                         <>
                           <span className="font-medium">{actorName}</span>{" "}
                           submitted survey{" "}
                           <span className="font-medium">"{surveyTitle}"</span> in client portal
                         </>
+                      ) : (
+                        <>{activity.actionType}</>
                       )}
-                    </p>
+                      </p>
+                      {isCommentOnlyFeedback && comment ? (
+                        <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+                          {comment}
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
                   <div className="text-right text-xs text-muted-foreground">
                     {isDecision ? (

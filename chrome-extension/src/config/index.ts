@@ -7,7 +7,7 @@ export const CONFIG: ExtensionConfig = {
   API_BASE: `${MAIN_APP_URL}/api`,
   MAIN_APP_URL,
   EXTENSION_ID: chrome.runtime?.id ?? "",
-  VERSION: "3.0.0",
+  VERSION: "3.0.1",
 }
 
 export type { ExtensionConfig }

@@ -8,6 +8,157 @@ import {
   paymentCustomerDetailsValidator,
 } from "./projectPaymentHelpers";
 
+const clientPanelPublishedTaskValidator = v.object({
+  _id: v.id("tasks"),
+  title: v.string(),
+  description: v.optional(v.string()),
+  status: v.union(
+    v.literal("todo"),
+    v.literal("in_progress"),
+    v.literal("review"),
+    v.literal("done"),
+  ),
+  priority: v.optional(v.union(
+    v.literal("low"),
+    v.literal("medium"),
+    v.literal("high"),
+    v.literal("urgent"),
+    v.null(),
+  )),
+  startDate: v.optional(v.number()),
+  endDate: v.optional(v.number()),
+});
+
+const clientPanelPublishedLaborItemValidator = v.object({
+  _id: v.id("laborItems"),
+  name: v.string(),
+  notes: v.optional(v.string()),
+  sectionId: v.optional(v.union(v.id("laborSections"), v.null())),
+  quantity: v.number(),
+  unit: v.string(),
+  unitPrice: v.optional(v.number()),
+  totalPrice: v.optional(v.number()),
+  assignedTo: v.optional(v.string()),
+  referenceLink: v.optional(v.union(v.string(), v.null())),
+  attachmentFileId: v.optional(v.union(v.id("files"), v.null())),
+  startDate: v.optional(v.number()),
+  endDate: v.optional(v.number()),
+  customerDecision: v.optional(
+    v.union(v.literal("accepted"), v.literal("rejected"), v.null()),
+  ),
+  customerDecisionComment: v.optional(v.union(v.string(), v.null())),
+  customerDecisionUpdatedAt: v.optional(v.number()),
+  customerDecisionByName: v.optional(v.union(v.string(), v.null())),
+});
+
+const clientPanelPublishedLaborSectionValidator = v.object({
+  _id: v.id("laborSections"),
+  name: v.string(),
+  order: v.number(),
+});
+
+const clientPanelPublishedContactValidator = v.object({
+  _id: v.id("contacts"),
+  name: v.string(),
+  companyName: v.optional(v.string()),
+  email: v.optional(v.string()),
+  phone: v.optional(v.string()),
+  type: v.union(
+    v.literal("contractor"),
+    v.literal("supplier"),
+    v.literal("subcontractor"),
+    v.literal("other"),
+  ),
+  website: v.optional(v.string()),
+  projectRole: v.optional(v.string()),
+  projectNotes: v.optional(v.string()),
+});
+
+const clientPanelPublishedPaymentValidator = v.object({
+  _id: v.id("projectPayments"),
+  title: v.string(),
+  description: v.optional(v.string()),
+  amount: v.number(),
+  currency: v.string(),
+  dueDate: v.optional(v.number()),
+  status: v.union(
+    v.literal("draft"),
+    v.literal("open"),
+    v.literal("paid"),
+    v.literal("void"),
+    v.literal("uncollectible"),
+  ),
+  invoiceNumber: v.optional(v.string()),
+  hasInvoicePdf: v.boolean(),
+  paymentReference: v.optional(v.string()),
+  bankAccountHolder: v.optional(v.string()),
+  bankName: v.optional(v.string()),
+  bankAccountNumber: v.optional(v.string()),
+  bankSwift: v.optional(v.string()),
+  paymentInstructions: v.optional(v.string()),
+  hasOnlinePaymentLink: v.boolean(),
+  canPayOnline: v.boolean(),
+  paidAt: v.optional(v.number()),
+  isOverdue: v.boolean(),
+});
+
+const clientPanelPublishedBudgetSummaryValidator = v.object({
+  currency: v.string(),
+  budget: v.number(),
+  plannedCost: v.number(),
+  committedCost: v.number(),
+  actualCost: v.number(),
+  variance: v.number(),
+  projectedVariance: v.number(),
+  utilizationPercent: v.union(v.number(), v.null()),
+  projectedUtilizationPercent: v.union(v.number(), v.null()),
+  breakdown: v.object({
+    shopping: v.object({
+      planned: v.number(),
+      committed: v.number(),
+      actual: v.number(),
+    }),
+    labor: v.object({
+      planned: v.number(),
+      committed: v.number(),
+      actual: v.number(),
+    }),
+  }),
+  clientFunding: v.object({
+    acceptedEstimations: v.number(),
+    pipelineEstimations: v.number(),
+    scheduledPayments: v.number(),
+    collectedPayments: v.number(),
+    outstandingPayments: v.number(),
+  }),
+  milestones: v.object({
+    count: v.number(),
+    budgetAllocated: v.number(),
+  }),
+  alerts: v.array(v.object({
+    severity: v.union(v.literal("high"), v.literal("medium")),
+    label: v.string(),
+  })),
+});
+
+const organizationTaxSettingsValidator = v.object({
+  taxEnabled: v.optional(v.boolean()),
+  taxRate: v.optional(v.number()),
+  taxLabel: v.optional(v.string()),
+  priceDisplay: v.optional(
+    v.union(v.literal("net"), v.literal("gross"), v.literal("both")),
+  ),
+});
+
+const clientPanelPublishedSnapshotValidator = v.object({
+  tasks: v.array(clientPanelPublishedTaskValidator),
+  labor: v.array(clientPanelPublishedLaborItemValidator),
+  laborSections: v.array(clientPanelPublishedLaborSectionValidator),
+  contacts: v.array(clientPanelPublishedContactValidator),
+  payments: v.array(clientPanelPublishedPaymentValidator),
+  budgetSummary: v.optional(clientPanelPublishedBudgetSummaryValidator),
+});
+
 // The schema is entirely optional.
 // You can delete this file (schema.ts) and the
 // app will continue to work.
@@ -98,6 +249,7 @@ export default defineSchema({
     stripeConnectLastSyncedAt: v.optional(v.number()),
     billingProfile: v.optional(billingProfileValidator),
     invoiceFieldRequirements: v.optional(invoiceFieldRequirementsValidator),
+    organizationTaxSettings: v.optional(organizationTaxSettingsValidator),
   })
     .index("by_clerk_org", ["clerkOrgId"])
     .index("by_slug", ["slug"])
@@ -165,7 +317,11 @@ export default defineSchema({
     // Public, link-only customer panel token.
     clientPanelAccessToken: v.optional(v.string()),
     clientPanelPublishedSettings: v.optional(v.object({
+      // Legacy field kept for backward compatibility with older published portal snapshots.
+      showApprovals: v.optional(v.boolean()),
       showShoppingList: v.optional(v.boolean()),
+      allowShoppingItemDecisions: v.optional(v.boolean()),
+      allowShoppingItemComments: v.optional(v.boolean()),
       showFiles: v.optional(v.boolean()),
       showMoodboard: v.optional(v.boolean()),
       showSurveys: v.optional(v.boolean()),
@@ -180,6 +336,7 @@ export default defineSchema({
     })),
     clientPanelDataVersion: v.optional(v.number()),
     clientPanelDataUpdatedAt: v.optional(v.number()),
+    clientPanelPublishedSnapshot: v.optional(clientPanelPublishedSnapshotValidator),
     paymentCustomerName: v.optional(v.string()),
     paymentCustomerEmail: v.optional(v.string()),
     paymentCustomerDetails: v.optional(paymentCustomerDetailsValidator),
@@ -699,6 +856,12 @@ export default defineSchema({
     teamId: v.id("teams"),
     createdBy: v.string(), // Clerk user ID
     assignedTo: v.optional(v.string()), // Clerk user ID (contractor)
+    customerDecision: v.optional(
+      v.union(v.literal("accepted"), v.literal("rejected"), v.null()),
+    ),
+    customerDecisionComment: v.optional(v.union(v.string(), v.null())),
+    customerDecisionUpdatedAt: v.optional(v.number()),
+    customerDecisionByName: v.optional(v.union(v.string(), v.null())),
     startDate: v.optional(v.number()), // Planned start
     endDate: v.optional(v.number()), // Planned end
     updatedAt: v.optional(v.number()),
@@ -765,6 +928,15 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_task", ["taskId"])
     .index("by_entity", ["entityId", "entityType"]),
+
+  clientNotificationReads: defineTable({
+    projectId: v.id("projects"),
+    teamId: v.id("teams"),
+    clerkUserId: v.string(),
+    lastReadAt: v.number(),
+  })
+    .index("by_project_and_user", ["projectId", "clerkUserId"])
+    .index("by_user", ["clerkUserId"]),
 
   // Surveys
   surveys: defineTable({

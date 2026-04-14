@@ -4,6 +4,7 @@ import { R2 } from "@convex-dev/r2";
 import { components } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { ensureProjectAccess, ensureTeamAccess } from "./authz";
+import { resolveOrganizationTaxSettings } from "../lib/organizationTax";
 const internalAny = require("./_generated/api").internal as any;
 const r2 = new R2(components.r2);
 const normalizeSectionKey = (name: string) => name.trim().toLocaleLowerCase();
@@ -440,8 +441,14 @@ export const getPublicShoppingListByAccessToken = query({
       return null;
     }
 
+    const team = await ctx.db.get(project.teamId);
+
     const settings = {
       showShoppingList: project.clientPanelPublishedSettings?.showShoppingList ?? false,
+      allowShoppingItemDecisions:
+        project.clientPanelPublishedSettings?.allowShoppingItemDecisions ?? true,
+      allowShoppingItemComments:
+        project.clientPanelPublishedSettings?.allowShoppingItemComments ?? true,
       showFiles: project.clientPanelPublishedSettings?.showFiles ?? false,
       showMoodboard: project.clientPanelPublishedSettings?.showMoodboard ?? false,
       showSurveys: project.clientPanelPublishedSettings?.showSurveys ?? false,
@@ -493,142 +500,28 @@ export const getPublicShoppingListByAccessToken = query({
     const visibleFiles = filesWithUrls.filter((file) => !!file.url);
     const moodboardFiles = visibleFiles.filter((file) => !!file.moodboardSection);
     const standardFiles = visibleFiles.filter((file) => !file.moodboardSection);
-    const tasks = settings.showTasks
-      ? await ctx.db
-          .query("tasks")
-          .withIndex("by_project", (q) => q.eq("projectId", project._id))
-          .collect()
-      : [];
-    const laborItems = settings.showLabor
-      ? await ctx.db
-          .query("laborItems")
-          .withIndex("by_project", (q) => q.eq("projectId", project._id))
-          .collect()
-      : [];
-    const laborSections = settings.showLabor
-      ? await ctx.db
-          .query("laborSections")
-          .withIndex("by_project", (q) => q.eq("projectId", project._id))
-          .collect()
-      : [];
-    const projectContactLinks = settings.showContacts
-      ? await ctx.db
-          .query("projectContacts")
-          .withIndex("by_project", (q) => q.eq("projectId", project._id))
-          .filter((q) => q.eq(q.field("isActive"), true))
-          .collect()
-      : [];
-    const contacts = settings.showContacts
-      ? (
-          await Promise.all(
-            projectContactLinks.map(async (link) => {
-              const contact = await ctx.db.get(link.contactId);
-              if (!contact || !contact.isActive) {
-                return null;
-              }
-              return {
-                _id: contact._id,
-                name: contact.name,
-                companyName: contact.companyName,
-                email: contact.email,
-                phone: contact.phone,
-                type: contact.type,
-                website: contact.website,
-                projectRole: link.role,
-                projectNotes: link.notes,
-              };
-            })
-          )
-        ).filter(Boolean)
-      : [];
-
-    const tasksForPortal = tasks
-      .map((task) => ({
-        _id: task._id,
-        title: task.title,
-        description: task.description,
-        status: task.status,
-        priority: task.priority,
-        startDate: task.startDate,
-        endDate: task.endDate,
-      }))
-      .sort((a, b) => {
-        const aDate = a.endDate || a.startDate || 0;
-        const bDate = b.endDate || b.startDate || 0;
-        if (aDate !== bDate) return aDate - bDate;
-        return a.title.localeCompare(b.title);
-      });
-
-    const laborForPortal = laborItems
-      .map((item) => ({
-        _id: item._id,
-        name: item.name,
-        notes: item.notes,
-        sectionId: item.sectionId,
-        quantity: item.quantity,
-        unit: item.unit,
-        unitPrice: item.unitPrice,
-        totalPrice: item.totalPrice,
-        assignedTo: item.assignedTo,
-        referenceLink: item.referenceLink,
-        attachmentFileId: item.attachmentFileId,
-        startDate: item.startDate,
-        endDate: item.endDate,
-      }))
-      .sort((a, b) => {
-        const aDate = a.startDate || a.endDate || 0;
-        const bDate = b.startDate || b.endDate || 0;
-        if (aDate !== bDate) return aDate - bDate;
-        return a.name.localeCompare(b.name);
-      });
-
-    const contactsForPortal = contacts
-      .map((contact) => contact!)
-      .sort((a, b) => a.name.localeCompare(b.name));
-    const payments = settings.showPayments
-      ? await ctx.db
-          .query("projectPayments")
-          .withIndex("by_project_and_order", (q) => q.eq("projectId", project._id))
-          .order("asc")
-          .collect()
-      : [];
-    const paymentsForPortal = settings.showPayments
-      ? payments
-          .filter((payment) => payment.status !== "void" && payment.status !== "draft")
-          .map((payment) => ({
-            _id: payment._id,
-            title: payment.title,
-            description: payment.description,
-            amount: payment.amount,
-            currency: payment.currency,
-            dueDate: payment.dueDate,
-            status: payment.status,
-            invoiceNumber: payment.invoiceNumber || payment.stripeInvoiceNumber,
-            hasInvoicePdf: !!payment.invoicePdfStorageKey,
-            paymentReference: payment.paymentReference,
-            bankAccountHolder: payment.invoiceSellerSnapshot?.bankAccountHolder,
-            bankName: payment.invoiceSellerSnapshot?.bankName,
-            bankAccountNumber: payment.invoiceSellerSnapshot?.bankAccountNumber,
-            bankSwift: payment.invoiceSellerSnapshot?.bankSwift,
-            paymentInstructions: payment.invoiceSellerSnapshot?.paymentInstructions,
-            hasOnlinePaymentLink: Boolean(payment.stripeHostedInvoiceUrl || payment.stripeInvoiceId),
-            canPayOnline:
-              payment.status === "open" && Boolean(payment.stripeHostedInvoiceUrl || payment.stripeInvoiceId),
-            paidAt: payment.paidAt,
-            isOverdue:
-              payment.status === "open" &&
-              typeof payment.dueDate === "number" &&
-              payment.dueDate < Date.now(),
-          }))
-      : [];
+    const publishedSnapshot = project.clientPanelPublishedSnapshot;
+    const tasksForPortal =
+      settings.showTasks && publishedSnapshot ? publishedSnapshot.tasks : [];
+    const laborForPortal =
+      settings.showLabor && publishedSnapshot ? publishedSnapshot.labor : [];
+    const laborSections =
+      settings.showLabor && publishedSnapshot ? publishedSnapshot.laborSections : [];
+    const contactsForPortal =
+      settings.showContacts && publishedSnapshot ? publishedSnapshot.contacts : [];
+    const paymentsForPortal =
+      settings.showPayments && publishedSnapshot ? publishedSnapshot.payments : [];
 
     return {
       project: {
         _id: project._id,
         name: project.name,
         currency: project.currency || "PLN",
-        budget: project.budget,
+        budget: settings.showBudget ? project.budget : undefined,
       },
+      organizationTaxSettings: resolveOrganizationTaxSettings(
+        team?.organizationTaxSettings,
+      ),
       settings,
       version: project.clientPanelDataVersion || 0,
       updatedAt: project.clientPanelDataUpdatedAt || null,
@@ -636,10 +529,10 @@ export const getPublicShoppingListByAccessToken = query({
       items,
       files: settings.showFiles ? standardFiles : [],
       moodboardFiles: settings.showMoodboard ? moodboardFiles : [],
-      tasks: settings.showTasks ? tasksForPortal : [],
-      labor: settings.showLabor ? laborForPortal : [],
-      laborSections: settings.showLabor ? laborSections : [],
-      contacts: settings.showContacts ? contactsForPortal : [],
+      tasks: tasksForPortal,
+      labor: laborForPortal,
+      laborSections,
+      contacts: contactsForPortal,
       payments: paymentsForPortal,
       paymentsPortalAvailable: paymentsForPortal.some((payment) => payment.canPayOnline),
     };
@@ -671,6 +564,9 @@ export const selectShoppingSetItemsByAccessToken = mutation({
     }
     if (project.clientPanelPublishedSettings?.showShoppingList !== true) {
       throw new Error("Shopping list is hidden in this portal");
+    }
+    if (project.clientPanelPublishedSettings?.allowShoppingItemDecisions !== true) {
+      throw new Error("Shopping item decisions are disabled in this portal");
     }
 
     const set = await ctx.db.get(args.setId);
@@ -767,6 +663,15 @@ export const respondToShoppingItemByAccessToken = mutation({
     if (project.clientPanelPublishedSettings?.showShoppingList !== true) {
       throw new Error("Shopping list is hidden in this portal");
     }
+    if (project.clientPanelPublishedSettings?.allowShoppingItemDecisions !== true) {
+      throw new Error("Shopping item decisions are disabled in this portal");
+    }
+    const commentsAllowed =
+      project.clientPanelPublishedSettings?.allowShoppingItemComments !== false;
+    const requestedComment = normalizeClientPortalComment(args.comment);
+    if (!commentsAllowed && requestedComment) {
+      throw new Error("Shopping item comments are disabled in this portal");
+    }
 
     const item = await ctx.db.get(args.itemId);
     if (!item || item.projectId !== project._id) {
@@ -781,7 +686,7 @@ export const respondToShoppingItemByAccessToken = mutation({
       .unique();
 
     const now = Date.now();
-    const normalizedComment = normalizeClientPortalComment(args.comment);
+    const normalizedComment = commentsAllowed ? requestedComment : null;
     const normalizedRespondentName = typeof args.respondentName === "string" ? args.respondentName.trim() : "";
 
     await ctx.db.patch(args.itemId, {
@@ -826,6 +731,113 @@ export const respondToShoppingItemByAccessToken = mutation({
       success: true,
       itemId: args.itemId,
       decision: args.decision,
+      comment: normalizedComment,
+      updatedAt: now,
+    };
+  },
+});
+
+export const saveShoppingItemCommentByAccessToken = mutation({
+  args: {
+    accessToken: v.string(),
+    itemId: v.id("shoppingListItems"),
+    comment: v.optional(v.union(v.string(), v.null())),
+    respondentName: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const token = args.accessToken.trim();
+    if (!token) {
+      throw new Error("Invalid panel link");
+    }
+
+    const project = await ctx.db
+      .query("projects")
+      .withIndex("by_client_panel_access_token", (q) =>
+        q.eq("clientPanelAccessToken", token)
+      )
+      .unique();
+
+    if (!project) {
+      throw new Error("Invalid panel link");
+    }
+    if (project.clientPanelPublishedSettings?.showShoppingList !== true) {
+      throw new Error("Shopping list is hidden in this portal");
+    }
+
+    const item = await ctx.db.get(args.itemId);
+    if (!item || item.projectId !== project._id) {
+      throw new Error("Shopping item not found");
+    }
+
+    const snapshotItem = await ctx.db
+      .query("clientPanelItems")
+      .withIndex("by_project_and_source", (q) =>
+        q.eq("projectId", project._id).eq("sourceItemId", args.itemId),
+      )
+      .unique();
+
+    const now = Date.now();
+    const normalizedComment = normalizeClientPortalComment(args.comment);
+    const normalizedRespondentName =
+      typeof args.respondentName === "string" ? args.respondentName.trim() : "";
+
+    const patch: {
+      customerDecisionComment: string | null;
+      updatedAt: number;
+      customerDecisionUpdatedAt?: number;
+      customerDecisionByName?: string | undefined;
+    } = {
+      customerDecisionComment: normalizedComment,
+      updatedAt: now,
+    };
+
+    if (item.customerDecision) {
+      patch.customerDecisionUpdatedAt = now;
+      patch.customerDecisionByName = normalizedRespondentName || undefined;
+    }
+
+    await ctx.db.patch(args.itemId, patch);
+
+    if (snapshotItem) {
+      await ctx.db.patch(snapshotItem._id, {
+        customerDecisionComment: normalizedComment,
+        ...(item.customerDecision ? { customerDecisionUpdatedAt: now } : {}),
+      });
+    }
+
+    const previousComment = normalizeClientPortalComment(item.customerDecisionComment);
+    const shouldNotifyCommentOnlyFeedback =
+      !item.customerDecision &&
+      normalizedComment !== null &&
+      normalizedComment !== previousComment &&
+      previousComment === null;
+
+    if (shouldNotifyCommentOnlyFeedback) {
+      await logClientPortalShoppingActivity(
+        ctx,
+        { _id: project._id, teamId: project.teamId },
+        "shopping.customer.feedback",
+        String(args.itemId),
+        {
+          actorName: getClientPortalActorName(args.respondentName),
+          itemId: String(args.itemId),
+          itemName: item.name,
+          comment: normalizedComment,
+        },
+      );
+
+      await ctx.scheduler.runAfter(0, internalAny.notifications.sendClientPortalEventEmail, {
+        projectId: project._id,
+        actionType: "shopping.customer.feedback",
+        actorName: getClientPortalActorName(args.respondentName),
+        itemName: item.name,
+        comment: normalizedComment,
+      });
+    }
+
+    return {
+      success: true,
+      itemId: args.itemId,
       comment: normalizedComment,
       updatedAt: now,
     };

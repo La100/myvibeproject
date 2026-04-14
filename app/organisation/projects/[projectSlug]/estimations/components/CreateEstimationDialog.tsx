@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation } from 'convex/react';
 import { apiAny } from '@/lib/convexApiAny';
 import { Id } from '@/convex/_generated/dataModel';
@@ -13,6 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useProject } from '@/components/providers/ProjectProvider';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Spinner } from '@/components/ui/spinner';
 import {
   Dialog,
   DialogContent,
@@ -37,6 +38,7 @@ interface CreateEstimationDialogProps {
   onOpenChange: (open: boolean) => void;
   projectId: Id<"projects">;
   currencySymbol: string;
+  estimationId?: Id<"costEstimations">;
 }
 
 interface ProjectContactOption {
@@ -59,11 +61,13 @@ export function CreateEstimationDialog({
   open,
   onOpenChange,
   projectId,
-  currencySymbol
+  currencySymbol,
+  estimationId,
 }: CreateEstimationDialogProps) {
   const { project } = useProject();
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hydratedEditId, setHydratedEditId] = useState<Id<"costEstimations"> | null>(null);
 
   // Form state
   const [title, setTitle] = useState('');
@@ -93,10 +97,19 @@ export function CreateEstimationDialog({
     open ? { projectId } : "skip"
   );
   const nextNumber = useQuery(apiAny.costEstimations.getNextEstimationNumber, { projectId });
+  const estimationToEdit = useQuery(
+    apiAny.costEstimations.getCostEstimationWithItems,
+    open && estimationId ? { estimationId } : "skip"
+  );
 
   const createEstimation = useMutation(apiAny.costEstimations.createCostEstimation);
+  const updateEstimation = useMutation(apiAny.costEstimations.updateCostEstimation);
+  const isEditMode = Boolean(estimationId);
 
-  const contactOptions = (projectContacts || []) as ProjectContactOption[];
+  const contactOptions = useMemo(
+    () => (projectContacts || []) as ProjectContactOption[],
+    [projectContacts]
+  );
   const primaryProjectContact = contactOptions[0];
   const selectedContact = selectedContactId === MANUAL_CONTACT_VALUE
     ? undefined
@@ -176,31 +189,71 @@ export function CreateEstimationDialog({
     return resolveMaterialCategory(item) === categoryValue;
   });
 
-  // Reset form when dialog opens
+  // Reset form when create dialog opens
   useEffect(() => {
-    if (open) {
-      setStep(1);
-      setTitle('');
-      setLocation('');
-      setPlannedStartDate(undefined);
-      setValidUntil(undefined);
-      setVatPercent(defaultVatPercent);
-      setDiscountPercent(0);
-      setCustomerName('');
-      setCustomerEmail('');
-      setCustomerPhone('');
-      setCustomerAddress('');
-      setSelectedContactId(MANUAL_CONTACT_VALUE);
-      setNotes('');
-      setSelectedLaborIds([]);
-      setSelectedMaterialIds([]);
-      setLaborFilter('all');
-      setMaterialFilter('all');
+    if (!open) {
+      setHydratedEditId(null);
     }
-  }, [defaultVatPercent, open]);
+  }, [open]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || isEditMode) return;
+
+    setStep(1);
+    setTitle('');
+    setLocation('');
+    setPlannedStartDate(undefined);
+    setValidUntil(undefined);
+    setVatPercent(defaultVatPercent);
+    setDiscountPercent(0);
+    setCustomerName('');
+    setCustomerEmail('');
+    setCustomerPhone('');
+    setCustomerAddress('');
+    setSelectedContactId(MANUAL_CONTACT_VALUE);
+    setNotes('');
+    setSelectedLaborIds([]);
+    setSelectedMaterialIds([]);
+    setLaborFilter('all');
+    setMaterialFilter('all');
+    setHydratedEditId(null);
+  }, [defaultVatPercent, isEditMode, open]);
+
+  useEffect(() => {
+    if (!open || !isEditMode || !estimationToEdit) return;
+    if (hydratedEditId === estimationToEdit._id) return;
+
+    setStep(1);
+    setTitle(estimationToEdit.title || '');
+    setLocation(estimationToEdit.location || '');
+    setPlannedStartDate(
+      estimationToEdit.plannedStartDate ? new Date(estimationToEdit.plannedStartDate) : undefined
+    );
+    setValidUntil(
+      estimationToEdit.validUntil ? new Date(estimationToEdit.validUntil) : undefined
+    );
+    setVatPercent(estimationToEdit.vatPercent ?? defaultVatPercent);
+    setDiscountPercent(estimationToEdit.discountPercent ?? 0);
+    setCustomerName(estimationToEdit.customerName || '');
+    setCustomerEmail(estimationToEdit.customerEmail || '');
+    setCustomerPhone(estimationToEdit.customerPhone || '');
+    setCustomerAddress(estimationToEdit.customerAddress || '');
+    setSelectedContactId(
+      estimationToEdit.contactId &&
+        contactOptions.some((contact) => contact._id === estimationToEdit.contactId)
+        ? estimationToEdit.contactId
+        : MANUAL_CONTACT_VALUE
+    );
+    setNotes(estimationToEdit.notes || '');
+    setSelectedLaborIds(estimationToEdit.laborItemIds || []);
+    setSelectedMaterialIds(estimationToEdit.materialItemIds || []);
+    setLaborFilter('all');
+    setMaterialFilter('all');
+    setHydratedEditId(estimationToEdit._id);
+  }, [contactOptions, defaultVatPercent, estimationToEdit, hydratedEditId, isEditMode, open]);
+
+  useEffect(() => {
+    if (!open || isEditMode) return;
 
     if (project?.location) {
       setLocation((prev) => prev || project.location || '');
@@ -229,6 +282,7 @@ export function CreateEstimationDialog({
     defaultCustomerEmail,
     defaultCustomerPhone,
     defaultCustomerAddress,
+    isEditMode,
     primaryProjectContact?._id,
   ]);
 
@@ -308,8 +362,7 @@ export function CreateEstimationDialog({
 
     setIsSubmitting(true);
     try {
-      await createEstimation({
-        projectId,
+      const payload = {
         title: title.trim(),
         location: location.trim() || undefined,
         plannedStartDate: plannedStartDate?.getTime(),
@@ -324,12 +377,24 @@ export function CreateEstimationDialog({
         customerAddress: customerAddress.trim() || undefined,
         contactId: selectedContactId === MANUAL_CONTACT_VALUE ? undefined : selectedContactId,
         notes: notes.trim() || undefined,
-      });
+      };
 
-      toast.success('Estimation created successfully');
+      if (isEditMode && estimationId) {
+        await updateEstimation({
+          estimationId,
+          ...payload,
+        });
+      } else {
+        await createEstimation({
+          projectId,
+          ...payload,
+        });
+      }
+
+      toast.success(isEditMode ? 'Estimation updated successfully' : 'Estimation created successfully');
       onOpenChange(false);
     } catch {
-      toast.error('Failed to create estimation');
+      toast.error(isEditMode ? 'Failed to update estimation' : 'Failed to create estimation');
     } finally {
       setIsSubmitting(false);
     }
@@ -385,15 +450,36 @@ export function CreateEstimationDialog({
     });
   };
 
+  const dialogTitle = isEditMode ? 'Edit Cost Estimation' : 'New Cost Estimation';
+  const summaryNumber = isEditMode ? estimationToEdit?.estimationNumber : nextNumber;
+  const isEditLoading = isEditMode && estimationToEdit === undefined;
+  const isEditMissing = isEditMode && estimationToEdit === null;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle className="text-2xl font-semibold tracking-tight">
-            New Cost Estimation
+            {dialogTitle}
           </DialogTitle>
         </DialogHeader>
 
+        {isEditLoading ? (
+          <div className="flex min-h-80 items-center justify-center">
+            <Spinner className="p-4" />
+          </div>
+        ) : isEditMissing ? (
+          <div className="flex min-h-80 flex-col items-center justify-center gap-3 text-center">
+            <p className="text-lg font-medium">Estimation not found</p>
+            <p className="max-w-md text-sm text-muted-foreground">
+              This estimation could not be loaded. It may have been deleted in another session.
+            </p>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Close
+            </Button>
+          </div>
+        ) : (
+          <>
         <div className="mb-6 flex items-center justify-center gap-2">
           {[1, 2, 3, 4].map((s) => (
             <div key={s} className="flex items-center">
@@ -735,8 +821,8 @@ export function CreateEstimationDialog({
               <CardContent className="flex flex-col gap-2 p-4">
               <div className="flex items-center justify-between">
                 <span className="font-medium">{title || 'Untitled Estimation'}</span>
-                {nextNumber && (
-                  <Badge variant="outline" className="text-xs">#{nextNumber}</Badge>
+                {summaryNumber && (
+                  <Badge variant="outline" className="text-xs">#{summaryNumber}</Badge>
                 )}
               </div>
                 {location && <p className="text-sm text-muted-foreground">{location}</p>}
@@ -791,10 +877,12 @@ export function CreateEstimationDialog({
             </Button>
           ) : (
             <Button onClick={handleSubmit} disabled={isSubmitting}>
-              {isSubmitting ? 'Creating...' : 'Create Estimation'}
+              {isSubmitting ? (isEditMode ? 'Saving...' : 'Creating...') : (isEditMode ? 'Save Changes' : 'Create Estimation')}
             </Button>
           )}
         </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

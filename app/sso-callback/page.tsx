@@ -4,6 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useClerk } from "@clerk/nextjs";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  signInFallbackRedirectUrl,
+  signInUrl,
+  signUpFallbackRedirectUrl,
+  signUpUrl,
+} from "@/lib/authRedirects";
 
 export default function SSOCallbackPage() {
   const router = useRouter();
@@ -32,12 +38,10 @@ export default function SSOCallbackPage() {
     void clerk
       .handleRedirectCallback(
         {
-          signInUrl: "/sign-in",
-          signUpUrl: "/sign-up",
-          signInFallbackRedirectUrl: "/dashboard",
-          signUpFallbackRedirectUrl: "/dashboard",
-          signInForceRedirectUrl: "/dashboard",
-          signUpForceRedirectUrl: "/dashboard",
+          signInUrl,
+          signUpUrl,
+          signInFallbackRedirectUrl,
+          signUpFallbackRedirectUrl,
         },
         async (to) => {
           if (isChooseOrganizationTaskUrl(to)) {

@@ -5,39 +5,38 @@ import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FileSpreadsheetIcon, FileTextIcon } from 'lucide-react';
 
-export type ShoppingListExportOptions = {
+export type LaborListExportOptions = {
   format: 'csv' | 'pdf' | 'xlsx';
   groupBySections: boolean;
   includeNotes: boolean;
-  includeStatus: boolean;
-  includeSupplier: boolean;
+  includeReferenceLink: boolean;
   scope: 'all' | 'currentView';
 };
 
-interface ExportModalProps {
+type LaborExportDialogProps = {
+  exportOptions: LaborListExportOptions;
   isOpen: boolean;
-  onClose: () => void;
-  exportOptions: ShoppingListExportOptions;
-  onExportOptionsChange: (options: ShoppingListExportOptions) => void;
-  onExport: () => void;
   isPending: boolean;
-}
+  onClose: () => void;
+  onExport: () => void;
+  onExportOptionsChange: (options: LaborListExportOptions) => void;
+};
 
-export function ExportModal({ 
-  isOpen, 
-  onClose, 
-  exportOptions, 
-  onExportOptionsChange, 
-  onExport, 
-  isPending 
-}: ExportModalProps) {
+export function LaborExportDialog({
+  exportOptions,
+  isOpen,
+  isPending,
+  onClose,
+  onExport,
+  onExportOptionsChange,
+}: LaborExportDialogProps) {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Export Shopping List</DialogTitle>
+          <DialogTitle>Export Labor List</DialogTitle>
           <DialogDescription>
-            Choose the format and filters for your export.
+            Choose the format, source, and columns for this labor export.
           </DialogDescription>
         </DialogHeader>
 
@@ -48,25 +47,25 @@ export function ExportModal({
               <Button
                 variant={exportOptions.format === 'csv' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => onExportOptionsChange({...exportOptions, format: 'csv'})}
+                onClick={() => onExportOptionsChange({ ...exportOptions, format: 'csv' })}
               >
-                <FileSpreadsheetIcon className="h-4 w-4 mr-1" />
+                <FileSpreadsheetIcon className="mr-1 h-4 w-4" />
                 CSV
               </Button>
               <Button
                 variant={exportOptions.format === 'xlsx' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => onExportOptionsChange({...exportOptions, format: 'xlsx'})}
+                onClick={() => onExportOptionsChange({ ...exportOptions, format: 'xlsx' })}
               >
-                <FileSpreadsheetIcon className="h-4 w-4 mr-1" />
+                <FileSpreadsheetIcon className="mr-1 h-4 w-4" />
                 Excel
               </Button>
               <Button
                 variant={exportOptions.format === 'pdf' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => onExportOptionsChange({...exportOptions, format: 'pdf'})}
+                onClick={() => onExportOptionsChange({ ...exportOptions, format: 'pdf' })}
               >
-                <FileTextIcon className="h-4 w-4 mr-1" />
+                <FileTextIcon className="mr-1 h-4 w-4" />
                 PDF
               </Button>
             </div>
@@ -76,7 +75,9 @@ export function ExportModal({
             <FieldLabel>Data Source</FieldLabel>
             <Select
               value={exportOptions.scope}
-              onValueChange={(value) => onExportOptionsChange({...exportOptions, scope: value as 'all' | 'currentView'})}
+              onValueChange={(value) =>
+                onExportOptionsChange({ ...exportOptions, scope: value as 'all' | 'currentView' })
+              }
             >
               <SelectTrigger>
                 <SelectValue />
@@ -92,29 +93,28 @@ export function ExportModal({
             <label className="flex items-center gap-2 text-sm">
               <Checkbox
                 checked={exportOptions.includeNotes}
-                onCheckedChange={(checked) => onExportOptionsChange({...exportOptions, includeNotes: checked === true})}
+                onCheckedChange={(checked) =>
+                  onExportOptionsChange({ ...exportOptions, includeNotes: checked === true })
+                }
               />
               <span className="text-sm">Include Notes</span>
             </label>
             <label className="flex items-center gap-2 text-sm">
               <Checkbox
-                checked={exportOptions.includeSupplier}
-                onCheckedChange={(checked) => onExportOptionsChange({...exportOptions, includeSupplier: checked === true})}
+                checked={exportOptions.includeReferenceLink}
+                onCheckedChange={(checked) =>
+                  onExportOptionsChange({ ...exportOptions, includeReferenceLink: checked === true })
+                }
               />
-              <span className="text-sm">Include Supplier</span>
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={exportOptions.includeStatus}
-                onCheckedChange={(checked) => onExportOptionsChange({...exportOptions, includeStatus: checked === true})}
-              />
-              <span className="text-sm">Include Status</span>
+              <span className="text-sm">Include Reference Links</span>
             </label>
             {exportOptions.format !== 'csv' ? (
               <label className="flex items-center gap-2 text-sm">
                 <Checkbox
                   checked={exportOptions.groupBySections}
-                  onCheckedChange={(checked) => onExportOptionsChange({...exportOptions, groupBySections: checked === true})}
+                  onCheckedChange={(checked) =>
+                    onExportOptionsChange({ ...exportOptions, groupBySections: checked === true })
+                  }
                 />
                 <span className="text-sm">Group by Sections</span>
               </label>
@@ -123,10 +123,7 @@ export function ExportModal({
         </FieldGroup>
 
         <DialogFooter>
-          <Button
-            onClick={onExport}
-            disabled={isPending}
-          >
+          <Button onClick={onExport} disabled={isPending}>
             {isPending ? 'Exporting...' : `Export ${exportOptions.format.toUpperCase()}`}
           </Button>
           <Button variant="outline" onClick={onClose}>
@@ -136,4 +133,4 @@ export function ExportModal({
       </DialogContent>
     </Dialog>
   );
-} 
+}

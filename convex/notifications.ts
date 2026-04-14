@@ -17,24 +17,45 @@ const escapeHtml = (value: string) =>
     .replace(/'/g, "&#39;");
 
 const buildEmailMessage = (args: {
-  actionType: "shopping.customer.decision" | "survey.response.submit";
+  actionType:
+    | "shopping.customer.decision"
+    | "shopping.customer.feedback"
+    | "labor.customer.decision"
+    | "labor.customer.feedback"
+    | "survey.response.submit";
   actorName?: string;
   projectName: string;
   projectUrl: string;
   itemName?: string;
   surveyTitle?: string;
   decision?: "accepted" | "rejected";
+  comment?: string;
 }) => {
   const actorName = args.actorName?.trim() || "Client";
-  const itemName = args.itemName?.trim() || "shopping item";
+  const itemName = args.itemName?.trim() || "item";
   const surveyTitle = args.surveyTitle?.trim() || "survey";
 
-  if (args.actionType === "shopping.customer.decision") {
+  if (
+    args.actionType === "shopping.customer.decision" ||
+    args.actionType === "labor.customer.decision"
+  ) {
     const decisionLabel = args.decision === "accepted" ? "accepted" : "rejected";
     return {
       subject: `[${args.projectName}] Client ${decisionLabel} "${itemName}"`,
       text: `${actorName} ${decisionLabel} "${itemName}" in client portal for project "${args.projectName}".\n\nOpen notifications: ${args.projectUrl}`,
       html: `<p><strong>${escapeHtml(actorName)}</strong> ${decisionLabel} <strong>"${escapeHtml(itemName)}"</strong> in client portal for project <strong>${escapeHtml(args.projectName)}</strong>.</p><p><a href="${escapeHtml(args.projectUrl)}">Open notifications</a></p>`,
+    };
+  }
+
+  if (
+    args.actionType === "shopping.customer.feedback" ||
+    args.actionType === "labor.customer.feedback"
+  ) {
+    const commentPreview = args.comment?.trim() || "No comment preview available.";
+    return {
+      subject: `[${args.projectName}] Client left a comment on "${itemName}"`,
+      text: `${actorName} left a comment on "${itemName}" in client portal for project "${args.projectName}".\n\nComment: ${commentPreview}\n\nOpen notifications: ${args.projectUrl}`,
+      html: `<p><strong>${escapeHtml(actorName)}</strong> left a comment on <strong>"${escapeHtml(itemName)}"</strong> in client portal for project <strong>${escapeHtml(args.projectName)}</strong>.</p><p><strong>Comment:</strong> ${escapeHtml(commentPreview)}</p><p><a href="${escapeHtml(args.projectUrl)}">Open notifications</a></p>`,
     };
   }
 
@@ -116,12 +137,16 @@ export const sendClientPortalEventEmail = internalAction({
     projectId: v.id("projects"),
     actionType: v.union(
       v.literal("shopping.customer.decision"),
+      v.literal("shopping.customer.feedback"),
+      v.literal("labor.customer.decision"),
+      v.literal("labor.customer.feedback"),
       v.literal("survey.response.submit"),
     ),
     actorName: v.optional(v.string()),
     itemName: v.optional(v.string()),
     surveyTitle: v.optional(v.string()),
     decision: v.optional(v.union(v.literal("accepted"), v.literal("rejected"))),
+    comment: v.optional(v.string()),
   },
   async handler(ctx, args) {
     const resendApiKey = process.env.RESEND_API_KEY;
@@ -150,6 +175,7 @@ export const sendClientPortalEventEmail = internalAction({
       itemName: args.itemName,
       surveyTitle: args.surveyTitle,
       decision: args.decision,
+      comment: args.comment,
     });
 
     let sent = 0;

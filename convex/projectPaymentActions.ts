@@ -934,6 +934,14 @@ export const getProjectPaymentInvoiceDownloadUrlByAccessToken = action({
     if (project.clientPanelPublishedSettings?.showPayments !== true) {
       throw new Error("Payments are hidden in this client portal");
     }
+    const publishedPaymentIds = new Set(
+      (project.clientPanelPublishedSnapshot?.payments ?? []).map((payment: { _id: unknown }) =>
+        String(payment._id),
+      ),
+    );
+    if (!publishedPaymentIds.has(String(args.installmentId))) {
+      throw new Error("This invoice is not available in the published client portal");
+    }
 
     const payload = await loadInvoicePayload(ctx, args.installmentId);
     if (String(payload.project._id) !== String(project._id)) {
@@ -966,6 +974,14 @@ export const getProjectPaymentStripeLinkByAccessToken = action({
     }
     if (project.clientPanelPublishedSettings?.showPayments !== true) {
       throw new Error("Payments are hidden in this client portal");
+    }
+    const publishedPaymentIds = new Set(
+      (project.clientPanelPublishedSnapshot?.payments ?? []).map((payment: { _id: unknown }) =>
+        String(payment._id),
+      ),
+    );
+    if (!publishedPaymentIds.has(String(args.installmentId))) {
+      throw new Error("This payment is not available in the published client portal");
     }
 
     let payload = await loadInvoicePayload(ctx, args.installmentId);

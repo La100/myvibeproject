@@ -1,74 +1,47 @@
 "use client";
 
 import { useEffect } from "react";
-import { useSignIn, useSignUp, useUser } from "@clerk/nextjs";
+import { SignUp, useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { AuthShell } from "@/components/auth/AuthShell";
+import { authClerkAppearance } from "@/lib/authClerkAppearance";
+import {
+  resolveLocalRedirectUrl,
+  signInFallbackRedirectUrl,
+  signInUrl,
+  signUpFallbackRedirectUrl,
+  signUpUrl,
+} from "@/lib/authRedirects";
 
 export default function SignUpPage() {
-  const { signIn } = useSignIn();
-  const { signUp } = useSignUp();
   const { isLoaded, isSignedIn } = useUser();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectUrl = resolveLocalRedirectUrl(
+    searchParams.get("redirect_url"),
+    signUpFallbackRedirectUrl,
+  );
 
   useEffect(() => {
     if (isLoaded && isSignedIn) {
-      router.replace("/dashboard");
+      router.replace(redirectUrl);
     }
-  }, [isLoaded, isSignedIn, router]);
-
-  const handleGoogleSignUp = async () => {
-    if (isSignedIn) {
-      router.replace("/dashboard");
-      return;
-    }
-
-    try {
-      await signUp?.authenticateWithRedirect({
-        strategy: "oauth_google",
-        redirectUrl: "/sso-callback",
-        redirectUrlComplete: "/dashboard",
-
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (message.toLowerCase().includes("already signed in")) {
-        router.replace("/dashboard");
-        return;
-      }
-      console.error("Error signing up with Google:", error);
-    }
-  };
-
-  const handleLogIn = async () => {
-    if (isSignedIn) {
-      router.replace("/dashboard");
-      return;
-    }
-
-    try {
-      await signIn?.authenticateWithRedirect({
-        strategy: "oauth_google",
-        redirectUrl: "/sso-callback",
-        redirectUrlComplete: "/dashboard",
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (message.toLowerCase().includes("already signed in")) {
-        router.replace("/dashboard");
-        return;
-      }
-      console.error("Error signing in with Google:", error);
-    }
-  };
+  }, [isLoaded, isSignedIn, redirectUrl, router]);
 
   return (
-    <AuthShell
-      primaryActionLabel="Sign up"
-      primaryAction={handleGoogleSignUp}
-      secondaryActionLabel="Log in"
-      secondaryAction={handleLogIn}
-      termsVerb="up"
-    />
+    <AuthShell termsVerb="up">
+      <SignUp
+        path={signUpUrl}
+        routing="path"
+        signInUrl={signInUrl}
+        fallbackRedirectUrl={signUpFallbackRedirectUrl}
+        signInFallbackRedirectUrl={signInFallbackRedirectUrl}
+        forceRedirectUrl={null}
+        signInForceRedirectUrl={null}
+        oauthFlow="redirect"
+        appearance={authClerkAppearance}
+      />
+    </AuthShell>
   );
 }

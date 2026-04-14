@@ -7,6 +7,12 @@ import type { CSSProperties } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { Geist, Geist_Mono } from "next/font/google";
 import { cn } from "@/lib/utils";
+import {
+  signInFallbackRedirectUrl,
+  signInUrl,
+  signUpFallbackRedirectUrl,
+  signUpUrl,
+} from "@/lib/authRedirects";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" });
@@ -76,12 +82,10 @@ export default function RootLayout({
       <body className="antialiased">
         <ClerkProvider
           appearance={clerkAppearance}
-          signInUrl="/sign-in"
-          signUpUrl="/sign-up"
-          signInForceRedirectUrl="/dashboard"
-          signUpForceRedirectUrl="/dashboard"
-          signInFallbackRedirectUrl="/dashboard"
-          signUpFallbackRedirectUrl="/dashboard"
+          signInUrl={signInUrl}
+          signUpUrl={signUpUrl}
+          signInFallbackRedirectUrl={signInFallbackRedirectUrl}
+          signUpFallbackRedirectUrl={signUpFallbackRedirectUrl}
           taskUrls={{
             "choose-organization": "/onboarding",
           }}

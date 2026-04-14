@@ -12,6 +12,13 @@ import {
   resolveInvoiceFieldRequirements,
   resolveOrganizationBillingProfile,
 } from "./projectPaymentHelpers";
+import {
+  DEFAULT_ORGANIZATION_TAX_SETTINGS,
+  clampOrganizationTaxRate,
+  normalizeOrganizationPriceDisplay,
+  normalizeOrganizationTaxLabel,
+  resolveOrganizationTaxSettings,
+} from "../lib/organizationTax";
 
 const buildPublicR2FileUrl = (key: string) => {
   const publicBaseUrl = (process.env.NEXT_PUBLIC_R2_PUBLIC_URL || process.env.R2_PUBLIC_URL || "")
@@ -336,6 +343,9 @@ export const getTeamSettingsByClerkOrg = query({
       timezone: team.timezone,
       billingProfile: resolveOrganizationBillingProfile(team.billingProfile, team),
       invoiceFieldRequirements: resolveInvoiceFieldRequirements(team.invoiceFieldRequirements),
+      organizationTaxSettings: resolveOrganizationTaxSettings(
+        team.organizationTaxSettings,
+      ),
       userRole: teamMember.role,
     };
   }
@@ -919,6 +929,19 @@ export const updateTeamSettings = mutation({
     timezone: v.optional(v.string()),
     billingProfile: v.optional(v.union(billingProfileValidator, v.null())),
     invoiceFieldRequirements: v.optional(v.union(invoiceFieldRequirementsValidator, v.null())),
+    organizationTaxSettings: v.optional(
+      v.union(
+        v.object({
+          taxEnabled: v.optional(v.boolean()),
+          taxRate: v.optional(v.number()),
+          taxLabel: v.optional(v.string()),
+          priceDisplay: v.optional(
+            v.union(v.literal("net"), v.literal("gross"), v.literal("both")),
+          ),
+        }),
+        v.null(),
+      ),
+    ),
   },
   async handler(ctx, args) {
     const identity = await ctx.auth.getUserIdentity();
@@ -944,6 +967,7 @@ export const updateTeamSettings = mutation({
       imageUrl?: string | undefined;
       billingProfile?: ReturnType<typeof normalizeBillingProfile>;
       invoiceFieldRequirements?: ReturnType<typeof normalizeInvoiceFieldRequirements>;
+      organizationTaxSettings?: typeof DEFAULT_ORGANIZATION_TAX_SETTINGS;
     } = {};
 
     if (args.currency !== undefined) {
@@ -965,6 +989,23 @@ export const updateTeamSettings = mutation({
 
     if (Object.prototype.hasOwnProperty.call(args, "invoiceFieldRequirements")) {
       patch.invoiceFieldRequirements = normalizeInvoiceFieldRequirements(args.invoiceFieldRequirements);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(args, "organizationTaxSettings")) {
+      const normalizedTaxSettings = args.organizationTaxSettings
+        ? resolveOrganizationTaxSettings({
+            taxEnabled: args.organizationTaxSettings.taxEnabled,
+            taxRate: clampOrganizationTaxRate(args.organizationTaxSettings.taxRate),
+            taxLabel: normalizeOrganizationTaxLabel(
+              args.organizationTaxSettings.taxLabel,
+            ),
+            priceDisplay: normalizeOrganizationPriceDisplay(
+              args.organizationTaxSettings.priceDisplay,
+            ),
+          })
+        : DEFAULT_ORGANIZATION_TAX_SETTINGS;
+
+      patch.organizationTaxSettings = normalizedTaxSettings;
     }
 
     if (Object.keys(patch).length > 0) {

@@ -59,13 +59,15 @@ export function ProjectChangelogSkeleton({ className }: { className?: string }) 
   return <Spinner className={cn("px-4 lg:px-0", className)} />;
 }
 
-const getShoppingDecisionState = (
+const getClientDecisionState = (
   actionType: string,
   details: Record<string, unknown>,
 ): "accepted" | "rejected" | null => {
   if (
     actionType !== "shopping.customer.decision" &&
-    actionType !== "shopping.customer.feedback"
+    actionType !== "shopping.customer.feedback" &&
+    actionType !== "labor.customer.decision" &&
+    actionType !== "labor.customer.feedback"
   ) {
     return null;
   }
@@ -79,12 +81,12 @@ const getShoppingDecisionState = (
 };
 
 const getActivityIcon = (actionType: string, details: Record<string, unknown> = {}) => {
-  const shoppingDecisionState = getShoppingDecisionState(actionType, details);
-  if (shoppingDecisionState === "accepted") {
+  const clientDecisionState = getClientDecisionState(actionType, details);
+  if (clientDecisionState === "accepted") {
     return <CheckCircle2 className="h-4 w-4 text-primary" />;
   }
 
-  if (shoppingDecisionState === "rejected") {
+  if (clientDecisionState === "rejected") {
     return <XCircle className="h-4 w-4 text-destructive" />;
   }
 
@@ -256,6 +258,16 @@ const getActivityDescription = (actionType: string, details: Record<string, unkn
         return `updated labor item "${details.name}"`;
       case "labor.delete":
         return `removed labor item "${details.name}"`;
+      case "labor.customer.feedback":
+        if (details.decision === "accepted") {
+          return `accepted labor item "${details.itemName}" in client portal`;
+        }
+        if (details.decision === "rejected") {
+          return `rejected labor item "${details.itemName}" in client portal`;
+        }
+        return `left a comment for labor item "${details.itemName}" in client portal`;
+      case "labor.customer.decision":
+        return `${details.decision === "accepted" ? "accepted" : "rejected"} labor item "${details.itemName}" in client portal`;
       default:
         return "performed a labor action";
     }
@@ -544,7 +556,7 @@ export function ProjectChangelog({
                       (typeof activity.details?.actorName === "string"
                         ? activity.details.actorName
                         : "Unknown User");
-                    const decisionState = getShoppingDecisionState(
+                    const decisionState = getClientDecisionState(
                       activity.actionType,
                       activity.details ?? {},
                     );

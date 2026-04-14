@@ -150,6 +150,22 @@ export function LaborListSection({
     return member?.name || assignedTo;
   };
 
+  const getCustomerDecisionTone = (decision: LaborItem["customerDecision"] | undefined) => {
+    if (decision === "accepted") {
+      return "border-emerald-500/30 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300";
+    }
+    if (decision === "rejected") {
+      return "border-destructive/20 bg-destructive/10 text-destructive";
+    }
+    return null;
+  };
+
+  const getCustomerDecisionLabel = (decision: LaborItem["customerDecision"] | undefined) => {
+    if (decision === "accepted") return "Accepted";
+    if (decision === "rejected") return "Rejected";
+    return null;
+  };
+
   return (
     <Card className="mb-10 rounded-3xl border bg-card p-4 shadow-sm sm:p-8">
       <CardHeader className="mb-6 flex flex-col justify-between gap-4 px-0 pt-0 sm:flex-row sm:items-center">
@@ -212,82 +228,156 @@ export function LaborListSection({
               </TableHeader>
               <TableBody>
                 {items.map((item) => (
-                  <TableRow key={item._id}>
+                  <TableRow
+                    key={item._id}
+                    className={
+                      item.customerDecision === "accepted"
+                        ? "bg-emerald-500/6"
+                        : item.customerDecision === "rejected"
+                          ? "bg-destructive/5"
+                          : undefined
+                    }
+                  >
                     {editingItemId === item._id ? (
-                      <>
-                        <TableCell>
-                          <Input
-                            value={editFormData.name || ''}
-                            onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
-                            className="h-9 w-full rounded-lg text-sm"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            min="0.01"
-                            step="0.01"
-                            value={editFormData.quantity || 1}
-                            onChange={(e) => setEditFormData({ ...editFormData, quantity: parseFloat(e.target.value) || 1 })}
-                            className="h-9 w-20 rounded-lg text-right text-sm"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={editFormData.unit || defaultLaborUnit}
-                            onValueChange={(value) => setEditFormData({ ...editFormData, unit: value })}
-                          >
-                            <SelectTrigger className="h-9 w-20 rounded-lg text-sm">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {laborUnits.map((unit) => (
-                                <SelectItem key={unit.value} value={unit.value}>
-                                  {unit.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={editFormData.unitPrice || ''}
-                            onChange={(e) => setEditFormData({ ...editFormData, unitPrice: e.target.value })}
-                            className="h-9 w-28 rounded-lg text-right text-sm"
-                          />
-                        </TableCell>
-                        <TableCell className="text-right text-sm font-medium text-foreground">
-                          {((editFormData.quantity || 0) * (parseFloat(editFormData.unitPrice || '0') || 0)).toFixed(2)} {currencySymbol}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0 text-primary hover:bg-primary/10 hover:text-primary"
-                              onClick={() => handleSaveEdit(item._id)}
-                              disabled={isPending}
-                            >
-                              <SaveIcon className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0 text-muted-foreground"
-                              onClick={handleCancelEdit}
-                            >
-                              <XIcon className="h-4 w-4" />
-                            </Button>
+                      <TableCell colSpan={6} className="bg-muted/20 p-4">
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                          <div className="space-y-1.5 xl:col-span-2">
+                            <p className="text-xs font-medium text-muted-foreground">Work Description</p>
+                            <Input
+                              value={editFormData.name || ''}
+                              onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                              className="h-10 rounded-lg text-sm"
+                            />
                           </div>
-                        </TableCell>
-                      </>
+                          <div className="space-y-1.5">
+                            <p className="text-xs font-medium text-muted-foreground">Section</p>
+                            <Select
+                              value={editFormData.sectionId || 'none'}
+                              onValueChange={(value) => setEditFormData({ ...editFormData, sectionId: value })}
+                            >
+                              <SelectTrigger className="h-10 rounded-lg text-sm">
+                                <SelectValue placeholder="Select section" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">No Category</SelectItem>
+                                {sections.map((section) => (
+                                  <SelectItem key={section._id} value={section._id}>
+                                    {section.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1.5">
+                            <p className="text-xs font-medium text-muted-foreground">Assign To</p>
+                            <Select
+                              value={editFormData.assignedTo || 'none'}
+                              onValueChange={(value) => setEditFormData({ ...editFormData, assignedTo: value })}
+                            >
+                              <SelectTrigger className="h-10 rounded-lg text-sm">
+                                <SelectValue placeholder="Select contractor" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">Unassigned</SelectItem>
+                                {teamMembers?.map((member) => (
+                                  <SelectItem key={member.clerkUserId} value={member.clerkUserId}>
+                                    {member.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1.5">
+                            <p className="text-xs font-medium text-muted-foreground">Quantity</p>
+                            <Input
+                              type="number"
+                              min="0.01"
+                              step="0.01"
+                              value={editFormData.quantity || 1}
+                              onChange={(e) => setEditFormData({ ...editFormData, quantity: parseFloat(e.target.value) || 1 })}
+                              className="h-10 rounded-lg text-sm"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <p className="text-xs font-medium text-muted-foreground">Unit</p>
+                            <Select
+                              value={editFormData.unit || defaultLaborUnit}
+                              onValueChange={(value) => setEditFormData({ ...editFormData, unit: value })}
+                            >
+                              <SelectTrigger className="h-10 rounded-lg text-sm">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {laborUnits.map((unit) => (
+                                  <SelectItem key={unit.value} value={unit.value}>
+                                    {unit.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1.5">
+                            <p className="text-xs font-medium text-muted-foreground">Price / Unit</p>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={editFormData.unitPrice || ''}
+                              onChange={(e) => setEditFormData({ ...editFormData, unitPrice: e.target.value })}
+                              className="h-10 rounded-lg text-sm"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <p className="text-xs font-medium text-muted-foreground">Total</p>
+                            <div className="flex h-10 items-center rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground">
+                              {((editFormData.quantity || 0) * (parseFloat(editFormData.unitPrice || '0') || 0)).toFixed(2)} {currencySymbol}
+                            </div>
+                          </div>
+                          <div className="space-y-1.5 md:col-span-2 xl:col-span-3">
+                            <p className="text-xs font-medium text-muted-foreground">Notes</p>
+                            <Input
+                              value={editFormData.notes || ''}
+                              onChange={(e) => setEditFormData({ ...editFormData, notes: e.target.value })}
+                              placeholder="Additional notes..."
+                              className="h-10 rounded-lg text-sm"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="mt-4 flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-primary hover:bg-primary/10 hover:text-primary"
+                            onClick={() => handleSaveEdit(item._id)}
+                            disabled={isPending}
+                          >
+                            <SaveIcon className="mr-1 h-4 w-4" />
+                            Save
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-muted-foreground"
+                            onClick={handleCancelEdit}
+                          >
+                            <XIcon className="mr-1 h-4 w-4" />
+                            Cancel
+                          </Button>
+                        </div>
+                      </TableCell>
                     ) : (
                       <>
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <span className="font-medium text-foreground">{item.name}</span>
+                            {getCustomerDecisionLabel(item.customerDecision) ? (
+                              <Badge
+                                variant="outline"
+                                className={getCustomerDecisionTone(item.customerDecision) || undefined}
+                              >
+                                {getCustomerDecisionLabel(item.customerDecision)}
+                              </Badge>
+                            ) : null}
                             {item.assignedTo ? (
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -304,6 +394,11 @@ export function LaborListSection({
                           </div>
                           {item.notes ? (
                             <p className="mt-1 text-xs text-muted-foreground">{item.notes}</p>
+                          ) : null}
+                          {item.customerDecisionComment ? (
+                            <p className="mt-1 text-xs text-foreground/80">
+                              Client: {item.customerDecisionComment}
+                            </p>
                           ) : null}
                           <div className="mt-1 flex flex-wrap items-center gap-3">
                             {item.referenceLink ? (

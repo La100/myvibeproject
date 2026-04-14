@@ -17,7 +17,7 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui
 export type ReportSectionKey = "overview" | "projects" | "tasks" | "financial";
 
 export type ReportExportOptions = {
-  format: "csv" | "pdf";
+  format: "csv" | "pdf" | "xlsx";
   includeDetails: boolean;
   sections: Record<ReportSectionKey, boolean>;
 };
@@ -76,6 +76,15 @@ export function ReportsExportDialog({
               >
                 <FileSpreadsheet className="mr-2 h-4 w-4" />
                 CSV
+              </Button>
+              <Button
+                size="sm"
+                type="button"
+                variant={exportOptions.format === "xlsx" ? "default" : "outline"}
+                onClick={() => onExportOptionsChange({ ...exportOptions, format: "xlsx" })}
+              >
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                Excel
               </Button>
               <Button
                 size="sm"

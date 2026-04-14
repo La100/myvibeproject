@@ -56,7 +56,7 @@ export function SectionManager({
   );
 
   return (
-    <div className="mb-8 rounded-3xl border bg-card p-6 shadow-sm">
+    <div className="mb-8 rounded-3xl border bg-white p-6 shadow-sm">
       <button
         onClick={() => setExpanded(!isExpanded)}
         className="flex items-center justify-between w-full text-left"
@@ -106,7 +106,7 @@ export function SectionManager({
                     key={name}
                     onClick={() => onCreateSection(name)}
                     disabled={isPending}
-                    className="rounded-lg border border-border bg-muted px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted/80 disabled:opacity-50"
+                    className="rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted/20 disabled:opacity-50"
                   >
                     + {name}
                   </button>
@@ -122,7 +122,7 @@ export function SectionManager({
                 {sections.map((section) => (
                   <div
                     key={section._id}
-                    className="flex items-center justify-between rounded-2xl border border-border bg-muted/40 p-3"
+                    className="flex items-center justify-between rounded-2xl border border-border bg-white p-3"
                   >
                     <span className="text-sm font-medium text-foreground">{section.name}</span>
                     <Button

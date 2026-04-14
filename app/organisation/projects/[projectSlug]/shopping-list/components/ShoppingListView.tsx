@@ -15,23 +15,34 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { SearchIcon, XIcon } from 'lucide-react';
 import { apiAny } from '@/lib/convexApiAny';
+import { downloadCsvFile } from '@/lib/csvExport';
 import { ONBOARDING_EXTENSION_READY_KEY, readOnboardingFlag } from '@/lib/onboardingJourney';
-import type { TeamMember } from '@/lib/teamMember';
+import { exportSectionedTablePdf } from '@/lib/sectionedTablePdfExport';
 import { calculateShoppingTotal, buildShoppingSetContext, isItemCountedInShoppingTotal } from '@/lib/shoppingSets';
+import {
+  type ShoppingExportColumnOptions,
+  formatShoppingExportProductLabel,
+  getShoppingExportCsvRow,
+  getShoppingExportHeaders,
+  type ShoppingExportRow,
+} from '@/lib/shoppingListExport';
+import type { TeamMember } from '@/lib/teamMember';
 import { formatCurrency } from '@/lib/utils';
 import {
-  addBrandHeader,
-  addDocumentMeta,
-  addPageNumbers,
-  ensurePdfUnicodeFont,
+  calculateTaxBreakdown,
+  getPrimaryAmountKindForDisplay,
+  getTaxAmountKindLabel,
+  getTaxAmountKindsForDisplay,
+  resolveOrganizationTaxSettings,
+} from '@/lib/organizationTax';
+import {
   formatMoney,
-  pdfTableTheme,
-  renderPdfTable,
   sanitizeFileName,
 } from '@/lib/pdfExport';
+import { exportWorkbookTables, getSectionAccentColor } from '@/lib/xlsxExport';
 
 import { AddItemForm } from './AddItemForm';
-import { ExportModal } from './ExportModal';
+import { ExportModal, type ShoppingListExportOptions } from './ExportModal';
 import { SectionManager } from './SectionManager';
 import { ShoppingListHeader } from './ShoppingListHeader';
 import { ShoppingListOnboarding } from './ShoppingListOnboarding';
@@ -39,12 +50,6 @@ import { ShoppingListSection } from './ShoppingListSection';
 
 type ShoppingListItem = Doc<"shoppingListItems">;
 type ShoppingSet = Doc<"shoppingSets">;
-
-const STATUS_FILTER_TO_VALUE: Record<'planned' | 'ordered' | 'completed', ShoppingListItem["realizationStatus"]> = {
-  planned: 'PLANNED',
-  ordered: 'ORDERED',
-  completed: 'COMPLETED',
-};
 
 const STATUS_LABELS: Record<ShoppingListItem["realizationStatus"], string> = {
   PLANNED: 'Planned',
@@ -75,8 +80,6 @@ const getToolbarStatusLabel = (status: ShoppingListItem["realizationStatus"]) =>
   }
 };
 const getSectionOptionLabel = (section: string) => section === 'No Section' ? 'No section' : section;
-const formatToolbarAmount = (value: number, currencyCode?: string) =>
-  formatCurrency(value, currencyCode);
 
 export function ShoppingListViewSkeleton() {
   return <Spinner className="p-4 sm:p-6" />;
@@ -93,11 +96,13 @@ export default function ShoppingListView() {
   const [sectionFilter, setSectionFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-  const [exportOptions, setExportOptions] = useState({
-    format: 'csv' as 'csv' | 'pdf',
-    includeImages: false,
-    statusFilter: 'all' as 'all' | 'planned' | 'ordered' | 'completed',
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportOptions, setExportOptions] = useState<ShoppingListExportOptions>({
+    format: 'xlsx',
+    scope: 'currentView',
     includeNotes: true,
+    includeStatus: true,
+    includeSupplier: true,
     groupBySections: true,
   });
 
@@ -137,6 +142,9 @@ export default function ShoppingListView() {
   }
 
   const currencySymbol = project.currency === "EUR" ? "€" : project.currency === "PLN" ? "zł" : "$";
+  const organizationTaxSettings = resolveOrganizationTaxSettings(
+    team.organizationTaxSettings,
+  );
   const sectionMap = new Map(sections.map((section) => [String(section._id), section]));
   const resolveSectionName = (item: ShoppingListItem) => {
     if (!item.sectionId) return 'No Section';
@@ -238,6 +246,39 @@ export default function ShoppingListView() {
 
   const grandTotal = calculateShoppingTotal(items, sets);
   const visibleGrandTotal = calculateShoppingTotal(filteredItems, sets);
+  const primaryAmountKind = getPrimaryAmountKindForDisplay(
+    organizationTaxSettings,
+  );
+  const grandTotalBreakdown = calculateTaxBreakdown(
+    grandTotal,
+    organizationTaxSettings,
+  );
+  const formatDisplayAmount = (value: number) => {
+    const breakdown = calculateTaxBreakdown(value, organizationTaxSettings);
+    return formatCurrency(breakdown[primaryAmountKind], project.currency);
+  };
+  const formatBreakdownSummary = (value: number) => {
+    const breakdown = calculateTaxBreakdown(value, organizationTaxSettings);
+    return getTaxAmountKindsForDisplay(organizationTaxSettings)
+      .map(
+        (kind) =>
+          `${getTaxAmountKindLabel(kind, organizationTaxSettings)}: ${formatMoney(
+            breakdown[kind],
+            currencySymbol,
+          )}`,
+      )
+      .join(' | ');
+  };
+  const shoppingPdfPriceColumns =
+    organizationTaxSettings.priceDisplay === 'both'
+      ? [
+          { key: 'totalNet', label: 'Net' },
+          { key: 'totalTax', label: organizationTaxSettings.taxLabel },
+          { key: 'totalGross', label: 'Gross' },
+        ]
+      : organizationTaxSettings.priceDisplay === 'gross'
+        ? [{ key: 'totalGross', label: 'Gross' }]
+        : [{ key: 'totalNet', label: 'Net' }];
   const showFirstRunOnboarding = items.length === 0;
   const hasActiveFilters =
     normalizedSearchQuery.length > 0 ||
@@ -381,20 +422,16 @@ export default function ShoppingListView() {
     await updateSet({ setId, ...updates });
   };
 
-  const statusFilteredItemsForExport = items.filter((item) => {
-    if (exportOptions.statusFilter === 'all') {
-      return true;
-    }
-    return item.realizationStatus === STATUS_FILTER_TO_VALUE[exportOptions.statusFilter];
-  });
+  const exportSourceItems = exportOptions.scope === 'currentView' ? filteredItems : items;
   const exportSetIds = new Set(
-    statusFilteredItemsForExport.map((item) => item.setId).filter((value): value is Id<"shoppingSets"> => !!value),
+    exportSourceItems.map((item) => item.setId).filter((value): value is Id<"shoppingSets"> => !!value),
   );
   const exportSets = sets.filter((set) => exportSetIds.has(set._id));
-  const exportContext = buildShoppingSetContext(statusFilteredItemsForExport, exportSets);
-  const filteredItemsForExport = statusFilteredItemsForExport.filter((item) =>
+  const exportContext = buildShoppingSetContext(exportSourceItems, exportSets);
+  const filteredItemsForExport = exportSourceItems.filter((item) =>
     isItemCountedInShoppingTotal(item, exportContext),
   );
+  const exportSetTitleById = new Map(exportSets.map((set) => [String(set._id), set.title]));
 
   const groupedFilteredItems = Object.entries(
     filteredItemsForExport.reduce((acc, item) => {
@@ -407,63 +444,76 @@ export default function ShoppingListView() {
     }, {} as Record<string, ShoppingListItem[]>),
   ).map(([sectionName, sectionItems]) => ({ sectionName, sectionItems }));
 
+  const shoppingExportSections = groupedFilteredItems.map(({ sectionName, sectionItems }) => ({
+    sectionName,
+    rows: sectionItems.map((item): ShoppingExportRow => {
+      const unitBreakdown = calculateTaxBreakdown(
+        item.unitPrice,
+        organizationTaxSettings,
+      );
+      const totalBreakdown = calculateTaxBreakdown(
+        item.totalPrice,
+        organizationTaxSettings,
+      );
+
+      return {
+        sectionName,
+        product: formatShoppingExportProductLabel(
+          item.name,
+          item.setId ? exportSetTitleById.get(String(item.setId)) : undefined,
+        ),
+        qty: String(item.quantity),
+        unitNet: formatMoney(unitBreakdown.net, currencySymbol),
+        unitTax: formatMoney(unitBreakdown.tax, currencySymbol),
+        unitGross: formatMoney(unitBreakdown.gross, currencySymbol),
+        totalNet: formatMoney(totalBreakdown.net, currencySymbol),
+        totalTax: formatMoney(totalBreakdown.tax, currencySymbol),
+        totalGross: formatMoney(totalBreakdown.gross, currencySymbol),
+        status: getStatusLabel(item.realizationStatus),
+        supplier: item.supplier || '-',
+        notes: item.notes || '-',
+      };
+    }),
+  }));
+  const flatShoppingExportRows = shoppingExportSections.flatMap((section) => section.rows);
+  const groupedShoppingColumnOptions: ShoppingExportColumnOptions = {
+    includeNotes: exportOptions.includeNotes,
+    includeStatus: exportOptions.includeStatus,
+    includeSupplier: exportOptions.includeSupplier,
+  };
+  const flatShoppingColumnOptions: ShoppingExportColumnOptions = {
+    ...groupedShoppingColumnOptions,
+    includeSection: true,
+  };
+
+  const buildShoppingPdfColumns = (includeSection: boolean) => [
+    ...(includeSection ? [{ key: 'sectionName', label: 'Section' }] : []),
+    { key: 'product', label: 'Product' },
+    { key: 'qty', label: 'Qty' },
+    ...shoppingPdfPriceColumns,
+    ...(exportOptions.includeStatus ? [{ key: 'status', label: 'Status' }] : []),
+    ...(exportOptions.includeSupplier ? [{ key: 'supplier', label: 'Supplier' }] : []),
+    ...(exportOptions.includeNotes ? [{ key: 'notes', label: 'Notes' }] : []),
+  ];
+
   const handleExportCSV = () => {
     if (filteredItemsForExport.length === 0) {
       toast.info('No items match the current export filters.');
       return;
     }
 
-    const rows = filteredItemsForExport.map((item) => {
-      const alternativesTitle = item.setId ? sets.find((set) => set._id === item.setId)?.title || '' : '';
-      return [
-        resolveSectionName(item),
-        alternativesTitle,
-        item.name,
-        item.supplier || '',
-        item.category || '',
-        item.catalogNumber || '',
-        item.dimensions || '',
-        item.quantity,
-        item.unitPrice ? `${item.unitPrice.toFixed(2)} ${currencySymbol}` : '',
-        item.totalPrice ? `${item.totalPrice.toFixed(2)} ${currencySymbol}` : '',
-        getStatusLabel(item.realizationStatus),
-        item.priority || '',
-        item.buyBefore ? format(new Date(item.buyBefore), 'yyyy-MM-dd') : '',
-        ...(exportOptions.includeNotes ? [item.notes || ''] : []),
-      ];
+    downloadCsvFile({
+      fileName: `shopping-list-${sanitizeFileName(project.name)}-${format(new Date(), 'yyyy-MM-dd')}.csv`,
+      headers: getShoppingExportHeaders(
+        flatShoppingColumnOptions,
+        organizationTaxSettings,
+      ),
+      rows: flatShoppingExportRows.map((row) =>
+        getShoppingExportCsvRow(row, flatShoppingColumnOptions, organizationTaxSettings),
+      ),
     });
-
-    const headers = [
-      'Section',
-      'Alternative Group',
-      'Product Name',
-      'Supplier',
-      'Category',
-      'Catalog Number',
-      'Dimensions',
-      'Quantity',
-      'Unit Price',
-      'Total Price',
-      'Status',
-      'Priority',
-      'Buy Before',
-      ...(exportOptions.includeNotes ? ['Notes'] : []),
-    ];
-
-    const csvContent = [headers, ...rows]
-      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-      .join('\n');
-
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.href = url;
-    link.download = `shopping-list-${sanitizeFileName(project.name)}-${format(new Date(), 'yyyy-MM-dd')}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
     setIsExportModalOpen(false);
+    toast.success('CSV exported successfully!');
   };
 
   const handleExportPDF = async () => {
@@ -472,100 +522,87 @@ export default function ShoppingListView() {
       return;
     }
 
-    const jsPdfModule = await import('jspdf');
-    const jsPDF = jsPdfModule.jsPDF ?? jsPdfModule.default;
-
-    const doc = new jsPDF({
-      putOnlyUsedFonts: true,
-      format: 'a4',
-      unit: 'mm',
-    });
-
-    let pdfFontFamily = 'helvetica';
-    try {
-      pdfFontFamily = await ensurePdfUnicodeFont(doc);
-    } catch (error) {
-      console.warn('Unicode PDF font unavailable, using helvetica', error);
-    }
-    doc.setFont(pdfFontFamily, 'normal');
-
-    let yPosition = await addBrandHeader(doc, {
-      teamName: team.name || 'Organization',
-      teamImageUrl: team.imageUrl,
-      fontFamily: pdfFontFamily,
-    });
-
-    yPosition = addDocumentMeta(doc, {
-      title: `Shopping List - ${project.name}`,
-      subtitle: `Items: ${filteredItemsForExport.length} | Total: ${formatMoney(calculateShoppingTotal(filteredItemsForExport, exportSets), currencySymbol)}`,
+    await exportSectionedTablePdf({
+      brand: {
+        teamName: team.name || 'Organization',
+        teamImageUrl: team.imageUrl,
+      },
+      columns: buildShoppingPdfColumns(!exportOptions.groupBySections),
+      fileName: `shopping-list-${sanitizeFileName(project.name)}-${format(new Date(), 'yyyy-MM-dd')}.pdf`,
       generatedOn: format(new Date(), 'yyyy-MM-dd HH:mm'),
-      startY: yPosition,
-      fontFamily: pdfFontFamily,
+      groupBySections: exportOptions.groupBySections,
+      sections: shoppingExportSections.map((section) => ({
+        sectionName: section.sectionName,
+        rows: section.rows.map((row) => ({
+          ...(exportOptions.groupBySections ? {} : { sectionName: row.sectionName }),
+          product: row.product,
+          qty: row.qty,
+          totalNet: row.totalNet,
+          totalTax: row.totalTax,
+          totalGross: row.totalGross,
+          ...(exportOptions.includeStatus ? { status: row.status } : {}),
+          ...(exportOptions.includeSupplier ? { supplier: row.supplier } : {}),
+          ...(exportOptions.includeNotes ? { notes: row.notes } : {}),
+        })),
+      })),
+      subtitle: `Items: ${filteredItemsForExport.length} | ${formatBreakdownSummary(
+        calculateShoppingTotal(filteredItemsForExport, exportSets),
+      )}`,
+      title: `Shopping List - ${project.name}`,
     });
+    setIsExportModalOpen(false);
+    toast.success('PDF exported successfully!');
+  };
 
-    const buildRows = (sectionItems: ShoppingListItem[]) =>
-      sectionItems.map((item) => [
-        item.setId ? sets.find((set) => set._id === item.setId)?.title || '-' : '-',
-        item.name,
-        String(item.quantity),
-        formatMoney(item.totalPrice, currencySymbol),
-        getStatusLabel(item.realizationStatus),
-        item.supplier || '-',
-        ...(exportOptions.includeNotes ? [item.notes || '-'] : []),
-      ]);
-
-    const head = [[
-      'Alternative Group',
-      'Product',
-      'Qty',
-      'Total',
-      'Status',
-      'Supplier',
-      ...(exportOptions.includeNotes ? ['Notes'] : []),
-    ]];
-
-    if (exportOptions.groupBySections) {
-      for (const { sectionName, sectionItems } of groupedFilteredItems) {
-        doc.setFont(pdfFontFamily, 'bold');
-        doc.setFontSize(12);
-        doc.text(sectionName, 18, yPosition);
-        yPosition += 4;
-        await renderPdfTable(doc, {
-          ...pdfTableTheme,
-          startY: yPosition,
-          head,
-          body: buildRows(sectionItems),
-          styles: {
-            ...pdfTableTheme.styles,
-            font: pdfFontFamily,
-          },
-          headStyles: {
-            ...pdfTableTheme.headStyles,
-            font: pdfFontFamily,
-          },
-        });
-        yPosition = ((doc as typeof doc & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY || yPosition) + 8;
-      }
-    } else {
-      await renderPdfTable(doc, {
-        ...pdfTableTheme,
-        startY: yPosition,
-        head,
-        body: buildRows(filteredItemsForExport),
-        styles: {
-          ...pdfTableTheme.styles,
-          font: pdfFontFamily,
-        },
-        headStyles: {
-          ...pdfTableTheme.headStyles,
-          font: pdfFontFamily,
-        },
-      });
+  const handleExportXlsx = async () => {
+    if (filteredItemsForExport.length === 0) {
+      toast.info('No items match the current export filters.');
+      return;
     }
 
-    addPageNumbers(doc, pdfFontFamily);
-    doc.save(`shopping-list-${sanitizeFileName(project.name)}-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+    const fileDate = format(new Date(), 'yyyy-MM-dd');
+    const generatedOn = format(new Date(), 'yyyy-MM-dd HH:mm');
+    const subtitle = `Items: ${filteredItemsForExport.length} | ${formatBreakdownSummary(
+      calculateShoppingTotal(filteredItemsForExport, exportSets),
+    )}`;
+
+    await exportWorkbookTables({
+      fileName: `shopping-list-${sanitizeFileName(project.name)}-${fileDate}.xlsx`,
+      sheets: [
+        {
+          generatedOn,
+          name: 'Shopping List',
+          subtitle,
+          tables: exportOptions.groupBySections
+            ? shoppingExportSections.map((section, index) => ({
+                accentColor: getSectionAccentColor(index),
+                headers: getShoppingExportHeaders(
+                  groupedShoppingColumnOptions,
+                  organizationTaxSettings,
+                ),
+                rows: section.rows.map((row) =>
+                  getShoppingExportCsvRow(row, groupedShoppingColumnOptions, organizationTaxSettings),
+                ),
+                title: section.sectionName,
+              }))
+            : [
+                {
+                  headers: getShoppingExportHeaders(
+                    flatShoppingColumnOptions,
+                    organizationTaxSettings,
+                  ),
+                  rows: flatShoppingExportRows.map((row) =>
+                    getShoppingExportCsvRow(row, flatShoppingColumnOptions, organizationTaxSettings),
+                  ),
+                  title: 'Items',
+                },
+              ],
+          title: `Shopping List - ${project.name}`,
+        },
+      ],
+    });
     setIsExportModalOpen(false);
+    toast.success('Excel exported successfully!');
   };
 
   return (
@@ -574,14 +611,19 @@ export default function ShoppingListView() {
         <div className="text-sm">
           <ShoppingListHeader
             projectName={project.name}
-            grandTotal={grandTotal}
-            currencyCode={project.currency}
+            grandTotalLabel={`${getTaxAmountKindLabel(
+              primaryAmountKind,
+              organizationTaxSettings,
+            )} total: ${formatCurrency(
+              grandTotalBreakdown[primaryAmountKind],
+              project.currency,
+            )}`}
             onExportClick={() => setIsExportModalOpen(true)}
             onAddProductClick={() => setShowMainAddForm((current) => !current)}
           />
 
           {showMainAddForm ? (
-            <div className="mb-8 rounded-3xl border bg-card p-6 shadow-sm">
+            <div className="mb-8 rounded-3xl border bg-white p-6 shadow-sm">
               <AddItemForm
                 projectId={project._id}
                 teamId={project.teamId}
@@ -618,7 +660,7 @@ export default function ShoppingListView() {
             />
           </div>
 
-          <div className="sticky top-16 z-10 mb-8 rounded-[30px] border border-border/70 bg-card/95 p-3 shadow-[0_18px_40px_-32px_rgba(22,22,22,0.45)] backdrop-blur-sm xl:top-0">
+          <div className="sticky top-16 z-10 mb-8 rounded-[30px] border border-border/70 bg-white p-3 shadow-sm xl:top-0">
             <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <div className="flex flex-1 flex-wrap items-center gap-2.5">
                 <Badge variant="secondary" className="h-11 rounded-full px-4 text-[12px] font-semibold">
@@ -626,7 +668,7 @@ export default function ShoppingListView() {
                 </Badge>
 
                 <Select value={sectionFilter} onValueChange={setSectionFilter}>
-                  <SelectTrigger className="h-11 min-w-[220px] rounded-full border-transparent bg-muted/55 px-5 shadow-none">
+                  <SelectTrigger className="h-11 min-w-[220px] rounded-full border-border/70 bg-white px-5 shadow-none">
                     <SelectValue placeholder="Show sections" />
                   </SelectTrigger>
                   <SelectContent>
@@ -640,7 +682,7 @@ export default function ShoppingListView() {
                 </Select>
 
                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                  <SelectTrigger className="h-11 min-w-[220px] rounded-full border-transparent bg-muted/55 px-5 shadow-none">
+                  <SelectTrigger className="h-11 min-w-[220px] rounded-full border-border/70 bg-white px-5 shadow-none">
                     <SelectValue placeholder="Show categories" />
                   </SelectTrigger>
                   <SelectContent>
@@ -654,7 +696,7 @@ export default function ShoppingListView() {
                 </Select>
 
                 <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}>
-                  <SelectTrigger className="h-11 min-w-[220px] rounded-full border-transparent bg-muted/55 px-5 shadow-none">
+                  <SelectTrigger className="h-11 min-w-[220px] rounded-full border-border/70 bg-white px-5 shadow-none">
                     <SelectValue placeholder="Show statuses" />
                   </SelectTrigger>
                   <SelectContent>
@@ -667,7 +709,7 @@ export default function ShoppingListView() {
                   </SelectContent>
                 </Select>
 
-                <InputGroup className="h-11 min-w-[280px] flex-1 rounded-full border-border/70 bg-background shadow-none">
+                <InputGroup className="h-11 min-w-[280px] flex-1 rounded-full border-border/70 bg-white shadow-none">
                   <InputGroupAddon align="inline-start" className="pointer-events-none pl-4 text-muted-foreground">
                     <SearchIcon className="h-4 w-4" />
                   </InputGroupAddon>
@@ -694,9 +736,11 @@ export default function ShoppingListView() {
                 ) : null}
 
                 <div className="inline-flex h-11 items-center justify-end gap-2 rounded-full px-2 text-sm">
-                  <span className="font-medium text-muted-foreground">total:</span>
+                  <span className="font-medium text-muted-foreground">
+                    {getTaxAmountKindLabel(primaryAmountKind, organizationTaxSettings).toLowerCase()}:
+                  </span>
                   <span className="text-[1.75rem] font-semibold leading-none tracking-[-0.03em] text-foreground">
-                    {formatToolbarAmount(visibleGrandTotal, project.currency)}
+                    {formatDisplayAmount(visibleGrandTotal)}
                   </span>
                 </div>
               </div>
@@ -705,7 +749,7 @@ export default function ShoppingListView() {
             {(priorityFilter !== 'all' || hasActiveFilters) ? (
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <Select value={priorityFilter} onValueChange={(value) => setPriorityFilter(value as typeof priorityFilter)}>
-                  <SelectTrigger className="h-10 min-w-[200px] rounded-full border-border/70 bg-background px-4 shadow-none">
+                  <SelectTrigger className="h-10 min-w-[200px] rounded-full border-border/70 bg-white px-4 shadow-none">
                     <SelectValue placeholder="Priority" />
                   </SelectTrigger>
                   <SelectContent>
@@ -763,6 +807,7 @@ export default function ShoppingListView() {
               currencySymbol={currencySymbol}
               teamMembers={teamMembers}
               sections={sections}
+              organizationTaxSettings={organizationTaxSettings}
               onUpdateItem={handleUpdateItem}
               onDeleteItem={handleDeleteItem}
               onAddItem={handleAddItem}
@@ -779,13 +824,20 @@ export default function ShoppingListView() {
             exportOptions={exportOptions}
             onExportOptionsChange={setExportOptions}
             onExport={async () => {
-              if (exportOptions.format === 'csv') {
-                handleExportCSV();
-                return;
+              setIsExporting(true);
+              try {
+                if (exportOptions.format === 'csv') {
+                  handleExportCSV();
+                } else if (exportOptions.format === 'xlsx') {
+                  await handleExportXlsx();
+                } else {
+                  await handleExportPDF();
+                }
+              } finally {
+                setIsExporting(false);
               }
-              await handleExportPDF();
             }}
-            isPending={false}
+            isPending={isExporting}
           />
         </div>
       </ProjectPageLayout>

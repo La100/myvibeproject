@@ -97,6 +97,6 @@ export const getPublicProjectBudgetSummaryByAccessToken = query({
       return null;
     }
 
-    return await buildProjectBudgetSummary(ctx, project);
+    return project.clientPanelPublishedSnapshot?.budgetSummary ?? null;
   },
 });

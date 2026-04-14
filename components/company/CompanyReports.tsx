@@ -47,6 +47,7 @@ import {
   sanitizeFileName,
 } from "@/lib/pdfExport";
 import { calculateShoppingTotal } from "@/lib/shoppingSets";
+import { exportWorkbookTables, getSectionAccentColor, type XlsxTable } from "@/lib/xlsxExport";
 
 const SHOPPING_STATUSES = [
   "PLANNED",
@@ -350,6 +351,83 @@ export default function CompanyReports() {
       formatMoney(project.budget || 0, project.currency || activeCurrency),
     ]);
 
+  const buildReportTablesForSection = (section: ReportSectionKey): XlsxTable[] => {
+    if (section === "overview") {
+      return [
+        {
+          headers: ["Metric", "Value"],
+          rows: overviewExportRows,
+          title: "Overview Summary",
+        },
+      ];
+    }
+
+    if (section === "projects") {
+      return [
+        {
+          headers: ["Status", "Projects", "Share"],
+          rows: projectStatusExportRows,
+          title: "Project Status Distribution",
+        },
+        ...(exportOptions.includeDetails
+          ? [
+              {
+                headers: ["Project", "Customer", "Status", "Progress", "Tasks", "Budget", "Start", "Created"],
+                rows: projectDetailExportRows,
+                title: "Project Details",
+              },
+            ]
+          : []),
+      ];
+    }
+
+    if (section === "tasks") {
+      return [
+        {
+          headers: ["Status", "Tasks", "Share"],
+          rows: taskStatusExportRows,
+          title: "Task Status Breakdown",
+        },
+        ...(exportOptions.includeDetails
+          ? [
+              {
+                headers: ["Task", "Project", "Priority", "Due"],
+                rows: overdueTaskExportRows,
+                title: "Overdue Tasks",
+              },
+              {
+                headers: ["Task", "Project", "Status", "Priority", "Due", "Overdue"],
+                rows: taskDetailExportRows,
+                title: "Task Details",
+              },
+            ]
+          : []),
+      ];
+    }
+
+    return [
+      {
+        headers: ["Metric", "Value"],
+        rows: financialSummaryRows,
+        title: "Financial Summary",
+      },
+      {
+        headers: ["Status", "Items", "Total"],
+        rows: shoppingStatusExportRows,
+        title: "Shopping List by Status",
+      },
+      ...(exportOptions.includeDetails
+        ? [
+            {
+              headers: ["Project", "Status", "Currency", "Budget"],
+              rows: topBudgetExportRows,
+              title: "Top Projects by Budget",
+            },
+          ]
+        : []),
+    ];
+  };
+
   const applyCurrentTabSelection = () => {
     setExportOptions((current) => ({
       ...current,
@@ -431,6 +509,30 @@ export default function CompanyReports() {
     );
     setIsExportModalOpen(false);
     toast.success(`Exported ${selectedSections.map((section) => REPORT_SECTION_LABELS[section]).join(", ")} as CSV.`);
+  };
+
+  const exportXlsx = async () => {
+    const selectedSections = REPORT_SECTION_ORDER.filter((section) => exportOptions.sections[section]);
+    if (selectedSections.length === 0) {
+      toast.error("Select at least one section to export.");
+      return;
+    }
+
+    await exportWorkbookTables({
+      fileName: `reports-${sanitizeFileName(organization.name || "organization")}-${fileDate}.xlsx`,
+      sheets: selectedSections.map((section, index) => ({
+        generatedOn: generatedOnLabel,
+        name: REPORT_SECTION_LABELS[section],
+        subtitle: `${timeRangeConfig.label} | ${REPORT_SECTION_LABELS[section]}`,
+        tables: buildReportTablesForSection(section).map((table) => ({
+          ...table,
+          accentColor: getSectionAccentColor(index),
+        })),
+        title: `${organization.name || "Organization"} Reports`,
+      })),
+    });
+    setIsExportModalOpen(false);
+    toast.success(`Exported ${selectedSections.map((section) => REPORT_SECTION_LABELS[section]).join(", ")} as Excel.`);
   };
 
   const exportPdf = async () => {
@@ -626,6 +728,8 @@ export default function CompanyReports() {
     try {
       if (exportOptions.format === "csv") {
         exportCsv();
+      } else if (exportOptions.format === "xlsx") {
+        await exportXlsx();
       } else {
         await exportPdf();
       }

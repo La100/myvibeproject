@@ -8,7 +8,10 @@ type ActivityLike = {
 const DUPLICATE_WINDOW_MS = 2_000;
 
 const getDecisionKey = (activity: ActivityLike) => {
-  if (activity.actionType !== "shopping.customer.decision") {
+  if (
+    activity.actionType !== "shopping.customer.decision" &&
+    activity.actionType !== "labor.customer.decision"
+  ) {
     return null;
   }
 
@@ -45,7 +48,10 @@ export const dedupeActivityLogActivities = <T extends ActivityLike>(activities: 
       return true;
     }
 
-    if (activity.actionType !== "shopping.customer.feedback") {
+    if (
+      activity.actionType !== "shopping.customer.feedback" &&
+      activity.actionType !== "labor.customer.feedback"
+    ) {
       return true;
     }
 

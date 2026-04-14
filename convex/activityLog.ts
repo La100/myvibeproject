@@ -1,5 +1,6 @@
 import { internalMutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { ensureProjectAccess } from "./authz";
 
 /**
  * Log an activity in the project changelog.
@@ -44,10 +45,7 @@ export const getForProject = query({
     projectId: v.id("projects"),
   },
   handler: async (ctx, { projectId }) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
+    await ensureProjectAccess(ctx, projectId);
 
     const activities = await ctx.db
       .query("activityLog")
@@ -81,10 +79,11 @@ export const getForTask = query({
     taskId: v.id("tasks"),
   },
   handler: async (ctx, { taskId }) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
+    const task = await ctx.db.get(taskId);
+    if (!task) {
+      return [];
     }
+    await ensureProjectAccess(ctx, task.projectId);
 
     const activities = await ctx.db
       .query("activityLog")

@@ -220,7 +220,7 @@ export function AddItemForm({
   return (
     <div className="flex flex-col gap-4">
       {defaultSetId ? (
-        <div className="rounded-2xl border border-dashed bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+        <div className="rounded-2xl border border-dashed bg-white px-4 py-3 text-sm text-muted-foreground">
           This will be added as another option for the current product.
         </div>
       ) : null}
@@ -303,7 +303,7 @@ export function AddItemForm({
           />
         </Field>
         <Field>
-          <FieldLabel>Unit Price ({currencySymbol})</FieldLabel>
+          <FieldLabel>Unit Net Price ({currencySymbol})</FieldLabel>
           <Input
             type="number"
             step="0.01"
@@ -396,7 +396,7 @@ export function AddItemForm({
       </div>
 
       {!defaultSetId && !hideAlternativeControls ? (
-        <div className="flex items-start gap-3 rounded-2xl border bg-muted/20 px-4 py-3">
+        <div className="flex items-start gap-3 rounded-2xl border bg-white px-4 py-3">
           <Checkbox
             id="new-item-has-alternatives"
             checked={newItemHasAlternatives}
@@ -414,7 +414,7 @@ export function AddItemForm({
 
       {totalPrice > 0 && (
         <div className="flex items-center justify-end gap-2 text-sm">
-          <span className="text-muted-foreground">Total:</span>
+          <span className="text-muted-foreground">Net total:</span>
           <span className="font-medium text-foreground">
             {totalPrice.toFixed(2)} {currencySymbol}
           </span>

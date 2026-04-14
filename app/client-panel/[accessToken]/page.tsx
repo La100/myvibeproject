@@ -1,12 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { Banknote, CheckCircle2, ClipboardList, Download, ExternalLink, Send, Users, Wallet, XCircle } from "lucide-react";
+import { Banknote, CheckCircle2, ClipboardList, Download, ExternalLink, FileSpreadsheet, Send, Users, Wallet, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Doc, Id } from "@/convex/_generated/dataModel";
 import { apiAny } from "@/lib/convexApiAny";
+import { downloadCsvFile } from "@/lib/csvExport";
+import {
+  getLaborExportCsvRow,
+  getLaborExportHeaders,
+  type LaborExportRow,
+} from "@/lib/laborExport";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -14,17 +20,22 @@ import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableFooter,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { addDocumentMeta, addPageNumbers, ensurePdfUnicodeFont, formatMoney, renderPdfTable, sanitizeFileName } from "@/lib/pdfExport";
+import { formatMoney, sanitizeFileName } from "@/lib/pdfExport";
+import { exportSectionedTablePdf } from "@/lib/sectionedTablePdfExport";
+import { formatShoppingExportProductLabel } from "@/lib/shoppingListExport";
+import {
+  getShoppingExportCsvRow,
+  getShoppingExportHeaders,
+  type ShoppingExportRow,
+} from "@/lib/shoppingListExport";
+import {
+  calculateTaxBreakdown,
+  getPrimaryAmountKindForDisplay,
+  getTaxAmountKindLabel,
+  getTaxAmountKindsForDisplay,
+  resolveOrganizationTaxSettings,
+} from "@/lib/organizationTax";
 import { cn } from "@/lib/utils";
 
 type ClientPanelItem = Doc<"clientPanelItems">;
@@ -50,7 +61,7 @@ type PublicTask = {
   endDate?: number;
 };
 type PublicLaborItem = {
-  _id: string;
+  _id: Id<"laborItems">;
   name: string;
   notes?: string;
   sectionId?: Id<"laborSections">;
@@ -63,6 +74,10 @@ type PublicLaborItem = {
   attachmentFileId?: Id<"files"> | null;
   startDate?: number;
   endDate?: number;
+  customerDecision?: "accepted" | "rejected" | null;
+  customerDecisionComment?: string | null;
+  customerDecisionUpdatedAt?: number;
+  customerDecisionByName?: string | null;
 };
 type PublicLaborSection = Doc<"laborSections">;
 type PublicContact = {
@@ -200,6 +215,8 @@ const EMPTY_CONTACTS: PublicContact[] = [];
 const EMPTY_PAYMENTS: PublicPayment[] = [];
 const DEFAULT_CLIENT_PANEL_SETTINGS = {
   showShoppingList: false,
+  allowShoppingItemDecisions: true,
+  allowShoppingItemComments: true,
   showFiles: false,
   showMoodboard: false,
   showSurveys: false,
@@ -437,7 +454,10 @@ function ItemImage({
   name: string;
   size?: "md" | "sm";
 }) {
-  const sizeClass = size === "sm" ? "h-20 w-20" : "h-24 w-24 sm:h-20 sm:w-20";
+  const sizeClass =
+    size === "sm"
+      ? "aspect-[4/3] w-full sm:aspect-auto sm:h-20 sm:w-20"
+      : "h-24 w-24 sm:h-20 sm:w-20";
 
   if (imageUrl) {
     return (
@@ -450,6 +470,61 @@ function ItemImage({
   }
 
   return null;
+}
+
+function PortalItemCard({
+  imageUrl,
+  name,
+  badges,
+  metadata,
+  description,
+  sideContent,
+  footer,
+  className,
+}: {
+  imageUrl?: string;
+  name: string;
+  badges?: ReactNode;
+  metadata?: ReactNode;
+  description?: string | null;
+  sideContent?: ReactNode;
+  footer?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("rounded-2xl border p-4", className)}>
+      <div className="flex flex-col">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div
+            className={cn(
+              "min-w-0 flex-1",
+              imageUrl ? "flex flex-col items-start gap-3 sm:flex-row sm:gap-4" : "flex flex-col",
+            )}
+          >
+            {imageUrl ? <ItemImage imageUrl={imageUrl} name={name} size="sm" /> : null}
+            <div className="min-w-0 flex-1">
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <h4 className="text-base font-medium text-foreground sm:text-lg">{name}</h4>
+                {badges}
+              </div>
+              {metadata ? (
+                <div className="flex flex-col gap-1 text-sm text-muted-foreground sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+                  {metadata}
+                </div>
+              ) : null}
+              {description ? <p className="mt-2 text-sm text-muted-foreground">{description}</p> : null}
+            </div>
+          </div>
+
+          {sideContent ? (
+            <div className="flex flex-wrap items-center gap-2 lg:justify-end">{sideContent}</div>
+          ) : null}
+        </div>
+
+        {footer}
+      </div>
+    </div>
+  );
 }
 
 function ClientPanelSkeleton() {
@@ -466,6 +541,9 @@ export default function PublicClientPanelPage() {
   });
   const selectShoppingSetItems = useMutation(apiAny.shopping.selectShoppingSetItemsByAccessToken);
   const respondToShoppingItem = useMutation(apiAny.shopping.respondToShoppingItemByAccessToken);
+  const saveShoppingItemComment = useMutation(apiAny.shopping.saveShoppingItemCommentByAccessToken);
+  const respondToLaborItem = useMutation(apiAny.labor.respondToLaborItemByAccessToken);
+  const saveLaborItemComment = useMutation(apiAny.labor.saveLaborItemCommentByAccessToken);
   const submitPublicSurvey = useMutation(apiAny.surveys.submitPublicSurveyResponseByAccessToken);
   const getInvoiceDownloadUrl = useAction(
     apiAny.projectPaymentActions.getProjectPaymentInvoiceDownloadUrlByAccessToken,
@@ -491,6 +569,7 @@ export default function PublicClientPanelPage() {
   const [surveyStartTimes, setSurveyStartTimes] = useState<Record<string, number>>({});
   const [surveyAnswers, setSurveyAnswers] = useState<Record<string, Record<string, unknown>>>({});
   const [isExportingMaterialsPdf, setIsExportingMaterialsPdf] = useState(false);
+  const [isExportingLaborPdf, setIsExportingLaborPdf] = useState(false);
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const [respondentName, setRespondentName] = useState("");
   const [selectedMoodboardFile, setSelectedMoodboardFile] = useState<ClientPanelFile | null>(null);
@@ -499,6 +578,17 @@ export default function PublicClientPanelPage() {
   const [shoppingItemComments, setShoppingItemComments] = useState<Record<string, string>>({});
   const [respondingShoppingItemId, setRespondingShoppingItemId] = useState<string | null>(null);
   const [expandedShoppingItemComments, setExpandedShoppingItemComments] = useState<Record<string, boolean>>({});
+  const [savingShoppingCommentIds, setSavingShoppingCommentIds] = useState<Record<string, boolean>>({});
+  const [savedShoppingCommentIds, setSavedShoppingCommentIds] = useState<Record<string, boolean>>({});
+  const [laborItemComments, setLaborItemComments] = useState<Record<string, string>>({});
+  const [respondingLaborItemId, setRespondingLaborItemId] = useState<string | null>(null);
+  const [expandedLaborItemComments, setExpandedLaborItemComments] = useState<Record<string, boolean>>({});
+  const [savingLaborCommentIds, setSavingLaborCommentIds] = useState<Record<string, boolean>>({});
+  const [savedLaborCommentIds, setSavedLaborCommentIds] = useState<Record<string, boolean>>({});
+  const commentAutosaveTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const commentSavedStateTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const laborCommentAutosaveTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const laborCommentSavedStateTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const project = panelData?.project;
   const sections = (panelData?.sections as ClientPanelSection[] | undefined) ?? EMPTY_SECTIONS;
@@ -515,7 +605,78 @@ export default function PublicClientPanelPage() {
   const payments = (panelData?.payments as PublicPayment[] | undefined) ?? EMPTY_PAYMENTS;
   const publicBudgetSummary = publicBudgetSummaryData as PublicBudgetSummary | null | undefined;
   const settings = panelData?.settings ?? DEFAULT_CLIENT_PANEL_SETTINGS;
+  const organizationTaxSettings = resolveOrganizationTaxSettings(
+    panelData?.organizationTaxSettings,
+  );
   const currencySymbol = getCurrencySymbol(project?.currency);
+  const primaryAmountKind = getPrimaryAmountKindForDisplay(
+    organizationTaxSettings,
+  );
+  const formatPrimaryDisplayAmount = (netAmount?: number) => {
+    if (netAmount === undefined) {
+      return "-";
+    }
+
+    const breakdown = calculateTaxBreakdown(netAmount, organizationTaxSettings);
+    return formatAmount(breakdown[primaryAmountKind], currencySymbol);
+  };
+  const formatTaxBreakdownSummary = (netAmount: number) => {
+    const breakdown = calculateTaxBreakdown(netAmount, organizationTaxSettings);
+    return getTaxAmountKindsForDisplay(organizationTaxSettings)
+      .map(
+        (kind) =>
+          `${getTaxAmountKindLabel(kind, organizationTaxSettings)}: ${formatAmount(
+            breakdown[kind],
+            currencySymbol,
+          )}`,
+      )
+      .join(" | ");
+  };
+  const getPriceMetadataLabels = (
+    netAmount: number | undefined,
+    scope: "unit" | "total",
+  ) => {
+    if (netAmount === undefined) {
+      return [];
+    }
+
+    const breakdown = calculateTaxBreakdown(netAmount, organizationTaxSettings);
+    return getTaxAmountKindsForDisplay(organizationTaxSettings).map(
+      (kind) =>
+        `${getTaxAmountKindLabel(kind, organizationTaxSettings)}${
+          scope === "unit" ? "/unit" : ""
+        }: ${formatAmount(breakdown[kind], currencySymbol)}`,
+    );
+  };
+  const shoppingPdfPriceColumns =
+    organizationTaxSettings.priceDisplay === "both"
+      ? [
+          { key: "totalNet", label: "Net" },
+          { key: "totalTax", label: organizationTaxSettings.taxLabel },
+          { key: "totalGross", label: "Gross" },
+        ]
+      : organizationTaxSettings.priceDisplay === "gross"
+        ? [{ key: "totalGross", label: "Gross" }]
+        : [{ key: "totalNet", label: "Net" }];
+  const laborPdfPriceColumns =
+    organizationTaxSettings.priceDisplay === "both"
+      ? [
+          { key: "unitNet", label: "Unit Net" },
+          { key: "unitTax", label: `Unit ${organizationTaxSettings.taxLabel}` },
+          { key: "unitGross", label: "Unit Gross" },
+          { key: "totalNet", label: "Net" },
+          { key: "totalTax", label: organizationTaxSettings.taxLabel },
+          { key: "totalGross", label: "Gross" },
+        ]
+      : organizationTaxSettings.priceDisplay === "gross"
+        ? [
+            { key: "unitGross", label: "Unit Gross" },
+            { key: "totalGross", label: "Gross" },
+          ]
+        : [
+            { key: "unitNet", label: "Unit Net" },
+            { key: "totalNet", label: "Net" },
+          ];
   const moodboardSections = useMemo(() => {
     const grouped = new Map<
       string,
@@ -570,6 +731,33 @@ export default function PublicClientPanelPage() {
       return next;
     });
   }, [items]);
+
+  useEffect(() => {
+    setLaborItemComments((current) => {
+      const next = { ...current };
+      for (const item of laborItems) {
+        const itemId = String(item._id);
+        if (typeof next[itemId] !== "string") {
+          next[itemId] = item.customerDecisionComment || "";
+        }
+      }
+      return next;
+    });
+  }, [laborItems]);
+
+  useEffect(
+    () => () => {
+      Object.values(commentAutosaveTimeoutsRef.current).forEach((timeoutId) => clearTimeout(timeoutId));
+      Object.values(commentSavedStateTimeoutsRef.current).forEach((timeoutId) => clearTimeout(timeoutId));
+      Object.values(laborCommentAutosaveTimeoutsRef.current).forEach((timeoutId) =>
+        clearTimeout(timeoutId),
+      );
+      Object.values(laborCommentSavedStateTimeoutsRef.current).forEach((timeoutId) =>
+        clearTimeout(timeoutId),
+      );
+    },
+    [],
+  );
 
   const shoppingGroupsBySection = useMemo(() => {
     const sectionOrder = new Map(sections.map((section) => [section.name, section.order]));
@@ -654,6 +842,50 @@ export default function PublicClientPanelPage() {
     (sum, section) => sum + section.itemCount,
     0
   );
+  const shoppingExportSections = useMemo(
+    () =>
+      Array.from(shoppingGroupsBySection.entries()).map(([sectionName, groups]) => ({
+        sectionName,
+        rows: groups.flatMap((group) => {
+          const selectedIds = getSelectedIdsForGroup(group, localSelection);
+          const countedItems = getCountedItemsForGroup(group, selectedIds);
+          const printableItems = countedItems.length > 0 ? countedItems : group.items;
+
+          return printableItems.map(
+            (item): ShoppingExportRow => {
+              const unitBreakdown = calculateTaxBreakdown(
+                item.unitPrice,
+                organizationTaxSettings,
+              );
+              const totalBreakdown = calculateTaxBreakdown(
+                item.totalPrice,
+                organizationTaxSettings,
+              );
+
+              return {
+                sectionName,
+                product: formatShoppingExportProductLabel(
+                  item.name,
+                  item.setTitle || group.leadItem.setTitle || group.title,
+                ),
+                qty: String(item.quantity),
+                unitNet: formatMoney(unitBreakdown.net, currencySymbol),
+                unitTax: formatMoney(unitBreakdown.tax, currencySymbol),
+                unitGross: formatMoney(unitBreakdown.gross, currencySymbol),
+                totalNet: formatMoney(totalBreakdown.net, currencySymbol),
+                totalTax: formatMoney(totalBreakdown.tax, currencySymbol),
+                totalGross: formatMoney(totalBreakdown.gross, currencySymbol),
+                status: getStatusLabel(item.realizationStatus) || "-",
+                supplier: item.supplier || "-",
+                notes: item.notes || "-",
+              };
+            },
+          );
+        }),
+      })),
+    [currencySymbol, localSelection, organizationTaxSettings, shoppingGroupsBySection],
+  );
+  const shoppingExportRows = shoppingExportSections.flatMap((section) => section.rows);
   const laborSectionEntries = useMemo(() => {
     const sectionOrder = new Map(laborSections.map((section) => [String(section._id), section.order]));
     const sectionNameById = new Map(laborSections.map((section) => [String(section._id), section.name]));
@@ -691,6 +923,41 @@ export default function PublicClientPanelPage() {
         return left.name.localeCompare(right.name);
       });
   }, [laborItems, laborSections]);
+  const laborExportSections = useMemo(
+    () =>
+      laborSectionEntries.map((section) => ({
+        sectionName: section.name,
+        rows: section.items.map(
+          (item): LaborExportRow => {
+            const unitBreakdown = calculateTaxBreakdown(
+              item.unitPrice,
+              organizationTaxSettings,
+            );
+            const totalBreakdown = calculateTaxBreakdown(
+              item.totalPrice,
+              organizationTaxSettings,
+            );
+
+            return {
+              sectionName: section.name,
+              work: item.name,
+              qty: String(item.quantity),
+              unit: item.unit || "-",
+              unitNet: formatMoney(unitBreakdown.net, currencySymbol),
+              unitTax: formatMoney(unitBreakdown.tax, currencySymbol),
+              unitGross: formatMoney(unitBreakdown.gross, currencySymbol),
+              totalNet: formatMoney(totalBreakdown.net, currencySymbol),
+              totalTax: formatMoney(totalBreakdown.tax, currencySymbol),
+              totalGross: formatMoney(totalBreakdown.gross, currencySymbol),
+              notes: item.notes || "-",
+              referenceLink: item.referenceLink || "-",
+            };
+          },
+        ),
+      })),
+    [currencySymbol, laborSectionEntries, organizationTaxSettings],
+  );
+  const laborExportRows = laborExportSections.flatMap((section) => section.rows);
 
   const sectionCards = [
     settings.showShoppingList
@@ -766,6 +1033,11 @@ export default function PublicClientPanelPage() {
   ) => {
     const cleanedRespondentName = respondentName.trim();
     const itemId = String(item.sourceItemId);
+    const pendingCommentSave = commentAutosaveTimeoutsRef.current[itemId];
+    if (pendingCommentSave) {
+      clearTimeout(pendingCommentSave);
+      delete commentAutosaveTimeoutsRef.current[itemId];
+    }
     setRespondingShoppingItemId(itemId);
 
     try {
@@ -778,7 +1050,9 @@ export default function PublicClientPanelPage() {
         accessToken,
         itemId: item.sourceItemId,
         decision,
-        comment: shoppingItemComments[itemId]?.trim() || null,
+        comment: settings.allowShoppingItemComments
+          ? shoppingItemComments[itemId]?.trim() || null
+          : null,
         respondentName: cleanedRespondentName,
       });
 
@@ -792,10 +1066,176 @@ export default function PublicClientPanelPage() {
     }
   };
 
+  const persistShoppingItemComment = async (item: ClientPanelItem, rawComment: string) => {
+    const itemId = String(item.sourceItemId);
+    const cleanedRespondentName = respondentName.trim();
+
+    setSavingShoppingCommentIds((current) => ({ ...current, [itemId]: true }));
+    setSavedShoppingCommentIds((current) => ({ ...current, [itemId]: false }));
+
+    try {
+      if (typeof window !== "undefined" && cleanedRespondentName) {
+        const storageKey = `client-panel-respondent-name:${accessToken}`;
+        window.localStorage.setItem(storageKey, cleanedRespondentName);
+      }
+
+      await saveShoppingItemComment({
+        accessToken,
+        itemId: item.sourceItemId,
+        comment: rawComment.trim() || null,
+        respondentName: cleanedRespondentName,
+      });
+
+      setSavingShoppingCommentIds((current) => ({ ...current, [itemId]: false }));
+      setSavedShoppingCommentIds((current) => ({ ...current, [itemId]: true }));
+
+      const existingSavedTimeout = commentSavedStateTimeoutsRef.current[itemId];
+      if (existingSavedTimeout) {
+        clearTimeout(existingSavedTimeout);
+      }
+      commentSavedStateTimeoutsRef.current[itemId] = setTimeout(() => {
+        setSavedShoppingCommentIds((current) => ({ ...current, [itemId]: false }));
+        delete commentSavedStateTimeoutsRef.current[itemId];
+      }, 1800);
+    } catch (error) {
+      setSavingShoppingCommentIds((current) => ({ ...current, [itemId]: false }));
+      toast.error("Failed to save comment", {
+        description: (error as Error).message,
+      });
+    }
+  };
+
+  const handleShoppingItemCommentChange = (item: ClientPanelItem, nextValue: string) => {
+    const itemId = String(item.sourceItemId);
+
+    setShoppingItemComments((current) => ({
+      ...current,
+      [itemId]: nextValue,
+    }));
+    setSavedShoppingCommentIds((current) => ({ ...current, [itemId]: false }));
+
+    const existingTimeout = commentAutosaveTimeoutsRef.current[itemId];
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+
+    commentAutosaveTimeoutsRef.current[itemId] = setTimeout(() => {
+      void persistShoppingItemComment(item, nextValue);
+      delete commentAutosaveTimeoutsRef.current[itemId];
+    }, 700);
+  };
+
+  const handleRespondToLaborItem = async (
+    item: PublicLaborItem,
+    decision: "accepted" | "rejected",
+  ) => {
+    const cleanedRespondentName = respondentName.trim();
+    const itemId = String(item._id);
+    const pendingCommentSave = laborCommentAutosaveTimeoutsRef.current[itemId];
+    if (pendingCommentSave) {
+      clearTimeout(pendingCommentSave);
+      delete laborCommentAutosaveTimeoutsRef.current[itemId];
+    }
+    setRespondingLaborItemId(itemId);
+
+    try {
+      if (typeof window !== "undefined" && cleanedRespondentName) {
+        const storageKey = `client-panel-respondent-name:${accessToken}`;
+        window.localStorage.setItem(storageKey, cleanedRespondentName);
+      }
+
+      await respondToLaborItem({
+        accessToken,
+        itemId: item._id,
+        decision,
+        comment: laborItemComments[itemId]?.trim() || null,
+        respondentName: cleanedRespondentName,
+      });
+
+      toast.success(`Feedback saved for "${item.name}"`);
+    } catch (error) {
+      toast.error("Failed to save labor feedback", {
+        description: (error as Error).message,
+      });
+    } finally {
+      setRespondingLaborItemId(null);
+    }
+  };
+
+  const persistLaborItemComment = async (item: PublicLaborItem, rawComment: string) => {
+    const itemId = String(item._id);
+    const cleanedRespondentName = respondentName.trim();
+
+    setSavingLaborCommentIds((current) => ({ ...current, [itemId]: true }));
+    setSavedLaborCommentIds((current) => ({ ...current, [itemId]: false }));
+
+    try {
+      if (typeof window !== "undefined" && cleanedRespondentName) {
+        const storageKey = `client-panel-respondent-name:${accessToken}`;
+        window.localStorage.setItem(storageKey, cleanedRespondentName);
+      }
+
+      await saveLaborItemComment({
+        accessToken,
+        itemId: item._id,
+        comment: rawComment.trim() || null,
+        respondentName: cleanedRespondentName,
+      });
+
+      setSavingLaborCommentIds((current) => ({ ...current, [itemId]: false }));
+      setSavedLaborCommentIds((current) => ({ ...current, [itemId]: true }));
+
+      const existingSavedTimeout = laborCommentSavedStateTimeoutsRef.current[itemId];
+      if (existingSavedTimeout) {
+        clearTimeout(existingSavedTimeout);
+      }
+      laborCommentSavedStateTimeoutsRef.current[itemId] = setTimeout(() => {
+        setSavedLaborCommentIds((current) => ({ ...current, [itemId]: false }));
+        delete laborCommentSavedStateTimeoutsRef.current[itemId];
+      }, 1800);
+    } catch (error) {
+      setSavingLaborCommentIds((current) => ({ ...current, [itemId]: false }));
+      toast.error("Failed to save labor comment", {
+        description: (error as Error).message,
+      });
+    }
+  };
+
+  const handleLaborItemCommentChange = (item: PublicLaborItem, nextValue: string) => {
+    const itemId = String(item._id);
+
+    setLaborItemComments((current) => ({
+      ...current,
+      [itemId]: nextValue,
+    }));
+    setSavedLaborCommentIds((current) => ({ ...current, [itemId]: false }));
+
+    const existingTimeout = laborCommentAutosaveTimeoutsRef.current[itemId];
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+
+    laborCommentAutosaveTimeoutsRef.current[itemId] = setTimeout(() => {
+      void persistLaborItemComment(item, nextValue);
+      delete laborCommentAutosaveTimeoutsRef.current[itemId];
+    }, 700);
+  };
+
   const renderShoppingItemFeedback = (item: ClientPanelItem) => {
+    if (!settings.allowShoppingItemDecisions && !settings.allowShoppingItemComments) {
+      return null;
+    }
+
     const itemId = String(item.sourceItemId);
     const isSaving = respondingShoppingItemId === itemId;
+    const isCommentSaving = savingShoppingCommentIds[itemId] === true;
+    const isCommentSaved = savedShoppingCommentIds[itemId] === true;
     const hasDecision = item.customerDecision === "accepted" || item.customerDecision === "rejected";
+    const decisionTone = item.customerDecision === "accepted"
+      ? "border-emerald-500/30 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
+      : item.customerDecision === "rejected"
+        ? "border-destructive/20 bg-destructive/10 text-destructive"
+        : "";
     const hasDraftComment = (shoppingItemComments[itemId] || "").trim().length > 0;
     const isCommentExpanded = expandedShoppingItemComments[itemId] || hasDraftComment || Boolean(item.customerDecisionComment);
 
@@ -806,7 +1246,116 @@ export default function PublicClientPanelPage() {
             Client feedback
           </Badge>
           {item.customerDecision ? (
-            <Badge variant="secondary" className="text-xs">
+            <Badge variant="outline" className={cn("text-xs", decisionTone)}>
+              {item.customerDecision === "accepted" ? "Accepted" : "Rejected"}
+            </Badge>
+          ) : settings.allowShoppingItemDecisions ? (
+            <span className="text-xs text-muted-foreground">Awaiting decision</span>
+          ) : settings.allowShoppingItemComments ? (
+            <span className="text-xs text-muted-foreground">Comments enabled</span>
+          ) : (
+            <span className="text-xs text-muted-foreground">Feedback disabled</span>
+          )}
+          {item.customerDecisionUpdatedAt ? (
+            <span className="text-xs text-muted-foreground">
+              Updated {new Date(item.customerDecisionUpdatedAt).toLocaleString()}
+            </span>
+          ) : null}
+        </div>
+
+        {hasDecision && item.customerDecisionComment ? (
+          <p className="mt-3 text-sm leading-6 text-foreground">{item.customerDecisionComment}</p>
+        ) : null}
+
+        <div className="mt-4 flex flex-col gap-3">
+          <div className="flex flex-wrap gap-2">
+            {settings.allowShoppingItemDecisions ? (
+              <>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:border-emerald-700 focus-visible:ring-emerald-200"
+                  onClick={() => void handleRespondToShoppingItem(item, "accepted")}
+                  disabled={isSaving}
+                >
+                  <CheckCircle2 data-icon="inline-start" />
+                  {isSaving ? "Saving..." : "Approve"}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="bg-red-600 text-white hover:bg-red-700 focus-visible:border-red-700 focus-visible:ring-red-200"
+                  onClick={() => void handleRespondToShoppingItem(item, "rejected")}
+                  disabled={isSaving}
+                >
+                  <XCircle data-icon="inline-start" />
+                  Reject
+                </Button>
+              </>
+            ) : null}
+            {settings.allowShoppingItemComments ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  setExpandedShoppingItemComments((current) => ({
+                    ...current,
+                    [itemId]: !isCommentExpanded,
+                  }))
+                }
+              >
+                {isCommentExpanded ? "Hide comment" : "Add comment"}
+              </Button>
+            ) : null}
+          </div>
+          {settings.allowShoppingItemComments && isCommentExpanded ? (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor={`shopping-item-comment-${itemId}`} className="text-sm font-medium">
+                Optional comment
+              </Label>
+              <Textarea
+                id={`shopping-item-comment-${itemId}`}
+                value={shoppingItemComments[itemId] || ""}
+                onChange={(event) => handleShoppingItemCommentChange(item, event.target.value)}
+                rows={3}
+                placeholder="Add context, preferences or constraints for this item..."
+              />
+              <div className="text-xs text-muted-foreground">
+                {isCommentSaving ? "Saving comment..." : isCommentSaved ? "Comment saved" : "Comment autosaves"}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  };
+
+  const renderLaborItemFeedback = (item: PublicLaborItem) => {
+    const itemId = String(item._id);
+    const isSaving = respondingLaborItemId === itemId;
+    const isCommentSaving = savingLaborCommentIds[itemId] === true;
+    const isCommentSaved = savedLaborCommentIds[itemId] === true;
+    const hasDecision = item.customerDecision === "accepted" || item.customerDecision === "rejected";
+    const decisionTone = item.customerDecision === "accepted"
+      ? "border-emerald-500/30 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
+      : item.customerDecision === "rejected"
+        ? "border-destructive/20 bg-destructive/10 text-destructive"
+        : "";
+    const hasDraftComment = (laborItemComments[itemId] || "").trim().length > 0;
+    const isCommentExpanded =
+      expandedLaborItemComments[itemId] ||
+      hasDraftComment ||
+      Boolean(item.customerDecisionComment);
+
+    return (
+      <div className="mt-4 rounded-2xl border border-border/70 bg-muted/20 px-4 py-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="outline" className="text-xs">
+            Client feedback
+          </Badge>
+          {item.customerDecision ? (
+            <Badge variant="outline" className={cn("text-xs", decisionTone)}>
               {item.customerDecision === "accepted" ? "Accepted" : "Rejected"}
             </Badge>
           ) : (
@@ -828,7 +1377,8 @@ export default function PublicClientPanelPage() {
             <Button
               type="button"
               size="sm"
-              onClick={() => void handleRespondToShoppingItem(item, "accepted")}
+              className="bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:border-emerald-700 focus-visible:ring-emerald-200"
+              onClick={() => void handleRespondToLaborItem(item, "accepted")}
               disabled={isSaving}
             >
               <CheckCircle2 data-icon="inline-start" />
@@ -837,8 +1387,8 @@ export default function PublicClientPanelPage() {
             <Button
               type="button"
               size="sm"
-              variant="outline"
-              onClick={() => void handleRespondToShoppingItem(item, "rejected")}
+              className="bg-red-600 text-white hover:bg-red-700 focus-visible:border-red-700 focus-visible:ring-red-200"
+              onClick={() => void handleRespondToLaborItem(item, "rejected")}
               disabled={isSaving}
             >
               <XCircle data-icon="inline-start" />
@@ -849,32 +1399,32 @@ export default function PublicClientPanelPage() {
               size="sm"
               variant="ghost"
               onClick={() =>
-                setExpandedShoppingItemComments((current) => ({
+                setExpandedLaborItemComments((current) => ({
                   ...current,
                   [itemId]: !isCommentExpanded,
                 }))
               }
             >
+              <ClipboardList data-icon="inline-start" />
               {isCommentExpanded ? "Hide comment" : "Add comment"}
             </Button>
           </div>
           {isCommentExpanded ? (
             <div className="flex flex-col gap-2">
-              <Label htmlFor={`shopping-item-comment-${itemId}`} className="text-sm font-medium">
+              <Label htmlFor={`labor-item-comment-${itemId}`} className="text-sm font-medium">
                 Optional comment
               </Label>
               <Textarea
-                id={`shopping-item-comment-${itemId}`}
-                value={shoppingItemComments[itemId] || ""}
-                onChange={(event) =>
-                  setShoppingItemComments((current) => ({
-                    ...current,
-                    [itemId]: event.target.value,
-                  }))
-                }
+                id={`labor-item-comment-${itemId}`}
+                value={laborItemComments[itemId] || ""}
+                onChange={(event) => handleLaborItemCommentChange(item, event.target.value)}
+                placeholder="Add context for the project team"
                 rows={3}
-                placeholder="Add context, preferences or constraints for this item..."
               />
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                {isCommentSaving ? <span>Saving comment...</span> : null}
+                {isCommentSaved ? <span>Comment saved</span> : null}
+              </div>
             </div>
           ) : null}
         </div>
@@ -883,94 +1433,48 @@ export default function PublicClientPanelPage() {
   };
 
   const handleExportMaterialsPdf = async () => {
-    if (!project || sectionSummaries.length === 0) {
+    if (!project || shoppingExportRows.length === 0) {
       toast.info("No shopping list items available for export.");
       return;
     }
 
     setIsExportingMaterialsPdf(true);
     try {
-      const jsPdfModule = await import("jspdf");
-      const jsPDF = jsPdfModule.jsPDF ?? jsPdfModule.default;
-
-      const doc = new jsPDF({
-        putOnlyUsedFonts: true,
-        format: "a4",
-        unit: "mm",
-      });
-
-      let pdfFontFamily = "helvetica";
-      try {
-        pdfFontFamily = await ensurePdfUnicodeFont(doc);
-      } catch (fontError) {
-        console.warn("Could not load Unicode PDF font, falling back to Helvetica:", fontError);
-      }
-      doc.setFont(pdfFontFamily, "normal");
-
-      addDocumentMeta(doc, {
-        title: `Shopping List - ${project.name}`,
-        subtitle: `Items: ${Array.from(shoppingGroupsBySection.values()).reduce((sum, groups) => sum + groups.length, 0)}`,
-        generatedOn: new Date().toLocaleString(),
-        fontFamily: pdfFontFamily,
-      });
-
-      const includePriceColumn = settings.showPrice;
-      const includeSupplierColumn = settings.showSupplier;
-      const includeNotesColumn = settings.showNotes;
-      const headers = [
-        "Section",
-        "Material",
-        "Qty",
-        ...(includePriceColumn ? ["Total"] : []),
-        ...(includeSupplierColumn ? ["Supplier"] : []),
-        ...(includeNotesColumn ? ["Notes"] : []),
-      ];
-
-      const rows = Array.from(shoppingGroupsBySection.entries()).flatMap(([sectionName, groups]) =>
-        groups.flatMap((group) => {
-          const selectedIds = getSelectedIdsForGroup(group, localSelection);
-          const countedItems = getCountedItemsForGroup(group, selectedIds);
-          const printableItems = countedItems.length > 0 ? countedItems : group.items;
-          return printableItems.map((item) => [
-            sectionName,
-            item.name,
-            `${item.quantity} ${item.unit || "pcs"}`,
-            ...(includePriceColumn ? [formatMoney(item.totalPrice, currencySymbol)] : []),
-            ...(includeSupplierColumn ? [item.supplier || "-"] : []),
-            ...(includeNotesColumn ? [item.notes || "-"] : []),
-          ]);
-        }),
-      );
-
-      await renderPdfTable(doc, {
-        head: [headers],
-        body: rows,
-        startY: 36,
-        styles: {
-          font: pdfFontFamily,
-          fontSize: 8.6,
-        },
-        headStyles: {
-          font: pdfFontFamily,
-        },
-      });
-
-      if (includePriceColumn) {
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const finalY = (doc.lastAutoTable?.finalY || 36) + 8;
-        doc.setFont(pdfFontFamily, "bold");
-        doc.setFontSize(11);
-        doc.text(
-          `Grand total: ${formatMoney(grandTotal, currencySymbol)}`,
-          pageWidth - 18,
-          finalY,
-          { align: "right" }
-        );
-      }
-
-      addPageNumbers(doc, pdfFontFamily);
       const dateStamp = new Date().toISOString().slice(0, 10);
-      doc.save(`shopping-list-${sanitizeFileName(project.name)}-${dateStamp}.pdf`);
+      await exportSectionedTablePdf({
+        columns: [
+          { key: "product", label: "Product" },
+          { key: "qty", label: "Qty" },
+          ...(settings.showPrice ? shoppingPdfPriceColumns : []),
+          { key: "status", label: "Status" },
+          ...(settings.showSupplier ? [{ key: "supplier", label: "Supplier" }] : []),
+          ...(settings.showNotes ? [{ key: "notes", label: "Notes" }] : []),
+        ],
+        fileName: `shopping-list-${sanitizeFileName(project.name)}-${dateStamp}.pdf`,
+        generatedOn: new Date().toLocaleString(),
+        groupBySections: true,
+        sections: shoppingExportSections.map((section) => ({
+          sectionName: section.sectionName,
+          rows: section.rows.map((row) => ({
+            product: row.product,
+            qty: row.qty,
+            ...(settings.showPrice
+              ? {
+                  totalNet: row.totalNet,
+                  totalTax: row.totalTax,
+                  totalGross: row.totalGross,
+                }
+              : {}),
+            status: row.status,
+            ...(settings.showSupplier ? { supplier: row.supplier } : {}),
+            ...(settings.showNotes ? { notes: row.notes } : {}),
+          })),
+        })),
+        subtitle: settings.showPrice
+          ? `Items: ${shoppingExportRows.length} | ${formatTaxBreakdownSummary(grandTotal)}`
+          : `Items: ${shoppingExportRows.length}`,
+        title: `Shopping List - ${project.name}`,
+      });
       toast.success("Shopping list PDF exported.");
     } catch (error) {
       console.error("Shopping list PDF export error:", error);
@@ -978,6 +1482,121 @@ export default function PublicClientPanelPage() {
     } finally {
       setIsExportingMaterialsPdf(false);
     }
+  };
+
+  const handleExportMaterialsCsv = () => {
+    if (!project || shoppingExportRows.length === 0) {
+      toast.info("No shopping list items available for export.");
+      return;
+    }
+
+    const dateStamp = new Date().toISOString().slice(0, 10);
+    downloadCsvFile({
+      fileName: `shopping-list-${sanitizeFileName(project.name)}-${dateStamp}.csv`,
+      headers: getShoppingExportHeaders(
+        {
+          includeNotes: settings.showNotes,
+          includeSection: true,
+          includeStatus: true,
+          includeSupplier: settings.showSupplier,
+        },
+        organizationTaxSettings,
+      ),
+      rows: shoppingExportRows.map((row) =>
+        getShoppingExportCsvRow(
+          row,
+          {
+            includeNotes: settings.showNotes,
+            includeSection: true,
+            includeStatus: true,
+            includeSupplier: settings.showSupplier,
+          },
+          organizationTaxSettings,
+        ),
+      ),
+    });
+    toast.success("Shopping list CSV exported.");
+  };
+
+  const handleExportLaborPdf = async () => {
+    if (!project || laborExportRows.length === 0) {
+      toast.info("No labor entries available for export.");
+      return;
+    }
+
+    setIsExportingLaborPdf(true);
+    try {
+      const dateStamp = new Date().toISOString().slice(0, 10);
+      await exportSectionedTablePdf({
+        columns: [
+          { key: "work", label: "Work" },
+          { key: "qty", label: "Qty" },
+          { key: "unit", label: "Unit" },
+          ...laborPdfPriceColumns,
+          { key: "notes", label: "Notes" },
+        ],
+        fileName: `labor-${sanitizeFileName(project.name)}-${dateStamp}.pdf`,
+        generatedOn: new Date().toLocaleString(),
+        groupBySections: true,
+        sections: laborExportSections.map((section) => ({
+          sectionName: section.sectionName,
+          rows: section.rows.map((row) => ({
+            work: row.work,
+            qty: row.qty,
+            unit: row.unit,
+            unitNet: row.unitNet,
+            unitTax: row.unitTax,
+            unitGross: row.unitGross,
+            totalNet: row.totalNet,
+            totalTax: row.totalTax,
+            totalGross: row.totalGross,
+            notes: row.notes,
+          })),
+        })),
+        subtitle: `Items: ${laborExportRows.length} | ${formatTaxBreakdownSummary(
+          laborItems.reduce((sum, item) => sum + (item.totalPrice || 0), 0),
+        )}`,
+        title: `Labor - ${project.name}`,
+      });
+      toast.success("Labor PDF exported.");
+    } catch (error) {
+      console.error("Labor PDF export error:", error);
+      toast.error("Failed to export labor PDF.");
+    } finally {
+      setIsExportingLaborPdf(false);
+    }
+  };
+
+  const handleExportLaborCsv = () => {
+    if (!project || laborExportRows.length === 0) {
+      toast.info("No labor entries available for export.");
+      return;
+    }
+
+    const dateStamp = new Date().toISOString().slice(0, 10);
+    downloadCsvFile({
+      fileName: `labor-${sanitizeFileName(project.name)}-${dateStamp}.csv`,
+      headers: getLaborExportHeaders(
+        {
+          includeNotes: true,
+          includeReferenceLink: true,
+          includeSection: true,
+        },
+        organizationTaxSettings,
+      ),
+      rows: laborExportRows.map((row) =>
+        getLaborExportCsvRow(
+          row,
+          {
+            includeNotes: true,
+            includeReferenceLink: true,
+            includeSection: true,
+          },
+          organizationTaxSettings,
+        ),
+      ),
+    });
+    toast.success("Labor CSV exported.");
   };
 
   const handleSelectSetItems = async (group: ShoppingGroup, nextSelectedIds: string[]) => {
@@ -1142,7 +1761,8 @@ export default function PublicClientPanelPage() {
             settings.showPrice &&
             activeSectionId === "portal-materials" ? (
               <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium text-foreground">
-                Total: {formatAmount(grandTotal, currencySymbol)}
+                {getTaxAmountKindLabel(primaryAmountKind, organizationTaxSettings)} total:{" "}
+                {formatPrimaryDisplayAmount(grandTotal)}
               </span>
             ) : null}
           </div>
@@ -1152,15 +1772,40 @@ export default function PublicClientPanelPage() {
           {settings.showShoppingList &&
           sectionSummaries.length > 0 &&
           activeSectionId === "portal-materials" ? (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => void handleExportMaterialsPdf()}
-              disabled={isExportingMaterialsPdf}
-            >
-              <Download data-icon="inline-start" />
-              {isExportingMaterialsPdf ? "Exporting PDF..." : "Export shopping list PDF"}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" onClick={handleExportMaterialsCsv}>
+                <FileSpreadsheet data-icon="inline-start" />
+                Export shopping list CSV
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void handleExportMaterialsPdf()}
+                disabled={isExportingMaterialsPdf}
+              >
+                <Download data-icon="inline-start" />
+                {isExportingMaterialsPdf ? "Exporting PDF..." : "Export shopping list PDF"}
+              </Button>
+            </div>
+          ) : null}
+          {settings.showLabor &&
+          laborItems.length > 0 &&
+          activeSectionId === "portal-labor" ? (
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" onClick={handleExportLaborCsv}>
+                <FileSpreadsheet data-icon="inline-start" />
+                Export labor CSV
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void handleExportLaborPdf()}
+                disabled={isExportingLaborPdf}
+              >
+                <Download data-icon="inline-start" />
+                {isExportingLaborPdf ? "Exporting PDF..." : "Export labor PDF"}
+              </Button>
+            </div>
           ) : null}
           {sectionCards.length > 0 ? (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -1707,74 +2352,89 @@ export default function PublicClientPanelPage() {
                     </Badge>
                     {sectionTotal > 0 ? (
                       <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs font-medium">
-                        {formatAmount(sectionTotal, currencySymbol)}
+                        {formatPrimaryDisplayAmount(sectionTotal)}
                       </Badge>
                     ) : null}
                   </div>
 
                   {section.items.length > 0 ? (
-                    <div className="overflow-hidden rounded-2xl border border-border/70">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Work Description</TableHead>
-                            <TableHead className="w-24 text-right">Qty</TableHead>
-                            <TableHead className="w-20 text-center">Unit</TableHead>
-                            <TableHead className="w-32 text-right">Price/Unit</TableHead>
-                            <TableHead className="w-32 text-right">Total</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {section.items.map((item) => (
-                            <TableRow key={item._id}>
-                              <TableCell>
-                                <div className="flex items-center gap-3">
-                                  <span className="font-medium text-foreground">{item.name}</span>
-                                </div>
-                                {item.notes ? (
-                                  <p className="mt-1 text-xs text-muted-foreground">{item.notes}</p>
-                                ) : null}
-                                <div className="mt-1 flex flex-wrap items-center gap-3">
-                                  {item.referenceLink ? (
-                                    <a
-                                      href={item.referenceLink}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                                    >
-                                      <ExternalLink className="h-3 w-3" />
-                                      Link
-                                    </a>
-                                  ) : null}
-                                  {item.attachmentFileId ? (
-                                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                                      Attachment in Files/labor
-                                    </span>
-                                  ) : null}
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-right text-sm text-foreground">{item.quantity}</TableCell>
-                              <TableCell className="text-center text-sm text-muted-foreground">{item.unit}</TableCell>
-                              <TableCell className="text-right text-sm text-foreground">
-                                {item.unitPrice ? `${item.unitPrice.toFixed(2)} ${currencySymbol}` : "-"}
-                              </TableCell>
-                              <TableCell className="text-right text-sm font-medium text-foreground">
-                                {item.totalPrice ? `${item.totalPrice.toFixed(2)} ${currencySymbol}` : "-"}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                        <TableFooter>
-                          <TableRow>
-                            <TableCell colSpan={4} className="text-right text-sm font-medium text-foreground">
-                              Section Total:
-                            </TableCell>
-                            <TableCell className="text-right text-sm font-semibold text-foreground">
-                              {formatAmount(sectionTotal, currencySymbol)}
-                            </TableCell>
-                          </TableRow>
-                        </TableFooter>
-                      </Table>
+                    <div className="flex flex-col gap-3">
+                      {section.items.map((item) => (
+                        <PortalItemCard
+                          key={item._id}
+                          name={item.name}
+                          className={cn(
+                            "border-border/70",
+                            item.customerDecision === "accepted" &&
+                              "border-emerald-500/25 bg-emerald-500/6",
+                            item.customerDecision === "rejected" &&
+                              "border-destructive/20 bg-destructive/5",
+                          )}
+                          badges={
+                            item.customerDecision ? (
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  "text-xs",
+                                  item.customerDecision === "accepted"
+                                    ? "border-emerald-500/30 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
+                                    : "border-destructive/20 bg-destructive/10 text-destructive",
+                                )}
+                              >
+                                {item.customerDecision === "accepted" ? "Accepted" : "Rejected"}
+                              </Badge>
+                            ) : null
+                          }
+                          metadata={
+                            <>
+                              <span>Qty: {item.quantity}</span>
+                              <span>Unit: {item.unit}</span>
+                              {getPriceMetadataLabels(item.unitPrice, "unit").map((label) => (
+                                <span key={`${item._id}-unit-${label}`}>{label}</span>
+                              ))}
+                              {getPriceMetadataLabels(item.totalPrice, "total").map((label) => (
+                                <span
+                                  key={`${item._id}-total-${label}`}
+                                  className="font-medium text-foreground"
+                                >
+                                  {label}
+                                </span>
+                              ))}
+                            </>
+                          }
+                          description={item.notes}
+                          sideContent={
+                            <>
+                              {item.referenceLink ? (
+                                <a
+                                  href={item.referenceLink}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-3 py-1 text-xs text-foreground hover:bg-muted/80"
+                                >
+                                  <ExternalLink className="h-3 w-3" />
+                                  Link
+                                </a>
+                              ) : null}
+                              {item.attachmentFileId ? (
+                                <Badge variant="outline" className="text-xs">
+                                  Attachment in Files/labor
+                                </Badge>
+                              ) : null}
+                            </>
+                          }
+                          footer={renderLaborItemFeedback(item)}
+                        />
+                      ))}
+
+                      {sectionTotal > 0 ? (
+                        <div className="flex items-center justify-between rounded-2xl border border-border/70 bg-muted/15 px-4 py-3">
+                          <span className="text-sm font-medium text-foreground">Section Total</span>
+                          <span className="text-sm font-semibold text-foreground">
+                            {formatTaxBreakdownSummary(sectionTotal)}
+                          </span>
+                        </div>
+                      ) : null}
                     </div>
                   ) : (
                     <div className="rounded-2xl border border-dashed border-border/70 bg-muted/10 py-8 text-center text-muted-foreground">
@@ -2211,7 +2871,7 @@ export default function PublicClientPanelPage() {
                     </span>
                     {settings.showPrice ? (
                       <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-foreground">
-                        {formatAmount(total, currencySymbol)}
+                        {formatPrimaryDisplayAmount(total)}
                       </span>
                     ) : null}
                   </div>
@@ -2226,46 +2886,45 @@ export default function PublicClientPanelPage() {
                         const optionStatusLabel = getStatusLabel(option.realizationStatus);
 
                         return (
-                          <div
+                          <PortalItemCard
                             key={group.key}
+                            imageUrl={option.imageUrl}
+                            name={option.name}
                             className={cn(
-                              "rounded-2xl border p-4",
                               !countedItems.some((entry) => entry.sourceItemId === option.sourceItemId) &&
                                 "border-border/70 bg-muted/10",
                             )}
-                          >
-                            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                              <div className="flex min-w-0 flex-1 items-start gap-4">
-                                <ItemImage imageUrl={option.imageUrl} name={option.name} size="sm" />
-                                <div className="min-w-0 flex-1">
-                                  <div className="mb-2 flex flex-wrap items-center gap-2">
-                                    <h4 className="text-sm font-medium text-foreground">{option.name}</h4>
-                                    {!countedItems.some((entry) => entry.sourceItemId === option.sourceItemId) ? (
-                                      <Badge variant="secondary" className="text-xs">
-                                        Not counted in total
-                                      </Badge>
-                                    ) : null}
-                                  </div>
-                                  <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                                    <span>{getQtyLabel(option)}</span>
-                                    {settings.showPrice && option.unitPrice !== undefined ? (
-                                      <span>{formatAmount(option.unitPrice, currencySymbol)} / unit</span>
-                                    ) : null}
-                                    {settings.showPrice && option.totalPrice !== undefined ? (
-                                      <span className="font-medium text-foreground">
-                                        {formatAmount(option.totalPrice, currencySymbol)}
+                            badges={
+                              !countedItems.some((entry) => entry.sourceItemId === option.sourceItemId) ? (
+                                <Badge variant="secondary" className="text-xs">
+                                  Not counted in total
+                                </Badge>
+                              ) : null
+                            }
+                            metadata={
+                              <>
+                                <span>{getQtyLabel(option)}</span>
+                                {settings.showPrice
+                                  ? getPriceMetadataLabels(option.unitPrice, "unit").map((label) => (
+                                      <span key={`${option._id}-unit-${label}`}>{label}</span>
+                                    ))
+                                  : null}
+                                {settings.showPrice
+                                  ? getPriceMetadataLabels(option.totalPrice, "total").map((label) => (
+                                      <span
+                                        key={`${option._id}-total-${label}`}
+                                        className="font-medium text-foreground"
+                                      >
+                                        {label}
                                       </span>
-                                    ) : null}
-                                    {settings.showSupplier && option.supplier ? <span>{option.supplier}</span> : null}
-                                  </div>
-                                  {settings.showNotes && option.notes ? (
-                                    <p className="mt-2 text-sm text-muted-foreground">{option.notes}</p>
-                                  ) : null}
-                                  {renderShoppingItemFeedback(option)}
-                                </div>
-                              </div>
-
-                              <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                                    ))
+                                  : null}
+                                {settings.showSupplier && option.supplier ? <span>{option.supplier}</span> : null}
+                              </>
+                            }
+                            description={settings.showNotes ? option.notes : undefined}
+                            sideContent={
+                              <>
                                 {optionStatusLabel ? (
                                   <Badge variant="secondary">{optionStatusLabel}</Badge>
                                 ) : null}
@@ -2279,9 +2938,10 @@ export default function PublicClientPanelPage() {
                                     <ExternalLink className="h-4 w-4" />
                                   </a>
                                 ) : null}
-                              </div>
-                            </div>
-                          </div>
+                              </>
+                            }
+                            footer={renderShoppingItemFeedback(option)}
+                          />
                         );
                       }
 
@@ -2342,48 +3002,49 @@ export default function PublicClientPanelPage() {
                                     </div>
                                   ) : null}
 
-                                  <div
+                                  <PortalItemCard
+                                    imageUrl={option.imageUrl}
+                                    name={option.name}
                                     className={cn(
-                                      "rounded-2xl border p-4",
                                       !countedItems.some((entry) => entry.sourceItemId === option.sourceItemId) &&
                                         "border-border/70 bg-muted/10",
                                     )}
-                                  >
-                                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                                      <div className="flex min-w-0 flex-1 items-start gap-4">
-                                        <ItemImage imageUrl={option.imageUrl} name={option.name} size="sm" />
-                                        <div className="min-w-0 flex-1">
-                                          <div className="mb-2 flex flex-wrap items-center gap-2">
-                                            <h4 className="text-sm font-medium text-foreground">{option.name}</h4>
-                                            <Badge variant="outline" className="text-xs">
-                                              Alternative
-                                            </Badge>
-                                            {!countedItems.some((entry) => entry.sourceItemId === option.sourceItemId) ? (
-                                              <Badge variant="secondary" className="text-xs">
-                                                Not counted in total
-                                              </Badge>
-                                            ) : null}
-                                          </div>
-                                          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                                            <span>{getQtyLabel(option)}</span>
-                                            {settings.showPrice && option.unitPrice !== undefined ? (
-                                              <span>{formatAmount(option.unitPrice, currencySymbol)} / unit</span>
-                                            ) : null}
-                                            {settings.showPrice && option.totalPrice !== undefined ? (
-                                              <span className="font-medium text-foreground">
-                                                {formatAmount(option.totalPrice, currencySymbol)}
+                                    badges={
+                                      <>
+                                        <Badge variant="outline" className="text-xs">
+                                          Alternative
+                                        </Badge>
+                                        {!countedItems.some((entry) => entry.sourceItemId === option.sourceItemId) ? (
+                                          <Badge variant="secondary" className="text-xs">
+                                            Not counted in total
+                                          </Badge>
+                                        ) : null}
+                                      </>
+                                    }
+                                    metadata={
+                                      <>
+                                        <span>{getQtyLabel(option)}</span>
+                                        {settings.showPrice
+                                          ? getPriceMetadataLabels(option.unitPrice, "unit").map((label) => (
+                                              <span key={`${option._id}-unit-${label}`}>{label}</span>
+                                            ))
+                                          : null}
+                                        {settings.showPrice
+                                          ? getPriceMetadataLabels(option.totalPrice, "total").map((label) => (
+                                              <span
+                                                key={`${option._id}-total-${label}`}
+                                                className="font-medium text-foreground"
+                                              >
+                                                {label}
                                               </span>
-                                            ) : null}
-                                            {settings.showSupplier && option.supplier ? <span>{option.supplier}</span> : null}
-                                          </div>
-                                          {settings.showNotes && option.notes ? (
-                                            <p className="mt-2 text-sm text-muted-foreground">{option.notes}</p>
-                                          ) : null}
-                                          {renderShoppingItemFeedback(option)}
-                                        </div>
-                                      </div>
-
-                                      <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                                            ))
+                                          : null}
+                                        {settings.showSupplier && option.supplier ? <span>{option.supplier}</span> : null}
+                                      </>
+                                    }
+                                    description={settings.showNotes ? option.notes : undefined}
+                                    sideContent={
+                                      <>
                                         {optionStatusLabel ? (
                                           <Badge variant="secondary">{optionStatusLabel}</Badge>
                                         ) : null}
@@ -2397,9 +3058,10 @@ export default function PublicClientPanelPage() {
                                             <ExternalLink className="h-4 w-4" />
                                           </a>
                                         ) : null}
-                                      </div>
-                                    </div>
-                                  </div>
+                                      </>
+                                    }
+                                    footer={renderShoppingItemFeedback(option)}
+                                  />
                                 </div>
                               );
                             })}
@@ -2434,13 +3096,13 @@ export default function PublicClientPanelPage() {
             {sectionSummaries.map(({ sectionName, total }) => (
               <div key={sectionName} className="flex items-center justify-between text-base text-foreground">
                 <span className="font-medium">{sectionName}</span>
-                <span>{formatAmount(total, currencySymbol)}</span>
+                <span>{formatTaxBreakdownSummary(total)}</span>
               </div>
             ))}
             <div className="flex items-center justify-between border-t border-border pt-4">
               <span className="text-xl font-medium text-foreground">Grand Total</span>
               <span className="text-2xl font-medium text-foreground">
-                {formatAmount(grandTotal, currencySymbol)}
+                {formatTaxBreakdownSummary(grandTotal)}
               </span>
             </div>
           </div>

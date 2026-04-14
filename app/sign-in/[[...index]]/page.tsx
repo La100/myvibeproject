@@ -1,23 +1,33 @@
 "use client";
 
 import { useEffect } from "react";
+import { SignIn, useSignIn, useUser } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
-import { useSignIn, useSignUp, useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { AuthShell } from "@/components/auth/AuthShell";
+import { authClerkAppearance } from "@/lib/authClerkAppearance";
+import {
+  resolveLocalRedirectUrl,
+  signInFallbackRedirectUrl,
+  signInUrl,
+  signUpUrl,
+} from "@/lib/authRedirects";
 
 export default function SignInPage() {
   const { signIn, setActive, isLoaded: isSignInLoaded } = useSignIn();
-  const { signUp } = useSignUp();
   const { isLoaded, isSignedIn } = useUser();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const redirectUrl = resolveLocalRedirectUrl(
+    searchParams.get("redirect_url"),
+    signInFallbackRedirectUrl,
+  );
 
   useEffect(() => {
     if (isLoaded && isSignedIn) {
-      router.replace("/dashboard");
+      router.replace(redirectUrl);
     }
-  }, [isLoaded, isSignedIn, router]);
+  }, [isLoaded, isSignedIn, redirectUrl, router]);
 
   useEffect(() => {
     if (!isSignInLoaded || !signIn || !setActive) {
@@ -29,7 +39,6 @@ export default function SignInPage() {
       return;
     }
 
-    const redirectUrl = searchParams.get("redirect_url") || "/dashboard";
     let cancelled = false;
 
     void (async () => {
@@ -58,60 +67,20 @@ export default function SignInPage() {
     return () => {
       cancelled = true;
     };
-  }, [isSignInLoaded, router, searchParams, setActive, signIn]);
-
-  const handleGoogleSignIn = async () => {
-    if (isSignedIn) {
-      router.replace("/dashboard");
-      return;
-    }
-
-    try {
-      await signIn?.authenticateWithRedirect({
-        strategy: "oauth_google",
-        redirectUrl: "/sso-callback",
-        redirectUrlComplete: "/dashboard",
-
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (message.toLowerCase().includes("already signed in")) {
-        router.replace("/dashboard");
-        return;
-      }
-      console.error("Error signing in with Google:", error);
-    }
-  };
-
-  const handleSignUp = async () => {
-    if (isSignedIn) {
-      router.replace("/dashboard");
-      return;
-    }
-
-    try {
-      await signUp?.authenticateWithRedirect({
-        strategy: "oauth_google",
-        redirectUrl: "/sso-callback",
-        redirectUrlComplete: "/dashboard",
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (message.toLowerCase().includes("already signed in")) {
-        router.replace("/dashboard");
-        return;
-      }
-      console.error("Error signing up with Google:", error);
-    }
-  };
+  }, [isSignInLoaded, redirectUrl, searchParams, setActive, signIn]);
 
   return (
-    <AuthShell
-      primaryActionLabel="Log in"
-      primaryAction={handleGoogleSignIn}
-      secondaryActionLabel="Sign up"
-      secondaryAction={handleSignUp}
-      termsVerb="in"
-    />
+    <AuthShell termsVerb="in">
+      <SignIn
+        path={signInUrl}
+        routing="path"
+        signUpUrl={signUpUrl}
+        fallbackRedirectUrl={signInFallbackRedirectUrl}
+        forceRedirectUrl={null}
+        oauthFlow="redirect"
+        withSignUp={false}
+        appearance={authClerkAppearance}
+      />
+    </AuthShell>
   );
 }

@@ -15,21 +15,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { SearchIcon, XIcon } from 'lucide-react';
 import { apiAny } from '@/lib/convexApiAny';
+import { downloadCsvFile } from '@/lib/csvExport';
+import {
+  getLaborExportCsvRow,
+  getLaborExportHeaders,
+  type LaborExportColumnOptions,
+  type LaborExportRow,
+} from '@/lib/laborExport';
 import type { TeamMember } from '@/lib/teamMember';
+import { exportSectionedTablePdf } from '@/lib/sectionedTablePdfExport';
 import { formatCurrency } from '@/lib/utils';
 import {
-  addBrandHeader,
-  addDocumentMeta,
-  addPageNumbers,
   formatMoney,
-  pdfTableTheme,
-  renderPdfTable,
-  resolvePageBreak,
   sanitizeFileName,
 } from '@/lib/pdfExport';
+import { exportWorkbookTables, getSectionAccentColor } from '@/lib/xlsxExport';
 import { resolveMeasurementSystem } from './laborUnits';
 
 import { AddLaborItemForm } from './AddLaborItemForm';
+import { LaborExportDialog, type LaborListExportOptions } from './LaborExportDialog';
 import { LaborListHeader } from './LaborListHeader';
 import { LaborListSection } from './LaborListSection';
 import { LaborSectionManager } from './LaborSectionManager';
@@ -47,6 +51,15 @@ export default function LaborListView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sectionFilter, setSectionFilter] = useState<string>('all');
   const [assigneeFilter, setAssigneeFilter] = useState<string>('all');
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportOptions, setExportOptions] = useState<LaborListExportOptions>({
+    format: 'xlsx',
+    groupBySections: true,
+    includeNotes: true,
+    includeReferenceLink: true,
+    scope: 'currentView',
+  });
 
   const { project } = useProject();
 
@@ -158,7 +171,34 @@ export default function LaborListView() {
     filteredItems,
     normalizedSearchQuery.length === 0 && sectionFilter === 'all' && assigneeFilter === 'all',
   );
-  const exportSectionEntries = buildSectionEntries(items, false);
+  const exportSourceItems = exportOptions.scope === 'currentView' ? filteredItems : items;
+  const exportSectionEntries = buildSectionEntries(exportSourceItems, false);
+  const laborExportSections = exportSectionEntries.map((entry) => ({
+    sectionName: entry.name,
+    rows: entry.items.map((item): LaborExportRow => ({
+      sectionName: entry.name,
+      work: item.name,
+      qty: String(item.quantity),
+      unit: item.unit || '-',
+      unitNet: formatMoney(item.unitPrice, currencySymbol),
+      unitTax: formatMoney(0, currencySymbol),
+      unitGross: formatMoney(item.unitPrice, currencySymbol),
+      totalNet: formatMoney(item.totalPrice, currencySymbol),
+      totalTax: formatMoney(0, currencySymbol),
+      totalGross: formatMoney(item.totalPrice, currencySymbol),
+      notes: item.notes || '-',
+      referenceLink: item.referenceLink || '-',
+    })),
+  }));
+  const laborExportRows = laborExportSections.flatMap((section) => section.rows);
+  const groupedLaborColumnOptions: LaborExportColumnOptions = {
+    includeNotes: exportOptions.includeNotes,
+    includeReferenceLink: exportOptions.includeReferenceLink,
+  };
+  const flatLaborColumnOptions: LaborExportColumnOptions = {
+    ...groupedLaborColumnOptions,
+    includeSection: true,
+  };
 
   const grandTotal = items.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
   const visibleGrandTotal = filteredItems.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
@@ -228,109 +268,111 @@ export default function LaborListView() {
     }
   };
 
+  const buildLaborPdfColumns = (includeSection: boolean) => [
+    ...(includeSection ? [{ key: 'sectionName', label: 'Section' }] : []),
+    { key: 'work', label: 'Work' },
+    { key: 'qty', label: 'Qty' },
+    { key: 'unit', label: 'Unit' },
+    { key: 'unitNet', label: 'Unit Net' },
+    { key: 'totalNet', label: 'Net Total' },
+    ...(exportOptions.includeNotes ? [{ key: 'notes', label: 'Notes' }] : []),
+    ...(exportOptions.includeReferenceLink ? [{ key: 'referenceLink', label: 'Reference Link' }] : []),
+  ];
+
   const handleExportPDF = async () => {
-    if (items.length === 0) {
+    if (laborExportRows.length === 0) {
       toast.info('Add labor items before exporting.');
       return;
     }
 
     try {
-      const jsPdfModule = await import('jspdf');
-      const jsPDF = jsPdfModule.jsPDF ?? jsPdfModule.default;
-
-      const doc = new jsPDF({
-        putOnlyUsedFonts: true,
-        format: 'a4',
-        unit: 'mm',
-      });
-
-      doc.setFont('helvetica', 'normal');
-      const pageWidth = doc.internal.pageSize.getWidth();
-
-      let yPosition = await addBrandHeader(doc, {
-        teamName: team.name || 'Organization',
-        teamImageUrl: team.imageUrl,
-      });
-
-      yPosition = addDocumentMeta(doc, {
-        title: `Labor - ${project.name}`,
-        subtitle: `Items: ${items.length} | Total: ${formatMoney(grandTotal, currencySymbol)}`,
+      await exportSectionedTablePdf({
+        brand: {
+          teamName: team.name || 'Organization',
+          teamImageUrl: team.imageUrl,
+        },
+        columns: buildLaborPdfColumns(!exportOptions.groupBySections),
+        fileName: `labor-${sanitizeFileName(project.name)}-${format(new Date(), 'yyyy-MM-dd')}.pdf`,
         generatedOn: format(new Date(), 'yyyy-MM-dd HH:mm'),
-        startY: yPosition,
+        groupBySections: exportOptions.groupBySections,
+        sections: laborExportSections.map((section) => ({
+          sectionName: section.sectionName,
+          rows: section.rows.map((row) => ({
+            ...(exportOptions.groupBySections ? {} : { sectionName: row.sectionName }),
+            work: row.work,
+            qty: row.qty,
+            unit: row.unit,
+            unitNet: row.unitNet,
+            totalNet: row.totalNet,
+            ...(exportOptions.includeNotes ? { notes: row.notes } : {}),
+            ...(exportOptions.includeReferenceLink ? { referenceLink: row.referenceLink } : {}),
+          })),
+        })),
+        subtitle: `Items: ${laborExportRows.length} | Total: ${formatMoney(
+          exportSourceItems.reduce((sum, item) => sum + (item.totalPrice || 0), 0),
+          currencySymbol,
+        )}`,
+        title: `Labor - ${project.name}`,
       });
-
-      for (const entry of exportSectionEntries) {
-        if (entry.items.length === 0) {
-          continue;
-        }
-
-        yPosition = resolvePageBreak(doc, yPosition, 18);
-        const sectionTotal = entry.items.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
-
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(12);
-        doc.setTextColor(30, 30, 30);
-        doc.text(entry.name, 18, yPosition);
-        doc.text(
-          `Section total: ${formatMoney(sectionTotal, currencySymbol)}`,
-          pageWidth - 18,
-          yPosition,
-          { align: 'right' },
-        );
-        yPosition += 3;
-
-        const tableData = entry.items.map((item) => {
-          const assignedMember = item.assignedTo
-            ? teamMembers?.find((member) => member.clerkUserId === item.assignedTo)?.name || item.assignedTo
-            : '-';
-          const itemLabel = item.notes ? `${item.name}\nNote: ${item.notes}` : item.name;
-
-          return [
-            itemLabel,
-            item.quantity.toString(),
-            item.unit,
-            formatMoney(item.unitPrice, currencySymbol),
-            formatMoney(item.totalPrice, currencySymbol),
-            assignedMember,
-          ];
-        });
-
-        await renderPdfTable(doc, {
-          ...pdfTableTheme,
-          startY: yPosition,
-          head: [['Work', 'Qty', 'Unit', 'Unit Price', 'Total', 'Assigned']],
-          body: tableData,
-          columnStyles: {
-            0: { cellWidth: 70 },
-            1: { cellWidth: 16, halign: 'right' },
-            2: { cellWidth: 16 },
-            3: { cellWidth: 25, halign: 'right' },
-            4: { cellWidth: 25, halign: 'right' },
-            5: { cellWidth: 28 },
-          },
-        });
-
-        yPosition = doc.lastAutoTable.finalY + 6;
-      }
-
-      yPosition = resolvePageBreak(doc, yPosition, 14);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.setTextColor(20, 20, 20);
-      doc.text(
-        `Labor total: ${formatMoney(grandTotal, currencySymbol)}`,
-        pageWidth - 18,
-        yPosition,
-        { align: 'right' },
-      );
-
-      addPageNumbers(doc);
-      doc.save(`labor-${sanitizeFileName(project.name)}-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+      setIsExportModalOpen(false);
       toast.success('PDF exported successfully!');
     } catch (error) {
       console.error('Labor PDF export error:', error);
       toast.error('Failed to export labor PDF');
     }
+  };
+
+  const handleExportCSV = () => {
+    if (laborExportRows.length === 0) {
+      toast.info('Add labor items before exporting.');
+      return;
+    }
+
+    downloadCsvFile({
+      fileName: `labor-${sanitizeFileName(project.name)}-${format(new Date(), 'yyyy-MM-dd')}.csv`,
+      headers: getLaborExportHeaders(flatLaborColumnOptions),
+      rows: laborExportRows.map((row) => getLaborExportCsvRow(row, flatLaborColumnOptions)),
+    });
+    setIsExportModalOpen(false);
+    toast.success('CSV exported successfully!');
+  };
+
+  const handleExportXlsx = async () => {
+    if (laborExportRows.length === 0) {
+      toast.info('Add labor items before exporting.');
+      return;
+    }
+
+    await exportWorkbookTables({
+      fileName: `labor-${sanitizeFileName(project.name)}-${format(new Date(), 'yyyy-MM-dd')}.xlsx`,
+      sheets: [
+        {
+          generatedOn: format(new Date(), 'yyyy-MM-dd HH:mm'),
+          name: 'Labor',
+          subtitle: `Items: ${laborExportRows.length} | Total: ${formatMoney(
+            exportSourceItems.reduce((sum, item) => sum + (item.totalPrice || 0), 0),
+            currencySymbol,
+          )}`,
+          tables: exportOptions.groupBySections
+            ? laborExportSections.map((section, index) => ({
+                accentColor: getSectionAccentColor(index),
+                headers: getLaborExportHeaders(groupedLaborColumnOptions),
+                rows: section.rows.map((row) => getLaborExportCsvRow(row, groupedLaborColumnOptions)),
+                title: section.sectionName,
+              }))
+            : [
+                {
+                  headers: getLaborExportHeaders(flatLaborColumnOptions),
+                  rows: laborExportRows.map((row) => getLaborExportCsvRow(row, flatLaborColumnOptions)),
+                  title: 'Items',
+                },
+              ],
+          title: `Labor - ${project.name}`,
+        },
+      ],
+    });
+    setIsExportModalOpen(false);
+    toast.success('Excel exported successfully!');
   };
 
   return (
@@ -341,7 +383,7 @@ export default function LaborListView() {
             projectName={project.name}
             grandTotal={grandTotal}
             currencyCode={project.currency}
-            onExportClick={handleExportPDF}
+            onExportClick={() => setIsExportModalOpen(true)}
             onAddLaborClick={() => setShowMainAddForm((current) => !current)}
           />
 
@@ -524,6 +566,28 @@ export default function LaborListView() {
               </Badge>
             </div>
           ) : null}
+
+          <LaborExportDialog
+            exportOptions={exportOptions}
+            isOpen={isExportModalOpen}
+            isPending={isExporting}
+            onClose={() => setIsExportModalOpen(false)}
+            onExport={async () => {
+              setIsExporting(true);
+              try {
+                if (exportOptions.format === 'csv') {
+                  handleExportCSV();
+                } else if (exportOptions.format === 'xlsx') {
+                  await handleExportXlsx();
+                } else {
+                  await handleExportPDF();
+                }
+              } finally {
+                setIsExporting(false);
+              }
+            }}
+            onExportOptionsChange={setExportOptions}
+          />
         </div>
       </ProjectPageLayout>
     </TooltipProvider>

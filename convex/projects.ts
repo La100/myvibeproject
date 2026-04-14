@@ -3,6 +3,7 @@ import { internalMutation, internalQuery, query, mutation } from "./_generated/s
 import { Id, Doc } from "./_generated/dataModel";
 import { r2 } from "./files";
 import { ensureProjectAccess } from "./authz";
+import { summarizeProjectBudget } from "../lib/projectBudgetSummary";
 const internalAny = require("./_generated/api").internal as any;
 
 // Utility function to generate a slug from a string
@@ -103,7 +104,11 @@ const generateNextProjectId = async (ctx: any) => {
 };
 
 const clientPanelDisplaySettingsValidator = {
+  // Legacy field kept only so older project documents don't block Convex deploys.
+  showApprovals: v.optional(v.boolean()),
   showShoppingList: v.optional(v.boolean()),
+  allowShoppingItemDecisions: v.optional(v.boolean()),
+  allowShoppingItemComments: v.optional(v.boolean()),
   showFiles: v.optional(v.boolean()),
   showMoodboard: v.optional(v.boolean()),
   showSurveys: v.optional(v.boolean()),
@@ -119,6 +124,8 @@ const clientPanelDisplaySettingsValidator = {
 
 const defaultClientPanelDisplaySettings = {
   showShoppingList: false,
+  allowShoppingItemDecisions: true,
+  allowShoppingItemComments: true,
   showFiles: false,
   showMoodboard: false,
   showSurveys: false,
@@ -133,6 +140,7 @@ const defaultClientPanelDisplaySettings = {
 };
 
 type ClientPanelDisplaySettings = typeof defaultClientPanelDisplaySettings;
+type ClientPanelPublishedSnapshot = NonNullable<Doc<"projects">["clientPanelPublishedSnapshot"]>;
 
 const projectTaskStatusSettingsValidator = v.object({
   todo: v.object({ name: v.string(), color: v.string() }),
@@ -145,6 +153,10 @@ const getResolvedClientPanelDisplaySettings = (
   settings?: Partial<ClientPanelDisplaySettings> | null
 ): ClientPanelDisplaySettings => ({
   showShoppingList: settings?.showShoppingList ?? defaultClientPanelDisplaySettings.showShoppingList,
+  allowShoppingItemDecisions:
+    settings?.allowShoppingItemDecisions ?? defaultClientPanelDisplaySettings.allowShoppingItemDecisions,
+  allowShoppingItemComments:
+    settings?.allowShoppingItemComments ?? defaultClientPanelDisplaySettings.allowShoppingItemComments,
   showFiles: settings?.showFiles ?? defaultClientPanelDisplaySettings.showFiles,
   showMoodboard: settings?.showMoodboard ?? defaultClientPanelDisplaySettings.showMoodboard,
   showSurveys: settings?.showSurveys ?? defaultClientPanelDisplaySettings.showSurveys,
@@ -157,6 +169,206 @@ const getResolvedClientPanelDisplaySettings = (
   showSupplier: settings?.showSupplier ?? defaultClientPanelDisplaySettings.showSupplier,
   showPrice: settings?.showPrice ?? defaultClientPanelDisplaySettings.showPrice,
 });
+
+const buildClientPanelPublishedSnapshot = async (
+  ctx: any,
+  project: Doc<"projects">,
+  settings: ClientPanelDisplaySettings,
+): Promise<ClientPanelPublishedSnapshot> => {
+  const tasks = settings.showTasks
+    ? await ctx.db
+        .query("tasks")
+        .withIndex("by_project", (q: any) => q.eq("projectId", project._id))
+        .collect()
+    : [];
+  const laborItems = settings.showLabor
+    ? await ctx.db
+        .query("laborItems")
+        .withIndex("by_project", (q: any) => q.eq("projectId", project._id))
+        .collect()
+    : [];
+  const laborSections = settings.showLabor
+    ? await ctx.db
+        .query("laborSections")
+        .withIndex("by_project", (q: any) => q.eq("projectId", project._id))
+        .collect()
+    : [];
+  const projectContactLinks = settings.showContacts
+    ? await ctx.db
+        .query("projectContacts")
+        .withIndex("by_project", (q: any) => q.eq("projectId", project._id))
+        .filter((q: any) => q.eq(q.field("isActive"), true))
+        .collect()
+    : [];
+  const contacts = settings.showContacts
+    ? (
+        await Promise.all(
+          projectContactLinks.map(async (link: Doc<"projectContacts">) => {
+            const contact = await ctx.db.get(link.contactId);
+            if (!contact || !contact.isActive) {
+              return null;
+            }
+
+            return {
+              _id: contact._id,
+              name: contact.name,
+              companyName: contact.companyName,
+              email: contact.email,
+              phone: contact.phone,
+              type: contact.type,
+              website: contact.website,
+              projectRole: link.role,
+              projectNotes: link.notes,
+            };
+          }),
+        )
+      ).filter(Boolean)
+    : [];
+  const payments = settings.showPayments
+    ? await ctx.db
+        .query("projectPayments")
+        .withIndex("by_project_and_order", (q: any) => q.eq("projectId", project._id))
+        .order("asc")
+        .collect()
+    : [];
+  const estimations = settings.showBudget
+    ? await ctx.db
+        .query("costEstimations")
+        .withIndex("by_project", (q: any) => q.eq("projectId", project._id))
+        .collect()
+    : [];
+  const milestones = settings.showBudget
+    ? await ctx.db
+        .query("projectMilestones")
+        .withIndex("by_project", (q: any) => q.eq("projectId", project._id))
+        .collect()
+    : [];
+
+  const tasksForPortal: ClientPanelPublishedSnapshot["tasks"] = tasks
+    .map((task: Doc<"tasks">) => ({
+      _id: task._id,
+      title: task.title,
+      description: task.description,
+      status: task.status,
+      priority: task.priority,
+      startDate: task.startDate,
+      endDate: task.endDate,
+    }))
+    .sort((a: ClientPanelPublishedSnapshot["tasks"][number], b: ClientPanelPublishedSnapshot["tasks"][number]) => {
+      const aDate = a.endDate || a.startDate || 0;
+      const bDate = b.endDate || b.startDate || 0;
+      if (aDate !== bDate) return aDate - bDate;
+      return a.title.localeCompare(b.title);
+    });
+
+  const laborForPortal: ClientPanelPublishedSnapshot["labor"] = laborItems
+    .map((item: Doc<"laborItems">) => ({
+      _id: item._id,
+      name: item.name,
+      notes: item.notes,
+      sectionId: item.sectionId,
+      quantity: item.quantity,
+      unit: item.unit,
+      unitPrice: item.unitPrice,
+      totalPrice: item.totalPrice,
+      assignedTo: item.assignedTo,
+      referenceLink: item.referenceLink,
+      attachmentFileId: item.attachmentFileId,
+      startDate: item.startDate,
+      endDate: item.endDate,
+      customerDecision: item.customerDecision,
+      customerDecisionComment: item.customerDecisionComment,
+      customerDecisionUpdatedAt: item.customerDecisionUpdatedAt,
+      customerDecisionByName: item.customerDecisionByName,
+    }))
+    .sort((a: ClientPanelPublishedSnapshot["labor"][number], b: ClientPanelPublishedSnapshot["labor"][number]) => {
+      const aDate = a.startDate || a.endDate || 0;
+      const bDate = b.startDate || b.endDate || 0;
+      if (aDate !== bDate) return aDate - bDate;
+      return a.name.localeCompare(b.name);
+    });
+
+  const laborSectionsForPortal: ClientPanelPublishedSnapshot["laborSections"] = laborSections
+    .map((section: Doc<"laborSections">) => ({
+      _id: section._id,
+      name: section.name,
+      order: section.order,
+    }))
+    .sort(
+      (
+        a: ClientPanelPublishedSnapshot["laborSections"][number],
+        b: ClientPanelPublishedSnapshot["laborSections"][number],
+      ) => a.order - b.order,
+    );
+
+  const contactsForPortal: ClientPanelPublishedSnapshot["contacts"] = contacts
+    .filter((contact): contact is NonNullable<typeof contact> => contact !== null)
+    .sort(
+      (
+        a: ClientPanelPublishedSnapshot["contacts"][number],
+        b: ClientPanelPublishedSnapshot["contacts"][number],
+      ) => a.name.localeCompare(b.name),
+    );
+
+  const paymentsForPortal: ClientPanelPublishedSnapshot["payments"] = payments
+    .filter((payment: Doc<"projectPayments">) => payment.status !== "void" && payment.status !== "draft")
+    .map((payment: Doc<"projectPayments">) => ({
+      _id: payment._id,
+      title: payment.title,
+      description: payment.description,
+      amount: payment.amount,
+      currency: payment.currency,
+      dueDate: payment.dueDate,
+      status: payment.status,
+      invoiceNumber: payment.invoiceNumber || payment.stripeInvoiceNumber,
+      hasInvoicePdf: !!payment.invoicePdfStorageKey,
+      paymentReference: payment.paymentReference,
+      bankAccountHolder: payment.invoiceSellerSnapshot?.bankAccountHolder,
+      bankName: payment.invoiceSellerSnapshot?.bankName,
+      bankAccountNumber: payment.invoiceSellerSnapshot?.bankAccountNumber,
+      bankSwift: payment.invoiceSellerSnapshot?.bankSwift,
+      paymentInstructions: payment.invoiceSellerSnapshot?.paymentInstructions,
+      hasOnlinePaymentLink: Boolean(payment.stripeHostedInvoiceUrl || payment.stripeInvoiceId),
+      canPayOnline:
+        payment.status === "open" &&
+        Boolean(payment.stripeHostedInvoiceUrl || payment.stripeInvoiceId),
+      paidAt: payment.paidAt,
+      isOverdue:
+        payment.status === "open" &&
+        typeof payment.dueDate === "number" &&
+        payment.dueDate < Date.now(),
+    }));
+
+  const budgetSummary = settings.showBudget
+    ? summarizeProjectBudget(
+        {
+          project: {
+            _id: String(project._id),
+            budget: project.budget,
+            currency: project.currency,
+          },
+          shoppingItems: await ctx.db
+            .query("shoppingListItems")
+            .withIndex("by_project", (q: any) => q.eq("projectId", project._id))
+            .collect(),
+          laborItems,
+          estimations,
+          payments,
+          milestones,
+        },
+        Date.now(),
+      )
+    : undefined;
+
+  return {
+    tasks: tasksForPortal,
+    labor: laborForPortal,
+    laborSections: laborSectionsForPortal,
+    contacts: contactsForPortal,
+    payments: paymentsForPortal,
+    ...(budgetSummary ? { budgetSummary } : {}),
+  };
+};
 
 const getProjectManagerMembership = async (
   ctx: any,
@@ -568,17 +780,62 @@ export const markClientNotificationsRead = mutation({
     const normalizedLastReadAt = Number.isFinite(args.lastReadAt)
       ? args.lastReadAt
       : Date.now();
-    const currentLastReadAt = project.clientNotificationsLastReadAt ?? 0;
+    const existingReadState = await ctx.db
+      .query("clientNotificationReads")
+      .withIndex("by_project_and_user", (q) =>
+        q.eq("projectId", args.projectId).eq("clerkUserId", identity.subject),
+      )
+      .unique();
+    const currentLastReadAt = Math.max(
+      project.clientNotificationsLastReadAt ?? 0,
+      existingReadState?.lastReadAt ?? 0,
+    );
 
     if (normalizedLastReadAt <= currentLastReadAt) {
       return { success: true, lastReadAt: currentLastReadAt };
     }
 
-    await ctx.db.patch(args.projectId, {
-      clientNotificationsLastReadAt: normalizedLastReadAt,
-    });
+    if (existingReadState) {
+      await ctx.db.patch(existingReadState._id, {
+        lastReadAt: normalizedLastReadAt,
+      });
+    } else {
+      await ctx.db.insert("clientNotificationReads", {
+        projectId: args.projectId,
+        teamId: project.teamId,
+        clerkUserId: identity.subject,
+        lastReadAt: normalizedLastReadAt,
+      });
+    }
 
     return { success: true, lastReadAt: normalizedLastReadAt };
+  },
+});
+
+export const getMyClientNotificationsReadState = query({
+  args: {
+    projectId: v.id("projects"),
+  },
+  async handler(ctx, args) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return { lastReadAt: 0 };
+    }
+
+    const { project } = await getProjectManagerMembership(ctx, args.projectId, identity.subject);
+    const existingReadState = await ctx.db
+      .query("clientNotificationReads")
+      .withIndex("by_project_and_user", (q) =>
+        q.eq("projectId", args.projectId).eq("clerkUserId", identity.subject),
+      )
+      .unique();
+
+    return {
+      lastReadAt: Math.max(
+        project.clientNotificationsLastReadAt ?? 0,
+        existingReadState?.lastReadAt ?? 0,
+      ),
+    };
   },
 });
 
@@ -1160,6 +1417,11 @@ export const publishClientPanelData = mutation({
     }
 
     const resolvedSettings = getResolvedClientPanelDisplaySettings(args.settings);
+    const publishedSnapshot = await buildClientPanelPublishedSnapshot(
+      ctx,
+      project,
+      resolvedSettings,
+    );
     const version = (project.clientPanelDataVersion || 0) + 1;
     const updatedAt = Date.now();
     const token = project.clientPanelAccessToken || generateClientPanelAccessToken();
@@ -1169,6 +1431,7 @@ export const publishClientPanelData = mutation({
       clientPanelPublishedSettings: resolvedSettings,
       clientPanelDataVersion: version,
       clientPanelDataUpdatedAt: updatedAt,
+      clientPanelPublishedSnapshot: publishedSnapshot,
     });
 
     return {
