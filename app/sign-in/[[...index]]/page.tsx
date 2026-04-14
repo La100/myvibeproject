@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { SignIn, useUser } from "@clerk/nextjs";
-import { useSignIn } from "@clerk/nextjs/legacy";
+import { SignIn, useSignIn, useUser } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { AuthShell } from "@/components/auth/AuthShell";

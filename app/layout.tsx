@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import ConvexClientProvider from "@/components/providers/ConvexClientProvider";
 import { ClerkProvider } from "@clerk/nextjs";
-import type { ClerkProviderProps } from "@clerk/clerk-react";
-import type { CSSProperties } from "react";
+import type { ComponentProps, CSSProperties } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import localFont from "next/font/local";
 import { cn } from "@/lib/utils";
@@ -40,7 +39,7 @@ export const metadata: Metadata = {
   },
 };
 
-const clerkAppearance: ClerkProviderProps["appearance"] = {
+const clerkAppearance: ComponentProps<typeof ClerkProvider>["appearance"] = {
   layout: {
     socialButtonsVariant: "blockButton",
     socialButtonsPlacement: "top",
@@ -77,8 +76,6 @@ const clerkAppearance: ClerkProviderProps["appearance"] = {
   },
 };
 
-const clerkProxyUrl = process.env.NEXT_PUBLIC_CLERK_PROXY_URL || undefined;
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -93,7 +90,6 @@ export default function RootLayout({
       <body className="antialiased">
         <ClerkProvider
           appearance={clerkAppearance}
-          proxyUrl={clerkProxyUrl}
           signInUrl={signInUrl}
           signUpUrl={signUpUrl}
           signInFallbackRedirectUrl={signInFallbackRedirectUrl}
