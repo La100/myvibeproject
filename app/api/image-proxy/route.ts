@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { assertSafeRemoteUrl } from "@/lib/security/remoteUrlSafety";
+import { fetchRemoteUrlPinned } from "@/lib/security/remoteUrlSafety";
 
 const REQUEST_TIMEOUT_MS = 10000;
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -13,31 +13,21 @@ async function normalizeInputUrl(rawUrl: string): Promise<URL> {
     throw new Error("Missing url parameter");
   }
 
-  const parsed = new URL(trimmed);
-  await assertSafeRemoteUrl(parsed, {
-    blockedHostMessage: "Blocked URL host",
-    unresolvedHostMessage: "Unable to resolve URL host",
-  });
-
-  return parsed;
+  return new URL(trimmed);
 }
 
 async function fetchImageWithRedirects(initialUrl: URL) {
   let currentUrl = initialUrl;
 
   for (let redirectCount = 0; redirectCount <= MAX_REDIRECTS; redirectCount += 1) {
-    await assertSafeRemoteUrl(currentUrl, {
-      blockedHostMessage: "Blocked redirected host",
-      unresolvedHostMessage: "Redirected host could not be resolved",
-    });
-
-    const response = await fetch(currentUrl.toString(), {
-      method: "GET",
-      redirect: "manual",
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    const response = await fetchRemoteUrlPinned(currentUrl, {
       headers: {
         Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
       },
+      maxBytes: MAX_IMAGE_BYTES,
+      timeoutMs: REQUEST_TIMEOUT_MS,
+      blockedHostMessage: "Blocked redirected host",
+      unresolvedHostMessage: "Redirected host could not be resolved",
     });
 
     if (response.status >= 300 && response.status < 400) {
@@ -49,7 +39,7 @@ async function fetchImageWithRedirects(initialUrl: URL) {
       continue;
     }
 
-    if (!response.ok) {
+    if (response.status < 200 || response.status >= 300) {
       throw new Error(`Failed to fetch image: ${response.status}`);
     }
 
@@ -63,12 +53,11 @@ async function fetchImageWithRedirects(initialUrl: URL) {
       throw new Error("Remote image is too large");
     }
 
-    const buffer = await response.arrayBuffer();
-    if (buffer.byteLength > MAX_IMAGE_BYTES) {
+    if (response.body.byteLength > MAX_IMAGE_BYTES) {
       throw new Error("Remote image is too large");
     }
 
-    return { buffer, contentType };
+    return { buffer: response.body, contentType };
   }
 
   throw new Error("Too many redirects");
@@ -85,7 +74,7 @@ export async function GET(request: NextRequest) {
     const normalizedUrl = await normalizeInputUrl(rawUrl);
     const { buffer, contentType } = await fetchImageWithRedirects(normalizedUrl);
 
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       headers: {
         "Content-Type": contentType,
         "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400",

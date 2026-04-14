@@ -1,8 +1,35 @@
 import { lookup } from "node:dns/promises";
+import http from "node:http";
+import https from "node:https";
 import { isIP } from "node:net";
 
 const BLOCKED_HOSTNAMES = new Set(["localhost"]);
 const BLOCKED_HOSTNAME_SUFFIXES = [".localhost", ".local", ".internal"];
+
+type SafeRemoteUrlOptions = {
+  blockedHostMessage?: string;
+  unresolvedHostMessage?: string;
+};
+
+type ResolvedRemoteAddress = {
+  address: string;
+  family: 4 | 6;
+};
+
+type PinnedFetchOptions = {
+  body?: Buffer | Uint8Array | string;
+  headers?: Record<string, string>;
+  maxBytes?: number;
+  method?: string;
+  timeoutMs?: number;
+} & SafeRemoteUrlOptions;
+
+type PinnedFetchResponse = {
+  body: Buffer;
+  headers: Headers;
+  status: number;
+  url: URL;
+};
 
 function normalizeHost(hostname: string): string {
   return hostname
@@ -62,13 +89,10 @@ export function isBlockedHostname(hostname: string): boolean {
   return false;
 }
 
-export async function assertSafeRemoteUrl(
+async function resolveSafeRemoteAddress(
   url: URL,
-  options?: {
-    blockedHostMessage?: string;
-    unresolvedHostMessage?: string;
-  },
-): Promise<void> {
+  options?: SafeRemoteUrlOptions,
+): Promise<ResolvedRemoteAddress> {
   const blockedHostMessage = options?.blockedHostMessage ?? "Blocked URL host";
   const unresolvedHostMessage = options?.unresolvedHostMessage ?? "Unable to resolve URL host";
 
@@ -81,8 +105,9 @@ export async function assertSafeRemoteUrl(
     throw new Error(blockedHostMessage);
   }
 
-  if (isIP(hostname)) {
-    return;
+  const ipVersion = isIP(hostname);
+  if (ipVersion === 4 || ipVersion === 6) {
+    return { address: hostname, family: ipVersion as 4 | 6 };
   }
 
   let addresses: Array<{ address: string; family: number }>;
@@ -92,13 +117,96 @@ export async function assertSafeRemoteUrl(
     throw new Error(unresolvedHostMessage);
   }
 
-  if (!addresses.length) {
-    throw new Error(unresolvedHostMessage);
+  const safeAddress = addresses.find(
+    (record) =>
+      (record.family === 4 || record.family === 6) &&
+      !isBlockedHostname(record.address),
+  );
+
+  if (!safeAddress) {
+    throw new Error(
+      addresses.length > 0 ? blockedHostMessage : unresolvedHostMessage,
+    );
   }
 
-  for (const record of addresses) {
-    if (isBlockedHostname(record.address)) {
-      throw new Error(blockedHostMessage);
+  return { address: safeAddress.address, family: safeAddress.family as 4 | 6 };
+}
+
+export async function assertSafeRemoteUrl(
+  url: URL,
+  options?: SafeRemoteUrlOptions,
+): Promise<void> {
+  await resolveSafeRemoteAddress(url, options);
+}
+
+export async function fetchRemoteUrlPinned(
+  url: URL,
+  options?: PinnedFetchOptions,
+): Promise<PinnedFetchResponse> {
+  const resolved = await resolveSafeRemoteAddress(url, options);
+  const client = url.protocol === "https:" ? https : http;
+  const timeoutMs = options?.timeoutMs ?? 10_000;
+
+  return await new Promise<PinnedFetchResponse>((resolve, reject) => {
+    const request = client.request(
+      url,
+      {
+        family: resolved.family,
+        headers: options?.headers,
+        lookup: (_hostname, _lookupOptions, callback) => {
+          callback(null, resolved.address, resolved.family);
+        },
+        method: options?.method ?? "GET",
+        servername: url.protocol === "https:" ? url.hostname : undefined,
+      },
+      (response) => {
+        const chunks: Buffer[] = [];
+        let totalBytes = 0;
+
+        response.on("data", (chunk: Buffer | string) => {
+          const bufferChunk = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+          totalBytes += bufferChunk.length;
+
+          if (options?.maxBytes !== undefined && totalBytes > options.maxBytes) {
+            request.destroy(new Error("Remote response is too large"));
+            return;
+          }
+
+          chunks.push(bufferChunk);
+        });
+
+        response.on("end", () => {
+          const headers = new Headers();
+          for (const [key, value] of Object.entries(response.headers)) {
+            if (Array.isArray(value)) {
+              for (const entry of value) {
+                headers.append(key, entry);
+              }
+            } else if (typeof value === "string") {
+              headers.set(key, value);
+            }
+          }
+
+          resolve({
+            body: Buffer.concat(chunks),
+            headers,
+            status: response.statusCode || 0,
+            url,
+          });
+        });
+      },
+    );
+
+    request.setTimeout(timeoutMs, () => {
+      request.destroy(new Error("Remote request timed out"));
+    });
+
+    request.on("error", reject);
+
+    if (options?.body !== undefined) {
+      request.write(options.body);
     }
-  }
+
+    request.end();
+  });
 }

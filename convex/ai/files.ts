@@ -27,7 +27,7 @@ const getFileByIdQueryRef = makeFunctionReference<
   "query",
   { fileId: string },
   StoredFileRecord | null
->("files:getFileById");
+>("files:getFileByIdInternal");
 
 export type FileMetadataForHistory = {
   fileId: string;

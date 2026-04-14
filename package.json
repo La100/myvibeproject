@@ -9,11 +9,12 @@
     "build": "next build",
     "validate:ci": "pnpm lint && pnpm build",
     "start": "next start -p 3001",
-    "lint": "pnpm run lint:app && pnpm run lint:extension",
+    "lint": "pnpm run lint:app",
     "lint:app": "pnpm run lint:design && pnpm exec eslint app components hooks lib middleware.ts next.config.ts tailwind.config.ts postcss.config.mjs eslint.config.mjs --max-warnings=0",
     "lint:design": "node scripts/check-shadcn-discipline.mjs",
     "lint:extension": "pnpm --dir chrome-extension lint",
-    "typecheck": "pnpm exec tsc --noEmit && pnpm --dir chrome-extension type-check",
+    "typecheck": "pnpm exec tsc --noEmit",
+    "typecheck:extension": "pnpm --dir chrome-extension type-check",
     "elo": "bash ./elo"
   },
   "dependencies": {

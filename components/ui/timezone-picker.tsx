@@ -150,53 +150,55 @@ export function TimezonePicker({
   const selectedLabel = value ? getLocationLabel(value) : placeholder;
 
   return (
-    <div className="flex gap-2">
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            type="button"
-            variant="outline"
-            role="combobox"
-            aria-expanded={open}
-            className={cn(
-              "h-10 justify-between border-input/90 px-3.5 py-2 text-sm font-normal tracking-normal shadow-[0_6px_14px_-12px_rgba(22,22,22,0.45)]",
-              className
-            )}
-            disabled={disabled}
-          >
-            <span className="truncate">{selectedLabel}</span>
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-          <Command>
-            <CommandInput placeholder="Search timezone..." />
-            <CommandList className="max-h-[320px]">
-              <CommandEmpty>No timezone found.</CommandEmpty>
-              {groupedTimezones.map((group) => (
-                <CommandGroup key={group.continent} heading={formatContinentLabel(group.continent).toUpperCase()}>
-                  {group.timezones.map((timezone) => (
-                    <CommandItem
-                      key={timezone}
-                      value={`${timezone} ${formatTimezoneLabel(timezone)} ${formatContinentLabel(group.continent)} ${getLocationLabel(timezone)}`}
-                      onSelect={() => {
-                        onValueChange(timezone);
-                        setOpen(false);
-                      }}
-                    >
-                      <Check className={`mr-2 h-4 w-4 ${value === timezone ? "opacity-100" : "opacity-0"}`} />
-                      <span className="truncate">{getLocationLabel(timezone)}</span>
-                      <span className="ml-auto shrink-0 text-muted-foreground tabular-nums">
-                        {formatTimeInTimezone(timezone, now)}
-                      </span>
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              ))}
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+    <div className="flex w-full items-center gap-2">
+      <div className="min-w-0 flex-1">
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              role="combobox"
+              aria-expanded={open}
+              className={cn(
+                "h-10 w-full min-w-0 justify-between border-input/90 px-3.5 py-2 text-sm font-normal tracking-normal shadow-[0_6px_14px_-12px_rgba(22,22,22,0.45)]",
+                className
+              )}
+              disabled={disabled}
+            >
+              <span className="truncate">{selectedLabel}</span>
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+            <Command>
+              <CommandInput placeholder="Search timezone..." />
+              <CommandList className="max-h-[320px]">
+                <CommandEmpty>No timezone found.</CommandEmpty>
+                {groupedTimezones.map((group) => (
+                  <CommandGroup key={group.continent} heading={formatContinentLabel(group.continent).toUpperCase()}>
+                    {group.timezones.map((timezone) => (
+                      <CommandItem
+                        key={timezone}
+                        value={`${timezone} ${formatTimezoneLabel(timezone)} ${formatContinentLabel(group.continent)} ${getLocationLabel(timezone)}`}
+                        onSelect={() => {
+                          onValueChange(timezone);
+                          setOpen(false);
+                        }}
+                      >
+                        <Check className={`mr-2 h-4 w-4 ${value === timezone ? "opacity-100" : "opacity-0"}`} />
+                        <span className="truncate">{getLocationLabel(timezone)}</span>
+                        <span className="ml-auto shrink-0 text-muted-foreground tabular-nums">
+                          {formatTimeInTimezone(timezone, now)}
+                        </span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                ))}
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+      </div>
 
       <Button
         type="button"
@@ -204,6 +206,7 @@ export function TimezonePicker({
         size="icon"
         disabled={disabled}
         onClick={() => onValueChange(detectTimezone())}
+        className="h-10 w-10 shrink-0 rounded-full"
       >
         <LocateFixed className="h-4 w-4" />
         <span className="sr-only">Detect timezone</span>

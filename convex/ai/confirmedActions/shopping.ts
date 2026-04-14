@@ -227,10 +227,10 @@ export const editConfirmedShoppingItem = action({
       }
       await ensureProjectAccess(ctx, args.projectId ?? item.projectId, true, args.userClerkId);
 
-      let buyBeforeNumber: number | undefined;
-      if (args.updates.buyBefore) {
-        buyBeforeNumber = new Date(args.updates.buyBefore).getTime();
-      }
+      const buyBeforeNumber = parseOptionalDateToMillis(
+        args.updates.buyBefore,
+        "shopping buyBefore",
+      );
 
       await ctx.runMutation(updateShoppingListItemMutationRef, {
         itemId: args.itemId,
@@ -485,6 +485,5 @@ export const deleteConfirmedShoppingSet = action({
     }
   },
 });
-
 
 

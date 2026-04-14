@@ -10,7 +10,7 @@ import {
 } from "../billing";
 import { IMAGE_GENERATION_CONFIG } from "./config";
 import { aiDebugLog } from "../helpers/debugLog";
-import { assertSafeRemoteUrl } from "../../../lib/security/remoteUrlSafety";
+import { fetchRemoteUrlPinned } from "../../../lib/security/remoteUrlSafety";
 // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
 const apiAny = require("../../_generated/api").api as any;
 // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
@@ -169,14 +169,11 @@ export const generateVisualization = action({
       ): Promise<{ data: string; mimeType: string } | null> => {
         try {
           const parsedUrl = new URL(inputUrl);
-          await assertSafeRemoteUrl(parsedUrl, {
+          const response = await fetchRemoteUrlPinned(parsedUrl, {
+            maxBytes: MAX_REFERENCE_IMAGE_BYTES,
+            timeoutMs: 10_000,
             blockedHostMessage: "Blocked reference image host",
             unresolvedHostMessage: "Unable to resolve reference image host",
-          });
-
-          const response = await fetch(parsedUrl, {
-            redirect: "manual",
-            signal: AbortSignal.timeout(10_000),
           });
 
           if ([301, 302, 303, 307, 308].includes(response.status)) {
@@ -189,7 +186,7 @@ export const generateVisualization = action({
             return fetchRemoteImage(nextUrl.toString(), fallbackMimeType, redirectCount + 1);
           }
 
-          if (!response.ok) {
+          if (response.status < 200 || response.status >= 300) {
             return null;
           }
 
@@ -207,13 +204,12 @@ export const generateVisualization = action({
             return null;
           }
 
-          const buffer = await response.arrayBuffer();
-          if (buffer.byteLength > MAX_REFERENCE_IMAGE_BYTES) {
+          if (response.body.byteLength > MAX_REFERENCE_IMAGE_BYTES) {
             return null;
           }
 
           return {
-            data: Buffer.from(buffer).toString("base64"),
+            data: response.body.toString("base64"),
             mimeType,
           };
         } catch (error) {

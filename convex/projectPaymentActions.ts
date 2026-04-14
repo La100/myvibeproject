@@ -117,6 +117,31 @@ const mapStripeInvoiceStatusToProjectPaymentStatus = (
   return "open";
 };
 
+const ZERO_DECIMAL_CURRENCIES = new Set([
+  "bif",
+  "clp",
+  "djf",
+  "gnf",
+  "jpy",
+  "kmf",
+  "krw",
+  "mga",
+  "pyg",
+  "rwf",
+  "ugx",
+  "vnd",
+  "vuv",
+  "xaf",
+  "xof",
+  "xpf",
+]);
+
+const toStripeMinorAmount = (amount: number, currency: string) => {
+  const normalizedCurrency = String(currency || "pln").trim().toLowerCase();
+  const multiplier = ZERO_DECIMAL_CURRENCIES.has(normalizedCurrency) ? 1 : 100;
+  return Math.round(Number(amount) * multiplier);
+};
+
 const isStripeConnectOnboardingComplete = (team: any) =>
   team?.stripeConnectOnboardingComplete === true ||
   (team?.stripeConnectChargesEnabled === true && team?.stripeConnectPayoutsEnabled === true);
@@ -658,7 +683,10 @@ const createStripePaymentLinkForInstallment = async (
   }
 
   const customerId = await getOrCreateProjectStripeCustomer(ctx, payload, stripeConnectAccountId, customer);
-  const amountMinor = Math.round(Number(payload.installment.amount) * 100);
+  const amountMinor = toStripeMinorAmount(
+    Number(payload.installment.amount),
+    String(payload.installment.currency || "pln"),
+  );
 
   if (!Number.isFinite(amountMinor) || amountMinor <= 0) {
     throw new Error("Installment amount must be greater than zero");

@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery, query, mutation } from "./_generated/server";
 import { Id, Doc } from "./_generated/dataModel";
 import { r2 } from "./files";
-import { ensureProjectAccess } from "./authz";
+import { canAccessProjectWithMembership, ensureProjectAccess } from "./authz";
 import { summarizeProjectBudget } from "../lib/projectBudgetSummary";
 const internalAny = require("./_generated/api").internal as any;
 
@@ -707,8 +707,23 @@ export const getProjectBySlug = query({
     projectSlug: v.string(),
   },
   async handler(ctx, args) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+
     const team = await ctx.db.query("teams").withIndex("by_slug", q => q.eq("slug", args.teamSlug)).unique();
     if(!team) return null;
+
+    const membership = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", team._id).eq("clerkUserId", identity.subject)
+      )
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .unique();
+
+    if (!membership) {
+      return null;
+    }
 
     const project = await ctx.db
       .query("projects")
@@ -716,8 +731,12 @@ export const getProjectBySlug = query({
         q.eq("teamId", team._id).eq("slug", args.projectSlug)
       )
       .unique();
-    
-    return project;
+
+    if (!project) {
+      return null;
+    }
+
+    return canAccessProjectWithMembership(membership, project._id) ? project : null;
   },
 });
 

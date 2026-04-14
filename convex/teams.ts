@@ -816,17 +816,25 @@ export const debugTeamMembers = query({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return { error: "Not authenticated" };
 
-    const project = await ctx.db.get(args.projectId);
-    if (!project) return { error: "Project not found" };
+    let access: Awaited<ReturnType<typeof ensureProjectAccess>>;
+    try {
+      access = await ensureProjectAccess(ctx, args.projectId);
+    } catch {
+      return { error: "Permission denied" };
+    }
+
+    if (access.membership.role !== "admin") {
+      return { error: "Permission denied" };
+    }
 
     // Pobierz wszystkich członków tej organizacji
     const allMembers = await ctx.db
       .query("teamMembers")
-      .withIndex("by_team", q => q.eq("teamId", project.teamId))
+      .withIndex("by_team", q => q.eq("teamId", access.project.teamId))
       .collect();
 
     // Pobierz zespół
-    const team = await ctx.db.get(project.teamId);
+    const team = await ctx.db.get(access.project.teamId) as Doc<"teams"> | null;
 
     // Dodaj dane użytkowników
     const membersWithUserData = await Promise.all(
@@ -848,7 +856,7 @@ export const debugTeamMembers = query({
     );
 
     return {
-      teamId: project.teamId,
+      teamId: access.project.teamId,
       teamName: team?.name,
       clerkOrgId: team?.clerkOrgId,
       totalMembers: allMembers.length,
@@ -860,6 +868,20 @@ export const debugTeamMembers = query({
 export const getPendingInvitations = query({
   args: { teamId: v.id("teams") },
   async handler(ctx, args) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return [];
+    }
+
+    try {
+      const { membership } = await ensureTeamAccess(ctx, args.teamId);
+      if (membership.role !== "admin") {
+        return [];
+      }
+    } catch {
+      return [];
+    }
+
     return await ctx.db
       .query("invitations")
       .withIndex("by_team", (q) => q.eq("teamId", args.teamId))

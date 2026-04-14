@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
-import { ensureProjectAccess } from "./authz";
+import { canAccessProjectWithMembership, ensureProjectAccess } from "./authz";
 
 async function getActiveTeamMember(ctx: any, teamId: Id<"teams">, clerkUserId: string) {
   return await ctx.db
@@ -42,16 +42,28 @@ export const getTeamsAndProjects = query({
 
     const teamIds = [...new Set(memberships.map((m) => m.teamId))];
 
+    const membershipsByTeamId = new Map(
+      memberships.map((membership) => [String(membership.teamId), membership]),
+    );
+
     const teams = await Promise.all(
       teamIds.map(async (teamId) => {
         const team = await ctx.db.get(teamId);
         if (!team) return null;
+        const membership = membershipsByTeamId.get(String(teamId));
+        if (!membership) return null;
 
         // Fetch projects for this specific team
-        const projects = await ctx.db
+        const allProjects = await ctx.db
           .query("projects")
           .withIndex("by_team", (q) => q.eq("teamId", teamId))
           .collect();
+
+        const projects = membership.role === "admin"
+          ? allProjects
+          : allProjects.filter((project) =>
+              canAccessProjectWithMembership(membership, project._id),
+            );
         
         // Dla każdego projektu pobierz od razu jego sekcje
         const projectsWithSections = await Promise.all(
@@ -103,10 +115,16 @@ export const getProjectsForTeam = query({
       throw new Error("You are not a member of this team or you must be logged in.");
     }
 
-    return await ctx.db
+    const projects = await ctx.db
       .query("projects")
       .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
       .collect();
+
+    if (member.role === "admin") {
+      return projects;
+    }
+
+    return projects.filter((project) => canAccessProjectWithMembership(member, project._id));
   },
 });
 
@@ -162,20 +180,10 @@ export const getShoppingListSections = query({
     teamId: v.id("teams"),
   },
   handler: async (ctx, args): Promise<Doc<"shoppingListSections">[]> => {
-    const project = await ctx.db.get(args.projectId);
-    if (!project) {
-        throw new Error("Project not found");
-      }
-
-      const identity = await ctx.auth.getUserIdentity();
-      if (!identity) {
-        throw new Error("Not authenticated");
-      }
-      const member: Doc<"teamMembers"> | null = await getActiveTeamMember(ctx, project.teamId, identity.subject);
-  
-      if (!member) {
-        throw new Error("Current user is not a team member");
-      }
+    const { project } = await ensureProjectAccess(ctx, args.projectId);
+    if (project.teamId !== args.teamId) {
+      throw new Error("Project does not belong to the selected team");
+    }
 
     return await ctx.db
       .query("shoppingListSections")
@@ -190,27 +198,9 @@ export const getShoppingSetsForProject = query({
     teamId: v.id("teams"),
   },
   handler: async (ctx, args) => {
-    const project = await ctx.db.get(args.projectId);
-    if (!project) {
-      throw new Error("Project not found");
-    }
-
+    const { project } = await ensureProjectAccess(ctx, args.projectId);
     if (project.teamId !== args.teamId) {
       throw new Error("Project does not belong to the selected team");
-    }
-
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-    const member: Doc<"teamMembers"> | null = await getActiveTeamMember(
-      ctx,
-      project.teamId,
-      identity.subject,
-    );
-
-    if (!member) {
-      throw new Error("Current user is not a team member");
     }
 
     const sets = await ctx.db
@@ -260,25 +250,19 @@ export const addShoppingListItem = mutation({
       ),
   },
   handler: async (ctx, args): Promise<Id<"shoppingListItems">> => {
-    const project = await ctx.db.get(args.projectId);
-    if (!project) {
-        throw new Error("Project not found.");
-    }
-
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-    const member: Doc<"teamMembers"> | null = await getActiveTeamMember(ctx, project.teamId, identity.subject);
-
-    if (!member) {
-      throw new Error("You are not a member of this team or you must be logged in.");
-    }
+    const { project, clerkUserId } = await ensureProjectAccess(ctx, args.projectId);
 
     if (args.setId) {
       const set = await ctx.db.get(args.setId);
       if (!set || set.projectId !== args.projectId) {
         throw new Error("Shopping set not found in this project.");
+      }
+    }
+
+    if (args.sectionId) {
+      const section = await ctx.db.get(args.sectionId);
+      if (!section || section.projectId !== args.projectId) {
+        throw new Error("Shopping section not found in this project.");
       }
     }
 
@@ -290,7 +274,7 @@ export const addShoppingListItem = mutation({
         ...args,
         sectionId: finalSectionId,
         teamId: project.teamId,
-        createdBy: member.clerkUserId,
+        createdBy: clerkUserId,
         completed: false,
     });
 

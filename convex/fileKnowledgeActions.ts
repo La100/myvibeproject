@@ -67,7 +67,7 @@ const getFileByIdQueryRef = makeFunctionReference<
   "query",
   { fileId: Id<"files"> },
   StoredFileRecord | null
->("files:getFileById");
+>("files:getFileByIdInternal");
 const getProjectQueryRef = makeFunctionReference<
   "query",
   { projectId: Id<"projects"> },

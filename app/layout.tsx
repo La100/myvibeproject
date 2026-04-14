@@ -5,7 +5,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import type { ClerkProviderProps } from "@clerk/clerk-react";
 import type { CSSProperties } from "react";
 import { Toaster } from "@/components/ui/sonner";
-import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import { cn } from "@/lib/utils";
 import {
   signInFallbackRedirectUrl,
@@ -14,9 +14,18 @@ import {
   signUpUrl,
 } from "@/lib/authRedirects";
 
-const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
-const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" });
+const appSans = localFont({
+  src: [
+    { path: "../public/fonts/Arial.ttf", weight: "400", style: "normal" },
+    { path: "../public/fonts/Arial-Bold.ttf", weight: "700", style: "normal" },
+  ],
+  display: "swap",
+  variable: "--font-sans",
+});
+
 const brandFontVariables = {
+  "--font-mono":
+    '"SFMono-Regular", "JetBrains Mono", "Fira Code", "Menlo", "Monaco", monospace',
   "--font-serif": '"Canela", "Noe Display", "Georgia", "Times New Roman", serif',
   "--font-display-serif": '"Canela", "Noe Display", "Georgia", "Times New Roman", serif',
 } as CSSProperties;
@@ -76,7 +85,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={cn("font-sans", geist.variable, geistMono.variable)}
+      className={cn("font-sans", appSans.variable)}
       style={brandFontVariables}
     >
       <body className="antialiased">

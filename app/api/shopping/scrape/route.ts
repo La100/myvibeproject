@@ -12,7 +12,7 @@ import {
   calculateCloudflareBrowserRenderingCostUSD,
   usdToCredits,
 } from "@/lib/aiPricing";
-import { assertSafeRemoteUrl } from "@/lib/security/remoteUrlSafety";
+import { assertSafeRemoteUrl, fetchRemoteUrlPinned } from "@/lib/security/remoteUrlSafety";
 
 type JsonLdNode = Record<string, unknown>;
 
@@ -161,14 +161,7 @@ async function fetchHtmlWithRedirects(initialUrl: URL): Promise<{ html: string; 
   let currentUrl = initialUrl;
 
   for (let i = 0; i <= MAX_REDIRECTS; i += 1) {
-    await assertSafeRemoteUrl(currentUrl, {
-      blockedHostMessage: "Redirected URL host is blocked for security reasons.",
-      unresolvedHostMessage: "Redirected URL host could not be resolved.",
-    });
-
-    const response = await fetch(currentUrl.toString(), {
-      method: "GET",
-      redirect: "manual",
+    const response = await fetchRemoteUrlPinned(currentUrl, {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (compatible; MyVibeProjectBot/1.0; +https://myvibeproject.local)",
@@ -176,7 +169,10 @@ async function fetchHtmlWithRedirects(initialUrl: URL): Promise<{ html: string; 
           "text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.5",
         "Accept-Language": "en-US,en;q=0.9,pl;q=0.8",
       },
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      maxBytes: MAX_HTML_LENGTH,
+      timeoutMs: REQUEST_TIMEOUT_MS,
+      blockedHostMessage: "Redirected URL host is blocked for security reasons.",
+      unresolvedHostMessage: "Redirected URL host could not be resolved.",
     });
 
     const isRedirect = response.status >= 300 && response.status < 400;
@@ -189,7 +185,7 @@ async function fetchHtmlWithRedirects(initialUrl: URL): Promise<{ html: string; 
       continue;
     }
 
-    if (!response.ok) {
+    if (response.status < 200 || response.status >= 300) {
       throw new Error(`Remote server responded with ${response.status}.`);
     }
 
@@ -198,7 +194,7 @@ async function fetchHtmlWithRedirects(initialUrl: URL): Promise<{ html: string; 
       throw new Error("Provided URL does not point to an HTML page.");
     }
 
-    const fullHtml = await response.text();
+    const fullHtml = response.body.toString("utf-8");
     const html =
       fullHtml.length > MAX_HTML_LENGTH ? fullHtml.slice(0, MAX_HTML_LENGTH) : fullHtml;
 

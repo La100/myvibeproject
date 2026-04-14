@@ -10,10 +10,6 @@ const apiLoose = require("../../_generated/api").api as unknown as {
   projects: { getProject: unknown };
   teams: { getCurrentUserTeamMember: unknown };
 };
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const internalLoose = require("../../_generated/api").internal as unknown as {
-  teams: { getTeamMemberByClerkId: unknown };
-};
 
 type ResolvedActor = {
   clerkUserId: string;
@@ -46,14 +42,15 @@ const resolveActor = async (
   ctx: any,
   actorUserId?: string,
 ): Promise<ResolvedActor> => {
+  const identity = await requireIdentity(ctx);
+
   if (typeof actorUserId === "string" && actorUserId.trim().length > 0) {
-    return {
-      clerkUserId: actorUserId.trim(),
-      identity: null,
-    };
+    const normalizedActorUserId = actorUserId.trim();
+    if (normalizedActorUserId !== identity.subject) {
+      throw new Error("Forbidden");
+    }
   }
 
-  const identity = await requireIdentity(ctx);
   return {
     clerkUserId: identity.subject,
     identity,
@@ -72,14 +69,9 @@ export const ensureProjectAccess = async (
     throw new Error("Project not found");
   }
 
-  const membership = actorUserId
-    ? await ctx.runQuery(internalLoose.teams.getTeamMemberByClerkId, {
-        teamId: project.teamId,
-        clerkUserId,
-      })
-    : await ctx.runQuery(apiLoose.teams.getCurrentUserTeamMember, {
-        teamId: project.teamId,
-      });
+  const membership = await ctx.runQuery(apiLoose.teams.getCurrentUserTeamMember, {
+    teamId: project.teamId,
+  });
 
   if (!membership || membership.isActive === false) {
     throw new Error("Forbidden");
@@ -103,14 +95,9 @@ export const ensureTeamMembership = async (
   actorUserId?: string,
 ): Promise<ConfirmedTeamMembership> => {
   const { identity, clerkUserId } = await resolveActor(ctx, actorUserId);
-  const membership = actorUserId
-    ? await ctx.runQuery(internalLoose.teams.getTeamMemberByClerkId, {
-        teamId,
-        clerkUserId,
-      })
-    : await ctx.runQuery(apiLoose.teams.getCurrentUserTeamMember, {
-        teamId,
-      });
+  const membership = await ctx.runQuery(apiLoose.teams.getCurrentUserTeamMember, {
+    teamId,
+  });
 
   if (!membership || membership.isActive === false) {
     throw new Error("Forbidden");
@@ -134,7 +121,6 @@ export const parseOptionalDateToMillis = (
 
   return timestamp;
 };
-
 
 
 

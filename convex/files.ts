@@ -96,6 +96,19 @@ const getProjectAccess = async (ctx: any, projectId: Id<"projects">, clerkUserId
   return { project, teamMember };
 };
 
+const requireCurrentProjectAccess = async (
+  ctx: QueryCtx | MutationCtx,
+  projectId: Id<"projects">,
+) => {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) {
+    throw new Error("Not authenticated");
+  }
+
+  const access = await getProjectAccess(ctx, projectId, identity.subject);
+  return { identity, membership: access.teamMember, project: access.project };
+};
+
 const scheduleKnowledgeIndex = async (ctx: MutationCtx, fileId: Id<"files">) => {
   const scheduler = ctx.scheduler as {
     runAfter: (
@@ -366,7 +379,7 @@ export const generateUploadUrlWithCustomKey = mutation({
     taskId: v.optional(v.id("tasks")),
     fileName: v.string(),
     origin: v.optional(v.union(v.literal("ai"), v.literal("general"))),
-    fileSize: v.optional(v.number()), // Size in bytes for storage limit check
+    fileSize: v.number(), // Size in bytes for storage limit check
   },
   returns: v.object({
     url: v.string(),
@@ -374,25 +387,19 @@ export const generateUploadUrlWithCustomKey = mutation({
     publicUrl: v.string(),
   }),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    if (!Number.isFinite(args.fileSize) || args.fileSize < 0) {
+      throw new Error("Invalid file size");
+    }
 
-    const project = await ctx.db.get(args.projectId);
-    if (!project) throw new Error("Project not found");
-
-    const team = await ctx.db.get(project.teamId);
+    const { project } = await requireCurrentProjectAccess(ctx, args.projectId);
+    const team = (await ctx.db.get(project.teamId)) as Doc<"teams"> | null;
     if (!team) throw new Error("Team not found");
 
-    // Check access
-    const hasAccess = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", q =>
-        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
-      )
-      .unique();
-
-    if (!hasAccess || !hasAccess.isActive) {
-      throw new Error("No access to this project");
+    if (args.taskId) {
+      const task = await ctx.db.get(args.taskId);
+      if (!task || task.projectId !== args.projectId) {
+        throw new Error("Invalid task");
+      }
     }
 
     // Check storage limit locally to avoid cross-function type instantiation depth issues.
@@ -413,7 +420,7 @@ export const generateUploadUrlWithCustomKey = mutation({
 
     const limits = getEffectiveLimits(team);
     const limitBytes = limits.maxStorageGB * 1024 * 1024 * 1024;
-    const newTotal = totalBytes + (args.fileSize || 0);
+    const newTotal = totalBytes + args.fileSize;
 
     if (newTotal >= limitBytes) {
       throw new Error(`Storage limit reached (${limits.maxStorageGB} GB). Please upgrade your plan.`);
@@ -570,22 +577,13 @@ export const createFolder = mutation({
     parentFolderId: v.optional(v.id("folders")),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const { project, identity } = await requireCurrentProjectAccess(ctx, args.projectId);
 
-    const project = await ctx.db.get(args.projectId);
-    if (!project) throw new Error("Project not found");
-
-    // Sprawdź uprawnienia do projektu
-    const hasAccess = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", q => 
-        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
-      )
-      .unique();
-
-    if (!hasAccess || !hasAccess.isActive) {
-      throw new Error("No access to this project");
+    if (args.parentFolderId) {
+      const parentFolder = await ctx.db.get(args.parentFolderId);
+      if (!parentFolder || parentFolder.projectId !== args.projectId) {
+        throw new Error("Invalid parent folder");
+      }
     }
 
     return await ctx.db.insert("folders", {
@@ -605,22 +603,7 @@ export const ensureLaborFolder = mutation({
   },
   returns: v.id("folders"),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project) throw new Error("Project not found");
-
-    const hasAccess = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
-      )
-      .unique();
-
-    if (!hasAccess || !hasAccess.isActive) {
-      throw new Error("No access to this project");
-    }
+    const { project, identity } = await requireCurrentProjectAccess(ctx, args.projectId);
 
     const rootFolders = await ctx.db
       .query("folders")
@@ -652,22 +635,7 @@ export const ensureMoodboardFolder = mutation({
   },
   returns: v.id("folders"),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project) throw new Error("Project not found");
-
-    const hasAccess = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
-      )
-      .unique();
-
-    if (!hasAccess || !hasAccess.isActive) {
-      throw new Error("No access to this project");
-    }
+    const { project, identity } = await requireCurrentProjectAccess(ctx, args.projectId);
 
     const rootFolders = await ctx.db
       .query("folders")
@@ -701,28 +669,16 @@ export const addFile = mutation({
     fileKey: v.string(),
     fileName: v.string(),
     fileType: v.string(),
-    fileSize: v.optional(v.number()),
+    fileSize: v.number(),
     moodboardSection: v.optional(v.string()),
     origin: v.optional(v.union(v.literal("ai"), v.literal("general"))),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project) throw new Error("Project not found");
-
-    // Sprawdź uprawnienia do projektu
-    const hasAccess = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", q => 
-        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
-      )
-      .unique();
-
-    if (!hasAccess || !hasAccess.isActive) {
-      throw new Error("No access to this project");
+    if (!Number.isFinite(args.fileSize) || args.fileSize < 0) {
+      throw new Error("Invalid file size");
     }
+
+    const { project, identity } = await requireCurrentProjectAccess(ctx, args.projectId);
 
     const origin = args.origin ?? "general";
     const hasMoodboardSection =
@@ -733,6 +689,13 @@ export const addFile = mutation({
       const folder = await ctx.db.get(args.folderId);
       if (!folder || folder.projectId !== args.projectId) {
         throw new Error("Invalid folder");
+      }
+    }
+
+    if (args.taskId) {
+      const task = await ctx.db.get(args.taskId);
+      if (!task || task.projectId !== args.projectId) {
+        throw new Error("Invalid task");
       }
     }
 
@@ -754,7 +717,7 @@ export const addFile = mutation({
       folderId: args.folderId,
       fileType: getFileType(args.fileType),
       storageId: args.fileKey, // R2 key stored as string
-      size: args.fileSize || 0,
+      size: args.fileSize,
       mimeType: args.fileType,
       uploadedBy: identity.subject,
       version: 1,
@@ -795,21 +758,11 @@ export const getProjectFolders = query({
     parentFolderId: v.optional(v.id("folders"))
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return [];
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project) return [];
-
-    // Sprawdź uprawnienia
-    const hasAccess = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", q => 
-        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
-      )
-      .unique();
-
-    if (!hasAccess || !hasAccess.isActive) return [];
+    try {
+      await requireCurrentProjectAccess(ctx, args.projectId);
+    } catch {
+      return [];
+    }
 
     return await ctx.db
       .query("folders")
@@ -826,21 +779,11 @@ export const getProjectFiles = query({
     folderId: v.optional(v.id("folders"))
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return [];
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project) return [];
-
-    // Sprawdź uprawnienia
-    const hasAccess = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", q => 
-        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
-      )
-      .unique();
-
-    if (!hasAccess || !hasAccess.isActive) return [];
+    try {
+      await requireCurrentProjectAccess(ctx, args.projectId);
+    } catch {
+      return [];
+    }
 
     const files = await ctx.db
       .query("files")
@@ -876,21 +819,11 @@ export const getProjectContent = query({
     folderId: v.optional(v.id("folders"))
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return { folders: [], files: [] };
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project) return { folders: [], files: [] };
-
-    // Sprawdź uprawnienia
-    const hasAccess = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", q => 
-        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
-      )
-      .unique();
-
-    if (!hasAccess || !hasAccess.isActive) return { folders: [], files: [] };
+    try {
+      await requireCurrentProjectAccess(ctx, args.projectId);
+    } catch {
+      return { folders: [], files: [] };
+    }
 
     // Pobierz foldery
     const folders = await ctx.db
@@ -931,26 +864,11 @@ export const getProjectContent = query({
 export const deleteFolder = mutation({
   args: { folderId: v.id("folders") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
     const folder = await ctx.db.get(args.folderId);
     if (!folder) throw new Error("Folder not found");
+    if (!folder.projectId) throw new Error("Folder is not attached to a project");
 
-    // Sprawdź uprawnienia
-    const project = await ctx.db.get(folder.projectId!);
-    if (project) {
-      const member = await ctx.db
-        .query("teamMembers")
-        .withIndex("by_team_and_user", q => 
-          q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
-        )
-        .unique();
-      
-      if (!member || !member.isActive) {
-        throw new Error("No permission to delete this folder");
-      }
-    }
+    await requireCurrentProjectAccess(ctx, folder.projectId);
 
     // Sprawdź czy folder jest pusty (brak plików i podfolderów)
     const filesInFolder = await ctx.db
@@ -983,22 +901,13 @@ export const deleteFile = mutation({
 
     const file = await ctx.db.get(args.fileId);
     if (!file) throw new Error("File not found");
+    if (!file.projectId) throw new Error("File is not attached to a project");
+
+    const { membership } = await requireCurrentProjectAccess(ctx, file.projectId);
 
     // Sprawdź czy użytkownik może usunąć plik
-    if (file.uploadedBy !== identity.subject) {
-      const project = await ctx.db.get(file.projectId!);
-      if (project) {
-        const member = await ctx.db
-          .query("teamMembers")
-          .withIndex("by_team_and_user", q => 
-            q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
-          )
-          .unique();
-        
-        if (!member || (member.role !== "admin" && member.role !== "member")) {
-          throw new Error("No permission to delete this file");
-        }
-      }
+    if (file.uploadedBy !== identity.subject && membership.role !== "admin" && membership.role !== "member") {
+      throw new Error("No permission to delete this file");
     }
 
     // Usuń z R2 używając komponentu
@@ -1560,21 +1469,11 @@ export const getFileByStorageId = query({
     storageId: v.string()
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return null;
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project) return null;
-
-    // Check access
-    const hasAccess = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", q => 
-        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
-      )
-      .unique();
-
-    if (!hasAccess || !hasAccess.isActive) return null;
+    try {
+      await requireCurrentProjectAccess(ctx, args.projectId);
+    } catch {
+      return null;
+    }
 
     // Find file by storageId
     const file = await ctx.db
@@ -1594,20 +1493,11 @@ export const getFileUrlByStorageId = query({
   },
   returns: v.union(v.string(), v.null()),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return null;
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project) return null;
-
-    const hasAccess = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
-      )
-      .unique();
-
-    if (!hasAccess || !hasAccess.isActive) return null;
+    try {
+      await requireCurrentProjectAccess(ctx, args.projectId);
+    } catch {
+      return null;
+    }
 
     try {
       return await r2.getUrl(args.storageId, {
@@ -1629,21 +1519,7 @@ export const deleteFileByStorageId = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project) throw new Error("Project not found");
-
-    // Check access
-    const hasAccess = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", q => 
-        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
-      )
-      .unique();
-
-    if (!hasAccess || !hasAccess.isActive) {
-      throw new Error("No access to this project");
-    }
+    const { membership } = await requireCurrentProjectAccess(ctx, args.projectId);
 
     // Find file by storageId
     const file = await ctx.db
@@ -1657,17 +1533,8 @@ export const deleteFileByStorageId = mutation({
     }
 
     // Check if user can delete file (same logic as deleteFile)
-    if (file.uploadedBy !== identity.subject) {
-      const member = await ctx.db
-        .query("teamMembers")
-        .withIndex("by_team_and_user", q => 
-          q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
-        )
-        .unique();
-      
-      if (!member || (member.role !== "admin" && member.role !== "member")) {
-        throw new Error("No permission to delete this file");
-      }
+    if (file.uploadedBy !== identity.subject && membership.role !== "admin" && membership.role !== "member") {
+      throw new Error("No permission to delete this file");
     }
 
     // Delete from R2
@@ -1694,24 +1561,14 @@ export const getFileMetadata = query({
 export const getFolder = query({
   args: { folderId: v.id("folders") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return null;
-
     const folder = await ctx.db.get(args.folderId);
     if (!folder) return null;
-
-    // Sprawdź uprawnienia
-    const project = await ctx.db.get(folder.projectId!);
-    if (!project) return null;
-
-    const hasAccess = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", q => 
-        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
-      )
-      .unique();
-
-    if (!hasAccess || !hasAccess.isActive) return null;
+    if (!folder.projectId) return null;
+    try {
+      await requireCurrentProjectAccess(ctx, folder.projectId);
+    } catch {
+      return null;
+    }
 
     return folder;
   },
@@ -1720,25 +1577,15 @@ export const getFolder = query({
 export const getFilesForTask = query({
     args: { taskId: v.id("tasks") },
     handler: async (ctx, args) => {
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) return [];
-
         const task = await ctx.db.get(args.taskId);
         if (!task) return [];
 
         if (!task.projectId) return [];
-
-        const project = await ctx.db.get(task.projectId);
-        if (!project) return [];
-
-        const hasAccess = await ctx.db
-            .query("teamMembers")
-            .withIndex("by_team_and_user", (q) =>
-              q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
-            )
-            .unique();
-        if (!hasAccess) return [];
-        if (!hasAccess.isActive) return [];
+        try {
+          await requireCurrentProjectAccess(ctx, task.projectId);
+        } catch {
+          return [];
+        }
 
         const files = await ctx.db
             .query("files")
@@ -1792,6 +1639,24 @@ export const updateTextExtractionStatus = internalMutation({
 export const getFileById = query({
   args: { fileId: v.id("files") },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+
+    const file = await ctx.db.get(args.fileId);
+    if (!file || !file.projectId) return null;
+
+    try {
+      await getProjectAccess(ctx, file.projectId, identity.subject);
+      return file;
+    } catch {
+      return null;
+    }
+  },
+});
+
+export const getFileByIdInternal = internalQuery({
+  args: { fileId: v.id("files") },
+  handler: async (ctx, args) => {
     return await ctx.db.get(args.fileId);
   },
 });
@@ -1800,24 +1665,13 @@ export const getFileById = query({
 export const getFileWithURL = query({
   args: { fileId: v.id("files") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return null;
-
     const file = await ctx.db.get(args.fileId);
     if (!file || !file.projectId) return null;
-
-    // Check project access
-    const project = await ctx.db.get(file.projectId);
-    if (!project) return null;
-
-    const hasAccess = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", q =>
-        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
-      )
-      .unique();
-
-    if (!hasAccess || !hasAccess.isActive) return null;
+    try {
+      await requireCurrentProjectAccess(ctx, file.projectId);
+    } catch {
+      return null;
+    }
 
     // Generate URL
     try {
