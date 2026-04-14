@@ -1,9 +1,10 @@
 import { v } from "convex/values";
 import type { UserIdentity } from "convex/server";
 import type { Id } from "./_generated/dataModel";
-import { internal } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const internalAny = require("./_generated/api").internal as any;
 
 const currencyValidator = v.union(
   v.literal("USD"),
@@ -39,6 +40,7 @@ type OnboardingUserDoc = {
   preferredCurrency?: string;
   preferredTimezone?: string;
   onboardingCompletedAt?: number;
+  clipperConnectedAt?: number;
 };
 
 type ActiveTeamContext = {
@@ -153,6 +155,7 @@ export const getStatus = query({
           preferredTimezone: undefined,
         },
         activeOrganization: null,
+        clipperConnected: false,
       };
     }
 
@@ -168,6 +171,7 @@ export const getStatus = query({
         preferredCurrency: user?.preferredCurrency ?? undefined,
         preferredTimezone: user?.preferredTimezone ?? undefined,
       },
+      clipperConnected: Boolean(user?.clipperConnectedAt),
       activeOrganization: teamContext
         ? {
             teamId: teamContext.team._id,
@@ -179,6 +183,27 @@ export const getStatus = query({
           }
         : null,
     };
+  },
+});
+
+export const markClipperConnected = mutation({
+  args: {},
+  async handler(ctx) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const user = await getOrCreateCurrentUser(ctx, identity);
+    const userDb = ctx.db as unknown as {
+      patch: (id: Id<"users">, value: Record<string, unknown>) => Promise<void>;
+    };
+
+    await userDb.patch(user._id, {
+      clipperConnectedAt: Date.now(),
+    });
+
+    return { success: true };
   },
 });
 
@@ -228,7 +253,7 @@ export const completeOnboarding = mutation({
     }
 
     if (teamContext?.team._id) {
-      await ctx.runMutation(internal.activityLog.logActivity, {
+      await ctx.runMutation(internalAny.activityLog.logActivity, {
         teamId: teamContext.team._id,
         actionType: "analytics.onboarding.completed",
         details: {

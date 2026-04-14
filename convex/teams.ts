@@ -339,6 +339,7 @@ export const getTeamSettingsByClerkOrg = query({
       name: team.name,
       description: team.description,
       imageUrl: team.imageUrl,
+      hasCustomOrganizationImage: Boolean(team.customOrganizationImageSetAt),
       currency: team.currency || "PLN",
       timezone: team.timezone,
       billingProfile: resolveOrganizationBillingProfile(team.billingProfile, team),
@@ -941,6 +942,7 @@ export const updateTeamSettings = mutation({
   args: {
     teamId: v.id("teams"),
     imageUrl: v.optional(v.string()),
+    markCustomImageUploaded: v.optional(v.boolean()),
     currency: v.optional(v.union(
       v.literal("USD"), v.literal("EUR"), v.literal("PLN"), v.literal("GBP"),
       v.literal("CAD"), v.literal("AUD"), v.literal("JPY"), v.literal("CHF"),
@@ -987,6 +989,7 @@ export const updateTeamSettings = mutation({
       currency?: typeof args.currency;
       timezone?: string;
       imageUrl?: string | undefined;
+      customOrganizationImageSetAt?: number;
       billingProfile?: ReturnType<typeof normalizeBillingProfile>;
       invoiceFieldRequirements?: ReturnType<typeof normalizeInvoiceFieldRequirements>;
       organizationTaxSettings?: typeof DEFAULT_ORGANIZATION_TAX_SETTINGS;
@@ -1003,6 +1006,10 @@ export const updateTeamSettings = mutation({
     if (Object.prototype.hasOwnProperty.call(args, "imageUrl")) {
       const normalizedImageUrl = args.imageUrl?.trim();
       patch.imageUrl = normalizedImageUrl || undefined;
+    }
+
+    if (args.markCustomImageUploaded) {
+      patch.customOrganizationImageSetAt = Date.now();
     }
 
     if (Object.prototype.hasOwnProperty.call(args, "billingProfile")) {

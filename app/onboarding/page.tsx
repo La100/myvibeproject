@@ -1,13 +1,14 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
-import { useAuth, useOrganizationList } from "@clerk/nextjs";
+import { useAuth, useOrganization, useOrganizationList } from "@clerk/nextjs";
 import { toast } from "sonner";
 
 import { apiAny } from "@/lib/convexApiAny";
 import { detectBrowserCurrency, isCurrencyCode, type CurrencyCode } from "@/lib/onboardingPreferences";
+import { OrganizationImagePicker } from "@/components/company/OrganizationImagePicker";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -63,18 +64,29 @@ function OnboardingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isLoaded: isAuthLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });
+  const { organization } = useOrganization();
   const { createOrganization, setActive, isLoaded: organizationListLoaded } = useOrganizationList();
   const onboardingStatus = useQuery(apiAny.onboarding.getStatus);
+  const onboardingTeamSettings = useQuery(
+    apiAny.teams.getTeamSettingsByClerkOrg,
+    organization?.id ? { clerkOrgId: organization.id } : "skip",
+  );
   const completeOnboarding = useMutation(apiAny.onboarding.completeOnboarding);
   const ensureCurrentUserTeamMembership = useMutation(apiAny.teamMembership.ensureCurrentUserTeamMembership);
+  const updateTeamSettings = useMutation(apiAny.teams.updateTeamSettings);
   const isForcedOrganizationSetup = searchParams.get("mode") === "organization";
 
   const [isFinishing, setIsFinishing] = useState(false);
   const [isCreatingOrganization, setIsCreatingOrganization] = useState(false);
+  const [isUploadingOrganizationImage, setIsUploadingOrganizationImage] = useState(false);
   const [organizationName, setOrganizationName] = useState("");
   const [selectedCurrency, setSelectedCurrency] = useState<CurrencyCode>("USD");
   const [selectedTimezone, setSelectedTimezone] = useState("UTC");
   const [hasInitializedPreferences, setHasInitializedPreferences] = useState(false);
+  const [organizationImagePreviewUrl, setOrganizationImagePreviewUrl] = useState("");
+  const [organizationImageFile, setOrganizationImageFile] = useState<File | null>(null);
+  const organizationImageInputRef = useRef<HTMLInputElement | null>(null);
+  const organizationImageObjectUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!isAuthLoaded) {
@@ -88,6 +100,10 @@ function OnboardingContent() {
 
   const activeOrganization = onboardingStatus?.activeOrganization ?? null;
   const canUpdateOrganization = Boolean(activeOrganization?.canUpdateTeamSettings);
+  const organizationHasImage = organization?.hasImage ?? false;
+  const resolvedOrganizationImageUrl = organizationHasImage
+    ? (onboardingTeamSettings?.imageUrl || organization?.imageUrl || "")
+    : "";
 
   useEffect(() => {
     if (!onboardingStatus || activeOrganization || organizationName) {
@@ -173,6 +189,30 @@ function OnboardingContent() {
     onboardingStatus,
   ]);
 
+  useEffect(() => {
+    if (!organizationImageFile) {
+      setOrganizationImagePreviewUrl(resolvedOrganizationImageUrl);
+    }
+  }, [organizationImageFile, resolvedOrganizationImageUrl]);
+
+  useEffect(() => {
+    return () => {
+      if (organizationImageObjectUrlRef.current) {
+        URL.revokeObjectURL(organizationImageObjectUrlRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isForcedOrganizationSetup || onboardingStatus === undefined) {
+      return;
+    }
+
+    if (onboardingStatus.completed && activeOrganization) {
+      router.replace("/dashboard");
+    }
+  }, [activeOrganization, isForcedOrganizationSetup, onboardingStatus, router]);
+
   const handleFinish = async () => {
     if (!activeOrganization) {
       toast.error("Create or connect organization first.");
@@ -200,6 +240,71 @@ function OnboardingContent() {
     } finally {
       setIsFinishing(false);
     }
+  };
+
+  const handleSaveOrganizationImage = async (file: File) => {
+    if (!organization || !activeOrganization?.teamId) {
+      toast.error("Organization context is not ready yet.");
+      return;
+    }
+
+    setIsUploadingOrganizationImage(true);
+    try {
+      const updatedOrganization = await organization.setLogo({ file });
+      await updateTeamSettings({
+        teamId: activeOrganization.teamId,
+        imageUrl: updatedOrganization.imageUrl ?? undefined,
+        markCustomImageUploaded: true,
+      });
+
+      if (organizationImageObjectUrlRef.current) {
+        URL.revokeObjectURL(organizationImageObjectUrlRef.current);
+        organizationImageObjectUrlRef.current = null;
+      }
+
+      setOrganizationImagePreviewUrl(updatedOrganization.imageUrl ?? "");
+      setOrganizationImageFile(null);
+      toast.success("Organization image updated.");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to update organization image.");
+      if (organizationImageObjectUrlRef.current) {
+        URL.revokeObjectURL(organizationImageObjectUrlRef.current);
+        organizationImageObjectUrlRef.current = null;
+      }
+      setOrganizationImagePreviewUrl(resolvedOrganizationImageUrl);
+      setOrganizationImageFile(null);
+    } finally {
+      setIsUploadingOrganizationImage(false);
+    }
+  };
+
+  const handleSelectOrganizationImage = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please choose an image file.");
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be smaller than 5 MB.");
+      event.target.value = "";
+      return;
+    }
+
+    if (organizationImageObjectUrlRef.current) {
+      URL.revokeObjectURL(organizationImageObjectUrlRef.current);
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    organizationImageObjectUrlRef.current = objectUrl;
+    setOrganizationImagePreviewUrl(objectUrl);
+    setOrganizationImageFile(file);
+    event.target.value = "";
+    void handleSaveOrganizationImage(file);
   };
 
   if (!isAuthLoaded || !isSignedIn || onboardingStatus === undefined) {
@@ -288,6 +393,35 @@ function OnboardingContent() {
                 Defaults for estimates, reports, invoices, and AI date handling.
               </p>
             </div>
+
+            <input
+              ref={organizationImageInputRef}
+              id="onboarding-organization-image-upload"
+              type="file"
+              accept="image/*"
+              onChange={handleSelectOrganizationImage}
+              className="hidden"
+            />
+            <OrganizationImagePicker
+              inputId="onboarding-organization-image-upload"
+              currentImageUrl={organizationImagePreviewUrl}
+              name={organization?.name || activeOrganization.teamName}
+              onPick={() => organizationImageInputRef.current?.click()}
+              disabled={!canUpdateOrganization || isUploadingOrganizationImage}
+              buttonLabel={isUploadingOrganizationImage ? "Uploading..." : "Upload custom image"}
+              statusLabel={
+                onboardingTeamSettings?.hasCustomOrganizationImage
+                  ? "Custom image set"
+                  : "Default image still active"
+              }
+              description={
+                canUpdateOrganization
+                  ? isUploadingOrganizationImage
+                    ? "Uploading logo..."
+                    : "Set your own workspace image now so the sidebar and quests reflect your real brand."
+                  : "Only admins can change the organization image."
+              }
+            />
           </CardContent>
         </Card>
 

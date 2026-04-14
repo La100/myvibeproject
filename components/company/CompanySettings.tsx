@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useState, useEffect, useRef, useCallback, type ChangeEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useOrganization } from "@clerk/nextjs";
@@ -23,7 +22,6 @@ import {
   Clock3,
   HardDrive,
   FolderOpen,
-  Upload,
   ArrowRight,
   Loader2,
 } from "lucide-react";
@@ -51,6 +49,7 @@ import {
   type OrganizationPriceDisplay,
 } from "@/lib/organizationTax";
 import { cn } from "@/lib/utils";
+import { OrganizationImagePicker } from "@/components/company/OrganizationImagePicker";
 
 type BillingProfileForm = {
   sellerName: string;
@@ -440,6 +439,7 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
         await updateTeamSettings({
           teamId: teamData.teamId,
           imageUrl: updatedImageUrl,
+          markCustomImageUploaded: true,
         });
       } catch (error) {
         console.error("Failed to sync team image with Clerk logo", error);
@@ -1188,51 +1188,32 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
 
               <Card id="organization-profile" className="overflow-hidden border-border/40 shadow-sm">
                 <CardContent className="flex flex-col gap-4 p-6">
-                  <div className="flex items-center gap-4 rounded-lg border border-border/40 bg-muted/20 p-4">
-                    <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-border/40 bg-background">
-                      {organizationImagePreviewUrl.trim() ? (
-                        <img
-                          src={organizationImagePreviewUrl}
-                          alt={organization?.name || "Organization"}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <Image
-                          src="/logo.svg"
-                          alt="Myvibe Project"
-                          fill
-                          className="object-contain p-2"
-                        />
-                      )}
-                    </div>
-                    <div className="flex min-w-0 flex-1 flex-col gap-3">
-                      <Label htmlFor="organization-image-upload">Organization image</Label>
-                      <input
-                        ref={organizationImageInputRef}
-                        id="organization-image-upload"
-                        type="file"
-                        accept="image/*"
-                        onChange={handleSelectOrganizationImage}
-                        className="hidden"
-                      />
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => organizationImageInputRef.current?.click()}
-                          disabled={savingOrganizationProfile}
-                        >
-                          <Upload data-icon="inline-start" />
-                          {savingOrganizationProfile ? "Uploading..." : "Add image"}
-                        </Button>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {savingOrganizationProfile
-                          ? "Uploading logo..."
-                          : "Upload a logo shown in the app sidebar."}
-                      </p>
-                    </div>
-                  </div>
+                  <input
+                    ref={organizationImageInputRef}
+                    id="organization-image-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleSelectOrganizationImage}
+                    className="hidden"
+                  />
+                  <OrganizationImagePicker
+                    inputId="organization-image-upload"
+                    currentImageUrl={organizationImagePreviewUrl}
+                    name={organization?.name || "Organization"}
+                    onPick={() => organizationImageInputRef.current?.click()}
+                    disabled={savingOrganizationProfile}
+                    buttonLabel={savingOrganizationProfile ? "Uploading..." : "Upload custom image"}
+                    statusLabel={
+                      teamData?.hasCustomOrganizationImage
+                        ? "Custom image set"
+                        : "Default image still active"
+                    }
+                    description={
+                      savingOrganizationProfile
+                        ? "Uploading logo..."
+                        : "Upload the image you want shown in the workspace sidebar."
+                    }
+                  />
                   <div className="grid gap-2">
                     <Label>Organization name</Label>
                     <Input value={organization?.name || "No active organization"} readOnly />

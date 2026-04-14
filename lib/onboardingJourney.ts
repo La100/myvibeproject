@@ -1,4 +1,3 @@
-export const ONBOARDING_EXTENSION_READY_KEY = "myvibeproject-onboarding-extension-ready";
 export const ONBOARDING_DASHBOARD_QUESTS_HIDDEN_KEY = "myvibeproject-onboarding-dashboard-quests-hidden";
 export const ONBOARDING_PROJECT_DASHBOARD_QUESTS_HIDDEN_KEY_PREFIX =
   "myvibeproject-onboarding-project-dashboard-quests-hidden";

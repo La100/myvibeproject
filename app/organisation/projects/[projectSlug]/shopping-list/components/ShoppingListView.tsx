@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -16,7 +16,6 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { SearchIcon, XIcon } from 'lucide-react';
 import { apiAny } from '@/lib/convexApiAny';
 import { downloadCsvFile } from '@/lib/csvExport';
-import { ONBOARDING_EXTENSION_READY_KEY, readOnboardingFlag } from '@/lib/onboardingJourney';
 import { exportSectionedTablePdf } from '@/lib/sectionedTablePdfExport';
 import { calculateShoppingTotal, buildShoppingSetContext, isItemCountedInShoppingTotal } from '@/lib/shoppingSets';
 import {
@@ -89,7 +88,6 @@ export default function ShoppingListView() {
   const [isPending] = useTransition();
   const [showMainAddForm, setShowMainAddForm] = useState(false);
   const [isSectionManagerOpen, setIsSectionManagerOpen] = useState(false);
-  const [extensionReady, setExtensionReady] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | ShoppingListItem["realizationStatus"]>('all');
   const [priorityFilter, setPriorityFilter] = useState<'all' | NonNullable<ShoppingListItem["priority"]>>('all');
@@ -113,6 +111,8 @@ export default function ShoppingListView() {
   const sets = useQuery(apiAny.shopping.listShoppingSets, { projectId: project._id }) as ShoppingSet[] | undefined;
   const teamMembers = useQuery(apiAny.teams.getTeamMembers, { teamId: project.teamId }) as TeamMember[] | undefined;
   const team = useQuery(apiAny.teams.getTeamById, { teamId: project.teamId }) as Doc<"teams"> | undefined;
+  const onboardingStatus = useQuery(apiAny.onboarding.getStatus);
+  const extensionReady = onboardingStatus?.clipperConnected === true;
 
   const createItem = useMutation(apiAny.shopping.createShoppingListItem);
   const updateItem = useMutation(apiAny.shopping.updateShoppingListItem);
@@ -123,21 +123,7 @@ export default function ShoppingListView() {
   const updateSet = useMutation(apiAny.shopping.updateShoppingSet);
   const deleteSet = useMutation(apiAny.shopping.deleteShoppingSet);
 
-  useEffect(() => {
-    const syncExtensionReady = () => {
-      setExtensionReady(readOnboardingFlag(ONBOARDING_EXTENSION_READY_KEY));
-    };
-
-    syncExtensionReady();
-    window.addEventListener('storage', syncExtensionReady);
-    window.addEventListener('focus', syncExtensionReady);
-    return () => {
-      window.removeEventListener('storage', syncExtensionReady);
-      window.removeEventListener('focus', syncExtensionReady);
-    };
-  }, []);
-
-  if (items === undefined || sections === undefined || sets === undefined || team === undefined) {
+  if (items === undefined || sections === undefined || sets === undefined || team === undefined || onboardingStatus === undefined) {
     return null;
   }
 

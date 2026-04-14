@@ -96,7 +96,7 @@ export default function RootLayout({
           signInFallbackRedirectUrl={signInFallbackRedirectUrl}
           signUpFallbackRedirectUrl={signUpFallbackRedirectUrl}
           taskUrls={{
-            "choose-organization": "/onboarding",
+            "choose-organization": "/session-tasks/choose-organization",
           }}
         >
           <ConvexClientProvider>

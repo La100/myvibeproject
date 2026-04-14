@@ -171,6 +171,7 @@ export default defineSchema({
     clerkOrgId: v.string(), // Organization ID from Clerk
     slug: v.string(), // New field for unique slug
     imageUrl: v.optional(v.string()), // Added imageUrl for the team logo
+    customOrganizationImageSetAt: v.optional(v.number()),
     createdBy: v.optional(v.string()), // Clerk user ID - now optional
     currency: v.optional(v.union(
       v.literal("USD"), // US Dollar
@@ -577,6 +578,7 @@ export default defineSchema({
     )),
     preferredTimezone: v.optional(v.string()),
     onboardingCompletedAt: v.optional(v.number()),
+    clipperConnectedAt: v.optional(v.number()),
     guidedTours: v.optional(v.object({
       completedTourIds: v.array(v.union(v.literal("workspace"), v.literal("project"))),
       skippedTourIds: v.array(v.union(v.literal("workspace"), v.literal("project"))),

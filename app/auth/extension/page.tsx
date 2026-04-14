@@ -1,13 +1,11 @@
 /// <reference types="chrome" />
 "use client"
 
+import { useMutation } from "convex/react"
 import { useAuth, useUser } from "@clerk/nextjs"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import {
-  ONBOARDING_EXTENSION_READY_KEY,
-  writeOnboardingFlag,
-} from "@/lib/onboardingJourney"
+import { apiAny } from "@/lib/convexApiAny"
 
 const TOKEN_SYNC_KEY = "myvibeproject_extension_token_sync"
 const TOKEN_SYNC_META_KEY = "myvibeproject_extension_token_sync_meta"
@@ -29,6 +27,7 @@ export default function ExtensionAuthPage() {
   const { getToken } = useAuth()
   const { isSignedIn, isLoaded } = useUser()
   const router = useRouter()
+  const markClipperConnected = useMutation(apiAny.onboarding.markClipperConnected)
 
   const [status, setStatus] = useState("Checking authentication...")
   const [error, setError] = useState("")
@@ -70,7 +69,7 @@ export default function ExtensionAuthPage() {
             expiresAt: extractTokenExpiry(token),
           }),
         )
-        writeOnboardingFlag(ONBOARDING_EXTENSION_READY_KEY, true)
+        await markClipperConnected()
 
         setStatus("Success. You can close this tab.")
         setError("")
@@ -85,7 +84,7 @@ export default function ExtensionAuthPage() {
     }
 
     void storeToken()
-  }, [getToken, isLoaded, isSignedIn])
+  }, [getToken, isLoaded, isSignedIn, markClipperConnected])
 
   return (
     <div

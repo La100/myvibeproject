@@ -30,7 +30,6 @@ import {
 } from "@/components/ui/empty";
 import {
   ONBOARDING_DASHBOARD_QUESTS_HIDDEN_KEY,
-  ONBOARDING_EXTENSION_READY_KEY,
   readOnboardingFlag,
   writeOnboardingFlag,
 } from "@/lib/onboardingJourney";
@@ -44,7 +43,6 @@ export default function CompanyProjects() {
   const router = useRouter();
   const { organization } = useOrganization();
   const [searchQuery, setSearchQuery] = useState("");
-  const [extensionReady, setExtensionReady] = useState(false);
   const [journeyStateReady, setJourneyStateReady] = useState(false);
   const [questsHidden, setQuestsHidden] = useState(false);
 
@@ -52,6 +50,7 @@ export default function CompanyProjects() {
     apiAny.projects.listProjectsByClerkOrg,
     organization?.id ? { clerkOrgId: organization.id } : "skip",
   );
+  const onboardingStatus = useQuery(apiAny.onboarding.getStatus);
   const teamSettings = useQuery(
     apiAny.teams.getTeamSettingsByClerkOrg,
     organization?.id ? { clerkOrgId: organization.id } : "skip",
@@ -77,11 +76,11 @@ export default function CompanyProjects() {
     () => (projects ?? []).some((project) => (project.taskCount || 0) > 0 || (project.completedTasks || 0) > 0),
     [projects],
   );
-  const organizationImageReady = Boolean(teamSettings?.imageUrl?.trim() || organization?.imageUrl || organization?.hasImage);
+  const organizationImageReady = teamSettings?.hasCustomOrganizationImage === true;
+  const extensionReady = onboardingStatus?.clipperConnected === true;
 
   useEffect(() => {
     const syncJourney = () => {
-      setExtensionReady(readOnboardingFlag(ONBOARDING_EXTENSION_READY_KEY));
       setQuestsHidden(readOnboardingFlag(ONBOARDING_DASHBOARD_QUESTS_HIDDEN_KEY));
       setJourneyStateReady(true);
     };
@@ -108,12 +107,12 @@ export default function CompanyProjects() {
       },
       {
         id: "dashboard-org-image",
-        title: "Add organization image",
-        description: "Upload the Clerk organization image shown in the workspace sidebar.",
+        title: "Set your organization image",
+        description: "Replace the default avatar with your own workspace image.",
         xp: 25,
         done: organizationImageReady,
-        action: () => router.push("/organisation/settings#organization-profile"),
-        actionLabel: organizationImageReady ? "Done" : "Open settings",
+        action: () => router.push("/onboarding?mode=organization"),
+        actionLabel: organizationImageReady ? "Done" : "Open onboarding",
       },
       {
         id: "dashboard-extension",
@@ -154,6 +153,7 @@ export default function CompanyProjects() {
   const compactQuestLayout = openDashboardQuests.length <= 2;
   const dashboardQuestDataReady =
     journeyStateReady &&
+    onboardingStatus !== undefined &&
     projects !== undefined &&
     teamSettings !== undefined;
   const canRenderQuestBoard = dashboardQuestDataReady && questCompletionCount < dashboardQuests.length;

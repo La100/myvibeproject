@@ -86,6 +86,15 @@ Myvibe project is a comprehensive project management tool tailored for architect
     ```
     This starts both the Next.js frontend and the Convex backend.
 
+### Recommended Workflow
+
+Use a simple split:
+
+- local development -> Convex development deployment
+- `main` / production deploys -> Convex production deployment
+
+See [docs/local-main-workflow.md](./docs/local-main-workflow.md) for the exact local/Vercel/Clerk setup and release flow.
+
 ## 🛠 Tech Stack
 
 - **Framework**: [Next.js](https://nextjs.org/)
