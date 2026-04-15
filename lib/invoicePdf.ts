@@ -21,9 +21,20 @@ export type InvoicePdfInput = {
   invoiceNumber: string;
   issuedAt: number;
   dueDate?: number;
-  amount: number;
   currency: string;
-  lineText: string;
+  lineItems: Array<{
+    title: string;
+    description?: string;
+    quantity: number;
+    unitPrice: number;
+    amount: number;
+  }>;
+  subtotal: number;
+  taxAmount: number;
+  total: number;
+  taxLabel: string;
+  taxRate: number;
+  taxEnabled: boolean;
   paymentReference: string;
   seller: InvoicePdfSeller;
   customer: InvoicePdfParty;
@@ -239,40 +250,110 @@ export const generateInvoicePdf = (input: InvoicePdfInput) => {
 
   y += partyBoxHeight + 12;
 
-  const amountColumnWidth = 44;
-  const descriptionColumnWidth = contentWidth - amountColumnWidth;
-  const descriptionLines = doc.splitTextToSize(input.lineText, descriptionColumnWidth - 8) as string[];
-  const itemRowHeight = Math.max(12, 6 + descriptionLines.length * 4.8);
+  const qtyColumnWidth = 20;
+  const unitColumnWidth = 34;
+  const totalColumnWidth = 38;
+  const descriptionColumnWidth = contentWidth - qtyColumnWidth - unitColumnWidth - totalColumnWidth;
+  const tableHeaderHeight = 10;
+  const lineItems = input.lineItems.length > 0
+    ? input.lineItems
+    : [
+        {
+          title: "Invoice item",
+          quantity: 1,
+          unitPrice: input.subtotal,
+          amount: input.subtotal,
+        },
+      ];
+  const lineItemRows = lineItems.map((item) => {
+    const text = item.description?.trim()
+      ? `${item.title}\n${item.description.trim()}`
+      : item.title;
+    const lines = doc.splitTextToSize(text, descriptionColumnWidth - 8) as string[];
+    const rowHeight = Math.max(12, 5 + lines.length * 4.6);
+
+    return {
+      ...item,
+      lines,
+      rowHeight,
+    };
+  });
+  const itemsHeight = lineItemRows.reduce((sum, item) => sum + item.rowHeight, 0);
+  const summaryRows = [
+    ["Subtotal", formatAmount(input.subtotal, input.currency)],
+    ...(input.taxEnabled
+      ? [[`${input.taxLabel} (${input.taxRate.toFixed(0)}%)`, formatAmount(input.taxAmount, input.currency)]]
+      : []),
+    ["Total due", formatAmount(input.total, input.currency)],
+  ];
+  const summaryHeight = summaryRows.length * 8 + 6;
 
   drawBoxLabel("Items", margin, y - 2);
-  doc.rect(margin, y, contentWidth, 10);
   setFillColor(doc, [248, 248, 248]);
-  doc.rect(margin, y, contentWidth, 10, "F");
-  doc.rect(margin, y, contentWidth, 10);
-  doc.line(margin + descriptionColumnWidth, y, margin + descriptionColumnWidth, y + 10 + itemRowHeight + 12);
+  doc.rect(margin, y, contentWidth, tableHeaderHeight, "F");
+  doc.rect(margin, y, contentWidth, tableHeaderHeight);
+  doc.line(margin + descriptionColumnWidth, y, margin + descriptionColumnWidth, y + tableHeaderHeight + itemsHeight);
+  doc.line(
+    margin + descriptionColumnWidth + qtyColumnWidth,
+    y,
+    margin + descriptionColumnWidth + qtyColumnWidth,
+    y + tableHeaderHeight + itemsHeight,
+  );
+  doc.line(
+    margin + descriptionColumnWidth + qtyColumnWidth + unitColumnWidth,
+    y,
+    margin + descriptionColumnWidth + qtyColumnWidth + unitColumnWidth,
+    y + tableHeaderHeight + itemsHeight,
+  );
 
   doc.setFont(PDF_FONT_FAMILY, "bold");
   doc.setFontSize(9);
   setTextColor(doc, PDF_COLORS.ink);
   doc.text("Description", margin + 4, y + 6.2);
+  doc.text("Qty", margin + descriptionColumnWidth + qtyColumnWidth - 4, y + 6.2, { align: "right" });
+  doc.text(
+    "Unit price",
+    margin + descriptionColumnWidth + qtyColumnWidth + unitColumnWidth - 4,
+    y + 6.2,
+    { align: "right" },
+  );
   doc.text("Amount", margin + contentWidth - 4, y + 6.2, { align: "right" });
 
-  doc.rect(margin, y + 10, contentWidth, itemRowHeight);
-  doc.setFont(PDF_FONT_FAMILY, "normal");
-  doc.setFontSize(10);
-  doc.text(descriptionLines, margin + 4, y + 16);
-  doc.setFont(PDF_FONT_FAMILY, "bold");
-  doc.text(formatAmount(input.amount, input.currency), margin + contentWidth - 4, y + 16, { align: "right" });
+  let rowY = y + tableHeaderHeight;
+  lineItemRows.forEach((item) => {
+    doc.rect(margin, rowY, contentWidth, item.rowHeight);
+    doc.setFont(PDF_FONT_FAMILY, "normal");
+    doc.setFontSize(10);
+    doc.text(item.lines, margin + 4, rowY + 6);
+    doc.text(String(item.quantity), margin + descriptionColumnWidth + qtyColumnWidth - 4, rowY + 6, {
+      align: "right",
+    });
+    doc.text(
+      formatAmount(item.unitPrice, input.currency),
+      margin + descriptionColumnWidth + qtyColumnWidth + unitColumnWidth - 4,
+      rowY + 6,
+      { align: "right" },
+    );
+    doc.setFont(PDF_FONT_FAMILY, "bold");
+    doc.text(formatAmount(item.amount, input.currency), margin + contentWidth - 4, rowY + 6, {
+      align: "right",
+    });
+    rowY += item.rowHeight;
+  });
 
-  const totalY = y + 10 + itemRowHeight;
-  doc.rect(margin, totalY, contentWidth, 12);
-  doc.setFont(PDF_FONT_FAMILY, "bold");
-  doc.setFontSize(10);
-  doc.text("Total due", margin + descriptionColumnWidth - 4, totalY + 7.2, { align: "right" });
-  doc.setFontSize(12);
-  doc.text(formatAmount(input.amount, input.currency), margin + contentWidth - 4, totalY + 7.2, { align: "right" });
+  doc.rect(margin, rowY, contentWidth, summaryHeight);
+  let summaryY = rowY + 6;
+  summaryRows.forEach(([label, value], index) => {
+    doc.setFont(PDF_FONT_FAMILY, index === summaryRows.length - 1 ? "bold" : "normal");
+    doc.setFontSize(index === summaryRows.length - 1 ? 11 : 9.5);
+    doc.text(label, margin + descriptionColumnWidth + qtyColumnWidth + unitColumnWidth - 4, summaryY, {
+      align: "right",
+    });
+    doc.text(value, margin + contentWidth - 4, summaryY, { align: "right" });
+    summaryY += 8;
+  });
 
-  y = totalY + 20;
+  y = rowY + summaryHeight + 8;
 
   const paymentBoxWidth = (contentWidth - columnGap) / 2;
   const paymentInnerWidth = paymentBoxWidth - 10;

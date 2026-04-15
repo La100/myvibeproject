@@ -100,6 +100,7 @@ export async function addBrandHeader(
   const { teamName, teamImageUrl, fontFamily = "helvetica" } = options;
   const pageWidth = doc.internal.pageSize.getWidth();
   let y = PAGE_MARGIN;
+  let contentBottomY = y + 2;
 
   doc.setFont(fontFamily, "bold");
   doc.setFontSize(20);
@@ -109,8 +110,8 @@ export async function addBrandHeader(
   if (teamImageUrl) {
     const loaded = await loadImageAsDataUrl(teamImageUrl);
     if (loaded) {
-      const maxLogoWidth = 26;
-      const maxLogoHeight = 16;
+      const maxLogoWidth = 18;
+      const maxLogoHeight = 12;
       const aspectRatio = loaded.width / loaded.height || 1;
       let logoWidth = maxLogoWidth;
       let logoHeight = logoWidth / aspectRatio;
@@ -121,16 +122,17 @@ export async function addBrandHeader(
       }
 
       const logoX = pageWidth - PAGE_MARGIN - logoWidth;
-      const logoY = y - 6;
+      const logoY = PAGE_MARGIN - 2;
       doc.addImage(loaded.dataUrl, "PNG", logoX, logoY, logoWidth, logoHeight);
+      contentBottomY = Math.max(contentBottomY, logoY + logoHeight);
     }
   }
 
-  y += 5;
+  const dividerY = Math.max(y + 6, contentBottomY + 4);
   doc.setDrawColor(220, 220, 220);
   doc.setLineWidth(0.4);
-  doc.line(PAGE_MARGIN, y, pageWidth - PAGE_MARGIN, y);
-  return y + HEADER_GAP;
+  doc.line(PAGE_MARGIN, dividerY, pageWidth - PAGE_MARGIN, dividerY);
+  return dividerY + HEADER_GAP;
 }
 
 export function addDocumentMeta(

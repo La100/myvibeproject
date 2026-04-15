@@ -370,6 +370,33 @@ function normalizeClientToolCall(
       };
     }
 
+    case "manage_payments": {
+      if (!action || action === "bulk_create" || action === "bulk_update" || action === "bulk_delete") {
+        return { error: "Missing or invalid `action` for manage_payments." };
+      }
+
+      const flattened = flattenManagedToolParams(params);
+      const paymentId = pickFirstNonEmptyString(flattened, [
+        "paymentId",
+        "invoiceId",
+        "itemId",
+        "id",
+      ]);
+
+      return {
+        name:
+          action === "create"
+            ? "create_payment"
+            : action === "update"
+              ? "update_payment"
+              : "delete_payment",
+        params: {
+          ...flattened,
+          ...(paymentId ? { paymentId } : {}),
+        },
+      };
+    }
+
     case "manage_surveys": {
       if (!action) {
         return { error: "Missing or invalid `action` for manage_surveys." };
@@ -589,6 +616,21 @@ function asTaskStatus(value: unknown): "todo" | "in_progress" | "review" | "done
   return undefined;
 }
 
+function asPaymentStatus(
+  value: unknown,
+): "draft" | "open" | "paid" | "void" | "uncollectible" | undefined {
+  if (
+    value === "draft" ||
+    value === "open" ||
+    value === "paid" ||
+    value === "void" ||
+    value === "uncollectible"
+  ) {
+    return value;
+  }
+  return undefined;
+}
+
 function asTaskPriority(
   value: unknown,
 ): "low" | "medium" | "high" | "urgent" | undefined {
@@ -686,6 +728,24 @@ function summarizeNote(note: Record<string, unknown>) {
     id: typeof note._id === "string" ? note._id : undefined,
     title: asNonEmptyString(note.title) ?? "Untitled note",
     excerpt: truncate(asNonEmptyString(note.content) ?? asNonEmptyString(note.description)),
+  };
+}
+
+function summarizePayment(payment: Record<string, unknown>) {
+  return {
+    id: typeof payment._id === "string" ? payment._id : undefined,
+    title:
+      asNonEmptyString(payment.title) ??
+      asNonEmptyString(payment.invoiceNumber) ??
+      "Untitled invoice",
+    description: truncate(asNonEmptyString(payment.description)),
+    amount: asNumber(payment.amount),
+    status: asNonEmptyString(payment.status) ?? "draft",
+    dueDate: asNumber(payment.dueDate),
+    invoiceNumber:
+      asNonEmptyString(payment.invoiceNumber) ??
+      asNonEmptyString(payment.stripeInvoiceNumber),
+    hostedInvoiceUrl: asNonEmptyString(payment.stripeHostedInvoiceUrl),
   };
 }
 
@@ -978,6 +1038,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                     "manage_tasks",
                     "manage_notes",
                     "manage_contacts",
+                    "manage_payments",
                     "manage_shopping",
                     "manage_labor",
                     "manage_surveys",
@@ -2215,6 +2276,131 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             };
           }
 
+          case "create_payment": {
+            const title =
+              asNonEmptyString(params.title) ??
+              asNonEmptyString(params.name) ??
+              asNonEmptyString(params.invoiceNumber);
+            const amount = asNumber(params.amount);
+
+            if (!title) {
+              return {
+                ok: false,
+                error: "Missing required `title` for create_payment.",
+              };
+            }
+
+            if (amount === undefined || amount <= 0) {
+              return {
+                ok: false,
+                error: "Missing or invalid `amount` for create_payment.",
+              };
+            }
+
+            const result = await convex.action(
+              apiAny.ai.confirmedActions.createConfirmedPayment,
+              {
+                projectId,
+                paymentData: {
+                  title,
+                  description: asNonEmptyString(params.description),
+                  amount,
+                  dueDate: asNonEmptyString(params.dueDate),
+                },
+              },
+            );
+
+            return {
+              ...formatConfirmedActionResult(result, `Created invoice draft: ${title}`),
+              paymentId: asNonEmptyString(result?.paymentId),
+              title,
+              amount,
+            };
+          }
+
+          case "update_payment": {
+            const paymentId = pickFirstNonEmptyString(params, [
+              "paymentId",
+              "invoiceId",
+              "itemId",
+              "id",
+            ]);
+            if (!paymentId) {
+              return {
+                ok: false,
+                error: "Missing required `paymentId` for update_payment.",
+              };
+            }
+
+            const updates = compactDefinedFields({
+              title:
+                asNonEmptyString(params.title) ??
+                asNonEmptyString(params.name),
+              description: asNonEmptyString(params.description),
+              amount: asNumber(params.amount),
+              dueDate: asNonEmptyString(params.dueDate),
+              invoiceNumber: asNonEmptyString(params.invoiceNumber),
+              status: asPaymentStatus(params.status),
+            });
+
+            if (!hasManagedUpdateFields(updates, [])) {
+              return {
+                ok: false,
+                error:
+                  "No valid payment update fields were provided. Use at least one of: title, description, amount, dueDate, invoiceNumber, or status.",
+              };
+            }
+
+            const result = await convex.action(
+              apiAny.ai.confirmedActions.editConfirmedPayment,
+              {
+                projectId,
+                paymentId,
+                updates,
+              },
+            );
+
+            return {
+              ...formatConfirmedActionResult(
+                result,
+                "Invoice updated successfully.",
+              ),
+              paymentId,
+            };
+          }
+
+          case "delete_payment": {
+            const paymentId = pickFirstNonEmptyString(params, [
+              "paymentId",
+              "invoiceId",
+              "itemId",
+              "id",
+            ]);
+            if (!paymentId) {
+              return {
+                ok: false,
+                error: "Missing required `paymentId` for delete_payment.",
+              };
+            }
+
+            const result = await convex.action(
+              apiAny.ai.confirmedActions.deleteConfirmedPayment,
+              {
+                projectId,
+                paymentId,
+                reason: asNonEmptyString(params.reason),
+              },
+            );
+
+            return {
+              ...formatConfirmedActionResult(
+                result,
+                "Invoice deleted successfully.",
+              ),
+              paymentId,
+            };
+          }
+
           case "create_shopping_item": {
             const name = extractShoppingName(params);
             if (!name) {
@@ -3225,6 +3411,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
 
           case "search_items": {
             const rawQueryInput = asNonEmptyString(params.query) ?? "";
+            const normalizedScopeCandidate =
+              asNonEmptyString(params.scope) ?? asNonEmptyString(params.type) ?? "all";
             const rawQuery =
               rawQueryInput.trim() === "*" ||
               rawQueryInput.trim().toLowerCase() === "all" ||
@@ -3232,12 +3420,13 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 ? ""
                 : rawQueryInput;
             const query = rawQuery.toLowerCase();
-            const scope = asNonEmptyString(params.scope) ?? asNonEmptyString(params.type) ?? "all";
+            const scope = normalizedScopeCandidate;
             const limit = asNumber(params.limit) ?? 8;
 
             const [
               tasks,
               notes,
+              paymentsOverview,
               shoppingItems,
               shoppingSections,
               laborItems,
@@ -3257,6 +3446,9 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               scope === "all" || scope === "notes"
                 ? convex.query(apiAny.notes.getProjectNotes, { projectId })
                 : Promise.resolve([]),
+              scope === "all" || scope === "payment" || scope === "payments" || scope === "invoice" || scope === "invoices"
+                ? convex.query(apiAny.projectPayments.getProjectPaymentsOverview, { projectId })
+                : Promise.resolve({ installments: [] }),
               scope === "all" || scope === "shopping"
                 ? convex.query(apiAny.shopping.getShoppingListItemsByProject, { projectId })
                 : Promise.resolve([]),
@@ -3364,6 +3556,19 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             const filteredNotes = (notes as Array<Record<string, unknown>>)
               .map(summarizeNote)
               .filter((note) => includes(note.title) || includes(note.excerpt))
+              .slice(0, limit);
+
+            const filteredPayments = asRecordArray(
+              asRecord(paymentsOverview).installments,
+            )
+              .map(summarizePayment)
+              .filter(
+                (payment) =>
+                  includes(payment.title) ||
+                  includes(payment.description) ||
+                  includes(payment.status) ||
+                  includes(payment.invoiceNumber),
+              )
               .slice(0, limit);
 
             const filteredShopping = shoppingItemRecords
@@ -3492,6 +3697,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               results: {
                 tasks: filteredTasks,
                 notes: filteredNotes,
+                payments: filteredPayments,
                 shopping: filteredShopping,
                 shoppingSections: filteredShoppingSections,
                 labor: filteredLabor,
@@ -3505,6 +3711,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               counts: {
                 tasks: filteredTasks.length,
                 notes: filteredNotes.length,
+                payments: filteredPayments.length,
                 shopping: filteredShopping.length,
                 shoppingSections: filteredShoppingSections.length,
                 labor: filteredLabor.length,
@@ -3523,6 +3730,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               project,
               tasks,
               notes,
+              paymentsOverview,
               shoppingItems,
               shoppingSections,
               laborItems,
@@ -3536,6 +3744,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               convex.query(apiAny.projects.getProject, { projectId }),
               convex.query(apiAny.tasks.listProjectTasks, { projectId }),
               convex.query(apiAny.notes.getProjectNotes, { projectId }),
+              convex.query(apiAny.projectPayments.getProjectPaymentsOverview, { projectId }),
               convex.query(apiAny.shopping.getShoppingListItemsByProject, { projectId }),
               convex.query(apiAny.shopping.listShoppingListSections, { projectId }),
               convex.query(apiAny.labor.getLaborItemsByProject, { projectId }),
@@ -3548,6 +3757,9 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
 
             const taskSummaries = (tasks as Array<Record<string, unknown>>).map(summarizeTask);
             const noteSummaries = (notes as Array<Record<string, unknown>>).map(summarizeNote);
+            const paymentSummaries = asRecordArray(
+              asRecord(paymentsOverview).installments,
+            ).map(summarizePayment);
             const shoppingItemRecords = shoppingItems as Array<Record<string, unknown>>;
             const shoppingSectionRecords = shoppingSections as Array<Record<string, unknown>>;
             const laborItemRecords = laborItems as Array<Record<string, unknown>>;
@@ -3597,6 +3809,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 tasks: taskSummaries.length,
                 openTasks: openTasks.length,
                 notes: noteSummaries.length,
+                payments: paymentSummaries.length,
                 shoppingItems: shoppingSummaries.length,
                 shoppingSections: shoppingSectionSummaries.length,
                 laborItems: laborSummaries.length,
@@ -3619,6 +3832,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 recent: taskSummaries.slice(0, 8),
               },
               notes: noteSummaries.slice(0, 6),
+              payments: paymentSummaries.slice(0, 8),
               shoppingItems: shoppingSummaries.slice(0, 15),
               shoppingSections: shoppingSectionSummaries.slice(0, 8),
               laborItems: laborSummaries.slice(0, 15),

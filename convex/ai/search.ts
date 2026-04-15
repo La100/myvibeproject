@@ -225,6 +225,65 @@ export const searchNotes = internalAction({
   },
 });
 
+export const searchPayments = internalQuery({
+  args: {
+    projectId: v.id("projects"),
+    query: v.optional(v.string()),
+    status: v.optional(v.union(
+      v.literal("draft"),
+      v.literal("open"),
+      v.literal("paid"),
+      v.literal("void"),
+      v.literal("uncollectible")
+    )),
+    limit: v.optional(v.number()),
+  },
+  returns: v.object({
+    count: v.number(),
+    total: v.number(),
+    payments: v.array(v.any()),
+  }),
+  handler: async (ctx, args) => {
+    const limit = args.limit || 10;
+
+    let filteredPayments = await ctx.db
+      .query("projectPayments")
+      .withIndex("by_project_and_order", (q) => q.eq("projectId", args.projectId))
+      .order("desc")
+      .collect();
+
+    if (args.status) {
+      filteredPayments = filteredPayments.filter((payment: any) => payment.status === args.status);
+    }
+
+    if (args.query && args.query.trim().length > 0) {
+      const queryLower = args.query.toLowerCase();
+      filteredPayments = filteredPayments.filter((payment: any) => {
+        const titleMatch = payment.title?.toLowerCase().includes(queryLower);
+        const descriptionMatch = payment.description?.toLowerCase().includes(queryLower);
+        const invoiceNumberMatch = payment.invoiceNumber?.toLowerCase().includes(queryLower);
+        const stripeInvoiceNumberMatch = payment.stripeInvoiceNumber?.toLowerCase().includes(queryLower);
+        const statusMatch = payment.status?.toLowerCase().includes(queryLower);
+        return (
+          titleMatch ||
+          descriptionMatch ||
+          invoiceNumberMatch ||
+          stripeInvoiceNumberMatch ||
+          statusMatch
+        );
+      });
+    }
+
+    const results = filteredPayments.slice(0, limit);
+
+    return {
+      count: results.length,
+      total: filteredPayments.length,
+      payments: results,
+    };
+  },
+});
+
 export const searchSurveys = internalAction({
   args: {
     projectId: v.id("projects"),

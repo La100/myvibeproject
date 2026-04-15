@@ -46,6 +46,8 @@ const inferManagedType = (
       return "note";
     case "manage_contacts":
       return "contact";
+    case "manage_payments":
+      return "payment";
     case "manage_surveys":
       return "survey";
     case "manage_shopping":
@@ -67,6 +69,9 @@ const findOriginalItem = (
   }
   if (type === "note") {
     return snapshot.notes.find((item) => item._id === itemId) || { _id: itemId };
+  }
+  if (type === "payment") {
+    return { _id: itemId };
   }
   if (type === "shopping") {
     return snapshot.shoppingItems.find((item) => item._id === itemId) || { _id: itemId };
@@ -117,6 +122,7 @@ export const processFunctionCalls = async (
       case "manage_tasks":
       case "manage_notes":
       case "manage_contacts":
+      case "manage_payments":
       case "manage_shopping":
       case "manage_labor":
       case "manage_surveys":

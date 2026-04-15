@@ -20,6 +20,7 @@ import type * as ai_confirmedActions_index from "../ai/confirmedActions/index.js
 import type * as ai_confirmedActions_labor from "../ai/confirmedActions/labor.js";
 import type * as ai_confirmedActions_moodboard from "../ai/confirmedActions/moodboard.js";
 import type * as ai_confirmedActions_notes from "../ai/confirmedActions/notes.js";
+import type * as ai_confirmedActions_payments from "../ai/confirmedActions/payments.js";
 import type * as ai_confirmedActions_shopping from "../ai/confirmedActions/shopping.js";
 import type * as ai_confirmedActions_surveys from "../ai/confirmedActions/surveys.js";
 import type * as ai_confirmedActions_tasks from "../ai/confirmedActions/tasks.js";
@@ -107,6 +108,7 @@ declare const fullApi: ApiFromModules<{
   "ai/confirmedActions/labor": typeof ai_confirmedActions_labor;
   "ai/confirmedActions/moodboard": typeof ai_confirmedActions_moodboard;
   "ai/confirmedActions/notes": typeof ai_confirmedActions_notes;
+  "ai/confirmedActions/payments": typeof ai_confirmedActions_payments;
   "ai/confirmedActions/shopping": typeof ai_confirmedActions_shopping;
   "ai/confirmedActions/surveys": typeof ai_confirmedActions_surveys;
   "ai/confirmedActions/tasks": typeof ai_confirmedActions_tasks;

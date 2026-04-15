@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { useOrganization } from "@clerk/nextjs";
-import { useQuery } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 import { toast } from "sonner";
 import { apiAny } from "@/lib/convexApiAny";
 import {
@@ -13,6 +13,8 @@ import {
   TrendingUp,
   Clock,
   AlertCircle,
+  FileText,
+  Receipt,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,6 +38,7 @@ import {
   ReportsExportDialog,
   type ReportSectionKey,
 } from "@/components/company/ReportsExportDialog";
+import { downloadCsvFile } from "@/lib/csvExport";
 import {
   addBrandHeader,
   addDocumentMeta,
@@ -47,6 +50,7 @@ import {
   sanitizeFileName,
 } from "@/lib/pdfExport";
 import { calculateShoppingTotal } from "@/lib/shoppingSets";
+import { formatCurrency } from "@/lib/utils";
 import { exportWorkbookTables, getSectionAccentColor, type XlsxTable } from "@/lib/xlsxExport";
 
 const SHOPPING_STATUSES = [
@@ -96,12 +100,26 @@ function csvCell(value: string | number) {
   return `"${String(value).replace(/"/g, '""')}"`;
 }
 
+function downloadUrl(url: string, fileName?: string) {
+  const link = document.createElement("a");
+  link.href = url;
+  if (fileName) {
+    link.download = fileName;
+  }
+  link.rel = "noopener noreferrer";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
 export default function CompanyReports() {
   const { organization, isLoaded } = useOrganization();
   const [timeRange, setTimeRange] = useState<string>("30d");
   const [activeTab, setActiveTab] = useState<ReportSectionKey>("overview");
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportingInvoicesCsv, setIsExportingInvoicesCsv] = useState(false);
+  const [isDownloadingInvoicePdfs, setIsDownloadingInvoicePdfs] = useState(false);
   const [exportOptions, setExportOptions] = useState<ReportExportOptions>({
     format: "pdf",
     includeDetails: true,
@@ -136,6 +154,13 @@ export default function CompanyReports() {
   const analyticsMetrics = useQuery(
     apiAny.activityLog.getTeamProductKpis,
     team && team._id ? { teamId: team._id, days: timeRangeConfig.days } : "skip",
+  );
+  const invoicesReport = useQuery(
+    apiAny.projectPayments.getTeamInvoicesReport,
+    team && team._id ? { teamId: team._id } : "skip",
+  );
+  const getInvoiceDownloadUrl = useAction(
+    apiAny.projectPaymentActions.getProjectPaymentInvoiceDownloadUrl,
   );
 
   if (!isLoaded || !organization) {
@@ -255,6 +280,40 @@ export default function CompanyReports() {
     timeStyle: "short",
   });
   const fileDate = generatedOn.toISOString().slice(0, 10);
+  const issuedInvoices = invoicesReport?.invoices || [];
+  const invoiceTotals = invoicesReport?.totals || {
+    invoiceCount: 0,
+    openCount: 0,
+    overdueCount: 0,
+    paidCount: 0,
+  };
+  const invoiceCurrencySummary = invoicesReport?.currencySummary || [];
+
+  const formatInvoiceMoney = (amount: number, currency: string) =>
+    formatCurrency(amount, currency || activeCurrency, {
+      maximumFractionDigits: 2,
+      minimumFractionDigits: 2,
+    });
+
+  const summarizeCurrencyValues = (
+    rows: Array<{
+      currency: string;
+      invoiceCount: number;
+      openTotal: number;
+      overdueTotal: number;
+      paidTotal: number;
+      total: number;
+    }>,
+    key: "total" | "paidTotal" | "openTotal" | "overdueTotal",
+  ) => {
+    if (rows.length === 0) {
+      return "-";
+    }
+
+    return rows
+      .map((row) => `${row.currency} ${formatInvoiceMoney(row[key], row.currency)}`)
+      .join(" • ");
+  };
 
   const overviewExportRows = [
     ["Total Projects", totalProjects],
@@ -332,7 +391,36 @@ export default function CompanyReports() {
     ["Total Budget", formatMoney(totalBudget)],
     ["Shopping List", formatMoney(totalShoppingCost)],
     ["Ordered Items", formatMoney(orderedShoppingCost)],
+    ["Issued Invoices", String(invoiceTotals.invoiceCount)],
+    ["Paid Invoices", String(invoiceTotals.paidCount)],
+    ["Open Invoices", String(invoiceTotals.openCount)],
+    ["Overdue Invoices", String(invoiceTotals.overdueCount)],
+    ["Issued Volume", summarizeCurrencyValues(invoiceCurrencySummary, "total")],
+    ["Paid Volume", summarizeCurrencyValues(invoiceCurrencySummary, "paidTotal")],
+    ["Outstanding Volume", summarizeCurrencyValues(invoiceCurrencySummary, "openTotal")],
   ] as Array<[string, string]>;
+
+  const invoiceCurrencyExportRows = invoiceCurrencySummary.map((entry) => [
+    entry.currency,
+    String(entry.invoiceCount),
+    formatInvoiceMoney(entry.total, entry.currency),
+    formatInvoiceMoney(entry.paidTotal, entry.currency),
+    formatInvoiceMoney(entry.openTotal, entry.currency),
+    formatInvoiceMoney(entry.overdueTotal, entry.currency),
+  ]);
+
+  const invoiceDetailExportRows = issuedInvoices.map((invoice) => [
+    invoice.invoiceNumber,
+    invoice.projectName,
+    invoice.customerName || "-",
+    invoice.status.toUpperCase(),
+    invoice.currency,
+    formatInvoiceMoney(invoice.total, invoice.currency),
+    invoice.invoiceIssuedAt ? new Date(invoice.invoiceIssuedAt).toLocaleDateString() : "-",
+    invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : "-",
+    invoice.paidAt ? new Date(invoice.paidAt).toLocaleDateString() : "-",
+    invoice.hasInvoicePdf ? "Yes" : "No",
+  ]);
 
   const shoppingStatusExportRows = shoppingByStatus.map((entry) => [
     entry.status,
@@ -412,12 +500,22 @@ export default function CompanyReports() {
         title: "Financial Summary",
       },
       {
+        headers: ["Currency", "Invoices", "Issued", "Paid", "Outstanding", "Overdue"],
+        rows: invoiceCurrencyExportRows,
+        title: "Invoices by Currency",
+      },
+      {
         headers: ["Status", "Items", "Total"],
         rows: shoppingStatusExportRows,
         title: "Shopping List by Status",
       },
       ...(exportOptions.includeDetails
         ? [
+            {
+              headers: ["Invoice", "Project", "Customer", "Status", "Currency", "Total", "Issued", "Due", "Paid", "PDF"],
+              rows: invoiceDetailExportRows,
+              title: "Issued Invoices",
+            },
             {
               headers: ["Project", "Status", "Currency", "Budget"],
               rows: topBudgetExportRows,
@@ -493,8 +591,18 @@ export default function CompanyReports() {
 
     if (exportOptions.sections.financial) {
       addTable("Financial Summary", ["Metric", "Value"], financialSummaryRows);
+      addTable(
+        "Invoices by Currency",
+        ["Currency", "Invoices", "Issued", "Paid", "Outstanding", "Overdue"],
+        invoiceCurrencyExportRows,
+      );
       addTable("Shopping List by Status", ["Status", "Items", "Total"], shoppingStatusExportRows);
       if (exportOptions.includeDetails) {
+        addTable(
+          "Issued Invoices",
+          ["Invoice", "Project", "Customer", "Status", "Currency", "Total", "Issued", "Due", "Paid", "PDF"],
+          invoiceDetailExportRows,
+        );
         addTable("Top Projects by Budget", ["Project", "Status", "Currency", "Budget"], topBudgetExportRows);
       }
     }
@@ -697,6 +805,19 @@ export default function CompanyReports() {
           1: { cellWidth: "auto", halign: "right" },
         },
       });
+      await renderTable(
+        [["Currency", "Invoices", "Issued", "Paid", "Outstanding", "Overdue"]],
+        invoiceCurrencyExportRows,
+        {
+          columnStyles: {
+            1: { halign: "right" },
+            2: { halign: "right" },
+            3: { halign: "right" },
+            4: { halign: "right" },
+            5: { halign: "right" },
+          },
+        },
+      );
       await renderTable([["Status", "Items", "Total"]], shoppingStatusExportRows, {
         columnStyles: {
           1: { halign: "right" },
@@ -705,6 +826,26 @@ export default function CompanyReports() {
       });
 
       if (exportOptions.includeDetails) {
+        renderSectionTitle("Issued Invoices");
+        await renderTable(
+          [["Invoice", "Project", "Customer", "Status", "Currency", "Total", "Issued", "Due", "Paid", "PDF"]],
+          invoiceDetailExportRows,
+          {
+            columnStyles: {
+              0: { cellWidth: 24 },
+              1: { cellWidth: 27 },
+              2: { cellWidth: 27 },
+              3: { cellWidth: 16 },
+              4: { cellWidth: 14 },
+              5: { cellWidth: 21, halign: "right" },
+              6: { cellWidth: 17 },
+              7: { cellWidth: 17 },
+              8: { cellWidth: 17 },
+              9: { cellWidth: 10, halign: "center" },
+            },
+          },
+        );
+
         renderSectionTitle("Top Projects by Budget");
         await renderTable([["Project", "Status", "Currency", "Budget"]], topBudgetExportRows, {
           columnStyles: {
@@ -738,6 +879,62 @@ export default function CompanyReports() {
       toast.error("Failed to export reports.");
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  const handleInvoiceCsvExport = async () => {
+    if (issuedInvoices.length === 0) {
+      toast.error("No issued invoices to export.");
+      return;
+    }
+
+    setIsExportingInvoicesCsv(true);
+    try {
+      downloadCsvFile({
+        fileName: `invoice-register-${sanitizeFileName(organization.name || "organization")}-${fileDate}.csv`,
+        headers: ["Invoice", "Project", "Customer", "Status", "Currency", "Total", "Issued", "Due", "Paid", "PDF"],
+        rows: invoiceDetailExportRows,
+      });
+      toast.success(`Exported ${issuedInvoices.length} invoices as CSV.`);
+    } catch (error) {
+      console.error("Invoice CSV export failed:", error);
+      toast.error("Failed to export invoices CSV.");
+    } finally {
+      setIsExportingInvoicesCsv(false);
+    }
+  };
+
+  const handleInvoicePdfBatchDownload = async () => {
+    if (issuedInvoices.length === 0) {
+      toast.error("No issued invoices to download.");
+      return;
+    }
+
+    setIsDownloadingInvoicePdfs(true);
+    let successCount = 0;
+
+    try {
+      for (const invoice of issuedInvoices) {
+        const result = await getInvoiceDownloadUrl({ installmentId: invoice._id });
+        downloadUrl(
+          result.url,
+          `invoice-${sanitizeFileName(invoice.invoiceNumber || invoice.title || String(invoice._id))}.pdf`,
+        );
+        successCount += 1;
+        await new Promise((resolve) => window.setTimeout(resolve, 180));
+      }
+
+      toast.success(`Started downloading ${successCount} invoice PDFs.`);
+    } catch (error) {
+      console.error("Invoice PDF batch download failed:", error);
+      toast.error("Failed during invoice PDF download.", {
+        description:
+          successCount > 0
+            ? `${successCount} files were already started before the error.`
+            : (error as Error).message,
+      });
+    } finally {
+      setIsDownloadingInvoicePdfs(false);
     }
   };
 
@@ -1020,7 +1217,129 @@ export default function CompanyReports() {
               <FinancialCard title="Total Budget" value={formatMoney(totalBudget)} subtitle={`Across ${totalProjects} projects`} icon={<DollarSign className="h-4 w-4 text-muted-foreground" />} />
               <FinancialCard title="Shopping List" value={formatMoney(totalShoppingCost)} subtitle={`${shoppingList.length} items planned`} icon={<BarChart3 className="h-4 w-4 text-muted-foreground" />} />
               <FinancialCard title="Ordered Items" value={formatMoney(orderedShoppingCost)} subtitle="Already ordered/delivered" icon={<TrendingUp className="h-4 w-4 text-muted-foreground" />} />
+              <FinancialCard title="Issued Invoices" value={String(invoiceTotals.invoiceCount)} subtitle={`${invoiceTotals.paidCount} paid • ${invoiceTotals.openCount} open`} icon={<Receipt className="h-4 w-4 text-muted-foreground" />} />
             </div>
+
+            <Card>
+              <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <CardTitle>Invoices Across All Projects</CardTitle>
+                  <CardDescription>Issued invoices register with totals grouped by currency</CardDescription>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    onClick={() => void handleInvoiceCsvExport()}
+                    variant="outline"
+                    disabled={isExportingInvoicesCsv || issuedInvoices.length === 0}
+                  >
+                    <FileText className="mr-2 h-4 w-4" />
+                    {isExportingInvoicesCsv ? "Exporting CSV..." : "Export invoices CSV"}
+                  </Button>
+                  <Button
+                    onClick={() => void handleInvoicePdfBatchDownload()}
+                    variant="outline"
+                    disabled={isDownloadingInvoicePdfs || issuedInvoices.length === 0}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    {isDownloadingInvoicePdfs ? "Preparing PDFs..." : "Download all PDFs"}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-6">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                  <FinancialCard title="Paid" value={String(invoiceTotals.paidCount)} subtitle={summarizeCurrencyValues(invoiceCurrencySummary, "paidTotal")} icon={<Receipt className="h-4 w-4 text-muted-foreground" />} />
+                  <FinancialCard title="Open" value={String(invoiceTotals.openCount)} subtitle={summarizeCurrencyValues(invoiceCurrencySummary, "openTotal")} icon={<Clock className="h-4 w-4 text-muted-foreground" />} />
+                  <FinancialCard title="Overdue" value={String(invoiceTotals.overdueCount)} subtitle={summarizeCurrencyValues(invoiceCurrencySummary, "overdueTotal")} icon={<AlertCircle className="h-4 w-4 text-muted-foreground" />} />
+                  <FinancialCard title="Currencies" value={String(invoiceCurrencySummary.length)} subtitle={invoiceCurrencySummary.map((entry) => entry.currency).join(" • ") || "No data"} icon={<DollarSign className="h-4 w-4 text-muted-foreground" />} />
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  {invoiceCurrencySummary.length > 0 ? (
+                    invoiceCurrencySummary.map((entry) => (
+                      <div key={entry.currency} className="rounded-lg border border-border/70 p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-medium">{entry.currency}</p>
+                          <Badge variant="outline">{entry.invoiceCount} invoices</Badge>
+                        </div>
+                        <div className="mt-3 space-y-1 text-sm">
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-muted-foreground">Issued</span>
+                            <span className="font-medium">{formatInvoiceMoney(entry.total, entry.currency)}</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-muted-foreground">Paid</span>
+                            <span className="font-medium">{formatInvoiceMoney(entry.paidTotal, entry.currency)}</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-muted-foreground">Outstanding</span>
+                            <span className="font-medium">{formatInvoiceMoney(entry.openTotal, entry.currency)}</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-muted-foreground">Overdue</span>
+                            <span className="font-medium">{formatInvoiceMoney(entry.overdueTotal, entry.currency)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-lg border border-dashed border-border/70 px-4 py-8 text-sm text-muted-foreground md:col-span-2 xl:col-span-4">
+                      No issued invoices yet.
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-lg border border-border/70">
+                  <div className="grid grid-cols-[1.3fr_1.1fr_1fr_0.8fr_0.9fr_0.9fr] gap-3 border-b border-border/70 px-4 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    <span>Invoice</span>
+                    <span>Project / Customer</span>
+                    <span>Status</span>
+                    <span>Total</span>
+                    <span>Issued</span>
+                    <span>Due</span>
+                  </div>
+                  <div className="divide-y divide-border/70">
+                    {issuedInvoices.length > 0 ? (
+                      issuedInvoices.map((invoice) => (
+                        <div
+                          key={String(invoice._id)}
+                          className="grid grid-cols-[1.3fr_1.1fr_1fr_0.8fr_0.9fr_0.9fr] gap-3 px-4 py-3 text-sm"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate font-medium">{invoice.invoiceNumber}</p>
+                            <p className="truncate text-xs text-muted-foreground">{invoice.title}</p>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate">{invoice.projectName}</p>
+                            <p className="truncate text-xs text-muted-foreground">{invoice.customerName || "No customer"}</p>
+                          </div>
+                          <div className="flex min-w-0 items-center gap-2">
+                            <Badge
+                              variant={
+                                invoice.status === "paid"
+                                  ? "default"
+                                  : invoice.isOverdue
+                                    ? "destructive"
+                                    : "secondary"
+                              }
+                            >
+                              {invoice.status.toUpperCase()}
+                            </Badge>
+                            {invoice.hasInvoicePdf ? (
+                              <Badge variant="outline">PDF</Badge>
+                            ) : null}
+                          </div>
+                          <p className="font-medium">{formatInvoiceMoney(invoice.total, invoice.currency)}</p>
+                          <p>{invoice.invoiceIssuedAt ? new Date(invoice.invoiceIssuedAt).toLocaleDateString() : "-"}</p>
+                          <p>{invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : "-"}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="px-4 py-8 text-sm text-muted-foreground">No issued invoices yet.</div>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
             <Card>
               <CardHeader>

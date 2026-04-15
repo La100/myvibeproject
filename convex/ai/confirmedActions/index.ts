@@ -43,13 +43,19 @@ export { createConfirmedSurvey, editConfirmedSurvey, deleteConfirmedSurvey } fro
 // Contact actions
 export { createConfirmedContact, editConfirmedContact, deleteConfirmedContact } from "./contacts";
 
+// Payment actions
+export {
+  createConfirmedPayment,
+  editConfirmedPayment,
+  deleteConfirmedPayment,
+} from "./payments";
+
 // Moodboard actions
 export {
   createConfirmedMoodboardSection,
   editConfirmedMoodboardSection,
   deleteConfirmedMoodboardSection,
 } from "./moodboard";
-
 
 
 

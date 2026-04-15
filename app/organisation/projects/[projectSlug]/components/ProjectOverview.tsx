@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useQuery } from "convex/react";
+import { useQueries, useQuery } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import { useProject } from "@/components/providers/ProjectProvider";
 import {
@@ -73,13 +73,13 @@ const formatPercent = (value: number | null) =>
 const isPresent = <T,>(value: T): value is NonNullable<T> => value != null;
 
 const DEFAULT_PROJECT_BOOK_OPTIONS: ProjectBookExportOptions = {
-  preset: "internal",
   sections: {
     shoppingList: true,
     labor: true,
     tasks: true,
     budget: true,
     payments: true,
+    moodboard: true,
   },
   showNotes: true,
   showPrice: true,
@@ -99,31 +99,6 @@ const getShoppingStatusLabel = (status?: keyof typeof SHOPPING_STATUS_LABELS | s
   status && status in SHOPPING_STATUS_LABELS
     ? SHOPPING_STATUS_LABELS[status as keyof typeof SHOPPING_STATUS_LABELS]
     : status || "-";
-
-const resolveProjectBookClientOptions = (
-  settings?: {
-    showShoppingList?: boolean;
-    showTasks?: boolean;
-    showLabor?: boolean;
-    showBudget?: boolean;
-    showPayments?: boolean;
-    showNotes?: boolean;
-    showSupplier?: boolean;
-    showPrice?: boolean;
-  } | null,
-): ProjectBookExportOptions => ({
-  preset: "client",
-  sections: {
-    shoppingList: settings?.showShoppingList ?? false,
-    labor: settings?.showLabor ?? false,
-    tasks: settings?.showTasks ?? false,
-    budget: settings?.showBudget ?? false,
-    payments: settings?.showPayments ?? false,
-  },
-  showNotes: settings?.showNotes ?? true,
-  showPrice: settings?.showPrice ?? true,
-  showSupplier: settings?.showSupplier ?? true,
-});
 
 function ProjectOverviewContent() {
   const router = useRouter();
@@ -188,9 +163,26 @@ function ProjectOverviewContent() {
   const teamMembers = useQuery(apiAny.teams.getTeamMembers, {
     teamId: project.teamId,
   });
-  const clientPanelConfig = useQuery(apiAny.projects.getClientPanelConfiguration, {
+  const moodboardSections = useQuery(apiAny.files.getMoodboardSections, {
     projectId: project._id,
   });
+  const moodboardImageQueries = useMemo(
+    () =>
+      Object.fromEntries(
+        (moodboardSections ?? []).map((section) => [
+          section.id,
+          {
+            query: apiAny.files.getMoodboardImagesBySection,
+            args: {
+              projectId: project._id,
+              section: section.id,
+            },
+          },
+        ]),
+      ),
+    [moodboardSections, project._id],
+  );
+  const moodboardImageResults = useQueries(moodboardImageQueries);
   const projectTokenUsage = useQuery(apiAny.ai.usage.getProjectTokenUsage, {
     projectId: project._id,
     days: 365,
@@ -245,10 +237,23 @@ function ProjectOverviewContent() {
     notes === undefined ||
     team === undefined ||
     teamMembers === undefined ||
-    clientPanelConfig === undefined ||
+    moodboardSections === undefined ||
     projectTokenUsage === undefined
   ) {
     return <ProjectOverviewSkeleton />;
+  }
+
+  const isMoodboardLoading = moodboardSections.some(
+    (section) => moodboardImageResults[section.id] === undefined,
+  );
+  if (isMoodboardLoading) {
+    return <ProjectOverviewSkeleton />;
+  }
+
+  for (const result of Object.values(moodboardImageResults)) {
+    if (result instanceof Error) {
+      throw result;
+    }
   }
 
   const projectBasePath = `/organisation/projects/${project.slug}`;
@@ -256,27 +261,27 @@ function ProjectOverviewContent() {
   const projectQuests = [
     {
       id: "project-first-task",
+      step: 1,
       title: "Create first task",
       description: "Open execution flow and add at least one task.",
-      xp: 30,
       done: tasks.length > 0,
       action: () => router.push(`${projectBasePath}/tasks?createTask=1`),
       actionLabel: tasks.length > 0 ? "Done" : "Create task",
     },
     {
       id: "project-first-shopping-item",
+      step: 2,
       title: "Add shopping item",
       description: "Capture first material or product for project scope.",
-      xp: 25,
       done: shoppingListItems.length > 0,
       action: () => router.push(`${projectBasePath}/shopping-list`),
       actionLabel: shoppingListItems.length > 0 ? "Done" : "Open shopping list",
     },
     {
       id: "project-first-ai-message",
+      step: 3,
       title: "Send test message to AI assistant",
       description: "Open AI and send one short test message to verify the assistant flow.",
-      xp: 20,
       done: (projectTokenUsage.summary.totalRequests ?? 0) > 0,
       action: () => router.push(`${projectBasePath}/ai`),
       actionLabel:
@@ -286,18 +291,18 @@ function ProjectOverviewContent() {
     },
     {
       id: "project-first-note",
+      step: 4,
       title: "Drop first project note",
       description: "Document key decisions directly in project context.",
-      xp: 20,
       done: notes.length > 0,
       action: () => router.push(`${projectBasePath}/notes`),
       actionLabel: notes.length > 0 ? "Done" : "Open notes",
     },
     {
       id: "project-first-payment",
+      step: 5,
       title: "Plan first payment",
       description: "Add at least one installment to start financial tracking.",
-      xp: 20,
       done: (paymentsData.totals.installmentCount ?? 0) > 0,
       action: () => router.push(`${projectBasePath}/payments`),
       actionLabel:
@@ -307,13 +312,10 @@ function ProjectOverviewContent() {
     },
   ];
 
-  const projectQuestXpTotal = projectQuests.reduce((sum, quest) => sum + quest.xp, 0);
-  const projectQuestXpEarned = projectQuests.reduce(
-    (sum, quest) => sum + (quest.done ? quest.xp : 0),
-    0,
-  );
+  const projectQuestTotal = projectQuests.length;
   const completedProjectQuestCount = projectQuests.filter((quest) => quest.done).length;
   const openProjectQuests = projectQuests.filter((quest) => !quest.done);
+  const remainingProjectQuestCount = projectQuestTotal - completedProjectQuestCount;
   const canRenderProjectQuestBoard =
     questVisibilityReady &&
     completedProjectQuestCount < projectQuests.length;
@@ -436,43 +438,27 @@ function ProjectOverviewContent() {
       note: "Payments collected so far",
     },
   ];
-  const clientPresetOptions = resolveProjectBookClientOptions(clientPanelConfig.settings);
-  const clientPresetHasSections = Object.values(clientPresetOptions.sections).some(Boolean);
-
-  const applyProjectBookPreset = (
-    preset: ProjectBookExportOptions["preset"],
-  ): ProjectBookExportOptions => {
-    if (preset === "client") {
-      return clientPresetOptions;
-    }
-
-    if (preset === "internal") {
-      return DEFAULT_PROJECT_BOOK_OPTIONS;
-    }
-
-    return {
-      ...projectBookExportOptions,
-      preset: "custom",
-    };
-  };
+  const moodboardExportSections = moodboardSections
+    .map((section) => ({
+      title: section.title,
+      items: ((moodboardImageResults[section.id] as Array<{
+        name: string;
+        url: string;
+      }> | undefined) ?? []).map((file) => ({
+        title: file.name,
+        imageUrl: file.url || undefined,
+      })),
+    }))
+    .filter((section) => section.items.length > 0);
 
   const openProjectBookExport = () => {
-    setProjectBookExportOptions(
-      clientPresetHasSections ? clientPresetOptions : DEFAULT_PROJECT_BOOK_OPTIONS,
-    );
+    setProjectBookExportOptions({
+      sections: { ...DEFAULT_PROJECT_BOOK_OPTIONS.sections },
+      showNotes: DEFAULT_PROJECT_BOOK_OPTIONS.showNotes,
+      showPrice: DEFAULT_PROJECT_BOOK_OPTIONS.showPrice,
+      showSupplier: DEFAULT_PROJECT_BOOK_OPTIONS.showSupplier,
+    });
     setIsProjectBookExportOpen(true);
-  };
-
-  const handleProjectBookOptionsChange = (nextOptions: ProjectBookExportOptions) => {
-    if (
-      nextOptions.preset !== projectBookExportOptions.preset &&
-      nextOptions.preset !== "custom"
-    ) {
-      setProjectBookExportOptions(applyProjectBookPreset(nextOptions.preset));
-      return;
-    }
-
-    setProjectBookExportOptions(nextOptions);
   };
 
   const handleExportProjectBook = async () => {
@@ -584,10 +570,23 @@ function ProjectOverviewContent() {
         });
       }
 
+      if (projectBookExportOptions.sections.moodboard) {
+        chapters.push({
+          type: "gallery",
+          title: "Moodboard",
+          description: "Visual references collected in the project moodboard.",
+          sections: moodboardExportSections,
+          emptyMessage: "No moodboard images available.",
+        });
+      }
+
       await exportProjectBookPdf({
         brand: {
           teamName: team.name || "Organization",
-          teamImageUrl: team.imageUrl,
+          teamImageUrl:
+            team.customOrganizationImageSetAt && team.imageUrl?.trim()
+              ? team.imageUrl
+              : undefined,
         },
         chapters,
         fileName: `project-book-${sanitizeFileName(project.name)}-${new Date().toISOString().slice(0, 10)}.pdf`,
@@ -956,21 +955,21 @@ function ProjectOverviewContent() {
                 <div className="rounded-2xl border border-border/70 bg-background/80 p-4">
                   <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Progress</p>
                   <p className="mt-3 text-3xl font-semibold tracking-tight">
-                    {completedProjectQuestCount}/{projectQuests.length}
+                    {completedProjectQuestCount}/{projectQuestTotal}
                   </p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {projectQuestXpEarned}/{projectQuestXpTotal} XP
+                    {remainingProjectQuestCount} steps remaining
                   </p>
                 </div>
 
                 <div className="space-y-3">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium">Quest progress</span>
+                    <span className="font-medium">Setup progress</span>
                     <span className="text-muted-foreground">
-                      {completedProjectQuestCount}/{projectQuests.length} quests closed
+                      {completedProjectQuestCount}/{projectQuestTotal} steps complete
                     </span>
                   </div>
-                  <Progress value={projectQuestXpEarned} max={projectQuestXpTotal} className="h-2.5" />
+                  <Progress value={completedProjectQuestCount} max={projectQuestTotal} className="h-2.5" />
                 </div>
 
                 <div className="flex flex-wrap gap-2">
@@ -1006,10 +1005,10 @@ function ProjectOverviewContent() {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline">Open</Badge>
-                          <span className="text-xs text-muted-foreground">+{quest.xp} XP</span>
-                        </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">Open</Badge>
+                        <span className="text-xs text-muted-foreground">Step {quest.step}</span>
+                      </div>
                         <p className="text-sm font-medium">{quest.title}</p>
                         <p className="text-sm text-muted-foreground">{quest.description}</p>
                       </div>
@@ -1620,7 +1619,7 @@ function ProjectOverviewContent() {
         isPending={isExportingProjectBook}
         onClose={() => setIsProjectBookExportOpen(false)}
         onExport={() => void handleExportProjectBook()}
-        onExportOptionsChange={handleProjectBookOptionsChange}
+        onExportOptionsChange={setProjectBookExportOptions}
       />
     </ProjectPageLayout>
   );

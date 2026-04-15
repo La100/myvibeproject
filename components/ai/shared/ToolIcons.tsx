@@ -43,6 +43,13 @@ export const TOOL_CONFIGS: Record<string, ToolConfig> = {
     category: "edit",
     color: "text-primary",
   },
+  manage_payments: {
+    icon: Layers,
+    label: "Managing Payments",
+    description: "Preparing invoice and payment changes",
+    category: "edit",
+    color: "text-primary",
+  },
   manage_shopping: {
     icon: Layers,
     label: "Managing Shopping",

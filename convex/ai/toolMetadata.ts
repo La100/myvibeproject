@@ -3,6 +3,7 @@ export const assistantToolNames = [
   "manage_tasks",
   "manage_notes",
   "manage_contacts",
+  "manage_payments",
   "manage_shopping",
   "manage_labor",
   "manage_surveys",
@@ -67,6 +68,13 @@ const assistantToolMetadata: Record<AssistantToolName, ToolMetadata> = {
     promptSummary: "Manage contacts with a single tool for create, update, or delete.",
     approvalMode: "requires-confirmation",
     defaults: { type: "contact" },
+    shouldPersistPending: () => true,
+  },
+  manage_payments: {
+    readOnly: false,
+    promptSummary: "Manage project invoices and payments with one tool for create, update, or delete.",
+    approvalMode: "requires-confirmation",
+    defaults: { type: "payment" },
     shouldPersistPending: () => true,
   },
   manage_shopping: {

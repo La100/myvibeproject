@@ -1,5 +1,6 @@
 export const signInUrl = "/sign-in";
 export const signUpUrl = "/sign-up";
+export const chooseOrganizationUrl = "/session-tasks/choose-organization";
 
 const normalizeRedirectTarget = (value: string | undefined, fallback: string) => {
   if (!value) {

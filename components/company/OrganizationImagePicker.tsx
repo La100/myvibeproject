@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 type OrganizationImagePickerProps = {
   buttonLabel?: string;
   currentImageUrl: string;
-  description: string;
+  description?: string;
   disabled?: boolean;
   inputId: string;
   name: string;
@@ -58,7 +58,9 @@ export function OrganizationImagePicker({
             {buttonLabel}
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground">{description}</p>
+        {description ? (
+          <p className="text-xs text-muted-foreground">{description}</p>
+        ) : null}
       </div>
     </div>
   );

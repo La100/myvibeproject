@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
-import { useAuth, useOrganization, useOrganizationList } from "@clerk/nextjs";
+import { useAuth, useOrganization } from "@clerk/nextjs";
 import { toast } from "sonner";
 
 import { apiAny } from "@/lib/convexApiAny";
@@ -11,11 +11,11 @@ import { detectBrowserCurrency, isCurrencyCode, type CurrencyCode } from "@/lib/
 import { OrganizationImagePicker } from "@/components/company/OrganizationImagePicker";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { TimezonePicker } from "@/components/ui/timezone-picker";
+import { chooseOrganizationUrl } from "@/lib/authRedirects";
 
 const CURRENCY_OPTIONS: Array<{ value: CurrencyCode; label: string }> = [
   { value: "USD", label: "US Dollar ($)" },
@@ -64,22 +64,18 @@ function OnboardingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isLoaded: isAuthLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });
-  const { organization } = useOrganization();
-  const { createOrganization, setActive, isLoaded: organizationListLoaded } = useOrganizationList();
+  const { organization, isLoaded: isOrganizationLoaded } = useOrganization();
   const onboardingStatus = useQuery(apiAny.onboarding.getStatus);
   const onboardingTeamSettings = useQuery(
     apiAny.teams.getTeamSettingsByClerkOrg,
     organization?.id ? { clerkOrgId: organization.id } : "skip",
   );
   const completeOnboarding = useMutation(apiAny.onboarding.completeOnboarding);
-  const ensureCurrentUserTeamMembership = useMutation(apiAny.teamMembership.ensureCurrentUserTeamMembership);
   const updateTeamSettings = useMutation(apiAny.teams.updateTeamSettings);
   const isForcedOrganizationSetup = searchParams.get("mode") === "organization";
 
   const [isFinishing, setIsFinishing] = useState(false);
-  const [isCreatingOrganization, setIsCreatingOrganization] = useState(false);
   const [isUploadingOrganizationImage, setIsUploadingOrganizationImage] = useState(false);
-  const [organizationName, setOrganizationName] = useState("");
   const [selectedCurrency, setSelectedCurrency] = useState<CurrencyCode>("USD");
   const [selectedTimezone, setSelectedTimezone] = useState("UTC");
   const [hasInitializedPreferences, setHasInitializedPreferences] = useState(false);
@@ -104,50 +100,10 @@ function OnboardingContent() {
   const resolvedOrganizationImageUrl = organizationHasImage
     ? (onboardingTeamSettings?.imageUrl || organization?.imageUrl || "")
     : "";
-
-  useEffect(() => {
-    if (!onboardingStatus || activeOrganization || organizationName) {
-      return;
-    }
-
-    const displayName = onboardingStatus.profile.displayName?.trim();
-    if (displayName) {
-      setOrganizationName(`${displayName}'s Organization`);
-      return;
-    }
-    setOrganizationName("My Organization");
-  }, [activeOrganization, onboardingStatus, organizationName]);
-
-  const createAndActivateOrganization = async () => {
-    const trimmedName = organizationName.trim();
-    if (trimmedName.length < 2) {
-      toast.error("Enter at least 2 characters for organization name.");
-      return;
-    }
-    if (!createOrganization || !setActive) {
-      toast.error("Organization creation is not available yet.");
-      return;
-    }
-
-    setIsCreatingOrganization(true);
-    try {
-      const createdOrganization = await createOrganization({ name: trimmedName });
-      await setActive({ organization: createdOrganization.id });
-
-      await ensureCurrentUserTeamMembership({
-        clerkOrgId: createdOrganization.id,
-        orgName: createdOrganization.name || trimmedName,
-      });
-
-      toast.success("Organization created.");
-      router.replace("/onboarding?mode=organization");
-    } catch (error) {
-      console.error(error);
-      toast.error("Could not create organization.");
-    } finally {
-      setIsCreatingOrganization(false);
-    }
-  };
+  const organizationImageReady =
+    onboardingTeamSettings?.hasCustomOrganizationImage === true ||
+    Boolean(resolvedOrganizationImageUrl.trim()) ||
+    Boolean(organization?.imageUrl?.trim());
 
   const completionDefaults = useMemo(() => {
     if (!onboardingStatus) {
@@ -204,14 +160,24 @@ function OnboardingContent() {
   }, []);
 
   useEffect(() => {
-    if (isForcedOrganizationSetup || onboardingStatus === undefined) {
+    if (isForcedOrganizationSetup || onboardingStatus === undefined || !isOrganizationLoaded) {
       return;
     }
 
-    if (onboardingStatus.completed && activeOrganization) {
+    if (onboardingStatus.completed && activeOrganization && organization?.id) {
       router.replace("/dashboard");
     }
-  }, [activeOrganization, isForcedOrganizationSetup, onboardingStatus, router]);
+  }, [activeOrganization, isForcedOrganizationSetup, isOrganizationLoaded, onboardingStatus, organization?.id, router]);
+
+  useEffect(() => {
+    if (onboardingStatus === undefined || !isOrganizationLoaded) {
+      return;
+    }
+
+    if (!activeOrganization || !organization?.id) {
+      router.replace(chooseOrganizationUrl);
+    }
+  }, [activeOrganization, isOrganizationLoaded, onboardingStatus, organization?.id, router]);
 
   const handleFinish = async () => {
     if (!activeOrganization) {
@@ -307,7 +273,7 @@ function OnboardingContent() {
     void handleSaveOrganizationImage(file);
   };
 
-  if (!isAuthLoaded || !isSignedIn || onboardingStatus === undefined) {
+  if (!isAuthLoaded || !isSignedIn || onboardingStatus === undefined || !isOrganizationLoaded) {
     return <LoadingState message="Preparing onboarding..." />;
   }
 
@@ -316,34 +282,7 @@ function OnboardingContent() {
   }
 
   if (!activeOrganization) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/35 px-4 py-4">
-        <div className="mx-auto flex w-full max-w-xl flex-col gap-4 pt-10">
-          <Card className="rounded-3xl border-border/70 bg-background/95 shadow-sm">
-            <CardContent className="space-y-4 p-6">
-              <h1 className="text-xl font-semibold">Create your organization to get started</h1>
-              <p className="text-sm text-muted-foreground">
-                Your guided setup starts right after this step.
-              </p>
-              <Input
-                value={organizationName}
-                onChange={(event) => setOrganizationName(event.target.value)}
-                placeholder="Organization name"
-                disabled={!organizationListLoaded || isCreatingOrganization}
-              />
-              <Button
-                type="button"
-                onClick={createAndActivateOrganization}
-                disabled={!organizationListLoaded || isCreatingOrganization || organizationName.trim().length < 2}
-                className="w-full"
-              >
-                {isCreatingOrganization ? "Creating..." : "Create organization"}
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
+    return <LoadingState message="Redirecting to organization setup..." />;
   }
 
   return (
@@ -402,15 +341,15 @@ function OnboardingContent() {
               onChange={handleSelectOrganizationImage}
               className="hidden"
             />
-            <OrganizationImagePicker
+              <OrganizationImagePicker
               inputId="onboarding-organization-image-upload"
               currentImageUrl={organizationImagePreviewUrl}
               name={organization?.name || activeOrganization.teamName}
               onPick={() => organizationImageInputRef.current?.click()}
               disabled={!canUpdateOrganization || isUploadingOrganizationImage}
-              buttonLabel={isUploadingOrganizationImage ? "Uploading..." : "Upload custom image"}
+              buttonLabel={isUploadingOrganizationImage ? "Uploading..." : organizationImageReady ? "Change image" : "Upload custom image"}
               statusLabel={
-                onboardingTeamSettings?.hasCustomOrganizationImage
+                organizationImageReady
                   ? "Custom image set"
                   : "Default image still active"
               }
@@ -418,7 +357,9 @@ function OnboardingContent() {
                 canUpdateOrganization
                   ? isUploadingOrganizationImage
                     ? "Uploading logo..."
-                    : "Set your own workspace image now so the sidebar and quests reflect your real brand."
+                    : organizationImageReady
+                      ? "Your workspace image is already set. You can replace it here or manage it later in organization settings."
+                      : "Set your own workspace image now so the sidebar and quests reflect your real brand."
                   : "Only admins can change the organization image."
               }
             />

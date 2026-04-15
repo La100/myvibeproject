@@ -180,7 +180,7 @@ function ProjectSidebarContent() {
             {title}
           </span>
         </div>
-        <SidebarMenu className="gap-1">
+        <SidebarMenu className="gap-0.5">
           {items.map((item) => {
             const isActive = isItemActive(item.href);
             return (
@@ -188,7 +188,7 @@ function ProjectSidebarContent() {
                 <SidebarMenuButton
                   asChild
                   isActive={isActive}
-                  className={`h-9 justify-start gap-2.5 rounded-xl border px-3 text-[13px] font-medium ${isActive
+                  className={`h-8 justify-start gap-2.5 rounded-xl border px-3 text-[13px] font-medium ${isActive
                       ? "border-sidebar-border/80 bg-sidebar-accent/45 text-sidebar-foreground"
                       : "border-transparent bg-transparent text-sidebar-foreground hover:bg-transparent hover:text-sidebar-foreground"
                     }`}
@@ -273,7 +273,7 @@ function ProjectSidebarContent() {
 
         <SidebarGroup className="border-t border-sidebar-border/70 px-2 pb-1 pt-2.5">
           <SidebarGroupContent className="pt-2">
-            <SidebarMenu className="gap-1">
+            <SidebarMenu className="gap-0.5">
               {footerItems.map((item) => {
                 const isActive = pathname.startsWith(item.href);
                 return (
@@ -281,7 +281,7 @@ function ProjectSidebarContent() {
                     <SidebarMenuButton
                       asChild
                       isActive={isActive}
-                      className={`h-9 justify-start gap-2.5 rounded-xl border px-3 text-[13px] font-medium ${isActive
+                      className={`h-8 justify-start gap-2.5 rounded-xl border px-3 text-[13px] font-medium ${isActive
                           ? "border-sidebar-border/80 bg-sidebar-accent/45 text-sidebar-foreground"
                           : "border-transparent text-sidebar-foreground/82 hover:bg-transparent hover:text-sidebar-foreground"
                         }`}

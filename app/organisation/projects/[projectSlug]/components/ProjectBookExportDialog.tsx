@@ -13,19 +13,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 export type ProjectBookSectionKey =
   | "shoppingList"
   | "labor"
   | "tasks"
   | "budget"
-  | "payments";
-
-export type ProjectBookPreset = "client" | "internal" | "custom";
+  | "payments"
+  | "moodboard";
 
 export type ProjectBookExportOptions = {
-  preset: ProjectBookPreset;
   sections: Record<ProjectBookSectionKey, boolean>;
   showNotes: boolean;
   showPrice: boolean;
@@ -38,6 +35,7 @@ const SECTION_LABELS: Record<ProjectBookSectionKey, string> = {
   tasks: "Tasks",
   budget: "Budget",
   payments: "Payments",
+  moodboard: "Moodboard",
 };
 
 type ProjectBookExportDialogProps = {
@@ -63,49 +61,16 @@ export function ProjectBookExportDialog({
         <DialogHeader>
           <DialogTitle>Export Project Book</DialogTitle>
           <DialogDescription>
-            Build one PDF with selected project sections. Client preset follows the current customer portal visibility rules.
+            Build one PDF with selected project sections.
           </DialogDescription>
         </DialogHeader>
 
         <FieldGroup>
           <Field>
-            <FieldLabel>Preset</FieldLabel>
-            <RadioGroup
-              value={exportOptions.preset}
-              onValueChange={(value) =>
-                onExportOptionsChange({
-                  ...exportOptions,
-                  preset: value as ProjectBookPreset,
-                })
-              }
-              className="grid gap-3"
-            >
-              <label className="flex items-start gap-3 rounded-lg border border-border/70 px-3 py-3 text-sm">
-                <RadioGroupItem value="client" />
-                <div className="flex flex-col">
-                  <span className="font-medium">Client</span>
-                  <FieldDescription>Starts from the customer portal selection and visibility rules.</FieldDescription>
-                </div>
-              </label>
-              <label className="flex items-start gap-3 rounded-lg border border-border/70 px-3 py-3 text-sm">
-                <RadioGroupItem value="internal" />
-                <div className="flex flex-col">
-                  <span className="font-medium">Internal</span>
-                  <FieldDescription>Includes all available project-book sections with full detail.</FieldDescription>
-                </div>
-              </label>
-              <label className="flex items-start gap-3 rounded-lg border border-border/70 px-3 py-3 text-sm">
-                <RadioGroupItem value="custom" />
-                <div className="flex flex-col">
-                  <span className="font-medium">Custom</span>
-                  <FieldDescription>Choose exactly which sections and shopping details should be included.</FieldDescription>
-                </div>
-              </label>
-            </RadioGroup>
-          </Field>
-
-          <Field>
             <FieldLabel>Sections</FieldLabel>
+            <FieldDescription>
+              All sections start selected by default. Uncheck the ones you want to skip.
+            </FieldDescription>
             <div className="grid gap-3 sm:grid-cols-2">
               {(Object.keys(SECTION_LABELS) as ProjectBookSectionKey[]).map((section) => (
                 <label
@@ -117,7 +82,6 @@ export function ProjectBookExportDialog({
                     onCheckedChange={(checked) =>
                       onExportOptionsChange({
                         ...exportOptions,
-                        preset: "custom",
                         sections: {
                           ...exportOptions.sections,
                           [section]: checked === true,
@@ -135,6 +99,9 @@ export function ProjectBookExportDialog({
 
           <Field>
             <FieldLabel>Detail Visibility</FieldLabel>
+            <FieldDescription>
+              Control which shopping and labor details are included in the PDF.
+            </FieldDescription>
             <div className="grid gap-3 sm:grid-cols-3">
               <label className="flex items-start gap-3 rounded-lg border border-border/70 px-3 py-3 text-sm">
                 <Checkbox
@@ -142,7 +109,6 @@ export function ProjectBookExportDialog({
                   onCheckedChange={(checked) =>
                     onExportOptionsChange({
                       ...exportOptions,
-                      preset: "custom",
                       showPrice: checked === true,
                     })
                   }
@@ -157,7 +123,6 @@ export function ProjectBookExportDialog({
                   onCheckedChange={(checked) =>
                     onExportOptionsChange({
                       ...exportOptions,
-                      preset: "custom",
                       showSupplier: checked === true,
                     })
                   }
@@ -172,7 +137,6 @@ export function ProjectBookExportDialog({
                   onCheckedChange={(checked) =>
                     onExportOptionsChange({
                       ...exportOptions,
-                      preset: "custom",
                       showNotes: checked === true,
                     })
                   }

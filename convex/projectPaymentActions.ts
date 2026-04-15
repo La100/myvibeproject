@@ -6,14 +6,19 @@ import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { r2 } from "./files";
 import { generateInvoicePdf, sanitizeFileName, type InvoicePdfInput } from "../lib/invoicePdf";
+import { calculateTaxBreakdown } from "../lib/organizationTax";
 import {
   applyInvoiceFieldVisibilityToBillingProfile,
   applyInvoiceFieldVisibilityToCustomer,
   normalizeBillingProfile,
+  normalizeInvoiceLineItems,
   normalizeOptionalEmail,
   normalizeOptionalString,
   normalizePaymentCustomerDetails,
+  getInvoiceLineItemsSubtotal,
   resolveInvoiceFieldRequirements,
+  resolveInvoiceLineItems,
+  resolveInvoiceTaxSettingsSnapshot,
 } from "./projectPaymentHelpers";
 
 type InvoiceActionResult = {
@@ -38,6 +43,12 @@ type BillingProfile = NonNullable<ReturnType<typeof normalizeBillingProfile>>;
 type CustomerDetails = NonNullable<ReturnType<typeof normalizePaymentCustomerDetails>>;
 
 const BASE_URL = (process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3001").replace(/\/+$/, "");
+const DEFAULT_TAX_SETTINGS = {
+  taxEnabled: false,
+  taxRate: 0,
+  taxLabel: "Tax",
+  priceDisplay: "net" as const,
+};
 
 // Keep generated refs runtime-loaded here to avoid deep TS instantiation.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -101,6 +112,9 @@ const buildAddressBlock = (value: {
     [normalizeOptionalString(value.postalCode), normalizeOptionalString(value.city)].filter(Boolean).join(" "),
     normalizeOptionalString(value.country),
   ].filter(Boolean) as string[];
+
+const roundCurrency = (value: number) =>
+  Math.round((value + Number.EPSILON) * 100) / 100;
 
 const getInvoicePaymentIntentId = (invoice: Stripe.Invoice) => {
   const paymentIntent = (invoice as any).payment_intent;
@@ -270,16 +284,32 @@ const buildInvoicePdfInput = (payload: InvoicePayload): InvoicePdfInput => {
   const billingProfile = getBillingProfile(payload.team, installment);
   const customer = getInvoiceCustomerDetails(project, installment);
   const invoiceNumber = installment.invoiceNumber;
+  const explicitLineItems = normalizeInvoiceLineItems(installment.invoiceLineItems);
+  const lineItems = resolveInvoiceLineItems(installment) || [];
+  const taxSettings =
+    resolveInvoiceTaxSettingsSnapshot(
+      installment.invoiceTaxSettingsSnapshot,
+      payload.team?.organizationTaxSettings,
+      Boolean(explicitLineItems?.length),
+    ) || DEFAULT_TAX_SETTINGS;
+  const subtotal = getInvoiceLineItemsSubtotal(lineItems);
+  const breakdown = calculateTaxBreakdown(subtotal, taxSettings);
 
   return {
     invoiceNumber,
     issuedAt: installment.invoiceIssuedAt || installment.updatedAt || Date.now(),
     dueDate: installment.dueDate,
-    amount: installment.amount,
     currency: installment.currency,
-    lineText: installment.description?.trim()
-      ? `${installment.title} - ${installment.description.trim()}`
-      : installment.title,
+    lineItems: lineItems.map((item) => ({
+      ...item,
+      amount: roundCurrency(item.quantity * item.unitPrice),
+    })),
+    subtotal: breakdown.net,
+    taxAmount: breakdown.tax,
+    total: breakdown.gross,
+    taxLabel: taxSettings.taxLabel,
+    taxRate: taxSettings.taxRate,
+    taxEnabled: taxSettings.taxEnabled,
     paymentReference: installment.paymentReference || invoiceNumber,
     seller: {
       name: billingProfile.sellerName ?? payload.team.name ?? "Seller",
@@ -416,7 +446,10 @@ const ensureInvoiceDocument = async (
 
   if (!payload.installment.invoiceNumber) {
     const invoiceIssuedAt = Date.now();
-    const paymentReference = `${payload.project.name} / ${payload.installment.title}`;
+    const primaryLineTitle =
+      (resolveInvoiceLineItems(payload.installment) || [])[0]?.title || payload.installment.title;
+    const explicitLineItems = normalizeInvoiceLineItems(payload.installment.invoiceLineItems);
+    const paymentReference = `${payload.project.name} / ${primaryLineTitle}`;
     await ctx.runMutation(internalAny.projectPayments.assignInvoiceToProjectPayment, {
       installmentId,
       invoiceIssuedAt,
@@ -424,6 +457,11 @@ const ensureInvoiceDocument = async (
       paymentReference,
       invoiceSellerSnapshot: billingProfile,
       invoiceCustomerSnapshot: customer,
+      invoiceTaxSettingsSnapshot: resolveInvoiceTaxSettingsSnapshot(
+        payload.installment.invoiceTaxSettingsSnapshot,
+        payload.team?.organizationTaxSettings,
+        Boolean(explicitLineItems?.length),
+      ),
     });
     payload = await loadInvoicePayload(ctx, installmentId);
   }
@@ -461,9 +499,17 @@ const buildInvoicePreviewPayload = (payload: InvoicePayload) => {
       invoiceNumber: payload.installment.invoiceNumber || "DRAFT",
       invoiceIssuedAt: payload.installment.invoiceIssuedAt || Date.now(),
       paymentReference:
-        payload.installment.paymentReference || `${payload.project.name} / ${payload.installment.title}`,
+        payload.installment.paymentReference ||
+        `${payload.project.name} / ${
+          (resolveInvoiceLineItems(payload.installment) || [])[0]?.title || payload.installment.title
+        }`,
       invoiceSellerSnapshot: billingProfile,
       invoiceCustomerSnapshot: customer,
+      invoiceTaxSettingsSnapshot: resolveInvoiceTaxSettingsSnapshot(
+        payload.installment.invoiceTaxSettingsSnapshot,
+        payload.team?.organizationTaxSettings,
+        Boolean(normalizeInvoiceLineItems(payload.installment.invoiceLineItems)?.length),
+      ),
     },
   } as InvoicePayload;
 };
@@ -683,29 +729,48 @@ const createStripePaymentLinkForInstallment = async (
   }
 
   const customerId = await getOrCreateProjectStripeCustomer(ctx, payload, stripeConnectAccountId, customer);
-  const amountMinor = toStripeMinorAmount(
-    Number(payload.installment.amount),
-    String(payload.installment.currency || "pln"),
-  );
+  const explicitLineItems = normalizeInvoiceLineItems(payload.installment.invoiceLineItems);
+  const lineItems = resolveInvoiceLineItems(payload.installment) || [];
+  const taxSettings =
+    resolveInvoiceTaxSettingsSnapshot(
+      payload.installment.invoiceTaxSettingsSnapshot,
+      payload.team?.organizationTaxSettings,
+      Boolean(explicitLineItems?.length),
+    ) || DEFAULT_TAX_SETTINGS;
+  const subtotal = getInvoiceLineItemsSubtotal(lineItems);
+  const taxBreakdown = calculateTaxBreakdown(subtotal, taxSettings);
 
-  if (!Number.isFinite(amountMinor) || amountMinor <= 0) {
-    throw new Error("Installment amount must be greater than zero");
+  if (lineItems.length === 0) {
+    throw new Error("Add at least one invoice line item");
   }
 
-  const lineDescription = payload.installment.description?.trim()
-    ? `${payload.installment.title} - ${payload.installment.description.trim()}`
-    : payload.installment.title;
+  for (const item of lineItems) {
+    await getStripe().invoiceItems.create(
+      {
+        customer: customerId,
+        amount: toStripeMinorAmount(item.quantity * item.unitPrice, String(payload.installment.currency || "pln")),
+        currency: String(payload.installment.currency || "pln").toLowerCase(),
+        description: item.description?.trim()
+          ? `${item.quantity} x ${item.title} - ${item.description.trim()}`
+          : `${item.quantity} x ${item.title}`,
+        metadata: getInvoiceMetadata(payload),
+      },
+      requestOptions,
+    );
+  }
 
-  await getStripe().invoiceItems.create(
-    {
-      customer: customerId,
-      amount: amountMinor,
-      currency: String(payload.installment.currency || "pln").toLowerCase(),
-      description: lineDescription,
-      metadata: getInvoiceMetadata(payload),
-    },
-    requestOptions,
-  );
+  if (taxSettings.taxEnabled && taxBreakdown.tax > 0) {
+    await getStripe().invoiceItems.create(
+      {
+        customer: customerId,
+        amount: toStripeMinorAmount(taxBreakdown.tax, String(payload.installment.currency || "pln")),
+        currency: String(payload.installment.currency || "pln").toLowerCase(),
+        description: `${taxSettings.taxLabel} (${taxSettings.taxRate.toFixed(0)}%)`,
+        metadata: getInvoiceMetadata(payload),
+      },
+      requestOptions,
+    );
+  }
 
   const createParams: Stripe.InvoiceCreateParams = {
     customer: customerId,

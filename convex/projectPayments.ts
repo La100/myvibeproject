@@ -2,19 +2,28 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
+import { ensureTeamAccess } from "./authz";
 import {
   applyInvoiceFieldVisibilityToBillingProfile,
   applyInvoiceFieldVisibilityToCustomer,
   invoiceCustomerSnapshotValidator,
+  invoiceLineItemValidator,
   invoiceSellerSnapshotValidator,
+  invoiceTaxSettingsSnapshotValidator,
   normalizeBillingProfile,
+  normalizeInvoiceLineItems,
+  normalizeInvoiceTaxSettingsSnapshot,
   normalizeOptionalEmail,
   normalizeOptionalString,
   normalizePaymentCustomerDetails,
   paymentCustomerDetailsValidator,
+  getInvoiceLineItemsSubtotal,
   resolveInvoiceFieldRequirements,
+  resolveInvoiceLineItems,
+  resolveInvoiceTaxSettingsSnapshot,
   resolveOrganizationBillingProfile,
 } from "./projectPaymentHelpers";
+import { calculateTaxBreakdown, resolveOrganizationTaxSettings } from "../lib/organizationTax";
 
 const PROJECT_PAYMENT_STATUS = v.union(
   v.literal("draft"),
@@ -32,6 +41,9 @@ const PROJECT_PAYMENT_MANUAL_STATUS = v.union(
 );
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const roundCurrency = (value: number) =>
+  Math.round((value + Number.EPSILON) * 100) / 100;
 
 const getProjectPaymentManager = async (
   ctx: any,
@@ -141,6 +153,10 @@ const toPublicInstallment = (installment: any) => ({
   hasInvoicePdf: Boolean(installment.invoicePdfStorageKey),
   invoiceSellerSnapshot: normalizeBillingProfile(installment.invoiceSellerSnapshot),
   invoiceCustomerSnapshot: normalizePaymentCustomerDetails(installment.invoiceCustomerSnapshot),
+  invoiceLineItems: resolveInvoiceLineItems(installment) || [],
+  invoiceTaxSettingsSnapshot: normalizeInvoiceTaxSettingsSnapshot(
+    installment.invoiceTaxSettingsSnapshot,
+  ),
   isOverdue:
     installment.status === "open" &&
     typeof installment.dueDate === "number" &&
@@ -152,6 +168,157 @@ const buildInvoiceNumber = (prefix: string | undefined, sequence: number, issued
   const normalizedPrefix = normalizeOptionalString(prefix) || "INV";
   return `${normalizedPrefix}/${year}/${String(sequence).padStart(4, "0")}`;
 };
+
+export const getTeamInvoicesReport = query({
+  args: {
+    teamId: v.id("teams"),
+  },
+  async handler(ctx, args) {
+    const { membership } = await ensureTeamAccess(ctx, args.teamId);
+    const team: any = await ctx.db.get(args.teamId);
+
+    const projects = await ctx.db
+      .query("projects")
+      .withIndex("by_team", (q: any) => q.eq("teamId", args.teamId))
+      .collect();
+
+    const allowedProjectIds =
+      membership.role === "admin"
+        ? null
+        : new Set((membership.projectIds || []).map((projectId: Id<"projects">) => String(projectId)));
+
+    const accessibleProjects = projects.filter((project: any) =>
+      allowedProjectIds ? allowedProjectIds.has(String(project._id)) : true,
+    );
+
+    const projectMap = new Map(
+      accessibleProjects.map((project: any) => [String(project._id), project]),
+    );
+
+    const issuedPayments = (
+      await ctx.db
+        .query("projectPayments")
+        .withIndex("by_team", (q: any) => q.eq("teamId", args.teamId))
+        .collect()
+    )
+      .filter((payment: any) => {
+        const project = projectMap.get(String(payment.projectId));
+        if (!project) {
+          return false;
+        }
+
+        return Boolean(payment.invoiceNumber || payment.stripeInvoiceNumber);
+      })
+      .sort((left: any, right: any) => {
+        const leftDate = left.invoiceIssuedAt || left.sentAt || left._creationTime || 0;
+        const rightDate = right.invoiceIssuedAt || right.sentAt || right._creationTime || 0;
+        return rightDate - leftDate;
+      });
+
+    const invoiceRows = issuedPayments.map((payment: any) => {
+      const project = projectMap.get(String(payment.projectId));
+      const lineItems = resolveInvoiceLineItems(payment) || [];
+      const taxSettings = resolveInvoiceTaxSettingsSnapshot(
+        payment.invoiceTaxSettingsSnapshot,
+        team?.organizationTaxSettings,
+        Boolean(normalizeInvoiceLineItems(payment.invoiceLineItems)?.length),
+      );
+      const subtotal = lineItems.length > 0 ? getInvoiceLineItemsSubtotal(lineItems) : payment.amount;
+      const breakdown = taxSettings
+        ? calculateTaxBreakdown(subtotal, taxSettings)
+        : { net: subtotal, tax: 0, gross: payment.amount };
+      const customer = normalizePaymentCustomerDetails(payment.invoiceCustomerSnapshot);
+
+      return {
+        _id: payment._id,
+        projectId: payment.projectId,
+        projectName: project?.name || "Project",
+        projectSlug: project?.slug,
+        title: payment.title,
+        status: payment.status,
+        invoiceNumber: payment.invoiceNumber || payment.stripeInvoiceNumber,
+        currency: payment.currency || project?.currency || "PLN",
+        total: payment.amount,
+        subtotal: breakdown.net,
+        taxAmount: breakdown.tax,
+        invoiceIssuedAt: payment.invoiceIssuedAt,
+        dueDate: payment.dueDate,
+        sentAt: payment.sentAt,
+        paidAt: payment.paidAt,
+        hasInvoicePdf: Boolean(payment.invoicePdfStorageKey),
+        customerName:
+          customer?.companyName || customer?.name || project?.paymentCustomerName || project?.customer || "",
+        customerEmail: customer?.email || project?.paymentCustomerEmail || "",
+        isOverdue:
+          payment.status === "open" &&
+          typeof payment.dueDate === "number" &&
+          payment.dueDate < Date.now(),
+      };
+    });
+
+    const totals = invoiceRows.reduce(
+      (acc, invoice) => {
+        acc.invoiceCount += 1;
+        if (invoice.status === "paid") {
+          acc.paidCount += 1;
+        } else if (invoice.status === "open") {
+          acc.openCount += 1;
+        }
+        if (invoice.isOverdue) {
+          acc.overdueCount += 1;
+        }
+        return acc;
+      },
+      {
+        invoiceCount: 0,
+        openCount: 0,
+        overdueCount: 0,
+        paidCount: 0,
+      },
+    );
+
+    const currencySummary = Array.from(
+      invoiceRows.reduce((map, invoice) => {
+        const key = invoice.currency || "PLN";
+        const current = map.get(key) || {
+          currency: key,
+          invoiceCount: 0,
+          openTotal: 0,
+          overdueTotal: 0,
+          paidTotal: 0,
+          total: 0,
+        };
+
+        current.invoiceCount += 1;
+        current.total += invoice.total;
+        if (invoice.status === "paid") {
+          current.paidTotal += invoice.total;
+        } else if (invoice.status === "open") {
+          current.openTotal += invoice.total;
+        }
+        if (invoice.isOverdue) {
+          current.overdueTotal += invoice.total;
+        }
+
+        map.set(key, current);
+        return map;
+      }, new Map<string, {
+        currency: string;
+        invoiceCount: number;
+        openTotal: number;
+        overdueTotal: number;
+        paidTotal: number;
+        total: number;
+      }>()).values(),
+    ).sort((left, right) => left.currency.localeCompare(right.currency));
+
+    return {
+      currencySummary,
+      invoices: invoiceRows,
+      totals,
+    };
+  },
+});
 
 export const getProjectPaymentsOverview = query({
   args: {
@@ -167,6 +334,7 @@ export const getProjectPaymentsOverview = query({
     const team: any = await ctx.db.get(project.teamId);
     const installments = await listInstallmentsForProject(ctx, args.projectId);
     const billingProfile = resolveOrganizationBillingProfile(team?.billingProfile, team) || undefined;
+    const organizationTaxSettings = resolveOrganizationTaxSettings(team?.organizationTaxSettings);
     const invoiceFieldRequirements = resolveInvoiceFieldRequirements(team?.invoiceFieldRequirements);
     const customer = resolveProjectCustomerDetails(project);
     const stripeConnectOnboardingComplete =
@@ -211,6 +379,7 @@ export const getProjectPaymentsOverview = query({
     return {
       customer,
       billingProfile: billingProfile || null,
+      organizationTaxSettings,
       invoiceFieldRequirements,
       billingSetup,
       stripeConnect: {
@@ -281,6 +450,8 @@ export const createProjectPayment = mutation({
     title: v.string(),
     description: v.optional(v.string()),
     amount: v.number(),
+    invoiceLineItems: v.optional(v.array(invoiceLineItemValidator)),
+    invoiceTaxSettingsSnapshot: v.optional(invoiceTaxSettingsSnapshotValidator),
     dueDate: v.optional(v.union(v.number(), v.null())),
     invoiceSellerSnapshot: v.optional(invoiceSellerSnapshotValidator),
     invoiceCustomerSnapshot: v.optional(invoiceCustomerSnapshotValidator),
@@ -292,26 +463,43 @@ export const createProjectPayment = mutation({
     }
 
     const { project } = await getProjectPaymentManager(ctx as any, args.projectId, identity.subject);
+    const team: any = await ctx.db.get(project.teamId);
     const title = args.title.trim();
     const description = normalizeOptionalString(args.description);
+    const invoiceLineItems = normalizeInvoiceLineItems(args.invoiceLineItems);
+    if (args.invoiceLineItems !== undefined && !invoiceLineItems) {
+      throw new Error("Add at least one invoice line item");
+    }
+    const hasExplicitLineItems = Boolean(invoiceLineItems?.length);
+    const invoiceTaxSettingsSnapshot = resolveInvoiceTaxSettingsSnapshot(
+      args.invoiceTaxSettingsSnapshot,
+      team?.organizationTaxSettings,
+      hasExplicitLineItems,
+    );
+    const baseAmount = invoiceLineItems
+      ? getInvoiceLineItemsSubtotal(invoiceLineItems)
+      : roundCurrency(args.amount);
+    const computedAmount = invoiceTaxSettingsSnapshot
+      ? calculateTaxBreakdown(baseAmount, invoiceTaxSettingsSnapshot).gross
+      : baseAmount;
 
     if (!title) {
       throw new Error("Installment title is required");
     }
-    if (!Number.isFinite(args.amount) || args.amount <= 0) {
+    if (!Number.isFinite(computedAmount) || computedAmount <= 0) {
       throw new Error("Installment amount must be greater than zero");
     }
 
     const installments = await listInstallmentsForProject(ctx, args.projectId);
     const nextOrder = installments.length > 0 ? Math.max(...installments.map((item: any) => item.order)) + 1 : 0;
-    const normalizedAmount = Math.round(args.amount * 100) / 100;
-
     return await ctx.db.insert("projectPayments", {
       projectId: args.projectId,
       teamId: project.teamId,
       title,
       description,
-      amount: normalizedAmount,
+      amount: computedAmount,
+      invoiceLineItems,
+      invoiceTaxSettingsSnapshot,
       currency: project.currency || "PLN",
       dueDate: args.dueDate ?? undefined,
       invoiceSellerSnapshot: normalizeBillingProfile(args.invoiceSellerSnapshot),
@@ -330,6 +518,8 @@ export const updateProjectPayment = mutation({
     title: v.optional(v.string()),
     description: v.optional(v.union(v.string(), v.null())),
     amount: v.optional(v.number()),
+    invoiceLineItems: v.optional(v.array(invoiceLineItemValidator)),
+    invoiceTaxSettingsSnapshot: v.optional(invoiceTaxSettingsSnapshotValidator),
     dueDate: v.optional(v.union(v.number(), v.null())),
     invoiceSellerSnapshot: v.optional(invoiceSellerSnapshotValidator),
     invoiceCustomerSnapshot: v.optional(invoiceCustomerSnapshotValidator),
@@ -345,7 +535,8 @@ export const updateProjectPayment = mutation({
       throw new Error("Installment not found");
     }
 
-    await getProjectPaymentManager(ctx as any, installment.projectId, identity.subject);
+    const { project } = await getProjectPaymentManager(ctx as any, installment.projectId, identity.subject);
+    const team: any = await ctx.db.get(project.teamId);
 
     if (installment.invoiceNumber || installment.stripeInvoiceId) {
       throw new Error("This installment already has an issued invoice and can no longer be edited");
@@ -354,6 +545,8 @@ export const updateProjectPayment = mutation({
     const patch: Record<string, unknown> = {
       updatedAt: Date.now(),
     };
+    let normalizedLineItems: ReturnType<typeof normalizeInvoiceLineItems> | undefined;
+    let normalizedTaxSettings: ReturnType<typeof resolveInvoiceTaxSettingsSnapshot> | undefined;
 
     if (args.title !== undefined) {
       const title = args.title.trim();
@@ -367,11 +560,62 @@ export const updateProjectPayment = mutation({
       patch.description = normalizeOptionalString(args.description ?? undefined);
     }
 
-    if (args.amount !== undefined) {
-      if (!Number.isFinite(args.amount) || args.amount <= 0) {
+    if (args.invoiceLineItems !== undefined) {
+      normalizedLineItems = normalizeInvoiceLineItems(args.invoiceLineItems);
+      if (!normalizedLineItems) {
+        throw new Error("Add at least one invoice line item");
+      }
+      patch.invoiceLineItems = normalizedLineItems;
+    }
+
+    if (args.invoiceTaxSettingsSnapshot !== undefined) {
+      normalizedTaxSettings = resolveInvoiceTaxSettingsSnapshot(
+        args.invoiceTaxSettingsSnapshot,
+        team?.organizationTaxSettings,
+        Boolean(
+          normalizedLineItems?.length || normalizeInvoiceLineItems(installment.invoiceLineItems)?.length,
+        ),
+      );
+    }
+
+    const existingLineItems = normalizeInvoiceLineItems(installment.invoiceLineItems);
+    const nextLineItems =
+      normalizedLineItems !== undefined ? normalizedLineItems : existingLineItems;
+    const hasLineItems = Boolean(nextLineItems?.length);
+    const nextTaxSettings =
+      normalizedTaxSettings !== undefined
+        ? normalizedTaxSettings
+        : resolveInvoiceTaxSettingsSnapshot(
+            installment.invoiceTaxSettingsSnapshot,
+            team?.organizationTaxSettings,
+            hasLineItems,
+          );
+
+    if (hasLineItems && nextTaxSettings) {
+      patch.invoiceTaxSettingsSnapshot = nextTaxSettings;
+    } else if (args.invoiceTaxSettingsSnapshot !== undefined) {
+      patch.invoiceTaxSettingsSnapshot = nextTaxSettings;
+    }
+
+    if (args.amount !== undefined || normalizedLineItems !== undefined || args.invoiceTaxSettingsSnapshot !== undefined) {
+      // Respect direct amount edits when the caller updates the legacy summary
+      // without sending a full invoice line item payload.
+      const baseAmount =
+        normalizedLineItems !== undefined
+          ? getInvoiceLineItemsSubtotal(nextLineItems)
+          : typeof args.amount === "number"
+            ? args.amount
+            : hasLineItems
+              ? getInvoiceLineItemsSubtotal(nextLineItems)
+              : installment.amount;
+      const nextAmount = nextTaxSettings
+        ? calculateTaxBreakdown(baseAmount, nextTaxSettings).gross
+        : roundCurrency(baseAmount);
+
+      if (typeof nextAmount !== "number" || !Number.isFinite(nextAmount) || nextAmount <= 0) {
         throw new Error("Installment amount must be greater than zero");
       }
-      patch.amount = Math.round(args.amount * 100) / 100;
+      patch.amount = roundCurrency(nextAmount);
     }
 
     if (args.dueDate !== undefined) {
@@ -397,6 +641,8 @@ export const updateIssuedProjectPaymentInvoice = mutation({
     title: v.string(),
     description: v.optional(v.union(v.string(), v.null())),
     amount: v.number(),
+    invoiceLineItems: v.optional(v.array(invoiceLineItemValidator)),
+    invoiceTaxSettingsSnapshot: v.optional(invoiceTaxSettingsSnapshotValidator),
     dueDate: v.optional(v.union(v.number(), v.null())),
     invoiceNumber: v.string(),
     invoiceSellerSnapshot: v.optional(invoiceSellerSnapshotValidator),
@@ -413,7 +659,8 @@ export const updateIssuedProjectPaymentInvoice = mutation({
       throw new Error("Installment not found");
     }
 
-    await getProjectPaymentManager(ctx as any, installment.projectId, identity.subject);
+    const { project } = await getProjectPaymentManager(ctx as any, installment.projectId, identity.subject);
+    const team: any = await ctx.db.get(project.teamId);
 
     if (!installment.invoiceNumber) {
       throw new Error("Issue the invoice before editing it");
@@ -424,11 +671,38 @@ export const updateIssuedProjectPaymentInvoice = mutation({
     }
 
     const title = args.title.trim();
+    const invoiceLineItems = args.invoiceLineItems !== undefined
+      ? normalizeInvoiceLineItems(args.invoiceLineItems)
+      : undefined;
+    if (args.invoiceLineItems !== undefined && !invoiceLineItems) {
+      throw new Error("Add at least one invoice line item");
+    }
+    const existingLineItems = normalizeInvoiceLineItems(installment.invoiceLineItems);
+    const hasExplicitLineItems = Boolean((invoiceLineItems ?? existingLineItems)?.length);
+    const invoiceTaxSettingsSource =
+      args.invoiceTaxSettingsSnapshot !== undefined
+        ? args.invoiceTaxSettingsSnapshot
+        : installment.invoiceTaxSettingsSnapshot;
+    const invoiceTaxSettingsSnapshot = resolveInvoiceTaxSettingsSnapshot(
+      invoiceTaxSettingsSource,
+      team?.organizationTaxSettings,
+      hasExplicitLineItems,
+    );
+    const baseAmount = invoiceLineItems && invoiceLineItems.length > 0
+      ? getInvoiceLineItemsSubtotal(invoiceLineItems)
+      : Number.isFinite(args.amount)
+        ? roundCurrency(args.amount)
+        : existingLineItems?.length
+          ? getInvoiceLineItemsSubtotal(existingLineItems)
+          : roundCurrency(args.amount);
+    const computedAmount = invoiceTaxSettingsSnapshot
+      ? calculateTaxBreakdown(baseAmount, invoiceTaxSettingsSnapshot).gross
+      : baseAmount;
     if (!title) {
       throw new Error("Invoice title is required");
     }
 
-    if (!Number.isFinite(args.amount) || args.amount <= 0) {
+    if (!Number.isFinite(computedAmount) || computedAmount <= 0) {
       throw new Error("Invoice amount must be greater than zero");
     }
 
@@ -455,7 +729,11 @@ export const updateIssuedProjectPaymentInvoice = mutation({
     await ctx.db.patch(args.installmentId, {
       title,
       description: normalizeOptionalString(args.description ?? undefined),
-      amount: Math.round(args.amount * 100) / 100,
+      amount: computedAmount,
+      ...(args.invoiceLineItems !== undefined ? { invoiceLineItems } : {}),
+      ...((hasExplicitLineItems || args.invoiceTaxSettingsSnapshot !== undefined)
+        ? { invoiceTaxSettingsSnapshot }
+        : {}),
       dueDate: args.dueDate ?? undefined,
       invoiceNumber,
       invoiceSellerSnapshot: normalizeBillingProfile(args.invoiceSellerSnapshot),
@@ -626,6 +904,7 @@ export const assignInvoiceToProjectPayment = internalMutation({
     paymentReference: v.optional(v.string()),
     invoiceSellerSnapshot: invoiceSellerSnapshotValidator,
     invoiceCustomerSnapshot: invoiceCustomerSnapshotValidator,
+    invoiceTaxSettingsSnapshot: v.optional(invoiceTaxSettingsSnapshotValidator),
   },
   returns: v.object({
     invoiceNumber: v.string(),
@@ -660,6 +939,7 @@ export const assignInvoiceToProjectPayment = internalMutation({
       paymentReference: normalizeOptionalString(args.paymentReference) || invoiceNumber,
       invoiceSellerSnapshot: normalizeBillingProfile(args.invoiceSellerSnapshot),
       invoiceCustomerSnapshot: normalizePaymentCustomerDetails(args.invoiceCustomerSnapshot),
+      invoiceTaxSettingsSnapshot: normalizeInvoiceTaxSettingsSnapshot(args.invoiceTaxSettingsSnapshot),
       status: installment.status === "paid" ? "paid" : "open",
       updatedAt: Date.now(),
     });

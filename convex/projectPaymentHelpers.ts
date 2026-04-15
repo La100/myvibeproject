@@ -1,4 +1,10 @@
 import { v } from "convex/values";
+import {
+  clampOrganizationTaxRate,
+  normalizeOrganizationPriceDisplay,
+  normalizeOrganizationTaxLabel,
+  resolveOrganizationTaxSettings,
+} from "../lib/organizationTax";
 
 export const billingProfileValidator = v.object({
   sellerName: v.optional(v.string()),
@@ -72,6 +78,22 @@ export const paymentCustomerDetailsValidator = v.object({
 
 export const invoiceSellerSnapshotValidator = billingProfileValidator;
 export const invoiceCustomerSnapshotValidator = paymentCustomerDetailsValidator;
+
+export const invoiceLineItemValidator = v.object({
+  title: v.string(),
+  description: v.optional(v.string()),
+  quantity: v.number(),
+  unitPrice: v.number(),
+});
+
+export const invoiceTaxSettingsSnapshotValidator = v.object({
+  taxEnabled: v.optional(v.boolean()),
+  taxRate: v.optional(v.number()),
+  taxLabel: v.optional(v.string()),
+  priceDisplay: v.optional(
+    v.union(v.literal("net"), v.literal("gross"), v.literal("both")),
+  ),
+});
 
 const DEFAULT_INVOICE_FIELD_REQUIREMENTS = {
   seller: {
@@ -151,6 +173,9 @@ export const normalizeOptionalEmail = (value?: string | null) => {
   return normalized ? normalized.toLowerCase() : undefined;
 };
 
+const roundCurrency = (value: number) =>
+  Math.round((value + Number.EPSILON) * 100) / 100;
+
 export const normalizeBillingProfile = (
   value?: {
     sellerName?: string | null;
@@ -198,6 +223,139 @@ export const normalizeBillingProfile = (
   };
 
   return Object.values(normalized).some((field) => field !== undefined) ? normalized : undefined;
+};
+
+export const normalizeInvoiceLineItems = (
+  value?:
+    | Array<{
+        title?: string | null;
+        description?: string | null;
+        quantity?: number | null;
+        unitPrice?: number | null;
+      }>
+    | null,
+) => {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const normalized = value
+    .map((item) => {
+      const title = normalizeOptionalString(item?.title);
+      const description = normalizeOptionalString(item?.description);
+      const quantity =
+        typeof item?.quantity === "number" && Number.isFinite(item.quantity)
+          ? roundCurrency(item.quantity)
+          : undefined;
+      const unitPrice =
+        typeof item?.unitPrice === "number" && Number.isFinite(item.unitPrice)
+          ? roundCurrency(Math.max(item.unitPrice, 0))
+          : undefined;
+
+      if (!title || quantity === undefined || quantity <= 0 || unitPrice === undefined) {
+        return null;
+      }
+
+      return {
+        title,
+        description,
+        quantity,
+        unitPrice,
+      };
+    })
+    .filter(Boolean) as Array<{
+    title: string;
+    description?: string;
+    quantity: number;
+    unitPrice: number;
+  }>;
+
+  return normalized.length > 0 ? normalized : undefined;
+};
+
+export const normalizeInvoiceTaxSettingsSnapshot = (
+  value?: {
+    taxEnabled?: boolean | null;
+    taxRate?: number | null;
+    taxLabel?: string | null;
+    priceDisplay?: string | null;
+  } | null,
+) => {
+  if (!value) {
+    return undefined;
+  }
+
+  const taxEnabled = value.taxEnabled === true;
+
+  return {
+    taxEnabled,
+    taxRate: taxEnabled ? clampOrganizationTaxRate(value.taxRate) : 0,
+    taxLabel: normalizeOrganizationTaxLabel(value.taxLabel),
+    priceDisplay: normalizeOrganizationPriceDisplay(value.priceDisplay),
+  };
+};
+
+export const getInvoiceLineItemsSubtotal = (
+  lineItems?: Array<{
+    quantity: number;
+    unitPrice: number;
+  }> | null,
+) =>
+  roundCurrency(
+    (lineItems || []).reduce((sum, item) => sum + item.quantity * item.unitPrice, 0),
+  );
+
+export const resolveInvoiceLineItems = (
+  value?:
+    | {
+        invoiceLineItems?: Array<{
+          title?: string | null;
+          description?: string | null;
+          quantity?: number | null;
+          unitPrice?: number | null;
+        }> | null;
+        title?: string | null;
+        description?: string | null;
+        amount?: number | null;
+      }
+    | null,
+) => {
+  const normalized = normalizeInvoiceLineItems(value?.invoiceLineItems);
+  if (normalized && normalized.length > 0) {
+    return normalized;
+  }
+
+  const title = normalizeOptionalString(value?.title);
+  if (!title || typeof value?.amount !== "number" || !Number.isFinite(value.amount)) {
+    return undefined;
+  }
+
+  return [
+    {
+      title,
+      description: normalizeOptionalString(value?.description),
+      quantity: 1,
+      unitPrice: roundCurrency(Math.max(value.amount, 0)),
+    },
+  ];
+};
+
+export const resolveInvoiceTaxSettingsSnapshot = (
+  value?: {
+    taxEnabled?: boolean | null;
+    taxRate?: number | null;
+    taxLabel?: string | null;
+    priceDisplay?: string | null;
+  } | null,
+  organizationTaxSettings?: Partial<ReturnType<typeof resolveOrganizationTaxSettings>> | null,
+  hasLineItems = false,
+) => {
+  const normalized = normalizeInvoiceTaxSettingsSnapshot(value);
+  if (normalized) {
+    return normalized;
+  }
+
+  return hasLineItems ? resolveOrganizationTaxSettings(organizationTaxSettings) : undefined;
 };
 
 export const resolveOrganizationBillingProfile = (

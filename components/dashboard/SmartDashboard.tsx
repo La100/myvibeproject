@@ -8,6 +8,7 @@ import { apiAny } from "@/lib/convexApiAny";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
+import { chooseOrganizationUrl } from "@/lib/authRedirects";
 
 function LoadingState({
   title,
@@ -97,9 +98,8 @@ export function SmartDashboard() {
     }
 
     if (organizations.length === 0) {
-      // No organization - force custom onboarding organization setup
-      console.log("No organization found, redirecting to /onboarding");
-      router.replace("/onboarding");
+      console.log("No organization found, redirecting to choose organization");
+      router.replace(chooseOrganizationUrl);
       hasRedirectedRef.current = true;
       return;
     }
@@ -130,8 +130,8 @@ export function SmartDashboard() {
     }
 
     // Multiple organizations with no active selection: let user choose in onboarding.
-    console.log("Multiple organizations found without active org, redirecting to /onboarding");
-    router.replace("/onboarding");
+    console.log("Multiple organizations found without active org, redirecting to choose organization");
+    router.replace(chooseOrganizationUrl);
     hasRedirectedRef.current = true;
   }, [isLoaded, onboardingStatus, organizations, hasActiveMembership, setActive, router]);
 

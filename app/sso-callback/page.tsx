@@ -23,18 +23,6 @@ export default function SSOCallbackPage() {
     }
     startedRef.current = true;
 
-    const isChooseOrganizationTaskUrl = (targetUrl: string) => {
-      try {
-        const parsed = new URL(targetUrl, window.location.origin);
-        return (
-          parsed.pathname.includes("/sign-in/tasks/choose-organization") ||
-          parsed.pathname.includes("/sign-up/tasks/choose-organization")
-        );
-      } catch {
-        return targetUrl.includes("tasks/choose-organization");
-      }
-    };
-
     void clerk
       .handleRedirectCallback(
         {
@@ -44,11 +32,6 @@ export default function SSOCallbackPage() {
           signUpFallbackRedirectUrl,
         },
         async (to) => {
-          if (isChooseOrganizationTaskUrl(to)) {
-            router.replace("/onboarding");
-            return;
-          }
-
           const parsed = new URL(to, window.location.origin);
           if (parsed.origin === window.location.origin) {
             router.replace(`${parsed.pathname}${parsed.search}${parsed.hash}`);

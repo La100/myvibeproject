@@ -297,7 +297,7 @@ function CompanySidebarContent() {
       <SidebarContent className="flex flex-col gap-0 px-2 pb-2">
         <SidebarGroup className="flex-1 px-3 pt-7 pb-2">
           <SidebarGroupContent>
-            <SidebarMenu className="gap-1">
+            <SidebarMenu className="gap-0.5">
               {navItems.map((item) => {
                 const isProjectsRoot = item.href === "/organisation";
                 const isActive = isProjectsRoot
@@ -308,7 +308,7 @@ function CompanySidebarContent() {
                     <SidebarMenuButton
                       asChild
                       isActive={isActive}
-                      className={`h-9 justify-start gap-2.5 rounded-xl border px-3 text-[13px] font-medium ${
+                      className={`h-8 justify-start gap-2.5 rounded-xl border px-3 text-[13px] font-medium ${
                         isActive
                           ? "border-sidebar-border/80 bg-sidebar-accent/45 text-sidebar-foreground"
                           : "border-transparent bg-transparent text-sidebar-foreground hover:bg-transparent hover:text-sidebar-foreground"
@@ -335,7 +335,7 @@ function CompanySidebarContent() {
 
         <SidebarGroup className="mt-auto border-t border-sidebar-border/70 px-2 pb-1 pt-2.5">
           <SidebarGroupContent className="pt-2">
-            <SidebarMenu className="gap-1">
+            <SidebarMenu className="gap-0.5">
               {footerItems.map((item) => {
                 const isActive = item.isActive;
                 return (
@@ -343,7 +343,7 @@ function CompanySidebarContent() {
                     <SidebarMenuButton
                       asChild
                       isActive={isActive}
-                      className={`h-9 justify-start gap-2.5 rounded-xl border px-3 text-[13px] font-medium ${
+                      className={`h-8 justify-start gap-2.5 rounded-xl border px-3 text-[13px] font-medium ${
                         isActive
                           ? "border-sidebar-border/80 bg-sidebar-accent/45 text-sidebar-foreground"
                           : "border-transparent text-sidebar-foreground/82 hover:bg-transparent hover:text-sidebar-foreground"

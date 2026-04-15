@@ -8,6 +8,7 @@ import { BrandWordmark } from "@/components/ui/brand/BrandWordmark";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { useOrganization } from "@clerk/nextjs";
+import { chooseOrganizationUrl } from "@/lib/authRedirects";
 
 interface ProjectContextType {
   project: Doc<"projects">;
@@ -35,8 +36,12 @@ export function ProjectProvider({ children }: {
     if (onboardingStatus === undefined || !onboardingStatus.authenticated) {
       return;
     }
-    if (!onboardingStatus.completed || (isLoaded && !organization?.id)) {
+    if (!onboardingStatus.completed) {
       router.replace("/onboarding");
+      return;
+    }
+    if (isLoaded && !organization?.id) {
+      router.replace(chooseOrganizationUrl);
     }
   }, [onboardingStatus, isLoaded, organization?.id, router]);
   

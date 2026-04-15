@@ -12,6 +12,7 @@ import { GuidedTourHost } from "@/components/tours/GuidedTourHost";
 import { useOrganization } from "@clerk/nextjs";
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
+import { chooseOrganizationUrl } from "@/lib/authRedirects";
 
 const swappedSurfaceVars = {
   "--workspace-background": "var(--background)",
@@ -44,7 +45,7 @@ export default function CompanyLayout({
       return;
     }
     if (isLoaded && !organization?.id) {
-      router.replace("/onboarding");
+      router.replace(chooseOrganizationUrl);
     }
   }, [onboardingStatus, isLoaded, organization?.id, router]);
 

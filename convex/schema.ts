@@ -4,7 +4,9 @@ import {
   billingProfileValidator,
   invoiceFieldRequirementsValidator,
   invoiceCustomerSnapshotValidator,
+  invoiceLineItemValidator,
   invoiceSellerSnapshotValidator,
+  invoiceTaxSettingsSnapshotValidator,
   paymentCustomerDetailsValidator,
 } from "./projectPaymentHelpers";
 
@@ -800,6 +802,8 @@ export default defineSchema({
     title: v.string(),
     description: v.optional(v.string()),
     amount: v.number(),
+    invoiceLineItems: v.optional(v.array(invoiceLineItemValidator)),
+    invoiceTaxSettingsSnapshot: v.optional(invoiceTaxSettingsSnapshotValidator),
     currency: v.string(),
     dueDate: v.optional(v.number()),
     order: v.number(),

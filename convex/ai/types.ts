@@ -157,6 +157,7 @@ export interface PendingItem {
   type:
     | "task"
     | "note"
+    | "payment"
     | "shopping"
     | "survey"
     | "contact"

@@ -37,6 +37,7 @@ type InternalSearchApi = {
   getItemById: unknown;
   searchTasks: unknown;
   searchNotes: unknown;
+  searchPayments: unknown;
   searchShoppingItems: unknown;
   searchLaborItems: unknown;
   searchSurveys: unknown;
@@ -85,6 +86,7 @@ const getPublicApi = (): PublicApi => {
 const itemTypeEnum = z.enum([
   "task",
   "note",
+  "payment",
   "shopping",
   "shoppingSet",
   "labor",
@@ -114,6 +116,23 @@ const taskFields = z.object({
 const noteFields = z.object({
   title: z.string().describe("Note title"),
   content: z.string().describe("Note content"),
+}).passthrough();
+
+const paymentStatusEnum = z.enum([
+  "draft",
+  "open",
+  "paid",
+  "void",
+  "uncollectible",
+]);
+
+const paymentFields = z.object({
+  title: z.string().describe("Invoice or payment title"),
+  description: z.string().optional().describe("Invoice description or memo"),
+  amount: z.union([z.number(), z.string()]).optional().describe("Invoice gross amount in project currency"),
+  dueDate: z.string().optional().describe("Due date in ISO format (YYYY-MM-DD or full ISO timestamp)"),
+  invoiceNumber: z.string().optional().describe("Invoice number for already issued invoices"),
+  status: paymentStatusEnum.optional().describe("Invoice payment status"),
 }).passthrough();
 
 const shoppingFields = z.object({
@@ -235,7 +254,7 @@ export const updateProjectSettingsSchema = z.object({
 // Generic create schema
 export const createItemSchema = z.object({
   type: itemTypeEnum.describe("Type of item to create"),
-  data: z.union([taskFields, noteFields, shoppingFields, shoppingSetFields, laborFields, surveyFields, contactFields, sectionFields]).describe("Item data based on type"),
+  data: z.union([taskFields, noteFields, paymentFields, shoppingFields, shoppingSetFields, laborFields, surveyFields, contactFields, sectionFields]).describe("Item data based on type"),
 });
 
 export const createMultipleItemsSchema = z.object({
@@ -245,6 +264,7 @@ export const createMultipleItemsSchema = z.object({
       z.union([
         taskFields,
         noteFields,
+        paymentFields,
         shoppingFields,
         shoppingSetFields,
         laborFields,
@@ -258,6 +278,7 @@ export const createMultipleItemsSchema = z.object({
 
 const updatableTaskFields = taskFields.partial().passthrough();
 const updatableNoteFields = noteFields.partial().passthrough();
+const updatablePaymentFields = paymentFields.partial().passthrough();
 const updatableShoppingFields = shoppingFields.partial().passthrough();
 const updatableShoppingSetFields = shoppingSetFields.partial().passthrough();
 const updatableLaborFields = laborFields.partial().passthrough();
@@ -279,6 +300,7 @@ const updatableAnyFields = z
   .union([
     updatableTaskFields,
     updatableNoteFields,
+    updatablePaymentFields,
     updatableShoppingFields,
     updatableShoppingSetFields,
     updatableLaborFields,
@@ -324,7 +346,7 @@ export const deleteItemSchema = z.object({
 
 // Generic search schema
 export const searchItemsSchema = z.object({
-  type: z.enum(["task", "note", "shopping", "labor", "survey", "contact", "moodboard"]).describe("Type of items to search"),
+  type: z.enum(["task", "note", "payment", "shopping", "labor", "survey", "contact", "moodboard"]).describe("Type of items to search"),
   query: z.string().optional().describe("Search query"),
   filters: z
     .record(z.union([z.string(), z.number(), z.boolean()]))
@@ -411,6 +433,17 @@ const manageContactsSchema = z
     itemId: z.string().optional(),
     id: z.string().optional(),
     data: contactFields.partial().passthrough().optional(),
+  })
+  .passthrough();
+
+const managePaymentsSchema = z
+  .object({
+    action: managedCrudActionEnum,
+    paymentId: z.string().optional(),
+    invoiceId: z.string().optional(),
+    itemId: z.string().optional(),
+    id: z.string().optional(),
+    data: paymentFields.partial().passthrough().optional(),
   })
   .passthrough();
 
@@ -631,6 +664,7 @@ function getOperationType(type: ItemType): string {
   const typeMap: Record<ItemType, string> = {
     task: "task",
     note: "note",
+    payment: "payment",
     shopping: "shopping",
     shoppingSet: "shoppingSet",
     labor: "labor",
@@ -690,6 +724,15 @@ export function normalizePriceAliases(
     }
     return undefined;
   };
+
+  if (type === "payment") {
+    const amount = toNumber(data.amount);
+    if (amount !== undefined) {
+      data.amount = amount;
+    } else {
+      delete data.amount;
+    }
+  }
 
   if (type === "shopping" || type === "labor") {
     const aliasPrice = toNumber(data.price);
@@ -813,6 +856,7 @@ type ToolExecutionOutcome =
 const BULK_KEYS_BY_TYPE: Record<string, string[]> = {
   task: ["tasks", "items"],
   note: ["notes", "items"],
+  payment: ["payments", "items"],
   shopping: ["items"],
   shoppingSet: ["items", "sets"],
   labor: ["items", "laborItems"],
@@ -953,6 +997,23 @@ async function executeSinglePayload(
     tags: Array.isArray(updates.tags)
       ? updates.tags.filter((tag): tag is string => typeof tag === "string")
       : undefined,
+  });
+
+  const paymentCreateData = compactRecord({
+    title: pickFirstNonEmptyString(data, ["title", "name"]) ?? "",
+    description: typeof data.description === "string" ? data.description : undefined,
+    amount: typeof data.amount === "number" ? data.amount : undefined,
+    dueDate: typeof data.dueDate === "string" ? data.dueDate : undefined,
+  });
+
+  const paymentUpdateData = compactRecord({
+    title: typeof updates.title === "string" ? updates.title : undefined,
+    description: typeof updates.description === "string" ? updates.description : undefined,
+    amount: typeof updates.amount === "number" ? updates.amount : undefined,
+    dueDate: typeof updates.dueDate === "string" ? updates.dueDate : undefined,
+    invoiceNumber:
+      typeof updates.invoiceNumber === "string" ? updates.invoiceNumber : undefined,
+    status: updates.status,
   });
 
   const shoppingCreateData = compactRecord({
@@ -1101,6 +1162,12 @@ async function executeSinglePayload(
           ...actorArgs,
           noteData: data,
         });
+      case "payment":
+        return await runAction!(api.ai.confirmedActions.createConfirmedPayment, {
+          projectId,
+          ...actorArgs,
+          paymentData: paymentCreateData,
+        });
       case "shopping":
         return await runAction!(api.ai.confirmedActions.createConfirmedShoppingItem, {
           projectId,
@@ -1167,6 +1234,13 @@ async function executeSinglePayload(
           ...actorArgs,
           noteId: data.itemId,
           updates,
+        });
+      case "payment":
+        return await runAction!(api.ai.confirmedActions.editConfirmedPayment, {
+          projectId,
+          ...actorArgs,
+          paymentId: data.itemId,
+          updates: paymentUpdateData,
         });
       case "shopping":
         return await runAction!(api.ai.confirmedActions.editConfirmedShoppingItem, {
@@ -1240,6 +1314,13 @@ async function executeSinglePayload(
         return await runAction!(api.ai.confirmedActions.deleteConfirmedNote, {
           ...actorArgs,
           noteId: data.itemId,
+          reason: data.reason,
+        });
+      case "payment":
+        return await runAction!(api.ai.confirmedActions.deleteConfirmedPayment, {
+          projectId,
+          ...actorArgs,
+          paymentId: data.itemId,
           reason: data.reason,
         });
       case "moodboard":
@@ -1417,6 +1498,7 @@ function getRequiredPrimaryField(type: ItemType): "title" | "name" {
   switch (type) {
     case "task":
     case "note":
+    case "payment":
     case "shoppingSet":
     case "survey":
       return "title";
@@ -1434,6 +1516,8 @@ export function getBulkCreatePayload(
       return { tasks: items };
     case "note":
       return { notes: items };
+    case "payment":
+      return { payments: items };
     case "survey":
       return { surveys: items };
     case "contact":
@@ -1552,6 +1636,11 @@ function normalizeSearchFilters(
     case "task":
       return typeof filters.status === "string" &&
         ["todo", "in_progress", "review", "done"].includes(filters.status)
+        ? { status: filters.status }
+        : {};
+    case "payment":
+      return typeof filters.status === "string" &&
+        ["draft", "open", "paid", "void", "uncollectible"].includes(filters.status)
         ? { status: filters.status }
         : {};
     case "shopping":
@@ -1817,6 +1906,7 @@ export async function prepareUpdatePayload(
   const typeToTable: Record<string, string> = {
     task: "tasks",
     note: "notes",
+    payment: "projectPayments",
     shopping: "shoppingListItems",
     shoppingSet: "shoppingSets",
     labor: "laborItems",
@@ -1928,6 +2018,7 @@ export async function prepareBulkUpdatePayload(
       const typeToTable: Record<string, string> = {
         task: "tasks",
         note: "notes",
+        payment: "projectPayments",
         shopping: "shoppingListItems",
         shoppingSet: "shoppingSets",
         labor: "laborItems",
@@ -2003,6 +2094,7 @@ export async function prepareDeletePayload(
       const typeToTable: Record<string, string> = {
         task: "tasks",
         note: "notes",
+        payment: "projectPayments",
         shopping: "shoppingListItems",
         shoppingSet: "shoppingSets",
         shoppingSection: "shoppingListSections",
@@ -2096,7 +2188,7 @@ export function createStreamingTools(options?: StreamingToolOptions) {
     }, options),
 
     search_items: createAssistantTool({
-      description: "Search for and list items in the project (tasks, notes, shopping items, labor items, surveys, contacts, or moodboard sections/images). Use this tool when the user asks to see, list, show, or find existing items. Use type-specific filters for advanced queries. This is a READ-ONLY operation - it does not create or modify anything.",
+      description: "Search for and list items in the project (tasks, notes, invoices/payments, shopping items, labor items, surveys, contacts, or moodboard sections/images). Use this tool when the user asks to see, list, show, or find existing items. Use type-specific filters for advanced queries. This is a READ-ONLY operation - it does not create or modify anything.",
       inputSchema: searchItemsSchema,
       inputExamples: [
         { type: "task", query: "bathroom", limit: 5 },
@@ -2106,7 +2198,9 @@ export function createStreamingTools(options?: StreamingToolOptions) {
         const toolOptions = options;
         const needsProjectContext = args.type !== "contact";
         const canRunSearch =
-          args.type === "moodboard" ? !!toolOptions?.runQuery : !!toolOptions?.runAction;
+          args.type === "moodboard" || args.type === "payment"
+            ? !!toolOptions?.runQuery
+            : !!toolOptions?.runAction;
 
         if ((!toolOptions?.projectId && needsProjectContext) || !canRunSearch) {
           return JSON.stringify({ error: "Search not available - missing project context" });
@@ -2119,6 +2213,7 @@ export function createStreamingTools(options?: StreamingToolOptions) {
           const searchMap = {
             task: searchApi.searchTasks,
             note: searchApi.searchNotes,
+            payment: searchApi.searchPayments,
             shopping: searchApi.searchShoppingItems,
             labor: searchApi.searchLaborItems,
             survey: searchApi.searchSurveys,
@@ -2149,6 +2244,21 @@ export function createStreamingTools(options?: StreamingToolOptions) {
                   }
 
                   return toolOptions.runQuery(searchApi.searchMoodboard, {
+                    projectId: toolOptions.projectId as Id<"projects">,
+                    query: args.query,
+                    limit: args.limit,
+                    ...filters,
+                  });
+                })()
+            : args.type === "payment"
+              ? await (() => {
+                  if (!toolOptions?.projectId || !toolOptions.runQuery) {
+                    return Promise.resolve({
+                      error: "Payment search not available - missing project context",
+                    });
+                  }
+
+                  return toolOptions.runQuery(searchApi.searchPayments, {
                     projectId: toolOptions.projectId as Id<"projects">,
                     query: args.query,
                     limit: args.limit,
@@ -2554,6 +2664,55 @@ export function createStreamingTools(options?: StreamingToolOptions) {
           type: "contact",
           itemId: contactId,
           name: pickFirstNonEmptyString(data, ["name", "title"]),
+          reason: pickFirstNonEmptyString(data, ["reason"]),
+        });
+      },
+    }, options),
+
+    manage_payments: createAssistantTool({
+      description: "Manage project invoices and payments with one tool. Use action=create|update|delete and provide paymentId for updates or deletes.",
+      inputSchema: managePaymentsSchema,
+      requiresConfirmation: true,
+      execute: async (args: z.infer<typeof managePaymentsSchema>) => {
+        const paymentId = pickFirstNonEmptyString(args as Record<string, unknown>, [
+          "paymentId",
+          "invoiceId",
+          "itemId",
+          "id",
+        ]);
+        const data = extractManagedToolData(args, [
+          "action",
+          "paymentId",
+          "invoiceId",
+          "itemId",
+          "id",
+        ]);
+
+        if (args.action === "create") {
+          return await prepareCreatePayload({
+            type: "payment",
+            data: data as z.infer<typeof createItemSchema>["data"],
+          });
+        }
+
+        if (!paymentId) {
+          return JSON.stringify({
+            error: `manage_payments requires paymentId for ${args.action}`,
+          });
+        }
+
+        if (args.action === "update") {
+          return await prepareUpdatePayload({
+            type: "payment",
+            itemId: paymentId,
+            data,
+          }, options);
+        }
+
+        return await prepareDeletePayload({
+          type: "payment",
+          itemId: paymentId,
+          name: pickFirstNonEmptyString(data, ["title", "invoiceNumber", "name"]),
           reason: pickFirstNonEmptyString(data, ["reason"]),
         });
       },

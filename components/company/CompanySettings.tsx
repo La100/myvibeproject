@@ -161,8 +161,10 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
   });
   const [organizationImagePreviewUrl, setOrganizationImagePreviewUrl] = useState("");
   const [organizationImageFile, setOrganizationImageFile] = useState<File | null>(null);
+  const [organizationNameDraft, setOrganizationNameDraft] = useState("");
   const [billingProfile, setBillingProfile] = useState<BillingProfileForm>(EMPTY_BILLING_PROFILE);
   const [savingOrganizationProfile, setSavingOrganizationProfile] = useState(false);
+  const [savingOrganizationName, setSavingOrganizationName] = useState(false);
   const [savingPreferences, setSavingPreferences] = useState(false);
   const [savingBillingProfile, setSavingBillingProfile] = useState(false);
   const [billingAction, setBillingAction] = useState<"portal" | BillingPlanKey | null>(null);
@@ -173,6 +175,10 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
   const resolvedOrganizationImageUrl = organizationHasImage
     ? (teamData?.imageUrl || organization?.imageUrl || "")
     : "";
+  const organizationImageReady =
+    teamData?.hasCustomOrganizationImage === true ||
+    Boolean(resolvedOrganizationImageUrl.trim()) ||
+    Boolean(organization?.imageUrl?.trim());
 
   useEffect(() => {
     if (shouldRedirectToSubscription) {
@@ -234,6 +240,7 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
       if (!organizationImageFile) {
         setOrganizationImagePreviewUrl(resolvedOrganizationImageUrl);
       }
+      setOrganizationNameDraft(organization?.name || teamData.name || "");
       setBillingProfile({
         sellerName: teamData.billingProfile?.sellerName || teamData.name || "",
         sellerEmail: teamData.billingProfile?.sellerEmail || "",
@@ -252,7 +259,7 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
         defaultPaymentTermDays: String(teamData.billingProfile?.defaultPaymentTermDays || 14),
       });
     }
-  }, [teamData, organizationImageFile, resolvedOrganizationImageUrl]);
+  }, [organization?.name, teamData, organizationImageFile, resolvedOrganizationImageUrl]);
 
   useEffect(() => {
     return () => {
@@ -466,6 +473,46 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
     }
   };
 
+  const handleSaveOrganizationName = async () => {
+    if (!organization?.id || !teamData?.teamId) {
+      return;
+    }
+
+    const trimmedName = organizationNameDraft.trim();
+    if (!trimmedName) {
+      toast.error("Organization name cannot be empty");
+      setOrganizationNameDraft(organization.name || teamData.name || "");
+      return;
+    }
+
+    if (trimmedName.length < 2) {
+      toast.error("Enter at least 2 characters for organization name.");
+      return;
+    }
+
+    if (trimmedName === organization.name) {
+      return;
+    }
+
+    setSavingOrganizationName(true);
+    try {
+      await organization.update({ name: trimmedName });
+      await ensureCurrentUserTeamMembership({
+        clerkOrgId: organization.id,
+        orgName: trimmedName,
+      });
+      setOrganizationNameDraft(trimmedName);
+      toast.success("Organization name updated");
+      router.refresh();
+    } catch (error) {
+      console.error("Failed to update organization name", error);
+      toast.error("Failed to update organization name");
+      setOrganizationNameDraft(organization.name || teamData.name || "");
+    } finally {
+      setSavingOrganizationName(false);
+    }
+  };
+
   const handleManageSubscription = async () => {
     if (!teamData?.teamId) return;
 
@@ -591,7 +638,12 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
 
   return (
     <div className="min-h-screen pb-20">
-      <div className="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-10">
+      <div
+        className={cn(
+          "mx-auto flex w-full flex-col gap-8 px-6 py-10",
+          isSubscriptionPage ? "max-w-5xl" : "max-w-[1380px]",
+        )}
+      >
 
         <div className="flex flex-col gap-2 border-b border-border/40 pb-6">
           <div className="flex items-center gap-3">
@@ -1177,409 +1229,595 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
             </div>
           </motion.div>
         ) : (
-          <motion.div variants={containerVariants} initial="hidden" animate="visible" className="flex flex-col gap-8">
-            <div className="grid gap-6">
-              <div className="flex flex-col gap-1">
-                <h2 className="text-lg font-medium">Organization Profile</h2>
-                <p className="text-sm text-muted-foreground">
-                  Basic organization identity from your current workspace context.
-                </p>
-              </div>
-
-              <Card id="organization-profile" className="overflow-hidden border-border/40 shadow-sm">
-                <CardContent className="flex flex-col gap-4 p-6">
-                  <input
-                    ref={organizationImageInputRef}
-                    id="organization-image-upload"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleSelectOrganizationImage}
-                    className="hidden"
-                  />
-                  <OrganizationImagePicker
-                    inputId="organization-image-upload"
-                    currentImageUrl={organizationImagePreviewUrl}
-                    name={organization?.name || "Organization"}
-                    onPick={() => organizationImageInputRef.current?.click()}
-                    disabled={savingOrganizationProfile}
-                    buttonLabel={savingOrganizationProfile ? "Uploading..." : "Upload custom image"}
-                    statusLabel={
-                      teamData?.hasCustomOrganizationImage
-                        ? "Custom image set"
-                        : "Default image still active"
-                    }
-                    description={
-                      savingOrganizationProfile
-                        ? "Uploading logo..."
-                        : "Upload the image you want shown in the workspace sidebar."
-                    }
-                  />
-                  <div className="grid gap-2">
-                    <Label>Organization name</Label>
-                    <Input value={organization?.name || "No active organization"} readOnly />
+          <motion.div variants={containerVariants} initial="hidden" animate="visible" className="grid gap-8">
+            <div className="grid gap-8 2xl:grid-cols-[minmax(0,1.55fr)_minmax(340px,0.95fr)] 2xl:items-start">
+              <section className="grid gap-6">
+                <div className="space-y-2">
+                  <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                    Core Setup
+                  </p>
+                  <div className="space-y-1">
+                    <h2 className="text-xl font-semibold tracking-tight">Identity & invoicing</h2>
+                    <p className="max-w-3xl text-sm text-muted-foreground">
+                      Keep workspace identity and invoice defaults in one place. These values drive
+                      what teammates see inside the workspace and what clients see on generated
+                      invoices.
+                    </p>
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                </div>
+
+                <Card id="organization-profile" className="overflow-hidden border-border/40 shadow-sm">
+                  <CardHeader className="gap-2 border-b border-border/40">
+                    <CardTitle className="flex items-center gap-2 text-base font-medium">
+                      <Building2 className="h-4 w-4 text-primary" />
+                      Workspace identity
+                    </CardTitle>
+                    <CardDescription>
+                      Update the organization name and sidebar image used across this workspace.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid gap-6 p-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(300px,0.85fr)]">
+                    <input
+                      ref={organizationImageInputRef}
+                      id="organization-image-upload"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleSelectOrganizationImage}
+                      className="hidden"
+                    />
+
+                    <div className="grid gap-4">
+                      <OrganizationImagePicker
+                        inputId="organization-image-upload"
+                        currentImageUrl={organizationImagePreviewUrl}
+                        name={organizationNameDraft || organization?.name || "Organization"}
+                        onPick={() => organizationImageInputRef.current?.click()}
+                        disabled={savingOrganizationProfile}
+                        buttonLabel={
+                          savingOrganizationProfile
+                            ? "Uploading..."
+                            : organizationImageReady
+                              ? "Change image"
+                              : "Upload custom image"
+                        }
+                        statusLabel={organizationImageReady ? "Custom image set" : "Default image still active"}
+                        description={
+                          savingOrganizationProfile
+                            ? "Uploading logo..."
+                            : undefined
+                        }
+                      />
+                    </div>
+
+                    <div className="grid content-start gap-4 rounded-2xl border border-border/50 bg-muted/20 p-5">
+                      <div className="space-y-1">
+                        <Label htmlFor="organization-name">Organization name</Label>
+                        <p className="text-xs text-muted-foreground">
+                          Saved automatically on blur or when you press Enter.
+                        </p>
+                      </div>
+                      <Input
+                        id="organization-name"
+                        value={organizationNameDraft}
+                        onChange={(event) => setOrganizationNameDraft(event.target.value)}
+                        onBlur={() => void handleSaveOrganizationName()}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            void handleSaveOrganizationName();
+                          }
+                        }}
+                        disabled={savingOrganizationName || !organization?.id}
+                        placeholder="Organization name"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card
+                  id="organization-billing-profile"
+                  className="scroll-mt-24 overflow-hidden border-border/40 shadow-sm"
+                >
+                  <CardHeader className="gap-2 border-b border-border/40">
+                    <CardTitle className="flex items-center gap-2 text-base font-medium">
+                      <CreditCard className="h-4 w-4 text-primary" />
+                      Invoicing profile
+                    </CardTitle>
+                    <CardDescription>
+                      Seller details shared automatically across project invoices in this
+                      organization.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid gap-8 p-6">
+                    <div className="grid gap-4">
+                      <div className="space-y-1">
+                        <h3 className="text-sm font-medium text-foreground">Seller identity</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Core company information printed at the top of every invoice.
+                        </p>
+                      </div>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="flex flex-col gap-2">
+                          <Label>Seller name</Label>
+                          <Input
+                            value={billingProfile.sellerName}
+                            onChange={(e) =>
+                              setBillingProfile((prev) => ({ ...prev, sellerName: e.target.value }))
+                            }
+                          />
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <Label>Tax ID / VAT ID</Label>
+                          <Input
+                            value={billingProfile.sellerTaxId}
+                            onChange={(e) =>
+                              setBillingProfile((prev) => ({ ...prev, sellerTaxId: e.target.value }))
+                            }
+                          />
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <Label>Billing email</Label>
+                          <Input
+                            type="email"
+                            value={billingProfile.sellerEmail}
+                            onChange={(e) =>
+                              setBillingProfile((prev) => ({ ...prev, sellerEmail: e.target.value }))
+                            }
+                          />
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <Label>Phone</Label>
+                          <Input
+                            value={billingProfile.sellerPhone}
+                            onChange={(e) =>
+                              setBillingProfile((prev) => ({ ...prev, sellerPhone: e.target.value }))
+                            }
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    <div className="grid gap-4">
+                      <div className="space-y-1">
+                        <h3 className="text-sm font-medium text-foreground">Registered address</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Postal address shown in the seller block.
+                        </p>
+                      </div>
+                      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        <div className="flex flex-col gap-2 md:col-span-2 xl:col-span-3">
+                          <Label>Address line 1</Label>
+                          <Input
+                            value={billingProfile.sellerAddressLine1}
+                            onChange={(e) =>
+                              setBillingProfile((prev) => ({
+                                ...prev,
+                                sellerAddressLine1: e.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="flex flex-col gap-2 md:col-span-2 xl:col-span-3">
+                          <Label>Address line 2</Label>
+                          <Input
+                            value={billingProfile.sellerAddressLine2}
+                            onChange={(e) =>
+                              setBillingProfile((prev) => ({
+                                ...prev,
+                                sellerAddressLine2: e.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <Label>Postal code</Label>
+                          <Input
+                            value={billingProfile.sellerPostalCode}
+                            onChange={(e) =>
+                              setBillingProfile((prev) => ({
+                                ...prev,
+                                sellerPostalCode: e.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <Label>City</Label>
+                          <Input
+                            value={billingProfile.sellerCity}
+                            onChange={(e) =>
+                              setBillingProfile((prev) => ({ ...prev, sellerCity: e.target.value }))
+                            }
+                          />
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <Label>Country</Label>
+                          <Input
+                            value={billingProfile.sellerCountry}
+                            onChange={(e) =>
+                              setBillingProfile((prev) => ({ ...prev, sellerCountry: e.target.value }))
+                            }
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    <div className="grid gap-4">
+                      <div className="space-y-1">
+                        <h3 className="text-sm font-medium text-foreground">Payment details</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Bank details and invoice defaults used when a project invoice is created.
+                        </p>
+                      </div>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="flex flex-col gap-2">
+                          <Label>Account holder</Label>
+                          <Input
+                            value={billingProfile.bankAccountHolder}
+                            onChange={(e) =>
+                              setBillingProfile((prev) => ({
+                                ...prev,
+                                bankAccountHolder: e.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <Label>Bank name</Label>
+                          <Input
+                            value={billingProfile.bankName}
+                            onChange={(e) =>
+                              setBillingProfile((prev) => ({ ...prev, bankName: e.target.value }))
+                            }
+                          />
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <Label>Bank account number / IBAN</Label>
+                          <Input
+                            value={billingProfile.bankAccountNumber}
+                            onChange={(e) =>
+                              setBillingProfile((prev) => ({
+                                ...prev,
+                                bankAccountNumber: e.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <Label>SWIFT</Label>
+                          <Input
+                            value={billingProfile.bankSwift}
+                            onChange={(e) =>
+                              setBillingProfile((prev) => ({ ...prev, bankSwift: e.target.value }))
+                            }
+                          />
+                        </div>
+                        <div className="flex flex-col gap-2 md:max-w-[220px]">
+                          <Label>Default due days</Label>
+                          <Input
+                            type="number"
+                            min="1"
+                            value={billingProfile.defaultPaymentTermDays}
+                            onChange={(e) =>
+                              setBillingProfile((prev) => ({
+                                ...prev,
+                                defaultPaymentTermDays: e.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="flex flex-col gap-2 md:col-span-2">
+                          <Label>Payment instructions</Label>
+                          <Textarea
+                            rows={4}
+                            value={billingProfile.paymentInstructions}
+                            onChange={(e) =>
+                              setBillingProfile((prev) => ({
+                                ...prev,
+                                paymentInstructions: e.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                  <CardFooter className="flex flex-col gap-3 border-t border-border/40 bg-muted/30 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-xs text-muted-foreground">
+                      Seller name falls back to the organization name until you override it here.
+                    </p>
                     <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => router.replace("/onboarding?mode=organization")}
+                      onClick={handleSaveBillingProfile}
+                      disabled={savingBillingProfile}
+                      className="min-w-[140px] self-start sm:self-auto"
                     >
-                      Re-run organization onboarding
+                      {savingBillingProfile ? (
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
+                      ) : (
+                        <>
+                          <Check data-icon="inline-start" />
+                          Save Profile
+                        </>
+                      )}
                     </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-            <div className="grid gap-6 max-w-2xl">
-              <div className="flex flex-col gap-1">
-                <h2 className="text-lg font-medium">Regional Settings</h2>
-                <p className="text-sm text-muted-foreground">
-                  Configure currency, timezone, and organization-wide tax presentation.
-                </p>
-              </div>
+                  </CardFooter>
+                </Card>
+              </section>
 
-              <Card className="border-border/40 shadow-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-base font-medium">
-                    <Globe className="h-4 w-4 text-primary" />
-                    Default Currency
-                  </CardTitle>
-                  <CardDescription>
-                    Select the currency used for project estimates and financial reports.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="currency">Currency</Label>
-                    <Select
-                      value={teamSettings.currency}
-                      onValueChange={(value) => setTeamSettings({ ...teamSettings, currency: value as typeof teamSettings.currency })}
-                    >
-                      <SelectTrigger id="currency" className="w-full bg-background/50">
-                        <SelectValue placeholder="Select currency" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[
-                          { value: "USD", label: "US Dollar ($)" },
-                          { value: "EUR", label: "Euro (€)" },
-                          { value: "PLN", label: "Polish Zloty (zł)" },
-                          { value: "GBP", label: "British Pound (£)" },
-                          { value: "CAD", label: "Canadian Dollar (C$)" },
-                          { value: "AUD", label: "Australian Dollar (A$)" },
-                          { value: "JPY", label: "Japanese Yen (¥)" },
-                          ].map((curr) => (
-                          <SelectItem key={curr.value} value={curr.value}>
-                            <span className="font-medium">{curr.value}</span>
-                            <span className="ml-2 text-xs text-muted-foreground">({curr.label})</span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2 max-w-md">
-                    <Label>Organization timezone</Label>
-                    <TimezonePicker
-                      value={teamSettings.timezone}
-                      onValueChange={(timezone) => setTeamSettings({ ...teamSettings, timezone })}
-                      className="w-[360px] max-w-full"
-                    />
-                  </div>
-                </CardContent>
-                <CardFooter className="flex items-center justify-between border-t border-border/40 bg-muted/30 px-6 py-4">
-                  <p className="text-xs text-muted-foreground">
-                    Changes apply to all new projects and AI date handling.
+              <aside className="grid gap-6 2xl:sticky 2xl:top-8">
+                <div className="space-y-2">
+                  <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                    Defaults & Policy
                   </p>
-                  <Button
-                    onClick={handleSaveTeamSettings}
-                    disabled={savingPreferences}
-                    className="min-w-[100px]"
-                  >
-                    {savingPreferences ? (
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
-                    ) : (
-                      <>
-                        <Check data-icon="inline-start" />
-                        Save Changes
-                      </>
-                    )}
-                  </Button>
-                </CardFooter>
-              </Card>
-
-              <Card className="border-border/40 shadow-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-base font-medium">
-                    <Coins className="h-4 w-4 text-primary" />
-                    Tax & Price Display
-                  </CardTitle>
-                  <CardDescription>
-                    Prices stay stored as net amounts. These settings control how shopping lists,
-                    customer portal views, and exports render net, tax, and gross values.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-6">
-                  <div className="flex items-start justify-between gap-4 rounded-2xl border border-border/60 bg-muted/20 px-4 py-4">
-                    <div className="space-y-1">
-                      <Label htmlFor="organization-tax-enabled" className="text-sm font-medium">
-                        Enable tax calculations
-                      </Label>
-                      <p className="text-sm text-muted-foreground">
-                        Turn this on when customer-facing totals should include tax.
-                      </p>
-                    </div>
-                    <Switch
-                      id="organization-tax-enabled"
-                      checked={teamSettings.taxEnabled}
-                      onCheckedChange={(checked) =>
-                        setTeamSettings((current) => ({
-                          ...current,
-                          taxEnabled: checked,
-                        }))
-                      }
-                    />
+                  <div className="space-y-1">
+                    <h2 className="text-xl font-semibold tracking-tight">Workspace defaults</h2>
+                    <p className="text-sm text-muted-foreground">
+                      Regional preferences, tax behavior, and a quick access reference for the team.
+                    </p>
                   </div>
+                </div>
 
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="grid gap-2">
-                      <Label htmlFor="organization-tax-label">Tax label</Label>
-                      <Input
-                        id="organization-tax-label"
-                        value={teamSettings.taxLabel}
-                        onChange={(event) =>
-                          setTeamSettings((current) => ({
-                            ...current,
-                            taxLabel: event.target.value,
-                          }))
-                        }
-                        placeholder="Tax"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Examples: VAT, Sales Tax, GST.
-                      </p>
+                <Card className="overflow-hidden border-border/40 shadow-sm">
+                  <CardHeader className="gap-2 border-b border-border/40">
+                    <CardTitle className="flex items-center gap-2 text-base font-medium">
+                      <Globe className="h-4 w-4 text-primary" />
+                      Regional defaults
+                    </CardTitle>
+                    <CardDescription>
+                      Currency, timezone, tax settings, and amount presentation are saved together.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid gap-8 p-6">
+                    <div className="grid gap-4">
+                      <div className="space-y-1">
+                        <h3 className="text-sm font-medium text-foreground">Currency & timezone</h3>
+                        <p className="text-sm text-muted-foreground">
+                          These defaults affect estimates, reports, and AI date handling across new
+                          work.
+                        </p>
+                      </div>
+                      <div className="grid gap-4">
+                        <div className="grid gap-2">
+                          <Label htmlFor="currency">Currency</Label>
+                          <Select
+                            value={teamSettings.currency}
+                            onValueChange={(value) =>
+                              setTeamSettings({
+                                ...teamSettings,
+                                currency: value as typeof teamSettings.currency,
+                              })
+                            }
+                          >
+                            <SelectTrigger id="currency" className="w-full bg-background/50">
+                              <SelectValue placeholder="Select currency" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {[
+                                { value: "USD", label: "US Dollar ($)" },
+                                { value: "EUR", label: "Euro (€)" },
+                                { value: "PLN", label: "Polish Zloty (zł)" },
+                                { value: "GBP", label: "British Pound (£)" },
+                                { value: "CAD", label: "Canadian Dollar (C$)" },
+                                { value: "AUD", label: "Australian Dollar (A$)" },
+                                { value: "JPY", label: "Japanese Yen (¥)" },
+                              ].map((curr) => (
+                                <SelectItem key={curr.value} value={curr.value}>
+                                  <span className="font-medium">{curr.value}</span>
+                                  <span className="ml-2 text-xs text-muted-foreground">
+                                    ({curr.label})
+                                  </span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="grid gap-2">
+                          <Label>Organization timezone</Label>
+                          <TimezonePicker
+                            value={teamSettings.timezone}
+                            onValueChange={(timezone) =>
+                              setTeamSettings({ ...teamSettings, timezone })
+                            }
+                            className="w-full"
+                          />
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="grid gap-2">
-                      <Label htmlFor="organization-tax-rate">Tax rate (%)</Label>
-                      <Input
-                        id="organization-tax-rate"
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="0.01"
-                        value={teamSettings.taxRate}
-                        onChange={(event) =>
-                          setTeamSettings((current) => ({
-                            ...current,
-                            taxRate: event.target.value,
-                          }))
-                        }
-                        placeholder="0"
-                        disabled={!teamSettings.taxEnabled}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Used for gross totals in shopping lists, portal views, CSV, and PDF.
-                      </p>
-                    </div>
-                  </div>
+                    <Separator />
 
-                  <div className="grid gap-3">
-                    <Label>Price display</Label>
-                    <RadioGroup
-                      value={teamSettings.priceDisplay}
-                      onValueChange={(value) =>
-                        setTeamSettings((current) => ({
-                          ...current,
-                          priceDisplay: value as OrganizationPriceDisplay,
-                        }))
-                      }
-                      className="grid gap-3 md:grid-cols-3"
-                    >
-                      {[
-                        {
-                          value: "net",
-                          label: "Net only",
-                          description: "Show net amounts only.",
-                        },
-                        {
-                          value: "gross",
-                          label: "Gross only",
-                          description: "Show totals including tax.",
-                        },
-                        {
-                          value: "both",
-                          label: "Net, tax, gross",
-                          description: "Show the full breakdown everywhere.",
-                        },
-                      ].map((option) => (
-                        <label
-                          key={option.value}
-                          className={cn(
-                            "flex cursor-pointer items-start gap-3 rounded-2xl border px-4 py-4 transition-colors",
-                            teamSettings.priceDisplay === option.value
-                              ? "border-primary bg-primary/[0.05]"
-                              : "border-border/60 bg-background",
-                          )}
+                    <div className="grid gap-4">
+                      <div className="space-y-1">
+                        <h3 className="text-sm font-medium text-foreground">Tax & display</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Control how net, tax, and gross values appear in lists, exports, and
+                          client-facing views.
+                        </p>
+                      </div>
+
+                      <div className="flex items-start justify-between gap-4 rounded-2xl border border-border/60 bg-muted/20 px-4 py-4">
+                        <div className="space-y-1">
+                          <Label htmlFor="organization-tax-enabled" className="text-sm font-medium">
+                            Enable tax calculations
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            Turn this on when customer-facing totals should include tax.
+                          </p>
+                        </div>
+                        <Switch
+                          id="organization-tax-enabled"
+                          checked={teamSettings.taxEnabled}
+                          onCheckedChange={(checked) =>
+                            setTeamSettings((current) => ({
+                              ...current,
+                              taxEnabled: checked,
+                            }))
+                          }
+                        />
+                      </div>
+
+                      <div className="grid gap-4">
+                        <div className="grid gap-2">
+                          <Label htmlFor="organization-tax-label">Tax label</Label>
+                          <Input
+                            id="organization-tax-label"
+                            value={teamSettings.taxLabel}
+                            onChange={(event) =>
+                              setTeamSettings((current) => ({
+                                ...current,
+                                taxLabel: event.target.value,
+                              }))
+                            }
+                            placeholder="Tax"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Examples: VAT, Sales Tax, GST.
+                          </p>
+                        </div>
+
+                        <div className="grid gap-2">
+                          <Label htmlFor="organization-tax-rate">Tax rate (%)</Label>
+                          <Input
+                            id="organization-tax-rate"
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            value={teamSettings.taxRate}
+                            onChange={(event) =>
+                              setTeamSettings((current) => ({
+                                ...current,
+                                taxRate: event.target.value,
+                              }))
+                            }
+                            placeholder="0"
+                            disabled={!teamSettings.taxEnabled}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Used for gross totals in shopping lists, portal views, CSV, and PDF.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-3">
+                        <Label>Price display</Label>
+                        <RadioGroup
+                          value={teamSettings.priceDisplay}
+                          onValueChange={(value) =>
+                            setTeamSettings((current) => ({
+                              ...current,
+                              priceDisplay: value as OrganizationPriceDisplay,
+                            }))
+                          }
+                          className="grid gap-3"
                         >
-                          <RadioGroupItem value={option.value} className="mt-0.5" />
-                          <div className="space-y-1">
-                            <div className="text-sm font-medium text-foreground">
-                              {option.label}
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                              {option.description}
-                            </p>
-                          </div>
-                        </label>
-                      ))}
-                    </RadioGroup>
-                  </div>
-                </CardContent>
-                <CardFooter className="flex items-center justify-between border-t border-border/40 bg-muted/30 px-6 py-4">
-                  <p className="text-xs text-muted-foreground">
-                    Stored item prices remain net. Display mode affects shopping list, portal, CSV, and PDF.
-                  </p>
-                  <Button
-                    onClick={handleSaveTeamSettings}
-                    disabled={savingPreferences}
-                    className="min-w-[100px]"
-                  >
-                    {savingPreferences ? (
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
-                    ) : (
-                      <>
-                        <Check data-icon="inline-start" />
-                        Save Changes
-                      </>
-                    )}
-                  </Button>
-                </CardFooter>
-              </Card>
+                          {[
+                            {
+                              value: "net",
+                              label: "Net only",
+                              description: "Show net amounts only.",
+                            },
+                            {
+                              value: "gross",
+                              label: "Gross only",
+                              description: "Show totals including tax.",
+                            },
+                            {
+                              value: "both",
+                              label: "Net, tax, gross",
+                              description: "Show the full breakdown everywhere.",
+                            },
+                          ].map((option) => (
+                            <label
+                              key={option.value}
+                              className={cn(
+                                "flex cursor-pointer items-start gap-3 rounded-2xl border px-4 py-4 transition-colors",
+                                teamSettings.priceDisplay === option.value
+                                  ? "border-primary bg-primary/[0.05]"
+                                  : "border-border/60 bg-background",
+                              )}
+                            >
+                              <RadioGroupItem value={option.value} className="mt-0.5" />
+                              <div className="space-y-1">
+                                <div className="text-sm font-medium text-foreground">
+                                  {option.label}
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                  {option.description}
+                                </p>
+                              </div>
+                            </label>
+                          ))}
+                        </RadioGroup>
+                      </div>
+                    </div>
+                  </CardContent>
+                  <CardFooter className="flex flex-col gap-3 border-t border-border/40 bg-muted/30 px-6 py-4">
+                    <p className="text-xs text-muted-foreground">
+                      Stored item prices remain net. Display mode affects shopping lists, portal,
+                      CSV, and PDF.
+                    </p>
+                    <Button
+                      onClick={handleSaveTeamSettings}
+                      disabled={savingPreferences}
+                      className="min-w-[140px] self-start"
+                    >
+                      {savingPreferences ? (
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
+                      ) : (
+                        <>
+                          <Check data-icon="inline-start" />
+                          Save Changes
+                        </>
+                      )}
+                    </Button>
+                  </CardFooter>
+                </Card>
 
-              <div className="mt-4">
-                <div className="flex items-center gap-2 mb-4">
-                  <Shield className="h-4 w-4 text-muted-foreground" />
-                  <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Role Permissions</h3>
-                </div>
-                <div className="grid gap-3 md:grid-cols-3">
-                  {[
-                    { role: "Admin", desc: "Full access to all settings, billing, and members." },
-                    { role: "Member", desc: "Can create and manage projects and content." },
-                    { role: "Customer", desc: "Limited view-only or restricted access." }
-                  ].map((item) => (
-                    <div key={item.role} className="rounded-lg border bg-card px-4 py-3">
-                      <div className="mb-1 text-sm font-semibold text-foreground">{item.role}</div>
-                      <div className="text-xs leading-snug text-muted-foreground">{item.desc}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div id="organization-billing-profile" className="grid gap-6 scroll-mt-24">
-              <div className="flex flex-col gap-1">
-                <h2 className="text-lg font-medium">Invoicing Profile</h2>
-                <p className="text-sm text-muted-foreground">
-                  Seller details shared automatically across project invoices in this organization.
-                </p>
-              </div>
-
-              <Card className="border-border/40 shadow-sm">
-                <CardHeader>
-                  <CardTitle className="text-base font-medium flex items-center gap-2">
-                    <CreditCard className="h-4 w-4 text-primary" />
-                    Organization Billing Profile
-                  </CardTitle>
-                  <CardDescription>
-                    These values prefill the seller section in project payments and invoices.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-6">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="flex flex-col gap-2">
-                      <Label>Seller name</Label>
-                      <Input value={billingProfile.sellerName} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerName: e.target.value }))} />
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <Label>Tax ID / VAT ID</Label>
-                      <Input value={billingProfile.sellerTaxId} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerTaxId: e.target.value }))} />
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <Label>Billing email</Label>
-                      <Input type="email" value={billingProfile.sellerEmail} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerEmail: e.target.value }))} />
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <Label>Phone</Label>
-                      <Input value={billingProfile.sellerPhone} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerPhone: e.target.value }))} />
-                    </div>
-                    <div className="flex flex-col gap-2 md:col-span-2">
-                      <Label>Address line 1</Label>
-                      <Input value={billingProfile.sellerAddressLine1} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerAddressLine1: e.target.value }))} />
-                    </div>
-                    <div className="flex flex-col gap-2 md:col-span-2">
-                      <Label>Address line 2</Label>
-                      <Input value={billingProfile.sellerAddressLine2} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerAddressLine2: e.target.value }))} />
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <Label>Postal code</Label>
-                      <Input value={billingProfile.sellerPostalCode} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerPostalCode: e.target.value }))} />
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <Label>City</Label>
-                      <Input value={billingProfile.sellerCity} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerCity: e.target.value }))} />
-                    </div>
-                    <div className="flex flex-col gap-2 md:col-span-2">
-                      <Label>Country</Label>
-                      <Input value={billingProfile.sellerCountry} onChange={(e) => setBillingProfile((prev) => ({ ...prev, sellerCountry: e.target.value }))} />
-                    </div>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="flex flex-col gap-2">
-                      <Label>Account holder</Label>
-                      <Input value={billingProfile.bankAccountHolder} onChange={(e) => setBillingProfile((prev) => ({ ...prev, bankAccountHolder: e.target.value }))} />
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <Label>Bank name</Label>
-                      <Input value={billingProfile.bankName} onChange={(e) => setBillingProfile((prev) => ({ ...prev, bankName: e.target.value }))} />
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <Label>Bank account number / IBAN</Label>
-                      <Input value={billingProfile.bankAccountNumber} onChange={(e) => setBillingProfile((prev) => ({ ...prev, bankAccountNumber: e.target.value }))} />
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <Label>SWIFT</Label>
-                      <Input value={billingProfile.bankSwift} onChange={(e) => setBillingProfile((prev) => ({ ...prev, bankSwift: e.target.value }))} />
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <Label>Default due days</Label>
-                      <Input type="number" min="1" value={billingProfile.defaultPaymentTermDays} onChange={(e) => setBillingProfile((prev) => ({ ...prev, defaultPaymentTermDays: e.target.value }))} />
-                    </div>
-                    <div className="flex flex-col gap-2 md:col-span-2">
-                      <Label>Payment instructions</Label>
-                      <Textarea rows={4} value={billingProfile.paymentInstructions} onChange={(e) => setBillingProfile((prev) => ({ ...prev, paymentInstructions: e.target.value }))} />
-                    </div>
-                  </div>
-                </CardContent>
-                <CardFooter className="flex items-center justify-between border-t border-border/40 bg-muted/30 px-6 py-4">
-                  <p className="text-xs text-muted-foreground">
-                    Seller name defaults to the organization name until you override it here.
-                  </p>
-                  <Button
-                    onClick={handleSaveBillingProfile}
-                    disabled={savingBillingProfile}
-                    className="min-w-[140px]"
-                  >
-                    {savingBillingProfile ? (
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
-                    ) : (
-                      <>
-                        <Check data-icon="inline-start" />
-                        Save Profile
-                      </>
-                    )}
-                  </Button>
-                </CardFooter>
-              </Card>
+                <Card className="overflow-hidden border-border/40 shadow-sm">
+                  <CardHeader className="gap-2 border-b border-border/40">
+                    <CardTitle className="flex items-center gap-2 text-base font-medium">
+                      <Shield className="h-4 w-4 text-primary" />
+                      Workspace access
+                    </CardTitle>
+                    <CardDescription>
+                      Quick reference for the default permission model inside the organization.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid gap-3 p-6">
+                    {[
+                      {
+                        role: "Admin",
+                        desc: "Full access to all settings, billing, members, and workspace configuration.",
+                      },
+                      {
+                        role: "Member",
+                        desc: "Can create and manage projects, content, and day-to-day collaboration work.",
+                      },
+                      {
+                        role: "Customer",
+                        desc: "Limited view-only or restricted access for client-facing collaboration.",
+                      },
+                    ].map((item) => (
+                      <div
+                        key={item.role}
+                        className="rounded-2xl border border-border/50 bg-muted/20 px-4 py-4"
+                      >
+                        <div className="mb-1 text-sm font-semibold text-foreground">
+                          {item.role}
+                        </div>
+                        <div className="text-sm leading-6 text-muted-foreground">
+                          {item.desc}
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              </aside>
             </div>
           </motion.div>
         )}
