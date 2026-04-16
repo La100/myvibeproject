@@ -99,7 +99,7 @@ export async function addBrandHeader(
 ): Promise<number> {
   const { teamName, teamImageUrl, fontFamily = "helvetica" } = options;
   const pageWidth = doc.internal.pageSize.getWidth();
-  let y = PAGE_MARGIN;
+  const y = PAGE_MARGIN;
   let contentBottomY = y + 2;
 
   doc.setFont(fontFamily, "bold");
