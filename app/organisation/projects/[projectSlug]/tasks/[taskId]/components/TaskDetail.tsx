@@ -139,6 +139,7 @@ export default function TaskDetail() {
         projectId: project._id,
         taskId: task._id,
         fileName: file.name,
+        fileSize: file.size,
       });
 
       const result = await fetch(url, {

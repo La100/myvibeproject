@@ -136,6 +136,7 @@ export default function FilesView() {
       const uploadData = await generateUploadUrl({
         projectId: project._id,
         fileName: file.name,
+        fileSize: file.size,
       });
 
       // 2. Upload file to R2 using the presigned URL

@@ -1,49 +1,92 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
-import { OrganizationList } from "@clerk/nextjs";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useMutation } from "convex/react";
+import { useOrganization, useOrganizationList } from "@clerk/nextjs";
+import { toast } from "sonner";
+import { apiAny } from "@/lib/convexApiAny";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { postAuthResolverUrl } from "@/lib/authRedirects";
 
-const organizationListAppearance = {
-  elements: {
-    cardBox: "shadow-none bg-transparent border-0",
-    card: "border-0 bg-transparent shadow-none p-0",
-    header: "sr-only",
-    headerTitle: "sr-only",
-    headerSubtitle: "sr-only",
-    navbar: "hidden",
-    pageScrollBox: "p-0",
-    organizationSwitcherTrigger:
-      "h-12 rounded-2xl border border-border bg-background shadow-none",
-    formButtonPrimary:
-      "h-12 rounded-2xl bg-primary text-primary-foreground text-sm font-medium shadow-none hover:bg-primary/92",
-    formButtonReset:
-      "h-12 rounded-2xl border border-border bg-background text-foreground text-sm font-medium shadow-none",
-    organizationPreview:
-      "rounded-2xl border border-border/70 bg-background px-4 py-3 shadow-none hover:bg-muted/20",
-    organizationPreviewMainIdentifier:
-      "text-sm font-medium text-foreground",
-    organizationPreviewSecondaryIdentifier:
-      "text-xs text-muted-foreground",
-    actionCard:
-      "rounded-2xl border border-dashed border-border/80 bg-background/70 shadow-none hover:bg-muted/20",
-    actionCardText: "text-sm font-medium text-foreground",
-    actionCardTextContainer: "text-muted-foreground",
-    formFieldInput:
-      "h-12 rounded-2xl border border-border bg-background text-foreground placeholder:text-muted-foreground shadow-none focus:border-primary focus:ring-2 focus:ring-primary/15",
-    formFieldLabel:
-      "text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground",
-  },
-  variables: {
-    colorPrimary: "var(--primary)",
-    colorText: "var(--foreground)",
-    colorInputText: "var(--foreground)",
-    colorInputBackground: "var(--background)",
-    colorBackground: "transparent",
-    borderRadius: "1rem",
-  },
-} as const;
-
 export default function SelectOrganizationPage() {
+  const router = useRouter();
+  const ensureCurrentUserTeamMembership = useMutation(apiAny.teamMembership.ensureCurrentUserTeamMembership);
+  const { organization } = useOrganization();
+  const { createOrganization, isLoaded, setActive, userMemberships } = useOrganizationList({
+    userMemberships: { infinite: true },
+  });
+  const [workspaceName, setWorkspaceName] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const organizations = useMemo(
+    () =>
+      userMemberships?.data?.map((membership) => ({
+        id: membership.organization.id,
+        name: membership.organization.name,
+      })) || [],
+    [userMemberships?.data],
+  );
+
+  useEffect(() => {
+    if (!isLoaded || !setActive || isSubmitting) {
+      return;
+    }
+
+    if (organization?.id) {
+      router.replace(postAuthResolverUrl);
+      return;
+    }
+
+    if (organizations.length === 0) {
+      return;
+    }
+
+    void (async () => {
+      try {
+        await setActive({ organization: organizations[0].id });
+        router.replace(postAuthResolverUrl);
+      } catch (error) {
+        console.error("Failed to activate workspace", error);
+      }
+    })();
+  }, [isLoaded, isSubmitting, organization?.id, organizations, router, setActive]);
+
+  const handleCreateWorkspace = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const trimmedName = workspaceName.trim();
+    if (!trimmedName || trimmedName.length < 2) {
+      toast.error("Enter at least 2 characters for workspace name.");
+      return;
+    }
+
+    if (!createOrganization || !setActive || organizations.length > 0) {
+      toast.error("This account already has a workspace.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const createdOrganization = await createOrganization({ name: trimmedName });
+      await setActive({ organization: createdOrganization.id });
+      await ensureCurrentUserTeamMembership({
+        clerkOrgId: createdOrganization.id,
+        orgName: createdOrganization.name || trimmedName,
+      });
+      router.replace(postAuthResolverUrl);
+    } catch (error) {
+      console.error(error);
+      toast.error("Could not create workspace.");
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(139,111,89,0.14),transparent_34%),linear-gradient(180deg,rgba(250,248,244,0.98)_0%,rgba(246,242,236,0.94)_100%)] px-5 py-8 sm:px-8">
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-6xl items-center justify-center">
@@ -64,12 +107,12 @@ export default function SelectOrganizationPage() {
               </Link>
 
               <h1 className="max-w-[12ch] text-5xl font-medium leading-[0.98] tracking-[-0.04em] text-foreground">
-                Pick the organization you want to use.
+                Create your workspace and continue.
               </h1>
 
               <p className="mt-5 max-w-lg text-lg leading-8 text-muted-foreground">
-                Select an existing workspace or create a new one. Setup only
-                appears when that specific organization still needs it.
+                Each account now works inside a single organization. Create your
+                workspace once and we will take you straight into the app.
               </p>
             </div>
           </section>
@@ -96,19 +139,43 @@ export default function SelectOrganizationPage() {
                   Workspace access
                 </p>
                 <h2 className="mt-3 text-3xl font-medium tracking-[-0.03em] text-foreground">
-                  Select organization
+                  Create workspace
                 </h2>
                 <p className="mt-3 max-w-[38ch] text-sm leading-6 text-muted-foreground">
-                  Choose one of your workspaces or create a new organization.
+                  Your account can belong to only one workspace. Start by naming it.
                 </p>
               </div>
-
-              <OrganizationList
-                appearance={organizationListAppearance}
-                hidePersonal
-                afterCreateOrganizationUrl={postAuthResolverUrl}
-                afterSelectOrganizationUrl={postAuthResolverUrl}
-              />
+              {!isLoaded || (organizations.length > 0 && !organization?.id) ? (
+                <div className="flex min-h-40 items-center justify-center">
+                  <Spinner fullHeight={false} className="py-0" iconClassName="size-5" />
+                </div>
+              ) : (
+                <Card className="border-0 bg-transparent shadow-none">
+                  <CardContent className="p-0">
+                    <form className="flex flex-col gap-4" onSubmit={handleCreateWorkspace}>
+                      <Input
+                        value={workspaceName}
+                        onChange={(event) => setWorkspaceName(event.target.value)}
+                        placeholder="Workspace name"
+                        className="h-12 rounded-2xl"
+                        disabled={isSubmitting || organizations.length > 0}
+                      />
+                      <Button
+                        type="submit"
+                        className="h-12 rounded-2xl"
+                        disabled={isSubmitting || organizations.length > 0}
+                      >
+                        {isSubmitting ? "Creating..." : "Create workspace"}
+                      </Button>
+                      {organizations.length > 0 ? (
+                        <p className="text-sm leading-6 text-muted-foreground">
+                          This account already has a workspace. We are reconnecting you to it now.
+                        </p>
+                      ) : null}
+                    </form>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </section>
         </div>

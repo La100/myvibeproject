@@ -8,6 +8,14 @@ export const toUserFacingErrorMessage = (error: unknown) => {
     return "Only organization admins can invite new team members.";
   }
 
+  if (message === "User already belongs to another workspace") {
+    return "This email already belongs to another workspace. A user can belong to only one organization.";
+  }
+
+  if (message === "User is already a member of this workspace") {
+    return "This user is already a member of this workspace.";
+  }
+
   if (
     message === "Only admins can revoke invitations" ||
     message === "Only admins can remove team members" ||

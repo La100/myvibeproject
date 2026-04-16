@@ -607,6 +607,28 @@ export const inviteTeamMember = mutation({
       throw new Error("Only admins can invite members");
     }
 
+    const normalizedEmail = args.email.trim().toLowerCase();
+    const matchingUsers = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
+      .collect();
+
+    for (const user of matchingUsers) {
+      const activeMemberships = await ctx.db
+        .query("teamMembers")
+        .withIndex("by_user", (q) => q.eq("clerkUserId", user.clerkUserId))
+        .filter((q) => q.eq(q.field("isActive"), true))
+        .collect();
+
+      if (activeMemberships.some((membership) => membership.teamId === args.teamId)) {
+        throw new Error("User is already a member of this workspace");
+      }
+
+      if (activeMemberships.length > 0) {
+        throw new Error("User already belongs to another workspace");
+      }
+    }
+
     const scheduler = ctx.scheduler as {
       runAfter: (
         delayMs: number,
@@ -622,7 +644,7 @@ export const inviteTeamMember = mutation({
 
     await scheduler.runAfter(0, "teams:sendClerkInvitation", {
       clerkOrgId: team.clerkOrgId,
-      email: args.email,
+      email: normalizedEmail,
       role: args.role,
       invitedBy: identity.subject,
     });

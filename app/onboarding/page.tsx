@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { TimezonePicker } from "@/components/ui/timezone-picker";
-import { postAuthResolverUrl } from "@/lib/authRedirects";
+import { postAuthResolverUrl, resolveLocalRedirectUrl } from "@/lib/authRedirects";
 
 const CURRENCY_OPTIONS: Array<{ value: CurrencyCode; label: string }> = [
   { value: "USD", label: "US Dollar ($)" },
@@ -76,6 +76,7 @@ function OnboardingContent() {
   );
   const updateTeamSettings = useMutation(apiAny.teams.updateTeamSettings);
   const isForcedOrganizationSetup = searchParams.get("mode") === "organization";
+  const safePostAuthResolverUrl = resolveLocalRedirectUrl(postAuthResolverUrl, "/dashboard");
 
   const [isFinishing, setIsFinishing] = useState(false);
   const [isUploadingOrganizationImage, setIsUploadingOrganizationImage] = useState(false);
@@ -200,7 +201,7 @@ function OnboardingContent() {
     }
 
     if (!activeOrganization || !organization?.id) {
-      router.replace(postAuthResolverUrl);
+      router.replace(safePostAuthResolverUrl);
     }
   }, [
     activeOrganization,
@@ -210,6 +211,7 @@ function OnboardingContent() {
     organization?.id,
     organization?.name,
     router,
+    safePostAuthResolverUrl,
   ]);
 
   const handleFinish = async () => {

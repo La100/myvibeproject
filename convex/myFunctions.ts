@@ -17,6 +17,7 @@ export const createOrUpdateUser = internalMutation({
     imageUrl: v.optional(v.string()),
   },
   async handler(ctx, args) {
+    const normalizedEmail = args.email.trim().toLowerCase();
     const user = await ctx.db
       .query("users")
       .withIndex("by_clerk_user_id", (q) => q.eq("clerkUserId", args.clerkUserId))
@@ -24,14 +25,14 @@ export const createOrUpdateUser = internalMutation({
 
     if (user) {
       await ctx.db.patch(user._id, { 
-        email: args.email, 
+        email: normalizedEmail,
         name: args.name, 
         imageUrl: args.imageUrl 
       });
     } else {
       await ctx.db.insert("users", {
         clerkUserId: args.clerkUserId,
-        email: args.email,
+        email: normalizedEmail,
         name: args.name,
         imageUrl: args.imageUrl,
       });
@@ -286,11 +287,12 @@ export const createOrUpdateMembership = internalMutation({
         
         if(!user && args.userEmail && args.userEmail !== "unknown@example.com") {
             console.warn(`User not found for webhook processing: clerkUserId=${args.clerkUserId}. Creating user from membership webhook.`);
+            const normalizedEmail = args.userEmail.trim().toLowerCase();
             
             // Stwórz użytkownika tylko jeśli mamy poprawny email
             await ctx.db.insert("users", {
                 clerkUserId: args.clerkUserId,
-                email: args.userEmail,
+                email: normalizedEmail,
                 name: undefined, // Będzie zaktualizowane przy webhook user.created/updated
                 imageUrl: undefined,
             });
@@ -304,6 +306,20 @@ export const createOrUpdateMembership = internalMutation({
             .query("teamMembers")
             .withIndex("by_team_and_user", (q) => q.eq("teamId", team._id).eq("clerkUserId", args.clerkUserId))
             .unique();
+
+        const activeMemberships = await ctx.db
+            .query("teamMembers")
+            .withIndex("by_user", (q) => q.eq("clerkUserId", args.clerkUserId))
+            .filter((q) => q.eq(q.field("isActive"), true))
+            .collect();
+
+        const conflictingMembership = activeMemberships.find((entry) => entry.teamId !== team._id);
+        if (!membership && conflictingMembership) {
+            console.warn(
+                `[createOrUpdateMembership] Skipping secondary workspace membership for clerkUserId=${args.clerkUserId}. Existing teamId=${conflictingMembership.teamId}, incoming teamId=${team._id}`,
+            );
+            return;
+        }
         
         // Określ rolę użytkownika w zespole
         let role: "admin" | "member" = "member"; // domyślna rola

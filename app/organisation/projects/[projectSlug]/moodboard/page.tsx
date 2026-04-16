@@ -172,6 +172,7 @@ function MoodboardRow({
         const uploadData = await generateUploadUrl({
           projectId: project._id,
           fileName: file.name,
+          fileSize: file.size,
         });
 
         const response = await fetch(uploadData.url, {

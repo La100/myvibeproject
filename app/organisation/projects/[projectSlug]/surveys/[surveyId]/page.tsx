@@ -120,7 +120,8 @@ export default function SurveyResponsePage({ params }: SurveyResponsePageProps) 
       // Generate upload URL
       const uploadData = await generateUploadUrl({
         projectId: project._id,
-        fileName: file.name
+        fileName: file.name,
+        fileSize: file.size,
       });
 
       // Upload file to R2

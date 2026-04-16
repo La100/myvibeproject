@@ -100,7 +100,6 @@ export function SmartDashboard() {
       onboardingStatus.activeOrganization.canUpdateTeamSettings,
   );
 
-  // Auto-redirect based on organization status
   useEffect(() => {
     if (
       !isLoaded ||
@@ -123,34 +122,25 @@ export function SmartDashboard() {
     }
 
     if (organizations.length === 0) {
-      console.log("No organization found, redirecting to organization selection");
       router.replace(selectOrganizationUrl);
       hasRedirectedRef.current = true;
       return;
     }
 
-    if (organizations.length === 1) {
-      const org = organizations[0];
-      if (!setActive || activatingOrganizationIdRef.current === org.id) {
-        return;
-      }
-
-      activatingOrganizationIdRef.current = org.id;
-      console.log("One organization found, activating:", org);
-      (async () => {
-        try {
-          await setActive({ organization: org.id });
-        } catch (error) {
-          activatingOrganizationIdRef.current = null;
-          console.error("Failed to set active organization", error);
-        }
-      })();
+    const primaryOrganization = organizations[0];
+    if (!setActive || activatingOrganizationIdRef.current === primaryOrganization.id) {
       return;
     }
 
-    console.log("Multiple organizations found without active org, redirecting to organization selection");
-    router.replace(selectOrganizationUrl);
-    hasRedirectedRef.current = true;
+    activatingOrganizationIdRef.current = primaryOrganization.id;
+    void (async () => {
+      try {
+        await setActive({ organization: primaryOrganization.id });
+      } catch (error) {
+        activatingOrganizationIdRef.current = null;
+        console.error("Failed to set active organization", error);
+      }
+    })();
   }, [
     shouldOpenOrganizationSetup,
     isEnsuringMembership,
@@ -170,15 +160,15 @@ export function SmartDashboard() {
       return "Opening workspace setup...";
     }
     if (organizations.length === 0) {
-      return "Redirecting to organization selection...";
+      return "Opening workspace setup...";
     }
     if (activeOrganization?.id && onboardingStatus?.activeOrganization) {
       return "Redirecting to your organization...";
     }
-    if (organizations.length === 1) {
-      return "Activating your organization...";
+    if (organizations.length > 1) {
+      return "Using your primary workspace...";
     }
-    return "Preparing organization selection...";
+    return "Activating your workspace...";
   }, [
     isEnsuringMembership,
     onboardingStatus?.activeOrganization,

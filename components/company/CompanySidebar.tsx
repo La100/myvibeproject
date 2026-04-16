@@ -3,9 +3,9 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
-import { Suspense, useMemo, useState } from "react";
-import { useMutation, useQuery } from "convex/react";
-import { useClerk, useOrganization, useOrganizationList, useUser } from "@clerk/nextjs";
+import { Suspense } from "react";
+import { useQuery } from "convex/react";
+import { useClerk, useOrganization, useUser } from "@clerk/nextjs";
 import { apiAny } from "@/lib/convexApiAny";
 import {
   Sidebar,
@@ -40,11 +40,7 @@ import {
   LogOut,
   Settings2,
   ChevronDown,
-  Check,
-  Plus,
 } from "lucide-react";
-import { toast } from "sonner";
-import { postAuthResolverUrl } from "@/lib/authRedirects";
 
 function OrganizationAvatar({
   imageUrl,
@@ -85,12 +81,7 @@ function CompanySidebarContent() {
   const { setOpenMobile } = useSidebar();
   const { signOut, openUserProfile } = useClerk();
   const { organization } = useOrganization();
-  const { createOrganization, setActive, userMemberships, isLoaded: organizationListLoaded } = useOrganizationList({
-    userMemberships: { infinite: true },
-  });
   const { user } = useUser();
-  const ensureCurrentUserTeamMembership = useMutation(apiAny.teamMembership.ensureCurrentUserTeamMembership);
-  const [isSwitchingOrganization, setIsSwitchingOrganization] = useState(false);
 
   const team = useQuery(
     apiAny.teams.getTeamByClerkOrg,
@@ -126,19 +117,7 @@ function CompanySidebarContent() {
   const organizationName = organization?.name || team?.name || "Loading...";
   const organizationHasImage = organization?.hasImage ?? false;
   const organizationImageUrl = team?.imageUrl || organization?.imageUrl;
-  const organizations = useMemo(
-    () =>
-      userMemberships?.data?.map((membership) => ({
-        id: membership.organization.id,
-        name: membership.organization.name,
-        imageUrl: membership.organization.imageUrl,
-        hasImage: membership.organization.hasImage,
-        role: membership.role,
-      })) || [],
-    [userMemberships?.data]
-  );
 
-  // Filter navigation items based on user role
   const navItems = allNavItems.filter(
     (item) => !userRole || item.allowedRoles.includes(userRole)
   );
@@ -151,147 +130,29 @@ function CompanySidebarContent() {
     router.prefetch(href);
   };
 
-  const handleSelectOrganization = async (organizationId: string, orgName?: string) => {
-    if (!setActive || organizationId === organization?.id || isSwitchingOrganization) {
-      return;
-    }
-
-    setIsSwitchingOrganization(true);
-    try {
-      await setActive({ organization: organizationId });
-      await ensureCurrentUserTeamMembership({
-        clerkOrgId: organizationId,
-        orgName,
-      });
-      toast.success("Organization switched.");
-      router.replace(postAuthResolverUrl);
-    } catch (error) {
-      console.error(error);
-      toast.error("Could not switch organization.");
-    } finally {
-      setIsSwitchingOrganization(false);
-    }
-  };
-
-  const handleCreateOrganization = async () => {
-    if (!createOrganization || !setActive || isSwitchingOrganization) {
-      toast.error("Organization creation is not available yet.");
-      return;
-    }
-
-    const name = window.prompt("New organization name");
-    const trimmedName = name?.trim();
-
-    if (!trimmedName) {
-      return;
-    }
-
-    if (trimmedName.length < 2) {
-      toast.error("Enter at least 2 characters for organization name.");
-      return;
-    }
-
-    setIsSwitchingOrganization(true);
-    try {
-      const createdOrganization = await createOrganization({ name: trimmedName });
-      await setActive({ organization: createdOrganization.id });
-      await ensureCurrentUserTeamMembership({
-        clerkOrgId: createdOrganization.id,
-        orgName: createdOrganization.name || trimmedName,
-      });
-      toast.success("Organization created.");
-      router.replace(postAuthResolverUrl);
-    } catch (error) {
-      console.error(error);
-      toast.error("Could not create organization.");
-    } finally {
-      setIsSwitchingOrganization(false);
-    }
-  };
-
   return (
     <Sidebar variant="inset">
       <SidebarHeader className="border-b border-sidebar-border/70 px-4 pt-5 pb-3">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className="flex w-full items-center gap-3 rounded-xl px-1 py-1 text-left transition hover:bg-sidebar-accent/25"
+        <div className="flex w-full items-center gap-3 px-1 py-1 text-left">
+          <div className="flex-shrink-0">
+            <OrganizationAvatar
+              imageUrl={organizationImageUrl}
+              hasImage={organizationHasImage}
+              alt={organization?.name || team?.name || "Organization"}
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2
+              title={organizationName}
+              className="line-clamp-2 max-w-full overflow-hidden text-[17px] font-semibold leading-[1.08] tracking-tight text-sidebar-foreground [overflow-wrap:anywhere]"
             >
-              <div className="flex-shrink-0">
-                <OrganizationAvatar
-                  imageUrl={organizationImageUrl}
-                  hasImage={organizationHasImage}
-                  alt={organization?.name || team?.name || "Organization"}
-                />
-              </div>
-              <div className="min-w-0 flex-1">
-                <h2
-                  title={organizationName}
-                  className="line-clamp-2 max-w-full overflow-hidden text-[17px] font-semibold leading-[1.08] tracking-tight text-sidebar-foreground [overflow-wrap:anywhere]"
-                >
-                  {organizationName}
-                </h2>
-                <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-sidebar-foreground/72 leading-none">
-                  Company Space
-                </p>
-              </div>
-              <ChevronDown className="h-4 w-4 flex-shrink-0 text-sidebar-foreground/60" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-72 rounded-xl border-border/70">
-            <div className="px-3 py-2">
-              <p className="text-sm font-semibold text-foreground">Organizations</p>
-              <p className="text-xs text-muted-foreground">
-                Switch workspace or create a new organization.
-              </p>
-            </div>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              {organizations.map((item) => {
-                const isActive = item.id === organization?.id;
-
-                return (
-                  <DropdownMenuItem
-                    key={item.id}
-                    onClick={() => handleSelectOrganization(item.id, item.name)}
-                    className="gap-3 rounded-lg px-3 py-2"
-                    disabled={isSwitchingOrganization || !organizationListLoaded}
-                  >
-                    <OrganizationAvatar
-                      imageUrl={item.imageUrl}
-                      hasImage={item.hasImage}
-                      alt={item.name}
-                      className="h-8 w-8 rounded-lg"
-                      imagePaddingClassName="p-1"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-foreground">{item.name}</p>
-                      <p className="truncate text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-                        {item.role}
-                      </p>
-                    </div>
-                    {isActive ? <Check className="h-4 w-4 text-primary" /> : null}
-                  </DropdownMenuItem>
-                );
-              })}
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={handleCreateOrganization}
-              className="gap-3 rounded-lg px-3 py-2"
-              disabled={isSwitchingOrganization || !organizationListLoaded}
-            >
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-dashed border-sidebar-border/80 bg-card">
-                <Plus className="h-4 w-4 text-sidebar-foreground/72" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-foreground">Create organization</p>
-                <p className="text-[11px] text-muted-foreground">Add another company space</p>
-              </div>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              {organizationName}
+            </h2>
+            <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-sidebar-foreground/72 leading-none">
+              Company Space
+            </p>
+          </div>
+        </div>
       </SidebarHeader>
 
       <SidebarContent className="flex flex-col gap-0 px-2 pb-2">
