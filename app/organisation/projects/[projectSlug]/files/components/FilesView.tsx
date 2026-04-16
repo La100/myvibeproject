@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 
 import { toast } from "sonner";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import { formatDistanceToNow } from "date-fns";
 import { Spinner } from "@/components/ui/spinner";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
@@ -167,7 +168,7 @@ export default function FilesView() {
       event.target.value = ""; // Reset file input
     } catch (error) {
       toast.error("Failed to upload file", {
-        description: (error as Error).message
+        description: toUserFacingErrorMessage(error)
       });
     }
   };
@@ -187,7 +188,7 @@ export default function FilesView() {
       setShowCreateFolder(false);
     } catch (error) {
       toast.error("Failed to create folder", {
-        description: (error as Error).message
+        description: toUserFacingErrorMessage(error)
       });
     }
   };
@@ -198,7 +199,7 @@ export default function FilesView() {
       toast.success("File deleted successfully");
     } catch (error) {
       toast.error("Failed to delete file", {
-        description: (error as Error).message
+        description: toUserFacingErrorMessage(error)
       });
     }
   };
@@ -209,7 +210,7 @@ export default function FilesView() {
       toast.success("Folder deleted successfully");
     } catch (error) {
       toast.error("Failed to delete folder", {
-        description: (error as Error).message
+        description: toUserFacingErrorMessage(error)
       });
     }
   };
@@ -227,7 +228,7 @@ export default function FilesView() {
       );
     } catch (error) {
       toast.error("Failed to update customer portal visibility", {
-        description: (error as Error).message,
+        description: toUserFacingErrorMessage(error),
       });
     }
   };
@@ -246,7 +247,7 @@ export default function FilesView() {
       );
     } catch (error) {
       toast.error("Failed to update AI knowledge", {
-        description: (error as Error).message,
+        description: toUserFacingErrorMessage(error),
       });
     } finally {
       setAiKnowledgeBusyFileId(null);

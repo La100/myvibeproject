@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { Copy, ExternalLink, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import { apiAny } from "@/lib/convexApiAny";
 import { useProject } from "@/components/providers/ProjectProvider";
 import { Button } from "@/components/ui/button";
@@ -68,7 +69,7 @@ export default function CustomerPanelPage() {
       } catch (error) {
         if (!cancelled) {
           toast.error("Failed to prepare customer link", {
-            description: (error as Error).message,
+            description: toUserFacingErrorMessage(error),
           });
         }
       } finally {
@@ -129,7 +130,7 @@ export default function CustomerPanelPage() {
       toast.success("Customer link regenerated");
     } catch (error) {
       toast.error("Failed to regenerate customer link", {
-        description: (error as Error).message,
+        description: toUserFacingErrorMessage(error),
       });
     } finally {
       setIsRegeneratingLink(false);
@@ -148,7 +149,7 @@ export default function CustomerPanelPage() {
       });
     } catch (error) {
       toast.error("Failed to update client portal", {
-        description: (error as Error).message,
+        description: toUserFacingErrorMessage(error),
       });
     } finally {
       setIsPublishingPortal(false);

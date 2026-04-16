@@ -22,6 +22,7 @@ import { useMutation } from "convex/react";
 import { toast } from "sonner";
 import { Id } from "@/convex/_generated/dataModel";
 import MemberDetailsModal from "@/components/team/MemberDetailsModal";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
 // Define TeamMember type based on the structure returned by getTeamMembers
 type TeamMember = {
@@ -83,7 +84,7 @@ export default function CompanyTeam() {
       toast.success("Invitation revoked");
     } catch (error) {
       toast.error("Failed to revoke invitation", {
-        description: (error as Error).message,
+        description: toUserFacingErrorMessage(error),
       });
     }
   };

@@ -28,6 +28,7 @@ import {
   CheckCircle2, Clock
 } from "lucide-react";
 import { toast } from "sonner";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -93,7 +94,7 @@ export default function MemberDetailsModal({
       toast.success("Role updated successfully");
     } catch (error) {
       toast.error("Failed to update role", {
-        description: (error as Error).message,
+        description: toUserFacingErrorMessage(error),
       });
     } finally {
       setIsUpdatingRole(false);
@@ -112,7 +113,7 @@ export default function MemberDetailsModal({
       onClose();
     } catch (error) {
       toast.error("Failed to remove member", {
-        description: (error as Error).message,
+        description: toUserFacingErrorMessage(error),
       });
     }
   };

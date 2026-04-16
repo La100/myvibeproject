@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useOrganization } from "@clerk/nextjs";
 import { z } from "zod";
 import { toast } from "sonner";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import { type LucideIcon, AlertTriangle, ImagePlus, Settings, Shield, Sparkles, Users, X } from "lucide-react";
 
 import { apiAny } from "@/lib/convexApiAny";
@@ -675,7 +676,7 @@ function GeneralTab({
       }
     } catch (error) {
       toast.error("Failed to upload cover image", {
-        description: (error as Error).message,
+        description: toUserFacingErrorMessage(error),
       });
     } finally {
       setUploadingCoverImage(false);

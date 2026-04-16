@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { ArrowLeft, Building2, CheckCircle2, ExternalLink, Plus, RefreshCw, Wallet } from "lucide-react";
 import { toast } from "sonner";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import { useProject } from "@/components/providers/ProjectProvider";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
@@ -707,7 +708,7 @@ export default function ProjectPaymentsView() {
       setInvoicePreviewOpen(true);
     } catch (error) {
       toast.error("Could not open invoice preview", {
-        description: (error as Error).message,
+        description: toUserFacingErrorMessage(error),
       });
     } finally {
       setBusyInstallmentId(null);
@@ -728,7 +729,7 @@ export default function ProjectPaymentsView() {
       window.location.assign(result.url);
     } catch (error) {
       toast.error("Could not open Stripe Connect onboarding", {
-        description: (error as Error).message,
+        description: toUserFacingErrorMessage(error),
       });
     } finally {
       setIsStripeConnectBusy(false);
@@ -746,7 +747,7 @@ export default function ProjectPaymentsView() {
       }
     } catch (error) {
       toast.error("Could not refresh Stripe Connect status", {
-        description: (error as Error).message,
+        description: toUserFacingErrorMessage(error),
       });
     } finally {
       setIsStripeConnectRefreshBusy(false);
@@ -767,7 +768,7 @@ export default function ProjectPaymentsView() {
       toast.success("Organization billing profile updated");
     } catch (error) {
       toast.error("Could not update billing profile", {
-        description: (error as Error).message,
+        description: toUserFacingErrorMessage(error),
       });
     } finally {
       setIsSavingBillingProfile(false);
@@ -788,7 +789,7 @@ export default function ProjectPaymentsView() {
     } catch (error) {
       setInvoiceFieldRequirements(previous);
       toast.error("Could not update field visibility", {
-        description: (error as Error).message,
+        description: toUserFacingErrorMessage(error),
       });
     } finally {
       setIsSavingVisibility(false);
@@ -841,7 +842,7 @@ export default function ProjectPaymentsView() {
       toast.success("Bill-to details updated");
     } catch (error) {
       toast.error("Could not update customer details", {
-        description: (error as Error).message,
+        description: toUserFacingErrorMessage(error),
       });
     } finally {
       setIsSavingCustomer(false);
@@ -969,7 +970,7 @@ export default function ProjectPaymentsView() {
       resetDialog();
     } catch (error) {
       toast.error("Could not save invoice", {
-        description: (error as Error).message,
+        description: toUserFacingErrorMessage(error),
       });
     } finally {
       setSubmittingInstallment(false);
@@ -1038,7 +1039,7 @@ export default function ProjectPaymentsView() {
       );
     } catch (error) {
       toast.error("Payment action failed", {
-        description: (error as Error).message,
+        description: toUserFacingErrorMessage(error),
       });
     } finally {
       setBusyInstallmentId(null);
@@ -1052,7 +1053,7 @@ export default function ProjectPaymentsView() {
       toast.success("Draft invoice deleted");
     } catch (error) {
       toast.error("Could not delete invoice", {
-        description: (error as Error).message,
+        description: toUserFacingErrorMessage(error),
       });
     } finally {
       setBusyInstallmentId(null);

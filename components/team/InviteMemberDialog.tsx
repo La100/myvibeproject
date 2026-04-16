@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
 interface InviteMemberDialogProps {
   teamId: Id<"teams">;
@@ -28,6 +29,22 @@ interface InviteMemberDialogProps {
 }
 
 type InvitationRole = "admin" | "member";
+
+const getInviteErrorToast = (error: unknown) => {
+  const message = toUserFacingErrorMessage(error);
+
+  if (message === "Only organization admins can invite new team members.") {
+    return {
+      title: "Admin access required",
+      description: message,
+    };
+  }
+
+  return {
+    title: "Failed to send invitation",
+    description: message,
+  };
+};
 
 export function InviteMemberDialog({ teamId, children }: InviteMemberDialogProps) {
   const [email, setEmail] = useState("");
@@ -47,8 +64,9 @@ export function InviteMemberDialog({ teamId, children }: InviteMemberDialogProps
       setEmail("");
       setRole("member");
     } catch (error) {
-      toast.error("Error", {
-        description: (error as Error).message,
+      const toastContent = getInviteErrorToast(error);
+      toast.error(toastContent.title, {
+        description: toastContent.description,
       });
     }
   };

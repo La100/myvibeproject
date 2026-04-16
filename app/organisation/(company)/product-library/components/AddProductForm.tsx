@@ -15,6 +15,7 @@ import { optimizeCoverImageForUpload } from "@/lib/coverImageUpload";
 import { Id } from "@/convex/_generated/dataModel";
 import { ImagePlus, Loader2, Plus, Upload, WandSparkles, X } from "lucide-react";
 import { toast } from "sonner";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
 interface AddProductFormProps {
   teamId: Id<"teams">;
@@ -228,7 +229,7 @@ export function AddProductForm({
       toast.success("Image uploaded");
     } catch (error) {
       toast.error("Failed to upload image", {
-        description: (error as Error).message,
+        description: toUserFacingErrorMessage(error),
       });
     } finally {
       setIsUploadingImage(false);
