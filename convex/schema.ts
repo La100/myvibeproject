@@ -554,31 +554,6 @@ export default defineSchema({
     email: v.string(),
     name: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
-    displayName: v.optional(v.string()),
-    countryCode: v.optional(v.string()),
-    preferredCurrency: v.optional(v.union(
-      v.literal("USD"),
-      v.literal("EUR"),
-      v.literal("PLN"),
-      v.literal("GBP"),
-      v.literal("CAD"),
-      v.literal("AUD"),
-      v.literal("JPY"),
-      v.literal("CHF"),
-      v.literal("SEK"),
-      v.literal("NOK"),
-      v.literal("DKK"),
-      v.literal("CZK"),
-      v.literal("HUF"),
-      v.literal("CNY"),
-      v.literal("INR"),
-      v.literal("BRL"),
-      v.literal("MXN"),
-      v.literal("KRW"),
-      v.literal("SGD"),
-      v.literal("HKD"),
-    )),
-    preferredTimezone: v.optional(v.string()),
     onboardingCompletedAt: v.optional(v.number()),
     clipperConnectedAt: v.optional(v.number()),
   })
@@ -644,7 +619,6 @@ export default defineSchema({
     name: v.string(),
     notes: v.optional(v.string()),
     completed: v.boolean(),
-    completedAt: v.optional(v.number()),
     buyBefore: v.optional(v.number()),
     priority: v.optional(v.union(
       v.literal("low"),
@@ -663,8 +637,6 @@ export default defineSchema({
     unitPrice: v.optional(v.number()),
     totalPrice: v.optional(v.number()),
     setId: v.optional(v.union(v.id("shoppingSets"), v.null())),
-    // Legacy fields kept only so existing dev documents still validate.
-    alternativeToItemId: v.optional(v.union(v.id("shoppingListItems"), v.null())),
     selectedAlternativeItemId: v.optional(v.union(v.id("shoppingListItems"), v.null())),
     customerDecision: v.optional(
       v.union(v.literal("accepted"), v.literal("rejected"), v.null())
@@ -755,8 +727,6 @@ export default defineSchema({
     setNotes: v.optional(v.union(v.string(), v.null())),
     setResolvedSourceItemIds: v.optional(v.array(v.id("shoppingListItems"))),
     setPreferredSourceItemIds: v.optional(v.array(v.id("shoppingListItems"))),
-    // Legacy snapshot fields kept only so existing dev documents still validate.
-    alternativeToSourceItemId: v.optional(v.union(v.id("shoppingListItems"), v.null())),
     selectedAlternativeSourceItemId: v.optional(v.union(v.id("shoppingListItems"), v.null())),
     customerDecision: v.optional(
       v.union(v.literal("accepted"), v.literal("rejected"), v.null())

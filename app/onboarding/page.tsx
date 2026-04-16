@@ -110,16 +110,11 @@ function OnboardingContent() {
       return { currency: "USD" as CurrencyCode, timezone: "UTC" };
     }
 
-    const timezone =
-      activeOrganization?.timezone ||
-      onboardingStatus.profile.preferredTimezone ||
-      detectTimezone();
+    const timezone = activeOrganization?.timezone || detectTimezone();
 
     const currency =
       (isCurrencyCode(activeOrganization?.currency) && activeOrganization.currency) ||
-      (isCurrencyCode(onboardingStatus.profile.preferredCurrency) && onboardingStatus.profile.preferredCurrency) ||
       detectBrowserCurrency({
-        countryCode: onboardingStatus.profile.countryCode,
         timezone,
       });
 

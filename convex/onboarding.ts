@@ -35,10 +35,6 @@ type OnboardingUserDoc = {
   email: string;
   name?: string;
   imageUrl?: string;
-  displayName?: string;
-  countryCode?: string;
-  preferredCurrency?: string;
-  preferredTimezone?: string;
   onboardingCompletedAt?: number;
   clipperConnectedAt?: number;
 };
@@ -150,9 +146,6 @@ export const getStatus = query({
         completed: false,
         profile: {
           displayName: undefined,
-          countryCode: undefined,
-          preferredCurrency: undefined,
-          preferredTimezone: undefined,
         },
         activeOrganization: null,
         clipperConnected: false,
@@ -166,10 +159,7 @@ export const getStatus = query({
       authenticated: true,
       completed: Boolean(user?.onboardingCompletedAt),
       profile: {
-        displayName: user?.displayName ?? user?.name ?? identity.name ?? undefined,
-        countryCode: user?.countryCode ?? undefined,
-        preferredCurrency: user?.preferredCurrency ?? undefined,
-        preferredTimezone: user?.preferredTimezone ?? undefined,
+        displayName: user?.name ?? identity.name ?? undefined,
       },
       clipperConnected: Boolean(user?.clipperConnectedAt),
       activeOrganization: teamContext

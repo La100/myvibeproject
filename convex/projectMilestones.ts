@@ -58,7 +58,7 @@ const resolveMilestoneOwner = async (ctx: any, ownerClerkUserId?: string | null)
 
   return {
     clerkUserId: ownerClerkUserId,
-    name: user?.name || user?.displayName || user?.email || "Unknown user",
+    name: user?.name || user?.email || "Unknown user",
     imageUrl: user?.imageUrl,
   };
 };
