@@ -20,12 +20,20 @@ const internalRefs = {
 const normalizeClerkName = (
   firstName?: string | null,
   lastName?: string | null,
+  username?: string | null,
 ) => {
   const parts = [firstName, lastName]
     .map((value) => value?.trim())
     .filter((value): value is string => Boolean(value && value.toLowerCase() !== "null"));
 
-  return parts.length > 0 ? parts.join(" ") : undefined;
+  if (parts.length > 0) {
+    return parts.join(" ");
+  }
+
+  const normalizedUsername = username?.trim();
+  return normalizedUsername && normalizedUsername.toLowerCase() !== "null"
+    ? normalizedUsername
+    : undefined;
 };
 
 const handleClerkWebhook = httpAction(async (ctx, request) => {
@@ -93,7 +101,11 @@ const handleClerkWebhook = httpAction(async (ctx, request) => {
         await ctx.runMutation(internalRefs.createOrUpdateUser, {
             clerkUserId: event.data.id,
             email: event.data.email_addresses[0].email_address,
-            name: normalizeClerkName(event.data.first_name, event.data.last_name),
+            name: normalizeClerkName(
+              event.data.first_name,
+              event.data.last_name,
+              event.data.username,
+            ),
             imageUrl: event.data.image_url,
         });
         break;
@@ -101,7 +113,11 @@ const handleClerkWebhook = httpAction(async (ctx, request) => {
         await ctx.runMutation(internalRefs.createOrUpdateUser, {
             clerkUserId: event.data.id,
             email: event.data.email_addresses[0].email_address,
-            name: normalizeClerkName(event.data.first_name, event.data.last_name),
+            name: normalizeClerkName(
+              event.data.first_name,
+              event.data.last_name,
+              event.data.username,
+            ),
             imageUrl: event.data.image_url,
         });
         break;
