@@ -78,6 +78,7 @@ export const createOrUpdateTeam = internalMutation({
         name: args.name,
         slug: slug,
         imageUrl: args.imageUrl,
+        onboardingCompletedAt: 0,
         // createdBy is optional and will not be set by the webhook
       });
     }

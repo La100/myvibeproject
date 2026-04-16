@@ -1,0 +1,14 @@
+#!/bin/bash
+
+set -euo pipefail
+
+git add .
+
+if git diff --cached --quiet; then
+  echo "No staged changes to commit."
+  exit 1
+fi
+
+git commit -m "elo"
+npx convex deploy
+git push origin main

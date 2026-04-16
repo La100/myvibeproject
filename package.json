@@ -15,7 +15,8 @@
     "lint:extension": "pnpm --dir chrome-extension lint",
     "typecheck": "pnpm exec tsc --noEmit",
     "typecheck:extension": "pnpm --dir chrome-extension type-check",
-    "elo": "bash ./elo"
+    "elo": "bash ./elo",
+    "elo:prod": "bash ./elo-prod"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.48",

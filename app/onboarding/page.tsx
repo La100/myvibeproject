@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { TimezonePicker } from "@/components/ui/timezone-picker";
-import { chooseOrganizationUrl } from "@/lib/authRedirects";
+import { postAuthResolverUrl } from "@/lib/authRedirects";
 
 const CURRENCY_OPTIONS: Array<{ value: CurrencyCode; label: string }> = [
   { value: "USD", label: "US Dollar ($)" },
@@ -71,6 +71,9 @@ function OnboardingContent() {
     organization?.id ? { clerkOrgId: organization.id } : "skip",
   );
   const completeOnboarding = useMutation(apiAny.onboarding.completeOnboarding);
+  const ensureCurrentUserTeamMembership = useMutation(
+    apiAny.teamMembership.ensureCurrentUserTeamMembership,
+  );
   const updateTeamSettings = useMutation(apiAny.teams.updateTeamSettings);
   const isForcedOrganizationSetup = searchParams.get("mode") === "organization";
 
@@ -83,6 +86,7 @@ function OnboardingContent() {
   const [organizationImageFile, setOrganizationImageFile] = useState<File | null>(null);
   const organizationImageInputRef = useRef<HTMLInputElement | null>(null);
   const organizationImageObjectUrlRef = useRef<string | null>(null);
+  const ensuredMembershipOrgIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!isAuthLoaded) {
@@ -96,6 +100,7 @@ function OnboardingContent() {
 
   const activeOrganization = onboardingStatus?.activeOrganization ?? null;
   const canUpdateOrganization = Boolean(activeOrganization?.canUpdateTeamSettings);
+  const organizationSetupCompleted = Boolean(activeOrganization?.onboardingCompleted);
   const organizationHasImage = organization?.hasImage ?? false;
   const resolvedOrganizationImageUrl = organizationHasImage
     ? (onboardingTeamSettings?.imageUrl || organization?.imageUrl || "")
@@ -159,20 +164,53 @@ function OnboardingContent() {
       return;
     }
 
-    if (onboardingStatus.completed && activeOrganization && organization?.id) {
-      router.replace("/dashboard");
+    if (organizationSetupCompleted && activeOrganization && organization?.id) {
+      router.replace("/organisation");
     }
-  }, [activeOrganization, isForcedOrganizationSetup, isOrganizationLoaded, onboardingStatus, organization?.id, router]);
+  }, [
+    activeOrganization,
+    isForcedOrganizationSetup,
+    isOrganizationLoaded,
+    onboardingStatus,
+    organization?.id,
+    organizationSetupCompleted,
+    router,
+  ]);
 
   useEffect(() => {
     if (onboardingStatus === undefined || !isOrganizationLoaded) {
       return;
     }
 
-    if (!activeOrganization || !organization?.id) {
-      router.replace(chooseOrganizationUrl);
+    if (
+      organization?.id &&
+      onboardingStatus.authenticated &&
+      !activeOrganization &&
+      ensuredMembershipOrgIdRef.current !== organization.id
+    ) {
+      ensuredMembershipOrgIdRef.current = organization.id;
+      void ensureCurrentUserTeamMembership({
+        clerkOrgId: organization.id,
+        orgName: organization.name,
+      }).catch((error) => {
+        ensuredMembershipOrgIdRef.current = null;
+        console.error("Failed to ensure onboarding membership", error);
+      });
+      return;
     }
-  }, [activeOrganization, isOrganizationLoaded, onboardingStatus, organization?.id, router]);
+
+    if (!activeOrganization || !organization?.id) {
+      router.replace(postAuthResolverUrl);
+    }
+  }, [
+    activeOrganization,
+    ensureCurrentUserTeamMembership,
+    isOrganizationLoaded,
+    onboardingStatus,
+    organization?.id,
+    organization?.name,
+    router,
+  ]);
 
   const handleFinish = async () => {
     if (!activeOrganization) {
@@ -194,7 +232,7 @@ function OnboardingContent() {
 
       await completeOnboarding(payload);
       toast.success("Onboarding completed.");
-      router.replace("/dashboard");
+      router.replace("/organisation");
     } catch (error) {
       console.error(error);
       toast.error("Could not complete onboarding.");
@@ -272,7 +310,7 @@ function OnboardingContent() {
     return <LoadingState message="Preparing onboarding..." />;
   }
 
-  if (!isForcedOrganizationSetup && onboardingStatus.completed && activeOrganization) {
+  if (!isForcedOrganizationSetup && organizationSetupCompleted && activeOrganization) {
     return <LoadingState message="Redirecting to workspace..." />;
   }
 

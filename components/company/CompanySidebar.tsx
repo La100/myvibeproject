@@ -44,6 +44,7 @@ import {
   Plus,
 } from "lucide-react";
 import { toast } from "sonner";
+import { postAuthResolverUrl } from "@/lib/authRedirects";
 
 function OrganizationAvatar({
   imageUrl,
@@ -163,7 +164,7 @@ function CompanySidebarContent() {
         orgName,
       });
       toast.success("Organization switched.");
-      router.refresh();
+      router.replace(postAuthResolverUrl);
     } catch (error) {
       console.error(error);
       toast.error("Could not switch organization.");
@@ -199,7 +200,7 @@ function CompanySidebarContent() {
         orgName: createdOrganization.name || trimmedName,
       });
       toast.success("Organization created.");
-      router.replace("/onboarding?mode=organization");
+      router.replace(postAuthResolverUrl);
     } catch (error) {
       console.error(error);
       toast.error("Could not create organization.");

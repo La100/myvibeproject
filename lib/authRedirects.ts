@@ -1,6 +1,8 @@
 export const signInUrl = "/sign-in";
 export const signUpUrl = "/sign-up";
-export const chooseOrganizationUrl = "/session-tasks/choose-organization";
+export const postAuthResolverUrl = "/dashboard";
+export const clerkChooseOrganizationTaskUrl = "/session-tasks/choose-organization";
+export const selectOrganizationUrl = "/select-organization";
 
 const normalizeRedirectTarget = (value: string | undefined, fallback: string) => {
   if (!value) {
@@ -17,7 +19,7 @@ const normalizeRedirectTarget = (value: string | undefined, fallback: string) =>
 export const signInFallbackRedirectUrl = normalizeRedirectTarget(
   process.env.NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL ??
     process.env.NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL,
-  "/dashboard",
+  postAuthResolverUrl,
 );
 
 export const signUpFallbackRedirectUrl = normalizeRedirectTarget(

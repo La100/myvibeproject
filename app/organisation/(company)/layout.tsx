@@ -11,7 +11,7 @@ import { CompanySidebar } from "@/components/company/CompanySidebar";
 import { useOrganization } from "@clerk/nextjs";
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { chooseOrganizationUrl } from "@/lib/authRedirects";
+import { postAuthResolverUrl } from "@/lib/authRedirects";
 
 const swappedSurfaceVars = {
   "--workspace-background": "var(--background)",
@@ -39,12 +39,8 @@ export default function CompanyLayout({
     if (!onboardingStatus.authenticated) {
       return;
     }
-    if (!onboardingStatus.completed) {
-      router.replace("/onboarding");
-      return;
-    }
     if (isLoaded && !organization?.id) {
-      router.replace(chooseOrganizationUrl);
+      router.replace(postAuthResolverUrl);
     }
   }, [onboardingStatus, isLoaded, organization?.id, router]);
 
@@ -123,7 +119,6 @@ export default function CompanyLayout({
   if (
     onboardingStatus === undefined ||
     !onboardingStatus.authenticated ||
-    !onboardingStatus.completed ||
     !isLoaded ||
     !organization
   ) {

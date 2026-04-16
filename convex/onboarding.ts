@@ -45,12 +45,16 @@ type ActiveTeamContext = {
     name: string;
     currency?: string;
     timezone?: string;
+    onboardingCompletedAt?: number;
   };
   membership: {
     role: "admin" | "member";
     isActive: boolean;
   };
 };
+
+const isOrganizationSetupCompleted = (team: ActiveTeamContext["team"]) =>
+  team.onboardingCompletedAt === undefined || team.onboardingCompletedAt > 0;
 
 const getCurrentUser = async (ctx: QueryCtx, identity: UserIdentity): Promise<OnboardingUserDoc | null> => {
   return (await ctx.db
@@ -169,6 +173,7 @@ export const getStatus = query({
             role: teamContext.membership.role,
             currency: teamContext.team.currency ?? undefined,
             timezone: teamContext.team.timezone ?? undefined,
+            onboardingCompleted: isOrganizationSetupCompleted(teamContext.team),
             canUpdateTeamSettings: teamContext.membership.role === "admin",
           }
         : null,
@@ -240,6 +245,13 @@ export const completeOnboarding = mutation({
         await teamDb.patch(teamContext.team._id, teamPatch);
         appliedToTeam = true;
       }
+
+      const teamDb = ctx.db as unknown as {
+        patch: (id: Id<"teams">, value: Record<string, unknown>) => Promise<void>;
+      };
+      await teamDb.patch(teamContext.team._id, {
+        onboardingCompletedAt: Date.now(),
+      });
     }
 
     if (teamContext?.team._id) {

@@ -1,14 +1,14 @@
 "use client";
 
 import { useOrganization, useOrganizationList } from "@clerk/nextjs";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
-import { chooseOrganizationUrl } from "@/lib/authRedirects";
+import { selectOrganizationUrl } from "@/lib/authRedirects";
 
 function LoadingState({
   title,
@@ -37,10 +37,15 @@ function LoadingState({
 export function SmartDashboard() {
   const router = useRouter();
   const onboardingStatus = useQuery(apiAny.onboarding.getStatus);
+  const ensureCurrentUserTeamMembership = useMutation(
+    apiAny.teamMembership.ensureCurrentUserTeamMembership,
+  );
   const { userMemberships, setActive, isLoaded } = useOrganizationList({
     userMemberships: { infinite: true },
   });
   const { organization: activeOrganization } = useOrganization();
+  const [isEnsuringMembership, setIsEnsuringMembership] = useState(false);
+  const activatingOrganizationIdRef = useRef<string | null>(null);
 
   const organizations = useMemo(
     () =>
@@ -52,113 +57,141 @@ export function SmartDashboard() {
     [userMemberships?.data]
   );
 
-  const hasActiveMembership = useMemo(
-    () =>
-      Boolean(
-        activeOrganization?.id &&
-          organizations.some((organization) => organization.id === activeOrganization.id)
-      ),
-    [activeOrganization?.id, organizations],
-  );
   const hasRedirectedRef = useRef(false);
+  const ensuredActiveOrgIdRef = useRef<string | null>(null);
 
-  // Check for pending invitation ticket in URL and force reload after delay
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const params = new URLSearchParams(window.location.search);
-    const clerkTicket = params.get('__clerk_ticket');
-
-    if (clerkTicket) {
-      console.log('[SmartDashboard] Invitation ticket detected, will reload after Clerk processes it...');
-
-      // Give Clerk time to process the invitation (5 seconds)
-      const timer = setTimeout(() => {
-        console.log('[SmartDashboard] Reloading page to check organization membership...');
-        // Remove ticket from URL and reload
-        const url = new URL(window.location.href);
-        url.searchParams.delete('__clerk_ticket');
-        url.searchParams.delete('__clerk_status');
-        window.location.replace(url.toString());
-      }, 5000);
-
-      return () => clearTimeout(timer);
+    if (
+      !isLoaded ||
+      onboardingStatus === undefined ||
+      !onboardingStatus.authenticated ||
+      !activeOrganization?.id ||
+      onboardingStatus.activeOrganization ||
+      ensuredActiveOrgIdRef.current === activeOrganization.id
+    ) {
+      return;
     }
-  }, []);
+
+    ensuredActiveOrgIdRef.current = activeOrganization.id;
+    setIsEnsuringMembership(true);
+
+    ensureCurrentUserTeamMembership({
+      clerkOrgId: activeOrganization.id,
+      orgName: activeOrganization.name,
+    })
+      .catch((error) => {
+        ensuredActiveOrgIdRef.current = null;
+        console.error("Failed to ensure dashboard membership", error);
+      })
+      .finally(() => {
+        setIsEnsuringMembership(false);
+      });
+  }, [
+    activeOrganization?.id,
+    activeOrganization?.name,
+    ensureCurrentUserTeamMembership,
+    isLoaded,
+    onboardingStatus,
+  ]);
+
+  const shouldOpenOrganizationSetup = Boolean(
+    onboardingStatus?.activeOrganization &&
+      !onboardingStatus.activeOrganization.onboardingCompleted &&
+      onboardingStatus.activeOrganization.canUpdateTeamSettings,
+  );
 
   // Auto-redirect based on organization status
   useEffect(() => {
-    if (!isLoaded || onboardingStatus === undefined || hasRedirectedRef.current) return;
+    if (
+      !isLoaded ||
+      onboardingStatus === undefined ||
+      hasRedirectedRef.current ||
+      isEnsuringMembership
+    ) {
+      return;
+    }
     if (!onboardingStatus.authenticated) return;
 
-    if (!onboardingStatus.completed) {
-      router.replace("/onboarding");
+    if (activeOrganization?.id && !onboardingStatus.activeOrganization) {
+      return;
+    }
+
+    if (activeOrganization?.id && onboardingStatus.activeOrganization) {
+      router.replace(shouldOpenOrganizationSetup ? "/onboarding?mode=organization" : "/organisation");
       hasRedirectedRef.current = true;
       return;
     }
 
     if (organizations.length === 0) {
-      console.log("No organization found, redirecting to choose organization");
-      router.replace(chooseOrganizationUrl);
-      hasRedirectedRef.current = true;
-      return;
-    }
-
-    if (hasActiveMembership) {
-      router.replace("/organisation");
+      console.log("No organization found, redirecting to organization selection");
+      router.replace(selectOrganizationUrl);
       hasRedirectedRef.current = true;
       return;
     }
 
     if (organizations.length === 1) {
       const org = organizations[0];
+      if (!setActive || activatingOrganizationIdRef.current === org.id) {
+        return;
+      }
+
+      activatingOrganizationIdRef.current = org.id;
       console.log("One organization found, activating:", org);
       (async () => {
         try {
-          if (setActive) {
-            await setActive({ organization: org.id });
-          }
+          await setActive({ organization: org.id });
         } catch (error) {
-          console.error("Failed to set active organization, continuing redirect", error);
-        } finally {
-          console.log("Pushing to: /organisation");
-          router.replace("/organisation");
-          hasRedirectedRef.current = true;
+          activatingOrganizationIdRef.current = null;
+          console.error("Failed to set active organization", error);
         }
       })();
       return;
     }
 
-    // Multiple organizations with no active selection: let user choose in onboarding.
-    console.log("Multiple organizations found without active org, redirecting to choose organization");
-    router.replace(chooseOrganizationUrl);
+    console.log("Multiple organizations found without active org, redirecting to organization selection");
+    router.replace(selectOrganizationUrl);
     hasRedirectedRef.current = true;
-  }, [isLoaded, onboardingStatus, organizations, hasActiveMembership, setActive, router]);
+  }, [
+    shouldOpenOrganizationSetup,
+    isEnsuringMembership,
+    isLoaded,
+    onboardingStatus,
+    organizations,
+    activeOrganization?.id,
+    setActive,
+    router,
+  ]);
 
   const loadingMessage = useMemo(() => {
-    if (organizations.length === 0) {
-      return "Redirecting to workspace setup...";
+    if (isEnsuringMembership) {
+      return "Finalizing workspace access...";
     }
-    if (hasActiveMembership || organizations.length === 1) {
+    if (onboardingStatus?.activeOrganization && shouldOpenOrganizationSetup) {
+      return "Opening workspace setup...";
+    }
+    if (organizations.length === 0) {
+      return "Redirecting to organization selection...";
+    }
+    if (activeOrganization?.id && onboardingStatus?.activeOrganization) {
       return "Redirecting to your organization...";
     }
+    if (organizations.length === 1) {
+      return "Activating your organization...";
+    }
     return "Preparing organization selection...";
-  }, [organizations.length, hasActiveMembership]);
+  }, [
+    isEnsuringMembership,
+    onboardingStatus?.activeOrganization,
+    activeOrganization?.id,
+    organizations.length,
+    shouldOpenOrganizationSetup,
+  ]);
 
-  // Check if there's a pending invitation ticket
-  const hasInvitationTicket =
-    typeof window !== "undefined" &&
-    new URLSearchParams(window.location.search).has("__clerk_ticket");
-
-  // Show special loading for invitation acceptance
-  if (hasInvitationTicket) {
-    return (
-      <LoadingState
-        title="Processing your invitation..."
-        description="We're adding you to the organization. This will take just a moment."
-      />
-    );
-  }
+  useEffect(() => {
+    if (activeOrganization?.id) {
+      activatingOrganizationIdRef.current = null;
+    }
+  }, [activeOrganization?.id]);
 
   // Show loading while checking organizations
   if (!isLoaded) {

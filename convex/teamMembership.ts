@@ -35,6 +35,7 @@ export const ensureCurrentUserTeamMembership = mutation({
         clerkOrgId: args.clerkOrgId,
         name: fallbackName,
         slug: generateSlug(fallbackName || args.clerkOrgId),
+        onboardingCompletedAt: 0,
       });
       team = await ctx.db.get(teamId);
       if (!team) {
