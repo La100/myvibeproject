@@ -47,6 +47,8 @@ const MAX_REFERENCE_REDIRECTS = 3;
 
 const DEFAULT_MOODBOARD_SECTION_KEY = "1";
 const DEFAULT_MOODBOARD_SECTION_LABEL = "CONCEPT";
+const DEFAULT_TEXT_ONLY_FAILURE =
+  "No image was generated. The model may have returned only text.";
 
 const normalizeMoodboardSection = (section?: string) => {
   const normalized = section?.trim();
@@ -412,11 +414,20 @@ export const generateVisualization = action({
         }
       }
 
+      const cleanedTextResponse = textResponse?.trim();
+
       if (!imageBase64) {
+        if (args.sessionId && cleanedTextResponse) {
+          await ctx.runMutation(internalAny.ai.visualizationSessions.addModelMessage, {
+            sessionId: args.sessionId,
+            text: cleanedTextResponse,
+          });
+        }
+
         return {
           success: false,
-          error: "No image was generated. The model may have returned only text.",
-          textResponse,
+          error: cleanedTextResponse || DEFAULT_TEXT_ONLY_FAILURE,
+          textResponse: cleanedTextResponse,
         };
       }
 
@@ -424,7 +435,7 @@ export const generateVisualization = action({
         return {
           success: false,
           error: "Generated image could not be stored because the team or project context was not found.",
-          textResponse,
+          textResponse: cleanedTextResponse,
         };
       }
 
@@ -527,7 +538,7 @@ export const generateVisualization = action({
             billableTokens,
             estimatedCostCents,
             referenceImageCount: args.referenceImages?.length || 0,
-            textResponse,
+            textResponse: cleanedTextResponse,
             success: true,
           });
 
@@ -536,7 +547,7 @@ export const generateVisualization = action({
           if (args.sessionId) {
             await ctx.runMutation(internalAny.ai.visualizationSessions.addModelMessage, {
               sessionId: args.sessionId,
-              text: textResponse?.trim() || "Generated image.",
+              text: cleanedTextResponse || "Generated image.",
               imageStorageKey: fileKey,
               imageMimeType: mimeType || "image/png",
               imageUrl: url || undefined,
@@ -563,7 +574,7 @@ export const generateVisualization = action({
           error: refundCompleted
             ? `${errorMessage} No AI credits were charged.`
             : `${errorMessage} AI credits may need manual correction.`,
-          textResponse,
+          textResponse: cleanedTextResponse,
         };
       }
 
@@ -575,7 +586,7 @@ export const generateVisualization = action({
         imageStorageKey, // Return key for history
         fileUrl, // Return URL if available
         mimeType: mimeType || "image/png",
-        textResponse,
+        textResponse: cleanedTextResponse,
         generationId,
       };
     } catch (error) {

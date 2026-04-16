@@ -215,7 +215,6 @@ function CompanySidebarContent() {
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              data-tour="workspace-org-switcher"
               className="flex w-full items-center gap-3 rounded-xl px-1 py-1 text-left transition hover:bg-sidebar-accent/25"
             >
               <div className="flex-shrink-0">
@@ -351,7 +350,6 @@ function CompanySidebarContent() {
                     >
                       <Link
                         href={item.href}
-                        data-tour={item.href === "/organisation/settings" ? "workspace-settings-link" : undefined}
                         onClick={handleLinkClick}
                         onMouseEnter={() => handleLinkHover(item.href)}
                         className="flex flex-1 items-center gap-3"

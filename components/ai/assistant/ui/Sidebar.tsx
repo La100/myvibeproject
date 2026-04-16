@@ -6,6 +6,7 @@
  * Displays chat history in a sidebar for desktop view.
  */
 
+import { useEffect, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -214,6 +215,18 @@ export function ChatSidebar({
   emptyStateTitle = "No chats yet",
   emptyStateDescription = "Start a new conversation to get help with your project.",
 }: ChatSidebarProps) {
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const syncViewport = () => setIsMobileViewport(mediaQuery.matches);
+
+    syncViewport();
+    mediaQuery.addEventListener("change", syncViewport);
+
+    return () => mediaQuery.removeEventListener("change", syncViewport);
+  }, []);
+
   const sharedProps = {
     isDisabled,
     isThreadListLoading,
@@ -230,19 +243,21 @@ export function ChatSidebar({
 
   return (
     <>
-      <Sheet open={showHistory} onOpenChange={setShowHistory}>
-        <SheetContent
-          side="right"
-          className="w-[min(92vw,26rem)] border-l border-border/80 bg-background p-0 md:hidden"
-        >
-          <SheetTitle className="sr-only">{title}</SheetTitle>
-          <ChatSidebarBody
-            {...sharedProps}
-            onClose={() => setShowHistory(false)}
-            hideInlineClose
-          />
-        </SheetContent>
-      </Sheet>
+      {isMobileViewport && (
+        <Sheet open={showHistory} onOpenChange={setShowHistory}>
+          <SheetContent
+            side="right"
+            className="w-[min(92vw,26rem)] border-l border-border/80 bg-background p-0"
+          >
+            <SheetTitle className="sr-only">{title}</SheetTitle>
+            <ChatSidebarBody
+              {...sharedProps}
+              onClose={() => setShowHistory(false)}
+              hideInlineClose
+            />
+          </SheetContent>
+        </Sheet>
+      )}
 
       <aside
         className={cn(

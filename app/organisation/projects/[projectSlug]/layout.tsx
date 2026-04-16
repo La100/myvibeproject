@@ -2,7 +2,6 @@ import { ProjectSidebar } from "@/components/project/ProjectSidebar";
 import { MobileProjectHeader } from "@/components/project/MobileProjectHeader";
 import { ProjectProvider } from "@/components/providers/ProjectProvider";
 import { FloatingChatKitLauncher } from "@/components/ai/chatkit/FloatingChatKitLauncher";
-import { GuidedTourHost } from "@/components/tours/GuidedTourHost";
 import { 
   SidebarProvider, 
   SidebarInset, 
@@ -22,7 +21,6 @@ function ProjectLayoutContent({ children }: { children: React.ReactNode }) {
     <div style={swappedSurfaceVars}>
       <SidebarProvider>
         <ProjectSidebar />
-        <GuidedTourHost scope="project" />
         <SidebarInset className="xl:clean-panel xl:overflow-hidden">
           <MobileProjectHeader />
           <main className="flex-1 min-h-0 overflow-auto">

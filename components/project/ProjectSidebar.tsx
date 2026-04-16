@@ -195,21 +195,6 @@ function ProjectSidebarContent() {
                 >
                   <Link
                     href={item.href}
-                    data-tour={
-                      item.key === "overview"
-                        ? "project-nav-overview"
-                        : item.key === "customer_panel"
-                          ? "project-nav-customer-portal"
-                          : item.key === "payments"
-                            ? "project-nav-payments"
-                        : item.key === "tasks"
-                          ? "project-nav-tasks"
-                          : item.key === "moodboard"
-                            ? "project-nav-moodboard"
-                            : item.key === "files"
-                              ? "project-nav-files"
-                              : undefined
-                    }
                     onClick={handleLinkClick}
                     onMouseEnter={() => handleLinkHover(item.href)}
                     className="flex min-w-0 flex-1 items-center gap-3"
@@ -260,7 +245,6 @@ function ProjectSidebarContent() {
             <Button asChild className="h-10 w-full justify-center rounded-full text-[13px] font-medium">
               <Link
                 href={aiItem.href}
-                data-tour="project-nav-ai"
                 onClick={handleLinkClick}
                 onMouseEnter={() => handleLinkHover(aiItem.href)}
               >

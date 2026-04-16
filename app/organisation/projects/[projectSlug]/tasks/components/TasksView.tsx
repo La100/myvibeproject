@@ -386,7 +386,7 @@ export default function TasksView() {
   }
 
   return (
-    <div data-tour="project-tasks-root" className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4">
        <div className="mb-2">
          <ProjectPageHeader
            title="Tasks"
@@ -394,7 +394,7 @@ export default function TasksView() {
            subtitle={`Manage tasks for ${project.name}`}
            actions={
              <div className="flex items-center gap-2">
-               <Button data-tour="project-tasks-add-button" onClick={() => setIsTaskFormOpen(true)}>
+               <Button onClick={() => setIsTaskFormOpen(true)}>
                  Add Task
                </Button>
                <div className="flex items-center rounded-md border bg-background">

@@ -359,7 +359,7 @@ function OnboardingContent() {
                     ? "Uploading logo..."
                     : organizationImageReady
                       ? "Your workspace image is already set. You can replace it here or manage it later in organization settings."
-                      : "Set your own workspace image now so the sidebar and quests reflect your real brand."
+                      : "Set your own workspace image now so the sidebar reflects your real brand."
                   : "Only admins can change the organization image."
               }
             />

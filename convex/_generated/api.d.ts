@@ -63,7 +63,6 @@ import type * as costEstimations from "../costEstimations.js";
 import type * as crons from "../crons.js";
 import type * as fileKnowledgeActions from "../fileKnowledgeActions.js";
 import type * as files from "../files.js";
-import type * as guidedTours from "../guidedTours.js";
 import type * as http from "../http.js";
 import type * as labor from "../labor.js";
 import type * as myFunctions from "../myFunctions.js";
@@ -151,7 +150,6 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   fileKnowledgeActions: typeof fileKnowledgeActions;
   files: typeof files;
-  guidedTours: typeof guidedTours;
   http: typeof http;
   labor: typeof labor;
   myFunctions: typeof myFunctions;

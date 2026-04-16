@@ -216,7 +216,7 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
     if (quotaBlocked) {
       if (isPanel) {
         return (
-          <div data-tour="project-ai-root" className="flex h-full min-h-0 flex-col overflow-auto p-4">
+          <div className="flex h-full min-h-0 flex-col overflow-auto p-4">
             <Script
               src="https://cdn.platform.openai.com/deployments/chatkit/chatkit.js"
               strategy="afterInteractive"
@@ -234,7 +234,7 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
       }
 
       return (
-        <div data-tour="project-ai-root">
+        <div>
           <AIQuotaUpsellCard
             teamId={team._id}
             currentPlan={aiAccess.currentPlan}
@@ -277,7 +277,7 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
     }
 
     return (
-      <div data-tour="project-ai-root">
+      <div>
         <AISubscriptionWall teamId={team._id} teamSlug={team.slug} />
       </div>
     );
@@ -295,7 +295,6 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
   if (showUnifiedLoading) {
     return (
       <div
-        data-tour="project-ai-root"
         className={isPanel ? "flex h-full items-center justify-center p-6" : "flex min-h-screen items-center justify-center"}
       >
         <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="Loading" />
@@ -308,7 +307,6 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
   if (effectiveError) {
     return (
       <div
-        data-tour="project-ai-root"
         className={
           isPanel
             ? "flex h-full w-full items-center justify-center p-4"
@@ -350,7 +348,7 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
 
   if (isPanel) {
     return (
-      <div data-tour="project-ai-root" className="flex h-full min-h-0 flex-col">
+      <div className="flex h-full min-h-0 flex-col">
         <Script
           src="https://cdn.platform.openai.com/deployments/chatkit/chatkit.js"
           strategy="afterInteractive"
@@ -370,7 +368,7 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
           />
         </div>
 
-        <div data-tour="project-ai-surface" className="min-h-0 flex-1 bg-gradient-to-b from-background to-muted/20">
+        <div className="min-h-0 flex-1 bg-gradient-to-b from-background to-muted/20">
           <ChatKit
             key={refreshKey}
             control={chatkit.control}
@@ -382,7 +380,7 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
   }
 
   return (
-    <div data-tour="project-ai-root" className="flex h-[calc(100vh-4rem)] w-full min-w-0 flex-col p-4 xl:p-6">
+    <div className="flex h-[calc(100vh-4rem)] w-full min-w-0 flex-col p-4 xl:p-6">
       <Script
         src="https://cdn.platform.openai.com/deployments/chatkit/chatkit.js"
         strategy="afterInteractive"
@@ -407,7 +405,6 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
       </div>
 
       <div
-        data-tour="project-ai-surface"
         className="relative mx-auto flex h-full w-full max-w-[1220px] overflow-hidden rounded-3xl border border-border/70 bg-gradient-to-b from-background to-muted/20 shadow-lg"
       >
         <ChatKit

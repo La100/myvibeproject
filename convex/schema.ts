@@ -581,11 +581,6 @@ export default defineSchema({
     preferredTimezone: v.optional(v.string()),
     onboardingCompletedAt: v.optional(v.number()),
     clipperConnectedAt: v.optional(v.number()),
-    guidedTours: v.optional(v.object({
-      completedTourIds: v.array(v.union(v.literal("workspace"), v.literal("project"))),
-      skippedTourIds: v.array(v.union(v.literal("workspace"), v.literal("project"))),
-      dismissedPromptIds: v.array(v.union(v.literal("workspace"), v.literal("project"))),
-    })),
   })
     .index("by_clerk_user_id", ["clerkUserId"])
     .index("by_email", ["email"]),

@@ -8,7 +8,6 @@ import type { CSSProperties } from "react";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Spinner } from "@/components/ui/spinner";
 import { CompanySidebar } from "@/components/company/CompanySidebar";
-import { GuidedTourHost } from "@/components/tours/GuidedTourHost";
 import { useOrganization } from "@clerk/nextjs";
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
@@ -142,7 +141,6 @@ export default function CompanyLayout({
     <div style={swappedSurfaceVars}>
       <SidebarProvider>
         <CompanySidebar />
-        <GuidedTourHost scope="workspace" />
         <SidebarInset className="xl:overflow-hidden">
           <header className="xl:hidden sticky top-0 z-20 flex h-16 items-center gap-2 border-b border-border/70 bg-background/90 px-4 backdrop-blur-md">
             <SidebarTrigger className="-ml-1 [&.hidden]:flex" />

@@ -302,7 +302,7 @@ export default function FilesView() {
 
   return (
     <ProjectPageLayout>
-      <div data-tour="project-files-root">
+      <div>
         <div className="mb-6">
           <ProjectPageHeader
             title="Files"
@@ -378,7 +378,7 @@ export default function FilesView() {
               id="file-upload"
             />
             <Button asChild>
-              <label data-tour="project-files-upload" htmlFor="file-upload" className="cursor-pointer">
+              <label htmlFor="file-upload" className="cursor-pointer">
                 <Upload className="h-4 w-4 mr-2" />
                 Upload File
               </label>

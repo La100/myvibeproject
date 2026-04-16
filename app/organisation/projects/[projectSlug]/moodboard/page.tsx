@@ -393,7 +393,7 @@ export default function MoodboardPage() {
 
   return (
     <ProjectPageLayout>
-      <div data-tour="project-moodboard-root" className="w-full">
+      <div className="w-full">
         <ProjectPageHeader
           title="Moodboard"
           icon={<Images className="h-8 w-8 text-primary" />}
@@ -409,7 +409,6 @@ export default function MoodboardPage() {
           }
           actions={
             <Button
-              data-tour="project-moodboard-add-section"
               onClick={() => {
                 void handleAddRow();
               }}
