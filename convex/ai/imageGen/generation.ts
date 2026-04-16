@@ -42,7 +42,7 @@ const referenceImageValidator = v.object({
   name: v.string(),
 });
 
-const MAX_REFERENCE_IMAGE_BYTES = 8 * 1024 * 1024;
+const MAX_REFERENCE_IMAGE_BYTES = 20 * 1024 * 1024;
 const MAX_REFERENCE_REDIRECTS = 3;
 
 const DEFAULT_MOODBOARD_SECTION_KEY = "1";

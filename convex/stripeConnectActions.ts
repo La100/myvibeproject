@@ -27,7 +27,8 @@ const getStripe = () => {
   return stripe;
 };
 
-const getBaseUrl = () => (process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3001").replace(/\/+$/, "");
+const getBaseUrl = (value?: string | null) =>
+  (value || process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3001").replace(/\/+$/, "");
 
 const getDefaultConnectCountry = () =>
   (process.env.STRIPE_CONNECT_DEFAULT_COUNTRY || "PL").trim().toUpperCase();
@@ -107,6 +108,7 @@ export const createOrResumeStripeConnectOnboarding = action({
   args: {
     teamId: v.id("teams"),
     returnPath: v.optional(v.string()),
+    baseUrl: v.optional(v.string()),
   },
   returns: v.object({
     url: v.string(),
@@ -160,8 +162,8 @@ export const createOrResumeStripeConnectOnboarding = action({
       const accountLink = await getStripe().accountLinks.create({
         account: accountId,
         type: "account_onboarding",
-        refresh_url: `${getBaseUrl()}${returnPath}`,
-        return_url: `${getBaseUrl()}${returnPath}`,
+        refresh_url: `${getBaseUrl(args.baseUrl)}${returnPath}`,
+        return_url: `${getBaseUrl(args.baseUrl)}${returnPath}`,
       });
 
       return {

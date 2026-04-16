@@ -520,6 +520,7 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
     try {
       const result = await createBillingPortalSession({
         teamId: teamData.teamId,
+        baseUrl: window.location.origin,
       });
 
       if (result.url) {
@@ -548,6 +549,7 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
       const result = await createCheckoutSession({
         teamId: teamData.teamId,
         priceId,
+        baseUrl: window.location.origin,
       });
 
       if (result.url) {
@@ -817,11 +819,11 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                         <p className="mt-2 text-xl font-semibold tabular-nums">{formatTokens(usedCredits)}</p>
                       </div>
                       <div className="rounded-xl border border-border/50 bg-background/80 p-4">
-                        <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Monthly allowance</p>
+                        <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Monthly credits</p>
                         <p className="mt-2 text-xl font-semibold tabular-nums">{formatTokens(totalCredits)}</p>
                       </div>
                       <div className="rounded-xl border border-border/50 bg-background/80 p-4">
-                        <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Typical run</p>
+                        <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Estimated per run</p>
                         <p className="mt-2 text-xl font-semibold tabular-nums">{formatTokens(GEMINI_FLASH_IMAGE_TYPICAL_CREDITS)}</p>
                       </div>
                     </div>

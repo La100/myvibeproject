@@ -723,6 +723,7 @@ export default function ProjectPaymentsView() {
       const result = await createOrResumeStripeConnectOnboarding({
         teamId: project.teamId,
         returnPath,
+        baseUrl: window.location.origin,
       });
       window.location.assign(result.url);
     } catch (error) {

@@ -148,6 +148,20 @@ export async function fetchRemoteUrlPinned(
   const timeoutMs = options?.timeoutMs ?? 10_000;
 
   return await new Promise<PinnedFetchResponse>((resolve, reject) => {
+    let settled = false;
+
+    const rejectOnce = (error: Error) => {
+      if (settled) return;
+      settled = true;
+      reject(error);
+    };
+
+    const resolveOnce = (value: PinnedFetchResponse) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+
     const request = client.request(
       url,
       {
@@ -160,6 +174,17 @@ export async function fetchRemoteUrlPinned(
         servername: url.protocol === "https:" ? url.hostname : undefined,
       },
       (response) => {
+        const declaredContentLength = Number(response.headers["content-length"]);
+        if (
+          options?.maxBytes !== undefined &&
+          Number.isFinite(declaredContentLength) &&
+          declaredContentLength > options.maxBytes
+        ) {
+          response.resume();
+          rejectOnce(new Error("Remote response is too large"));
+          return;
+        }
+
         const chunks: Buffer[] = [];
         let totalBytes = 0;
 
@@ -168,11 +193,15 @@ export async function fetchRemoteUrlPinned(
           totalBytes += bufferChunk.length;
 
           if (options?.maxBytes !== undefined && totalBytes > options.maxBytes) {
-            request.destroy(new Error("Remote response is too large"));
+            response.destroy(new Error("Remote response is too large"));
             return;
           }
 
           chunks.push(bufferChunk);
+        });
+
+        response.on("error", (error) => {
+          rejectOnce(error as Error);
         });
 
         response.on("end", () => {
@@ -187,7 +216,7 @@ export async function fetchRemoteUrlPinned(
             }
           }
 
-          resolve({
+          resolveOnce({
             body: Buffer.concat(chunks),
             headers,
             status: response.statusCode || 0,
@@ -201,7 +230,9 @@ export async function fetchRemoteUrlPinned(
       request.destroy(new Error("Remote request timed out"));
     });
 
-    request.on("error", reject);
+    request.on("error", (error) => {
+      rejectOnce(error as Error);
+    });
 
     if (options?.body !== undefined) {
       request.write(options.body);

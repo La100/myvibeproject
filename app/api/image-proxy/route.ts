@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { fetchRemoteUrlPinned } from "@/lib/security/remoteUrlSafety";
 
 const REQUEST_TIMEOUT_MS = 10000;
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 const MAX_REDIRECTS = 3;
 export const runtime = "nodejs";
 

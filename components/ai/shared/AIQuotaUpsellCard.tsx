@@ -57,7 +57,11 @@ export function AIQuotaUpsellCard({
 
     setPendingAction("checkout");
     try {
-      const result = await createCheckoutSession({ teamId, priceId: aiPriceId });
+      const result = await createCheckoutSession({
+        teamId,
+        priceId: aiPriceId,
+        baseUrl: window.location.origin,
+      });
       if (!result.url) {
         toast.error("Could not open checkout.");
         return;
@@ -74,7 +78,10 @@ export function AIQuotaUpsellCard({
   const handleOpenPortal = async () => {
     setPendingAction("portal");
     try {
-      const result = await createBillingPortalSession({ teamId });
+      const result = await createBillingPortalSession({
+        teamId,
+        baseUrl: window.location.origin,
+      });
       if (!result.url) {
         toast.error("Could not open billing portal.");
         return;

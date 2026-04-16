@@ -75,6 +75,7 @@ export function AISubscriptionWall({ teamId }: AISubscriptionWallProps) {
       const result = await createCheckoutSession({
         teamId,
         priceId,
+        baseUrl: window.location.origin,
       });
 
       if (result.url) {

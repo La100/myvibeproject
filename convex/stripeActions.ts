@@ -29,9 +29,11 @@ const getStripe = () => {
   return stripe;
 };
 
-const getBaseUrl = () => (process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3001").replace(/\/+$/, "");
-const getBillingSettingsUrl = (checkoutState?: "success" | "canceled") => {
-  const billingUrl = new URL("/organisation/subscription", getBaseUrl());
+const normalizeBaseUrl = (value?: string | null) =>
+  (value || process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3001").replace(/\/+$/, "");
+
+const getBillingSettingsUrl = (baseUrl?: string, checkoutState?: "success" | "canceled") => {
+  const billingUrl = new URL("/organisation/subscription", normalizeBaseUrl(baseUrl));
   if (checkoutState) {
     billingUrl.searchParams.set("checkout", checkoutState);
   }
@@ -53,6 +55,7 @@ export const createCheckoutSession = action({
   args: {
     teamId: v.id("teams"),
     priceId: v.string(),
+    baseUrl: v.optional(v.string()),
   },
   returns: v.object({
     url: v.string(),
@@ -109,8 +112,8 @@ export const createCheckoutSession = action({
           quantity: 1,
         },
       ],
-      success_url: getBillingSettingsUrl("success"),
-      cancel_url: getBillingSettingsUrl("canceled"),
+      success_url: getBillingSettingsUrl(args.baseUrl, "success"),
+      cancel_url: getBillingSettingsUrl(args.baseUrl, "canceled"),
       allow_promotion_codes: true,
       subscription_data: {
         metadata: {
@@ -128,6 +131,7 @@ export const createCheckoutSession = action({
 export const createBillingPortalSession = action({
   args: {
     teamId: v.id("teams"),
+    baseUrl: v.optional(v.string()),
   },
   returns: v.object({
     url: v.string(),
@@ -165,7 +169,7 @@ export const createBillingPortalSession = action({
     // Create portal session using component
     const session = await stripeClient.createCustomerPortalSession(ctx, {
       customerId: team.stripeCustomerId,
-      returnUrl: getBillingSettingsUrl(),
+      returnUrl: getBillingSettingsUrl(args.baseUrl),
     });
 
     return { url: session.url };
