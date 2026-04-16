@@ -510,8 +510,12 @@ export const PromptInput = ({
     [accept]
   );
 
-  const addLocal = useCallback(
-    (fileList: File[] | FileList) => {
+  const addFiles = useCallback(
+    (
+      fileList: File[] | FileList,
+      append: (files: File[]) => void,
+      currentCount: number
+    ) => {
       const incoming = Array.from(fileList);
       const accepted = incoming.filter((f) => matchesAccept(f));
       if (incoming.length && accepted.length === 0) {
@@ -521,44 +525,77 @@ export const PromptInput = ({
         });
         return;
       }
-      const withinSize = (f: File) =>
-        maxFileSize ? f.size <= maxFileSize : true;
-      const sized = accepted.filter(withinSize);
+
+      const oversized = accepted.filter((f) =>
+        maxFileSize ? f.size > maxFileSize : false
+      );
+      const sized = accepted.filter((f) =>
+        maxFileSize ? f.size <= maxFileSize : true
+      );
+
       if (accepted.length > 0 && sized.length === 0) {
+        const firstOversized = oversized[0];
         onError?.({
           code: "max_file_size",
-          message: "All files exceed the maximum size.",
+          message: firstOversized
+            ? `${firstOversized.name} is too large (max ${Math.floor(
+                maxFileSize! / (1024 * 1024)
+              )}MB)`
+            : "All files exceed the maximum size.",
         });
         return;
       }
 
-      setItems((prev) => {
-        const capacity =
-          typeof maxFiles === "number"
-            ? Math.max(0, maxFiles - prev.length)
-            : undefined;
-        const capped =
-          typeof capacity === "number" ? sized.slice(0, capacity) : sized;
-        if (typeof capacity === "number" && sized.length > capacity) {
-          onError?.({
-            code: "max_files",
-            message: "Too many files. Some were not added.",
-          });
-        }
-        const next: (FileUIPart & { id: string })[] = [];
-        for (const file of capped) {
-          next.push({
-            id: nanoid(),
-            type: "file",
-            url: URL.createObjectURL(file),
-            mediaType: file.type,
-            filename: file.name,
-          });
-        }
-        return prev.concat(next);
-      });
+      if (oversized.length > 0) {
+        const firstOversized = oversized[0];
+        onError?.({
+          code: "max_file_size",
+          message: `${firstOversized.name} is too large (max ${Math.floor(
+            maxFileSize! / (1024 * 1024)
+          )}MB)`,
+        });
+      }
+
+      const capacity =
+        typeof maxFiles === "number"
+          ? Math.max(0, maxFiles - currentCount)
+          : undefined;
+      const capped =
+        typeof capacity === "number" ? sized.slice(0, capacity) : sized;
+
+      if (typeof capacity === "number" && sized.length > capacity) {
+        onError?.({
+          code: "max_files",
+          message: "Too many files. Some were not added.",
+        });
+      }
+
+      if (capped.length === 0) {
+        return;
+      }
+
+      append(capped);
     },
     [matchesAccept, maxFiles, maxFileSize, onError]
+  );
+
+  const addLocal = useCallback(
+    (fileList: File[] | FileList) => {
+      addFiles(fileList, (filesToAdd) => {
+        setItems((prev) =>
+          prev.concat(
+            filesToAdd.map((file) => ({
+              id: nanoid(),
+              type: "file" as const,
+              url: URL.createObjectURL(file),
+              mediaType: file.type,
+              filename: file.name,
+            }))
+          )
+        );
+      }, items.length);
+    },
+    [addFiles, items.length]
   );
 
   const removeLocal = useCallback(
@@ -586,7 +623,23 @@ export const PromptInput = ({
     []
   );
 
-  const add = usingProvider ? controller.attachments.add : addLocal;
+  const add = useCallback(
+    (fileList: File[] | FileList) => {
+      if (usingProvider) {
+        addFiles(fileList, controller.attachments.add, controller.attachments.files.length);
+        return;
+      }
+
+      addLocal(fileList);
+    },
+    [
+      addFiles,
+      addLocal,
+      controller?.attachments.add,
+      controller?.attachments.files.length,
+      usingProvider,
+    ]
+  );
   const remove = usingProvider ? controller.attachments.remove : removeLocal;
   const clear = usingProvider ? controller.attachments.clear : clearLocal;
   const openFileDialog = usingProvider
