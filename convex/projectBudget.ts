@@ -3,7 +3,11 @@ import { query } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 import { summarizeProjectBudget } from "../lib/projectBudgetSummary";
 
-const getProjectMembership = async (ctx: any, projectId: Id<"projects">, clerkUserId: string) => {
+const getProjectMembership = async (
+  ctx: any,
+  projectId: Id<"projects">,
+  clerkUserId: string,
+) => {
   const project = await ctx.db.get(projectId);
   if (!project) {
     throw new Error("Project not found");
@@ -17,7 +21,10 @@ const getProjectMembership = async (ctx: any, projectId: Id<"projects">, clerkUs
     .filter((q: any) => q.eq(q.field("isActive"), true))
     .first();
 
-  if (!membership || (membership.role !== "admin" && membership.role !== "member")) {
+  if (
+    !membership ||
+    (membership.role !== "admin" && membership.role !== "member")
+  ) {
     throw new Error("Insufficient permissions to view project budget");
   }
 
@@ -38,12 +45,23 @@ const buildProjectBudgetSummary = async (
     currency?: string;
   },
 ) => {
-  const [shoppingItems, laborItems, estimations, payments, milestones] = await Promise.all([
-    ctx.db.query("shoppingListItems").withIndex("by_project", (q: any) => q.eq("projectId", project._id)).collect(),
-    ctx.db.query("laborItems").withIndex("by_project", (q: any) => q.eq("projectId", project._id)).collect(),
-    ctx.db.query("costEstimations").withIndex("by_project", (q: any) => q.eq("projectId", project._id)).collect(),
-    ctx.db.query("projectPayments").withIndex("by_project", (q: any) => q.eq("projectId", project._id)).collect(),
-    ctx.db.query("projectMilestones").withIndex("by_project", (q: any) => q.eq("projectId", project._id)).collect(),
+  const [shoppingItems, laborItems, estimations, payments] = await Promise.all([
+    ctx.db
+      .query("shoppingListItems")
+      .withIndex("by_project", (q: any) => q.eq("projectId", project._id))
+      .collect(),
+    ctx.db
+      .query("laborItems")
+      .withIndex("by_project", (q: any) => q.eq("projectId", project._id))
+      .collect(),
+    ctx.db
+      .query("costEstimations")
+      .withIndex("by_project", (q: any) => q.eq("projectId", project._id))
+      .collect(),
+    ctx.db
+      .query("projectPayments")
+      .withIndex("by_project", (q: any) => q.eq("projectId", project._id))
+      .collect(),
   ]);
 
   return summarizeProjectBudget(
@@ -57,7 +75,6 @@ const buildProjectBudgetSummary = async (
       laborItems,
       estimations,
       payments,
-      milestones,
     },
     Date.now(),
   );
@@ -73,7 +90,11 @@ export const getProjectBudgetSummary = query({
       return null;
     }
 
-    const project = await getProjectMembership(ctx, args.projectId, identity.subject);
+    const project = await getProjectMembership(
+      ctx,
+      args.projectId,
+      identity.subject,
+    );
     return await buildProjectBudgetSummary(ctx, project);
   },
 });
@@ -90,7 +111,9 @@ export const getPublicProjectBudgetSummaryByAccessToken = query({
 
     const project = await ctx.db
       .query("projects")
-      .withIndex("by_client_panel_access_token", (q: any) => q.eq("clientPanelAccessToken", token))
+      .withIndex("by_client_panel_access_token", (q: any) =>
+        q.eq("clientPanelAccessToken", token),
+      )
       .unique();
 
     if (!project || project.clientPanelPublishedSettings?.showBudget !== true) {

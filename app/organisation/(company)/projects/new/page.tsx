@@ -47,6 +47,7 @@ export default function NewProjectPage() {
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isOptimizingCoverImage, setIsOptimizingCoverImage] = useState(false);
+  const hydratedTaxDefaultsRef = useRef(false);
 
   const team = useQuery(apiAny.teams.getTeamByClerkOrg,
     organization?.id ? { clerkOrgId: organization.id } : "skip"
@@ -87,6 +88,19 @@ export default function NewProjectPage() {
   });
   const selectedCurrency = useDefaultCurrency ? (team?.currency || "PLN") : newProject.currency;
   const selectedCurrencySymbol = currencySymbols[selectedCurrency] || selectedCurrency;
+
+  useEffect(() => {
+    if (!team || hydratedTaxDefaultsRef.current) {
+      return;
+    }
+
+    hydratedTaxDefaultsRef.current = true;
+    setNewProject((current) => ({
+      ...current,
+      tax: Boolean(team.organizationTaxSettings?.taxEnabled),
+      taxRate: String(team.organizationTaxSettings?.taxRate ?? 23),
+    }));
+  }, [team]);
 
   useEffect(() => {
     if (!coverImageFile) {

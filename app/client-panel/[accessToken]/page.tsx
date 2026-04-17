@@ -3,7 +3,19 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { Banknote, CheckCircle2, ClipboardList, Download, ExternalLink, FileSpreadsheet, Send, Users, Wallet, XCircle } from "lucide-react";
+import {
+  Banknote,
+  CheckCircle2,
+  ClipboardList,
+  Download,
+  ExternalLink,
+  FileSpreadsheet,
+  MoreHorizontal,
+  Send,
+  Users,
+  Wallet,
+  XCircle,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Doc, Id } from "@/convex/_generated/dataModel";
 import { apiAny } from "@/lib/convexApiAny";
@@ -16,6 +28,12 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
@@ -141,10 +159,6 @@ type PublicBudgetSummary = {
     collectedPayments: number;
     outstandingPayments: number;
   };
-  milestones: {
-    count: number;
-    budgetAllocated: number;
-  };
   alerts: Array<{
     severity: "high" | "medium";
     label: string;
@@ -265,8 +279,8 @@ const formatAmount = (value: number | undefined, currencySymbol: string) => {
 
 const getLeadOption = (item: ClientPanelItem, options: ClientPanelItem[]) => {
   const preferredIds = new Set(
-    (item.setResolvedSourceItemIds || item.setPreferredSourceItemIds || []).map((entry) =>
-      String(entry),
+    (item.setResolvedSourceItemIds || item.setPreferredSourceItemIds || []).map(
+      (entry) => String(entry),
     ),
   );
 
@@ -287,9 +301,18 @@ const getChoiceLabel = (selectionMode: ShoppingGroup["selectionMode"]) => {
   return "Included";
 };
 
-const getInitialSelectedOptionIds = (item: ClientPanelItem, options: ClientPanelItem[]) => {
-  const optionIds = new Set(options.map((option) => String(option.sourceItemId)));
-  const selectedIds = (item.setResolvedSourceItemIds || item.setPreferredSourceItemIds || [])
+const getInitialSelectedOptionIds = (
+  item: ClientPanelItem,
+  options: ClientPanelItem[],
+) => {
+  const optionIds = new Set(
+    options.map((option) => String(option.sourceItemId)),
+  );
+  const selectedIds = (
+    item.setResolvedSourceItemIds ||
+    item.setPreferredSourceItemIds ||
+    []
+  )
     .map((entry) => String(entry))
     .filter((entry) => optionIds.has(entry));
 
@@ -304,14 +327,20 @@ const getInitialSelectedOptionIds = (item: ClientPanelItem, options: ClientPanel
   return [];
 };
 
-const getQtyLabel = (item: ClientPanelItem) => `Qty: ${item.quantity} ${item.unit || "pcs"}`;
+const getQtyLabel = (item: ClientPanelItem) =>
+  `Qty: ${item.quantity} ${item.unit || "pcs"}`;
 
 const getSelectedIdsForGroup = (
   group: ShoppingGroup,
   localSelection: Record<string, string[]>,
-) => localSelection[group.key] || getInitialSelectedOptionIds(group.leadItem, group.items);
+) =>
+  localSelection[group.key] ||
+  getInitialSelectedOptionIds(group.leadItem, group.items);
 
-const getCountedItemsForGroup = (group: ShoppingGroup, selectedIds: string[]) => {
+const getCountedItemsForGroup = (
+  group: ShoppingGroup,
+  selectedIds: string[],
+) => {
   if (!group.setId) {
     return group.items;
   }
@@ -322,12 +351,16 @@ const getCountedItemsForGroup = (group: ShoppingGroup, selectedIds: string[]) =>
 
   const selectedIdSet = new Set(selectedIds);
   if (group.selectionMode === "single") {
-    const selectedItem = group.items.find((item) => selectedIdSet.has(String(item.sourceItemId)));
+    const selectedItem = group.items.find((item) =>
+      selectedIdSet.has(String(item.sourceItemId)),
+    );
     return selectedItem ? [selectedItem] : [];
   }
 
   if (group.selectionMode === "multiple") {
-    return group.items.filter((item) => selectedIdSet.has(String(item.sourceItemId)));
+    return group.items.filter((item) =>
+      selectedIdSet.has(String(item.sourceItemId)),
+    );
   }
 
   return group.pricingMode === "all_selected" ? group.items : [];
@@ -382,11 +415,14 @@ const getOrCreatePublicRespondentKey = (accessToken: string) => {
 
 const buildPublicSurveyAnswerPayload = (
   question: PublicSurveyQuestion,
-  value: unknown
+  value: unknown,
 ): PublicSurveyAnswerPayload | null => {
   if (question.questionType === "file") return null;
 
-  if (question.questionType === "text_short" || question.questionType === "text_long") {
+  if (
+    question.questionType === "text_short" ||
+    question.questionType === "text_long"
+  ) {
     if (typeof value !== "string" || value.trim().length === 0) return null;
     return {
       questionId: question._id,
@@ -406,7 +442,9 @@ const buildPublicSurveyAnswerPayload = (
 
   if (question.questionType === "multiple_choice") {
     if (!Array.isArray(value)) return null;
-    const selectedValues = value.filter((option): option is string => typeof option === "string");
+    const selectedValues = value.filter(
+      (option): option is string => typeof option === "string",
+    );
     if (selectedValues.length === 0) return null;
     return {
       questionId: question._id,
@@ -498,13 +536,19 @@ function PortalItemCard({
           <div
             className={cn(
               "min-w-0 flex-1",
-              imageUrl ? "flex flex-col items-start gap-3 sm:flex-row sm:gap-4" : "flex flex-col",
+              imageUrl
+                ? "flex flex-col items-start gap-3 sm:flex-row sm:gap-4"
+                : "flex flex-col",
             )}
           >
-            {imageUrl ? <ItemImage imageUrl={imageUrl} name={name} size="sm" /> : null}
+            {imageUrl ? (
+              <ItemImage imageUrl={imageUrl} name={name} size="sm" />
+            ) : null}
             <div className="min-w-0 flex-1">
               <div className="mb-2 flex flex-wrap items-center gap-2">
-                <h4 className="text-base font-medium text-foreground sm:text-lg">{name}</h4>
+                <h4 className="text-base font-medium text-foreground sm:text-lg">
+                  {name}
+                </h4>
                 {badges}
               </div>
               {metadata ? (
@@ -512,12 +556,18 @@ function PortalItemCard({
                   {metadata}
                 </div>
               ) : null}
-              {description ? <p className="mt-2 text-sm text-muted-foreground">{description}</p> : null}
+              {description ? (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {description}
+                </p>
+              ) : null}
             </div>
           </div>
 
           {sideContent ? (
-            <div className="flex flex-wrap items-center gap-2 lg:justify-end">{sideContent}</div>
+            <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+              {sideContent}
+            </div>
           ) : null}
         </div>
 
@@ -528,7 +578,9 @@ function PortalItemCard({
 }
 
 function ClientPanelSkeleton() {
-  return <Spinner className="mx-auto w-full max-w-6xl px-6 pb-24 pt-8 sm:px-8" />;
+  return (
+    <Spinner className="mx-auto w-full max-w-6xl px-6 pb-24 pt-8 sm:px-8" />
+  );
 }
 
 export default function PublicClientPanelPage() {
@@ -536,74 +588,139 @@ export default function PublicClientPanelPage() {
   const accessToken = params.accessToken;
   const [respondentKey, setRespondentKey] = useState<string | null>(null);
 
-  const panelData = useQuery(apiAny.shopping.getPublicShoppingListByAccessToken, {
-    accessToken,
-  });
-  const selectShoppingSetItems = useMutation(apiAny.shopping.selectShoppingSetItemsByAccessToken);
-  const respondToShoppingItem = useMutation(apiAny.shopping.respondToShoppingItemByAccessToken);
-  const saveShoppingItemComment = useMutation(apiAny.shopping.saveShoppingItemCommentByAccessToken);
-  const respondToLaborItem = useMutation(apiAny.labor.respondToLaborItemByAccessToken);
-  const saveLaborItemComment = useMutation(apiAny.labor.saveLaborItemCommentByAccessToken);
-  const submitPublicSurvey = useMutation(apiAny.surveys.submitPublicSurveyResponseByAccessToken);
+  const panelData = useQuery(
+    apiAny.shopping.getPublicShoppingListByAccessToken,
+    {
+      accessToken,
+    },
+  );
+  const selectShoppingSetItems = useMutation(
+    apiAny.shopping.selectShoppingSetItemsByAccessToken,
+  );
+  const respondToShoppingItem = useMutation(
+    apiAny.shopping.respondToShoppingItemByAccessToken,
+  );
+  const saveShoppingItemComment = useMutation(
+    apiAny.shopping.saveShoppingItemCommentByAccessToken,
+  );
+  const respondToLaborItem = useMutation(
+    apiAny.labor.respondToLaborItemByAccessToken,
+  );
+  const saveLaborItemComment = useMutation(
+    apiAny.labor.saveLaborItemCommentByAccessToken,
+  );
+  const submitPublicSurvey = useMutation(
+    apiAny.surveys.submitPublicSurveyResponseByAccessToken,
+  );
   const getInvoiceDownloadUrl = useAction(
-    apiAny.projectPaymentActions.getProjectPaymentInvoiceDownloadUrlByAccessToken,
+    apiAny.projectPaymentActions
+      .getProjectPaymentInvoiceDownloadUrlByAccessToken,
   );
   const getStripePaymentLinkUrl = useAction(
     apiAny.projectPaymentActions.getProjectPaymentStripeLinkByAccessToken,
   );
   const publicBudgetSummaryData = useQuery(
     apiAny.projectBudget.getPublicProjectBudgetSummaryByAccessToken,
-    panelData?.settings?.showBudget ? { accessToken } : "skip"
+    panelData?.settings?.showBudget ? { accessToken } : "skip",
   );
   const publicSurveysData = useQuery(
     apiAny.surveys.getPublicSurveysByAccessToken,
     respondentKey && (panelData?.settings?.showSurveys ?? false)
       ? { accessToken, respondentKey }
-      : "skip"
+      : "skip",
   );
 
-  const [localSelection, setLocalSelection] = useState<Record<string, string[]>>({});
+  const [localSelection, setLocalSelection] = useState<
+    Record<string, string[]>
+  >({});
   const [savingItemId, setSavingItemId] = useState<string | null>(null);
   const [openSurveyId, setOpenSurveyId] = useState<string | null>(null);
-  const [submittingSurveyId, setSubmittingSurveyId] = useState<string | null>(null);
-  const [surveyStartTimes, setSurveyStartTimes] = useState<Record<string, number>>({});
-  const [surveyAnswers, setSurveyAnswers] = useState<Record<string, Record<string, unknown>>>({});
+  const [submittingSurveyId, setSubmittingSurveyId] = useState<string | null>(
+    null,
+  );
+  const [surveyStartTimes, setSurveyStartTimes] = useState<
+    Record<string, number>
+  >({});
+  const [surveyAnswers, setSurveyAnswers] = useState<
+    Record<string, Record<string, unknown>>
+  >({});
   const [isExportingMaterialsPdf, setIsExportingMaterialsPdf] = useState(false);
   const [isExportingLaborPdf, setIsExportingLaborPdf] = useState(false);
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const [respondentName, setRespondentName] = useState("");
-  const [selectedMoodboardFile, setSelectedMoodboardFile] = useState<ClientPanelFile | null>(null);
-  const [downloadingPaymentId, setDownloadingPaymentId] = useState<string | null>(null);
+  const [selectedMoodboardFile, setSelectedMoodboardFile] =
+    useState<ClientPanelFile | null>(null);
+  const [downloadingPaymentId, setDownloadingPaymentId] = useState<
+    string | null
+  >(null);
   const [openingPaymentId, setOpeningPaymentId] = useState<string | null>(null);
-  const [shoppingItemComments, setShoppingItemComments] = useState<Record<string, string>>({});
-  const [respondingShoppingItemId, setRespondingShoppingItemId] = useState<string | null>(null);
-  const [expandedShoppingItemComments, setExpandedShoppingItemComments] = useState<Record<string, boolean>>({});
-  const [savingShoppingCommentIds, setSavingShoppingCommentIds] = useState<Record<string, boolean>>({});
-  const [savedShoppingCommentIds, setSavedShoppingCommentIds] = useState<Record<string, boolean>>({});
-  const [laborItemComments, setLaborItemComments] = useState<Record<string, string>>({});
-  const [respondingLaborItemId, setRespondingLaborItemId] = useState<string | null>(null);
-  const [expandedLaborItemComments, setExpandedLaborItemComments] = useState<Record<string, boolean>>({});
-  const [savingLaborCommentIds, setSavingLaborCommentIds] = useState<Record<string, boolean>>({});
-  const [savedLaborCommentIds, setSavedLaborCommentIds] = useState<Record<string, boolean>>({});
-  const commentAutosaveTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-  const commentSavedStateTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-  const laborCommentAutosaveTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-  const laborCommentSavedStateTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const [shoppingItemComments, setShoppingItemComments] = useState<
+    Record<string, string>
+  >({});
+  const [respondingShoppingItemId, setRespondingShoppingItemId] = useState<
+    string | null
+  >(null);
+  const [expandedShoppingItemComments, setExpandedShoppingItemComments] =
+    useState<Record<string, boolean>>({});
+  const [savingShoppingCommentIds, setSavingShoppingCommentIds] = useState<
+    Record<string, boolean>
+  >({});
+  const [savedShoppingCommentIds, setSavedShoppingCommentIds] = useState<
+    Record<string, boolean>
+  >({});
+  const [laborItemComments, setLaborItemComments] = useState<
+    Record<string, string>
+  >({});
+  const [respondingLaborItemId, setRespondingLaborItemId] = useState<
+    string | null
+  >(null);
+  const [expandedLaborItemComments, setExpandedLaborItemComments] = useState<
+    Record<string, boolean>
+  >({});
+  const [savingLaborCommentIds, setSavingLaborCommentIds] = useState<
+    Record<string, boolean>
+  >({});
+  const [savedLaborCommentIds, setSavedLaborCommentIds] = useState<
+    Record<string, boolean>
+  >({});
+  const commentAutosaveTimeoutsRef = useRef<
+    Record<string, ReturnType<typeof setTimeout>>
+  >({});
+  const commentSavedStateTimeoutsRef = useRef<
+    Record<string, ReturnType<typeof setTimeout>>
+  >({});
+  const laborCommentAutosaveTimeoutsRef = useRef<
+    Record<string, ReturnType<typeof setTimeout>>
+  >({});
+  const laborCommentSavedStateTimeoutsRef = useRef<
+    Record<string, ReturnType<typeof setTimeout>>
+  >({});
 
   const project = panelData?.project;
-  const sections = (panelData?.sections as ClientPanelSection[] | undefined) ?? EMPTY_SECTIONS;
-  const items = (panelData?.items as ClientPanelItem[] | undefined) ?? EMPTY_ITEMS;
-  const files = (panelData?.files as ClientPanelFile[] | undefined) ?? EMPTY_FILES;
+  const sections =
+    (panelData?.sections as ClientPanelSection[] | undefined) ?? EMPTY_SECTIONS;
+  const items =
+    (panelData?.items as ClientPanelItem[] | undefined) ?? EMPTY_ITEMS;
+  const files =
+    (panelData?.files as ClientPanelFile[] | undefined) ?? EMPTY_FILES;
   const moodboardFiles =
     (panelData?.moodboardFiles as ClientPanelFile[] | undefined) ?? EMPTY_FILES;
-  const surveys = (publicSurveysData?.surveys as PublicSurvey[] | undefined) ?? EMPTY_SURVEYS;
+  const surveys =
+    (publicSurveysData?.surveys as PublicSurvey[] | undefined) ?? EMPTY_SURVEYS;
   const tasks = (panelData?.tasks as PublicTask[] | undefined) ?? EMPTY_TASKS;
-  const laborItems = (panelData?.labor as PublicLaborItem[] | undefined) ?? EMPTY_LABOR_ITEMS;
+  const laborItems =
+    (panelData?.labor as PublicLaborItem[] | undefined) ?? EMPTY_LABOR_ITEMS;
   const laborSections =
-    (panelData?.laborSections as PublicLaborSection[] | undefined) ?? EMPTY_LABOR_SECTIONS;
-  const contacts = (panelData?.contacts as PublicContact[] | undefined) ?? EMPTY_CONTACTS;
-  const payments = (panelData?.payments as PublicPayment[] | undefined) ?? EMPTY_PAYMENTS;
-  const publicBudgetSummary = publicBudgetSummaryData as PublicBudgetSummary | null | undefined;
+    (panelData?.laborSections as PublicLaborSection[] | undefined) ??
+    EMPTY_LABOR_SECTIONS;
+  const contacts =
+    (panelData?.contacts as PublicContact[] | undefined) ?? EMPTY_CONTACTS;
+  const payments =
+    (panelData?.payments as PublicPayment[] | undefined) ?? EMPTY_PAYMENTS;
+  const publicBudgetSummary = publicBudgetSummaryData as
+    | PublicBudgetSummary
+    | null
+    | undefined;
   const settings = panelData?.settings ?? DEFAULT_CLIENT_PANEL_SETTINGS;
   const organizationTaxSettings = resolveOrganizationTaxSettings(
     panelData?.organizationTaxSettings,
@@ -747,20 +864,26 @@ export default function PublicClientPanelPage() {
 
   useEffect(
     () => () => {
-      Object.values(commentAutosaveTimeoutsRef.current).forEach((timeoutId) => clearTimeout(timeoutId));
-      Object.values(commentSavedStateTimeoutsRef.current).forEach((timeoutId) => clearTimeout(timeoutId));
-      Object.values(laborCommentAutosaveTimeoutsRef.current).forEach((timeoutId) =>
+      Object.values(commentAutosaveTimeoutsRef.current).forEach((timeoutId) =>
         clearTimeout(timeoutId),
       );
-      Object.values(laborCommentSavedStateTimeoutsRef.current).forEach((timeoutId) =>
+      Object.values(commentSavedStateTimeoutsRef.current).forEach((timeoutId) =>
         clearTimeout(timeoutId),
+      );
+      Object.values(laborCommentAutosaveTimeoutsRef.current).forEach(
+        (timeoutId) => clearTimeout(timeoutId),
+      );
+      Object.values(laborCommentSavedStateTimeoutsRef.current).forEach(
+        (timeoutId) => clearTimeout(timeoutId),
       );
     },
     [],
   );
 
   const shoppingGroupsBySection = useMemo(() => {
-    const sectionOrder = new Map(sections.map((section) => [section.name, section.order]));
+    const sectionOrder = new Map(
+      sections.map((section) => [section.name, section.order]),
+    );
     const sortedItems = [...items].sort((a, b) => {
       const aSectionOrder =
         a.sectionName && sectionOrder.has(a.sectionName)
@@ -791,7 +914,9 @@ export default function PublicClientPanelPage() {
           continue;
         }
         seenSetIds.add(setKey);
-        const setItems = sortedItems.filter((entry) => String(entry.setId ?? "") === setKey);
+        const setItems = sortedItems.filter(
+          (entry) => String(entry.setId ?? "") === setKey,
+        );
         const leadItem = getLeadOption(item, setItems);
         existing.push({
           key: setKey,
@@ -826,7 +951,13 @@ export default function PublicClientPanelPage() {
       const total = groups.reduce((sum, group) => {
         const selectedIds = getSelectedIdsForGroup(group, localSelection);
         const countedItems = getCountedItemsForGroup(group, selectedIds);
-        return sum + countedItems.reduce((sectionSum, item) => sectionSum + (item.totalPrice || 0), 0);
+        return (
+          sum +
+          countedItems.reduce(
+            (sectionSum, item) => sectionSum + (item.totalPrice || 0),
+            0,
+          )
+        );
       }, 0);
 
       return {
@@ -837,22 +968,26 @@ export default function PublicClientPanelPage() {
     },
   );
 
-  const grandTotal = sectionSummaries.reduce((sum, section) => sum + section.total, 0);
+  const grandTotal = sectionSummaries.reduce(
+    (sum, section) => sum + section.total,
+    0,
+  );
   const materialsItemCount = sectionSummaries.reduce(
     (sum, section) => sum + section.itemCount,
-    0
+    0,
   );
   const shoppingExportSections = useMemo(
     () =>
-      Array.from(shoppingGroupsBySection.entries()).map(([sectionName, groups]) => ({
-        sectionName,
-        rows: groups.flatMap((group) => {
-          const selectedIds = getSelectedIdsForGroup(group, localSelection);
-          const countedItems = getCountedItemsForGroup(group, selectedIds);
-          const printableItems = countedItems.length > 0 ? countedItems : group.items;
+      Array.from(shoppingGroupsBySection.entries()).map(
+        ([sectionName, groups]) => ({
+          sectionName,
+          rows: groups.flatMap((group) => {
+            const selectedIds = getSelectedIdsForGroup(group, localSelection);
+            const countedItems = getCountedItemsForGroup(group, selectedIds);
+            const printableItems =
+              countedItems.length > 0 ? countedItems : group.items;
 
-          return printableItems.map(
-            (item): ShoppingExportRow => {
+            return printableItems.map((item): ShoppingExportRow => {
               const unitBreakdown = calculateTaxBreakdown(
                 item.unitPrice,
                 organizationTaxSettings,
@@ -879,17 +1014,31 @@ export default function PublicClientPanelPage() {
                 supplier: item.supplier || "-",
                 notes: item.notes || "-",
               };
-            },
-          );
+            });
+          }),
         }),
-      })),
-    [currencySymbol, localSelection, organizationTaxSettings, shoppingGroupsBySection],
+      ),
+    [
+      currencySymbol,
+      localSelection,
+      organizationTaxSettings,
+      shoppingGroupsBySection,
+    ],
   );
-  const shoppingExportRows = shoppingExportSections.flatMap((section) => section.rows);
+  const shoppingExportRows = shoppingExportSections.flatMap(
+    (section) => section.rows,
+  );
   const laborSectionEntries = useMemo(() => {
-    const sectionOrder = new Map(laborSections.map((section) => [String(section._id), section.order]));
-    const sectionNameById = new Map(laborSections.map((section) => [String(section._id), section.name]));
-    const buckets = new Map<string, { name: string; items: PublicLaborItem[] }>();
+    const sectionOrder = new Map(
+      laborSections.map((section) => [String(section._id), section.order]),
+    );
+    const sectionNameById = new Map(
+      laborSections.map((section) => [String(section._id), section.name]),
+    );
+    const buckets = new Map<
+      string,
+      { name: string; items: PublicLaborItem[] }
+    >();
 
     const ensureBucket = (key: string, name: string) => {
       if (!buckets.has(key)) {
@@ -900,7 +1049,9 @@ export default function PublicClientPanelPage() {
 
     for (const item of laborItems) {
       const key = item.sectionId ? String(item.sectionId) : "__none__";
-      const name = item.sectionId ? sectionNameById.get(String(item.sectionId)) || "No Category" : "No Category";
+      const name = item.sectionId
+        ? sectionNameById.get(String(item.sectionId)) || "No Category"
+        : "No Category";
       ensureBucket(key, name).items.push(item);
     }
 
@@ -912,13 +1063,16 @@ export default function PublicClientPanelPage() {
       .map(([key, value]) => ({
         key,
         name: value.name,
-        items: value.items.slice().sort((left, right) => left.name.localeCompare(right.name)),
+        items: value.items
+          .slice()
+          .sort((left, right) => left.name.localeCompare(right.name)),
       }))
       .sort((left, right) => {
         if (left.name === "No Category") return 1;
         if (right.name === "No Category") return -1;
         const leftOrder = sectionOrder.get(left.key) ?? Number.MAX_SAFE_INTEGER;
-        const rightOrder = sectionOrder.get(right.key) ?? Number.MAX_SAFE_INTEGER;
+        const rightOrder =
+          sectionOrder.get(right.key) ?? Number.MAX_SAFE_INTEGER;
         if (leftOrder !== rightOrder) return leftOrder - rightOrder;
         return left.name.localeCompare(right.name);
       });
@@ -927,59 +1081,86 @@ export default function PublicClientPanelPage() {
     () =>
       laborSectionEntries.map((section) => ({
         sectionName: section.name,
-        rows: section.items.map(
-          (item): LaborExportRow => {
-            const unitBreakdown = calculateTaxBreakdown(
-              item.unitPrice,
-              organizationTaxSettings,
-            );
-            const totalBreakdown = calculateTaxBreakdown(
-              item.totalPrice,
-              organizationTaxSettings,
-            );
+        rows: section.items.map((item): LaborExportRow => {
+          const unitBreakdown = calculateTaxBreakdown(
+            item.unitPrice,
+            organizationTaxSettings,
+          );
+          const totalBreakdown = calculateTaxBreakdown(
+            item.totalPrice,
+            organizationTaxSettings,
+          );
 
-            return {
-              sectionName: section.name,
-              work: item.name,
-              qty: String(item.quantity),
-              unit: item.unit || "-",
-              unitNet: formatMoney(unitBreakdown.net, currencySymbol),
-              unitTax: formatMoney(unitBreakdown.tax, currencySymbol),
-              unitGross: formatMoney(unitBreakdown.gross, currencySymbol),
-              totalNet: formatMoney(totalBreakdown.net, currencySymbol),
-              totalTax: formatMoney(totalBreakdown.tax, currencySymbol),
-              totalGross: formatMoney(totalBreakdown.gross, currencySymbol),
-              notes: item.notes || "-",
-              referenceLink: item.referenceLink || "-",
-            };
-          },
-        ),
+          return {
+            sectionName: section.name,
+            work: item.name,
+            qty: String(item.quantity),
+            unit: item.unit || "-",
+            unitNet: formatMoney(unitBreakdown.net, currencySymbol),
+            unitTax: formatMoney(unitBreakdown.tax, currencySymbol),
+            unitGross: formatMoney(unitBreakdown.gross, currencySymbol),
+            totalNet: formatMoney(totalBreakdown.net, currencySymbol),
+            totalTax: formatMoney(totalBreakdown.tax, currencySymbol),
+            totalGross: formatMoney(totalBreakdown.gross, currencySymbol),
+            notes: item.notes || "-",
+            referenceLink: item.referenceLink || "-",
+          };
+        }),
       })),
     [currencySymbol, laborSectionEntries, organizationTaxSettings],
   );
-  const laborExportRows = laborExportSections.flatMap((section) => section.rows);
+  const laborExportRows = laborExportSections.flatMap(
+    (section) => section.rows,
+  );
 
   const sectionCards = [
     settings.showShoppingList
-      ? { id: "portal-materials", label: "Shopping List", count: materialsItemCount }
+      ? {
+          id: "portal-materials",
+          label: "Shopping List",
+          count: materialsItemCount,
+        }
       : null,
-    settings.showSurveys ? { id: "portal-surveys", label: "Surveys", count: surveys.length } : null,
-    settings.showFiles ? { id: "portal-files", label: "Files", count: files.length } : null,
+    settings.showSurveys
+      ? { id: "portal-surveys", label: "Surveys", count: surveys.length }
+      : null,
+    settings.showFiles
+      ? { id: "portal-files", label: "Files", count: files.length }
+      : null,
     settings.showMoodboard
-      ? { id: "portal-moodboard", label: "Moodboard", count: moodboardFiles.length }
+      ? {
+          id: "portal-moodboard",
+          label: "Moodboard",
+          count: moodboardFiles.length,
+        }
       : null,
-    settings.showTasks ? { id: "portal-tasks", label: "Tasks", count: tasks.length } : null,
-    settings.showLabor ? { id: "portal-labor", label: "Labor", count: laborItems.length } : null,
-    settings.showContacts ? { id: "portal-contacts", label: "Contacts", count: contacts.length } : null,
-    settings.showPayments ? { id: "portal-payments", label: "Payments", count: payments.length } : null,
+    settings.showTasks
+      ? { id: "portal-tasks", label: "Tasks", count: tasks.length }
+      : null,
+    settings.showLabor
+      ? { id: "portal-labor", label: "Labor", count: laborItems.length }
+      : null,
+    settings.showContacts
+      ? { id: "portal-contacts", label: "Contacts", count: contacts.length }
+      : null,
+    settings.showPayments
+      ? { id: "portal-payments", label: "Payments", count: payments.length }
+      : null,
     settings.showBudget
       ? {
           id: "portal-budget",
           label: "Budget",
-          count: publicBudgetSummary ? 4 : typeof project?.budget === "number" ? 1 : 0,
+          count: publicBudgetSummary
+            ? 4
+            : typeof project?.budget === "number"
+              ? 1
+              : 0,
         }
       : null,
-  ].filter((section): section is { id: string; label: string; count: number } => !!section);
+  ].filter(
+    (section): section is { id: string; label: string; count: number } =>
+      !!section,
+  );
 
   useEffect(() => {
     if (sectionCards.length === 0) {
@@ -989,7 +1170,7 @@ export default function PublicClientPanelPage() {
     setActiveSectionId((current) =>
       current && sectionCards.some((section) => section.id === current)
         ? current
-        : sectionCards[0].id
+        : sectionCards[0].id,
     );
   }, [sectionCards]);
 
@@ -1066,7 +1247,10 @@ export default function PublicClientPanelPage() {
     }
   };
 
-  const persistShoppingItemComment = async (item: ClientPanelItem, rawComment: string) => {
+  const persistShoppingItemComment = async (
+    item: ClientPanelItem,
+    rawComment: string,
+  ) => {
     const itemId = String(item.sourceItemId);
     const cleanedRespondentName = respondentName.trim();
 
@@ -1086,7 +1270,10 @@ export default function PublicClientPanelPage() {
         respondentName: cleanedRespondentName,
       });
 
-      setSavingShoppingCommentIds((current) => ({ ...current, [itemId]: false }));
+      setSavingShoppingCommentIds((current) => ({
+        ...current,
+        [itemId]: false,
+      }));
       setSavedShoppingCommentIds((current) => ({ ...current, [itemId]: true }));
 
       const existingSavedTimeout = commentSavedStateTimeoutsRef.current[itemId];
@@ -1094,18 +1281,27 @@ export default function PublicClientPanelPage() {
         clearTimeout(existingSavedTimeout);
       }
       commentSavedStateTimeoutsRef.current[itemId] = setTimeout(() => {
-        setSavedShoppingCommentIds((current) => ({ ...current, [itemId]: false }));
+        setSavedShoppingCommentIds((current) => ({
+          ...current,
+          [itemId]: false,
+        }));
         delete commentSavedStateTimeoutsRef.current[itemId];
       }, 1800);
     } catch (error) {
-      setSavingShoppingCommentIds((current) => ({ ...current, [itemId]: false }));
+      setSavingShoppingCommentIds((current) => ({
+        ...current,
+        [itemId]: false,
+      }));
       toast.error("Failed to save comment", {
         description: (error as Error).message,
       });
     }
   };
 
-  const handleShoppingItemCommentChange = (item: ClientPanelItem, nextValue: string) => {
+  const handleShoppingItemCommentChange = (
+    item: ClientPanelItem,
+    nextValue: string,
+  ) => {
     const itemId = String(item.sourceItemId);
 
     setShoppingItemComments((current) => ({
@@ -1162,7 +1358,10 @@ export default function PublicClientPanelPage() {
     }
   };
 
-  const persistLaborItemComment = async (item: PublicLaborItem, rawComment: string) => {
+  const persistLaborItemComment = async (
+    item: PublicLaborItem,
+    rawComment: string,
+  ) => {
     const itemId = String(item._id);
     const cleanedRespondentName = respondentName.trim();
 
@@ -1185,7 +1384,8 @@ export default function PublicClientPanelPage() {
       setSavingLaborCommentIds((current) => ({ ...current, [itemId]: false }));
       setSavedLaborCommentIds((current) => ({ ...current, [itemId]: true }));
 
-      const existingSavedTimeout = laborCommentSavedStateTimeoutsRef.current[itemId];
+      const existingSavedTimeout =
+        laborCommentSavedStateTimeoutsRef.current[itemId];
       if (existingSavedTimeout) {
         clearTimeout(existingSavedTimeout);
       }
@@ -1201,7 +1401,10 @@ export default function PublicClientPanelPage() {
     }
   };
 
-  const handleLaborItemCommentChange = (item: PublicLaborItem, nextValue: string) => {
+  const handleLaborItemCommentChange = (
+    item: PublicLaborItem,
+    nextValue: string,
+  ) => {
     const itemId = String(item._id);
 
     setLaborItemComments((current) => ({
@@ -1222,7 +1425,10 @@ export default function PublicClientPanelPage() {
   };
 
   const renderShoppingItemFeedback = (item: ClientPanelItem) => {
-    if (!settings.allowShoppingItemDecisions && !settings.allowShoppingItemComments) {
+    if (
+      !settings.allowShoppingItemDecisions &&
+      !settings.allowShoppingItemComments
+    ) {
       return null;
     }
 
@@ -1230,14 +1436,20 @@ export default function PublicClientPanelPage() {
     const isSaving = respondingShoppingItemId === itemId;
     const isCommentSaving = savingShoppingCommentIds[itemId] === true;
     const isCommentSaved = savedShoppingCommentIds[itemId] === true;
-    const hasDecision = item.customerDecision === "accepted" || item.customerDecision === "rejected";
-    const decisionTone = item.customerDecision === "accepted"
-      ? "border-emerald-500/30 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
-      : item.customerDecision === "rejected"
-        ? "border-destructive/20 bg-destructive/10 text-destructive"
-        : "";
-    const hasDraftComment = (shoppingItemComments[itemId] || "").trim().length > 0;
-    const isCommentExpanded = expandedShoppingItemComments[itemId] || hasDraftComment || Boolean(item.customerDecisionComment);
+    const hasDecision =
+      item.customerDecision === "accepted" ||
+      item.customerDecision === "rejected";
+    const decisionTone =
+      item.customerDecision === "accepted"
+        ? "border-emerald-500/30 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
+        : item.customerDecision === "rejected"
+          ? "border-destructive/20 bg-destructive/10 text-destructive"
+          : "";
+    const hasDraftComment =
+      (shoppingItemComments[itemId] || "").trim().length > 0;
+    const hasSavedComment = Boolean(item.customerDecisionComment);
+    const isCommentExpanded =
+      expandedShoppingItemComments[itemId] ?? hasDraftComment;
 
     return (
       <div className="mt-4 rounded-2xl border border-border/70 bg-muted/20 px-4 py-4">
@@ -1250,48 +1462,102 @@ export default function PublicClientPanelPage() {
               {item.customerDecision === "accepted" ? "Accepted" : "Rejected"}
             </Badge>
           ) : settings.allowShoppingItemDecisions ? (
-            <span className="text-xs text-muted-foreground">Awaiting decision</span>
+            <span className="text-xs text-muted-foreground">
+              Awaiting decision
+            </span>
           ) : settings.allowShoppingItemComments ? (
-            <span className="text-xs text-muted-foreground">Comments enabled</span>
+            <span className="text-xs text-muted-foreground">
+              Comments enabled
+            </span>
           ) : (
-            <span className="text-xs text-muted-foreground">Feedback disabled</span>
+            <span className="text-xs text-muted-foreground">
+              Feedback disabled
+            </span>
           )}
           {item.customerDecisionUpdatedAt ? (
             <span className="text-xs text-muted-foreground">
-              Updated {new Date(item.customerDecisionUpdatedAt).toLocaleString()}
+              Updated{" "}
+              {new Date(item.customerDecisionUpdatedAt).toLocaleString()}
             </span>
           ) : null}
         </div>
 
         {hasDecision && item.customerDecisionComment ? (
-          <p className="mt-3 text-sm leading-6 text-foreground">{item.customerDecisionComment}</p>
+          <p className="mt-3 text-sm leading-6 text-foreground">
+            {item.customerDecisionComment}
+          </p>
         ) : null}
 
         <div className="mt-4 flex flex-col gap-3">
           <div className="flex flex-wrap gap-2">
             {settings.allowShoppingItemDecisions ? (
-              <>
-                <Button
-                  type="button"
-                  size="sm"
-                  className="bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:border-emerald-700 focus-visible:ring-emerald-200"
-                  onClick={() => void handleRespondToShoppingItem(item, "accepted")}
-                  disabled={isSaving}
-                >
-                  <CheckCircle2 data-icon="inline-start" />
-                  {isSaving ? "Saving..." : "Approve"}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  className="bg-red-600 text-white hover:bg-red-700 focus-visible:border-red-700 focus-visible:ring-red-200"
-                  onClick={() => void handleRespondToShoppingItem(item, "rejected")}
-                  disabled={isSaving}
-                >
-                  <XCircle data-icon="inline-start" />
-                  Reject
-                </Button>
-              </>
+              hasDecision ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      disabled={isSaving}
+                    >
+                      <MoreHorizontal data-icon="inline-start" />
+                      {isSaving ? "Saving..." : "Change"}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="start"
+                    className="w-48 rounded-xl border-border/70"
+                  >
+                    {item.customerDecision !== "accepted" ? (
+                      <DropdownMenuItem
+                        onClick={() =>
+                          void handleRespondToShoppingItem(item, "accepted")
+                        }
+                      >
+                        <CheckCircle2 data-icon="inline-start" />
+                        Mark as accepted
+                      </DropdownMenuItem>
+                    ) : null}
+                    {item.customerDecision !== "rejected" ? (
+                      <DropdownMenuItem
+                        onClick={() =>
+                          void handleRespondToShoppingItem(item, "rejected")
+                        }
+                      >
+                        <XCircle data-icon="inline-start" />
+                        Mark as rejected
+                      </DropdownMenuItem>
+                    ) : null}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:border-emerald-700 focus-visible:ring-emerald-200"
+                    onClick={() =>
+                      void handleRespondToShoppingItem(item, "accepted")
+                    }
+                    disabled={isSaving}
+                  >
+                    <CheckCircle2 data-icon="inline-start" />
+                    {isSaving ? "Saving..." : "Approve"}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="bg-red-600 text-white hover:bg-red-700 focus-visible:border-red-700 focus-visible:ring-red-200"
+                    onClick={() =>
+                      void handleRespondToShoppingItem(item, "rejected")
+                    }
+                    disabled={isSaving}
+                  >
+                    <XCircle data-icon="inline-start" />
+                    Reject
+                  </Button>
+                </>
+              )
             ) : null}
             {settings.allowShoppingItemComments ? (
               <Button
@@ -1305,24 +1571,37 @@ export default function PublicClientPanelPage() {
                   }))
                 }
               >
-                {isCommentExpanded ? "Hide comment" : "Add comment"}
+                {isCommentExpanded
+                  ? "Hide editor"
+                  : hasSavedComment
+                    ? "Edit comment"
+                    : "Add comment"}
               </Button>
             ) : null}
           </div>
           {settings.allowShoppingItemComments && isCommentExpanded ? (
             <div className="flex flex-col gap-2">
-              <Label htmlFor={`shopping-item-comment-${itemId}`} className="text-sm font-medium">
+              <Label
+                htmlFor={`shopping-item-comment-${itemId}`}
+                className="text-sm font-medium"
+              >
                 Optional comment
               </Label>
               <Textarea
                 id={`shopping-item-comment-${itemId}`}
                 value={shoppingItemComments[itemId] || ""}
-                onChange={(event) => handleShoppingItemCommentChange(item, event.target.value)}
+                onChange={(event) =>
+                  handleShoppingItemCommentChange(item, event.target.value)
+                }
                 rows={3}
                 placeholder="Add context, preferences or constraints for this item..."
               />
               <div className="text-xs text-muted-foreground">
-                {isCommentSaving ? "Saving comment..." : isCommentSaved ? "Comment saved" : "Comment autosaves"}
+                {isCommentSaving
+                  ? "Saving comment..."
+                  : isCommentSaved
+                    ? "Comment saved"
+                    : "Comment autosaves"}
               </div>
             </div>
           ) : null}
@@ -1336,17 +1615,20 @@ export default function PublicClientPanelPage() {
     const isSaving = respondingLaborItemId === itemId;
     const isCommentSaving = savingLaborCommentIds[itemId] === true;
     const isCommentSaved = savedLaborCommentIds[itemId] === true;
-    const hasDecision = item.customerDecision === "accepted" || item.customerDecision === "rejected";
-    const decisionTone = item.customerDecision === "accepted"
-      ? "border-emerald-500/30 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
-      : item.customerDecision === "rejected"
-        ? "border-destructive/20 bg-destructive/10 text-destructive"
-        : "";
-    const hasDraftComment = (laborItemComments[itemId] || "").trim().length > 0;
+    const hasDecision =
+      item.customerDecision === "accepted" ||
+      item.customerDecision === "rejected";
+    const decisionTone =
+      item.customerDecision === "accepted"
+        ? "border-emerald-500/30 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
+        : item.customerDecision === "rejected"
+          ? "border-destructive/20 bg-destructive/10 text-destructive"
+          : "";
+    const hasDraftComment =
+      (laborItemComments[itemId] || "").trim().length > 0;
+    const hasSavedComment = Boolean(item.customerDecisionComment);
     const isCommentExpanded =
-      expandedLaborItemComments[itemId] ||
-      hasDraftComment ||
-      Boolean(item.customerDecisionComment);
+      expandedLaborItemComments[itemId] ?? hasDraftComment;
 
     return (
       <div className="mt-4 rounded-2xl border border-border/70 bg-muted/20 px-4 py-4">
@@ -1359,41 +1641,93 @@ export default function PublicClientPanelPage() {
               {item.customerDecision === "accepted" ? "Accepted" : "Rejected"}
             </Badge>
           ) : (
-            <span className="text-xs text-muted-foreground">Awaiting decision</span>
+            <span className="text-xs text-muted-foreground">
+              Awaiting decision
+            </span>
           )}
           {item.customerDecisionUpdatedAt ? (
             <span className="text-xs text-muted-foreground">
-              Updated {new Date(item.customerDecisionUpdatedAt).toLocaleString()}
+              Updated{" "}
+              {new Date(item.customerDecisionUpdatedAt).toLocaleString()}
             </span>
           ) : null}
         </div>
 
         {hasDecision && item.customerDecisionComment ? (
-          <p className="mt-3 text-sm leading-6 text-foreground">{item.customerDecisionComment}</p>
+          <p className="mt-3 text-sm leading-6 text-foreground">
+            {item.customerDecisionComment}
+          </p>
         ) : null}
 
         <div className="mt-4 flex flex-col gap-3">
           <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              size="sm"
-              className="bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:border-emerald-700 focus-visible:ring-emerald-200"
-              onClick={() => void handleRespondToLaborItem(item, "accepted")}
-              disabled={isSaving}
-            >
-              <CheckCircle2 data-icon="inline-start" />
-              {isSaving ? "Saving..." : "Approve"}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              className="bg-red-600 text-white hover:bg-red-700 focus-visible:border-red-700 focus-visible:ring-red-200"
-              onClick={() => void handleRespondToLaborItem(item, "rejected")}
-              disabled={isSaving}
-            >
-              <XCircle data-icon="inline-start" />
-              Reject
-            </Button>
+            {hasDecision ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    disabled={isSaving}
+                  >
+                    <MoreHorizontal data-icon="inline-start" />
+                    {isSaving ? "Saving..." : "Change"}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="start"
+                  className="w-48 rounded-xl border-border/70"
+                >
+                  {item.customerDecision !== "accepted" ? (
+                    <DropdownMenuItem
+                      onClick={() =>
+                        void handleRespondToLaborItem(item, "accepted")
+                      }
+                    >
+                      <CheckCircle2 data-icon="inline-start" />
+                      Mark as accepted
+                    </DropdownMenuItem>
+                  ) : null}
+                  {item.customerDecision !== "rejected" ? (
+                    <DropdownMenuItem
+                      onClick={() =>
+                        void handleRespondToLaborItem(item, "rejected")
+                      }
+                    >
+                      <XCircle data-icon="inline-start" />
+                      Mark as rejected
+                    </DropdownMenuItem>
+                  ) : null}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:border-emerald-700 focus-visible:ring-emerald-200"
+                  onClick={() =>
+                    void handleRespondToLaborItem(item, "accepted")
+                  }
+                  disabled={isSaving}
+                >
+                  <CheckCircle2 data-icon="inline-start" />
+                  {isSaving ? "Saving..." : "Approve"}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="bg-red-600 text-white hover:bg-red-700 focus-visible:border-red-700 focus-visible:ring-red-200"
+                  onClick={() =>
+                    void handleRespondToLaborItem(item, "rejected")
+                  }
+                  disabled={isSaving}
+                >
+                  <XCircle data-icon="inline-start" />
+                  Reject
+                </Button>
+              </>
+            )}
             <Button
               type="button"
               size="sm"
@@ -1406,18 +1740,27 @@ export default function PublicClientPanelPage() {
               }
             >
               <ClipboardList data-icon="inline-start" />
-              {isCommentExpanded ? "Hide comment" : "Add comment"}
+              {isCommentExpanded
+                ? "Hide editor"
+                : hasSavedComment
+                  ? "Edit comment"
+                  : "Add comment"}
             </Button>
           </div>
           {isCommentExpanded ? (
             <div className="flex flex-col gap-2">
-              <Label htmlFor={`labor-item-comment-${itemId}`} className="text-sm font-medium">
+              <Label
+                htmlFor={`labor-item-comment-${itemId}`}
+                className="text-sm font-medium"
+              >
                 Optional comment
               </Label>
               <Textarea
                 id={`labor-item-comment-${itemId}`}
                 value={laborItemComments[itemId] || ""}
-                onChange={(event) => handleLaborItemCommentChange(item, event.target.value)}
+                onChange={(event) =>
+                  handleLaborItemCommentChange(item, event.target.value)
+                }
                 placeholder="Add context for the project team"
                 rows={3}
               />
@@ -1447,7 +1790,9 @@ export default function PublicClientPanelPage() {
           { key: "qty", label: "Qty" },
           ...(settings.showPrice ? shoppingPdfPriceColumns : []),
           { key: "status", label: "Status" },
-          ...(settings.showSupplier ? [{ key: "supplier", label: "Supplier" }] : []),
+          ...(settings.showSupplier
+            ? [{ key: "supplier", label: "Supplier" }]
+            : []),
           ...(settings.showNotes ? [{ key: "notes", label: "Notes" }] : []),
         ],
         fileName: `shopping-list-${sanitizeFileName(project.name)}-${dateStamp}.pdf`,
@@ -1599,7 +1944,10 @@ export default function PublicClientPanelPage() {
     toast.success("Labor CSV exported.");
   };
 
-  const handleSelectSetItems = async (group: ShoppingGroup, nextSelectedIds: string[]) => {
+  const handleSelectSetItems = async (
+    group: ShoppingGroup,
+    nextSelectedIds: string[],
+  ) => {
     if (!group.setId) {
       return;
     }
@@ -1634,7 +1982,11 @@ export default function PublicClientPanelPage() {
     }
   };
 
-  const updateSurveyAnswer = (surveyId: string, questionId: string, value: unknown) => {
+  const updateSurveyAnswer = (
+    surveyId: string,
+    questionId: string,
+    value: unknown,
+  ) => {
     setSurveyAnswers((prev) => ({
       ...prev,
       [surveyId]: {
@@ -1647,7 +1999,7 @@ export default function PublicClientPanelPage() {
   const handleOpenSurvey = (surveyId: string) => {
     setOpenSurveyId((current) => (current === surveyId ? null : surveyId));
     setSurveyStartTimes((prev) =>
-      prev[surveyId] ? prev : { ...prev, [surveyId]: Date.now() }
+      prev[surveyId] ? prev : { ...prev, [surveyId]: Date.now() },
     );
   };
 
@@ -1688,7 +2040,10 @@ export default function PublicClientPanelPage() {
     }
     const startedAt = surveyStartTimes[surveyId];
     if (startedAt) {
-      metadata.timeSpent = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
+      metadata.timeSpent = Math.max(
+        0,
+        Math.round((Date.now() - startedAt) / 1000),
+      );
     }
 
     setSubmittingSurveyId(surveyId);
@@ -1761,19 +2116,27 @@ export default function PublicClientPanelPage() {
             settings.showPrice &&
             activeSectionId === "portal-materials" ? (
               <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium text-foreground">
-                {getTaxAmountKindLabel(primaryAmountKind, organizationTaxSettings)} total:{" "}
-                {formatPrimaryDisplayAmount(grandTotal)}
+                {getTaxAmountKindLabel(
+                  primaryAmountKind,
+                  organizationTaxSettings,
+                )}{" "}
+                total: {formatPrimaryDisplayAmount(grandTotal)}
               </span>
             ) : null}
           </div>
           <p className="max-w-4xl text-sm text-muted-foreground">
-            Use the cards below to switch between portal sections shared by the project team.
+            Use the cards below to switch between portal sections shared by the
+            project team.
           </p>
           {settings.showShoppingList &&
           sectionSummaries.length > 0 &&
           activeSectionId === "portal-materials" ? (
             <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="outline" onClick={handleExportMaterialsCsv}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleExportMaterialsCsv}
+              >
                 <FileSpreadsheet data-icon="inline-start" />
                 Export shopping list CSV
               </Button>
@@ -1784,7 +2147,9 @@ export default function PublicClientPanelPage() {
                 disabled={isExportingMaterialsPdf}
               >
                 <Download data-icon="inline-start" />
-                {isExportingMaterialsPdf ? "Exporting PDF..." : "Export shopping list PDF"}
+                {isExportingMaterialsPdf
+                  ? "Exporting PDF..."
+                  : "Export shopping list PDF"}
               </Button>
             </div>
           ) : null}
@@ -1792,7 +2157,11 @@ export default function PublicClientPanelPage() {
           laborItems.length > 0 &&
           activeSectionId === "portal-labor" ? (
             <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="outline" onClick={handleExportLaborCsv}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleExportLaborCsv}
+              >
                 <FileSpreadsheet data-icon="inline-start" />
                 Export labor CSV
               </Button>
@@ -1823,14 +2192,16 @@ export default function PublicClientPanelPage() {
                       "h-auto min-h-24 flex-col items-start gap-2 rounded-[28px] border px-5 py-4 text-left transition-all duration-200",
                       isActive
                         ? "border-primary/15 bg-primary/[0.05] text-foreground shadow-[0_14px_40px_-28px_rgba(43,31,23,0.55)]"
-                        : "bg-card/80 text-foreground hover:border-primary/15 hover:bg-background"
+                        : "bg-card/80 text-foreground hover:border-primary/15 hover:bg-background",
                     )}
                   >
                     <span className="text-sm font-medium">{section.label}</span>
                     <span
                       className={cn(
                         "text-xs",
-                        isActive ? "text-foreground/70" : "text-muted-foreground"
+                        isActive
+                          ? "text-foreground/70"
+                          : "text-muted-foreground",
                       )}
                     >
                       {section.count} items
@@ -1845,8 +2216,8 @@ export default function PublicClientPanelPage() {
 
       {panelData.version === 0 ? (
         <div className="mb-8 rounded-2xl border border-border bg-card px-5 py-4 text-sm text-muted-foreground">
-          This portal has not been updated yet. Ask the project team to click Update portal in
-          project settings.
+          This portal has not been updated yet. Ask the project team to click
+          Update portal in project settings.
         </div>
       ) : null}
 
@@ -1870,7 +2241,9 @@ export default function PublicClientPanelPage() {
                   className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-card p-4"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-foreground">{file.name}</p>
+                    <p className="truncate text-sm font-medium text-foreground">
+                      {file.name}
+                    </p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {file.fileType} • {formatFileSize(file.size)}
                       {file.folderName ? ` • ${file.folderName}` : ""}
@@ -1914,7 +2287,9 @@ export default function PublicClientPanelPage() {
               </span>
             </div>
             {moodboardFiles.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No moodboard items shared.</p>
+              <p className="text-sm text-muted-foreground">
+                No moodboard items shared.
+              </p>
             ) : (
               <div className="flex flex-col gap-12">
                 {moodboardSections.map((section) => (
@@ -1979,7 +2354,6 @@ export default function PublicClientPanelPage() {
                                 <Download className="h-4 w-4" />
                               </a>
                             </div>
-
                           </div>
                         );
                       })}
@@ -1995,7 +2369,10 @@ export default function PublicClientPanelPage() {
               className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur-sm p-4"
               onClick={() => setSelectedMoodboardFile(null)}
             >
-              <div className="max-h-full max-w-6xl" onClick={(event) => event.stopPropagation()}>
+              <div
+                className="max-h-full max-w-6xl"
+                onClick={(event) => event.stopPropagation()}
+              >
                 <img
                   src={selectedMoodboardFile.url}
                   alt={selectedMoodboardFile.name}
@@ -2029,257 +2406,411 @@ export default function PublicClientPanelPage() {
             </span>
           </div>
           <p className="mb-6 text-sm text-muted-foreground">
-            Share your feedback directly in the portal. Responses are sent to the project team.
+            Share your feedback directly in the portal. Responses are sent to
+            the project team.
           </p>
           {surveys.length === 0 ? (
             <p className="text-sm text-muted-foreground">No surveys shared.</p>
           ) : (
             <div className="flex flex-col gap-4">
               {surveys.map((survey) => {
-              const surveyId = String(survey._id);
-              const isOpen = openSurveyId === surveyId;
-              const isSubmitting = submittingSurveyId === surveyId;
-              const isLocked = survey.hasSubmitted && !survey.allowMultipleResponses;
-              const hasRequiredFileQuestion = survey.questions.some(
-                (question) => question.questionType === "file" && question.isRequired
-              );
-              const answersForSurvey = surveyAnswers[surveyId] || {};
+                const surveyId = String(survey._id);
+                const isOpen = openSurveyId === surveyId;
+                const isSubmitting = submittingSurveyId === surveyId;
+                const isLocked =
+                  survey.hasSubmitted && !survey.allowMultipleResponses;
+                const hasRequiredFileQuestion = survey.questions.some(
+                  (question) =>
+                    question.questionType === "file" && question.isRequired,
+                );
+                const answersForSurvey = surveyAnswers[surveyId] || {};
 
-              return (
-                <div
-                  key={surveyId}
-                  className="rounded-2xl border border-border/70 bg-card p-5"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div className="min-w-0 flex flex-col gap-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <ClipboardList className="h-4 w-4 text-primary" />
-                        <h3 className="text-lg font-medium text-foreground">{survey.title}</h3>
-                        {survey.isRequired ? (
-                          <Badge variant="destructive" className="text-[10px]">Required</Badge>
+                return (
+                  <div
+                    key={surveyId}
+                    className="rounded-2xl border border-border/70 bg-card p-5"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div className="min-w-0 flex flex-col gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <ClipboardList className="h-4 w-4 text-primary" />
+                          <h3 className="text-lg font-medium text-foreground">
+                            {survey.title}
+                          </h3>
+                          {survey.isRequired ? (
+                            <Badge
+                              variant="destructive"
+                              className="text-[10px]"
+                            >
+                              Required
+                            </Badge>
+                          ) : null}
+                          {survey.hasSubmitted ? (
+                            <Badge variant="outline" className="text-[10px]">
+                              <CheckCircle2 data-icon="inline-start" />
+                              Submitted
+                            </Badge>
+                          ) : null}
+                        </div>
+                        {survey.description ? (
+                          <p className="text-sm text-muted-foreground">
+                            {survey.description}
+                          </p>
                         ) : null}
-                        {survey.hasSubmitted ? (
-                          <Badge variant="outline" className="text-[10px]">
-                            <CheckCircle2 data-icon="inline-start" />
-                            Submitted
-                          </Badge>
-                        ) : null}
+                        <p className="text-xs text-muted-foreground">
+                          {survey.questions.length} question
+                          {survey.questions.length === 1 ? "" : "s"}
+                          {survey.submittedAt
+                            ? ` · last submitted ${new Date(survey.submittedAt).toLocaleString()}`
+                            : ""}
+                        </p>
                       </div>
-                      {survey.description ? (
-                        <p className="text-sm text-muted-foreground">{survey.description}</p>
-                      ) : null}
-                      <p className="text-xs text-muted-foreground">
-                        {survey.questions.length} question{survey.questions.length === 1 ? "" : "s"}
-                        {survey.submittedAt ? ` · last submitted ${new Date(survey.submittedAt).toLocaleString()}` : ""}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      {!isLocked ? (
-                        <Button
-                          type="button"
-                          variant={isOpen ? "outline" : "default"}
-                          onClick={() => handleOpenSurvey(surveyId)}
-                        >
-                          {isOpen ? "Hide" : survey.hasSubmitted ? "Submit again" : "Fill survey"}
-                        </Button>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  {isLocked ? (
-                    <p className="mt-4 text-sm text-muted-foreground">
-                      You already submitted this survey.
-                    </p>
-                  ) : null}
-
-                  {isOpen ? (
-                    <div className="mt-6 flex flex-col gap-4 border-t border-border pt-5">
-                      <div className="max-w-md flex flex-col gap-2">
-                        <Label htmlFor={`respondent-name-${surveyId}`} className="text-sm font-medium">
-                          Who is answering survey "{survey.title}"?
-                        </Label>
-                        <Input
-                          id={`respondent-name-${surveyId}`}
-                          value={respondentName}
-                          onChange={(event) => setRespondentName(event.target.value)}
-                          placeholder="Your name"
-                          maxLength={120}
-                        />
-                      </div>
-
-                      {survey.questions.map((question, index) => {
-                        const questionId = String(question._id);
-                        const answerValue = answersForSurvey[questionId];
-                        return (
-                          <div
-                            key={questionId}
-                            className="rounded-lg border border-border/60 bg-muted p-4"
+                      <div className="flex shrink-0 items-center gap-2">
+                        {!isLocked ? (
+                          <Button
+                            type="button"
+                            variant={isOpen ? "outline" : "default"}
+                            onClick={() => handleOpenSurvey(surveyId)}
                           >
-                            <div className="mb-3 flex flex-wrap items-center gap-2">
-                              <Badge variant="outline" className="text-[10px]">Question {index + 1}</Badge>
-                              {question.isRequired ? (
-                                <Badge variant="destructive" className="text-[10px]">Required</Badge>
-                              ) : null}
-                            </div>
-                            <p className="mb-3 text-sm font-medium text-foreground">
-                              {question.questionText}
-                            </p>
+                            {isOpen
+                              ? "Hide"
+                              : survey.hasSubmitted
+                                ? "Submit again"
+                                : "Fill survey"}
+                          </Button>
+                        ) : null}
+                      </div>
+                    </div>
 
-                            {(question.questionType === "text_short" || question.questionType === "text_long") ? (
-                              question.questionType === "text_long" ? (
-                                <Textarea
-                                  value={typeof answerValue === "string" ? answerValue : ""}
-                                  onChange={(event) =>
-                                    updateSurveyAnswer(surveyId, questionId, event.target.value)
-                                  }
-                                  placeholder="Your answer"
-                                  rows={4}
-                                />
-                              ) : (
-                                <Input
-                                  value={typeof answerValue === "string" ? answerValue : ""}
-                                  onChange={(event) =>
-                                    updateSurveyAnswer(surveyId, questionId, event.target.value)
-                                  }
-                                  placeholder="Your answer"
-                                />
-                              )
-                            ) : null}
+                    {isLocked ? (
+                      <p className="mt-4 text-sm text-muted-foreground">
+                        You already submitted this survey.
+                      </p>
+                    ) : null}
 
-                            {question.questionType === "single_choice" ? (
-                              <RadioGroup
-                                value={typeof answerValue === "string" ? answerValue : ""}
-                                onValueChange={(value) => updateSurveyAnswer(surveyId, questionId, value)}
-                                className="flex flex-col gap-2"
-                              >
-                                {(question.options || []).map((option) => (
-                                  <div key={option} className="flex items-center gap-2">
-                                    <RadioGroupItem value={option} id={`${questionId}-${option}`} />
-                                    <Label htmlFor={`${questionId}-${option}`}>{option}</Label>
-                                  </div>
-                                ))}
-                              </RadioGroup>
-                            ) : null}
+                    {isOpen ? (
+                      <div className="mt-6 flex flex-col gap-4 border-t border-border pt-5">
+                        <div className="max-w-md flex flex-col gap-2">
+                          <Label
+                            htmlFor={`respondent-name-${surveyId}`}
+                            className="text-sm font-medium"
+                          >
+                            Who is answering survey "{survey.title}"?
+                          </Label>
+                          <Input
+                            id={`respondent-name-${surveyId}`}
+                            value={respondentName}
+                            onChange={(event) =>
+                              setRespondentName(event.target.value)
+                            }
+                            placeholder="Your name"
+                            maxLength={120}
+                          />
+                        </div>
 
-                            {question.questionType === "multiple_choice" ? (
-                              <div className="flex flex-col gap-2">
-                                {(question.options || []).map((option) => {
-                                  const selectedValues = Array.isArray(answerValue)
-                                    ? answerValue.filter((value): value is string => typeof value === "string")
-                                    : [];
-                                  const checked = selectedValues.includes(option);
-                                  return (
-                                    <div key={option} className="flex items-center gap-2">
-                                      <Checkbox
-                                        id={`${questionId}-${option}`}
-                                        checked={checked}
-                                        onCheckedChange={(nextChecked) => {
-                                          const nextValues = nextChecked
-                                            ? [...selectedValues, option]
-                                            : selectedValues.filter((value) => value !== option);
-                                          updateSurveyAnswer(surveyId, questionId, nextValues);
-                                        }}
-                                      />
-                                      <Label htmlFor={`${questionId}-${option}`}>{option}</Label>
-                                    </div>
-                                  );
-                                })}
+                        {survey.questions.map((question, index) => {
+                          const questionId = String(question._id);
+                          const answerValue = answersForSurvey[questionId];
+                          return (
+                            <div
+                              key={questionId}
+                              className="rounded-lg border border-border/60 bg-muted p-4"
+                            >
+                              <div className="mb-3 flex flex-wrap items-center gap-2">
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px]"
+                                >
+                                  Question {index + 1}
+                                </Badge>
+                                {question.isRequired ? (
+                                  <Badge
+                                    variant="destructive"
+                                    className="text-[10px]"
+                                  >
+                                    Required
+                                  </Badge>
+                                ) : null}
                               </div>
-                            ) : null}
+                              <p className="mb-3 text-sm font-medium text-foreground">
+                                {question.questionText}
+                              </p>
 
-                            {question.questionType === "rating" ? (
-                              <RadioGroup
-                                value={typeof answerValue === "number" ? String(answerValue) : ""}
-                                onValueChange={(value) =>
-                                  updateSurveyAnswer(surveyId, questionId, Number.parseInt(value, 10))
-                                }
-                                className="flex flex-col gap-2"
-                              >
-                                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                  <span>{question.ratingScale?.minLabel || question.ratingScale?.min || 1}</span>
-                                  <span>{question.ratingScale?.maxLabel || question.ratingScale?.max || 5}</span>
-                                </div>
-                                <div className="flex flex-wrap gap-3">
-                                  {Array.from(
-                                    { length: (question.ratingScale?.max || 5) - (question.ratingScale?.min || 1) + 1 },
-                                    (_, i) => (question.ratingScale?.min || 1) + i
-                                  ).map((value) => (
-                                    <div key={value} className="flex items-center gap-2">
-                                      <RadioGroupItem value={String(value)} id={`${questionId}-${value}`} />
-                                      <Label htmlFor={`${questionId}-${value}`}>{value}</Label>
+                              {question.questionType === "text_short" ||
+                              question.questionType === "text_long" ? (
+                                question.questionType === "text_long" ? (
+                                  <Textarea
+                                    value={
+                                      typeof answerValue === "string"
+                                        ? answerValue
+                                        : ""
+                                    }
+                                    onChange={(event) =>
+                                      updateSurveyAnswer(
+                                        surveyId,
+                                        questionId,
+                                        event.target.value,
+                                      )
+                                    }
+                                    placeholder="Your answer"
+                                    rows={4}
+                                  />
+                                ) : (
+                                  <Input
+                                    value={
+                                      typeof answerValue === "string"
+                                        ? answerValue
+                                        : ""
+                                    }
+                                    onChange={(event) =>
+                                      updateSurveyAnswer(
+                                        surveyId,
+                                        questionId,
+                                        event.target.value,
+                                      )
+                                    }
+                                    placeholder="Your answer"
+                                  />
+                                )
+                              ) : null}
+
+                              {question.questionType === "single_choice" ? (
+                                <RadioGroup
+                                  value={
+                                    typeof answerValue === "string"
+                                      ? answerValue
+                                      : ""
+                                  }
+                                  onValueChange={(value) =>
+                                    updateSurveyAnswer(
+                                      surveyId,
+                                      questionId,
+                                      value,
+                                    )
+                                  }
+                                  className="flex flex-col gap-2"
+                                >
+                                  {(question.options || []).map((option) => (
+                                    <div
+                                      key={option}
+                                      className="flex items-center gap-2"
+                                    >
+                                      <RadioGroupItem
+                                        value={option}
+                                        id={`${questionId}-${option}`}
+                                      />
+                                      <Label
+                                        htmlFor={`${questionId}-${option}`}
+                                      >
+                                        {option}
+                                      </Label>
                                     </div>
                                   ))}
-                                </div>
-                              </RadioGroup>
-                            ) : null}
+                                </RadioGroup>
+                              ) : null}
 
-                            {question.questionType === "yes_no" ? (
-                              <RadioGroup
-                                value={typeof answerValue === "boolean" ? String(answerValue) : ""}
-                                onValueChange={(value) => updateSurveyAnswer(surveyId, questionId, value === "true")}
-                                className="flex flex-col gap-2"
-                              >
-                                <div className="flex items-center gap-2">
-                                  <RadioGroupItem value="true" id={`${questionId}-yes`} />
-                                  <Label htmlFor={`${questionId}-yes`}>Yes</Label>
+                              {question.questionType === "multiple_choice" ? (
+                                <div className="flex flex-col gap-2">
+                                  {(question.options || []).map((option) => {
+                                    const selectedValues = Array.isArray(
+                                      answerValue,
+                                    )
+                                      ? answerValue.filter(
+                                          (value): value is string =>
+                                            typeof value === "string",
+                                        )
+                                      : [];
+                                    const checked =
+                                      selectedValues.includes(option);
+                                    return (
+                                      <div
+                                        key={option}
+                                        className="flex items-center gap-2"
+                                      >
+                                        <Checkbox
+                                          id={`${questionId}-${option}`}
+                                          checked={checked}
+                                          onCheckedChange={(nextChecked) => {
+                                            const nextValues = nextChecked
+                                              ? [...selectedValues, option]
+                                              : selectedValues.filter(
+                                                  (value) => value !== option,
+                                                );
+                                            updateSurveyAnswer(
+                                              surveyId,
+                                              questionId,
+                                              nextValues,
+                                            );
+                                          }}
+                                        />
+                                        <Label
+                                          htmlFor={`${questionId}-${option}`}
+                                        >
+                                          {option}
+                                        </Label>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  <RadioGroupItem value="false" id={`${questionId}-no`} />
-                                  <Label htmlFor={`${questionId}-no`}>No</Label>
-                                </div>
-                              </RadioGroup>
-                            ) : null}
+                              ) : null}
 
-                            {question.questionType === "number" ? (
-                              <Input
-                                type="number"
-                                value={typeof answerValue === "number" ? String(answerValue) : ""}
-                                onChange={(event) => {
-                                  const raw = event.target.value;
-                                  if (raw.trim() === "") {
-                                    updateSurveyAnswer(surveyId, questionId, undefined);
-                                    return;
+                              {question.questionType === "rating" ? (
+                                <RadioGroup
+                                  value={
+                                    typeof answerValue === "number"
+                                      ? String(answerValue)
+                                      : ""
                                   }
-                                  const parsed = Number.parseFloat(raw);
-                                  updateSurveyAnswer(
-                                    surveyId,
-                                    questionId,
-                                    Number.isNaN(parsed) ? undefined : parsed
-                                  );
-                                }}
-                                placeholder="Enter number"
-                              />
-                            ) : null}
+                                  onValueChange={(value) =>
+                                    updateSurveyAnswer(
+                                      surveyId,
+                                      questionId,
+                                      Number.parseInt(value, 10),
+                                    )
+                                  }
+                                  className="flex flex-col gap-2"
+                                >
+                                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                    <span>
+                                      {question.ratingScale?.minLabel ||
+                                        question.ratingScale?.min ||
+                                        1}
+                                    </span>
+                                    <span>
+                                      {question.ratingScale?.maxLabel ||
+                                        question.ratingScale?.max ||
+                                        5}
+                                    </span>
+                                  </div>
+                                  <div className="flex flex-wrap gap-3">
+                                    {Array.from(
+                                      {
+                                        length:
+                                          (question.ratingScale?.max || 5) -
+                                          (question.ratingScale?.min || 1) +
+                                          1,
+                                      },
+                                      (_, i) =>
+                                        (question.ratingScale?.min || 1) + i,
+                                    ).map((value) => (
+                                      <div
+                                        key={value}
+                                        className="flex items-center gap-2"
+                                      >
+                                        <RadioGroupItem
+                                          value={String(value)}
+                                          id={`${questionId}-${value}`}
+                                        />
+                                        <Label
+                                          htmlFor={`${questionId}-${value}`}
+                                        >
+                                          {value}
+                                        </Label>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </RadioGroup>
+                              ) : null}
 
-                            {question.questionType === "file" ? (
-                              <p className="text-xs text-muted-foreground">
-                                File uploads are not available in the public portal yet.
-                              </p>
-                            ) : null}
-                          </div>
-                        );
-                      })}
+                              {question.questionType === "yes_no" ? (
+                                <RadioGroup
+                                  value={
+                                    typeof answerValue === "boolean"
+                                      ? String(answerValue)
+                                      : ""
+                                  }
+                                  onValueChange={(value) =>
+                                    updateSurveyAnswer(
+                                      surveyId,
+                                      questionId,
+                                      value === "true",
+                                    )
+                                  }
+                                  className="flex flex-col gap-2"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <RadioGroupItem
+                                      value="true"
+                                      id={`${questionId}-yes`}
+                                    />
+                                    <Label htmlFor={`${questionId}-yes`}>
+                                      Yes
+                                    </Label>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <RadioGroupItem
+                                      value="false"
+                                      id={`${questionId}-no`}
+                                    />
+                                    <Label htmlFor={`${questionId}-no`}>
+                                      No
+                                    </Label>
+                                  </div>
+                                </RadioGroup>
+                              ) : null}
 
-                      {hasRequiredFileQuestion ? (
-                        <p className="text-xs text-destructive">
-                          This survey has required file upload questions and cannot be submitted in the public portal.
-                        </p>
-                      ) : null}
+                              {question.questionType === "number" ? (
+                                <Input
+                                  type="number"
+                                  value={
+                                    typeof answerValue === "number"
+                                      ? String(answerValue)
+                                      : ""
+                                  }
+                                  onChange={(event) => {
+                                    const raw = event.target.value;
+                                    if (raw.trim() === "") {
+                                      updateSurveyAnswer(
+                                        surveyId,
+                                        questionId,
+                                        undefined,
+                                      );
+                                      return;
+                                    }
+                                    const parsed = Number.parseFloat(raw);
+                                    updateSurveyAnswer(
+                                      surveyId,
+                                      questionId,
+                                      Number.isNaN(parsed) ? undefined : parsed,
+                                    );
+                                  }}
+                                  placeholder="Enter number"
+                                />
+                              ) : null}
 
-                      <div className="flex justify-end">
-                        <Button
-                          type="button"
-                          onClick={() => void handleSubmitPublicSurvey(survey)}
-                          disabled={isSubmitting || hasRequiredFileQuestion}
-                        >
-                          <Send data-icon="inline-start" />
-                          {isSubmitting ? "Submitting..." : "Submit survey"}
-                        </Button>
+                              {question.questionType === "file" ? (
+                                <p className="text-xs text-muted-foreground">
+                                  File uploads are not available in the public
+                                  portal yet.
+                                </p>
+                              ) : null}
+                            </div>
+                          );
+                        })}
+
+                        {hasRequiredFileQuestion ? (
+                          <p className="text-xs text-destructive">
+                            This survey has required file upload questions and
+                            cannot be submitted in the public portal.
+                          </p>
+                        ) : null}
+
+                        <div className="flex justify-end">
+                          <Button
+                            type="button"
+                            onClick={() =>
+                              void handleSubmitPublicSurvey(survey)
+                            }
+                            disabled={isSubmitting || hasRequiredFileQuestion}
+                          >
+                            <Send data-icon="inline-start" />
+                            {isSubmitting ? "Submitting..." : "Submit survey"}
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  ) : null}
-                </div>
-              );
+                    ) : null}
+                  </div>
+                );
               })}
             </div>
           )}
@@ -2307,7 +2838,9 @@ export default function PublicClientPanelPage() {
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <ClipboardList className="h-4 w-4 text-primary" />
-                    <p className="text-sm font-medium text-foreground">{task.title}</p>
+                    <p className="text-sm font-medium text-foreground">
+                      {task.title}
+                    </p>
                     <Badge variant="outline" className="text-[10px]">
                       {formatTaskStatus(task.status)}
                     </Badge>
@@ -2318,10 +2851,13 @@ export default function PublicClientPanelPage() {
                     ) : null}
                   </div>
                   {task.description ? (
-                    <p className="mt-2 text-sm text-muted-foreground">{task.description}</p>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {task.description}
+                    </p>
                   ) : null}
                   <p className="mt-2 text-xs text-muted-foreground">
-                    Start: {formatPortalDate(task.startDate)} · End: {formatPortalDate(task.endDate)}
+                    Start: {formatPortalDate(task.startDate)} · End:{" "}
+                    {formatPortalDate(task.endDate)}
                   </p>
                 </div>
               ))}
@@ -2338,7 +2874,10 @@ export default function PublicClientPanelPage() {
             </div>
           ) : (
             laborSectionEntries.map((section) => {
-              const sectionTotal = section.items.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
+              const sectionTotal = section.items.reduce(
+                (sum, item) => sum + (item.totalPrice || 0),
+                0,
+              );
 
               return (
                 <div
@@ -2346,12 +2885,20 @@ export default function PublicClientPanelPage() {
                   className="mb-10 rounded-3xl border border-border bg-card p-4 shadow-sm sm:rounded-3xl sm:p-8"
                 >
                   <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
-                    <h2 className="text-lg font-medium text-foreground sm:text-xl">{section.name}</h2>
-                    <Badge variant="outline" className="rounded-full px-3 py-1 text-xs font-medium">
+                    <h2 className="text-lg font-medium text-foreground sm:text-xl">
+                      {section.name}
+                    </h2>
+                    <Badge
+                      variant="outline"
+                      className="rounded-full px-3 py-1 text-xs font-medium"
+                    >
                       {section.items.length} items
                     </Badge>
                     {sectionTotal > 0 ? (
-                      <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs font-medium">
+                      <Badge
+                        variant="secondary"
+                        className="rounded-full px-3 py-1 text-xs font-medium"
+                      >
                         {formatPrimaryDisplayAmount(sectionTotal)}
                       </Badge>
                     ) : null}
@@ -2381,7 +2928,9 @@ export default function PublicClientPanelPage() {
                                     : "border-destructive/20 bg-destructive/10 text-destructive",
                                 )}
                               >
-                                {item.customerDecision === "accepted" ? "Accepted" : "Rejected"}
+                                {item.customerDecision === "accepted"
+                                  ? "Accepted"
+                                  : "Rejected"}
                               </Badge>
                             ) : null
                           }
@@ -2389,10 +2938,18 @@ export default function PublicClientPanelPage() {
                             <>
                               <span>Qty: {item.quantity}</span>
                               <span>Unit: {item.unit}</span>
-                              {getPriceMetadataLabels(item.unitPrice, "unit").map((label) => (
-                                <span key={`${item._id}-unit-${label}`}>{label}</span>
+                              {getPriceMetadataLabels(
+                                item.unitPrice,
+                                "unit",
+                              ).map((label) => (
+                                <span key={`${item._id}-unit-${label}`}>
+                                  {label}
+                                </span>
                               ))}
-                              {getPriceMetadataLabels(item.totalPrice, "total").map((label) => (
+                              {getPriceMetadataLabels(
+                                item.totalPrice,
+                                "total",
+                              ).map((label) => (
                                 <span
                                   key={`${item._id}-total-${label}`}
                                   className="font-medium text-foreground"
@@ -2429,7 +2986,9 @@ export default function PublicClientPanelPage() {
 
                       {sectionTotal > 0 ? (
                         <div className="flex items-center justify-between rounded-2xl border border-border/70 bg-muted/15 px-4 py-3">
-                          <span className="text-sm font-medium text-foreground">Section Total</span>
+                          <span className="text-sm font-medium text-foreground">
+                            Section Total
+                          </span>
                           <span className="text-sm font-semibold text-foreground">
                             {formatTaxBreakdownSummary(sectionTotal)}
                           </span>
@@ -2469,15 +3028,19 @@ export default function PublicClientPanelPage() {
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <Users className="h-4 w-4 text-primary" />
-                    <p className="text-sm font-medium text-foreground">{contact.name}</p>
+                    <p className="text-sm font-medium text-foreground">
+                      {contact.name}
+                    </p>
                     <Badge variant="outline" className="text-[10px]">
                       {contact.type.toUpperCase()}
                     </Badge>
                   </div>
                   {contact.companyName ? (
-                    <p className="mt-2 text-sm text-foreground">{contact.companyName}</p>
+                    <p className="mt-2 text-sm text-foreground">
+                      {contact.companyName}
+                    </p>
                   ) : null}
-                  {(contact.email || contact.phone) ? (
+                  {contact.email || contact.phone ? (
                     <p className="mt-2 text-xs text-muted-foreground">
                       {contact.email || "-"}
                       {contact.phone ? ` · ${contact.phone}` : ""}
@@ -2517,16 +3080,25 @@ export default function PublicClientPanelPage() {
                 <div className="rounded-xl border border-border/70 bg-card p-5">
                   <p className="text-sm text-muted-foreground">Planned cost</p>
                   <p className="mt-2 text-xl font-medium font-serif text-foreground">
-                    {formatAmount(publicBudgetSummary.plannedCost, currencySymbol)}
+                    {formatAmount(
+                      publicBudgetSummary.plannedCost,
+                      currencySymbol,
+                    )}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {publicBudgetSummary.projectedUtilizationPercent ?? 0}% of budget
+                    {publicBudgetSummary.projectedUtilizationPercent ?? 0}% of
+                    budget
                   </p>
                 </div>
                 <div className="rounded-xl border border-border/70 bg-card p-5">
-                  <p className="text-sm text-muted-foreground">Committed cost</p>
+                  <p className="text-sm text-muted-foreground">
+                    Committed cost
+                  </p>
                   <p className="mt-2 text-xl font-medium font-serif text-foreground">
-                    {formatAmount(publicBudgetSummary.committedCost, currencySymbol)}
+                    {formatAmount(
+                      publicBudgetSummary.committedCost,
+                      currencySymbol,
+                    )}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     Approved and scheduled spend
@@ -2535,10 +3107,14 @@ export default function PublicClientPanelPage() {
                 <div className="rounded-xl border border-border/70 bg-card p-5">
                   <p className="text-sm text-muted-foreground">Actual cost</p>
                   <p className="mt-2 text-xl font-medium font-serif text-foreground">
-                    {formatAmount(publicBudgetSummary.actualCost, currencySymbol)}
+                    {formatAmount(
+                      publicBudgetSummary.actualCost,
+                      currencySymbol,
+                    )}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {publicBudgetSummary.utilizationPercent ?? 0}% of budget used
+                    {publicBudgetSummary.utilizationPercent ?? 0}% of budget
+                    used
                   </p>
                 </div>
               </div>
@@ -2561,7 +3137,9 @@ export default function PublicClientPanelPage() {
                           : "border-border bg-muted text-foreground"
                       }`}
                     >
-                      {publicBudgetSummary.variance < 0 ? "Over budget" : "Within budget"}
+                      {publicBudgetSummary.variance < 0
+                        ? "Over budget"
+                        : "Within budget"}
                     </div>
                   </div>
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -2570,7 +3148,10 @@ export default function PublicClientPanelPage() {
                         Remaining now
                       </p>
                       <p className="mt-2 text-lg font-medium text-foreground">
-                        {formatAmount(publicBudgetSummary.variance, currencySymbol)}
+                        {formatAmount(
+                          publicBudgetSummary.variance,
+                          currencySymbol,
+                        )}
                       </p>
                     </div>
                     <div className="rounded-lg bg-muted px-4 py-3">
@@ -2578,7 +3159,10 @@ export default function PublicClientPanelPage() {
                         Projected remaining
                       </p>
                       <p className="mt-2 text-lg font-medium text-foreground">
-                        {formatAmount(publicBudgetSummary.projectedVariance, currencySymbol)}
+                        {formatAmount(
+                          publicBudgetSummary.projectedVariance,
+                          currencySymbol,
+                        )}
                       </p>
                     </div>
                   </div>
@@ -2610,33 +3194,47 @@ export default function PublicClientPanelPage() {
                   </p>
                   <div className="mt-4 flex flex-col gap-3 text-sm">
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-muted-foreground">Accepted estimates</span>
+                      <span className="text-muted-foreground">
+                        Accepted estimates
+                      </span>
                       <span className="font-medium text-foreground">
-                        {formatAmount(publicBudgetSummary.clientFunding.acceptedEstimations, currencySymbol)}
+                        {formatAmount(
+                          publicBudgetSummary.clientFunding.acceptedEstimations,
+                          currencySymbol,
+                        )}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-muted-foreground">Scheduled payments</span>
+                      <span className="text-muted-foreground">
+                        Scheduled payments
+                      </span>
                       <span className="font-medium text-foreground">
-                        {formatAmount(publicBudgetSummary.clientFunding.scheduledPayments, currencySymbol)}
+                        {formatAmount(
+                          publicBudgetSummary.clientFunding.scheduledPayments,
+                          currencySymbol,
+                        )}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-muted-foreground">Collected payments</span>
+                      <span className="text-muted-foreground">
+                        Collected payments
+                      </span>
                       <span className="font-medium text-foreground">
-                        {formatAmount(publicBudgetSummary.clientFunding.collectedPayments, currencySymbol)}
+                        {formatAmount(
+                          publicBudgetSummary.clientFunding.collectedPayments,
+                          currencySymbol,
+                        )}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-muted-foreground">Outstanding payments</span>
-                      <span className="font-medium text-foreground">
-                        {formatAmount(publicBudgetSummary.clientFunding.outstandingPayments, currencySymbol)}
+                      <span className="text-muted-foreground">
+                        Outstanding payments
                       </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-muted-foreground">Milestone allocation</span>
                       <span className="font-medium text-foreground">
-                        {formatAmount(publicBudgetSummary.milestones.budgetAllocated, currencySymbol)}
+                        {formatAmount(
+                          publicBudgetSummary.clientFunding.outstandingPayments,
+                          currencySymbol,
+                        )}
                       </span>
                     </div>
                   </div>
@@ -2645,24 +3243,35 @@ export default function PublicClientPanelPage() {
 
               <div className="grid gap-4 lg:grid-cols-2">
                 <div className="rounded-xl border border-border/70 bg-card p-5">
-                  <p className="text-base font-medium text-foreground">Materials</p>
+                  <p className="text-base font-medium text-foreground">
+                    Materials
+                  </p>
                   <div className="mt-4 flex flex-col gap-3 text-sm">
                     <div className="flex items-center justify-between gap-4">
                       <span className="text-muted-foreground">Planned</span>
                       <span className="font-medium text-foreground">
-                        {formatAmount(publicBudgetSummary.breakdown.shopping.planned, currencySymbol)}
+                        {formatAmount(
+                          publicBudgetSummary.breakdown.shopping.planned,
+                          currencySymbol,
+                        )}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
                       <span className="text-muted-foreground">Committed</span>
                       <span className="font-medium text-foreground">
-                        {formatAmount(publicBudgetSummary.breakdown.shopping.committed, currencySymbol)}
+                        {formatAmount(
+                          publicBudgetSummary.breakdown.shopping.committed,
+                          currencySymbol,
+                        )}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
                       <span className="text-muted-foreground">Actual</span>
                       <span className="font-medium text-foreground">
-                        {formatAmount(publicBudgetSummary.breakdown.shopping.actual, currencySymbol)}
+                        {formatAmount(
+                          publicBudgetSummary.breakdown.shopping.actual,
+                          currencySymbol,
+                        )}
                       </span>
                     </div>
                   </div>
@@ -2674,19 +3283,28 @@ export default function PublicClientPanelPage() {
                     <div className="flex items-center justify-between gap-4">
                       <span className="text-muted-foreground">Planned</span>
                       <span className="font-medium text-foreground">
-                        {formatAmount(publicBudgetSummary.breakdown.labor.planned, currencySymbol)}
+                        {formatAmount(
+                          publicBudgetSummary.breakdown.labor.planned,
+                          currencySymbol,
+                        )}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
                       <span className="text-muted-foreground">Committed</span>
                       <span className="font-medium text-foreground">
-                        {formatAmount(publicBudgetSummary.breakdown.labor.committed, currencySymbol)}
+                        {formatAmount(
+                          publicBudgetSummary.breakdown.labor.committed,
+                          currencySymbol,
+                        )}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
                       <span className="text-muted-foreground">Actual</span>
                       <span className="font-medium text-foreground">
-                        {formatAmount(publicBudgetSummary.breakdown.labor.actual, currencySymbol)}
+                        {formatAmount(
+                          publicBudgetSummary.breakdown.labor.actual,
+                          currencySymbol,
+                        )}
                       </span>
                     </div>
                   </div>
@@ -2695,7 +3313,9 @@ export default function PublicClientPanelPage() {
             </div>
           ) : typeof project?.budget === "number" ? (
             <div className="rounded-xl border border-border/70 bg-card p-6">
-              <p className="mb-2 text-sm text-muted-foreground">Project budget</p>
+              <p className="mb-2 text-sm text-muted-foreground">
+                Project budget
+              </p>
               <div className="flex items-center gap-3">
                 <Banknote className="h-5 w-5 text-primary" />
                 <p className="text-2xl font-medium font-serif text-foreground">
@@ -2707,7 +3327,9 @@ export default function PublicClientPanelPage() {
               </p>
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">No budget set for this project.</p>
+            <p className="text-sm text-muted-foreground">
+              No budget set for this project.
+            </p>
           )}
         </div>
       ) : null}
@@ -2726,7 +3348,9 @@ export default function PublicClientPanelPage() {
           </div>
 
           {payments.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No installments shared yet.</p>
+            <p className="text-sm text-muted-foreground">
+              No installments shared yet.
+            </p>
           ) : (
             <div className="flex flex-col gap-4">
               {payments.map((payment) => (
@@ -2750,7 +3374,9 @@ export default function PublicClientPanelPage() {
                                 : "border-border bg-muted text-foreground"
                           }`}
                         >
-                          {payment.isOverdue ? "OVERDUE" : payment.status.toUpperCase()}
+                          {payment.isOverdue
+                            ? "OVERDUE"
+                            : payment.status.toUpperCase()}
                         </span>
                         {payment.invoiceNumber ? (
                           <span className="text-xs text-muted-foreground">
@@ -2759,17 +3385,23 @@ export default function PublicClientPanelPage() {
                         ) : null}
                       </div>
                       {payment.description ? (
-                        <p className="text-sm text-muted-foreground">{payment.description}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {payment.description}
+                        </p>
                       ) : null}
                       <div className="flex flex-wrap gap-4 text-sm text-foreground">
-                        <span>{formatAmount(payment.amount, currencySymbol)}</span>
+                        <span>
+                          {formatAmount(payment.amount, currencySymbol)}
+                        </span>
                         <span>
                           {payment.dueDate
                             ? `Due ${new Date(payment.dueDate).toLocaleDateString()}`
                             : "No due date"}
                         </span>
                         {payment.paidAt ? (
-                          <span>Paid {new Date(payment.paidAt).toLocaleDateString()}</span>
+                          <span>
+                            Paid {new Date(payment.paidAt).toLocaleDateString()}
+                          </span>
                         ) : null}
                       </div>
                       {payment.paymentReference ? (
@@ -2780,13 +3412,16 @@ export default function PublicClientPanelPage() {
                           </span>
                         </p>
                       ) : null}
-                      {(payment.bankAccountNumber || payment.bankName) ? (
+                      {payment.bankAccountNumber || payment.bankName ? (
                         <div className="rounded-xl border border-border bg-muted px-4 py-3 text-sm text-foreground">
                           <p className="font-medium">
-                            {payment.bankAccountHolder || "Bank transfer details"}
+                            {payment.bankAccountHolder ||
+                              "Bank transfer details"}
                           </p>
                           {payment.bankName ? (
-                            <p className="text-muted-foreground">{payment.bankName}</p>
+                            <p className="text-muted-foreground">
+                              {payment.bankName}
+                            </p>
                           ) : null}
                           {payment.bankAccountNumber ? (
                             <p className="mt-1 font-medium tracking-[0.02em]">
@@ -2794,7 +3429,9 @@ export default function PublicClientPanelPage() {
                             </p>
                           ) : null}
                           {payment.bankSwift ? (
-                            <p className="text-muted-foreground">SWIFT: {payment.bankSwift}</p>
+                            <p className="text-muted-foreground">
+                              SWIFT: {payment.bankSwift}
+                            </p>
                           ) : null}
                           {payment.paymentInstructions ? (
                             <p className="mt-2 text-muted-foreground">
@@ -2811,19 +3448,27 @@ export default function PublicClientPanelPage() {
                           type="button"
                           size="sm"
                           variant="default"
-                          onClick={() => void handleOpenPaymentLink(payment._id)}
+                          onClick={() =>
+                            void handleOpenPaymentLink(payment._id)
+                          }
                           disabled={openingPaymentId === payment._id}
                         >
                           <ExternalLink data-icon="inline-start" />
-                          {openingPaymentId === payment._id ? "Opening..." : "Pay online"}
+                          {openingPaymentId === payment._id
+                            ? "Opening..."
+                            : "Pay online"}
                         </Button>
                       ) : null}
                       {payment.hasInvoicePdf ? (
                         <Button
                           type="button"
                           size="sm"
-                          variant={payment.status === "paid" ? "outline" : "default"}
-                          onClick={() => void handleDownloadInvoice(payment._id)}
+                          variant={
+                            payment.status === "paid" ? "outline" : "default"
+                          }
+                          onClick={() =>
+                            void handleDownloadInvoice(payment._id)
+                          }
                           disabled={downloadingPaymentId === payment._id}
                         >
                           {payment.status === "paid" ? (
@@ -2855,7 +3500,8 @@ export default function PublicClientPanelPage() {
             </div>
           ) : (
             sectionSummaries.map(({ sectionName, itemCount, total }) => {
-              const sectionGroups = shoppingGroupsBySection.get(sectionName) || [];
+              const sectionGroups =
+                shoppingGroupsBySection.get(sectionName) || [];
 
               return (
                 <div
@@ -2878,12 +3524,20 @@ export default function PublicClientPanelPage() {
 
                   <div className="flex flex-col gap-4">
                     {sectionGroups.map((group) => {
-                      const selectedIds = getSelectedIdsForGroup(group, localSelection);
-                      const countedItems = getCountedItemsForGroup(group, selectedIds);
+                      const selectedIds = getSelectedIdsForGroup(
+                        group,
+                        localSelection,
+                      );
+                      const countedItems = getCountedItemsForGroup(
+                        group,
+                        selectedIds,
+                      );
 
                       if (!group.setId) {
                         const option = group.items[0];
-                        const optionStatusLabel = getStatusLabel(option.realizationStatus);
+                        const optionStatusLabel = getStatusLabel(
+                          option.realizationStatus,
+                        );
 
                         return (
                           <PortalItemCard
@@ -2891,11 +3545,16 @@ export default function PublicClientPanelPage() {
                             imageUrl={option.imageUrl}
                             name={option.name}
                             className={cn(
-                              !countedItems.some((entry) => entry.sourceItemId === option.sourceItemId) &&
-                                "border-border/70 bg-muted/10",
+                              !countedItems.some(
+                                (entry) =>
+                                  entry.sourceItemId === option.sourceItemId,
+                              ) && "border-border/70 bg-muted/10",
                             )}
                             badges={
-                              !countedItems.some((entry) => entry.sourceItemId === option.sourceItemId) ? (
+                              !countedItems.some(
+                                (entry) =>
+                                  entry.sourceItemId === option.sourceItemId,
+                              ) ? (
                                 <Badge variant="secondary" className="text-xs">
                                   Not counted in total
                                 </Badge>
@@ -2905,12 +3564,20 @@ export default function PublicClientPanelPage() {
                               <>
                                 <span>{getQtyLabel(option)}</span>
                                 {settings.showPrice
-                                  ? getPriceMetadataLabels(option.unitPrice, "unit").map((label) => (
-                                      <span key={`${option._id}-unit-${label}`}>{label}</span>
+                                  ? getPriceMetadataLabels(
+                                      option.unitPrice,
+                                      "unit",
+                                    ).map((label) => (
+                                      <span key={`${option._id}-unit-${label}`}>
+                                        {label}
+                                      </span>
                                     ))
                                   : null}
                                 {settings.showPrice
-                                  ? getPriceMetadataLabels(option.totalPrice, "total").map((label) => (
+                                  ? getPriceMetadataLabels(
+                                      option.totalPrice,
+                                      "total",
+                                    ).map((label) => (
                                       <span
                                         key={`${option._id}-total-${label}`}
                                         className="font-medium text-foreground"
@@ -2919,14 +3586,20 @@ export default function PublicClientPanelPage() {
                                       </span>
                                     ))
                                   : null}
-                                {settings.showSupplier && option.supplier ? <span>{option.supplier}</span> : null}
+                                {settings.showSupplier && option.supplier ? (
+                                  <span>{option.supplier}</span>
+                                ) : null}
                               </>
                             }
-                            description={settings.showNotes ? option.notes : undefined}
+                            description={
+                              settings.showNotes ? option.notes : undefined
+                            }
                             sideContent={
                               <>
                                 {optionStatusLabel ? (
-                                  <Badge variant="secondary">{optionStatusLabel}</Badge>
+                                  <Badge variant="secondary">
+                                    {optionStatusLabel}
+                                  </Badge>
                                 ) : null}
                                 {option.productLink ? (
                                   <a
@@ -2953,7 +3626,9 @@ export default function PublicClientPanelPage() {
                           <div className="mb-4 flex flex-col gap-3 border-b pb-4 lg:flex-row lg:items-start lg:justify-between">
                             <div>
                               <div className="flex flex-wrap items-center gap-2">
-                                <h3 className="text-base font-medium text-foreground">{group.title}</h3>
+                                <h3 className="text-base font-medium text-foreground">
+                                  {group.title}
+                                </h3>
                                 <Badge variant="outline" className="text-xs">
                                   Alternative group
                                 </Badge>
@@ -2971,21 +3646,38 @@ export default function PublicClientPanelPage() {
                             {group.items.map((option) => {
                               const optionId = String(option.sourceItemId);
                               const isSelected = selectedIds.includes(optionId);
-                              const optionStatusLabel = getStatusLabel(option.realizationStatus);
+                              const optionStatusLabel = getStatusLabel(
+                                option.realizationStatus,
+                              );
 
                               return (
-                                <div key={optionId} className="flex flex-col gap-3">
+                                <div
+                                  key={optionId}
+                                  className="flex flex-col gap-3"
+                                >
                                   {group.selectionMode !== "none" ? (
                                     <div className="flex justify-end">
                                       {group.selectionMode === "multiple" ? (
                                         <Button
                                           size="sm"
-                                          variant={isSelected ? "default" : "outline"}
+                                          variant={
+                                            isSelected ? "default" : "outline"
+                                          }
                                           onClick={() => {
                                             const next = isSelected
-                                              ? selectedIds.filter((entry) => entry !== optionId)
-                                              : Array.from(new Set([...selectedIds, optionId]));
-                                            void handleSelectSetItems(group, next);
+                                              ? selectedIds.filter(
+                                                  (entry) => entry !== optionId,
+                                                )
+                                              : Array.from(
+                                                  new Set([
+                                                    ...selectedIds,
+                                                    optionId,
+                                                  ]),
+                                                );
+                                            void handleSelectSetItems(
+                                              group,
+                                              next,
+                                            );
                                           }}
                                         >
                                           {isSelected ? "Included" : "Include"}
@@ -2994,9 +3686,15 @@ export default function PublicClientPanelPage() {
                                         <Button
                                           size="sm"
                                           variant="default"
-                                          onClick={() => void handleSelectSetItems(group, [optionId])}
+                                          onClick={() =>
+                                            void handleSelectSetItems(group, [
+                                              optionId,
+                                            ])
+                                          }
                                         >
-                                          {isSelected ? "Default option" : "Set default"}
+                                          {isSelected
+                                            ? "Default option"
+                                            : "Set default"}
                                         </Button>
                                       )}
                                     </div>
@@ -3006,16 +3704,29 @@ export default function PublicClientPanelPage() {
                                     imageUrl={option.imageUrl}
                                     name={option.name}
                                     className={cn(
-                                      !countedItems.some((entry) => entry.sourceItemId === option.sourceItemId) &&
-                                        "border-border/70 bg-muted/10",
+                                      !countedItems.some(
+                                        (entry) =>
+                                          entry.sourceItemId ===
+                                          option.sourceItemId,
+                                      ) && "border-border/70 bg-muted/10",
                                     )}
                                     badges={
                                       <>
-                                        <Badge variant="outline" className="text-xs">
+                                        <Badge
+                                          variant="outline"
+                                          className="text-xs"
+                                        >
                                           Alternative
                                         </Badge>
-                                        {!countedItems.some((entry) => entry.sourceItemId === option.sourceItemId) ? (
-                                          <Badge variant="secondary" className="text-xs">
+                                        {!countedItems.some(
+                                          (entry) =>
+                                            entry.sourceItemId ===
+                                            option.sourceItemId,
+                                        ) ? (
+                                          <Badge
+                                            variant="secondary"
+                                            className="text-xs"
+                                          >
                                             Not counted in total
                                           </Badge>
                                         ) : null}
@@ -3025,12 +3736,22 @@ export default function PublicClientPanelPage() {
                                       <>
                                         <span>{getQtyLabel(option)}</span>
                                         {settings.showPrice
-                                          ? getPriceMetadataLabels(option.unitPrice, "unit").map((label) => (
-                                              <span key={`${option._id}-unit-${label}`}>{label}</span>
+                                          ? getPriceMetadataLabels(
+                                              option.unitPrice,
+                                              "unit",
+                                            ).map((label) => (
+                                              <span
+                                                key={`${option._id}-unit-${label}`}
+                                              >
+                                                {label}
+                                              </span>
                                             ))
                                           : null}
                                         {settings.showPrice
-                                          ? getPriceMetadataLabels(option.totalPrice, "total").map((label) => (
+                                          ? getPriceMetadataLabels(
+                                              option.totalPrice,
+                                              "total",
+                                            ).map((label) => (
                                               <span
                                                 key={`${option._id}-total-${label}`}
                                                 className="font-medium text-foreground"
@@ -3039,14 +3760,23 @@ export default function PublicClientPanelPage() {
                                               </span>
                                             ))
                                           : null}
-                                        {settings.showSupplier && option.supplier ? <span>{option.supplier}</span> : null}
+                                        {settings.showSupplier &&
+                                        option.supplier ? (
+                                          <span>{option.supplier}</span>
+                                        ) : null}
                                       </>
                                     }
-                                    description={settings.showNotes ? option.notes : undefined}
+                                    description={
+                                      settings.showNotes
+                                        ? option.notes
+                                        : undefined
+                                    }
                                     sideContent={
                                       <>
                                         {optionStatusLabel ? (
-                                          <Badge variant="secondary">{optionStatusLabel}</Badge>
+                                          <Badge variant="secondary">
+                                            {optionStatusLabel}
+                                          </Badge>
                                         ) : null}
                                         {option.productLink ? (
                                           <a
@@ -3068,7 +3798,9 @@ export default function PublicClientPanelPage() {
                           </div>
 
                           {savingItemId === group.key ? (
-                            <p className="pt-3 text-xs text-muted-foreground">Saving selection...</p>
+                            <p className="pt-3 text-xs text-muted-foreground">
+                              Saving selection...
+                            </p>
                           ) : null}
                         </div>
                       );
@@ -3094,13 +3826,18 @@ export default function PublicClientPanelPage() {
         <div className="mt-12 rounded-3xl border border-border bg-card p-8 shadow-sm">
           <div className="flex flex-col gap-4">
             {sectionSummaries.map(({ sectionName, total }) => (
-              <div key={sectionName} className="flex items-center justify-between text-base text-foreground">
+              <div
+                key={sectionName}
+                className="flex items-center justify-between text-base text-foreground"
+              >
                 <span className="font-medium">{sectionName}</span>
                 <span>{formatTaxBreakdownSummary(total)}</span>
               </div>
             ))}
             <div className="flex items-center justify-between border-t border-border pt-4">
-              <span className="text-xl font-medium text-foreground">Grand Total</span>
+              <span className="text-xl font-medium text-foreground">
+                Grand Total
+              </span>
               <span className="text-2xl font-medium text-foreground">
                 {formatTaxBreakdownSummary(grandTotal)}
               </span>

@@ -1,6 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, type ChangeEvent } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  type ChangeEvent,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useOrganization } from "@clerk/nextjs";
 import { useQuery, useMutation, useAction } from "convex/react";
@@ -24,12 +30,27 @@ import {
   FolderOpen,
   ArrowRight,
   Loader2,
+  BellRing,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter, CardAction } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardFooter,
+  CardAction,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
@@ -48,6 +69,10 @@ import {
   DEFAULT_ORGANIZATION_TAX_SETTINGS,
   type OrganizationPriceDisplay,
 } from "@/lib/organizationTax";
+import {
+  DEFAULT_TEAM_MEMBER_NOTIFICATION_SETTINGS,
+  type TeamMemberNotificationSettings,
+} from "@/lib/teamMemberNotificationSettings";
 import { cn } from "@/lib/utils";
 import { OrganizationImagePicker } from "@/components/company/OrganizationImagePicker";
 
@@ -93,7 +118,8 @@ const BILLING_PLANS = [
     name: "AI Pro",
     price: 39,
     monthlyCredits: AI_PRO_MONTHLY_TOKENS,
-    description: "Best for teams using the assistant and visualizations every week.",
+    description:
+      "Best for teams using the assistant and visualizations every week.",
     limits: ["20 active projects", "2 team members", "50 GB storage"],
   },
   {
@@ -101,7 +127,8 @@ const BILLING_PLANS = [
     name: "AI Scale",
     price: 99,
     monthlyCredits: AI_SCALE_MONTHLY_TOKENS,
-    description: "Higher monthly AI volume with stronger workspace limits and better token value.",
+    description:
+      "Higher monthly AI volume with stronger workspace limits and better token value.",
     limits: ["75 active projects", "100 team members", "250 GB storage"],
   },
 ] as const;
@@ -110,42 +137,96 @@ type BillingPlanKey = (typeof BILLING_PLANS)[number]["key"];
 
 type CompanySettingsMode = "settings" | "subscription";
 
-export default function CompanySettings({ mode = "settings" }: { mode?: CompanySettingsMode }) {
+export default function CompanySettings({
+  mode = "settings",
+}: {
+  mode?: CompanySettingsMode;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { organization, isLoaded } = useOrganization();
-  const ensureCurrentUserTeamMembership = useMutation(apiAny.teamMembership.ensureCurrentUserTeamMembership);
+  const ensureCurrentUserTeamMembership = useMutation(
+    apiAny.teamMembership.ensureCurrentUserTeamMembership,
+  );
   const [repairingTeamState, setRepairingTeamState] = useState(false);
   const attemptedRepairRef = useRef<string | null>(null);
 
   // Loading actual data from backend
   const teamData = useQuery(
     apiAny.teams.getTeamSettingsByClerkOrg,
-    organization?.id ? { clerkOrgId: organization.id } : "skip"
+    organization?.id ? { clerkOrgId: organization.id } : "skip",
   );
 
   const teamId = teamData?.teamId;
   const isSubscriptionPage = mode === "subscription";
   const requestedTab = searchParams.get("tab");
   const shouldRedirectToSubscription =
-    !isSubscriptionPage && (requestedTab === "billing" || requestedTab === "subscription");
+    !isSubscriptionPage &&
+    (requestedTab === "billing" || requestedTab === "subscription");
 
-  const aiAccess = useQuery(apiAny.stripe.checkTeamAIAccess, isSubscriptionPage && teamId ? { teamId } : "skip");
-  const subscription = useQuery(apiAny.stripe.getTeamSubscription, isSubscriptionPage && teamId ? { teamId } : "skip");
-  const usageBreakdown = useQuery(apiAny.ai.usage.getTeamUsageBreakdown, isSubscriptionPage && teamId ? { teamId } : "skip");
-  const storageUsage = useQuery(apiAny.files.getTeamStorageUsage, isSubscriptionPage && teamId ? { teamId } : "skip");
-  const resourceUsage = useQuery(apiAny.teams.getTeamResourceUsage, isSubscriptionPage && teamId ? { teamId } : "skip");
+  const aiAccess = useQuery(
+    apiAny.stripe.checkTeamAIAccess,
+    isSubscriptionPage && teamId ? { teamId } : "skip",
+  );
+  const subscription = useQuery(
+    apiAny.stripe.getTeamSubscription,
+    isSubscriptionPage && teamId ? { teamId } : "skip",
+  );
+  const usageBreakdown = useQuery(
+    apiAny.ai.usage.getTeamUsageBreakdown,
+    isSubscriptionPage && teamId ? { teamId } : "skip",
+  );
+  const storageUsage = useQuery(
+    apiAny.files.getTeamStorageUsage,
+    isSubscriptionPage && teamId ? { teamId } : "skip",
+  );
+  const resourceUsage = useQuery(
+    apiAny.teams.getTeamResourceUsage,
+    isSubscriptionPage && teamId ? { teamId } : "skip",
+  );
 
   const updateTeamSettings = useMutation(apiAny.teams.updateTeamSettings);
+  const updateMyNotificationSettings = useMutation(
+    apiAny.teams.updateMyNotificationSettings,
+  );
   const ensureBillingWindow = useMutation(apiAny.stripe.ensureBillingWindow);
-  const createCheckoutSession = useAction(apiAny.stripeActions.createCheckoutSession);
-  const createBillingPortalSession = useAction(apiAny.stripeActions.createBillingPortalSession);
-  const ensureSubscriptionSynced = useAction(apiAny.stripeActions.ensureSubscriptionSynced);
-  const teamPayments = useQuery(apiAny.stripe.getTeamPayments, isSubscriptionPage && teamId ? { teamId } : "skip");
+  const createCheckoutSession = useAction(
+    apiAny.stripeActions.createCheckoutSession,
+  );
+  const createBillingPortalSession = useAction(
+    apiAny.stripeActions.createBillingPortalSession,
+  );
+  const ensureSubscriptionSynced = useAction(
+    apiAny.stripeActions.ensureSubscriptionSynced,
+  );
+  const teamPayments = useQuery(
+    apiAny.stripe.getTeamPayments,
+    isSubscriptionPage && teamId ? { teamId } : "skip",
+  );
 
   // Local state for team settings
   const [teamSettings, setTeamSettings] = useState<{
-    currency: "USD" | "EUR" | "PLN" | "GBP" | "CAD" | "AUD" | "JPY" | "CHF" | "SEK" | "NOK" | "DKK" | "CZK" | "HUF" | "CNY" | "INR" | "BRL" | "MXN" | "KRW" | "SGD" | "HKD";
+    currency:
+      | "USD"
+      | "EUR"
+      | "PLN"
+      | "GBP"
+      | "CAD"
+      | "AUD"
+      | "JPY"
+      | "CHF"
+      | "SEK"
+      | "NOK"
+      | "DKK"
+      | "CZK"
+      | "HUF"
+      | "CNY"
+      | "INR"
+      | "BRL"
+      | "MXN"
+      | "KRW"
+      | "SGD"
+      | "HKD";
     timezone: string;
     taxEnabled: boolean;
     taxRate: string;
@@ -159,21 +240,33 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
     taxLabel: DEFAULT_ORGANIZATION_TAX_SETTINGS.taxLabel,
     priceDisplay: DEFAULT_ORGANIZATION_TAX_SETTINGS.priceDisplay,
   });
-  const [organizationImagePreviewUrl, setOrganizationImagePreviewUrl] = useState("");
-  const [organizationImageFile, setOrganizationImageFile] = useState<File | null>(null);
+  const [organizationImagePreviewUrl, setOrganizationImagePreviewUrl] =
+    useState("");
+  const [organizationImageFile, setOrganizationImageFile] =
+    useState<File | null>(null);
   const [organizationNameDraft, setOrganizationNameDraft] = useState("");
-  const [billingProfile, setBillingProfile] = useState<BillingProfileForm>(EMPTY_BILLING_PROFILE);
-  const [savingOrganizationProfile, setSavingOrganizationProfile] = useState(false);
+  const [billingProfile, setBillingProfile] = useState<BillingProfileForm>(
+    EMPTY_BILLING_PROFILE,
+  );
+  const [notificationSettings, setNotificationSettings] =
+    useState<TeamMemberNotificationSettings>(
+      DEFAULT_TEAM_MEMBER_NOTIFICATION_SETTINGS,
+    );
+  const [savingOrganizationProfile, setSavingOrganizationProfile] =
+    useState(false);
   const [savingOrganizationName, setSavingOrganizationName] = useState(false);
   const [savingPreferences, setSavingPreferences] = useState(false);
+  const [savingNotifications, setSavingNotifications] = useState(false);
   const [savingBillingProfile, setSavingBillingProfile] = useState(false);
-  const [billingAction, setBillingAction] = useState<"portal" | BillingPlanKey | null>(null);
+  const [billingAction, setBillingAction] = useState<
+    "portal" | BillingPlanKey | null
+  >(null);
   const billingWindowEnsuredRef = useRef(false);
   const organizationImageInputRef = useRef<HTMLInputElement | null>(null);
   const organizationImageObjectUrlRef = useRef<string | null>(null);
   const organizationHasImage = organization?.hasImage ?? false;
   const resolvedOrganizationImageUrl = organizationHasImage
-    ? (teamData?.imageUrl || organization?.imageUrl || "")
+    ? teamData?.imageUrl || organization?.imageUrl || ""
     : "";
   const organizationImageReady =
     teamData?.hasCustomOrganizationImage === true ||
@@ -221,8 +314,32 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
   useEffect(() => {
     if (teamData) {
       setTeamSettings({
-        currency: (teamData.currency as "USD" | "EUR" | "PLN" | "GBP" | "CAD" | "AUD" | "JPY" | "CHF" | "SEK" | "NOK" | "DKK" | "CZK" | "HUF" | "CNY" | "INR" | "BRL" | "MXN" | "KRW" | "SGD" | "HKD") || "PLN",
-        timezone: teamData.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+        currency:
+          (teamData.currency as
+            | "USD"
+            | "EUR"
+            | "PLN"
+            | "GBP"
+            | "CAD"
+            | "AUD"
+            | "JPY"
+            | "CHF"
+            | "SEK"
+            | "NOK"
+            | "DKK"
+            | "CZK"
+            | "HUF"
+            | "CNY"
+            | "INR"
+            | "BRL"
+            | "MXN"
+            | "KRW"
+            | "SGD"
+            | "HKD") || "PLN",
+        timezone:
+          teamData.timezone ||
+          Intl.DateTimeFormat().resolvedOptions().timeZone ||
+          "UTC",
         taxEnabled:
           teamData.organizationTaxSettings?.taxEnabled ??
           DEFAULT_ORGANIZATION_TAX_SETTINGS.taxEnabled,
@@ -234,7 +351,8 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
           teamData.organizationTaxSettings?.taxLabel ??
           DEFAULT_ORGANIZATION_TAX_SETTINGS.taxLabel,
         priceDisplay:
-          (teamData.organizationTaxSettings?.priceDisplay as OrganizationPriceDisplay) ??
+          (teamData.organizationTaxSettings
+            ?.priceDisplay as OrganizationPriceDisplay) ??
           DEFAULT_ORGANIZATION_TAX_SETTINGS.priceDisplay,
       });
       if (!organizationImageFile) {
@@ -256,10 +374,21 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
         bankAccountNumber: teamData.billingProfile?.bankAccountNumber || "",
         bankSwift: teamData.billingProfile?.bankSwift || "",
         paymentInstructions: teamData.billingProfile?.paymentInstructions || "",
-        defaultPaymentTermDays: String(teamData.billingProfile?.defaultPaymentTermDays || 14),
+        defaultPaymentTermDays: String(
+          teamData.billingProfile?.defaultPaymentTermDays || 14,
+        ),
       });
+      setNotificationSettings(
+        teamData.notificationSettings ??
+          DEFAULT_TEAM_MEMBER_NOTIFICATION_SETTINGS,
+      );
     }
-  }, [organization?.name, teamData, organizationImageFile, resolvedOrganizationImageUrl]);
+  }, [
+    organization?.name,
+    teamData,
+    organizationImageFile,
+    resolvedOrganizationImageUrl,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -271,14 +400,21 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
 
   useEffect(() => {
     if (!isSubscriptionPage) return;
-    if (subscription && subscription.stripeCustomerId && subscription.subscriptionPlan === "free") {
-      ensureSubscriptionSynced({ teamId: subscription.teamId }).catch(console.error);
+    if (
+      subscription &&
+      subscription.stripeCustomerId &&
+      subscription.subscriptionPlan === "free"
+    ) {
+      ensureSubscriptionSynced({ teamId: subscription.teamId }).catch(
+        console.error,
+      );
     }
   }, [isSubscriptionPage, subscription, ensureSubscriptionSynced]);
 
   useEffect(() => {
     if (!isSubscriptionPage) return;
-    if (!subscription || !teamData?.teamId || billingWindowEnsuredRef.current) return;
+    if (!subscription || !teamData?.teamId || billingWindowEnsuredRef.current)
+      return;
 
     const start = subscription.currentPeriodStart;
     const end = subscription.currentPeriodEnd;
@@ -295,7 +431,9 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        <p className="text-sm text-muted-foreground animate-pulse">Opening subscription...</p>
+        <p className="text-sm text-muted-foreground animate-pulse">
+          Opening subscription...
+        </p>
       </div>
     );
   }
@@ -305,7 +443,9 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         <p className="text-sm text-muted-foreground animate-pulse">
-          {isSubscriptionPage ? "Loading subscription..." : "Loading settings..."}
+          {isSubscriptionPage
+            ? "Loading subscription..."
+            : "Loading settings..."}
         </p>
       </div>
     );
@@ -317,9 +457,17 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
         <div className="flex w-full max-w-md flex-col gap-4 text-center">
           <h1 className="text-2xl font-semibold">Finish workspace setup</h1>
           <p className="text-sm text-muted-foreground">
-            You need an active organization to access {isSubscriptionPage ? "organization subscription" : "organization settings"}.
+            You need an active organization to access{" "}
+            {isSubscriptionPage
+              ? "organization subscription"
+              : "organization settings"}
+            .
           </p>
-          <Button type="button" onClick={() => router.replace("/onboarding")} className="px-6">
+          <Button
+            type="button"
+            onClick={() => router.replace("/onboarding")}
+            className="px-6"
+          >
             Go to onboarding
           </Button>
         </div>
@@ -332,7 +480,9 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         <p className="text-sm text-muted-foreground animate-pulse">
-          {isSubscriptionPage ? "Loading subscription..." : "Loading settings..."}
+          {isSubscriptionPage
+            ? "Loading subscription..."
+            : "Loading settings..."}
         </p>
       </div>
     );
@@ -345,7 +495,8 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
           <CardHeader>
             <CardTitle>Couldn&apos;t load organization settings</CardTitle>
             <CardDescription>
-              The app couldn&apos;t find your team membership for this organization.
+              The app couldn&apos;t find your team membership for this
+              organization.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
@@ -357,7 +508,9 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                 attemptedRepairRef.current = null;
                 try {
                   await repairTeamMembership();
-                  toast.success("Organization sync completed. Reloading settings...");
+                  toast.success(
+                    "Organization sync completed. Reloading settings...",
+                  );
                 } catch {
                   toast.error("Could not sync organization membership");
                 }
@@ -387,7 +540,9 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
         organizationTaxSettings: {
           taxEnabled: teamSettings.taxEnabled,
           taxRate: normalizedTaxRate,
-          taxLabel: teamSettings.taxLabel.trim() || DEFAULT_ORGANIZATION_TAX_SETTINGS.taxLabel,
+          taxLabel:
+            teamSettings.taxLabel.trim() ||
+            DEFAULT_ORGANIZATION_TAX_SETTINGS.taxLabel,
           priceDisplay: teamSettings.priceDisplay,
         },
       });
@@ -400,7 +555,9 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
     }
   };
 
-  const handleSelectOrganizationImage = (event: ChangeEvent<HTMLInputElement>) => {
+  const handleSelectOrganizationImage = (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -427,6 +584,26 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
     setOrganizationImageFile(file);
     event.target.value = "";
     void handleSaveOrganizationProfile(file);
+  };
+
+  const handleSaveNotificationSettings = async () => {
+    if (!teamData?.teamId) {
+      return;
+    }
+
+    setSavingNotifications(true);
+    try {
+      await updateMyNotificationSettings({
+        teamId: teamData.teamId,
+        notificationSettings,
+      });
+      toast.success("Notification preferences updated");
+    } catch (error) {
+      toast.error("Failed to update notification preferences");
+      console.error(error);
+    } finally {
+      setSavingNotifications(false);
+    }
   };
 
   const handleSaveOrganizationProfile = async (fileOverride?: File) => {
@@ -536,7 +713,10 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
     }
   };
 
-  const handleStartCheckout = async (planKey: BillingPlanKey, priceId?: string) => {
+  const handleStartCheckout = async (
+    planKey: BillingPlanKey,
+    priceId?: string,
+  ) => {
     if (!teamData?.teamId) return;
 
     if (!priceId) {
@@ -573,7 +753,10 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
         billingProfile: {
           ...billingProfile,
           invoicePrefix: "",
-          defaultPaymentTermDays: Number.parseInt(billingProfile.defaultPaymentTermDays || "14", 10),
+          defaultPaymentTermDays: Number.parseInt(
+            billingProfile.defaultPaymentTermDays || "14",
+            10,
+          ),
         },
       });
       toast.success("Organization billing profile updated");
@@ -587,53 +770,93 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
 
   const containerVariants = {
     hidden: { opacity: 0, y: 10 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" as const } }
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.4, ease: "easeOut" as const },
+    },
   };
 
   const remainingCredits = aiAccess?.remainingTokens ?? 0;
   const totalCredits = aiAccess?.totalTokens ?? remainingCredits;
-  const usedCredits = usageBreakdown?.totalTokens ?? Math.max(0, totalCredits - remainingCredits);
+  const usedCredits =
+    usageBreakdown?.totalTokens ?? Math.max(0, totalCredits - remainingCredits);
   const creditBreakdownItems = [
-    { key: "assistant", label: "AI Assistant", icon: Sparkles, color: "text-chart-1", barColor: "bg-chart-1" },
-    { key: "visualizations", label: "Visualizations", icon: BarChart3, color: "text-chart-2", barColor: "bg-chart-2" },
-    { key: "other", label: "Other", icon: AlertCircle, color: "text-chart-4", barColor: "bg-chart-4" },
+    {
+      key: "assistant",
+      label: "AI Assistant",
+      icon: Sparkles,
+      color: "text-chart-1",
+      barColor: "bg-chart-1",
+    },
+    {
+      key: "visualizations",
+      label: "Visualizations",
+      icon: BarChart3,
+      color: "text-chart-2",
+      barColor: "bg-chart-2",
+    },
+    {
+      key: "other",
+      label: "Other",
+      icon: AlertCircle,
+      color: "text-chart-4",
+      barColor: "bg-chart-4",
+    },
   ] as const;
-  const visibleCreditBreakdownItems = creditBreakdownItems.filter((item) => (usageBreakdown?.byFeature?.[item.key] || 0) > 0);
-  const usagePercent = totalCredits > 0 ? Math.min(100, Math.round((usedCredits / totalCredits) * 100)) : 0;
+  const visibleCreditBreakdownItems = creditBreakdownItems.filter(
+    (item) => (usageBreakdown?.byFeature?.[item.key] || 0) > 0,
+  );
+  const usagePercent =
+    totalCredits > 0
+      ? Math.min(100, Math.round((usedCredits / totalCredits) * 100))
+      : 0;
   const currentPlanKey = subscription?.subscriptionPlan || "free";
   const planStatus = subscription?.subscriptionStatus;
   const canOpenPortal = Boolean(subscription?.stripeCustomerId);
-  const subscriptionLabel = planStatus === "trialing" ? "Trial" : subscription?.planDetails?.name || "Free";
-  const subscriptionSubtext = planStatus === "trialing"
-    ? "Active trial subscription"
-    : planStatus === "active"
-      ? "Active subscription"
-      : "No active subscription";
-  const subscriptionStatusLabel = planStatus === "trialing"
-    ? "Trial"
-    : planStatus === "active"
-      ? subscription?.cancelAtPeriodEnd ? "Ending" : "Active"
-      : "Free";
+  const subscriptionLabel =
+    planStatus === "trialing"
+      ? "Trial"
+      : subscription?.planDetails?.name || "Free";
+  const subscriptionSubtext =
+    planStatus === "trialing"
+      ? "Active trial subscription"
+      : planStatus === "active"
+        ? "Active subscription"
+        : "No active subscription";
+  const subscriptionStatusLabel =
+    planStatus === "trialing"
+      ? "Trial"
+      : planStatus === "active"
+        ? subscription?.cancelAtPeriodEnd
+          ? "Ending"
+          : "Active"
+        : "Free";
   const subscriptionPeriodLabel = subscription?.currentPeriodEnd
-    ? `${subscription?.cancelAtPeriodEnd ? "Access until" : "Renews"} ${new Date(subscription.currentPeriodEnd).toLocaleDateString("en-US", {
+    ? `${subscription?.cancelAtPeriodEnd ? "Access until" : "Renews"} ${new Date(
+        subscription.currentPeriodEnd,
+      ).toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
         year: "numeric",
       })}`
     : "Upgrade to unlock higher AI limits and monthly credits.";
-  const checkoutPriceIds: Record<BillingPlanKey, string | null> = subscription?.checkoutPlans ?? {
-    ai: null,
-    ai_scale: null,
-  };
-  const currentPlanDetails = BILLING_PLANS.find((plan) => plan.key === currentPlanKey);
-  const availableBillingPlans = BILLING_PLANS
-    .map((plan) => ({
-      ...plan,
-      priceId: checkoutPriceIds[plan.key] ?? undefined,
-    }))
-    .filter((plan) => Boolean(plan.priceId));
+  const checkoutPriceIds: Record<BillingPlanKey, string | null> =
+    subscription?.checkoutPlans ?? {
+      ai: null,
+      ai_scale: null,
+    };
+  const currentPlanDetails = BILLING_PLANS.find(
+    (plan) => plan.key === currentPlanKey,
+  );
+  const availableBillingPlans = BILLING_PLANS.map((plan) => ({
+    ...plan,
+    priceId: checkoutPriceIds[plan.key] ?? undefined,
+  })).filter((plan) => Boolean(plan.priceId));
   const recommendedPlan =
-    availableBillingPlans.find((plan) => plan.key === (currentPlanKey === "ai" ? "ai_scale" : "ai")) ||
+    availableBillingPlans.find(
+      (plan) => plan.key === (currentPlanKey === "ai" ? "ai_scale" : "ai"),
+    ) ||
     availableBillingPlans[0] ||
     null;
   const isBillingActionPending = billingAction !== null;
@@ -646,11 +869,14 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
           isSubscriptionPage ? "max-w-5xl" : "max-w-[1380px]",
         )}
       >
-
         <div className="flex flex-col gap-2 border-b border-border/40 pb-6">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              {isSubscriptionPage ? <CreditCard className="h-5 w-5" /> : <Building2 className="h-5 w-5" />}
+              {isSubscriptionPage ? (
+                <CreditCard className="h-5 w-5" />
+              ) : (
+                <Building2 className="h-5 w-5" />
+              )}
             </div>
             <div>
               <h1 className="text-2xl font-semibold tracking-tight">
@@ -666,13 +892,20 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
         </div>
 
         {isSubscriptionPage ? (
-          <motion.div variants={containerVariants} initial="hidden" animate="visible" className="flex flex-col gap-10">
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            className="flex flex-col gap-10"
+          >
             <div className="flex flex-col gap-5 rounded-4xl border border-border/60 bg-gradient-to-br from-muted/50 via-background to-background p-5 shadow-sm sm:p-6">
               <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-2">
                   <Badge variant="secondary">Subscription options</Badge>
                   <div className="flex flex-col gap-1">
-                    <h2 className="text-xl font-semibold tracking-tight">Choose the plan for your team</h2>
+                    <h2 className="text-xl font-semibold tracking-tight">
+                      Choose the plan for your team
+                    </h2>
                   </div>
                 </div>
               </div>
@@ -682,50 +915,73 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                   {availableBillingPlans.map((plan) => {
                     const isCurrentPlan = currentPlanKey === plan.key;
                     const canUpgradeToPlan = !isCurrentPlan && plan.priceId;
-                    const isRecommended = recommendedPlan?.key === plan.key && currentPlanKey === "free";
+                    const isRecommended =
+                      recommendedPlan?.key === plan.key &&
+                      currentPlanKey === "free";
                     const availabilityLabel = isCurrentPlan
                       ? "Current plan"
                       : plan.key === "ai_scale"
                         ? "Best value"
                         : "Available";
-                    const availabilityVariant = isCurrentPlan || plan.key === "ai_scale" ? "secondary" : "outline";
+                    const availabilityVariant =
+                      isCurrentPlan || plan.key === "ai_scale"
+                        ? "secondary"
+                        : "outline";
 
                     return (
                       <Card
                         key={plan.key}
                         className={cn(
                           "h-full border-border/50 bg-background/90 shadow-sm",
-                          isRecommended && "border-primary/30 bg-primary/[0.03]",
-                          isCurrentPlan && "border-primary/25"
+                          isRecommended &&
+                            "border-primary/30 bg-primary/[0.03]",
+                          isCurrentPlan && "border-primary/25",
                         )}
                       >
                         <CardHeader className="gap-4 border-b border-border/40">
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex flex-col gap-2">
                               <div className="flex flex-wrap items-center gap-2">
-                      <CardTitle className="text-xl">{plan.name}</CardTitle>
-                                {isRecommended ? <Badge>Recommended</Badge> : null}
+                                <CardTitle className="text-xl">
+                                  {plan.name}
+                                </CardTitle>
+                                {isRecommended ? (
+                                  <Badge>Recommended</Badge>
+                                ) : null}
                               </div>
-                              <CardDescription>{plan.description}</CardDescription>
+                              <CardDescription>
+                                {plan.description}
+                              </CardDescription>
                             </div>
                             <Badge variant={availabilityVariant}>
                               {availabilityLabel}
                             </Badge>
                           </div>
                           <div className="flex items-end gap-2">
-                            <span className="text-4xl font-semibold tracking-tight">${plan.price}</span>
-                            <span className="pb-1 text-sm text-muted-foreground">per month</span>
+                            <span className="text-4xl font-semibold tracking-tight">
+                              ${plan.price}
+                            </span>
+                            <span className="pb-1 text-sm text-muted-foreground">
+                              per month
+                            </span>
                           </div>
                         </CardHeader>
                         <CardContent className="flex h-full flex-col gap-6 pt-6">
                           <div className="rounded-xl border border-border/50 bg-background/80 p-4">
-                            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Monthly AI credits</p>
-                            <p className="mt-2 text-2xl font-semibold tabular-nums">{formatTokens(plan.monthlyCredits)}</p>
+                            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                              Monthly AI credits
+                            </p>
+                            <p className="mt-2 text-2xl font-semibold tabular-nums">
+                              {formatTokens(plan.monthlyCredits)}
+                            </p>
                           </div>
 
                           <div className="grid gap-3 text-sm text-muted-foreground">
                             {plan.limits.map((limit) => (
-                              <div key={limit} className="flex items-center gap-2 rounded-lg border border-transparent bg-muted/20 px-3 py-2">
+                              <div
+                                key={limit}
+                                className="flex items-center gap-2 rounded-lg border border-transparent bg-muted/20 px-3 py-2"
+                              >
                                 <Check className="size-4 text-primary" />
                                 <span>{limit}</span>
                               </div>
@@ -742,7 +998,10 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                             >
                               {billingAction === "portal" ? (
                                 <>
-                                  <Loader2 data-icon="inline-start" className="animate-spin" />
+                                  <Loader2
+                                    data-icon="inline-start"
+                                    className="animate-spin"
+                                  />
                                   Opening billing...
                                 </>
                               ) : (
@@ -754,24 +1013,35 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                             </Button>
                           ) : canUpgradeToPlan ? (
                             <Button
-                              onClick={() => void handleStartCheckout(plan.key, plan.priceId)}
+                              onClick={() =>
+                                void handleStartCheckout(plan.key, plan.priceId)
+                              }
                               disabled={isBillingActionPending}
                               className="w-full"
                             >
                               {billingAction === plan.key ? (
                                 <>
-                                  <Loader2 data-icon="inline-start" className="animate-spin" />
+                                  <Loader2
+                                    data-icon="inline-start"
+                                    className="animate-spin"
+                                  />
                                   Opening checkout...
                                 </>
                               ) : (
                                 <>
                                   <Coins data-icon="inline-start" />
-                                  {currentPlanKey === "free" ? `Choose ${plan.name}` : `Upgrade to ${plan.name}`}
+                                  {currentPlanKey === "free"
+                                    ? `Choose ${plan.name}`
+                                    : `Upgrade to ${plan.name}`}
                                 </>
                               )}
                             </Button>
                           ) : (
-                            <Button disabled variant="outline" className="w-full">
+                            <Button
+                              disabled
+                              variant="outline"
+                              className="w-full"
+                            >
                               Current selection
                             </Button>
                           )}
@@ -785,7 +1055,9 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                   <AlertCircle />
                   <AlertTitle>Upgrade checkout is not configured</AlertTitle>
                   <AlertDescription>
-                    Add `STRIPE_AI_PRICE_ID` (and optionally `STRIPE_AI_SCALE_PRICE_ID`) to enable subscription upgrades from this page.
+                    Add `STRIPE_AI_PRICE_ID` (and optionally
+                    `STRIPE_AI_SCALE_PRICE_ID`) to enable subscription upgrades
+                    from this page.
                   </AlertDescription>
                 </Alert>
               )}
@@ -801,13 +1073,19 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                         Credits Overview
                       </CardTitle>
                     </div>
-                    <Badge variant={usagePercent >= 75 ? "secondary" : "outline"}>{usagePercent}% used</Badge>
+                    <Badge
+                      variant={usagePercent >= 75 ? "secondary" : "outline"}
+                    >
+                      {usagePercent}% used
+                    </Badge>
                   </div>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-5 pt-6">
                   <div className="flex flex-col gap-5">
                     <div className="flex flex-col gap-1">
-                      <p className="text-sm text-muted-foreground">Available now</p>
+                      <p className="text-sm text-muted-foreground">
+                        Available now
+                      </p>
                       <div className="text-4xl font-semibold tracking-tight tabular-nums">
                         {formatTokens(remainingCredits)}
                       </div>
@@ -815,16 +1093,28 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
 
                     <div className="grid gap-3 sm:grid-cols-3">
                       <div className="rounded-xl border border-border/50 bg-background/80 p-4">
-                        <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Used this period</p>
-                        <p className="mt-2 text-xl font-semibold tabular-nums">{formatTokens(usedCredits)}</p>
+                        <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                          Used this period
+                        </p>
+                        <p className="mt-2 text-xl font-semibold tabular-nums">
+                          {formatTokens(usedCredits)}
+                        </p>
                       </div>
                       <div className="rounded-xl border border-border/50 bg-background/80 p-4">
-                        <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Monthly credits</p>
-                        <p className="mt-2 text-xl font-semibold tabular-nums">{formatTokens(totalCredits)}</p>
+                        <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                          Monthly credits
+                        </p>
+                        <p className="mt-2 text-xl font-semibold tabular-nums">
+                          {formatTokens(totalCredits)}
+                        </p>
                       </div>
                       <div className="rounded-xl border border-border/50 bg-background/80 p-4">
-                        <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Estimated per run</p>
-                        <p className="mt-2 text-xl font-semibold tabular-nums">{formatTokens(GEMINI_FLASH_IMAGE_TYPICAL_CREDITS)}</p>
+                        <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                          Estimated per run
+                        </p>
+                        <p className="mt-2 text-xl font-semibold tabular-nums">
+                          {formatTokens(GEMINI_FLASH_IMAGE_TYPICAL_CREDITS)}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -834,7 +1124,10 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                       <span>{formatTokens(usedCredits)} used</span>
                       <span>{formatTokens(totalCredits)} total</span>
                     </div>
-                    <Progress value={usagePercent} className="h-2.5 bg-muted/50" />
+                    <Progress
+                      value={usagePercent}
+                      className="h-2.5 bg-muted/50"
+                    />
                   </div>
                 </CardContent>
               </Card>
@@ -846,35 +1139,59 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                     Current Plan
                   </CardTitle>
                   <CardAction>
-                    <Badge variant={planStatus === "active" || planStatus === "trialing" ? "secondary" : "outline"}>
+                    <Badge
+                      variant={
+                        planStatus === "active" || planStatus === "trialing"
+                          ? "secondary"
+                          : "outline"
+                      }
+                    >
                       {subscriptionStatusLabel}
                     </Badge>
                   </CardAction>
                 </CardHeader>
                 <CardContent className="flex h-full flex-col gap-5 pt-6">
                   <div className="flex flex-col gap-1">
-                    <div className="text-3xl font-semibold tracking-tight">{subscriptionLabel}</div>
-                    <p className="text-sm text-muted-foreground">{subscriptionSubtext}</p>
-                    <p className="text-sm text-muted-foreground">{subscriptionPeriodLabel}</p>
+                    <div className="text-3xl font-semibold tracking-tight">
+                      {subscriptionLabel}
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {subscriptionSubtext}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {subscriptionPeriodLabel}
+                    </p>
                   </div>
 
                   <div className="rounded-xl border border-border/50 bg-background/80 p-4">
-                    <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Included monthly credits</p>
+                    <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                      Included monthly credits
+                    </p>
                     <p className="mt-2 text-xl font-semibold tabular-nums">
-                      {formatTokens(currentPlanDetails?.monthlyCredits ?? totalCredits)}
+                      {formatTokens(
+                        currentPlanDetails?.monthlyCredits ?? totalCredits,
+                      )}
                     </p>
                   </div>
 
                   <div className="mt-auto">
                     {currentPlanKey === "free" && recommendedPlan ? (
                       <Button
-                        onClick={() => void handleStartCheckout(recommendedPlan.key, recommendedPlan.priceId)}
+                        onClick={() =>
+                          void handleStartCheckout(
+                            recommendedPlan.key,
+                            recommendedPlan.priceId,
+                          )
+                        }
                         disabled={isBillingActionPending}
                         className="w-full"
                       >
                         {billingAction === recommendedPlan.key ? (
                           <>
-                            <Loader2 data-icon="inline-start" className="animate-spin" />
+                            <Loader2
+                              data-icon="inline-start"
+                              className="animate-spin"
+                            />
                             Opening checkout...
                           </>
                         ) : (
@@ -892,7 +1209,10 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                       >
                         {billingAction === "portal" ? (
                           <>
-                            <Loader2 data-icon="inline-start" className="animate-spin" />
+                            <Loader2
+                              data-icon="inline-start"
+                              className="animate-spin"
+                            />
                             Opening billing...
                           </>
                         ) : (
@@ -904,13 +1224,21 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                       </Button>
                     ) : recommendedPlan ? (
                       <Button
-                        onClick={() => void handleStartCheckout(recommendedPlan.key, recommendedPlan.priceId)}
+                        onClick={() =>
+                          void handleStartCheckout(
+                            recommendedPlan.key,
+                            recommendedPlan.priceId,
+                          )
+                        }
                         disabled={isBillingActionPending}
                         className="w-full"
                       >
                         {billingAction === recommendedPlan.key ? (
                           <>
-                            <Loader2 data-icon="inline-start" className="animate-spin" />
+                            <Loader2
+                              data-icon="inline-start"
+                              className="animate-spin"
+                            />
                             Opening checkout...
                           </>
                         ) : (
@@ -930,12 +1258,14 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
               </Card>
             </div>
 
-              <Card className="border-border/40 shadow-sm">
-                <CardHeader>
-                  <CardTitle className="text-base font-medium">Transaction History</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {teamPayments && teamPayments.length > 0 ? (
+            <Card className="border-border/40 shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-base font-medium">
+                  Transaction History
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {teamPayments && teamPayments.length > 0 ? (
                   <div className="flex flex-col gap-4">
                     {teamPayments.map((payment) => {
                       const amount = payment.amount / 100;
@@ -944,7 +1274,9 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                         style: "currency",
                         currency,
                       }).format(amount);
-                      const createdAt = new Date(payment.created * 1000).toLocaleDateString("en-US", {
+                      const createdAt = new Date(
+                        payment.created * 1000,
+                      ).toLocaleDateString("en-US", {
                         month: "short",
                         day: "numeric",
                         year: "numeric",
@@ -963,7 +1295,9 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                           </div>
                           <div className="flex items-center justify-between text-xs text-muted-foreground">
                             <span>{createdAt}</span>
-                            <span>{payment.stripePaymentIntentId.slice(-8)}</span>
+                            <span>
+                              {payment.stripePaymentIntentId.slice(-8)}
+                            </span>
                           </div>
                         </div>
                       );
@@ -984,7 +1318,8 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
               <div className="flex flex-col gap-1">
                 <h2 className="text-lg font-medium">Usage</h2>
                 <p className="text-sm text-muted-foreground">
-                  Monitor your usage, costs, and resource consumption across all services.
+                  Monitor your usage, costs, and resource consumption across all
+                  services.
                 </p>
               </div>
 
@@ -997,18 +1332,32 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                     </CardTitle>
                     <CardDescription>
                       {usageBreakdown?.periodStart
-                        ? new Date(usageBreakdown.periodStart).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                        ? new Date(
+                            usageBreakdown.periodStart,
+                          ).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })
                         : "Current period"}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="flex flex-col gap-4">
                     <div>
-                      <div className="text-xl font-semibold tabular-nums">{formatTokens(usedCredits)}</div>
-                      <p className="text-xs text-muted-foreground">credits used this billing period</p>
+                      <div className="text-xl font-semibold tabular-nums">
+                        {formatTokens(usedCredits)}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        credits used this billing period
+                      </p>
                     </div>
                     <div>
-                      <div className="text-xl font-semibold tabular-nums">{formatTokens(remainingCredits)}</div>
-                      <p className="text-xs text-muted-foreground">credits remaining</p>
+                      <div className="text-xl font-semibold tabular-nums">
+                        {formatTokens(remainingCredits)}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        credits remaining
+                      </p>
                     </div>
                     <div className="flex flex-col gap-2 pt-2">
                       <Progress
@@ -1022,7 +1371,9 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                               : "bg-chart-2"
                         }
                       />
-                      <p className="text-xs text-muted-foreground">{usagePercent}% used</p>
+                      <p className="text-xs text-muted-foreground">
+                        {usagePercent}% used
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
@@ -1033,20 +1384,22 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                       <HardDrive className="h-4 w-4 text-chart-2" />
                       Storage
                     </CardTitle>
-                    <CardDescription>
-                      All projects combined
-                    </CardDescription>
+                    <CardDescription>All projects combined</CardDescription>
                   </CardHeader>
                   <CardContent className="flex flex-col gap-4">
                     <div>
                       <div className="text-xl font-semibold tabular-nums">
                         {storageUsage?.usedGB.toFixed(2) ?? "0.00"} GB
                       </div>
-                      <p className="text-xs text-muted-foreground">used of {storageUsage?.limitGB ?? 0} GB total</p>
+                      <p className="text-xs text-muted-foreground">
+                        used of {storageUsage?.limitGB ?? 0} GB total
+                      </p>
                     </div>
                     <div className="flex flex-col gap-2 pt-2">
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>{storageUsage?.usedGB.toFixed(2) ?? "0.00"} GB used</span>
+                        <span>
+                          {storageUsage?.usedGB.toFixed(2) ?? "0.00"} GB used
+                        </span>
                         <span>{storageUsage?.limitGB ?? 0} GB total</span>
                       </div>
                       <Progress
@@ -1060,7 +1413,9 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                               : "bg-chart-2"
                         }
                       />
-                      <p className="text-xs text-muted-foreground">{storageUsage?.percentUsed.toFixed(1) ?? "0.0"}% used</p>
+                      <p className="text-xs text-muted-foreground">
+                        {storageUsage?.percentUsed.toFixed(1) ?? "0.0"}% used
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
@@ -1071,16 +1426,16 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                       <FolderOpen className="h-4 w-4 text-chart-3" />
                       Projects
                     </CardTitle>
-                    <CardDescription>
-                      Active projects
-                    </CardDescription>
+                    <CardDescription>Active projects</CardDescription>
                   </CardHeader>
                   <CardContent className="flex flex-col gap-4">
                     <div>
                       <div className="text-xl font-semibold tabular-nums">
                         {resourceUsage?.projectsUsed ?? 0} projects
                       </div>
-                      <p className="text-xs text-muted-foreground">of {resourceUsage?.projectsLimit ?? 0} total</p>
+                      <p className="text-xs text-muted-foreground">
+                        of {resourceUsage?.projectsLimit ?? 0} total
+                      </p>
                     </div>
                     <div className="flex flex-col gap-2 pt-2">
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -1098,7 +1453,9 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                               : "bg-chart-3"
                         }
                       />
-                      <p className="text-xs text-muted-foreground">{resourceUsage?.projectsPercentUsed ?? 0}% used</p>
+                      <p className="text-xs text-muted-foreground">
+                        {resourceUsage?.projectsPercentUsed ?? 0}% used
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
@@ -1109,16 +1466,16 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                       <Users className="h-4 w-4 text-chart-4" />
                       Team Members
                     </CardTitle>
-                    <CardDescription>
-                      Active members
-                    </CardDescription>
+                    <CardDescription>Active members</CardDescription>
                   </CardHeader>
                   <CardContent className="flex flex-col gap-4">
                     <div>
                       <div className="text-xl font-semibold tabular-nums">
                         {resourceUsage?.membersUsed ?? 0} members
                       </div>
-                      <p className="text-xs text-muted-foreground">of {resourceUsage?.membersLimit ?? 0} total</p>
+                      <p className="text-xs text-muted-foreground">
+                        of {resourceUsage?.membersLimit ?? 0} total
+                      </p>
                     </div>
                     <div className="flex flex-col gap-2 pt-2">
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -1136,7 +1493,9 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                               : "bg-chart-4"
                         }
                       />
-                      <p className="text-xs text-muted-foreground">{resourceUsage?.membersPercentUsed ?? 0}% used</p>
+                      <p className="text-xs text-muted-foreground">
+                        {resourceUsage?.membersPercentUsed ?? 0}% used
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
@@ -1145,7 +1504,10 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base font-medium flex items-center gap-2">
                       Subscription Plan
-                      <span className="text-muted-foreground" title="Limits reset with each billing period.">
+                      <span
+                        className="text-muted-foreground"
+                        title="Limits reset with each billing period."
+                      >
                         <AlertCircle className="h-3.5 w-3.5" />
                       </span>
                     </CardTitle>
@@ -1161,9 +1523,13 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                       <span className="font-medium">{subscriptionLabel}</span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Monthly Cost</span>
+                      <span className="text-muted-foreground">
+                        Monthly Cost
+                      </span>
                       <span className="font-medium">
-                        {subscription?.planDetails?.price ? `$${subscription.planDetails.price}` : "Free"}
+                        {subscription?.planDetails?.price
+                          ? `$${subscription.planDetails.price}`
+                          : "Free"}
                       </span>
                     </div>
                     <div className="pt-2">
@@ -1173,7 +1539,9 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                         variant="outline"
                         className="w-full"
                       >
-                        {billingAction === "portal" ? "Opening..." : "Manage Subscription"}
+                        {billingAction === "portal"
+                          ? "Opening..."
+                          : "Manage Subscription"}
                       </Button>
                     </div>
                   </CardContent>
@@ -1182,19 +1550,24 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
 
               <Card className="border-border/40 shadow-sm">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base font-medium">Credit Breakdown</CardTitle>
+                  <CardTitle className="text-base font-medium">
+                    Credit Breakdown
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-4">
                   <div className="flex items-center justify-between text-sm text-muted-foreground">
                     <span>Credits Used</span>
                     <span>
-                      {formatTokens(usedCredits)} of {formatTokens(totalCredits)} credits
+                      {formatTokens(usedCredits)} of{" "}
+                      {formatTokens(totalCredits)} credits
                     </span>
                   </div>
                   <div className="flex h-2 w-full overflow-hidden rounded-full bg-muted/30">
                     {visibleCreditBreakdownItems.map((segment) => {
-                      const tokens = usageBreakdown?.byFeature?.[segment.key] || 0;
-                      const percent = usedCredits > 0 ? (tokens / usedCredits) * 100 : 0;
+                      const tokens =
+                        usageBreakdown?.byFeature?.[segment.key] || 0;
+                      const percent =
+                        usedCredits > 0 ? (tokens / usedCredits) * 100 : 0;
                       return (
                         <div
                           key={segment.key}
@@ -1207,31 +1580,43 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                   <div className="flex flex-col gap-3">
                     {visibleCreditBreakdownItems.map((item) => {
                       const tokens = usageBreakdown?.byFeature?.[item.key] || 0;
-                      const percent = usedCredits > 0 ? (tokens / usedCredits) * 100 : 0;
+                      const percent =
+                        usedCredits > 0 ? (tokens / usedCredits) * 100 : 0;
                       const Icon = item.icon;
                       return (
-                        <div key={item.key} className="flex items-center justify-between text-sm">
+                        <div
+                          key={item.key}
+                          className="flex items-center justify-between text-sm"
+                        >
                           <div className="flex items-center gap-2">
                             <Icon className={`h-4 w-4 ${item.color}`} />
                             <span>{item.label}</span>
                           </div>
                           <div className="text-muted-foreground">
-                            {formatTokens(tokens)} credits ({percent.toFixed(1)}%)
+                            {formatTokens(tokens)} credits ({percent.toFixed(1)}
+                            %)
                           </div>
                         </div>
                       );
                     })}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Typical visualization runs about {formatTokens(GEMINI_FLASH_IMAGE_TYPICAL_CREDITS)} credits,
-                    with higher usage for long prompts, edits, and reference images.
+                    Typical visualization runs about{" "}
+                    {formatTokens(GEMINI_FLASH_IMAGE_TYPICAL_CREDITS)} credits,
+                    with higher usage for long prompts, edits, and reference
+                    images.
                   </p>
                 </CardContent>
               </Card>
             </div>
           </motion.div>
         ) : (
-          <motion.div variants={containerVariants} initial="hidden" animate="visible" className="grid gap-8">
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            className="grid gap-8"
+          >
             <div className="grid gap-8 2xl:grid-cols-[minmax(0,1.55fr)_minmax(340px,0.95fr)] 2xl:items-start">
               <section className="grid gap-6">
                 <div className="space-y-2">
@@ -1239,23 +1624,29 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                     Core Setup
                   </p>
                   <div className="space-y-1">
-                    <h2 className="text-xl font-semibold tracking-tight">Identity & invoicing</h2>
+                    <h2 className="text-xl font-semibold tracking-tight">
+                      Identity & invoicing
+                    </h2>
                     <p className="max-w-3xl text-sm text-muted-foreground">
-                      Keep workspace identity and invoice defaults in one place. These values drive
-                      what teammates see inside the workspace and what clients see on generated
-                      invoices.
+                      Keep workspace identity and invoice defaults in one place.
+                      These values drive what teammates see inside the workspace
+                      and what clients see on generated invoices.
                     </p>
                   </div>
                 </div>
 
-                <Card id="organization-profile" className="overflow-hidden border-border/40 shadow-sm">
+                <Card
+                  id="organization-profile"
+                  className="overflow-hidden border-border/40 shadow-sm"
+                >
                   <CardHeader className="gap-2 border-b border-border/40">
                     <CardTitle className="flex items-center gap-2 text-base font-medium">
                       <Building2 className="h-4 w-4 text-primary" />
                       Workspace identity
                     </CardTitle>
                     <CardDescription>
-                      Update the organization name and sidebar image used across this workspace.
+                      Update the organization name and sidebar image used across
+                      this workspace.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="grid gap-6 p-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(300px,0.85fr)]">
@@ -1272,8 +1663,14 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                       <OrganizationImagePicker
                         inputId="organization-image-upload"
                         currentImageUrl={organizationImagePreviewUrl}
-                        name={organizationNameDraft || organization?.name || "Organization"}
-                        onPick={() => organizationImageInputRef.current?.click()}
+                        name={
+                          organizationNameDraft ||
+                          organization?.name ||
+                          "Organization"
+                        }
+                        onPick={() =>
+                          organizationImageInputRef.current?.click()
+                        }
                         disabled={savingOrganizationProfile}
                         buttonLabel={
                           savingOrganizationProfile
@@ -1282,7 +1679,11 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                               ? "Change image"
                               : "Upload custom image"
                         }
-                        statusLabel={organizationImageReady ? "Custom image set" : "Default image still active"}
+                        statusLabel={
+                          organizationImageReady
+                            ? "Custom image set"
+                            : "Default image still active"
+                        }
                         description={
                           savingOrganizationProfile
                             ? "Uploading logo..."
@@ -1293,7 +1694,9 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
 
                     <div className="grid content-start gap-4 rounded-2xl border border-border/50 bg-muted/20 p-5">
                       <div className="space-y-1">
-                        <Label htmlFor="organization-name">Organization name</Label>
+                        <Label htmlFor="organization-name">
+                          Organization name
+                        </Label>
                         <p className="text-xs text-muted-foreground">
                           Saved automatically on blur or when you press Enter.
                         </p>
@@ -1301,7 +1704,9 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                       <Input
                         id="organization-name"
                         value={organizationNameDraft}
-                        onChange={(event) => setOrganizationNameDraft(event.target.value)}
+                        onChange={(event) =>
+                          setOrganizationNameDraft(event.target.value)
+                        }
                         onBlur={() => void handleSaveOrganizationName()}
                         onKeyDown={(event) => {
                           if (event.key === "Enter") {
@@ -1326,16 +1731,19 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                       Invoicing profile
                     </CardTitle>
                     <CardDescription>
-                      Seller details shared automatically across project invoices in this
-                      organization.
+                      Seller details shared automatically across project
+                      invoices in this organization.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="grid gap-8 p-6">
                     <div className="grid gap-4">
                       <div className="space-y-1">
-                        <h3 className="text-sm font-medium text-foreground">Seller identity</h3>
+                        <h3 className="text-sm font-medium text-foreground">
+                          Seller identity
+                        </h3>
                         <p className="text-sm text-muted-foreground">
-                          Core company information printed at the top of every invoice.
+                          Core company information printed at the top of every
+                          invoice.
                         </p>
                       </div>
                       <div className="grid gap-4 md:grid-cols-2">
@@ -1344,7 +1752,10 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                           <Input
                             value={billingProfile.sellerName}
                             onChange={(e) =>
-                              setBillingProfile((prev) => ({ ...prev, sellerName: e.target.value }))
+                              setBillingProfile((prev) => ({
+                                ...prev,
+                                sellerName: e.target.value,
+                              }))
                             }
                           />
                         </div>
@@ -1353,7 +1764,10 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                           <Input
                             value={billingProfile.sellerTaxId}
                             onChange={(e) =>
-                              setBillingProfile((prev) => ({ ...prev, sellerTaxId: e.target.value }))
+                              setBillingProfile((prev) => ({
+                                ...prev,
+                                sellerTaxId: e.target.value,
+                              }))
                             }
                           />
                         </div>
@@ -1363,7 +1777,10 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                             type="email"
                             value={billingProfile.sellerEmail}
                             onChange={(e) =>
-                              setBillingProfile((prev) => ({ ...prev, sellerEmail: e.target.value }))
+                              setBillingProfile((prev) => ({
+                                ...prev,
+                                sellerEmail: e.target.value,
+                              }))
                             }
                           />
                         </div>
@@ -1372,7 +1789,10 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                           <Input
                             value={billingProfile.sellerPhone}
                             onChange={(e) =>
-                              setBillingProfile((prev) => ({ ...prev, sellerPhone: e.target.value }))
+                              setBillingProfile((prev) => ({
+                                ...prev,
+                                sellerPhone: e.target.value,
+                              }))
                             }
                           />
                         </div>
@@ -1383,7 +1803,9 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
 
                     <div className="grid gap-4">
                       <div className="space-y-1">
-                        <h3 className="text-sm font-medium text-foreground">Registered address</h3>
+                        <h3 className="text-sm font-medium text-foreground">
+                          Registered address
+                        </h3>
                         <p className="text-sm text-muted-foreground">
                           Postal address shown in the seller block.
                         </p>
@@ -1430,7 +1852,10 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                           <Input
                             value={billingProfile.sellerCity}
                             onChange={(e) =>
-                              setBillingProfile((prev) => ({ ...prev, sellerCity: e.target.value }))
+                              setBillingProfile((prev) => ({
+                                ...prev,
+                                sellerCity: e.target.value,
+                              }))
                             }
                           />
                         </div>
@@ -1439,7 +1864,10 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                           <Input
                             value={billingProfile.sellerCountry}
                             onChange={(e) =>
-                              setBillingProfile((prev) => ({ ...prev, sellerCountry: e.target.value }))
+                              setBillingProfile((prev) => ({
+                                ...prev,
+                                sellerCountry: e.target.value,
+                              }))
                             }
                           />
                         </div>
@@ -1450,9 +1878,12 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
 
                     <div className="grid gap-4">
                       <div className="space-y-1">
-                        <h3 className="text-sm font-medium text-foreground">Payment details</h3>
+                        <h3 className="text-sm font-medium text-foreground">
+                          Payment details
+                        </h3>
                         <p className="text-sm text-muted-foreground">
-                          Bank details and invoice defaults used when a project invoice is created.
+                          Bank details and invoice defaults used when a project
+                          invoice is created.
                         </p>
                       </div>
                       <div className="grid gap-4 md:grid-cols-2">
@@ -1473,7 +1904,10 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                           <Input
                             value={billingProfile.bankName}
                             onChange={(e) =>
-                              setBillingProfile((prev) => ({ ...prev, bankName: e.target.value }))
+                              setBillingProfile((prev) => ({
+                                ...prev,
+                                bankName: e.target.value,
+                              }))
                             }
                           />
                         </div>
@@ -1494,7 +1928,10 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                           <Input
                             value={billingProfile.bankSwift}
                             onChange={(e) =>
-                              setBillingProfile((prev) => ({ ...prev, bankSwift: e.target.value }))
+                              setBillingProfile((prev) => ({
+                                ...prev,
+                                bankSwift: e.target.value,
+                              }))
                             }
                           />
                         </div>
@@ -1530,7 +1967,8 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                   </CardContent>
                   <CardFooter className="flex flex-col gap-3 border-t border-border/40 bg-muted/30 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-xs text-muted-foreground">
-                      Seller name falls back to the organization name until you override it here.
+                      Seller name falls back to the organization name until you
+                      override it here.
                     </p>
                     <Button
                       onClick={handleSaveBillingProfile}
@@ -1556,9 +1994,12 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                     Defaults & Policy
                   </p>
                   <div className="space-y-1">
-                    <h2 className="text-xl font-semibold tracking-tight">Workspace defaults</h2>
+                    <h2 className="text-xl font-semibold tracking-tight">
+                      Workspace defaults
+                    </h2>
                     <p className="text-sm text-muted-foreground">
-                      Regional preferences, tax behavior, and a quick access reference for the team.
+                      Regional preferences, tax behavior, and a quick access
+                      reference for the team.
                     </p>
                   </div>
                 </div>
@@ -1570,16 +2011,19 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                       Regional defaults
                     </CardTitle>
                     <CardDescription>
-                      Currency, timezone, tax settings, and amount presentation are saved together.
+                      Currency, timezone, tax settings, and amount presentation
+                      are saved together.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="grid gap-8 p-6">
                     <div className="grid gap-4">
                       <div className="space-y-1">
-                        <h3 className="text-sm font-medium text-foreground">Currency & timezone</h3>
+                        <h3 className="text-sm font-medium text-foreground">
+                          Currency & timezone
+                        </h3>
                         <p className="text-sm text-muted-foreground">
-                          These defaults affect estimates, reports, and AI date handling across new
-                          work.
+                          These defaults affect estimates, reports, and AI date
+                          handling across new work.
                         </p>
                       </div>
                       <div className="grid gap-4">
@@ -1594,7 +2038,10 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                               })
                             }
                           >
-                            <SelectTrigger id="currency" className="w-full bg-background/50">
+                            <SelectTrigger
+                              id="currency"
+                              className="w-full bg-background/50"
+                            >
                               <SelectValue placeholder="Select currency" />
                             </SelectTrigger>
                             <SelectContent>
@@ -1604,11 +2051,16 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                                 { value: "PLN", label: "Polish Zloty (zł)" },
                                 { value: "GBP", label: "British Pound (£)" },
                                 { value: "CAD", label: "Canadian Dollar (C$)" },
-                                { value: "AUD", label: "Australian Dollar (A$)" },
+                                {
+                                  value: "AUD",
+                                  label: "Australian Dollar (A$)",
+                                },
                                 { value: "JPY", label: "Japanese Yen (¥)" },
                               ].map((curr) => (
                                 <SelectItem key={curr.value} value={curr.value}>
-                                  <span className="font-medium">{curr.value}</span>
+                                  <span className="font-medium">
+                                    {curr.value}
+                                  </span>
                                   <span className="ml-2 text-xs text-muted-foreground">
                                     ({curr.label})
                                   </span>
@@ -1634,75 +2086,35 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
 
                     <div className="grid gap-4">
                       <div className="space-y-1">
-                        <h3 className="text-sm font-medium text-foreground">Tax & display</h3>
+                        <h3 className="text-sm font-medium text-foreground">
+                          Tax & display
+                        </h3>
                         <p className="text-sm text-muted-foreground">
-                          Control how net, tax, and gross values appear in lists, exports, and
-                          client-facing views.
+                          Control how net, tax, and gross values appear in
+                          lists, exports, and client-facing views. Tax rate
+                          management now lives in the dedicated Tax section.
                         </p>
                       </div>
 
-                      <div className="flex items-start justify-between gap-4 rounded-2xl border border-border/60 bg-muted/20 px-4 py-4">
+                      <div className="flex flex-col gap-4 rounded-2xl border border-border/60 bg-muted/20 px-4 py-4 md:flex-row md:items-center md:justify-between">
                         <div className="space-y-1">
-                          <Label htmlFor="organization-tax-enabled" className="text-sm font-medium">
-                            Enable tax calculations
+                          <Label className="text-sm font-medium">
+                            Default tax rate
                           </Label>
                           <p className="text-sm text-muted-foreground">
-                            Turn this on when customer-facing totals should include tax.
+                            {teamSettings.taxEnabled
+                              ? `${teamSettings.taxLabel} (${Number.parseFloat(teamSettings.taxRate || "0").toFixed(2)}%) is currently synced across the workspace.`
+                              : "No default tax rate is active right now."}
                           </p>
                         </div>
-                        <Switch
-                          id="organization-tax-enabled"
-                          checked={teamSettings.taxEnabled}
-                          onCheckedChange={(checked) =>
-                            setTeamSettings((current) => ({
-                              ...current,
-                              taxEnabled: checked,
-                            }))
-                          }
-                        />
-                      </div>
-
-                      <div className="grid gap-4">
-                        <div className="grid gap-2">
-                          <Label htmlFor="organization-tax-label">Tax label</Label>
-                          <Input
-                            id="organization-tax-label"
-                            value={teamSettings.taxLabel}
-                            onChange={(event) =>
-                              setTeamSettings((current) => ({
-                                ...current,
-                                taxLabel: event.target.value,
-                              }))
-                            }
-                            placeholder="Tax"
-                          />
-                          <p className="text-xs text-muted-foreground">
-                            Examples: VAT, Sales Tax, GST.
-                          </p>
-                        </div>
-
-                        <div className="grid gap-2">
-                          <Label htmlFor="organization-tax-rate">Tax rate (%)</Label>
-                          <Input
-                            id="organization-tax-rate"
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="0.01"
-                            value={teamSettings.taxRate}
-                            onChange={(event) =>
-                              setTeamSettings((current) => ({
-                                ...current,
-                                taxRate: event.target.value,
-                              }))
-                            }
-                            placeholder="0"
-                            disabled={!teamSettings.taxEnabled}
-                          />
-                          <p className="text-xs text-muted-foreground">
-                            Used for gross totals in shopping lists, portal views, CSV, and PDF.
-                          </p>
-                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => router.push("/organisation/tax")}
+                        >
+                          Open Tax
+                          <ArrowRight className="ml-2 h-4 w-4" />
+                        </Button>
                       </div>
 
                       <div className="grid gap-3">
@@ -1731,7 +2143,8 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                             {
                               value: "both",
                               label: "Net, tax, gross",
-                              description: "Show the full breakdown everywhere.",
+                              description:
+                                "Show the full breakdown everywhere.",
                             },
                           ].map((option) => (
                             <label
@@ -1743,7 +2156,10 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                                   : "border-border/60 bg-background",
                               )}
                             >
-                              <RadioGroupItem value={option.value} className="mt-0.5" />
+                              <RadioGroupItem
+                                value={option.value}
+                                className="mt-0.5"
+                              />
                               <div className="space-y-1">
                                 <div className="text-sm font-medium text-foreground">
                                   {option.label}
@@ -1760,8 +2176,8 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                   </CardContent>
                   <CardFooter className="flex flex-col gap-3 border-t border-border/40 bg-muted/30 px-6 py-4">
                     <p className="text-xs text-muted-foreground">
-                      Stored item prices remain net. Display mode affects shopping lists, portal,
-                      CSV, and PDF.
+                      Stored item prices remain net. Display mode affects
+                      shopping lists, portal, CSV, and PDF.
                     </p>
                     <Button
                       onClick={handleSaveTeamSettings}
@@ -1783,11 +2199,145 @@ export default function CompanySettings({ mode = "settings" }: { mode?: CompanyS
                 <Card className="overflow-hidden border-border/40 shadow-sm">
                   <CardHeader className="gap-2 border-b border-border/40">
                     <CardTitle className="flex items-center gap-2 text-base font-medium">
+                      <BellRing className="h-4 w-4 text-primary" />
+                      Notifications
+                    </CardTitle>
+                    <CardDescription>
+                      Choose which task and comment updates should trigger
+                      alerts for your account.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid gap-8 p-6">
+                    <div className="grid gap-3">
+                      <div className="space-y-1">
+                        <h3 className="text-sm font-medium text-foreground">
+                          Tasks
+                        </h3>
+                        <p className="text-sm text-muted-foreground">
+                          Alerts for assignments, status changes, due dates, and
+                          workflow changes.
+                        </p>
+                      </div>
+                      {[
+                        {
+                          key: "taskAssigned",
+                          title: "Task assigned",
+                          description:
+                            "Get notified when you're assigned a new task.",
+                        },
+                        {
+                          key: "taskUnassigned",
+                          title: "Task unassigned",
+                          description:
+                            "Be alerted when you're removed from a task.",
+                        },
+                        {
+                          key: "taskStatusUpdated",
+                          title: "Task status updated",
+                          description:
+                            "Stay informed when a task you're on changes status.",
+                        },
+                        {
+                          key: "taskDueDateChanged",
+                          title: "Task due date changed",
+                          description:
+                            "Receive updates when the due date of your task is updated.",
+                        },
+                      ].map((item) => (
+                        <div
+                          key={item.key}
+                          className="flex items-start justify-between gap-4 rounded-2xl border border-border/60 bg-background px-4 py-4"
+                        >
+                          <div className="space-y-1 pr-4">
+                            <div className="text-sm font-medium text-foreground">
+                              {item.title}
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              {item.description}
+                            </p>
+                          </div>
+                          <Switch
+                            checked={
+                              notificationSettings[
+                                item.key as keyof TeamMemberNotificationSettings
+                              ]
+                            }
+                            onCheckedChange={(checked) =>
+                              setNotificationSettings((current) => ({
+                                ...current,
+                                [item.key]: checked,
+                              }))
+                            }
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    <Separator />
+
+                    <div className="grid gap-3">
+                      <div className="space-y-1">
+                        <h3 className="text-sm font-medium text-foreground">
+                          Comments
+                        </h3>
+                        <p className="text-sm text-muted-foreground">
+                          Alerts for discussion activity on tasks you are
+                          involved in.
+                        </p>
+                      </div>
+                      <div className="flex items-start justify-between gap-4 rounded-2xl border border-border/60 bg-background px-4 py-4">
+                        <div className="space-y-1 pr-4">
+                          <div className="text-sm font-medium text-foreground">
+                            Task comments
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            Get alerts when someone comments on a task
+                            you&apos;re involved in.
+                          </p>
+                        </div>
+                        <Switch
+                          checked={notificationSettings.taskComments}
+                          onCheckedChange={(checked) =>
+                            setNotificationSettings((current) => ({
+                              ...current,
+                              taskComments: checked,
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                  <CardFooter className="flex flex-col gap-3 border-t border-border/40 bg-muted/30 px-6 py-4">
+                    <p className="text-xs text-muted-foreground">
+                      These preferences apply to your membership in the current
+                      workspace.
+                    </p>
+                    <Button
+                      onClick={handleSaveNotificationSettings}
+                      disabled={savingNotifications}
+                      className="min-w-[140px] self-start"
+                    >
+                      {savingNotifications ? (
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
+                      ) : (
+                        <>
+                          <Check data-icon="inline-start" />
+                          Save Notifications
+                        </>
+                      )}
+                    </Button>
+                  </CardFooter>
+                </Card>
+
+                <Card className="overflow-hidden border-border/40 shadow-sm">
+                  <CardHeader className="gap-2 border-b border-border/40">
+                    <CardTitle className="flex items-center gap-2 text-base font-medium">
                       <Shield className="h-4 w-4 text-primary" />
                       Workspace access
                     </CardTitle>
                     <CardDescription>
-                      Quick reference for the default permission model inside the organization.
+                      Quick reference for the default permission model inside
+                      the organization.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="grid gap-3 p-6">

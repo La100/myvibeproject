@@ -69,6 +69,7 @@ export default function CompanyLayout({
       "/organisation": "Projects",
       "/organisation/projects/new": "New Project",
       "/organisation/contacts": "Contacts",
+      "/organisation/tax": "Tax",
       "/organisation/settings": "Settings",
       "/organisation/subscription": "Subscription",
       "/organisation/team": "Team",

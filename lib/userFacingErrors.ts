@@ -1,8 +1,45 @@
+const extractRawErrorMessage = (error: unknown) => {
+  if (error && typeof error === "object" && "data" in error) {
+    const data = (error as { data?: { message?: string } }).data;
+    if (typeof data?.message === "string" && data.message.trim().length > 0) {
+      return data.message;
+    }
+  }
+
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+
+  if (typeof error === "string" && error.trim().length > 0) {
+    return error;
+  }
+
+  return "Something went wrong.";
+};
+
+const normalizeErrorMessage = (message: string) => {
+  const trimmedMessage = message.trim();
+
+  const convexUncaughtMatch = trimmedMessage.match(
+    /Uncaught Error:\s*([\s\S]*?)(?:\s+at\s+\w+\s+\(|\s+Called by client|$)/,
+  );
+  if (convexUncaughtMatch?.[1]) {
+    return convexUncaughtMatch[1].trim();
+  }
+
+  if (trimmedMessage.startsWith("Clerk API Error:")) {
+    return trimmedMessage.replace(/^Clerk API Error:\s*/, "").trim();
+  }
+
+  return trimmedMessage;
+};
+
 const getErrorMessage = (error: unknown) =>
-  error instanceof Error ? error.message : "Something went wrong.";
+  normalizeErrorMessage(extractRawErrorMessage(error));
 
 export const toUserFacingErrorMessage = (error: unknown) => {
   const message = getErrorMessage(error);
+  const normalizedLowercaseMessage = message.toLowerCase();
 
   if (message === "Only admins can invite members") {
     return "Only organization admins can invite new team members.";
@@ -14,6 +51,15 @@ export const toUserFacingErrorMessage = (error: unknown) => {
 
   if (message === "User is already a member of this workspace") {
     return "This user is already a member of this workspace.";
+  }
+
+  if (
+    message === "An invitation has already been sent to this email address" ||
+    normalizedLowercaseMessage.includes("already been invited") ||
+    normalizedLowercaseMessage.includes("already has a pending invitation") ||
+    normalizedLowercaseMessage.includes("pending invitation")
+  ) {
+    return "An invitation has already been sent to this email address.";
   }
 
   if (

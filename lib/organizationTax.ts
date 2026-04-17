@@ -14,6 +14,16 @@ export type OrganizationTaxSettings = {
   priceDisplay: OrganizationPriceDisplay;
 };
 
+export type TeamTaxRate = {
+  id: string;
+  name: string;
+  rate: number;
+  isDefault: boolean;
+  isArchived: boolean;
+  createdAt: number;
+  updatedAt: number;
+};
+
 export type TaxBreakdown = {
   net: number;
   tax: number;
@@ -53,6 +63,103 @@ export function normalizeOrganizationPriceDisplay(
   )
     ? (value as OrganizationPriceDisplay)
     : DEFAULT_ORGANIZATION_TAX_SETTINGS.priceDisplay;
+}
+
+function isTeamTaxRate(value: unknown): value is Partial<TeamTaxRate> {
+  return typeof value === "object" && value !== null;
+}
+
+export function normalizeTeamTaxRates(
+  value?: unknown[] | null,
+  legacySettings?: Partial<OrganizationTaxSettings> | null,
+): TeamTaxRate[] {
+  const normalized = (Array.isArray(value) ? value : [])
+    .filter(isTeamTaxRate)
+    .map((entry, index) => ({
+      id:
+        typeof entry.id === "string" && entry.id.trim()
+          ? entry.id.trim()
+          : `tax-rate-${index + 1}`,
+      name: normalizeOrganizationTaxLabel(entry.name),
+      rate: clampOrganizationTaxRate(entry.rate),
+      isDefault: entry.isDefault === true,
+      isArchived: entry.isArchived === true,
+      createdAt:
+        typeof entry.createdAt === "number" && Number.isFinite(entry.createdAt)
+          ? entry.createdAt
+          : 0,
+      updatedAt:
+        typeof entry.updatedAt === "number" && Number.isFinite(entry.updatedAt)
+          ? entry.updatedAt
+          : 0,
+    }));
+
+  if (normalized.length === 0) {
+    const legacy = resolveOrganizationTaxSettings(legacySettings);
+    if (legacy.taxEnabled && legacy.taxRate > 0) {
+      return [
+        {
+          id: "legacy-default",
+          name: legacy.taxLabel,
+          rate: legacy.taxRate,
+          isDefault: true,
+          isArchived: false,
+          createdAt: 0,
+          updatedAt: 0,
+        },
+      ];
+    }
+    return [];
+  }
+
+  const activeRates = normalized.filter((entry) => !entry.isArchived);
+  if (activeRates.length === 0) {
+    return normalized.map((entry) => ({ ...entry, isDefault: false }));
+  }
+
+  let defaultAssigned = false;
+  return normalized.map((entry) => {
+    if (entry.isArchived) {
+      return { ...entry, isDefault: false };
+    }
+    if (!defaultAssigned && (entry.isDefault || activeRates[0]?.id === entry.id)) {
+      defaultAssigned = true;
+      return { ...entry, isDefault: true };
+    }
+    return { ...entry, isDefault: false };
+  });
+}
+
+export function getDefaultTeamTaxRate(
+  taxRates?: unknown[] | null,
+  legacySettings?: Partial<OrganizationTaxSettings> | null,
+): TeamTaxRate | null {
+  const normalized = normalizeTeamTaxRates(taxRates, legacySettings);
+  return normalized.find((entry) => entry.isDefault && !entry.isArchived) ?? null;
+}
+
+export function resolveOrganizationTaxSettingsFromRates(
+  taxRates?: unknown[] | null,
+  existingSettings?: Partial<OrganizationTaxSettings> | null,
+): OrganizationTaxSettings {
+  const fallback = resolveOrganizationTaxSettings(existingSettings);
+  const defaultRate = getDefaultTeamTaxRate(taxRates, existingSettings);
+
+  if (!defaultRate) {
+    return {
+      ...fallback,
+      taxEnabled: false,
+      taxRate: 0,
+      taxLabel: DEFAULT_ORGANIZATION_TAX_SETTINGS.taxLabel,
+    };
+  }
+
+  return {
+    taxEnabled: true,
+    taxRate: defaultRate.rate,
+    taxLabel: defaultRate.name,
+    priceDisplay: fallback.priceDisplay,
+  };
 }
 
 export function resolveOrganizationTaxSettings(

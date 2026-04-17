@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useQueries, useQuery } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import { useProject } from "@/components/providers/ProjectProvider";
@@ -24,29 +26,45 @@ import {
 } from "@/components/ui/empty";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
-  Calendar,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  ArrowUpRight,
+  ClipboardList,
   Download,
   TrendingUp,
   MapPin,
-  DollarSign,
-  Building2,
-  User,
-  Target,
-  Hammer,
-  Wallet,
-  Flag,
+  CreditCard,
+  Files,
   AlertTriangle,
+  MoreHorizontal,
+  Settings2,
 } from "lucide-react";
 import { Suspense, useMemo, useState } from "react";
 import { Spinner } from "@/components/ui/spinner";
-import { exportProjectBookPdf, type ProjectBookChapter } from "@/lib/projectBookPdfExport";
+import {
+  exportProjectBookPdf,
+  type ProjectBookChapter,
+} from "@/lib/projectBookPdfExport";
 import { sanitizeFileName } from "@/lib/pdfExport";
-import { buildShoppingSetContext, calculateShoppingTotal, isItemCountedInShoppingTotal } from "@/lib/shoppingSets";
+import {
+  buildShoppingSetContext,
+  calculateShoppingTotal,
+  isItemCountedInShoppingTotal,
+} from "@/lib/shoppingSets";
 import { formatShoppingExportProductLabel } from "@/lib/shoppingListExport";
+import { resolveOrganizationTaxSettings } from "@/lib/organizationTax";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
-import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
-import { ProjectBookExportDialog, type ProjectBookExportOptions } from "./ProjectBookExportDialog";
+import {
+  ProjectBookExportDialog,
+  type ProjectBookExportOptions,
+} from "./ProjectBookExportDialog";
 import { cn, formatCurrency, getTaskPreview } from "@/lib/utils";
 
 function ProjectOverviewSkeleton() {
@@ -86,18 +104,90 @@ const SHOPPING_STATUS_LABELS = {
   CANCELLED: "Cancelled",
 } as const;
 
-const getShoppingStatusLabel = (status?: keyof typeof SHOPPING_STATUS_LABELS | string) =>
+const getShoppingStatusLabel = (
+  status?: keyof typeof SHOPPING_STATUS_LABELS | string,
+) =>
   status && status in SHOPPING_STATUS_LABELS
     ? SHOPPING_STATUS_LABELS[status as keyof typeof SHOPPING_STATUS_LABELS]
     : status || "-";
 
+const PROJECT_STATUS_LABELS = {
+  planning: "Planning",
+  active: "Active",
+  on_hold: "On hold",
+  completed: "Completed",
+  done: "Completed",
+  cancelled: "Cancelled",
+} as const;
+
+const formatProjectDate = (value?: number) =>
+  value
+    ? new Intl.DateTimeFormat("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }).format(new Date(value))
+    : null;
+
+const formatDateRange = (startDate?: number, endDate?: number) => {
+  const startLabel = formatProjectDate(startDate);
+  const endLabel = formatProjectDate(endDate);
+
+  if (startLabel && endLabel) {
+    return `${startLabel} -> ${endLabel}`;
+  }
+
+  return startLabel || endLabel || "Timeline not set";
+};
+
+const formatRelativeProjectEdit = (value?: number) => {
+  if (!value) {
+    return null;
+  }
+
+  const diffMs = Date.now() - value;
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays <= 0) {
+    return "Edited today";
+  }
+
+  if (diffDays === 1) {
+    return "Edited yesterday";
+  }
+
+  if (diffDays < 30) {
+    return `Edited ${diffDays} days ago`;
+  }
+
+  const diffMonths = Math.floor(diffDays / 30);
+  if (diffMonths === 1) {
+    return "Edited 1 month ago";
+  }
+
+  if (diffMonths < 12) {
+    return `Edited ${diffMonths} months ago`;
+  }
+
+  const diffYears = Math.floor(diffMonths / 12);
+  return `Edited ${diffYears} year${diffYears === 1 ? "" : "s"} ago`;
+};
+
+const getInitials = (value?: string | null) =>
+  (value || "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("") || "?";
+
 function ProjectOverviewContent() {
   const { project } = useProject();
+  const router = useRouter();
   const [isProjectBookExportOpen, setIsProjectBookExportOpen] = useState(false);
   const [isExportingProjectBook, setIsExportingProjectBook] = useState(false);
-  const [projectBookExportOptions, setProjectBookExportOptions] = useState<ProjectBookExportOptions>(
-    DEFAULT_PROJECT_BOOK_OPTIONS,
-  );
+  const [projectBookExportOptions, setProjectBookExportOptions] =
+    useState<ProjectBookExportOptions>(DEFAULT_PROJECT_BOOK_OPTIONS);
 
   const tasks = useQuery(apiAny.tasks.listProjectTasks, {
     projectId: project._id,
@@ -124,12 +214,6 @@ function ProjectOverviewContent() {
   });
   const paymentsData = useQuery(
     apiAny.projectPayments.getProjectPaymentsOverview,
-    {
-      projectId: project._id,
-    },
-  );
-  const milestonesSummary = useQuery(
-    apiAny.projectMilestones.getProjectMilestonesSummary,
     {
       projectId: project._id,
     },
@@ -179,7 +263,6 @@ function ProjectOverviewContent() {
     laborItems === undefined ||
     laborSections === undefined ||
     paymentsData === undefined ||
-    milestonesSummary === undefined ||
     budgetSummary === undefined ||
     notes === undefined ||
     team === undefined ||
@@ -206,7 +289,10 @@ function ProjectOverviewContent() {
   const projectBasePath = `/organisation/projects/${project.slug}`;
   const projectBudgetSettingsHref = `${projectBasePath}/settings#project-budget`;
 
-  const shoppingListCost = calculateShoppingTotal(shoppingListItems, shoppingSets);
+  const shoppingListCost = calculateShoppingTotal(
+    shoppingListItems,
+    shoppingSets,
+  );
   const laborCost = laborItems.reduce(
     (sum: number, item) => sum + (item.totalPrice || 0),
     0,
@@ -217,11 +303,16 @@ function ProjectOverviewContent() {
   const shoppingSetTitleById = new Map<string, string>(
     shoppingSets.map((set) => [String(set._id), set.title]),
   );
-  const shoppingExportContext = buildShoppingSetContext(shoppingListItems, shoppingSets);
+  const shoppingExportContext = buildShoppingSetContext(
+    shoppingListItems,
+    shoppingSets,
+  );
   const shoppingBookRows = shoppingListItems
     .filter((item) => isItemCountedInShoppingTotal(item, shoppingExportContext))
     .map((item) => ({
-      section: item.sectionId ? shoppingSectionMap.get(String(item.sectionId)) || "No Section" : "No Section",
+      section: item.sectionId
+        ? shoppingSectionMap.get(String(item.sectionId)) || "No Section"
+        : "No Section",
       product: formatShoppingExportProductLabel(
         item.name,
         item.setId ? shoppingSetTitleById.get(String(item.setId)) : undefined,
@@ -237,7 +328,9 @@ function ProjectOverviewContent() {
     laborSections.map((section) => [String(section._id), section.name]),
   );
   const laborBookRows = laborItems.map((item) => ({
-    section: item.sectionId ? laborSectionMap.get(String(item.sectionId)) || "No Category" : "No Category",
+    section: item.sectionId
+      ? laborSectionMap.get(String(item.sectionId)) || "No Category"
+      : "No Category",
     work: item.name,
     qty: String(item.quantity),
     unit: item.unit || "-",
@@ -247,7 +340,10 @@ function ProjectOverviewContent() {
   }));
   const getAssignedMemberName = (assignedTo?: string | null) => {
     if (!assignedTo) return "-";
-    return teamMembers.find((member) => member.clerkUserId === assignedTo)?.name || assignedTo;
+    return (
+      teamMembers.find((member) => member.clerkUserId === assignedTo)?.name ||
+      assignedTo
+    );
   };
   const taskBookRows = tasks.map((task) => ({
     title: task.title,
@@ -265,9 +361,12 @@ function ProjectOverviewContent() {
     .map((installment) => ({
       title: installment.title,
       status: installment.status.replace(/_/g, " "),
-      dueDate: installment.dueDate ? new Date(installment.dueDate).toLocaleDateString() : "-",
+      dueDate: installment.dueDate
+        ? new Date(installment.dueDate).toLocaleDateString()
+        : "-",
       amount: formatCurrency(installment.amount, installment.currency),
-      reference: installment.paymentReference || installment.invoiceNumber || "-",
+      reference:
+        installment.paymentReference || installment.invoiceNumber || "-",
     }));
   const budgetBookRows = [
     {
@@ -282,7 +381,10 @@ function ProjectOverviewContent() {
     },
     {
       metric: "Committed cost",
-      value: formatCurrency(budgetSummary.committedCost, budgetSummary.currency),
+      value: formatCurrency(
+        budgetSummary.committedCost,
+        budgetSummary.currency,
+      ),
       note: "Booked cost not yet fully realized",
     },
     {
@@ -292,22 +394,35 @@ function ProjectOverviewContent() {
     },
     {
       metric: "Projected variance",
-      value: formatCurrency(Math.abs(budgetSummary.projectedVariance), budgetSummary.currency),
-      note: budgetSummary.projectedVariance >= 0 ? "Projected buffer" : "Projected overrun",
+      value: formatCurrency(
+        Math.abs(budgetSummary.projectedVariance),
+        budgetSummary.currency,
+      ),
+      note:
+        budgetSummary.projectedVariance >= 0
+          ? "Projected buffer"
+          : "Projected overrun",
     },
     {
       metric: "Collected payments",
-      value: formatCurrency(budgetSummary.clientFunding.collectedPayments, budgetSummary.currency),
+      value: formatCurrency(
+        budgetSummary.clientFunding.collectedPayments,
+        budgetSummary.currency,
+      ),
       note: "Payments collected so far",
     },
   ];
   const moodboardExportSections = moodboardSections
     .map((section) => ({
       title: section.title,
-      items: ((moodboardImageResults[section.id] as Array<{
-        name: string;
-        url: string;
-      }> | undefined) ?? []).map((file) => ({
+      items: (
+        (moodboardImageResults[section.id] as
+          | Array<{
+              name: string;
+              url: string;
+            }>
+          | undefined) ?? []
+      ).map((file) => ({
         title: file.name,
         imageUrl: file.url || undefined,
       })),
@@ -340,15 +455,22 @@ function ProjectOverviewContent() {
       if (projectBookExportOptions.sections.shoppingList) {
         chapters.push({
           title: "Shopping List",
-          description: "Materials and products currently counted in the project shopping scope.",
+          description:
+            "Materials and products currently counted in the project shopping scope.",
           columns: [
             { key: "section", label: "Section" },
             { key: "product", label: "Product" },
             { key: "qty", label: "Qty" },
-            ...(projectBookExportOptions.showPrice ? [{ key: "total", label: "Total" }] : []),
+            ...(projectBookExportOptions.showPrice
+              ? [{ key: "total", label: "Total" }]
+              : []),
             { key: "status", label: "Status" },
-            ...(projectBookExportOptions.showSupplier ? [{ key: "supplier", label: "Supplier" }] : []),
-            ...(projectBookExportOptions.showNotes ? [{ key: "notes", label: "Notes" }] : []),
+            ...(projectBookExportOptions.showSupplier
+              ? [{ key: "supplier", label: "Supplier" }]
+              : []),
+            ...(projectBookExportOptions.showNotes
+              ? [{ key: "notes", label: "Notes" }]
+              : []),
           ],
           rows: shoppingBookRows.map((row) => ({
             section: row.section,
@@ -356,7 +478,9 @@ function ProjectOverviewContent() {
             qty: row.qty,
             ...(projectBookExportOptions.showPrice ? { total: row.total } : {}),
             status: row.status,
-            ...(projectBookExportOptions.showSupplier ? { supplier: row.supplier } : {}),
+            ...(projectBookExportOptions.showSupplier
+              ? { supplier: row.supplier }
+              : {}),
             ...(projectBookExportOptions.showNotes ? { notes: row.notes } : {}),
           })),
           emptyMessage: "No shopping list items available.",
@@ -366,14 +490,19 @@ function ProjectOverviewContent() {
       if (projectBookExportOptions.sections.labor) {
         chapters.push({
           title: "Labor",
-          description: "Labor scope and service entries tracked for the project.",
+          description:
+            "Labor scope and service entries tracked for the project.",
           columns: [
             { key: "section", label: "Section" },
             { key: "work", label: "Work" },
             { key: "qty", label: "Qty" },
             { key: "unit", label: "Unit" },
-            ...(projectBookExportOptions.showPrice ? [{ key: "total", label: "Total" }] : []),
-            ...(projectBookExportOptions.showNotes ? [{ key: "notes", label: "Notes" }] : []),
+            ...(projectBookExportOptions.showPrice
+              ? [{ key: "total", label: "Total" }]
+              : []),
+            ...(projectBookExportOptions.showNotes
+              ? [{ key: "notes", label: "Notes" }]
+              : []),
           ],
           rows: laborBookRows.map((row) => ({
             section: row.section,
@@ -407,7 +536,8 @@ function ProjectOverviewContent() {
       if (projectBookExportOptions.sections.budget) {
         chapters.push({
           title: "Budget",
-          description: "Current budget position including planned, committed, and actual spend.",
+          description:
+            "Current budget position including planned, committed, and actual spend.",
           columns: [
             { key: "metric", label: "Metric" },
             { key: "value", label: "Value" },
@@ -466,7 +596,14 @@ function ProjectOverviewContent() {
     }
   };
   const netCost = shoppingListCost + laborCost;
-  const taxRate = project.taxEnabled ? (project.taxRate ?? 23) : 0;
+  const teamTaxSettings = resolveOrganizationTaxSettings(
+    team?.organizationTaxSettings,
+  );
+  const taxRate = project.taxEnabled
+    ? (project.taxRate ?? 23)
+    : teamTaxSettings.taxEnabled
+      ? teamTaxSettings.taxRate
+      : 0;
   const taxAmount = taxRate > 0 ? netCost * (taxRate / 100) : 0;
   const totalCost = netCost + taxAmount;
   const unpaidInstallments = (
@@ -768,263 +905,333 @@ function ProjectOverviewContent() {
       : null,
   ].filter(isPresent);
 
+  const projectCoverUrl =
+    (project as { coverImageDisplayUrl?: string }).coverImageDisplayUrl ||
+    project.coverImageUrl;
+  const projectEditedLabel = formatRelativeProjectEdit(
+    (project as { updatedAt?: number }).updatedAt ?? project._creationTime,
+  );
+  const projectStatusLabel =
+    PROJECT_STATUS_LABELS[
+      project.status as keyof typeof PROJECT_STATUS_LABELS
+    ] || project.status.replace(/_/g, " ");
+  const activeTasksCount = tasks.filter(
+    (task) => task.status !== "done",
+  ).length;
+  const completedTasksCount = tasks.length - activeTasksCount;
+  const overdueTasksCount = tasks.filter(
+    (task) =>
+      task.status !== "done" &&
+      typeof task.endDate === "number" &&
+      task.endDate < Date.now(),
+  ).length;
+  const visibleTeamMembers = teamMembers.slice(0, 4);
+  const hiddenTeamMembersCount = Math.max(
+    teamMembers.length - visibleTeamMembers.length,
+    0,
+  );
+  const paidAmount = paymentsData?.totals.paid || 0;
+  const outstandingAmount = paymentsData?.totals.outstanding || 0;
+  const summaryCards = [
+    {
+      title: "Active tasks",
+      value: String(activeTasksCount),
+      detail:
+        overdueTasksCount > 0
+          ? `${overdueTasksCount} overdue`
+          : completedTasksCount > 0
+            ? `${completedTasksCount} completed`
+            : "No completed tasks yet",
+      icon: ClipboardList,
+    },
+    {
+      title: "Tracked spend",
+      value: formatCurrency(totalCost, project.currency),
+      detail:
+        taxRate > 0 ? `Incl. ${taxRate}% tax` : "Shopping and labor combined",
+      icon: TrendingUp,
+    },
+    {
+      title: "Payments",
+      value: formatCurrency(
+        paidAmount,
+        paymentsData?.currency || project.currency,
+      ),
+      detail:
+        outstandingAmount > 0
+          ? `${formatCurrency(outstandingAmount, paymentsData?.currency || project.currency)} outstanding`
+          : "No outstanding payments",
+      icon: CreditCard,
+    },
+  ];
+
   return (
     <ProjectPageLayout>
       <div className="flex flex-col gap-7">
-        <ProjectPageHeader
-          title="Project Overview"
-          icon={<Target className="h-8 w-8 text-primary" />}
-          subtitle={`A summary of ${project.name}`}
-          actions={(
-            <Button type="button" variant="outline" onClick={openProjectBookExport}>
-              <Download className="mr-2 h-4 w-4" />
-              Export Project Book
-            </Button>
-          )}
-        />
-
-        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:mb-8 lg:grid-cols-3 lg:gap-5">
-          {/* Total Project Cost */}
-          <Card className="bg-card/90">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <DollarSign className="h-4 w-4" />
-                Total Project Cost
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {formatCurrency(totalCost, project.currency)}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {taxRate > 0
-                  ? `Gross total including ${taxRate}% tax`
-                  : "Shopping List & Labor"}
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Shopping List Cost */}
-          <Card className="bg-card/90">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Building2 className="h-4 w-4" />
-                Shopping List Cost
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {formatCurrency(shoppingListCost, project.currency)}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Net cost from all items
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Labor Cost */}
-          <Card className="bg-card/90">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Hammer className="h-4 w-4" />
-                Labor Cost
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {formatCurrency(laborCost, project.currency)}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Net cost from all labor items
-              </p>
-            </CardContent>
-          </Card>
-
-          {taxRate > 0 && (
-            <Card className="bg-card/90">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <DollarSign className="h-4 w-4" />
-                  Tax
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {formatCurrency(taxAmount, project.currency)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Calculated at {taxRate}% on current net costs
-                </p>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Project Status */}
-          <Card className="bg-card/90">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Target className="h-4 w-4" />
-                Project Status
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Badge
-                variant={
-                  statusVariants[project.status as keyof typeof statusVariants]
-                }
-              >
-                {project.status.replace("_", " ").toUpperCase()}
-              </Badge>
-            </CardContent>
-          </Card>
-
-          {/* Client */}
-          {project.customer && (
-            <Card className="bg-card/90">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <User className="h-4 w-4" />
-                  Client
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-lg font-semibold">{project.customer}</div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Location */}
-          {project.location && (
-            <Card className="bg-card/90">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <MapPin className="h-4 w-4" />
-                  Location
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-lg font-semibold">{project.location}</div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Budget */}
-          {project.budget && (
-            <Card className="bg-card/90">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <DollarSign className="h-4 w-4" />
-                  Budget
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-lg font-semibold">
-                  {formatCurrency(project.budget, project.currency, {
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 0,
-                  })}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Allocated budget
-                </p>
-              </CardContent>
-            </Card>
-          )}
-
-          {paymentsData && paymentsData.totals.installmentCount > 0 ? (
-            <Card className="bg-card/90">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Wallet className="h-4 w-4" />
-                  Payments Collected
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-lg font-semibold">
-                  {formatCurrency(
-                    paymentsData.totals.paid || 0,
-                    paymentsData.currency,
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Outstanding:{" "}
-                  {formatCurrency(
-                    paymentsData.totals.outstanding || 0,
-                    paymentsData.currency,
-                  )}
-                </p>
-              </CardContent>
-            </Card>
-          ) : null}
-
-          {milestonesSummary && milestonesSummary.total > 0 ? (
-            <Card className="bg-card/90">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Flag className="h-4 w-4" />
-                  Milestones
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {milestonesSummary.progress}%
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {milestonesSummary.completed}/{milestonesSummary.total} stages
-                  completed
-                </p>
-              </CardContent>
-            </Card>
-          ) : null}
-
-          {/* Project Dates */}
-          {(project.startDate || project.endDate) && (
-            <Card className="bg-card/90">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  Timeline
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col gap-1">
-                  {project.startDate && (
-                    <div className="text-sm">
-                      <span className="text-muted-foreground">Start: </span>
-                      <span className="font-medium">
-                        {new Date(project.startDate).toLocaleDateString()}
-                      </span>
+        <Card className="overflow-hidden border-border/70 bg-card/95 shadow-sm">
+          <CardContent className="p-6 sm:p-8">
+            <div
+              className={cn(
+                "grid gap-6",
+                projectCoverUrl
+                  ? "xl:grid-cols-[1.02fr_0.84fr]"
+                  : "grid-cols-1",
+              )}
+            >
+              <div className="flex flex-col gap-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                      <span>Overview</span>
+                      <span className="text-border">/</span>
+                      <span>Project #{project.projectId}</span>
                     </div>
-                  )}
-                  {project.endDate && (
-                    <div className="text-sm">
-                      <span className="text-muted-foreground">End: </span>
-                      <span className="font-medium">
-                        {new Date(project.endDate).toLocaleDateString()}
-                      </span>
+                    <div className="space-y-3">
+                      <h1 className="max-w-3xl text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+                        {project.name}
+                      </h1>
+                      <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                        {project.location ? (
+                          <span className="inline-flex items-center gap-1.5">
+                            <MapPin className="h-3.5 w-3.5" />
+                            {project.location}
+                          </span>
+                        ) : null}
+                        {projectEditedLabel ? (
+                          <span>{projectEditedLabel}</span>
+                        ) : null}
+                      </div>
                     </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
+                  </div>
 
-        {/* Project Description */}
-        {project.description && (
-          <Card className="bg-card/92">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg font-medium lg:text-xl">
-                Project Description
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-6">
-              <p className="text-muted-foreground leading-relaxed">
-                {project.description}
-              </p>
-            </CardContent>
-          </Card>
-        )}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="shrink-0 rounded-full"
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                        <span className="sr-only">Open project actions</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="end"
+                      className="w-56 rounded-xl border-border/70"
+                    >
+                      <DropdownMenuItem
+                        onSelect={() =>
+                          router.push(`${projectBasePath}/settings`)
+                        }
+                      >
+                        <Settings2 className="mr-2 h-4 w-4" />
+                        Project settings
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={() => router.push(`${projectBasePath}/tasks`)}
+                      >
+                        <ClipboardList className="mr-2 h-4 w-4" />
+                        Open tasks board
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={() =>
+                          router.push(`${projectBasePath}/payments`)
+                        }
+                      >
+                        <CreditCard className="mr-2 h-4 w-4" />
+                        Open payments
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={() => router.push(`${projectBasePath}/files`)}
+                      >
+                        <Files className="mr-2 h-4 w-4" />
+                        Open files
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onSelect={openProjectBookExport}>
+                        <Download className="mr-2 h-4 w-4" />
+                        Export project book
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge
+                    variant={
+                      statusVariants[
+                        project.status as keyof typeof statusVariants
+                      ]
+                    }
+                    className="capitalize"
+                  >
+                    {projectStatusLabel}
+                  </Badge>
+                  {project.customer ? (
+                    <Badge variant="outline">{project.customer}</Badge>
+                  ) : null}
+                  <Badge variant="outline">
+                    {formatDateRange(project.startDate, project.endDate)}
+                  </Badge>
+                  {project.budget ? (
+                    <Badge variant="outline">
+                      Budget{" "}
+                      {formatCurrency(project.budget, project.currency, {
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 0,
+                      })}
+                    </Badge>
+                  ) : null}
+                </div>
+
+                {project.description ? (
+                  <p className="max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">
+                    {project.description}
+                  </p>
+                ) : (
+                  <p className="max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">
+                    This project is ready for planning, task execution, budget
+                    tracking, and client-facing delivery updates.
+                  </p>
+                )}
+
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  {summaryCards.map((card) => (
+                    <div
+                      key={card.title}
+                      className="rounded-2xl border border-border/60 bg-muted/20 p-4"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-medium text-muted-foreground">
+                          {card.title}
+                        </p>
+                        <card.icon className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <p className="mt-3 text-2xl font-semibold tracking-tight text-foreground">
+                        {card.value}
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                        {card.detail}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border/60 bg-muted/10 p-4">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-foreground">
+                      Team on project
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {teamMembers.length > 0
+                        ? `${teamMembers.length} collaborator${teamMembers.length === 1 ? "" : "s"} with access`
+                        : "No collaborators assigned yet"}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="flex -space-x-3">
+                      {visibleTeamMembers.map((member) => (
+                        <Avatar
+                          key={member._id}
+                          className="h-10 w-10 border-2 border-background shadow-sm"
+                        >
+                          <AvatarImage
+                            src={member.imageUrl}
+                            alt={member.name}
+                          />
+                          <AvatarFallback>
+                            {getInitials(member.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                      ))}
+                      {hiddenTeamMembersCount > 0 ? (
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-background bg-muted text-xs font-medium text-muted-foreground shadow-sm">
+                          +{hiddenTeamMembersCount}
+                        </div>
+                      ) : null}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="rounded-full"
+                      onClick={() => router.push(`${projectBasePath}/settings`)}
+                    >
+                      Manage project
+                      <ArrowUpRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-4">
+                {projectCoverUrl ? (
+                  <div className="overflow-hidden rounded-[28px] border border-border/60 bg-muted/20">
+                    <div className="relative aspect-[1.35/1] min-h-[300px]">
+                      <Image
+                        src={projectCoverUrl}
+                        alt={`${project.name} cover`}
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 1279px) 100vw, 42vw"
+                      />
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="grid gap-3 content-start sm:grid-cols-2 xl:grid-cols-1">
+                  <div className="rounded-2xl border border-border/60 bg-muted/20 p-5">
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                      Financial base
+                    </p>
+                    <p className="mt-3 text-2xl font-semibold text-foreground">
+                      {formatCurrency(
+                        project.budget || budgetSummary.budget || totalCost,
+                        project.currency,
+                        {
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 0,
+                        },
+                      )}
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {project.budget
+                        ? "Declared project budget"
+                        : "Current working financial baseline"}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-border/60 bg-muted/20 p-5">
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                      Cost mix
+                    </p>
+                    <div className="mt-4 space-y-3">
+                      <div className="flex items-center justify-between gap-3 text-sm">
+                        <span className="text-muted-foreground">Shopping</span>
+                        <span className="font-medium text-foreground">
+                          {formatCurrency(shoppingListCost, project.currency)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3 text-sm">
+                        <span className="text-muted-foreground">Labor</span>
+                        <span className="font-medium text-foreground">
+                          {formatCurrency(laborCost, project.currency)}
+                        </span>
+                      </div>
+                      {taxRate > 0 ? (
+                        <div className="flex items-center justify-between gap-3 text-sm">
+                          <span className="text-muted-foreground">Tax</span>
+                          <span className="font-medium text-foreground">
+                            {formatCurrency(taxAmount, project.currency)}
+                          </span>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {unpaidInstallments.length > 0 ? (
           <Card className="bg-card/92">
@@ -1059,36 +1266,6 @@ function ProjectOverviewContent() {
                   </div>
                 </div>
               ))}
-            </CardContent>
-          </Card>
-        ) : null}
-
-        {milestonesSummary?.nextMilestone ? (
-          <Card className="bg-card/92">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg font-medium lg:text-xl">
-                Next Milestone
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3 px-6">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="font-medium">
-                    {milestonesSummary.nextMilestone.name}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Due{" "}
-                    {milestonesSummary.nextMilestone.plannedEndDate
-                      ? new Date(
-                          milestonesSummary.nextMilestone.plannedEndDate,
-                        ).toLocaleDateString()
-                      : "not set"}
-                  </p>
-                </div>
-                <Badge variant="outline">
-                  {milestonesSummary.nextMilestone.taskCount} linked tasks
-                </Badge>
-              </div>
             </CardContent>
           </Card>
         ) : null}
@@ -1278,9 +1455,7 @@ function ProjectOverviewContent() {
 
                   <div className="grid gap-4 xl:grid-cols-2">
                     <div className="rounded-2xl border border-border/60 bg-muted/10 p-4">
-                      <p className="text-sm font-medium">
-                        Cost breakdown
-                      </p>
+                      <p className="text-sm font-medium">Cost breakdown</p>
                       <div className="mt-4 flex flex-col gap-3">
                         {spendMixRows.map((row) => (
                           <div
@@ -1350,8 +1525,14 @@ function ProjectOverviewContent() {
                             {alert.description}
                             {alert.actionHref && alert.actionLabel ? (
                               <div className="mt-2">
-                                <Button asChild variant="link" className="h-auto px-0">
-                                  <Link href={alert.actionHref}>{alert.actionLabel}</Link>
+                                <Button
+                                  asChild
+                                  variant="link"
+                                  className="h-auto px-0"
+                                >
+                                  <Link href={alert.actionHref}>
+                                    {alert.actionLabel}
+                                  </Link>
                                 </Button>
                               </div>
                             ) : null}

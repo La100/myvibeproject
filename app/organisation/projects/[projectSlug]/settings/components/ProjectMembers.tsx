@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Users, UserX, Crown, User } from "lucide-react";
 import { toast } from "sonner";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import { Id } from "@/convex/_generated/dataModel";
 
 interface ProjectMembersProps {
@@ -147,7 +148,9 @@ function MemberRow({
       });
       toast.success("Team member removed");
     } catch (error) {
-      toast.error("Failed to remove team member: " + (error as Error).message);
+      toast.error("Failed to remove team member", {
+        description: toUserFacingErrorMessage(error),
+      });
     }
   };
 

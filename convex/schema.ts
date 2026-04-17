@@ -20,13 +20,15 @@ const clientPanelPublishedTaskValidator = v.object({
     v.literal("review"),
     v.literal("done"),
   ),
-  priority: v.optional(v.union(
-    v.literal("low"),
-    v.literal("medium"),
-    v.literal("high"),
-    v.literal("urgent"),
-    v.null(),
-  )),
+  priority: v.optional(
+    v.union(
+      v.literal("low"),
+      v.literal("medium"),
+      v.literal("high"),
+      v.literal("urgent"),
+      v.null(),
+    ),
+  ),
   startDate: v.optional(v.number()),
   endDate: v.optional(v.number()),
 });
@@ -133,14 +135,12 @@ const clientPanelPublishedBudgetSummaryValidator = v.object({
     collectedPayments: v.number(),
     outstandingPayments: v.number(),
   }),
-  milestones: v.object({
-    count: v.number(),
-    budgetAllocated: v.number(),
-  }),
-  alerts: v.array(v.object({
-    severity: v.union(v.literal("high"), v.literal("medium")),
-    label: v.string(),
-  })),
+  alerts: v.array(
+    v.object({
+      severity: v.union(v.literal("high"), v.literal("medium")),
+      label: v.string(),
+    }),
+  ),
 });
 
 const organizationTaxSettingsValidator = v.object({
@@ -150,6 +150,24 @@ const organizationTaxSettingsValidator = v.object({
   priceDisplay: v.optional(
     v.union(v.literal("net"), v.literal("gross"), v.literal("both")),
   ),
+});
+
+const teamTaxRateValidator = v.object({
+  id: v.string(),
+  name: v.string(),
+  rate: v.number(),
+  isDefault: v.boolean(),
+  isArchived: v.boolean(),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+});
+
+const teamMemberNotificationSettingsValidator = v.object({
+  taskAssigned: v.optional(v.boolean()),
+  taskUnassigned: v.optional(v.boolean()),
+  taskStatusUpdated: v.optional(v.boolean()),
+  taskDueDateChanged: v.optional(v.boolean()),
+  taskComments: v.optional(v.boolean()),
 });
 
 const clientPanelPublishedSnapshotValidator = v.object({
@@ -175,71 +193,82 @@ export default defineSchema({
     imageUrl: v.optional(v.string()), // Added imageUrl for the team logo
     customOrganizationImageSetAt: v.optional(v.number()),
     createdBy: v.optional(v.string()), // Clerk user ID - now optional
-    currency: v.optional(v.union(
-      v.literal("USD"), // US Dollar
-      v.literal("EUR"), // Euro
-      v.literal("PLN"), // Polish Zloty
-      v.literal("GBP"), // British Pound
-      v.literal("CAD"), // Canadian Dollar
-      v.literal("AUD"), // Australian Dollar
-      v.literal("JPY"), // Japanese Yen
-      v.literal("CHF"), // Swiss Franc
-      v.literal("SEK"), // Swedish Krona
-      v.literal("NOK"), // Norwegian Krone
-      v.literal("DKK"), // Danish Krone
-      v.literal("CZK"), // Czech Koruna
-      v.literal("HUF"), // Hungarian Forint
-      v.literal("CNY"), // Chinese Yuan
-      v.literal("INR"), // Indian Rupee
-      v.literal("BRL"), // Brazilian Real
-      v.literal("MXN"), // Mexican Peso
-      v.literal("KRW"), // South Korean Won
-      v.literal("SGD"), // Singapore Dollar
-      v.literal("HKD"), // Hong Kong Dollar
-    )),
-    taskStatusSettings: v.optional(v.object({
-      todo: v.object({ name: v.string(), color: v.string() }),
-      in_progress: v.object({ name: v.string(), color: v.string() }),
-      review: v.object({ name: v.string(), color: v.string() }),
-      done: v.object({ name: v.string(), color: v.string() }),
-    })),
+    currency: v.optional(
+      v.union(
+        v.literal("USD"), // US Dollar
+        v.literal("EUR"), // Euro
+        v.literal("PLN"), // Polish Zloty
+        v.literal("GBP"), // British Pound
+        v.literal("CAD"), // Canadian Dollar
+        v.literal("AUD"), // Australian Dollar
+        v.literal("JPY"), // Japanese Yen
+        v.literal("CHF"), // Swiss Franc
+        v.literal("SEK"), // Swedish Krona
+        v.literal("NOK"), // Norwegian Krone
+        v.literal("DKK"), // Danish Krone
+        v.literal("CZK"), // Czech Koruna
+        v.literal("HUF"), // Hungarian Forint
+        v.literal("CNY"), // Chinese Yuan
+        v.literal("INR"), // Indian Rupee
+        v.literal("BRL"), // Brazilian Real
+        v.literal("MXN"), // Mexican Peso
+        v.literal("KRW"), // South Korean Won
+        v.literal("SGD"), // Singapore Dollar
+        v.literal("HKD"), // Hong Kong Dollar
+      ),
+    ),
+    taskStatusSettings: v.optional(
+      v.object({
+        todo: v.object({ name: v.string(), color: v.string() }),
+        in_progress: v.object({ name: v.string(), color: v.string() }),
+        review: v.object({ name: v.string(), color: v.string() }),
+        done: v.object({ name: v.string(), color: v.string() }),
+      }),
+    ),
+    taxRates: v.optional(v.array(teamTaxRateValidator)),
     // Stripe subscription fields
     stripeCustomerId: v.optional(v.string()), // Stripe customer ID
-    subscriptionStatus: v.optional(v.union(
-      v.literal("active"),
-      v.literal("past_due"),
-      v.literal("canceled"),
-      v.literal("incomplete"),
-      v.literal("incomplete_expired"),
-      v.literal("trialing"),
-      v.literal("unpaid"),
-      v.null()
-    )),
+    subscriptionStatus: v.optional(
+      v.union(
+        v.literal("active"),
+        v.literal("past_due"),
+        v.literal("canceled"),
+        v.literal("incomplete"),
+        v.literal("incomplete_expired"),
+        v.literal("trialing"),
+        v.literal("unpaid"),
+        v.null(),
+      ),
+    ),
     subscriptionId: v.optional(v.string()), // Stripe subscription ID
-    subscriptionPlan: v.optional(v.union(
-      v.literal("free"),
-      v.literal("basic"),
-      v.literal("ai"),
-      v.literal("ai_scale"),
-      v.literal("pro"),
-      v.literal("enterprise")
-    )),
+    subscriptionPlan: v.optional(
+      v.union(
+        v.literal("free"),
+        v.literal("basic"),
+        v.literal("ai"),
+        v.literal("ai_scale"),
+        v.literal("pro"),
+        v.literal("enterprise"),
+      ),
+    ),
     subscriptionPriceId: v.optional(v.string()), // Stripe price ID
     currentPeriodStart: v.optional(v.number()), // Unix timestamp
     currentPeriodEnd: v.optional(v.number()), // Unix timestamp
     trialEnd: v.optional(v.number()), // Unix timestamp
     cancelAtPeriodEnd: v.optional(v.boolean()),
-    subscriptionLimits: v.optional(v.object({
-      id: v.string(),
-      name: v.string(),
-      maxProjects: v.number(),
-      maxTeamMembers: v.number(),
-      maxStorageGB: v.number(),
-      hasAdvancedFeatures: v.boolean(),
-      hasAIFeatures: v.optional(v.boolean()),
-      price: v.number(),
-      aiMonthlyTokens: v.optional(v.number()), // Monthly AI tokens
-    })),
+    subscriptionLimits: v.optional(
+      v.object({
+        id: v.string(),
+        name: v.string(),
+        maxProjects: v.number(),
+        maxTeamMembers: v.number(),
+        maxStorageGB: v.number(),
+        hasAdvancedFeatures: v.boolean(),
+        hasAIFeatures: v.optional(v.boolean()),
+        price: v.number(),
+        aiMonthlyTokens: v.optional(v.number()), // Monthly AI tokens
+      }),
+    ),
     // Simple AI tokens field - manually editable in dashboard
     aiTokens: v.optional(v.number()), // Total tokens available for this team
     timezone: v.optional(v.string()), // Team timezone (e.g. "Europe/Warsaw")
@@ -249,7 +278,9 @@ export default defineSchema({
     stripeConnectPayoutsEnabled: v.optional(v.boolean()),
     stripeConnectDetailsSubmitted: v.optional(v.boolean()),
     stripeConnectOnboardingComplete: v.optional(v.boolean()),
-    stripeConnectAccountType: v.optional(v.union(v.literal("express"), v.literal("standard"))),
+    stripeConnectAccountType: v.optional(
+      v.union(v.literal("express"), v.literal("standard")),
+    ),
     stripeConnectLastSyncedAt: v.optional(v.number()),
     billingProfile: v.optional(billingProfileValidator),
     invoiceFieldRequirements: v.optional(invoiceFieldRequirementsValidator),
@@ -272,39 +303,40 @@ export default defineSchema({
       v.literal("active"),
       v.literal("on_hold"),
       v.literal("completed"),
-      v.literal("cancelled")
+      v.literal("cancelled"),
     ),
     startDate: v.optional(v.number()),
     endDate: v.optional(v.number()),
     budget: v.optional(v.number()),
     customer: v.optional(v.string()),
     location: v.optional(v.string()),
-    currency: v.optional(v.union(
-      v.literal("USD"), // US Dollar
-      v.literal("EUR"), // Euro
-      v.literal("PLN"), // Polish Zloty
-      v.literal("GBP"), // British Pound
-      v.literal("CAD"), // Canadian Dollar
-      v.literal("AUD"), // Australian Dollar
-      v.literal("JPY"), // Japanese Yen
-      v.literal("CHF"), // Swiss Franc
-      v.literal("SEK"), // Swedish Krona
-      v.literal("NOK"), // Norwegian Krone
-      v.literal("DKK"), // Danish Krone
-      v.literal("CZK"), // Czech Koruna
-      v.literal("HUF"), // Hungarian Forint
-      v.literal("CNY"), // Chinese Yuan
-      v.literal("INR"), // Indian Rupee
-      v.literal("BRL"), // Brazilian Real
-      v.literal("MXN"), // Mexican Peso
-      v.literal("KRW"), // South Korean Won
-      v.literal("SGD"), // Singapore Dollar
-      v.literal("HKD"), // Hong Kong Dollar
-    )),
-    measurements: v.optional(v.union(
-      v.literal("metric"),
-      v.literal("imperial")
-    )),
+    currency: v.optional(
+      v.union(
+        v.literal("USD"), // US Dollar
+        v.literal("EUR"), // Euro
+        v.literal("PLN"), // Polish Zloty
+        v.literal("GBP"), // British Pound
+        v.literal("CAD"), // Canadian Dollar
+        v.literal("AUD"), // Australian Dollar
+        v.literal("JPY"), // Japanese Yen
+        v.literal("CHF"), // Swiss Franc
+        v.literal("SEK"), // Swedish Krona
+        v.literal("NOK"), // Norwegian Krone
+        v.literal("DKK"), // Danish Krone
+        v.literal("CZK"), // Czech Koruna
+        v.literal("HUF"), // Hungarian Forint
+        v.literal("CNY"), // Chinese Yuan
+        v.literal("INR"), // Indian Rupee
+        v.literal("BRL"), // Brazilian Real
+        v.literal("MXN"), // Mexican Peso
+        v.literal("KRW"), // South Korean Won
+        v.literal("SGD"), // Singapore Dollar
+        v.literal("HKD"), // Hong Kong Dollar
+      ),
+    ),
+    measurements: v.optional(
+      v.union(v.literal("metric"), v.literal("imperial")),
+    ),
     taxEnabled: v.optional(v.boolean()),
     taxRate: v.optional(v.number()),
     createdBy: v.string(), // Clerk user ID
@@ -312,46 +344,56 @@ export default defineSchema({
     responsibleClerkUserId: v.optional(v.string()),
     clientNotificationsLastReadAt: v.optional(v.number()),
     assignedTo: v.array(v.string()), // Array of Clerk user IDs
-    taskStatusSettings: v.optional(v.object({
-      todo: v.object({ name: v.string(), color: v.string() }),
-      in_progress: v.object({ name: v.string(), color: v.string() }),
-      review: v.optional(v.object({ name: v.string(), color: v.string() })),
-      done: v.object({ name: v.string(), color: v.string() }),
-    })),
+    taskStatusSettings: v.optional(
+      v.object({
+        todo: v.object({ name: v.string(), color: v.string() }),
+        in_progress: v.object({ name: v.string(), color: v.string() }),
+        review: v.optional(v.object({ name: v.string(), color: v.string() })),
+        done: v.object({ name: v.string(), color: v.string() }),
+      }),
+    ),
     // Public, link-only customer panel token.
     clientPanelAccessToken: v.optional(v.string()),
-    clientPanelPublishedSettings: v.optional(v.object({
-      // Legacy field kept for backward compatibility with older published portal snapshots.
-      showApprovals: v.optional(v.boolean()),
-      showShoppingList: v.optional(v.boolean()),
-      allowShoppingItemDecisions: v.optional(v.boolean()),
-      allowShoppingItemComments: v.optional(v.boolean()),
-      showFiles: v.optional(v.boolean()),
-      showMoodboard: v.optional(v.boolean()),
-      showSurveys: v.optional(v.boolean()),
-      showTasks: v.optional(v.boolean()),
-      showLabor: v.optional(v.boolean()),
-      showContacts: v.optional(v.boolean()),
-      showBudget: v.optional(v.boolean()),
-      showPayments: v.optional(v.boolean()),
-      showNotes: v.optional(v.boolean()),
-      showSupplier: v.optional(v.boolean()),
-      showPrice: v.optional(v.boolean()),
-    })),
+    clientPanelPublishedSettings: v.optional(
+      v.object({
+        // Legacy field kept for backward compatibility with older published portal snapshots.
+        showApprovals: v.optional(v.boolean()),
+        showShoppingList: v.optional(v.boolean()),
+        allowShoppingItemDecisions: v.optional(v.boolean()),
+        allowShoppingItemComments: v.optional(v.boolean()),
+        showFiles: v.optional(v.boolean()),
+        showMoodboard: v.optional(v.boolean()),
+        showSurveys: v.optional(v.boolean()),
+        showTasks: v.optional(v.boolean()),
+        showLabor: v.optional(v.boolean()),
+        showContacts: v.optional(v.boolean()),
+        showBudget: v.optional(v.boolean()),
+        showPayments: v.optional(v.boolean()),
+        showNotes: v.optional(v.boolean()),
+        showSupplier: v.optional(v.boolean()),
+        showPrice: v.optional(v.boolean()),
+      }),
+    ),
     clientPanelDataVersion: v.optional(v.number()),
     clientPanelDataUpdatedAt: v.optional(v.number()),
-    clientPanelPublishedSnapshot: v.optional(clientPanelPublishedSnapshotValidator),
+    clientPanelPublishedSnapshot: v.optional(
+      clientPanelPublishedSnapshotValidator,
+    ),
     paymentCustomerName: v.optional(v.string()),
     paymentCustomerEmail: v.optional(v.string()),
     paymentCustomerDetails: v.optional(paymentCustomerDetailsValidator),
     stripeProjectCustomerId: v.optional(v.string()),
     // If true, CRUD tool calls from AI are auto-confirmed in the assistant UI
     aiAutoConfirmCrud: v.optional(v.boolean()),
-    moodboardSections: v.optional(v.array(v.object({
-      id: v.string(),
-      title: v.string(),
-      order: v.number(),
-    }))),
+    moodboardSections: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          title: v.string(),
+          order: v.number(),
+        }),
+      ),
+    ),
   })
     .index("by_team", ["teamId"])
     .index("by_team_and_slug", ["teamId", "slug"])
@@ -359,35 +401,6 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_created_by", ["createdBy"])
     .index("by_client_panel_access_token", ["clientPanelAccessToken"]),
-
-  projectMilestones: defineTable({
-    projectId: v.id("projects"),
-    teamId: v.id("teams"),
-    name: v.string(),
-    description: v.optional(v.string()),
-    order: v.number(),
-    status: v.union(
-      v.literal("planned"),
-      v.literal("in_progress"),
-      v.literal("at_risk"),
-      v.literal("blocked"),
-      v.literal("completed")
-    ),
-    ownerClerkUserId: v.optional(v.union(v.string(), v.null())),
-    plannedStartDate: v.optional(v.number()),
-    plannedEndDate: v.optional(v.number()),
-    actualStartDate: v.optional(v.number()),
-    actualEndDate: v.optional(v.number()),
-    progress: v.number(),
-    blockedReason: v.optional(v.string()),
-    budgetAmount: v.optional(v.number()),
-    color: v.optional(v.string()),
-    createdBy: v.string(),
-    updatedAt: v.number(),
-  })
-    .index("by_project", ["projectId"])
-    .index("by_project_and_order", ["projectId", "order"])
-    .index("by_project_and_status", ["projectId", "status"]),
 
   // Tasks in projects
   tasks: defineTable({
@@ -400,17 +413,18 @@ export default defineSchema({
       v.literal("todo"),
       v.literal("in_progress"),
       v.literal("review"),
-      v.literal("done")
+      v.literal("done"),
     ),
-    priority: v.optional(v.union(
-      v.literal("low"),
-      v.literal("medium"),
-      v.literal("high"),
-      v.literal("urgent"),
-      v.null()
-    )),
+    priority: v.optional(
+      v.union(
+        v.literal("low"),
+        v.literal("medium"),
+        v.literal("high"),
+        v.literal("urgent"),
+        v.null(),
+      ),
+    ),
     assignedTo: v.optional(v.union(v.string(), v.null())), // Clerk user ID
-    milestoneId: v.optional(v.union(v.id("projectMilestones"), v.null())),
     createdBy: v.string(), // Clerk user ID
     startDate: v.optional(v.number()), // Unix timestamp (UTC)
     endDate: v.optional(v.number()), // Unix timestamp (UTC)
@@ -448,7 +462,7 @@ export default defineSchema({
       v.literal("document"),
       v.literal("drawing"),
       v.literal("model"),
-      v.literal("other")
+      v.literal("other"),
     ),
     storageId: v.string(), // R2 storage key
     size: v.number(),
@@ -456,25 +470,26 @@ export default defineSchema({
     uploadedBy: v.string(), // Clerk user ID
     version: v.number(),
     isLatest: v.boolean(),
-    origin: v.optional(v.union(
-      v.literal("general"),
-      v.literal("ai")
-    )),
+    origin: v.optional(v.union(v.literal("general"), v.literal("ai"))),
     extractedText: v.optional(v.string()), // Text extracted from file
-    textExtractionStatus: v.optional(v.union(
-      v.literal("pending"),
-      v.literal("processing"),
-      v.literal("completed"),
-      v.literal("failed")
-    )),
+    textExtractionStatus: v.optional(
+      v.union(
+        v.literal("pending"),
+        v.literal("processing"),
+        v.literal("completed"),
+        v.literal("failed"),
+      ),
+    ),
     // PDF analysis with Vertex AI
     pdfAnalysis: v.optional(v.string()), // Analysis results for PDF files
-    analysisStatus: v.optional(v.union(
-      v.literal("pending"),
-      v.literal("processing"),
-      v.literal("completed"),
-      v.literal("failed")
-    )),
+    analysisStatus: v.optional(
+      v.union(
+        v.literal("pending"),
+        v.literal("processing"),
+        v.literal("completed"),
+        v.literal("failed"),
+      ),
+    ),
     // For moodboard images - which section they belong to
     moodboardSection: v.optional(v.string()),
     // AI generation prompt (for AI-generated files)
@@ -483,12 +498,14 @@ export default defineSchema({
     showInClientPortal: v.optional(v.boolean()),
     // If true, this file is intentionally exposed to AI assistants as project knowledge
     aiKnowledgeEnabled: v.optional(v.boolean()),
-    aiKnowledgeStatus: v.optional(v.union(
-      v.literal("excluded"),
-      v.literal("pending"),
-      v.literal("ready"),
-      v.literal("failed")
-    )),
+    aiKnowledgeStatus: v.optional(
+      v.union(
+        v.literal("excluded"),
+        v.literal("pending"),
+        v.literal("ready"),
+        v.literal("failed"),
+      ),
+    ),
     aiKnowledgeError: v.optional(v.string()),
     aiKnowledgeEntryId: v.optional(v.string()),
     aiKnowledgeIndexedAt: v.optional(v.number()),
@@ -524,12 +541,10 @@ export default defineSchema({
     teamId: v.id("teams"),
     clerkUserId: v.string(),
     clerkOrgId: v.string(),
-    role: v.union(
-      v.literal("admin"),
-      v.literal("member")
-    ),
+    role: v.union(v.literal("admin"), v.literal("member")),
     permissions: v.array(v.string()),
     projectIds: v.optional(v.array(v.id("projects"))),
+    notificationSettings: v.optional(teamMemberNotificationSettingsValidator),
     joinedAt: v.number(),
     isActive: v.boolean(),
   })
@@ -582,8 +597,7 @@ export default defineSchema({
     teamId: v.id("teams"),
     order: v.number(),
     createdBy: v.string(), // Clerk user ID
-  })
-    .index("by_project", ["projectId"]),
+  }).index("by_project", ["projectId"]),
 
   shoppingSets: defineTable({
     title: v.string(),
@@ -594,23 +608,23 @@ export default defineSchema({
     setType: v.union(
       v.literal("variant"),
       v.literal("bundle"),
-      v.literal("reference")
+      v.literal("reference"),
     ),
     selectionMode: v.union(
       v.literal("single"),
       v.literal("multiple"),
-      v.literal("none")
+      v.literal("none"),
     ),
     pricingMode: v.union(
       v.literal("selected_only"),
       v.literal("all_selected"),
-      v.literal("none")
+      v.literal("none"),
     ),
     status: v.union(
       v.literal("draft"),
       v.literal("active"),
       v.literal("resolved"),
-      v.literal("archived")
+      v.literal("archived"),
     ),
     preferredItemIds: v.optional(v.array(v.id("shoppingListItems"))),
     resolvedItemIds: v.optional(v.array(v.id("shoppingListItems"))),
@@ -626,12 +640,14 @@ export default defineSchema({
     notes: v.optional(v.string()),
     completed: v.boolean(),
     buyBefore: v.optional(v.number()),
-    priority: v.optional(v.union(
-      v.literal("low"),
-      v.literal("medium"),
-      v.literal("high"),
-      v.literal("urgent")
-    )),
+    priority: v.optional(
+      v.union(
+        v.literal("low"),
+        v.literal("medium"),
+        v.literal("high"),
+        v.literal("urgent"),
+      ),
+    ),
     imageUrl: v.optional(v.string()),
     productLink: v.optional(v.string()),
     supplier: v.optional(v.string()),
@@ -643,9 +659,11 @@ export default defineSchema({
     unitPrice: v.optional(v.number()),
     totalPrice: v.optional(v.number()),
     setId: v.optional(v.union(v.id("shoppingSets"), v.null())),
-    selectedAlternativeItemId: v.optional(v.union(v.id("shoppingListItems"), v.null())),
+    selectedAlternativeItemId: v.optional(
+      v.union(v.id("shoppingListItems"), v.null()),
+    ),
     customerDecision: v.optional(
-      v.union(v.literal("accepted"), v.literal("rejected"), v.null())
+      v.union(v.literal("accepted"), v.literal("rejected"), v.null()),
     ),
     customerDecisionComment: v.optional(v.union(v.string(), v.null())),
     customerDecisionUpdatedAt: v.optional(v.number()),
@@ -656,7 +674,7 @@ export default defineSchema({
       v.literal("IN_TRANSIT"),
       v.literal("DELIVERED"),
       v.literal("COMPLETED"),
-      v.literal("CANCELLED")
+      v.literal("CANCELLED"),
     ),
     sectionId: v.optional(v.union(v.id("shoppingListSections"), v.null())),
     projectId: v.id("projects"),
@@ -674,22 +692,23 @@ export default defineSchema({
     projectId: v.id("projects"),
     name: v.string(),
     order: v.number(),
-  })
-    .index("by_project", ["projectId"]),
+  }).index("by_project", ["projectId"]),
 
   // Published customer panel snapshot (items/options).
   clientPanelItems: defineTable({
     projectId: v.id("projects"),
     sourceItemId: v.id("shoppingListItems"),
     name: v.string(),
-    realizationStatus: v.optional(v.union(
-      v.literal("PLANNED"),
-      v.literal("ORDERED"),
-      v.literal("IN_TRANSIT"),
-      v.literal("DELIVERED"),
-      v.literal("COMPLETED"),
-      v.literal("CANCELLED")
-    )),
+    realizationStatus: v.optional(
+      v.union(
+        v.literal("PLANNED"),
+        v.literal("ORDERED"),
+        v.literal("IN_TRANSIT"),
+        v.literal("DELIVERED"),
+        v.literal("COMPLETED"),
+        v.literal("CANCELLED"),
+      ),
+    ),
     notes: v.optional(v.string()),
     supplier: v.optional(v.string()),
     catalogNumber: v.optional(v.string()),
@@ -705,37 +724,47 @@ export default defineSchema({
     sectionOrder: v.number(),
     setId: v.optional(v.union(v.id("shoppingSets"), v.null())),
     setTitle: v.optional(v.string()),
-    setType: v.optional(v.union(
-      v.literal("variant"),
-      v.literal("bundle"),
-      v.literal("reference"),
-      v.null()
-    )),
-    setSelectionMode: v.optional(v.union(
-      v.literal("single"),
-      v.literal("multiple"),
-      v.literal("none"),
-      v.null()
-    )),
-    setPricingMode: v.optional(v.union(
-      v.literal("selected_only"),
-      v.literal("all_selected"),
-      v.literal("none"),
-      v.null()
-    )),
-    setStatus: v.optional(v.union(
-      v.literal("draft"),
-      v.literal("active"),
-      v.literal("resolved"),
-      v.literal("archived"),
-      v.null()
-    )),
+    setType: v.optional(
+      v.union(
+        v.literal("variant"),
+        v.literal("bundle"),
+        v.literal("reference"),
+        v.null(),
+      ),
+    ),
+    setSelectionMode: v.optional(
+      v.union(
+        v.literal("single"),
+        v.literal("multiple"),
+        v.literal("none"),
+        v.null(),
+      ),
+    ),
+    setPricingMode: v.optional(
+      v.union(
+        v.literal("selected_only"),
+        v.literal("all_selected"),
+        v.literal("none"),
+        v.null(),
+      ),
+    ),
+    setStatus: v.optional(
+      v.union(
+        v.literal("draft"),
+        v.literal("active"),
+        v.literal("resolved"),
+        v.literal("archived"),
+        v.null(),
+      ),
+    ),
     setNotes: v.optional(v.union(v.string(), v.null())),
     setResolvedSourceItemIds: v.optional(v.array(v.id("shoppingListItems"))),
     setPreferredSourceItemIds: v.optional(v.array(v.id("shoppingListItems"))),
-    selectedAlternativeSourceItemId: v.optional(v.union(v.id("shoppingListItems"), v.null())),
+    selectedAlternativeSourceItemId: v.optional(
+      v.union(v.id("shoppingListItems"), v.null()),
+    ),
     customerDecision: v.optional(
-      v.union(v.literal("accepted"), v.literal("rejected"), v.null())
+      v.union(v.literal("accepted"), v.literal("rejected"), v.null()),
     ),
     customerDecisionComment: v.optional(v.union(v.string(), v.null())),
     customerDecisionUpdatedAt: v.optional(v.number()),
@@ -754,7 +783,7 @@ export default defineSchema({
       v.literal("document"),
       v.literal("drawing"),
       v.literal("model"),
-      v.literal("other")
+      v.literal("other"),
     ),
     storageId: v.string(),
     mimeType: v.string(),
@@ -783,7 +812,7 @@ export default defineSchema({
       v.literal("open"),
       v.literal("paid"),
       v.literal("void"),
-      v.literal("uncollectible")
+      v.literal("uncollectible"),
     ),
     createdBy: v.string(),
     updatedAt: v.number(),
@@ -815,8 +844,7 @@ export default defineSchema({
     teamId: v.id("teams"),
     order: v.number(),
     createdBy: v.string(), // Clerk user ID
-  })
-    .index("by_project", ["projectId"]),
+  }).index("by_project", ["projectId"]),
 
   // Labor items for work/services
   laborItems: defineTable({
@@ -861,7 +889,7 @@ export default defineSchema({
       v.literal("sent"),
       v.literal("accepted"),
       v.literal("rejected"),
-      v.literal("expired")
+      v.literal("expired"),
     ),
     // Selected items from shopping list (materials)
     materialItemIds: v.array(v.id("shoppingListItems")),
@@ -925,7 +953,7 @@ export default defineSchema({
     status: v.union(
       v.literal("draft"),
       v.literal("active"),
-      v.literal("closed")
+      v.literal("closed"),
     ),
     isRequired: v.boolean(), // whether the survey is mandatory
     allowMultipleResponses: v.boolean(), // whether it can be filled multiple times
@@ -950,17 +978,19 @@ export default defineSchema({
       v.literal("rating"), // rating scale
       v.literal("yes_no"), // yes/no
       v.literal("number"), // number
-      v.literal("file") // file upload
+      v.literal("file"), // file upload
     ),
     options: v.optional(v.array(v.string())), // options for multiple/single choice
     isRequired: v.boolean(),
     order: v.number(), // question order
-    ratingScale: v.optional(v.object({
-      min: v.number(),
-      max: v.number(),
-      minLabel: v.optional(v.string()),
-      maxLabel: v.optional(v.string())
-    })), // for rating type
+    ratingScale: v.optional(
+      v.object({
+        min: v.number(),
+        max: v.number(),
+        minLabel: v.optional(v.string()),
+        maxLabel: v.optional(v.string()),
+      }),
+    ), // for rating type
   })
     .index("by_survey", ["surveyId"])
     .index("by_order", ["surveyId", "order"]),
@@ -974,11 +1004,13 @@ export default defineSchema({
     projectId: v.id("projects"),
     isComplete: v.boolean(),
     submittedAt: v.optional(v.number()),
-    metadata: v.optional(v.object({
-      ipAddress: v.optional(v.string()),
-      userAgent: v.optional(v.string()),
-      timeSpent: v.optional(v.number()) // time in seconds
-    })),
+    metadata: v.optional(
+      v.object({
+        ipAddress: v.optional(v.string()),
+        userAgent: v.optional(v.string()),
+        timeSpent: v.optional(v.number()), // time in seconds
+      }),
+    ),
   })
     .index("by_survey", ["surveyId"])
     .index("by_respondent", ["respondentId"])
@@ -996,25 +1028,25 @@ export default defineSchema({
       v.literal("rating"),
       v.literal("number"),
       v.literal("boolean"),
-      v.literal("file")
+      v.literal("file"),
     ),
     textAnswer: v.optional(v.string()),
     choiceAnswers: v.optional(v.array(v.string())), // for multiple choice
     ratingAnswer: v.optional(v.number()),
     numberAnswer: v.optional(v.number()),
     booleanAnswer: v.optional(v.boolean()),
-    fileAnswer: v.optional(v.object({
-      fileId: v.id("files"),
-      fileName: v.string(),
-      fileSize: v.number(),
-      fileType: v.string()
-    })),
+    fileAnswer: v.optional(
+      v.object({
+        fileId: v.id("files"),
+        fileName: v.string(),
+        fileSize: v.number(),
+        fileType: v.string(),
+      }),
+    ),
   })
     .index("by_response", ["responseId"])
     .index("by_question", ["questionId"])
     .index("by_survey", ["surveyId"]),
-
-
 
   // Contacts/Address Book
   contacts: defineTable({
@@ -1029,9 +1061,9 @@ export default defineSchema({
     notes: v.optional(v.string()),
     type: v.union(
       v.literal("contractor"), // wykonawca
-      v.literal("supplier"),   // dostawca
+      v.literal("supplier"), // dostawca
       v.literal("subcontractor"), // podwykonawca
-      v.literal("other")       // inne
+      v.literal("other"), // inne
     ),
     teamId: v.id("teams"),
     createdBy: v.string(), // Clerk user ID
@@ -1086,13 +1118,13 @@ export default defineSchema({
       v.union(
         v.literal("assistant"),
         v.literal("visualizations"),
-        v.literal("other")
-      )
+        v.literal("other"),
+      ),
     ),
     requestType: v.union(
       v.literal("chat"),
       v.literal("embedding"),
-      v.literal("other")
+      v.literal("other"),
     ),
     inputTokens: v.number(),
     outputTokens: v.number(),
@@ -1169,11 +1201,15 @@ export default defineSchema({
     imageUrl: v.optional(v.string()),
     generationId: v.optional(v.id("aiGeneratedImages")), // Reference to generation record
     // For user messages with reference images
-    referenceImages: v.optional(v.array(v.object({
-      storageKey: v.string(),
-      mimeType: v.string(),
-      name: v.string(),
-    }))),
+    referenceImages: v.optional(
+      v.array(
+        v.object({
+          storageKey: v.string(),
+          mimeType: v.string(),
+          name: v.string(),
+        }),
+      ),
+    ),
   })
     .index("by_session", ["sessionId"])
     .index("by_session_and_index", ["sessionId", "messageIndex"]),

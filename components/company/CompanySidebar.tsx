@@ -35,6 +35,7 @@ import {
   BarChart3,
   Contact,
   Package,
+  Percent,
   Sparkles,
   LifeBuoy,
   LogOut,
@@ -101,6 +102,7 @@ function CompanySidebarContent() {
     { href: "/organisation/product-library", label: "Product Library", icon: Package, allowedRoles: ["admin", "member"] },
     { href: "/organisation/team", label: "Team", icon: Users, allowedRoles: ["admin", "member"] },
     { href: "/organisation/contacts", label: "Contacts", icon: Contact, allowedRoles: ["admin", "member"] },
+    { href: "/organisation/tax", label: "Tax", icon: Percent, allowedRoles: ["admin", "member"] },
     { href: "/organisation/reports", label: "Reports", icon: BarChart3, allowedRoles: ["admin", "member"] },
   ];
   const footerItems = [

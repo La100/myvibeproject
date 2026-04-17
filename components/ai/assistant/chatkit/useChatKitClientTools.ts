@@ -8,9 +8,7 @@ import {
   buildCreateSurveyPayload,
   buildUpdateSurveyPayload,
 } from "@/lib/assistant/chatkitSurveyPayload";
-import {
-  extractShoppingRealizationStatus,
-} from "@/lib/assistant/normalizeShoppingRealizationStatus";
+import { extractShoppingRealizationStatus } from "@/lib/assistant/normalizeShoppingRealizationStatus";
 import { apiAny } from "@/lib/convexApiAny";
 
 type ToolCall = {
@@ -236,7 +234,10 @@ function resolveAssigneeFromTeamMembers(
   const looseMatches = teamMembers.filter((member) => {
     const name = member.name ? normalizeLookupValue(member.name) : "";
     const email = member.email ? normalizeLookupValue(member.email) : "";
-    return name.includes(normalizedIdentifier) || email.includes(normalizedIdentifier);
+    return (
+      name.includes(normalizedIdentifier) ||
+      email.includes(normalizedIdentifier)
+    );
   });
 
   if (looseMatches.length === 1 && looseMatches[0]?.clerkUserId) {
@@ -246,9 +247,7 @@ function resolveAssigneeFromTeamMembers(
   return null;
 }
 
-function normalizeClientToolCall(
-  call: ToolCall,
-): ToolCall | { error: string } {
+function normalizeClientToolCall(call: ToolCall): ToolCall | { error: string } {
   const params = asRecord(call.params);
   const action = asCrudAction(params.action);
 
@@ -276,7 +275,11 @@ function normalizeClientToolCall(
       }
 
       const flattened = flattenManagedToolParams(params);
-      const taskId = pickFirstNonEmptyString(flattened, ["taskId", "itemId", "id"]);
+      const taskId = pickFirstNonEmptyString(flattened, [
+        "taskId",
+        "itemId",
+        "id",
+      ]);
 
       return {
         name:
@@ -315,7 +318,11 @@ function normalizeClientToolCall(
       }
 
       const flattened = flattenManagedToolParams(params);
-      const noteId = pickFirstNonEmptyString(flattened, ["noteId", "itemId", "id"]);
+      const noteId = pickFirstNonEmptyString(flattened, [
+        "noteId",
+        "itemId",
+        "id",
+      ]);
 
       return {
         name:
@@ -354,7 +361,11 @@ function normalizeClientToolCall(
       }
 
       const flattened = flattenManagedToolParams(params);
-      const contactId = pickFirstNonEmptyString(flattened, ["contactId", "itemId", "id"]);
+      const contactId = pickFirstNonEmptyString(flattened, [
+        "contactId",
+        "itemId",
+        "id",
+      ]);
 
       return {
         name:
@@ -371,7 +382,12 @@ function normalizeClientToolCall(
     }
 
     case "manage_payments": {
-      if (!action || action === "bulk_create" || action === "bulk_update" || action === "bulk_delete") {
+      if (
+        !action ||
+        action === "bulk_create" ||
+        action === "bulk_update" ||
+        action === "bulk_delete"
+      ) {
         return { error: "Missing or invalid `action` for manage_payments." };
       }
 
@@ -420,7 +436,11 @@ function normalizeClientToolCall(
       }
 
       const flattened = flattenManagedToolParams(params);
-      const surveyId = pickFirstNonEmptyString(flattened, ["surveyId", "itemId", "id"]);
+      const surveyId = pickFirstNonEmptyString(flattened, [
+        "surveyId",
+        "itemId",
+        "id",
+      ]);
 
       return {
         name:
@@ -521,7 +541,11 @@ function normalizeClientToolCall(
       }
 
       const flattened = flattenManagedToolParams(params);
-      const sectionId = pickFirstNonEmptyString(flattened, ["sectionId", "itemId", "id"]);
+      const sectionId = pickFirstNonEmptyString(flattened, [
+        "sectionId",
+        "itemId",
+        "id",
+      ]);
 
       return {
         name:
@@ -568,7 +592,9 @@ function normalizeNumericString(value: string): string | undefined {
     } else {
       const [left, right] = numeric.split(",");
       numeric =
-        right && right.length !== 3 ? `${left}.${right}` : `${left}${right ?? ""}`;
+        right && right.length !== 3
+          ? `${left}.${right}`
+          : `${left}${right ?? ""}`;
     }
   } else if (dotCount > 1) {
     numeric = numeric.replace(/\./g, "");
@@ -609,8 +635,15 @@ function asStringArray(value: unknown): string[] | undefined {
   return normalized.length > 0 ? normalized : undefined;
 }
 
-function asTaskStatus(value: unknown): "todo" | "in_progress" | "review" | "done" | undefined {
-  if (value === "todo" || value === "in_progress" || value === "review" || value === "done") {
+function asTaskStatus(
+  value: unknown,
+): "todo" | "in_progress" | "review" | "done" | undefined {
+  if (
+    value === "todo" ||
+    value === "in_progress" ||
+    value === "review" ||
+    value === "done"
+  ) {
     return value;
   }
   return undefined;
@@ -634,7 +667,12 @@ function asPaymentStatus(
 function asTaskPriority(
   value: unknown,
 ): "low" | "medium" | "high" | "urgent" | undefined {
-  if (value === "low" || value === "medium" || value === "high" || value === "urgent") {
+  if (
+    value === "low" ||
+    value === "medium" ||
+    value === "high" ||
+    value === "urgent"
+  ) {
     return value;
   }
   return undefined;
@@ -673,10 +711,14 @@ function extractTaskAssigneeIdentifier(
 }
 
 function hasTaskMutationFields(payload: Record<string, unknown>): boolean {
-  return Object.keys(payload).some((key) => TASK_UPDATE_MUTATION_FIELDS.has(key));
+  return Object.keys(payload).some((key) =>
+    TASK_UPDATE_MUTATION_FIELDS.has(key),
+  );
 }
 
-function extractShoppingName(params: Record<string, unknown>): string | undefined {
+function extractShoppingName(
+  params: Record<string, unknown>,
+): string | undefined {
   return (
     asNonEmptyString(params.name) ??
     asNonEmptyString(params.productName) ??
@@ -701,9 +743,14 @@ function extractErrorMessage(error: unknown): string {
   return "Unknown client tool error.";
 }
 
-function truncate(value: string | undefined, maxLength = 160): string | undefined {
+function truncate(
+  value: string | undefined,
+  maxLength = 160,
+): string | undefined {
   if (!value) return undefined;
-  return value.length > maxLength ? `${value.slice(0, maxLength - 1)}...` : value;
+  return value.length > maxLength
+    ? `${value.slice(0, maxLength - 1)}...`
+    : value;
 }
 
 function summarizeTask(task: Record<string, unknown>) {
@@ -719,7 +766,9 @@ function summarizeTask(task: Record<string, unknown>) {
     assignedTo: asNonEmptyString(task.assignedTo),
     endDate: asNumber(task.endDate),
     sectionId: asNonEmptyString(task.sectionId),
-    description: truncate(asNonEmptyString(task.description) ?? asNonEmptyString(task.content)),
+    description: truncate(
+      asNonEmptyString(task.description) ?? asNonEmptyString(task.content),
+    ),
   };
 }
 
@@ -727,7 +776,9 @@ function summarizeNote(note: Record<string, unknown>) {
   return {
     id: typeof note._id === "string" ? note._id : undefined,
     title: asNonEmptyString(note.title) ?? "Untitled note",
-    excerpt: truncate(asNonEmptyString(note.content) ?? asNonEmptyString(note.description)),
+    excerpt: truncate(
+      asNonEmptyString(note.content) ?? asNonEmptyString(note.description),
+    ),
   };
 }
 
@@ -764,7 +815,9 @@ function summarizeShoppingItem(
     unitPrice: asNumber(item.unitPrice),
     productLink: asNonEmptyString(item.productLink),
     sectionId,
-    sectionName: sectionId ? options?.sectionNameById?.get(sectionId) : undefined,
+    sectionName: sectionId
+      ? options?.sectionNameById?.get(sectionId)
+      : undefined,
     notes: truncate(asNonEmptyString(item.notes)),
   };
 }
@@ -774,7 +827,7 @@ function summarizeShoppingSection(
   options?: { itemCountBySectionId?: Map<string, number> },
 ) {
   const id = typeof section._id === "string" ? section._id : undefined;
-  const itemCount = id ? options?.itemCountBySectionId?.get(id) ?? 0 : 0;
+  const itemCount = id ? (options?.itemCountBySectionId?.get(id) ?? 0) : 0;
   return {
     id,
     name: asNonEmptyString(section.name) ?? "Untitled section",
@@ -809,7 +862,9 @@ function summarizeLaborItem(
     unitPrice: asNumber(item.unitPrice),
     totalPrice: asNumber(item.totalPrice),
     sectionId,
-    sectionName: sectionId ? options?.sectionNameById?.get(sectionId) : undefined,
+    sectionName: sectionId
+      ? options?.sectionNameById?.get(sectionId)
+      : undefined,
     notes: truncate(asNonEmptyString(item.notes)),
   };
 }
@@ -819,7 +874,7 @@ function summarizeLaborSection(
   options?: { itemCountBySectionId?: Map<string, number> },
 ) {
   const id = typeof section._id === "string" ? section._id : undefined;
-  const itemCount = id ? options?.itemCountBySectionId?.get(id) ?? 0 : 0;
+  const itemCount = id ? (options?.itemCountBySectionId?.get(id) ?? 0) : 0;
   return {
     id,
     name: asNonEmptyString(section.name) ?? "Untitled section",
@@ -851,7 +906,7 @@ function summarizeMoodboardSection(
     asNonEmptyString(section.id) ??
     asNonEmptyString(section.sectionId) ??
     asNonEmptyString(section._id);
-  const imageCount = id ? options?.imageCountBySectionId?.get(id) ?? 0 : 0;
+  const imageCount = id ? (options?.imageCountBySectionId?.get(id) ?? 0) : 0;
 
   return {
     id,
@@ -871,7 +926,8 @@ function summarizeMoodboardImage(
   options?: { sectionTitleById?: Map<string, string> },
 ) {
   const sectionId =
-    asNonEmptyString(image.sectionId) ?? asNonEmptyString(image.moodboardSection);
+    asNonEmptyString(image.sectionId) ??
+    asNonEmptyString(image.moodboardSection);
   return {
     id:
       asNonEmptyString(image.id) ??
@@ -953,22 +1009,29 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
         return {
           ok: false,
           tool: name,
-          error: "Changes are disabled in this chat. Switch on 'Can make changes' to run editing tools.",
+          error:
+            "Changes are disabled in this chat. Switch on 'Can make changes' to run editing tools.",
         };
       }
 
       const getTeamMembers = async (): Promise<TeamMemberRecord[]> => {
-        const result = await convex.query(apiAny.teams.getTeamMembers, { teamId });
+        const result = await convex.query(apiAny.teams.getTeamMembers, {
+          teamId,
+        });
         return Array.isArray(result)
           ? result.map((entry) => ({
-              clerkUserId: asNonEmptyString((entry as Record<string, unknown>).clerkUserId),
+              clerkUserId: asNonEmptyString(
+                (entry as Record<string, unknown>).clerkUserId,
+              ),
               name: asNonEmptyString((entry as Record<string, unknown>).name),
               email: asNonEmptyString((entry as Record<string, unknown>).email),
             }))
           : [];
       };
 
-      const resolveTaskAssignee = async (value: unknown): Promise<string | null | undefined> => {
+      const resolveTaskAssignee = async (
+        value: unknown,
+      ): Promise<string | null | undefined> => {
         const assignee = asNonEmptyString(value);
         if (assignee === undefined) return undefined;
 
@@ -1077,7 +1140,10 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 method: "GET",
               },
             );
-            const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+            const payload = (await response.json().catch(() => ({}))) as Record<
+              string,
+              unknown
+            >;
 
             if (!response.ok) {
               return {
@@ -1102,10 +1168,9 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               imageUrl: asNonEmptyString(payload.imageUrl),
               productLink: asNonEmptyString(payload.productLink) ?? url,
               notes: asNonEmptyString(payload.notes),
-              message:
-                asNonEmptyString(payload.name)
-                  ? `Scraped product details for ${payload.name as string}.`
-                  : "Scraped product details from the provided URL.",
+              message: asNonEmptyString(payload.name)
+                ? `Scraped product details for ${payload.name as string}.`
+                : "Scraped product details from the provided URL.",
             };
           }
 
@@ -1143,7 +1208,6 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 endDate: asTimestamp(item.endDate),
                 tags: asStringArray(item.tags) ?? [],
                 sectionId: asNonEmptyString(item.sectionId) ?? null,
-                milestoneId: asNonEmptyString(item.milestoneId) ?? null,
               });
 
               return { ok: true, taskId, title };
@@ -1153,7 +1217,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
           case "bulk_update_tasks": {
             const items = asRecordArray(params.items);
             return runBulk(items, "Bulk task update", async (item) => {
-              const taskId = asNonEmptyString(item.taskId) ?? asNonEmptyString(item.id);
+              const taskId =
+                asNonEmptyString(item.taskId) ?? asNonEmptyString(item.id);
               if (!taskId) {
                 return {
                   ok: false,
@@ -1213,7 +1278,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
           case "bulk_delete_tasks": {
             const items = asRecordArray(params.items);
             return runBulk(items, "Bulk task delete", async (item) => {
-              const taskId = asNonEmptyString(item.taskId) ?? asNonEmptyString(item.id);
+              const taskId =
+                asNonEmptyString(item.taskId) ?? asNonEmptyString(item.id);
               if (!taskId) {
                 return {
                   ok: false,
@@ -1241,7 +1307,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               if (!title || !content) {
                 return {
                   ok: false,
-                  error: "Missing required `title` or `content` for a bulk-created note.",
+                  error:
+                    "Missing required `title` or `content` for a bulk-created note.",
                 };
               }
 
@@ -1258,7 +1325,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
           case "bulk_update_notes": {
             const items = asRecordArray(params.items);
             return runBulk(items, "Bulk note update", async (item) => {
-              const noteId = asNonEmptyString(item.noteId) ?? asNonEmptyString(item.id);
+              const noteId =
+                asNonEmptyString(item.noteId) ?? asNonEmptyString(item.id);
               if (!noteId) {
                 return {
                   ok: false,
@@ -1266,7 +1334,9 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 };
               }
 
-              const existingNote = await convex.query(apiAny.notes.getNote, { noteId });
+              const existingNote = await convex.query(apiAny.notes.getNote, {
+                noteId,
+              });
               if (!existingNote) {
                 return { ok: false, error: "Note not found." };
               }
@@ -1294,7 +1364,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
           case "bulk_delete_notes": {
             const items = asRecordArray(params.items);
             return runBulk(items, "Bulk note delete", async (item) => {
-              const noteId = asNonEmptyString(item.noteId) ?? asNonEmptyString(item.id);
+              const noteId =
+                asNonEmptyString(item.noteId) ?? asNonEmptyString(item.id);
               if (!noteId) {
                 return {
                   ok: false,
@@ -1321,20 +1392,23 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 };
               }
 
-              const contactId = await convex.mutation(apiAny.contacts.createContact, {
-                teamSlug,
-                name,
-                companyName: asNonEmptyString(item.companyName),
-                email: asNonEmptyString(item.email),
-                phone: asNonEmptyString(item.phone),
-                address: asNonEmptyString(item.address),
-                city: asNonEmptyString(item.city),
-                postalCode: asNonEmptyString(item.postalCode),
-                website: asNonEmptyString(item.website),
-                taxId: asNonEmptyString(item.taxId),
-                type: asNonEmptyString(item.type) ?? "other",
-                notes: asNonEmptyString(item.notes),
-              });
+              const contactId = await convex.mutation(
+                apiAny.contacts.createContact,
+                {
+                  teamSlug,
+                  name,
+                  companyName: asNonEmptyString(item.companyName),
+                  email: asNonEmptyString(item.email),
+                  phone: asNonEmptyString(item.phone),
+                  address: asNonEmptyString(item.address),
+                  city: asNonEmptyString(item.city),
+                  postalCode: asNonEmptyString(item.postalCode),
+                  website: asNonEmptyString(item.website),
+                  taxId: asNonEmptyString(item.taxId),
+                  type: asNonEmptyString(item.type) ?? "other",
+                  notes: asNonEmptyString(item.notes),
+                },
+              );
 
               return { ok: true, contactId, name };
             });
@@ -1348,13 +1422,17 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               if (!contactId) {
                 return {
                   ok: false,
-                  error: "Missing required `contactId` for a bulk contact update.",
+                  error:
+                    "Missing required `contactId` for a bulk contact update.",
                 };
               }
 
-              const existingContact = await convex.query(apiAny.contacts.getContact, {
-                contactId,
-              });
+              const existingContact = await convex.query(
+                apiAny.contacts.getContact,
+                {
+                  contactId,
+                },
+              );
               if (!existingContact) {
                 return { ok: false, error: "Contact not found." };
               }
@@ -1370,13 +1448,17 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                   asNonEmptyString(item.companyName) ??
                   asNonEmptyString(existingContact.companyName),
                 email:
-                  asNonEmptyString(item.email) ?? asNonEmptyString(existingContact.email),
+                  asNonEmptyString(item.email) ??
+                  asNonEmptyString(existingContact.email),
                 phone:
-                  asNonEmptyString(item.phone) ?? asNonEmptyString(existingContact.phone),
+                  asNonEmptyString(item.phone) ??
+                  asNonEmptyString(existingContact.phone),
                 address:
                   asNonEmptyString(item.address) ??
                   asNonEmptyString(existingContact.address),
-                city: asNonEmptyString(item.city) ?? asNonEmptyString(existingContact.city),
+                city:
+                  asNonEmptyString(item.city) ??
+                  asNonEmptyString(existingContact.city),
                 postalCode:
                   asNonEmptyString(item.postalCode) ??
                   asNonEmptyString(existingContact.postalCode),
@@ -1391,7 +1473,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                   asNonEmptyString(existingContact.type) ??
                   "other",
                 notes:
-                  asNonEmptyString(item.notes) ?? asNonEmptyString(existingContact.notes),
+                  asNonEmptyString(item.notes) ??
+                  asNonEmptyString(existingContact.notes),
               });
 
               return { ok: true, contactId };
@@ -1406,70 +1489,84 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               if (!contactId) {
                 return {
                   ok: false,
-                  error: "Missing required `contactId` for a bulk contact delete.",
+                  error:
+                    "Missing required `contactId` for a bulk contact delete.",
                 };
               }
 
-              await convex.mutation(apiAny.contacts.deleteContact, { contactId });
+              await convex.mutation(apiAny.contacts.deleteContact, {
+                contactId,
+              });
               return { ok: true, contactId };
             });
           }
 
           case "bulk_create_shopping_items": {
             const items = asRecordArray(params.items);
-            return runBulk(items, "Bulk shopping item creation", async (item) => {
-              const name = extractShoppingName(item);
-              if (!name) {
-                return {
-                  ok: false,
-                  error: "Missing required `name` for a bulk-created shopping item.",
-                };
-              }
+            return runBulk(
+              items,
+              "Bulk shopping item creation",
+              async (item) => {
+                const name = extractShoppingName(item);
+                if (!name) {
+                  return {
+                    ok: false,
+                    error:
+                      "Missing required `name` for a bulk-created shopping item.",
+                  };
+                }
 
-              const itemId = await convex.mutation(apiAny.shopping.createShoppingListItem, {
-                projectId,
-                name,
-                quantity: asNumber(item.quantity) ?? 1,
-                notes: joinNotes(
-                  asNonEmptyString(item.notes),
-                  asNonEmptyString(item.storeAddress),
-                  asNonEmptyString(item.address),
-                  asNonEmptyString(item.selectionReason),
-                  asNonEmptyString(item.sourceSummary),
-                ),
-                buyBefore: asTimestamp(item.buyBefore),
-                priority: asTaskPriority(item.priority) ?? "medium",
-                imageUrl: asNonEmptyString(item.imageUrl),
-                productLink:
-                  asNonEmptyString(item.productLink) ??
-                  asNonEmptyString(item.url) ??
-                  asNonEmptyString(item.link),
-                supplier:
-                  asNonEmptyString(item.supplier) ??
-                  asNonEmptyString(item.store) ??
-                  asNonEmptyString(item.vendor),
-                catalogNumber: asNonEmptyString(item.catalogNumber),
-                category: asNonEmptyString(item.category),
-                dimensions: asNonEmptyString(item.dimensions),
-                unitPrice: asNumber(item.unitPrice) ?? asNumber(item.price),
-                setId: asNonEmptyString(item.setId),
-                realizationStatus: extractShoppingRealizationStatus(item) ?? "PLANNED",
-                sectionId: asNonEmptyString(item.sectionId) ?? null,
-                assignedTo: asNonEmptyString(item.assignedTo),
-              });
+                const itemId = await convex.mutation(
+                  apiAny.shopping.createShoppingListItem,
+                  {
+                    projectId,
+                    name,
+                    quantity: asNumber(item.quantity) ?? 1,
+                    notes: joinNotes(
+                      asNonEmptyString(item.notes),
+                      asNonEmptyString(item.storeAddress),
+                      asNonEmptyString(item.address),
+                      asNonEmptyString(item.selectionReason),
+                      asNonEmptyString(item.sourceSummary),
+                    ),
+                    buyBefore: asTimestamp(item.buyBefore),
+                    priority: asTaskPriority(item.priority) ?? "medium",
+                    imageUrl: asNonEmptyString(item.imageUrl),
+                    productLink:
+                      asNonEmptyString(item.productLink) ??
+                      asNonEmptyString(item.url) ??
+                      asNonEmptyString(item.link),
+                    supplier:
+                      asNonEmptyString(item.supplier) ??
+                      asNonEmptyString(item.store) ??
+                      asNonEmptyString(item.vendor),
+                    catalogNumber: asNonEmptyString(item.catalogNumber),
+                    category: asNonEmptyString(item.category),
+                    dimensions: asNonEmptyString(item.dimensions),
+                    unitPrice: asNumber(item.unitPrice) ?? asNumber(item.price),
+                    setId: asNonEmptyString(item.setId),
+                    realizationStatus:
+                      extractShoppingRealizationStatus(item) ?? "PLANNED",
+                    sectionId: asNonEmptyString(item.sectionId) ?? null,
+                    assignedTo: asNonEmptyString(item.assignedTo),
+                  },
+                );
 
-              return { ok: true, itemId, name };
-            });
+                return { ok: true, itemId, name };
+              },
+            );
           }
 
           case "bulk_update_shopping_items": {
             const items = asRecordArray(params.items);
             return runBulk(items, "Bulk shopping item update", async (item) => {
-              const itemId = asNonEmptyString(item.itemId) ?? asNonEmptyString(item.id);
+              const itemId =
+                asNonEmptyString(item.itemId) ?? asNonEmptyString(item.id);
               if (!itemId) {
                 return {
                   ok: false,
-                  error: "Missing required `itemId` for a bulk shopping item update.",
+                  error:
+                    "Missing required `itemId` for a bulk shopping item update.",
                 };
               }
 
@@ -1506,14 +1603,16 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               if (supplier !== undefined) updates.supplier = supplier;
 
               const catalogNumber = asNonEmptyString(item.catalogNumber);
-              if (catalogNumber !== undefined) updates.catalogNumber = catalogNumber;
+              if (catalogNumber !== undefined)
+                updates.catalogNumber = catalogNumber;
               const category = asNonEmptyString(item.category);
               if (category !== undefined) updates.category = category;
               const dimensions = asNonEmptyString(item.dimensions);
               if (dimensions !== undefined) updates.dimensions = dimensions;
               const quantity = asNumber(item.quantity);
               if (quantity !== undefined) updates.quantity = quantity;
-              const unitPrice = asNumber(item.unitPrice) ?? asNumber(item.price);
+              const unitPrice =
+                asNumber(item.unitPrice) ?? asNumber(item.price);
               if (unitPrice !== undefined) updates.unitPrice = unitPrice;
               if (item.setId === null) {
                 updates.setId = null;
@@ -1544,7 +1643,10 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 };
               }
 
-              await convex.mutation(apiAny.shopping.updateShoppingListItem, updates);
+              await convex.mutation(
+                apiAny.shopping.updateShoppingListItem,
+                updates,
+              );
               return { ok: true, itemId };
             });
           }
@@ -1552,198 +1654,234 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
           case "bulk_delete_shopping_items": {
             const items = asRecordArray(params.items);
             return runBulk(items, "Bulk shopping item delete", async (item) => {
-              const itemId = asNonEmptyString(item.itemId) ?? asNonEmptyString(item.id);
+              const itemId =
+                asNonEmptyString(item.itemId) ?? asNonEmptyString(item.id);
               if (!itemId) {
                 return {
                   ok: false,
-                  error: "Missing required `itemId` for a bulk shopping item delete.",
+                  error:
+                    "Missing required `itemId` for a bulk shopping item delete.",
                 };
               }
 
-              await convex.mutation(apiAny.shopping.deleteShoppingListItem, { itemId });
+              await convex.mutation(apiAny.shopping.deleteShoppingListItem, {
+                itemId,
+              });
               return { ok: true, itemId };
             });
           }
 
           case "bulk_create_shopping_sections": {
             const items = asRecordArray(params.items);
-            return runBulk(items, "Bulk shopping section creation", async (item) => {
-              const sectionName =
-                asNonEmptyString(item.name) ?? asNonEmptyString(item.sectionName);
-              if (!sectionName) {
+            return runBulk(
+              items,
+              "Bulk shopping section creation",
+              async (item) => {
+                const sectionName =
+                  asNonEmptyString(item.name) ??
+                  asNonEmptyString(item.sectionName);
+                if (!sectionName) {
+                  return {
+                    ok: false,
+                    error:
+                      "Missing required `name` for a bulk-created shopping section.",
+                  };
+                }
+
+                const result = await convex.action(
+                  apiAny.ai.confirmedActions.createConfirmedShoppingSection,
+                  {
+                    projectId,
+                    sectionData: { name: sectionName },
+                  },
+                );
+
                 return {
-                  ok: false,
-                  error: "Missing required `name` for a bulk-created shopping section.",
+                  ...formatConfirmedActionResult(
+                    result,
+                    `Created shopping section: ${sectionName}`,
+                  ),
+                  sectionId:
+                    typeof result?.sectionId === "string"
+                      ? result.sectionId
+                      : undefined,
+                  name: sectionName,
                 };
-              }
-
-              const result = await convex.action(
-                apiAny.ai.confirmedActions.createConfirmedShoppingSection,
-                {
-                  projectId,
-                  sectionData: { name: sectionName },
-                },
-              );
-
-              return {
-                ...formatConfirmedActionResult(
-                  result,
-                  `Created shopping section: ${sectionName}`,
-                ),
-                sectionId:
-                  typeof result?.sectionId === "string" ? result.sectionId : undefined,
-                name: sectionName,
-              };
-            });
+              },
+            );
           }
 
           case "bulk_update_shopping_sections": {
             const items = asRecordArray(params.items);
-            return runBulk(items, "Bulk shopping section update", async (item) => {
-              const sectionId =
-                asNonEmptyString(item.sectionId) ?? asNonEmptyString(item.id);
-              if (!sectionId) {
-                return {
-                  ok: false,
-                  error: "Missing required `sectionId` for a bulk shopping section update.",
-                };
-              }
+            return runBulk(
+              items,
+              "Bulk shopping section update",
+              async (item) => {
+                const sectionId =
+                  asNonEmptyString(item.sectionId) ?? asNonEmptyString(item.id);
+                if (!sectionId) {
+                  return {
+                    ok: false,
+                    error:
+                      "Missing required `sectionId` for a bulk shopping section update.",
+                  };
+                }
 
-              const updates = compactDefinedFields({
-                name:
-                  asNonEmptyString(item.name) ??
-                  asNonEmptyString(item.sectionName),
-              });
-              if (!hasManagedUpdateFields(updates, [])) {
-                return {
-                  ok: false,
-                  error:
-                    "No valid shopping section update fields were provided. Use at least `name`.",
-                };
-              }
+                const updates = compactDefinedFields({
+                  name:
+                    asNonEmptyString(item.name) ??
+                    asNonEmptyString(item.sectionName),
+                });
+                if (!hasManagedUpdateFields(updates, [])) {
+                  return {
+                    ok: false,
+                    error:
+                      "No valid shopping section update fields were provided. Use at least `name`.",
+                  };
+                }
 
-              const result = await convex.action(
-                apiAny.ai.confirmedActions.editConfirmedShoppingSection,
-                {
+                const result = await convex.action(
+                  apiAny.ai.confirmedActions.editConfirmedShoppingSection,
+                  {
+                    sectionId,
+                    updates,
+                  },
+                );
+
+                return {
+                  ...formatConfirmedActionResult(
+                    result,
+                    "Shopping section updated successfully.",
+                  ),
                   sectionId,
-                  updates,
-                },
-              );
-
-              return {
-                ...formatConfirmedActionResult(
-                  result,
-                  "Shopping section updated successfully.",
-                ),
-                sectionId,
-              };
-            });
+                };
+              },
+            );
           }
 
           case "bulk_delete_shopping_sections": {
             const items = asRecordArray(params.items);
-            return runBulk(items, "Bulk shopping section delete", async (item) => {
-              const sectionId =
-                asNonEmptyString(item.sectionId) ?? asNonEmptyString(item.id);
-              if (!sectionId) {
+            return runBulk(
+              items,
+              "Bulk shopping section delete",
+              async (item) => {
+                const sectionId =
+                  asNonEmptyString(item.sectionId) ?? asNonEmptyString(item.id);
+                if (!sectionId) {
+                  return {
+                    ok: false,
+                    error:
+                      "Missing required `sectionId` for a bulk shopping section delete.",
+                  };
+                }
+
+                const result = await convex.action(
+                  apiAny.ai.confirmedActions.deleteConfirmedShoppingSection,
+                  {
+                    sectionId,
+                  },
+                );
+
                 return {
-                  ok: false,
-                  error: "Missing required `sectionId` for a bulk shopping section delete.",
-                };
-              }
-
-              const result = await convex.action(
-                apiAny.ai.confirmedActions.deleteConfirmedShoppingSection,
-                {
+                  ...formatConfirmedActionResult(
+                    result,
+                    "Shopping section deleted successfully.",
+                  ),
                   sectionId,
-                },
-              );
-
-              return {
-                ...formatConfirmedActionResult(
-                  result,
-                  "Shopping section deleted successfully.",
-                ),
-                sectionId,
-              };
-            });
+                };
+              },
+            );
           }
 
           case "bulk_create_shopping_sets": {
             const items = asRecordArray(params.items);
-            return runBulk(items, "Bulk shopping set creation", async (item) => {
-              const title = asNonEmptyString(item.title) ?? asNonEmptyString(item.name);
-              if (!title) {
-                return {
-                  ok: false,
-                  error: "Missing required `title` for a bulk-created shopping set.",
-                };
-              }
+            return runBulk(
+              items,
+              "Bulk shopping set creation",
+              async (item) => {
+                const title =
+                  asNonEmptyString(item.title) ?? asNonEmptyString(item.name);
+                if (!title) {
+                  return {
+                    ok: false,
+                    error:
+                      "Missing required `title` for a bulk-created shopping set.",
+                  };
+                }
 
-              const result = await convex.action(
-                apiAny.ai.confirmedActions.createConfirmedShoppingSet,
-                {
-                  projectId,
-                  setData: {
-                    title,
-                    notes: asNonEmptyString(item.notes),
-                    sectionId: asNonEmptyString(item.sectionId),
-                    setType:
-                      item.setType === "variant" ||
-                      item.setType === "bundle" ||
-                      item.setType === "reference"
-                        ? item.setType
-                        : undefined,
-                    selectionMode:
-                      item.selectionMode === "single" ||
-                      item.selectionMode === "multiple" ||
-                      item.selectionMode === "none"
-                        ? item.selectionMode
-                        : undefined,
-                    pricingMode:
-                      item.pricingMode === "selected_only" ||
-                      item.pricingMode === "all_selected" ||
-                      item.pricingMode === "none"
-                        ? item.pricingMode
-                        : undefined,
-                    status:
-                      item.status === "draft" ||
-                      item.status === "active" ||
-                      item.status === "resolved" ||
-                      item.status === "archived"
-                        ? item.status
-                        : undefined,
+                const result = await convex.action(
+                  apiAny.ai.confirmedActions.createConfirmedShoppingSet,
+                  {
+                    projectId,
+                    setData: {
+                      title,
+                      notes: asNonEmptyString(item.notes),
+                      sectionId: asNonEmptyString(item.sectionId),
+                      setType:
+                        item.setType === "variant" ||
+                        item.setType === "bundle" ||
+                        item.setType === "reference"
+                          ? item.setType
+                          : undefined,
+                      selectionMode:
+                        item.selectionMode === "single" ||
+                        item.selectionMode === "multiple" ||
+                        item.selectionMode === "none"
+                          ? item.selectionMode
+                          : undefined,
+                      pricingMode:
+                        item.pricingMode === "selected_only" ||
+                        item.pricingMode === "all_selected" ||
+                        item.pricingMode === "none"
+                          ? item.pricingMode
+                          : undefined,
+                      status:
+                        item.status === "draft" ||
+                        item.status === "active" ||
+                        item.status === "resolved" ||
+                        item.status === "archived"
+                          ? item.status
+                          : undefined,
+                    },
                   },
-                },
-              );
+                );
 
-              return {
-                ...formatConfirmedActionResult(
-                  result,
-                  `Created shopping set: ${title}`,
-                ),
-                setId: typeof result?.setId === "string" ? result.setId : undefined,
-                title,
-              };
-            });
+                return {
+                  ...formatConfirmedActionResult(
+                    result,
+                    `Created shopping set: ${title}`,
+                  ),
+                  setId:
+                    typeof result?.setId === "string"
+                      ? result.setId
+                      : undefined,
+                  title,
+                };
+              },
+            );
           }
 
           case "bulk_update_shopping_sets": {
             const items = asRecordArray(params.items);
             return runBulk(items, "Bulk shopping set update", async (item) => {
-              const setId = asNonEmptyString(item.setId) ?? asNonEmptyString(item.id);
+              const setId =
+                asNonEmptyString(item.setId) ?? asNonEmptyString(item.id);
               if (!setId) {
                 return {
                   ok: false,
-                  error: "Missing required `setId` for a bulk shopping set update.",
+                  error:
+                    "Missing required `setId` for a bulk shopping set update.",
                 };
               }
 
               const updates = compactDefinedFields({
-                title: asNonEmptyString(item.title) ?? asNonEmptyString(item.name),
+                title:
+                  asNonEmptyString(item.title) ?? asNonEmptyString(item.name),
                 notes: asNonEmptyString(item.notes),
                 sectionId:
-                  item.sectionId === null ? null : asNonEmptyString(item.sectionId),
+                  item.sectionId === null
+                    ? null
+                    : asNonEmptyString(item.sectionId),
                 setType:
                   item.setType === "variant" ||
                   item.setType === "bundle" ||
@@ -1799,11 +1937,13 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
           case "bulk_delete_shopping_sets": {
             const items = asRecordArray(params.items);
             return runBulk(items, "Bulk shopping set delete", async (item) => {
-              const setId = asNonEmptyString(item.setId) ?? asNonEmptyString(item.id);
+              const setId =
+                asNonEmptyString(item.setId) ?? asNonEmptyString(item.id);
               if (!setId) {
                 return {
                   ok: false,
-                  error: "Missing required `setId` for a bulk shopping set delete.",
+                  error:
+                    "Missing required `setId` for a bulk shopping set delete.",
                 };
               }
 
@@ -1831,7 +1971,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               if (!laborName) {
                 return {
                   ok: false,
-                  error: "Missing required `name` for a bulk-created labor item.",
+                  error:
+                    "Missing required `name` for a bulk-created labor item.",
                 };
               }
 
@@ -1856,7 +1997,10 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                   result,
                   `Created labor item: ${laborName}`,
                 ),
-                itemId: typeof result?.itemId === "string" ? result.itemId : undefined,
+                itemId:
+                  typeof result?.itemId === "string"
+                    ? result.itemId
+                    : undefined,
                 name: laborName,
               };
             });
@@ -1865,11 +2009,13 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
           case "bulk_update_labor_items": {
             const items = asRecordArray(params.items);
             return runBulk(items, "Bulk labor item update", async (item) => {
-              const itemId = asNonEmptyString(item.itemId) ?? asNonEmptyString(item.id);
+              const itemId =
+                asNonEmptyString(item.itemId) ?? asNonEmptyString(item.id);
               if (!itemId) {
                 return {
                   ok: false,
-                  error: "Missing required `itemId` for a bulk labor item update.",
+                  error:
+                    "Missing required `itemId` for a bulk labor item update.",
                 };
               }
 
@@ -1880,7 +2026,9 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 unit: asNonEmptyString(item.unit),
                 unitPrice: asNumber(item.unitPrice) ?? asNumber(item.price),
                 sectionId:
-                  item.sectionId === null ? null : asNonEmptyString(item.sectionId),
+                  item.sectionId === null
+                    ? null
+                    : asNonEmptyString(item.sectionId),
                 assignedTo: asNonEmptyString(item.assignedTo),
               });
               if (!hasManagedUpdateFields(updates, [])) {
@@ -1913,11 +2061,13 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
           case "bulk_delete_labor_items": {
             const items = asRecordArray(params.items);
             return runBulk(items, "Bulk labor item delete", async (item) => {
-              const itemId = asNonEmptyString(item.itemId) ?? asNonEmptyString(item.id);
+              const itemId =
+                asNonEmptyString(item.itemId) ?? asNonEmptyString(item.id);
               if (!itemId) {
                 return {
                   ok: false,
-                  error: "Missing required `itemId` for a bulk labor item delete.",
+                  error:
+                    "Missing required `itemId` for a bulk labor item delete.",
                 };
               }
 
@@ -1941,34 +2091,42 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
 
           case "bulk_create_labor_sections": {
             const items = asRecordArray(params.items);
-            return runBulk(items, "Bulk labor section creation", async (item) => {
-              const sectionName =
-                asNonEmptyString(item.name) ?? asNonEmptyString(item.sectionName);
-              if (!sectionName) {
+            return runBulk(
+              items,
+              "Bulk labor section creation",
+              async (item) => {
+                const sectionName =
+                  asNonEmptyString(item.name) ??
+                  asNonEmptyString(item.sectionName);
+                if (!sectionName) {
+                  return {
+                    ok: false,
+                    error:
+                      "Missing required `name` for a bulk-created labor section.",
+                  };
+                }
+
+                const result = await convex.action(
+                  apiAny.ai.confirmedActions.createConfirmedLaborSection,
+                  {
+                    projectId,
+                    sectionData: { name: sectionName },
+                  },
+                );
+
                 return {
-                  ok: false,
-                  error: "Missing required `name` for a bulk-created labor section.",
+                  ...formatConfirmedActionResult(
+                    result,
+                    `Created labor section: ${sectionName}`,
+                  ),
+                  sectionId:
+                    typeof result?.sectionId === "string"
+                      ? result.sectionId
+                      : undefined,
+                  name: sectionName,
                 };
-              }
-
-              const result = await convex.action(
-                apiAny.ai.confirmedActions.createConfirmedLaborSection,
-                {
-                  projectId,
-                  sectionData: { name: sectionName },
-                },
-              );
-
-              return {
-                ...formatConfirmedActionResult(
-                  result,
-                  `Created labor section: ${sectionName}`,
-                ),
-                sectionId:
-                  typeof result?.sectionId === "string" ? result.sectionId : undefined,
-                name: sectionName,
-              };
-            });
+              },
+            );
           }
 
           case "bulk_update_labor_sections": {
@@ -1979,7 +2137,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               if (!sectionId) {
                 return {
                   ok: false,
-                  error: "Missing required `sectionId` for a bulk labor section update.",
+                  error:
+                    "Missing required `sectionId` for a bulk labor section update.",
                 };
               }
 
@@ -2022,7 +2181,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               if (!sectionId) {
                 return {
                   ok: false,
-                  error: "Missing required `sectionId` for a bulk labor section delete.",
+                  error:
+                    "Missing required `sectionId` for a bulk labor section delete.",
                 };
               }
 
@@ -2068,7 +2228,9 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                   `Created survey: ${title}`,
                 ),
                 surveyId:
-                  typeof result?.surveyId === "string" ? result.surveyId : undefined,
+                  typeof result?.surveyId === "string"
+                    ? result.surveyId
+                    : undefined,
                 title,
               };
             });
@@ -2078,14 +2240,20 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             const items = asRecordArray(params.items);
             return runBulk(items, "Bulk survey update", async (item) => {
               const { surveyId, updates } = buildUpdateSurveyPayload(item);
-              const compactUpdates = updates ? compactDefinedFields(updates) : undefined;
+              const compactUpdates = updates
+                ? compactDefinedFields(updates)
+                : undefined;
               if (!surveyId) {
                 return {
                   ok: false,
-                  error: "Missing required `surveyId` for a bulk survey update.",
+                  error:
+                    "Missing required `surveyId` for a bulk survey update.",
                 };
               }
-              if (!compactUpdates || !hasManagedUpdateFields(compactUpdates, [])) {
+              if (
+                !compactUpdates ||
+                !hasManagedUpdateFields(compactUpdates, [])
+              ) {
                 return {
                   ok: false,
                   error:
@@ -2115,17 +2283,22 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
           case "bulk_delete_surveys": {
             const items = asRecordArray(params.items);
             return runBulk(items, "Bulk survey delete", async (item) => {
-              const surveyId = asNonEmptyString(item.surveyId) ?? asNonEmptyString(item.id);
+              const surveyId =
+                asNonEmptyString(item.surveyId) ?? asNonEmptyString(item.id);
               if (!surveyId) {
                 return {
                   ok: false,
-                  error: "Missing required `surveyId` for a bulk survey delete.",
+                  error:
+                    "Missing required `surveyId` for a bulk survey delete.",
                 };
               }
 
-              const existingSurvey = await convex.query(apiAny.surveys.getSurvey, {
-                surveyId,
-              });
+              const existingSurvey = await convex.query(
+                apiAny.surveys.getSurvey,
+                {
+                  surveyId,
+                },
+              );
               const title =
                 asNonEmptyString(item.title) ??
                 asNonEmptyString(existingSurvey?.title) ??
@@ -2182,7 +2355,6 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               endDate: asTimestamp(params.endDate),
               tags: asStringArray(params.tags) ?? [],
               sectionId: asNonEmptyString(params.sectionId) ?? null,
-              milestoneId: asNonEmptyString(params.milestoneId) ?? null,
             });
 
             return {
@@ -2311,7 +2483,10 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             );
 
             return {
-              ...formatConfirmedActionResult(result, `Created invoice draft: ${title}`),
+              ...formatConfirmedActionResult(
+                result,
+                `Created invoice draft: ${title}`,
+              ),
               paymentId: asNonEmptyString(result?.paymentId),
               title,
               amount,
@@ -2334,8 +2509,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
 
             const updates = compactDefinedFields({
               title:
-                asNonEmptyString(params.title) ??
-                asNonEmptyString(params.name),
+                asNonEmptyString(params.title) ?? asNonEmptyString(params.name),
               description: asNonEmptyString(params.description),
               amount: asNumber(params.amount),
               dueDate: asNonEmptyString(params.dueDate),
@@ -2411,7 +2585,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             }
 
             const quantity = asNumber(params.quantity) ?? 1;
-            const unitPrice = asNumber(params.unitPrice) ?? asNumber(params.price);
+            const unitPrice =
+              asNumber(params.unitPrice) ?? asNumber(params.price);
             const supplier =
               asNonEmptyString(params.supplier) ??
               asNonEmptyString(params.store) ??
@@ -2428,25 +2603,29 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               asNonEmptyString(params.sourceSummary),
             );
 
-            const itemId = await convex.mutation(apiAny.shopping.createShoppingListItem, {
-              projectId,
-              name,
-              quantity,
-              notes,
-              buyBefore: asTimestamp(params.buyBefore),
-              priority: asTaskPriority(params.priority) ?? "medium",
-              imageUrl: asNonEmptyString(params.imageUrl),
-              productLink,
-              supplier,
-              catalogNumber: asNonEmptyString(params.catalogNumber),
+            const itemId = await convex.mutation(
+              apiAny.shopping.createShoppingListItem,
+              {
+                projectId,
+                name,
+                quantity,
+                notes,
+                buyBefore: asTimestamp(params.buyBefore),
+                priority: asTaskPriority(params.priority) ?? "medium",
+                imageUrl: asNonEmptyString(params.imageUrl),
+                productLink,
+                supplier,
+                catalogNumber: asNonEmptyString(params.catalogNumber),
                 category: asNonEmptyString(params.category),
                 dimensions: asNonEmptyString(params.dimensions),
                 unitPrice,
                 setId: asNonEmptyString(params.setId),
-                realizationStatus: extractShoppingRealizationStatus(params) ?? "PLANNED",
+                realizationStatus:
+                  extractShoppingRealizationStatus(params) ?? "PLANNED",
                 sectionId: asNonEmptyString(params.sectionId) ?? null,
                 assignedTo: asNonEmptyString(params.assignedTo),
-              });
+              },
+            );
 
             return {
               ok: true,
@@ -2504,7 +2683,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             if (supplier !== undefined) updates.supplier = supplier;
 
             const catalogNumber = asNonEmptyString(params.catalogNumber);
-            if (catalogNumber !== undefined) updates.catalogNumber = catalogNumber;
+            if (catalogNumber !== undefined)
+              updates.catalogNumber = catalogNumber;
 
             const category = asNonEmptyString(params.category);
             if (category !== undefined) updates.category = category;
@@ -2515,7 +2695,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             const quantity = asNumber(params.quantity);
             if (quantity !== undefined) updates.quantity = quantity;
 
-            const unitPrice = asNumber(params.unitPrice) ?? asNumber(params.price);
+            const unitPrice =
+              asNumber(params.unitPrice) ?? asNumber(params.price);
             if (unitPrice !== undefined) updates.unitPrice = unitPrice;
 
             if (params.setId === null) {
@@ -2526,7 +2707,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             }
 
             const realizationStatus = extractShoppingRealizationStatus(params);
-            if (realizationStatus !== undefined) updates.realizationStatus = realizationStatus;
+            if (realizationStatus !== undefined)
+              updates.realizationStatus = realizationStatus;
 
             if (params.sectionId === null) {
               updates.sectionId = null;
@@ -2546,7 +2728,10 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               };
             }
 
-            await convex.mutation(apiAny.shopping.updateShoppingListItem, updates);
+            await convex.mutation(
+              apiAny.shopping.updateShoppingListItem,
+              updates,
+            );
 
             return {
               ok: true,
@@ -2564,7 +2749,9 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               };
             }
 
-            await convex.mutation(apiAny.shopping.deleteShoppingListItem, { itemId });
+            await convex.mutation(apiAny.shopping.deleteShoppingListItem, {
+              itemId,
+            });
 
             return {
               ok: true,
@@ -2614,7 +2801,9 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               };
             }
 
-            const existingNote = await convex.query(apiAny.notes.getNote, { noteId });
+            const existingNote = await convex.query(apiAny.notes.getNote, {
+              noteId,
+            });
             if (!existingNote) {
               return {
                 ok: false,
@@ -2675,23 +2864,25 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               };
             }
 
-            const type =
-              asNonEmptyString(params.type) ?? "other";
+            const type = asNonEmptyString(params.type) ?? "other";
 
-            const contactId = await convex.mutation(apiAny.contacts.createContact, {
-              teamSlug,
-              name,
-              companyName: asNonEmptyString(params.companyName),
-              email: asNonEmptyString(params.email),
-              phone: asNonEmptyString(params.phone),
-              address: asNonEmptyString(params.address),
-              city: asNonEmptyString(params.city),
-              postalCode: asNonEmptyString(params.postalCode),
-              website: asNonEmptyString(params.website),
-              taxId: asNonEmptyString(params.taxId),
-              type,
-              notes: asNonEmptyString(params.notes),
-            });
+            const contactId = await convex.mutation(
+              apiAny.contacts.createContact,
+              {
+                teamSlug,
+                name,
+                companyName: asNonEmptyString(params.companyName),
+                email: asNonEmptyString(params.email),
+                phone: asNonEmptyString(params.phone),
+                address: asNonEmptyString(params.address),
+                city: asNonEmptyString(params.city),
+                postalCode: asNonEmptyString(params.postalCode),
+                website: asNonEmptyString(params.website),
+                taxId: asNonEmptyString(params.taxId),
+                type,
+                notes: asNonEmptyString(params.notes),
+              },
+            );
 
             return {
               ok: true,
@@ -2710,7 +2901,10 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               };
             }
 
-            const existingContact = await convex.query(apiAny.contacts.getContact, { contactId });
+            const existingContact = await convex.query(
+              apiAny.contacts.getContact,
+              { contactId },
+            );
             if (!existingContact) {
               return {
                 ok: false,
@@ -2728,22 +2922,34 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               companyName:
                 asNonEmptyString(params.companyName) ??
                 asNonEmptyString(existingContact.companyName),
-              email: asNonEmptyString(params.email) ?? asNonEmptyString(existingContact.email),
-              phone: asNonEmptyString(params.phone) ?? asNonEmptyString(existingContact.phone),
+              email:
+                asNonEmptyString(params.email) ??
+                asNonEmptyString(existingContact.email),
+              phone:
+                asNonEmptyString(params.phone) ??
+                asNonEmptyString(existingContact.phone),
               address:
-                asNonEmptyString(params.address) ?? asNonEmptyString(existingContact.address),
-              city: asNonEmptyString(params.city) ?? asNonEmptyString(existingContact.city),
+                asNonEmptyString(params.address) ??
+                asNonEmptyString(existingContact.address),
+              city:
+                asNonEmptyString(params.city) ??
+                asNonEmptyString(existingContact.city),
               postalCode:
                 asNonEmptyString(params.postalCode) ??
                 asNonEmptyString(existingContact.postalCode),
               website:
-                asNonEmptyString(params.website) ?? asNonEmptyString(existingContact.website),
-              taxId: asNonEmptyString(params.taxId) ?? asNonEmptyString(existingContact.taxId),
+                asNonEmptyString(params.website) ??
+                asNonEmptyString(existingContact.website),
+              taxId:
+                asNonEmptyString(params.taxId) ??
+                asNonEmptyString(existingContact.taxId),
               type:
                 asNonEmptyString(params.type) ??
                 asNonEmptyString(existingContact.type) ??
                 "other",
-              notes: asNonEmptyString(params.notes) ?? asNonEmptyString(existingContact.notes),
+              notes:
+                asNonEmptyString(params.notes) ??
+                asNonEmptyString(existingContact.notes),
             });
 
             return {
@@ -2783,7 +2989,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             if (description !== undefined) payload.description = description;
 
             const coverImageUrl = asNonEmptyString(params.coverImageUrl);
-            if (coverImageUrl !== undefined) payload.coverImageUrl = coverImageUrl;
+            if (coverImageUrl !== undefined)
+              payload.coverImageUrl = coverImageUrl;
 
             const status = asNonEmptyString(params.status);
             if (status !== undefined) payload.status = status;
@@ -2800,7 +3007,10 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             const currency = asNonEmptyString(params.currency);
             if (currency !== undefined) payload.currency = currency;
 
-            const result = await convex.mutation(apiAny.projects.updateProject, payload);
+            const result = await convex.mutation(
+              apiAny.projects.updateProject,
+              payload,
+            );
 
             return {
               ok: true,
@@ -2818,26 +3028,36 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               };
             }
 
-            const result = await convex.action(apiAny.ai.confirmedActions.createConfirmedShoppingSection, {
-              projectId,
-              sectionData: { name },
-            });
+            const result = await convex.action(
+              apiAny.ai.confirmedActions.createConfirmedShoppingSection,
+              {
+                projectId,
+                sectionData: { name },
+              },
+            );
 
             return {
               ...formatConfirmedActionResult(
                 result,
                 `Created shopping section: ${name}`,
               ),
-              sectionId: typeof result?.sectionId === "string" ? result.sectionId : undefined,
+              sectionId:
+                typeof result?.sectionId === "string"
+                  ? result.sectionId
+                  : undefined,
             };
           }
 
           case "update_shopping_section": {
-            const sectionId = pickFirstNonEmptyString(params, ["sectionId", "id"]);
+            const sectionId = pickFirstNonEmptyString(params, [
+              "sectionId",
+              "id",
+            ]);
             if (!sectionId) {
               return {
                 ok: false,
-                error: "Missing required `sectionId` for update_shopping_section.",
+                error:
+                  "Missing required `sectionId` for update_shopping_section.",
               };
             }
 
@@ -2852,10 +3072,13 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               };
             }
 
-            const result = await convex.action(apiAny.ai.confirmedActions.editConfirmedShoppingSection, {
-              sectionId,
-              updates,
-            });
+            const result = await convex.action(
+              apiAny.ai.confirmedActions.editConfirmedShoppingSection,
+              {
+                sectionId,
+                updates,
+              },
+            );
 
             return {
               ...formatConfirmedActionResult(
@@ -2867,17 +3090,24 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
           }
 
           case "delete_shopping_section": {
-            const sectionId = pickFirstNonEmptyString(params, ["sectionId", "id"]);
+            const sectionId = pickFirstNonEmptyString(params, [
+              "sectionId",
+              "id",
+            ]);
             if (!sectionId) {
               return {
                 ok: false,
-                error: "Missing required `sectionId` for delete_shopping_section.",
+                error:
+                  "Missing required `sectionId` for delete_shopping_section.",
               };
             }
 
-            const result = await convex.action(apiAny.ai.confirmedActions.deleteConfirmedShoppingSection, {
-              sectionId,
-            });
+            const result = await convex.action(
+              apiAny.ai.confirmedActions.deleteConfirmedShoppingSection,
+              {
+                sectionId,
+              },
+            );
 
             return {
               ...formatConfirmedActionResult(
@@ -2889,7 +3119,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
           }
 
           case "create_shopping_set": {
-            const title = asNonEmptyString(params.title) ?? asNonEmptyString(params.name);
+            const title =
+              asNonEmptyString(params.title) ?? asNonEmptyString(params.name);
             if (!title) {
               return {
                 ok: false,
@@ -2939,7 +3170,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 result,
                 `Created shopping set: ${title}`,
               ),
-              setId: typeof result?.setId === "string" ? result.setId : undefined,
+              setId:
+                typeof result?.setId === "string" ? result.setId : undefined,
             };
           }
 
@@ -2953,10 +3185,13 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             }
 
             const updates = compactDefinedFields({
-              title: asNonEmptyString(params.title) ?? asNonEmptyString(params.name),
+              title:
+                asNonEmptyString(params.title) ?? asNonEmptyString(params.name),
               notes: asNonEmptyString(params.notes),
               sectionId:
-                params.sectionId === null ? null : asNonEmptyString(params.sectionId),
+                params.sectionId === null
+                  ? null
+                  : asNonEmptyString(params.sectionId),
               setType:
                 params.setType === "variant" ||
                 params.setType === "bundle" ||
@@ -3042,25 +3277,30 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               };
             }
 
-            const result = await convex.action(apiAny.ai.confirmedActions.createConfirmedLaborItem, {
-              projectId,
-              itemData: {
-                name,
-                quantity: asNumber(params.quantity) ?? 1,
-                unit: asNonEmptyString(params.unit) ?? "item",
-                notes: asNonEmptyString(params.notes),
-                unitPrice: asNumber(params.unitPrice) ?? asNumber(params.price),
-                sectionId: asNonEmptyString(params.sectionId) ?? undefined,
-                assignedTo: asNonEmptyString(params.assignedTo),
+            const result = await convex.action(
+              apiAny.ai.confirmedActions.createConfirmedLaborItem,
+              {
+                projectId,
+                itemData: {
+                  name,
+                  quantity: asNumber(params.quantity) ?? 1,
+                  unit: asNonEmptyString(params.unit) ?? "item",
+                  notes: asNonEmptyString(params.notes),
+                  unitPrice:
+                    asNumber(params.unitPrice) ?? asNumber(params.price),
+                  sectionId: asNonEmptyString(params.sectionId) ?? undefined,
+                  assignedTo: asNonEmptyString(params.assignedTo),
+                },
               },
-            });
+            );
 
             return {
               ...formatConfirmedActionResult(
                 result,
                 `Created labor item: ${name}`,
               ),
-              itemId: typeof result?.itemId === "string" ? result.itemId : undefined,
+              itemId:
+                typeof result?.itemId === "string" ? result.itemId : undefined,
               name,
             };
           }
@@ -3081,7 +3321,9 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               unit: asNonEmptyString(params.unit),
               unitPrice: asNumber(params.unitPrice) ?? asNumber(params.price),
               sectionId:
-                params.sectionId === null ? null : asNonEmptyString(params.sectionId),
+                params.sectionId === null
+                  ? null
+                  : asNonEmptyString(params.sectionId),
               assignedTo: asNonEmptyString(params.assignedTo),
             });
             if (!hasManagedUpdateFields(updates, [])) {
@@ -3092,11 +3334,14 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               };
             }
 
-            const result = await convex.action(apiAny.ai.confirmedActions.editConfirmedLaborItem, {
-              projectId,
-              itemId,
-              updates,
-            });
+            const result = await convex.action(
+              apiAny.ai.confirmedActions.editConfirmedLaborItem,
+              {
+                projectId,
+                itemId,
+                updates,
+              },
+            );
 
             return {
               ...formatConfirmedActionResult(
@@ -3116,10 +3361,13 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               };
             }
 
-            const result = await convex.action(apiAny.ai.confirmedActions.deleteConfirmedLaborItem, {
-              itemId,
-              reason: asNonEmptyString(params.reason),
-            });
+            const result = await convex.action(
+              apiAny.ai.confirmedActions.deleteConfirmedLaborItem,
+              {
+                itemId,
+                reason: asNonEmptyString(params.reason),
+              },
+            );
 
             return {
               ...formatConfirmedActionResult(
@@ -3139,22 +3387,31 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               };
             }
 
-            const result = await convex.action(apiAny.ai.confirmedActions.createConfirmedLaborSection, {
-              projectId,
-              sectionData: { name },
-            });
+            const result = await convex.action(
+              apiAny.ai.confirmedActions.createConfirmedLaborSection,
+              {
+                projectId,
+                sectionData: { name },
+              },
+            );
 
             return {
               ...formatConfirmedActionResult(
                 result,
                 `Created labor section: ${name}`,
               ),
-              sectionId: typeof result?.sectionId === "string" ? result.sectionId : undefined,
+              sectionId:
+                typeof result?.sectionId === "string"
+                  ? result.sectionId
+                  : undefined,
             };
           }
 
           case "update_labor_section": {
-            const sectionId = pickFirstNonEmptyString(params, ["sectionId", "id"]);
+            const sectionId = pickFirstNonEmptyString(params, [
+              "sectionId",
+              "id",
+            ]);
             if (!sectionId) {
               return {
                 ok: false,
@@ -3173,10 +3430,13 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               };
             }
 
-            const result = await convex.action(apiAny.ai.confirmedActions.editConfirmedLaborSection, {
-              sectionId,
-              updates,
-            });
+            const result = await convex.action(
+              apiAny.ai.confirmedActions.editConfirmedLaborSection,
+              {
+                sectionId,
+                updates,
+              },
+            );
 
             return {
               ...formatConfirmedActionResult(
@@ -3188,7 +3448,10 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
           }
 
           case "delete_labor_section": {
-            const sectionId = pickFirstNonEmptyString(params, ["sectionId", "id"]);
+            const sectionId = pickFirstNonEmptyString(params, [
+              "sectionId",
+              "id",
+            ]);
             if (!sectionId) {
               return {
                 ok: false,
@@ -3196,9 +3459,12 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               };
             }
 
-            const result = await convex.action(apiAny.ai.confirmedActions.deleteConfirmedLaborSection, {
-              sectionId,
-            });
+            const result = await convex.action(
+              apiAny.ai.confirmedActions.deleteConfirmedLaborSection,
+              {
+                sectionId,
+              },
+            );
 
             return {
               ...formatConfirmedActionResult(
@@ -3218,17 +3484,23 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               };
             }
 
-            const result = await convex.action(apiAny.ai.confirmedActions.createConfirmedSurvey, {
-              projectId,
-              surveyData: surveyData!,
-            });
+            const result = await convex.action(
+              apiAny.ai.confirmedActions.createConfirmedSurvey,
+              {
+                projectId,
+                surveyData: surveyData!,
+              },
+            );
 
             return {
               ...formatConfirmedActionResult(
                 result,
                 `Created survey: ${title}`,
               ),
-              surveyId: typeof result?.surveyId === "string" ? result.surveyId : undefined,
+              surveyId:
+                typeof result?.surveyId === "string"
+                  ? result.surveyId
+                  : undefined,
               title,
             };
           }
@@ -3242,8 +3514,13 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               };
             }
 
-            const compactUpdates = updates ? compactDefinedFields(updates) : undefined;
-            if (!compactUpdates || !hasManagedUpdateFields(compactUpdates, [])) {
+            const compactUpdates = updates
+              ? compactDefinedFields(updates)
+              : undefined;
+            if (
+              !compactUpdates ||
+              !hasManagedUpdateFields(compactUpdates, [])
+            ) {
               return {
                 ok: false,
                 error:
@@ -3251,11 +3528,14 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               };
             }
 
-            const result = await convex.action(apiAny.ai.confirmedActions.editConfirmedSurvey, {
-              projectId,
-              surveyId,
-              updates: compactUpdates,
-            });
+            const result = await convex.action(
+              apiAny.ai.confirmedActions.editConfirmedSurvey,
+              {
+                projectId,
+                surveyId,
+                updates: compactUpdates,
+              },
+            );
 
             return {
               ...formatConfirmedActionResult(
@@ -3267,7 +3547,10 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
           }
 
           case "delete_survey": {
-            const surveyId = pickFirstNonEmptyString(params, ["surveyId", "id"]);
+            const surveyId = pickFirstNonEmptyString(params, [
+              "surveyId",
+              "id",
+            ]);
             if (!surveyId) {
               return {
                 ok: false,
@@ -3275,17 +3558,23 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               };
             }
 
-            const existingSurvey = await convex.query(apiAny.surveys.getSurvey, { surveyId });
+            const existingSurvey = await convex.query(
+              apiAny.surveys.getSurvey,
+              { surveyId },
+            );
             const title =
               asNonEmptyString(params.title) ??
               asNonEmptyString(existingSurvey?.title) ??
               "Survey";
 
-            const result = await convex.action(apiAny.ai.confirmedActions.deleteConfirmedSurvey, {
-              surveyId,
-              title,
-              reason: asNonEmptyString(params.reason),
-            });
+            const result = await convex.action(
+              apiAny.ai.confirmedActions.deleteConfirmedSurvey,
+              {
+                surveyId,
+                title,
+                reason: asNonEmptyString(params.reason),
+              },
+            );
 
             return {
               ...formatConfirmedActionResult(
@@ -3301,7 +3590,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             if (!prompt) {
               return {
                 ok: false,
-                error: "Missing required `prompt` for generate_moodboard_image.",
+                error:
+                  "Missing required `prompt` for generate_moodboard_image.",
               };
             }
 
@@ -3320,7 +3610,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 "Moodboard image generated successfully.",
               ),
               imageUrl: asNonEmptyString(result?.imageUrl),
-              fileId: typeof result?.fileId === "string" ? result.fileId : undefined,
+              fileId:
+                typeof result?.fileId === "string" ? result.fileId : undefined,
               fileName: asNonEmptyString(result?.fileName),
               sectionKey: asNonEmptyString(result?.sectionKey),
               sectionLabel: asNonEmptyString(result?.sectionLabel),
@@ -3330,7 +3621,9 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
           }
 
           case "create_moodboard_section": {
-            const name = asNonEmptyString(params.name) ?? asNonEmptyString(params.sectionName);
+            const name =
+              asNonEmptyString(params.name) ??
+              asNonEmptyString(params.sectionName);
             if (!name) {
               return {
                 ok: false,
@@ -3338,10 +3631,13 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               };
             }
 
-            const result = await convex.action(apiAny.ai.confirmedActions.createConfirmedMoodboardSection, {
-              projectId,
-              sectionData: { name },
-            });
+            const result = await convex.action(
+              apiAny.ai.confirmedActions.createConfirmedMoodboardSection,
+              {
+                projectId,
+                sectionData: { name },
+              },
+            );
 
             return {
               ...formatConfirmedActionResult(
@@ -3357,11 +3653,14 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             if (!sectionId) {
               return {
                 ok: false,
-                error: "Missing required `sectionId` for update_moodboard_section.",
+                error:
+                  "Missing required `sectionId` for update_moodboard_section.",
               };
             }
 
-            const name = asNonEmptyString(params.name) ?? asNonEmptyString(params.sectionName);
+            const name =
+              asNonEmptyString(params.name) ??
+              asNonEmptyString(params.sectionName);
             if (!name) {
               return {
                 ok: false,
@@ -3369,11 +3668,14 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               };
             }
 
-            const result = await convex.action(apiAny.ai.confirmedActions.editConfirmedMoodboardSection, {
-              projectId,
-              sectionId,
-              updates: { name },
-            });
+            const result = await convex.action(
+              apiAny.ai.confirmedActions.editConfirmedMoodboardSection,
+              {
+                projectId,
+                sectionId,
+                updates: { name },
+              },
+            );
 
             return {
               ...formatConfirmedActionResult(
@@ -3389,15 +3691,19 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             if (!sectionId) {
               return {
                 ok: false,
-                error: "Missing required `sectionId` for delete_moodboard_section.",
+                error:
+                  "Missing required `sectionId` for delete_moodboard_section.",
               };
             }
 
-            const result = await convex.action(apiAny.ai.confirmedActions.deleteConfirmedMoodboardSection, {
-              projectId,
-              sectionId,
-              reason: asNonEmptyString(params.reason),
-            });
+            const result = await convex.action(
+              apiAny.ai.confirmedActions.deleteConfirmedMoodboardSection,
+              {
+                projectId,
+                sectionId,
+                reason: asNonEmptyString(params.reason),
+              },
+            );
 
             return {
               ...formatConfirmedActionResult(
@@ -3412,7 +3718,9 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
           case "search_items": {
             const rawQueryInput = asNonEmptyString(params.query) ?? "";
             const normalizedScopeCandidate =
-              asNonEmptyString(params.scope) ?? asNonEmptyString(params.type) ?? "all";
+              asNonEmptyString(params.scope) ??
+              asNonEmptyString(params.type) ??
+              "all";
             const rawQuery =
               rawQueryInput.trim() === "*" ||
               rawQueryInput.trim().toLowerCase() === "all" ||
@@ -3446,77 +3754,120 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               scope === "all" || scope === "notes"
                 ? convex.query(apiAny.notes.getProjectNotes, { projectId })
                 : Promise.resolve([]),
-              scope === "all" || scope === "payment" || scope === "payments" || scope === "invoice" || scope === "invoices"
-                ? convex.query(apiAny.projectPayments.getProjectPaymentsOverview, { projectId })
+              scope === "all" ||
+              scope === "payment" ||
+              scope === "payments" ||
+              scope === "invoice" ||
+              scope === "invoices"
+                ? convex.query(
+                    apiAny.projectPayments.getProjectPaymentsOverview,
+                    { projectId },
+                  )
                 : Promise.resolve({ installments: [] }),
               scope === "all" || scope === "shopping"
-                ? convex.query(apiAny.shopping.getShoppingListItemsByProject, { projectId })
+                ? convex.query(apiAny.shopping.getShoppingListItemsByProject, {
+                    projectId,
+                  })
                 : Promise.resolve([]),
               scope === "all" || scope === "shopping"
-                ? convex.query(apiAny.shopping.listShoppingListSections, { projectId })
+                ? convex.query(apiAny.shopping.listShoppingListSections, {
+                    projectId,
+                  })
                 : Promise.resolve([]),
               scope === "all" || scope === "labor"
-                ? convex.query(apiAny.labor.getLaborItemsByProject, { projectId })
+                ? convex.query(apiAny.labor.getLaborItemsByProject, {
+                    projectId,
+                  })
                 : Promise.resolve([]),
               scope === "all" || scope === "labor"
                 ? convex.query(apiAny.labor.listLaborSections, { projectId })
                 : Promise.resolve([]),
               scope === "all" || scope === "survey" || scope === "surveys"
-                ? convex.query(apiAny.surveys.getSurveysByProject, { projectId })
+                ? convex.query(apiAny.surveys.getSurveysByProject, {
+                    projectId,
+                  })
                 : Promise.resolve([]),
               scope === "all" || scope === "contacts"
-                ? convex.query(apiAny.contacts.getProjectContacts, { projectId })
+                ? convex.query(apiAny.contacts.getProjectContacts, {
+                    projectId,
+                  })
                 : Promise.resolve([]),
               scope === "all" || scope === "moodboard"
                 ? convex.query(apiAny.files.getMoodboardSections, { projectId })
                 : Promise.resolve([]),
               scope === "all" || scope === "files"
-                ? convex.query(apiAny.files.getProjectAiKnowledgeFiles, { projectId })
+                ? convex.query(apiAny.files.getProjectAiKnowledgeFiles, {
+                    projectId,
+                  })
                 : Promise.resolve([]),
               (scope === "all" || scope === "files") && rawQuery
-                ? convex.action(apiAny.fileKnowledgeActions.searchProjectAiKnowledge, {
-                    projectId,
-                    query: rawQuery,
-                    limit,
-                  })
+                ? convex.action(
+                    apiAny.fileKnowledgeActions.searchProjectAiKnowledge,
+                    {
+                      projectId,
+                      query: rawQuery,
+                      limit,
+                    },
+                  )
                 : Promise.resolve({ ok: true, text: "", matches: [] }),
             ]);
 
-            const moodboardSectionRecords = moodboardSections as Array<Record<string, unknown>>;
+            const moodboardSectionRecords = moodboardSections as Array<
+              Record<string, unknown>
+            >;
             const moodboardImageLists =
               scope === "all" || scope === "moodboard"
                 ? await Promise.all(
                     moodboardSectionRecords.map((section) => {
                       const sectionId = asNonEmptyString(section.id);
                       return sectionId
-                        ? convex.query(apiAny.files.getMoodboardImagesBySection, {
-                            projectId,
-                            section: sectionId,
-                          })
+                        ? convex.query(
+                            apiAny.files.getMoodboardImagesBySection,
+                            {
+                              projectId,
+                              section: sectionId,
+                            },
+                          )
                         : Promise.resolve([]);
                     }),
                   )
                 : [];
-            const moodboardImageRecords = moodboardImageLists.flatMap((images, sectionIndex) => {
-              const section = moodboardSectionRecords[sectionIndex];
-              return (images as Array<Record<string, unknown>>).map((image) => ({
-                ...image,
-                sectionId: asNonEmptyString(section?.id),
-                sectionTitle:
-                  asNonEmptyString(section?.title) ??
-                  asNonEmptyString(section?.name),
-              }));
-            });
+            const moodboardImageRecords = moodboardImageLists.flatMap(
+              (images, sectionIndex) => {
+                const section = moodboardSectionRecords[sectionIndex];
+                return (images as Array<Record<string, unknown>>).map(
+                  (image) => ({
+                    ...image,
+                    sectionId: asNonEmptyString(section?.id),
+                    sectionTitle:
+                      asNonEmptyString(section?.title) ??
+                      asNonEmptyString(section?.name),
+                  }),
+                );
+              },
+            );
 
-            const shoppingSectionRecords = shoppingSections as Array<Record<string, unknown>>;
-            const shoppingItemRecords = shoppingItems as Array<Record<string, unknown>>;
-            const laborSectionRecords = laborSections as Array<Record<string, unknown>>;
-            const laborItemRecords = laborItems as Array<Record<string, unknown>>;
+            const shoppingSectionRecords = shoppingSections as Array<
+              Record<string, unknown>
+            >;
+            const shoppingItemRecords = shoppingItems as Array<
+              Record<string, unknown>
+            >;
+            const laborSectionRecords = laborSections as Array<
+              Record<string, unknown>
+            >;
+            const laborItemRecords = laborItems as Array<
+              Record<string, unknown>
+            >;
 
-            const shoppingSectionNameById = buildNameMap(shoppingSectionRecords);
-            const shoppingItemCountBySectionId = buildSectionItemCountMap(shoppingItemRecords);
+            const shoppingSectionNameById = buildNameMap(
+              shoppingSectionRecords,
+            );
+            const shoppingItemCountBySectionId =
+              buildSectionItemCountMap(shoppingItemRecords);
             const laborSectionNameById = buildNameMap(laborSectionRecords);
-            const laborItemCountBySectionId = buildSectionItemCountMap(laborItemRecords);
+            const laborItemCountBySectionId =
+              buildSectionItemCountMap(laborItemRecords);
             const moodboardSectionTitleById = new Map(
               moodboardSectionRecords
                 .map((section) => {
@@ -3526,7 +3877,9 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                     asNonEmptyString(section.name);
                   return id && title ? ([id, title] as const) : null;
                 })
-                .filter((entry): entry is readonly [string, string] => Boolean(entry)),
+                .filter((entry): entry is readonly [string, string] =>
+                  Boolean(entry),
+                ),
             );
             const moodboardImageCountBySectionId = new Map<string, number>();
             for (const image of moodboardImageRecords) {
@@ -3618,7 +3971,9 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                   itemCountBySectionId: laborItemCountBySectionId,
                 }),
               )
-              .filter((section) => includes(section.name) || includes(section.color))
+              .filter(
+                (section) => includes(section.name) || includes(section.color),
+              )
               .slice(0, limit);
 
             const filteredSurveys = (surveys as Array<Record<string, unknown>>)
@@ -3631,7 +3986,9 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               )
               .slice(0, limit);
 
-            const filteredContacts = (contacts as Array<Record<string, unknown>>)
+            const filteredContacts = (
+              contacts as Array<Record<string, unknown>>
+            )
               .map(summarizeContact)
               .filter(
                 (contact) =>
@@ -3649,9 +4006,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 }),
               )
               .filter(
-                (section) =>
-                  includes(section.title) ||
-                  includes(section.id),
+                (section) => includes(section.title) || includes(section.id),
               )
               .slice(0, limit);
 
@@ -3739,72 +4094,99 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               contacts,
               teamMembers,
               aiKnowledgeFiles,
-            ] =
-              await Promise.all([
+            ] = await Promise.all([
               convex.query(apiAny.projects.getProject, { projectId }),
               convex.query(apiAny.tasks.listProjectTasks, { projectId }),
               convex.query(apiAny.notes.getProjectNotes, { projectId }),
-              convex.query(apiAny.projectPayments.getProjectPaymentsOverview, { projectId }),
-              convex.query(apiAny.shopping.getShoppingListItemsByProject, { projectId }),
-              convex.query(apiAny.shopping.listShoppingListSections, { projectId }),
+              convex.query(apiAny.projectPayments.getProjectPaymentsOverview, {
+                projectId,
+              }),
+              convex.query(apiAny.shopping.getShoppingListItemsByProject, {
+                projectId,
+              }),
+              convex.query(apiAny.shopping.listShoppingListSections, {
+                projectId,
+              }),
               convex.query(apiAny.labor.getLaborItemsByProject, { projectId }),
               convex.query(apiAny.labor.listLaborSections, { projectId }),
               convex.query(apiAny.surveys.getSurveysByProject, { projectId }),
               convex.query(apiAny.contacts.getProjectContacts, { projectId }),
               convex.query(apiAny.teams.getTeamMembers, { teamId }),
-              convex.query(apiAny.files.getProjectAiKnowledgeFiles, { projectId }),
+              convex.query(apiAny.files.getProjectAiKnowledgeFiles, {
+                projectId,
+              }),
             ]);
 
-            const taskSummaries = (tasks as Array<Record<string, unknown>>).map(summarizeTask);
-            const noteSummaries = (notes as Array<Record<string, unknown>>).map(summarizeNote);
+            const taskSummaries = (tasks as Array<Record<string, unknown>>).map(
+              summarizeTask,
+            );
+            const noteSummaries = (notes as Array<Record<string, unknown>>).map(
+              summarizeNote,
+            );
             const paymentSummaries = asRecordArray(
               asRecord(paymentsOverview).installments,
             ).map(summarizePayment);
-            const shoppingItemRecords = shoppingItems as Array<Record<string, unknown>>;
-            const shoppingSectionRecords = shoppingSections as Array<Record<string, unknown>>;
-            const laborItemRecords = laborItems as Array<Record<string, unknown>>;
-            const laborSectionRecords = laborSections as Array<Record<string, unknown>>;
-            const shoppingSectionNameById = buildNameMap(shoppingSectionRecords);
-            const shoppingItemCountBySectionId = buildSectionItemCountMap(shoppingItemRecords);
-            const laborSectionNameById = buildNameMap(laborSectionRecords);
-            const laborItemCountBySectionId = buildSectionItemCountMap(laborItemRecords);
-
-            const shoppingSummaries = shoppingItemRecords.map(
-              (item) =>
-                summarizeShoppingItem(item, {
-                  sectionNameById: shoppingSectionNameById,
-                }),
+            const shoppingItemRecords = shoppingItems as Array<
+              Record<string, unknown>
+            >;
+            const shoppingSectionRecords = shoppingSections as Array<
+              Record<string, unknown>
+            >;
+            const laborItemRecords = laborItems as Array<
+              Record<string, unknown>
+            >;
+            const laborSectionRecords = laborSections as Array<
+              Record<string, unknown>
+            >;
+            const shoppingSectionNameById = buildNameMap(
+              shoppingSectionRecords,
             );
-            const shoppingSectionSummaries = shoppingSectionRecords.map((section) =>
-              summarizeShoppingSection(section, {
-                itemCountBySectionId: shoppingItemCountBySectionId,
+            const shoppingItemCountBySectionId =
+              buildSectionItemCountMap(shoppingItemRecords);
+            const laborSectionNameById = buildNameMap(laborSectionRecords);
+            const laborItemCountBySectionId =
+              buildSectionItemCountMap(laborItemRecords);
+
+            const shoppingSummaries = shoppingItemRecords.map((item) =>
+              summarizeShoppingItem(item, {
+                sectionNameById: shoppingSectionNameById,
               }),
             );
-            const laborSummaries = laborItemRecords.map(
-              (item) =>
-                summarizeLaborItem(item, {
-                  sectionNameById: laborSectionNameById,
+            const shoppingSectionSummaries = shoppingSectionRecords.map(
+              (section) =>
+                summarizeShoppingSection(section, {
+                  itemCountBySectionId: shoppingItemCountBySectionId,
                 }),
+            );
+            const laborSummaries = laborItemRecords.map((item) =>
+              summarizeLaborItem(item, {
+                sectionNameById: laborSectionNameById,
+              }),
             );
             const laborSectionSummaries = laborSectionRecords.map((section) =>
               summarizeLaborSection(section, {
                 itemCountBySectionId: laborItemCountBySectionId,
               }),
             );
-            const surveySummaries = (surveys as Array<Record<string, unknown>>).map(
-              summarizeSurvey,
-            );
-            const contactSummaries = (contacts as Array<Record<string, unknown>>).map(
-              summarizeContact,
-            );
-            const aiKnowledgeFileSummaries = (aiKnowledgeFiles as Array<Record<string, unknown>>)
-              .map(summarizeProjectFile);
+            const surveySummaries = (
+              surveys as Array<Record<string, unknown>>
+            ).map(summarizeSurvey);
+            const contactSummaries = (
+              contacts as Array<Record<string, unknown>>
+            ).map(summarizeContact);
+            const aiKnowledgeFileSummaries = (
+              aiKnowledgeFiles as Array<Record<string, unknown>>
+            ).map(summarizeProjectFile);
 
-            const openTasks = taskSummaries.filter((task) => task.status !== "done");
+            const openTasks = taskSummaries.filter(
+              (task) => task.status !== "done",
+            );
 
             return {
               ok: true,
-              project: summarizeProject((project as Record<string, unknown> | null) ?? null),
+              project: summarizeProject(
+                (project as Record<string, unknown> | null) ?? null,
+              ),
               counts: {
                 tasks: taskSummaries.length,
                 openTasks: openTasks.length,
@@ -3817,14 +4199,22 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 surveys: surveySummaries.length,
                 contacts: contactSummaries.length,
                 aiKnowledgeFiles: aiKnowledgeFileSummaries.length,
-                teamMembers: Array.isArray(teamMembers) ? teamMembers.length : 0,
+                teamMembers: Array.isArray(teamMembers)
+                  ? teamMembers.length
+                  : 0,
               },
               currentUserClerkId: userClerkId,
               teamMembers: Array.isArray(teamMembers)
                 ? teamMembers.map((member) => ({
-                    clerkUserId: asNonEmptyString((member as Record<string, unknown>).clerkUserId),
-                    name: asNonEmptyString((member as Record<string, unknown>).name),
-                    email: asNonEmptyString((member as Record<string, unknown>).email),
+                    clerkUserId: asNonEmptyString(
+                      (member as Record<string, unknown>).clerkUserId,
+                    ),
+                    name: asNonEmptyString(
+                      (member as Record<string, unknown>).name,
+                    ),
+                    email: asNonEmptyString(
+                      (member as Record<string, unknown>).email,
+                    ),
                   }))
                 : [],
               tasks: {

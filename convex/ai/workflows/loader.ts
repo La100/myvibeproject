@@ -1,10 +1,10 @@
 /**
  * Workflow Loader
- * 
+ *
  * Loads and parses workflow definitions from .md files.
  * Since Convex actions run on the server, we need to import workflows
  * at build time or load them from storage.
- * 
+ *
  * This module provides:
  * 1. Pre-loaded workflow definitions (imported at build time)
  * 2. Functions to get workflow metadata and full definitions
@@ -33,7 +33,8 @@ export const WORKFLOWS: WorkflowDefinition[] = [
   {
     id: "floor-plan-analysis",
     name: "Apartment Floor Plan Analysis",
-    description: "Comprehensive floor plan analysis with room identification, dimensions, and a generated renovation task list.",
+    description:
+      "Comprehensive floor plan analysis with room identification, dimensions, and a generated renovation task list.",
     icon: "floor-plan" as WorkflowIcon,
     category: "analysis",
     requiredFileTypes: ["image", "pdf"] as WorkflowFileType[],
@@ -45,7 +46,8 @@ export const WORKFLOWS: WorkflowDefinition[] = [
         name: "Upload Floor Plan",
         prompt: null,
         requiresUpload: true,
-        description: "Upload an apartment floor plan file (photo, scan, or PDF).",
+        description:
+          "Upload an apartment floor plan file (photo, scan, or PDF).",
       },
       {
         id: "room-analysis",
@@ -125,7 +127,8 @@ This workflow helps you comprehensively analyze an apartment floor plan and plan
   {
     id: "kitchen-renovation",
     name: "Kitchen Renovation",
-    description: "Complete kitchen renovation guide, from layout planning to shopping list.",
+    description:
+      "Complete kitchen renovation guide, from layout planning to shopping list.",
     icon: "kitchen" as WorkflowIcon,
     category: "renovation",
     requiredFileTypes: ["image", "pdf"] as WorkflowFileType[],
@@ -263,7 +266,8 @@ A complete guide that walks you through the full kitchen renovation planning pro
   {
     id: "bathroom-renovation",
     name: "Bathroom Renovation",
-    description: "From demolition to finishing, plan a bathroom renovation step by step.",
+    description:
+      "From demolition to finishing, plan a bathroom renovation step by step.",
     icon: "bathroom" as WorkflowIcon,
     category: "renovation",
     requiredFileTypes: ["image", "pdf"] as WorkflowFileType[],
@@ -434,7 +438,8 @@ A complete assistant to plan your bathroom renovation from start to finish.`,
   {
     id: "visualization-review",
     name: "Visualization Review",
-    description: "Analyze an interior visualization, collect feedback, and build a shopping list from the design.",
+    description:
+      "Analyze an interior visualization, collect feedback, and build a shopping list from the design.",
     icon: "visualization" as WorkflowIcon,
     category: "design",
     requiredFileTypes: ["image", "pdf"] as WorkflowFileType[],
@@ -446,7 +451,8 @@ A complete assistant to plan your bathroom renovation from start to finish.`,
         name: "Upload Visualization",
         prompt: null,
         requiresUpload: true,
-        description: "Upload a 3D visualization or interior design file (image or PDF).",
+        description:
+          "Upload a 3D visualization or interior design file (image or PDF).",
       },
       {
         id: "analysis",
@@ -475,7 +481,8 @@ A complete assistant to plan your bathroom renovation from start to finish.`,
    - Plants
 
 Present the analysis clearly.`,
-        description: "AI will analyze the visualization and identify key elements.",
+        description:
+          "AI will analyze the visualization and identify key elements.",
         enabledTools: ["manage_notes"],
       },
       {
@@ -554,7 +561,8 @@ A workflow for turning an interior visualization into a concrete shopping and ex
   {
     id: "interior-renovation-management",
     name: "Interior Renovation Project Management",
-    description: "Plan scope, budget, schedule, and contractor coordination in one workflow.",
+    description:
+      "Plan scope, budget, schedule, and contractor coordination in one workflow.",
     icon: "checklist" as WorkflowIcon,
     category: "planning",
     requiredFileTypes: ["image", "pdf", "document"] as WorkflowFileType[],
@@ -604,16 +612,16 @@ Add shopping sections and initial items with estimated costs.`,
         enabledTools: ["manage_shopping"],
       },
       {
-        id: "schedule-milestones",
-        name: "Schedule and Milestones",
+        id: "schedule-plan",
+        name: "Schedule Plan",
         prompt: `Propose a work schedule:
 
-1. Organize tasks into phases (demolition, installations, finishing, assembly)
-2. Estimate phase durations and technical waiting times
-3. Define milestones (for example installation complete, ready for furniture installation)
+1. Organize tasks into execution stages (demolition, installations, finishing, assembly)
+2. Estimate durations and technical waiting times
+3. Update task dates according to the schedule
 
-Update task dates according to the schedule.`,
-        description: "Set a realistic schedule and milestones.",
+Add or adjust tasks to reflect the proposed plan.`,
+        description: "Set a realistic schedule.",
         enabledTools: ["manage_tasks"],
       },
       {
@@ -659,7 +667,8 @@ This workflow helps move from project brief to execution schedule and delivery m
   {
     id: "material-estimation",
     name: "Material Estimation",
-    description: "Estimate required quantities and costs of construction materials based on room dimensions.",
+    description:
+      "Estimate required quantities and costs of construction materials based on room dimensions.",
     icon: "materials" as WorkflowIcon,
     category: "planning",
     requiredFileTypes: ["image", "pdf"] as WorkflowFileType[],
@@ -807,7 +816,10 @@ export function getWorkflowsByCategory(category: string): WorkflowDefinition[] {
 /**
  * Get a specific step from a workflow
  */
-export function getWorkflowStep(workflowId: string, stepId: string): WorkflowStep | undefined {
+export function getWorkflowStep(
+  workflowId: string,
+  stepId: string,
+): WorkflowStep | undefined {
   const workflow = getWorkflow(workflowId);
   return workflow?.steps.find((s) => s.id === stepId);
 }
@@ -815,15 +827,18 @@ export function getWorkflowStep(workflowId: string, stepId: string): WorkflowSte
 /**
  * Get the next step in a workflow
  */
-export function getNextStep(workflowId: string, currentStepId: string): WorkflowStep | undefined {
+export function getNextStep(
+  workflowId: string,
+  currentStepId: string,
+): WorkflowStep | undefined {
   const workflow = getWorkflow(workflowId);
   if (!workflow) return undefined;
-  
+
   const currentIndex = workflow.steps.findIndex((s) => s.id === currentStepId);
   if (currentIndex === -1 || currentIndex >= workflow.steps.length - 1) {
     return undefined;
   }
-  
+
   return workflow.steps[currentIndex + 1];
 }
 

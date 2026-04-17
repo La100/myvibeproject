@@ -1,6 +1,11 @@
 "use client";
 
-import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
+import {
+  useParams,
+  usePathname,
+  useRouter,
+  useSearchParams,
+} from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import { Id } from "@/convex/_generated/dataModel";
@@ -9,7 +14,12 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { DataTableFacetedFilter } from "@/components/ui/data-table-faceted-filter";
 import {
@@ -23,15 +33,35 @@ import {
 
 import { toast } from "sonner";
 import { useState, useMemo, useEffect, memo } from "react";
-import { LayoutGrid, List, ChevronsUpDown, X, MessageSquare, ListTodo, Plus } from "lucide-react";
+import {
+  LayoutGrid,
+  List,
+  ChevronsUpDown,
+  X,
+  MessageSquare,
+  ListTodo,
+  Plus,
+} from "lucide-react";
 import Link from "next/link";
 import TaskForm from "./TaskForm";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   KanbanProvider,
   KanbanBoard,
@@ -39,19 +69,19 @@ import {
   KanbanCards,
   KanbanHeader,
   type DragEndEvent,
-} from '@/components/ui/shadcn-io/kanban';
-import type { DragStartEvent } from '@dnd-kit/core';
-import { Spinner } from '@/components/ui/spinner';
-import { format } from 'date-fns';
+} from "@/components/ui/shadcn-io/kanban";
+import type { DragStartEvent } from "@dnd-kit/core";
+import { Spinner } from "@/components/ui/spinner";
+import { format } from "date-fns";
 
 const formatDateTime = (timestamp: number | undefined): string => {
-    if (!timestamp) return 'N/A';
-    const date = new Date(timestamp);
-    const hasTime = date.getHours() !== 0 || date.getMinutes() !== 0;
-    if (hasTime) {
-      return format(date, "MM/dd/yyyy, HH:mm");
-    }
-    return format(date, "MM/dd/yyyy");
+  if (!timestamp) return "N/A";
+  const date = new Date(timestamp);
+  const hasTime = date.getHours() !== 0 || date.getMinutes() !== 0;
+  if (hasTime) {
+    return format(date, "MM/dd/yyyy, HH:mm");
+  }
+  return format(date, "MM/dd/yyyy");
 };
 
 type TaskStatusKey = "todo" | "in_progress" | "review" | "done";
@@ -75,8 +105,6 @@ type KanbanTask = {
   assignedTo: string | null | undefined;
   assignedToName: string | undefined;
   assignedToImageUrl: string | undefined;
-  milestoneId?: Id<"projectMilestones"> | null;
-  milestoneName?: string;
   tags: string[] | undefined;
   commentCount: number;
 };
@@ -102,8 +130,6 @@ const isSameKanbanTask = (a: KanbanTask, b: KanbanTask) =>
   a.assignedTo === b.assignedTo &&
   a.assignedToName === b.assignedToName &&
   a.assignedToImageUrl === b.assignedToImageUrl &&
-  a.milestoneId === b.milestoneId &&
-  a.milestoneName === b.milestoneName &&
   a.commentCount === b.commentCount &&
   areTagsEqual(a.tags, b.tags);
 
@@ -141,8 +167,6 @@ type TaskWithDetails = {
   assignedTo?: string | null;
   assignedToName?: string;
   assignedToImageUrl?: string;
-  milestoneId?: Id<"projectMilestones"> | null;
-  milestoneName?: string;
   tags?: string[];
   commentCount: number;
 };
@@ -169,12 +193,28 @@ function useDebounce<T>(value: T, delay: number): T {
 
 const priorityStyles: Record<
   NonNullable<TaskPriority>,
-  { label: string; variant: "outline" | "secondary" | "default" | "destructive"; accentClassName: string }
+  {
+    label: string;
+    variant: "outline" | "secondary" | "default" | "destructive";
+    accentClassName: string;
+  }
 > = {
-  low: { label: "Low", variant: "outline", accentClassName: "bg-muted-foreground/30" },
-  medium: { label: "Medium", variant: "secondary", accentClassName: "bg-primary/60" },
+  low: {
+    label: "Low",
+    variant: "outline",
+    accentClassName: "bg-muted-foreground/30",
+  },
+  medium: {
+    label: "Medium",
+    variant: "secondary",
+    accentClassName: "bg-primary/60",
+  },
   high: { label: "High", variant: "default", accentClassName: "bg-primary" },
-  urgent: { label: "Urgent", variant: "destructive", accentClassName: "bg-destructive" },
+  urgent: {
+    label: "Urgent",
+    variant: "destructive",
+    accentClassName: "bg-destructive",
+  },
 };
 
 const getPriorityDisplay = (priority: TaskPriority) => {
@@ -188,8 +228,19 @@ const getPriorityDisplay = (priority: TaskPriority) => {
   return priorityStyles[priority];
 };
 
-export function TasksViewSkeleton({ viewMode = "kanban" }: { viewMode?: "kanban" | "list" }) {
-  return <Spinner className={cn("p-4", viewMode === "kanban" ? "min-h-[420px]" : "min-h-[320px]")} />;
+export function TasksViewSkeleton({
+  viewMode = "kanban",
+}: {
+  viewMode?: "kanban" | "list";
+}) {
+  return (
+    <Spinner
+      className={cn(
+        "p-4",
+        viewMode === "kanban" ? "min-h-[420px]" : "min-h-[320px]",
+      )}
+    />
+  );
 }
 
 export default function TasksView() {
@@ -199,8 +250,10 @@ export default function TasksView() {
   const searchParams = useSearchParams();
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
   const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
-  const [activeDragTaskId, setActiveDragTaskId] = useState<Id<"tasks"> | null>(null);
-  
+  const [activeDragTaskId, setActiveDragTaskId] = useState<Id<"tasks"> | null>(
+    null,
+  );
+
   const [filters, setFilters] = useState<{
     searchQuery: string;
     status: string[];
@@ -217,7 +270,7 @@ export default function TasksView() {
   const debouncedSearchQuery = useDebounce(filters.searchQuery, 300);
 
   const { project } = useProject();
-  
+
   const teamMembers = useQuery(apiAny.teams.getTeamMembers, {
     teamId: project.teamId,
   }) as TeamMemberWithUser[] | undefined;
@@ -229,7 +282,7 @@ export default function TasksView() {
       searchQuery: debouncedSearchQuery,
     },
     sortBy: sorting.sortBy,
-    sortOrder: sorting.sortOrder
+    sortOrder: sorting.sortOrder,
   }) as TaskWithDetails[] | undefined;
 
   const [preservedTasks, setPreservedTasks] = useState<typeof tasks>(undefined);
@@ -243,49 +296,61 @@ export default function TasksView() {
   const tasksToDisplay = tasks ?? preservedTasks;
 
   const updateTaskStatus = useMutation(apiAny.tasks.updateTaskStatus);
-  
-  const statusOptions = useMemo(() => 
-    project.taskStatusSettings 
-      ? Object.entries(project.taskStatusSettings)
-          .map(([id, { name, color }]) => ({ value: id, label: name, color }))
-          .sort((a, b) => columnOrder.indexOf(a.value as TaskStatusKey) - columnOrder.indexOf(b.value as TaskStatusKey))
-      : [],
-    [project]
+
+  const statusOptions = useMemo(
+    () =>
+      project.taskStatusSettings
+        ? Object.entries(project.taskStatusSettings)
+            .map(([id, { name, color }]) => ({ value: id, label: name, color }))
+            .sort(
+              (a, b) =>
+                columnOrder.indexOf(a.value as TaskStatusKey) -
+                columnOrder.indexOf(b.value as TaskStatusKey),
+            )
+        : [],
+    [project],
   );
-  
+
   const priorityOptions = [
-      { value: "urgent", label: "Urgent" },
-      { value: "high", label: "High" },
-      { value: "medium", label: "Medium" },
-      { value: "low", label: "Low" },
+    { value: "urgent", label: "Urgent" },
+    { value: "high", label: "High" },
+    { value: "medium", label: "Medium" },
+    { value: "low", label: "Low" },
   ];
 
-  const assignedToOptions = useMemo(() =>
-    teamMembers?.map((member: TeamMemberWithUser) => ({ value: member.clerkUserId!, label: member.name! })) || [],
-    [teamMembers]
+  const assignedToOptions = useMemo(
+    () =>
+      teamMembers?.map((member: TeamMemberWithUser) => ({
+        value: member.clerkUserId!,
+        label: member.name!,
+      })) || [],
+    [teamMembers],
   );
-  
-  const kanbanTasks = useMemo(() => tasksToDisplay?.map(task => ({
-    id: task._id,
-    name: task.title,
-    column: task.status,
-    title: task.title,
-    description: task.description,
-    content: task.content,
-    priority: task.priority as TaskPriority,
-    startDate: task.startDate,
-    endDate: task.endDate,
-    status: task.status,
-    assignedTo: task.assignedTo,
-    assignedToName: task.assignedToName,
-    assignedToImageUrl: task.assignedToImageUrl,
-    milestoneId: task.milestoneId,
-    milestoneName: task.milestoneName,
-    tags: task.tags,
-    commentCount: task.commentCount,
-  })) || [], [tasksToDisplay]);
-  
-  const [localKanbanTasks, setLocalKanbanTasks] = useState<KanbanTask[]>(kanbanTasks);
+
+  const kanbanTasks = useMemo(
+    () =>
+      tasksToDisplay?.map((task) => ({
+        id: task._id,
+        name: task.title,
+        column: task.status,
+        title: task.title,
+        description: task.description,
+        content: task.content,
+        priority: task.priority as TaskPriority,
+        startDate: task.startDate,
+        endDate: task.endDate,
+        status: task.status,
+        assignedTo: task.assignedTo,
+        assignedToName: task.assignedToName,
+        assignedToImageUrl: task.assignedToImageUrl,
+        tags: task.tags,
+        commentCount: task.commentCount,
+      })) || [],
+    [tasksToDisplay],
+  );
+
+  const [localKanbanTasks, setLocalKanbanTasks] =
+    useState<KanbanTask[]>(kanbanTasks);
 
   useEffect(() => {
     if (searchParams.get("createTask") !== "1") {
@@ -301,27 +366,39 @@ export default function TasksView() {
   }, [pathname, router, searchParams]);
 
   useEffect(() => {
-    setLocalKanbanTasks((previous) => reconcileKanbanTasks(previous, kanbanTasks));
+    setLocalKanbanTasks((previous) =>
+      reconcileKanbanTasks(previous, kanbanTasks),
+    );
   }, [kanbanTasks]);
 
   const tagsOptions = useMemo(() => {
-    const allTags = tasksToDisplay?.flatMap(task => task.tags || []) || [];
+    const allTags = tasksToDisplay?.flatMap((task) => task.tags || []) || [];
     const uniqueTags = [...new Set(allTags)];
-    return Array.from(uniqueTags).map(tag => ({ value: tag, label: tag }));
+    return Array.from(uniqueTags).map((tag) => ({ value: tag, label: tag }));
   }, [tasksToDisplay]);
 
-  const handleFilterChange = (filterType: keyof typeof filters, value: string | string[]) => {
-      setFilters(prev => ({...prev, [filterType]: value}));
+  const handleFilterChange = (
+    filterType: keyof typeof filters,
+    value: string | string[],
+  ) => {
+    setFilters((prev) => ({ ...prev, [filterType]: value }));
   };
 
   const clearFilters = () => {
-    setFilters({ searchQuery: "", status: [], priority: [], assignedTo: [], tags: [] });
+    setFilters({
+      searchQuery: "",
+      status: [],
+      priority: [],
+      assignedTo: [],
+      tags: [],
+    });
   };
 
   const handleSortChange = (newSortBy: string) => {
-    setSorting(prev => ({
+    setSorting((prev) => ({
       sortBy: newSortBy,
-      sortOrder: prev.sortBy === newSortBy && prev.sortOrder === "desc" ? "asc" : "desc",
+      sortOrder:
+        prev.sortBy === newSortBy && prev.sortOrder === "desc" ? "asc" : "desc",
     }));
   };
 
@@ -331,17 +408,18 @@ export default function TasksView() {
     if (!over) return;
 
     const cardId = active.id as string;
-    const columnId = (over.data.current?.parent || over.id) as TaskStatusLiterals;
+    const columnId = (over.data.current?.parent ||
+      over.id) as TaskStatusLiterals;
 
-    if (!statusOptions.some(s => s.value === columnId)) {
-        return;
+    if (!statusOptions.some((s) => s.value === columnId)) {
+      return;
     }
 
-    const task = localKanbanTasks.find(t => t.id === cardId);
+    const task = localKanbanTasks.find((t) => t.id === cardId);
     if (task && task.column !== columnId) {
-      setLocalKanbanTasks(prev => {
-        return prev.map(t =>
-          t.id === cardId ? { ...t, column: columnId, status: columnId } : t
+      setLocalKanbanTasks((prev) => {
+        return prev.map((t) =>
+          t.id === cardId ? { ...t, column: columnId, status: columnId } : t,
         );
       });
 
@@ -354,9 +432,11 @@ export default function TasksView() {
       } catch {
         toast.error("Failed to update task status.");
         // Revert optimistic update on failure
-        setLocalKanbanTasks(prev => {
-           return prev.map(t =>
-            t.id === cardId ? { ...t, column: task.column, status: task.status } : t
+        setLocalKanbanTasks((prev) => {
+          return prev.map((t) =>
+            t.id === cardId
+              ? { ...t, column: task.column, status: task.status }
+              : t,
           );
         });
       }
@@ -372,10 +452,15 @@ export default function TasksView() {
   };
 
   const activeDragTask = activeDragTaskId
-    ? localKanbanTasks.find((task) => task.id === activeDragTaskId) ?? null
+    ? (localKanbanTasks.find((task) => task.id === activeDragTaskId) ?? null)
     : null;
 
-  const isFiltered = filters.searchQuery !== "" || filters.status.length > 0 || filters.priority.length > 0 || filters.assignedTo.length > 0 || filters.tags.length > 0;
+  const isFiltered =
+    filters.searchQuery !== "" ||
+    filters.status.length > 0 ||
+    filters.priority.length > 0 ||
+    filters.assignedTo.length > 0 ||
+    filters.tags.length > 0;
 
   if (project === undefined || teamMembers === undefined) {
     return <TasksViewSkeleton viewMode={viewMode} />;
@@ -387,75 +472,89 @@ export default function TasksView() {
 
   return (
     <div className="flex flex-col gap-4">
-       <div className="mb-2">
-         <ProjectPageHeader
-           title="Tasks"
-           icon={<ListTodo className="h-8 w-8 text-primary" />}
-           subtitle={`Manage tasks for ${project.name}`}
-           actions={
-             <div className="flex items-center gap-2">
-               <Button onClick={() => setIsTaskFormOpen(true)}>
-                 Add Task
-               </Button>
-               <div className="flex items-center rounded-md border bg-background">
-                 <Button
-                   variant={viewMode === "kanban" ? "secondary" : "ghost"}
-                   size="sm"
-                   onClick={() => setViewMode("kanban")}
-                   className="rounded-r-none"
-                 >
-                   <LayoutGrid />
-                 </Button>
-                 <Button
-                   variant={viewMode === "list" ? "secondary" : "ghost"}
-                   size="sm"
-                   onClick={() => setViewMode("list")}
-                   className="rounded-l-none"
-                 >
-                   <List />
-                 </Button>
-               </div>
-             </div>
-           }
-         />
-         
-         {/* Filters */}
-         <div className="flex items-center gap-2 mt-4">
-           <Input 
-             placeholder="Search tasks..." 
-             className="max-w-sm" 
-             value={filters.searchQuery}
-             onChange={(e) => handleFilterChange('searchQuery', e.target.value)}
-           />
- 
-           <DataTableFacetedFilter 
-             title="Status"
-             options={statusOptions}
-             selectedValues={new Set(filters.status)}
-             onFilterChange={(selected) => handleFilterChange('status', Array.from(selected))}
-           />
-           <DataTableFacetedFilter 
-             title="Priority"
-             options={priorityOptions}
-             selectedValues={new Set(filters.priority)}
-             onFilterChange={(selected) => handleFilterChange('priority', Array.from(selected))}
-           />
-            <DataTableFacetedFilter 
-             title="Assignee"
-             options={assignedToOptions}
-             selectedValues={new Set(filters.assignedTo)}
-             onFilterChange={(selected) => handleFilterChange('assignedTo', Array.from(selected))}
-           />
-           <DataTableFacetedFilter
-             title="Tags"
-             options={tagsOptions}
-             selectedValues={new Set(filters.tags)}
-             onFilterChange={(selected) => handleFilterChange('tags', Array.from(selected))}
-           />
- 
-           {isFiltered && <Button variant="ghost" onClick={clearFilters} className="h-8 px-2 lg:px-3">Reset <X data-icon="inline-end" /></Button>}
-         </div>
-       </div>
+      <div className="mb-2">
+        <ProjectPageHeader
+          title="Tasks"
+          icon={<ListTodo className="h-8 w-8 text-primary" />}
+          subtitle={`Manage tasks for ${project.name}`}
+          actions={
+            <div className="flex items-center gap-2">
+              <Button onClick={() => setIsTaskFormOpen(true)}>Add Task</Button>
+              <div className="flex items-center rounded-md border bg-background">
+                <Button
+                  variant={viewMode === "kanban" ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("kanban")}
+                  className="rounded-r-none"
+                >
+                  <LayoutGrid />
+                </Button>
+                <Button
+                  variant={viewMode === "list" ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("list")}
+                  className="rounded-l-none"
+                >
+                  <List />
+                </Button>
+              </div>
+            </div>
+          }
+        />
+
+        {/* Filters */}
+        <div className="flex items-center gap-2 mt-4">
+          <Input
+            placeholder="Search tasks..."
+            className="max-w-sm"
+            value={filters.searchQuery}
+            onChange={(e) => handleFilterChange("searchQuery", e.target.value)}
+          />
+
+          <DataTableFacetedFilter
+            title="Status"
+            options={statusOptions}
+            selectedValues={new Set(filters.status)}
+            onFilterChange={(selected) =>
+              handleFilterChange("status", Array.from(selected))
+            }
+          />
+          <DataTableFacetedFilter
+            title="Priority"
+            options={priorityOptions}
+            selectedValues={new Set(filters.priority)}
+            onFilterChange={(selected) =>
+              handleFilterChange("priority", Array.from(selected))
+            }
+          />
+          <DataTableFacetedFilter
+            title="Assignee"
+            options={assignedToOptions}
+            selectedValues={new Set(filters.assignedTo)}
+            onFilterChange={(selected) =>
+              handleFilterChange("assignedTo", Array.from(selected))
+            }
+          />
+          <DataTableFacetedFilter
+            title="Tags"
+            options={tagsOptions}
+            selectedValues={new Set(filters.tags)}
+            onFilterChange={(selected) =>
+              handleFilterChange("tags", Array.from(selected))
+            }
+          />
+
+          {isFiltered && (
+            <Button
+              variant="ghost"
+              onClick={clearFilters}
+              className="h-8 px-2 lg:px-3"
+            >
+              Reset <X data-icon="inline-end" />
+            </Button>
+          )}
+        </div>
+      </div>
       <Dialog open={isTaskFormOpen} onOpenChange={setIsTaskFormOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
@@ -493,18 +592,13 @@ export default function TasksView() {
             onDragCancel={handleDragCancel}
             onDragEnd={handleDragEnd}
             dragOverlay={
-              activeDragTask ? (
-                <TaskDragPreview task={activeDragTask} />
-              ) : null
+              activeDragTask ? <TaskDragPreview task={activeDragTask} /> : null
             }
           >
             <div className="grid flex-grow grid-cols-1 gap-4 items-start md:grid-cols-2 lg:grid-cols-4">
               {statusOptions.map((status) => (
                 <KanbanBoard id={status.value} key={status.value}>
-                  <KanbanHeader
-                    name={status.label}
-                    color={status.color}
-                  />
+                  <KanbanHeader name={status.label} color={status.color} />
                   <KanbanCards>
                     {localKanbanTasks
                       .filter((task) => task.column === status.value)
@@ -517,7 +611,7 @@ export default function TasksView() {
                           parent={status.value}
                           className="border-0 bg-transparent p-0 shadow-none"
                         >
-                            <TaskCardContent
+                          <TaskCardContent
                             task={task}
                             projectSlug={params.projectSlug}
                           />
@@ -533,7 +627,7 @@ export default function TasksView() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead onClick={() => handleSortChange('title')}>
+                  <TableHead onClick={() => handleSortChange("title")}>
                     <div className="flex items-center cursor-pointer">
                       Task <ChevronsUpDown data-icon="inline-end" />
                     </div>
@@ -541,7 +635,7 @@ export default function TasksView() {
                   <TableHead>Status</TableHead>
                   <TableHead>Priority</TableHead>
                   <TableHead>Assignee</TableHead>
-                  <TableHead onClick={() => handleSortChange('endDate')}>
+                  <TableHead onClick={() => handleSortChange("endDate")}>
                     <div className="flex items-center cursor-pointer">
                       End Date <ChevronsUpDown data-icon="inline-end" />
                     </div>
@@ -554,40 +648,50 @@ export default function TasksView() {
                 {tasksToDisplay?.map((task) => (
                   <TableRow key={task._id}>
                     <TableCell className="font-medium">
-                      <Link href={`/organisation/projects/${params.projectSlug}/tasks/${task._id}`}>
+                      <Link
+                        href={`/organisation/projects/${params.projectSlug}/tasks/${task._id}`}
+                      >
                         {task.title}
                       </Link>
-                      {task.milestoneName ? (
-                        <div className="mt-1">
-                          <Badge variant="secondary">{task.milestoneName}</Badge>
-                        </div>
-                      ) : null}
                     </TableCell>
                     <TableCell>
                       <Badge variant="secondary">
-                        {project.taskStatusSettings?.[task.status]?.name || task.status}
+                        {project.taskStatusSettings?.[task.status]?.name ||
+                          task.status}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {task.priority && <Badge variant="outline">{task.priority}</Badge>}
+                      {task.priority && (
+                        <Badge variant="outline">{task.priority}</Badge>
+                      )}
                     </TableCell>
                     <TableCell>
                       {task.assignedToName && (
                         <div className="flex items-center gap-2">
                           <Avatar className="size-6">
                             <AvatarImage src={task.assignedToImageUrl} />
-                            <AvatarFallback>{task.assignedToName?.charAt(0)}</AvatarFallback>
+                            <AvatarFallback>
+                              {task.assignedToName?.charAt(0)}
+                            </AvatarFallback>
                           </Avatar>
                           <span>{task.assignedToName}</span>
                         </div>
                       )}
                     </TableCell>
                     <TableCell>
-                      {task.endDate ? formatDateTime(task.endDate) : task.startDate ? formatDateTime(task.startDate) : '-'}
+                      {task.endDate
+                        ? formatDateTime(task.endDate)
+                        : task.startDate
+                          ? formatDateTime(task.startDate)
+                          : "-"}
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
-                        {task.tags?.map(tag => <Badge key={tag} variant="secondary">{tag}</Badge>)}
+                        {task.tags?.map((tag) => (
+                          <Badge key={tag} variant="secondary">
+                            {tag}
+                          </Badge>
+                        ))}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -618,20 +722,34 @@ export default function TasksView() {
   );
 }
 
-const TaskCardContent = memo(function TaskCardContent({ task, projectSlug }: { task: KanbanTask, projectSlug: string }) {
+const TaskCardContent = memo(function TaskCardContent({
+  task,
+  projectSlug,
+}: {
+  task: KanbanTask;
+  projectSlug: string;
+}) {
   const priority = getPriorityDisplay(task.priority);
 
   return (
     <div className="relative block hover-lift bg-card border border-border rounded-lg p-4 shadow-sm hover:shadow-md transition-all cursor-pointer">
       <div className="flex justify-between items-start mb-2">
-        <Link href={`/organisation/projects/${projectSlug}/tasks/${task.id}`} className="flex-1">
-          <h4 className="font-semibold text-sm hover:underline line-clamp-2">{task.title}</h4>
+        <Link
+          href={`/organisation/projects/${projectSlug}/tasks/${task.id}`}
+          className="flex-1"
+        >
+          <h4 className="font-semibold text-sm hover:underline line-clamp-2">
+            {task.title}
+          </h4>
         </Link>
         {task.priority && (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Badge variant={priority.variant} className="ml-2 shrink-0 text-xs">
+                <Badge
+                  variant={priority.variant}
+                  className="ml-2 shrink-0 text-xs"
+                >
                   {priority.label}
                 </Badge>
               </TooltipTrigger>
@@ -644,21 +762,17 @@ const TaskCardContent = memo(function TaskCardContent({ task, projectSlug }: { t
       </div>
 
       {task.description && (
-        <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{task.description}</p>
+        <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
+          {task.description}
+        </p>
       )}
-
-      {task.milestoneName ? (
-        <div className="mb-3">
-          <Badge variant="secondary" className="text-xs">
-            {task.milestoneName}
-          </Badge>
-        </div>
-      ) : null}
 
       {(task.startDate || task.endDate) && (
         <div className="flex items-center gap-1 text-xs text-muted-foreground mb-3">
           {task.startDate && task.endDate ? (
-            <span>{formatDateTime(task.startDate)} - {formatDateTime(task.endDate)}</span>
+            <span>
+              {formatDateTime(task.startDate)} - {formatDateTime(task.endDate)}
+            </span>
           ) : task.endDate ? (
             <span>Due: {formatDateTime(task.endDate)}</span>
           ) : (
@@ -669,8 +783,10 @@ const TaskCardContent = memo(function TaskCardContent({ task, projectSlug }: { t
 
       {task.tags && task.tags.length > 0 && (
         <div className="flex flex-wrap gap-1 mb-3">
-          {task.tags.map(tag => (
-            <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
+          {task.tags.map((tag) => (
+            <Badge key={tag} variant="secondary" className="text-xs">
+              {tag}
+            </Badge>
           ))}
         </div>
       )}
@@ -691,7 +807,9 @@ const TaskCardContent = memo(function TaskCardContent({ task, projectSlug }: { t
                 <TooltipTrigger asChild>
                   <Avatar className="size-6 border-2 border-background transition-transform hover:scale-110">
                     <AvatarImage src={task.assignedToImageUrl} />
-                    <AvatarFallback className="text-xs">{task.assignedToName?.charAt(0)}</AvatarFallback>
+                    <AvatarFallback className="text-xs">
+                      {task.assignedToName?.charAt(0)}
+                    </AvatarFallback>
                   </Avatar>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -715,7 +833,9 @@ function TaskDragPreview({ task }: { task: KanbanTask }) {
         <div className="min-w-0">
           <div className="truncate text-sm font-semibold">{task.title}</div>
           {task.description ? (
-            <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">{task.description}</div>
+            <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+              {task.description}
+            </div>
           ) : null}
         </div>
         {task.priority ? (

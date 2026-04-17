@@ -1,8 +1,14 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery, query, mutation } from "./_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  query,
+  mutation,
+} from "./_generated/server";
 import { Id, Doc } from "./_generated/dataModel";
 import { r2 } from "./files";
 import { canAccessProjectWithMembership, ensureProjectAccess } from "./authz";
+import { resolveOrganizationTaxSettings } from "../lib/organizationTax";
 import { summarizeProjectBudget } from "../lib/projectBudgetSummary";
 const internalAny = require("./_generated/api").internal as any;
 
@@ -18,7 +24,11 @@ const generateClientPanelAccessToken = () =>
   crypto.randomUUID().replace(/-/g, "");
 
 const configuredR2PublicBaseUrl = (() => {
-  const rawValue = (process.env.NEXT_PUBLIC_R2_PUBLIC_URL || process.env.R2_PUBLIC_URL || "").trim();
+  const rawValue = (
+    process.env.NEXT_PUBLIC_R2_PUBLIC_URL ||
+    process.env.R2_PUBLIC_URL ||
+    ""
+  ).trim();
   if (!rawValue) {
     return null;
   }
@@ -29,7 +39,9 @@ const configuredR2PublicBaseUrl = (() => {
   }
 })();
 
-const extractCoverImageStorageKey = (coverImageUrl: string): string | undefined => {
+const extractCoverImageStorageKey = (
+  coverImageUrl: string,
+): string | undefined => {
   const trimmed = coverImageUrl.trim();
   if (!trimmed) {
     return undefined;
@@ -53,8 +65,15 @@ const extractCoverImageStorageKey = (coverImageUrl: string): string | undefined 
     }
 
     let key = parsed.pathname.replace(/^\/+/, "");
-    if (configuredR2PublicBaseUrl && configuredHost && host === configuredHost) {
-      const basePath = configuredR2PublicBaseUrl.pathname.replace(/^\/+|\/+$/g, "");
+    if (
+      configuredR2PublicBaseUrl &&
+      configuredHost &&
+      host === configuredHost
+    ) {
+      const basePath = configuredR2PublicBaseUrl.pathname.replace(
+        /^\/+|\/+$/g,
+        "",
+      );
       if (basePath) {
         if (key.startsWith(`${basePath}/`)) {
           key = key.slice(basePath.length + 1);
@@ -73,7 +92,9 @@ const extractCoverImageStorageKey = (coverImageUrl: string): string | undefined 
   }
 };
 
-const resolveCoverImageDisplayUrl = async (coverImageUrl?: string): Promise<string | undefined> => {
+const resolveCoverImageDisplayUrl = async (
+  coverImageUrl?: string,
+): Promise<string | undefined> => {
   const trimmed = coverImageUrl?.trim();
   if (!trimmed) {
     return undefined;
@@ -85,7 +106,9 @@ const resolveCoverImageDisplayUrl = async (coverImageUrl?: string): Promise<stri
   }
 
   try {
-    const signedUrl = await r2.getUrl(storageKey, { expiresIn: 60 * 60 * 24 * 7 });
+    const signedUrl = await r2.getUrl(storageKey, {
+      expiresIn: 60 * 60 * 24 * 7,
+    });
     return signedUrl || trimmed;
   } catch {
     return trimmed;
@@ -140,7 +163,9 @@ const defaultClientPanelDisplaySettings = {
 };
 
 type ClientPanelDisplaySettings = typeof defaultClientPanelDisplaySettings;
-type ClientPanelPublishedSnapshot = NonNullable<Doc<"projects">["clientPanelPublishedSnapshot"]>;
+type ClientPanelPublishedSnapshot = NonNullable<
+  Doc<"projects">["clientPanelPublishedSnapshot"]
+>;
 
 const projectTaskStatusSettingsValidator = v.object({
   todo: v.object({ name: v.string(), color: v.string() }),
@@ -150,23 +175,33 @@ const projectTaskStatusSettingsValidator = v.object({
 });
 
 const getResolvedClientPanelDisplaySettings = (
-  settings?: Partial<ClientPanelDisplaySettings> | null
+  settings?: Partial<ClientPanelDisplaySettings> | null,
 ): ClientPanelDisplaySettings => ({
-  showShoppingList: settings?.showShoppingList ?? defaultClientPanelDisplaySettings.showShoppingList,
+  showShoppingList:
+    settings?.showShoppingList ??
+    defaultClientPanelDisplaySettings.showShoppingList,
   allowShoppingItemDecisions:
-    settings?.allowShoppingItemDecisions ?? defaultClientPanelDisplaySettings.allowShoppingItemDecisions,
+    settings?.allowShoppingItemDecisions ??
+    defaultClientPanelDisplaySettings.allowShoppingItemDecisions,
   allowShoppingItemComments:
-    settings?.allowShoppingItemComments ?? defaultClientPanelDisplaySettings.allowShoppingItemComments,
+    settings?.allowShoppingItemComments ??
+    defaultClientPanelDisplaySettings.allowShoppingItemComments,
   showFiles: settings?.showFiles ?? defaultClientPanelDisplaySettings.showFiles,
-  showMoodboard: settings?.showMoodboard ?? defaultClientPanelDisplaySettings.showMoodboard,
-  showSurveys: settings?.showSurveys ?? defaultClientPanelDisplaySettings.showSurveys,
+  showMoodboard:
+    settings?.showMoodboard ?? defaultClientPanelDisplaySettings.showMoodboard,
+  showSurveys:
+    settings?.showSurveys ?? defaultClientPanelDisplaySettings.showSurveys,
   showTasks: settings?.showTasks ?? defaultClientPanelDisplaySettings.showTasks,
   showLabor: settings?.showLabor ?? defaultClientPanelDisplaySettings.showLabor,
-  showContacts: settings?.showContacts ?? defaultClientPanelDisplaySettings.showContacts,
-  showBudget: settings?.showBudget ?? defaultClientPanelDisplaySettings.showBudget,
-  showPayments: settings?.showPayments ?? defaultClientPanelDisplaySettings.showPayments,
+  showContacts:
+    settings?.showContacts ?? defaultClientPanelDisplaySettings.showContacts,
+  showBudget:
+    settings?.showBudget ?? defaultClientPanelDisplaySettings.showBudget,
+  showPayments:
+    settings?.showPayments ?? defaultClientPanelDisplaySettings.showPayments,
   showNotes: settings?.showNotes ?? defaultClientPanelDisplaySettings.showNotes,
-  showSupplier: settings?.showSupplier ?? defaultClientPanelDisplaySettings.showSupplier,
+  showSupplier:
+    settings?.showSupplier ?? defaultClientPanelDisplaySettings.showSupplier,
   showPrice: settings?.showPrice ?? defaultClientPanelDisplaySettings.showPrice,
 });
 
@@ -227,7 +262,9 @@ const buildClientPanelPublishedSnapshot = async (
   const payments = settings.showPayments
     ? await ctx.db
         .query("projectPayments")
-        .withIndex("by_project_and_order", (q: any) => q.eq("projectId", project._id))
+        .withIndex("by_project_and_order", (q: any) =>
+          q.eq("projectId", project._id),
+        )
         .order("asc")
         .collect()
     : [];
@@ -237,13 +274,6 @@ const buildClientPanelPublishedSnapshot = async (
         .withIndex("by_project", (q: any) => q.eq("projectId", project._id))
         .collect()
     : [];
-  const milestones = settings.showBudget
-    ? await ctx.db
-        .query("projectMilestones")
-        .withIndex("by_project", (q: any) => q.eq("projectId", project._id))
-        .collect()
-    : [];
-
   const tasksForPortal: ClientPanelPublishedSnapshot["tasks"] = tasks
     .map((task: Doc<"tasks">) => ({
       _id: task._id,
@@ -254,12 +284,17 @@ const buildClientPanelPublishedSnapshot = async (
       startDate: task.startDate,
       endDate: task.endDate,
     }))
-    .sort((a: ClientPanelPublishedSnapshot["tasks"][number], b: ClientPanelPublishedSnapshot["tasks"][number]) => {
-      const aDate = a.endDate || a.startDate || 0;
-      const bDate = b.endDate || b.startDate || 0;
-      if (aDate !== bDate) return aDate - bDate;
-      return a.title.localeCompare(b.title);
-    });
+    .sort(
+      (
+        a: ClientPanelPublishedSnapshot["tasks"][number],
+        b: ClientPanelPublishedSnapshot["tasks"][number],
+      ) => {
+        const aDate = a.endDate || a.startDate || 0;
+        const bDate = b.endDate || b.startDate || 0;
+        if (aDate !== bDate) return aDate - bDate;
+        return a.title.localeCompare(b.title);
+      },
+    );
 
   const laborForPortal: ClientPanelPublishedSnapshot["labor"] = laborItems
     .map((item: Doc<"laborItems">) => ({
@@ -281,28 +316,36 @@ const buildClientPanelPublishedSnapshot = async (
       customerDecisionUpdatedAt: item.customerDecisionUpdatedAt,
       customerDecisionByName: item.customerDecisionByName,
     }))
-    .sort((a: ClientPanelPublishedSnapshot["labor"][number], b: ClientPanelPublishedSnapshot["labor"][number]) => {
-      const aDate = a.startDate || a.endDate || 0;
-      const bDate = b.startDate || b.endDate || 0;
-      if (aDate !== bDate) return aDate - bDate;
-      return a.name.localeCompare(b.name);
-    });
-
-  const laborSectionsForPortal: ClientPanelPublishedSnapshot["laborSections"] = laborSections
-    .map((section: Doc<"laborSections">) => ({
-      _id: section._id,
-      name: section.name,
-      order: section.order,
-    }))
     .sort(
       (
-        a: ClientPanelPublishedSnapshot["laborSections"][number],
-        b: ClientPanelPublishedSnapshot["laborSections"][number],
-      ) => a.order - b.order,
+        a: ClientPanelPublishedSnapshot["labor"][number],
+        b: ClientPanelPublishedSnapshot["labor"][number],
+      ) => {
+        const aDate = a.startDate || a.endDate || 0;
+        const bDate = b.startDate || b.endDate || 0;
+        if (aDate !== bDate) return aDate - bDate;
+        return a.name.localeCompare(b.name);
+      },
     );
 
+  const laborSectionsForPortal: ClientPanelPublishedSnapshot["laborSections"] =
+    laborSections
+      .map((section: Doc<"laborSections">) => ({
+        _id: section._id,
+        name: section.name,
+        order: section.order,
+      }))
+      .sort(
+        (
+          a: ClientPanelPublishedSnapshot["laborSections"][number],
+          b: ClientPanelPublishedSnapshot["laborSections"][number],
+        ) => a.order - b.order,
+      );
+
   const contactsForPortal: ClientPanelPublishedSnapshot["contacts"] = contacts
-    .filter((contact): contact is NonNullable<typeof contact> => contact !== null)
+    .filter(
+      (contact): contact is NonNullable<typeof contact> => contact !== null,
+    )
     .sort(
       (
         a: ClientPanelPublishedSnapshot["contacts"][number],
@@ -311,7 +354,10 @@ const buildClientPanelPublishedSnapshot = async (
     );
 
   const paymentsForPortal: ClientPanelPublishedSnapshot["payments"] = payments
-    .filter((payment: Doc<"projectPayments">) => payment.status !== "void" && payment.status !== "draft")
+    .filter(
+      (payment: Doc<"projectPayments">) =>
+        payment.status !== "void" && payment.status !== "draft",
+    )
     .map((payment: Doc<"projectPayments">) => ({
       _id: payment._id,
       title: payment.title,
@@ -328,7 +374,9 @@ const buildClientPanelPublishedSnapshot = async (
       bankAccountNumber: payment.invoiceSellerSnapshot?.bankAccountNumber,
       bankSwift: payment.invoiceSellerSnapshot?.bankSwift,
       paymentInstructions: payment.invoiceSellerSnapshot?.paymentInstructions,
-      hasOnlinePaymentLink: Boolean(payment.stripeHostedInvoiceUrl || payment.stripeInvoiceId),
+      hasOnlinePaymentLink: Boolean(
+        payment.stripeHostedInvoiceUrl || payment.stripeInvoiceId,
+      ),
       canPayOnline:
         payment.status === "open" &&
         Boolean(payment.stripeHostedInvoiceUrl || payment.stripeInvoiceId),
@@ -354,7 +402,6 @@ const buildClientPanelPublishedSnapshot = async (
           laborItems,
           estimations,
           payments,
-          milestones,
         },
         Date.now(),
       )
@@ -373,7 +420,7 @@ const buildClientPanelPublishedSnapshot = async (
 const getProjectManagerMembership = async (
   ctx: any,
   projectId: Id<"projects">,
-  clerkUserId: string
+  clerkUserId: string,
 ) => {
   const project = await ctx.db.get(projectId);
   if (!project) {
@@ -383,7 +430,7 @@ const getProjectManagerMembership = async (
   const teamMember = await ctx.db
     .query("teamMembers")
     .withIndex("by_team_and_user", (q: any) =>
-      q.eq("teamId", project.teamId).eq("clerkUserId", clerkUserId)
+      q.eq("teamId", project.teamId).eq("clerkUserId", clerkUserId),
     )
     .unique();
 
@@ -422,11 +469,14 @@ export const getProjectsByTeam = query({
     const membership = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", args.teamId).eq("clerkUserId", identity.subject)
+        q.eq("teamId", args.teamId).eq("clerkUserId", identity.subject),
       )
       .unique();
 
-    if (!membership || (membership.role !== "admin" && membership.role !== "member")) {
+    if (
+      !membership ||
+      (membership.role !== "admin" && membership.role !== "member")
+    ) {
       throw new Error("User is not a member of this team");
     }
 
@@ -463,12 +513,12 @@ export const listProjectsByClerkOrg = query({
     const membership = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", team._id).eq("clerkUserId", identity.subject)
+        q.eq("teamId", team._id).eq("clerkUserId", identity.subject),
       )
       .unique();
 
     let projects: any[] = [];
-    
+
     if (membership && membership.isActive) {
       if (membership.role === "admin") {
         // Admin sees all team projects
@@ -480,9 +530,11 @@ export const listProjectsByClerkOrg = query({
         // Member may have limited access
         if (membership.projectIds && membership.projectIds.length > 0) {
           // Member with limited access - only assigned projects
-          const projectPromises = membership.projectIds.map(id => ctx.db.get(id));
+          const projectPromises = membership.projectIds.map((id) =>
+            ctx.db.get(id),
+          );
           const projectResults = await Promise.all(projectPromises);
-          projects = projectResults.filter(p => p !== null);
+          projects = projectResults.filter((p) => p !== null);
         } else {
           // Member without restrictions - all team projects
           projects = await ctx.db
@@ -519,20 +571,24 @@ export const listProjectsByClerkOrg = query({
       taskStatsByProject.set(task.projectId, currentStats);
     }
 
-    const projectsWithTasks = await Promise.all(projects.map(async (project) => {
-      const stats = taskStatsByProject.get(project._id) || {
-        taskCount: 0,
-        completedTasks: 0,
-      };
-      const coverImageDisplayUrl = await resolveCoverImageDisplayUrl(project.coverImageUrl);
+    const projectsWithTasks = await Promise.all(
+      projects.map(async (project) => {
+        const stats = taskStatsByProject.get(project._id) || {
+          taskCount: 0,
+          completedTasks: 0,
+        };
+        const coverImageDisplayUrl = await resolveCoverImageDisplayUrl(
+          project.coverImageUrl,
+        );
 
-      return {
-        ...project,
-        coverImageDisplayUrl,
-        taskCount: stats.taskCount,
-        completedTasks: stats.completedTasks,
-      };
-    }));
+        return {
+          ...project,
+          coverImageDisplayUrl,
+          taskCount: stats.taskCount,
+          completedTasks: stats.completedTasks,
+        };
+      }),
+    );
 
     return projectsWithTasks;
   },
@@ -550,7 +606,7 @@ export const listProjectsByTeam = query({
     const teamMember = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", args.teamId).eq("clerkUserId", identity.subject)
+        q.eq("teamId", args.teamId).eq("clerkUserId", identity.subject),
       )
       .unique();
 
@@ -584,14 +640,33 @@ export const createProjectInOrg = mutation({
     budget: v.optional(v.number()),
     startDate: v.optional(v.number()),
     endDate: v.optional(v.number()),
-    currency: v.optional(v.union(
-      v.literal("USD"), v.literal("EUR"), v.literal("PLN"), v.literal("GBP"),
-      v.literal("CAD"), v.literal("AUD"), v.literal("JPY"), v.literal("CHF"),
-      v.literal("SEK"), v.literal("NOK"), v.literal("DKK"), v.literal("CZK"),
-      v.literal("HUF"), v.literal("CNY"), v.literal("INR"), v.literal("BRL"),
-      v.literal("MXN"), v.literal("KRW"), v.literal("SGD"), v.literal("HKD")
-    )),
-    measurements: v.optional(v.union(v.literal("metric"), v.literal("imperial"))),
+    currency: v.optional(
+      v.union(
+        v.literal("USD"),
+        v.literal("EUR"),
+        v.literal("PLN"),
+        v.literal("GBP"),
+        v.literal("CAD"),
+        v.literal("AUD"),
+        v.literal("JPY"),
+        v.literal("CHF"),
+        v.literal("SEK"),
+        v.literal("NOK"),
+        v.literal("DKK"),
+        v.literal("CZK"),
+        v.literal("HUF"),
+        v.literal("CNY"),
+        v.literal("INR"),
+        v.literal("BRL"),
+        v.literal("MXN"),
+        v.literal("KRW"),
+        v.literal("SGD"),
+        v.literal("HKD"),
+      ),
+    ),
+    measurements: v.optional(
+      v.union(v.literal("metric"), v.literal("imperial")),
+    ),
     taxEnabled: v.optional(v.boolean()),
     taxRate: v.optional(v.number()),
   },
@@ -614,15 +689,17 @@ export const createProjectInOrg = mutation({
     let slug = baseSlug;
     let counter = 1;
     while (true) {
-        const existing = await ctx.db
-            .query("projects")
-            .withIndex("by_team_and_slug", (q) => q.eq("teamId", team._id).eq("slug", slug))
-            .first();
-        if (!existing) {
-            break;
-        }
-        slug = `${baseSlug}-${counter}`;
-        counter++;
+      const existing = await ctx.db
+        .query("projects")
+        .withIndex("by_team_and_slug", (q) =>
+          q.eq("teamId", team._id).eq("slug", slug),
+        )
+        .first();
+      if (!existing) {
+        break;
+      }
+      slug = `${baseSlug}-${counter}`;
+      counter++;
     }
 
     const defaultStatusSettings = {
@@ -637,7 +714,9 @@ export const createProjectInOrg = mutation({
     // Check if creator is already a team member
     const creatorMembership = await ctx.db
       .query("teamMembers")
-      .withIndex("by_team_and_user", (q) => q.eq("teamId", team._id).eq("clerkUserId", identity.subject))
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", team._id).eq("clerkUserId", identity.subject),
+      )
       .unique();
 
     if (!creatorMembership) {
@@ -657,9 +736,18 @@ export const createProjectInOrg = mutation({
     }
 
     const normalizedCoverImageUrl = args.coverImageUrl?.trim();
-    const taxEnabled = args.taxEnabled ?? false;
+    const teamTaxSettings = resolveOrganizationTaxSettings(
+      (team as { organizationTaxSettings?: unknown })
+        .organizationTaxSettings as
+        | Parameters<typeof resolveOrganizationTaxSettings>[0]
+        | undefined,
+    );
+    const taxEnabled = args.taxEnabled ?? teamTaxSettings.taxEnabled;
     const taxRate = taxEnabled
-      ? Math.min(Math.max(args.taxRate ?? 23, 0), 100)
+      ? Math.min(
+          Math.max(args.taxRate ?? teamTaxSettings.taxRate ?? 23, 0),
+          100,
+        )
       : undefined;
 
     const projectId = await ctx.db.insert("projects", {
@@ -702,7 +790,7 @@ export const createProjectInOrg = mutation({
 });
 
 export const getProjectBySlug = query({
-  args: { 
+  args: {
     teamSlug: v.string(),
     projectSlug: v.string(),
   },
@@ -710,13 +798,16 @@ export const getProjectBySlug = query({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return null;
 
-    const team = await ctx.db.query("teams").withIndex("by_slug", q => q.eq("slug", args.teamSlug)).unique();
-    if(!team) return null;
+    const team = await ctx.db
+      .query("teams")
+      .withIndex("by_slug", (q) => q.eq("slug", args.teamSlug))
+      .unique();
+    if (!team) return null;
 
     const membership = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", team._id).eq("clerkUserId", identity.subject)
+        q.eq("teamId", team._id).eq("clerkUserId", identity.subject),
       )
       .filter((q) => q.eq(q.field("isActive"), true))
       .unique();
@@ -728,7 +819,7 @@ export const getProjectBySlug = query({
     const project = await ctx.db
       .query("projects")
       .withIndex("by_team_and_slug", (q) =>
-        q.eq("teamId", team._id).eq("slug", args.projectSlug)
+        q.eq("teamId", team._id).eq("slug", args.projectSlug),
       )
       .unique();
 
@@ -736,7 +827,9 @@ export const getProjectBySlug = query({
       return null;
     }
 
-    return canAccessProjectWithMembership(membership, project._id) ? project : null;
+    return canAccessProjectWithMembership(membership, project._id)
+      ? project
+      : null;
   },
 });
 
@@ -751,32 +844,37 @@ export const getProjectBySlugInClerkOrg = query({
 
     const team = await ctx.db
       .query("teams")
-      .withIndex("by_clerk_org", q => q.eq("clerkOrgId", args.clerkOrgId))
+      .withIndex("by_clerk_org", (q) => q.eq("clerkOrgId", args.clerkOrgId))
       .unique();
     if (!team) return null;
 
     const membership = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", team._id).eq("clerkUserId", identity.subject)
+        q.eq("teamId", team._id).eq("clerkUserId", identity.subject),
       )
       .filter((q) => q.eq(q.field("isActive"), true))
       .first();
 
-    if (!membership || (membership.role !== "admin" && membership.role !== "member")) {
+    if (
+      !membership ||
+      (membership.role !== "admin" && membership.role !== "member")
+    ) {
       return null;
     }
 
     const project = await ctx.db
       .query("projects")
       .withIndex("by_team_and_slug", (q) =>
-        q.eq("teamId", team._id).eq("slug", args.projectSlug)
+        q.eq("teamId", team._id).eq("slug", args.projectSlug),
       )
       .unique();
 
     if (!project) return null;
 
-    const coverImageDisplayUrl = await resolveCoverImageDisplayUrl(project.coverImageUrl);
+    const coverImageDisplayUrl = await resolveCoverImageDisplayUrl(
+      project.coverImageUrl,
+    );
     return {
       ...project,
       coverImageDisplayUrl,
@@ -795,7 +893,11 @@ export const markClientNotificationsRead = mutation({
       throw new Error("Not authenticated");
     }
 
-    const { project } = await getProjectManagerMembership(ctx, args.projectId, identity.subject);
+    const { project } = await getProjectManagerMembership(
+      ctx,
+      args.projectId,
+      identity.subject,
+    );
     const normalizedLastReadAt = Number.isFinite(args.lastReadAt)
       ? args.lastReadAt
       : Date.now();
@@ -841,7 +943,11 @@ export const getMyClientNotificationsReadState = query({
       return { lastReadAt: 0 };
     }
 
-    const { project } = await getProjectManagerMembership(ctx, args.projectId, identity.subject);
+    const { project } = await getProjectManagerMembership(
+      ctx,
+      args.projectId,
+      identity.subject,
+    );
     const existingReadState = await ctx.db
       .query("clientNotificationReads")
       .withIndex("by_project_and_user", (q) =>
@@ -858,7 +964,6 @@ export const getMyClientNotificationsReadState = query({
   },
 });
 
-
 export const getProject = query({
   args: { projectId: v.id("projects") },
   async handler(ctx, args) {
@@ -873,7 +978,7 @@ export const getProject = query({
       return { ...project, teamName: "Unknown Team" };
     }
     return { ...project, teamName: team.name };
-  }
+  },
 });
 
 // Internal query used by messaging/webhook actions.
@@ -895,26 +1000,47 @@ export const updateProject = mutation({
     name: v.optional(v.string()),
     description: v.optional(v.string()),
     coverImageUrl: v.optional(v.string()),
-    status: v.optional(v.union(
-      v.literal("planning"),
-      v.literal("active"),
-      v.literal("on_hold"),
-      v.literal("completed"),
-      v.literal("cancelled")
-    )),
+    status: v.optional(
+      v.union(
+        v.literal("planning"),
+        v.literal("active"),
+        v.literal("on_hold"),
+        v.literal("completed"),
+        v.literal("cancelled"),
+      ),
+    ),
     startDate: v.optional(v.number()),
     endDate: v.optional(v.number()),
     budget: v.optional(v.number()),
     customer: v.optional(v.string()),
     location: v.optional(v.string()),
-    currency: v.optional(v.union(
-      v.literal("USD"), v.literal("EUR"), v.literal("PLN"), v.literal("GBP"),
-      v.literal("CAD"), v.literal("AUD"), v.literal("JPY"), v.literal("CHF"),
-      v.literal("SEK"), v.literal("NOK"), v.literal("DKK"), v.literal("CZK"),
-      v.literal("HUF"), v.literal("CNY"), v.literal("INR"), v.literal("BRL"),
-      v.literal("MXN"), v.literal("KRW"), v.literal("SGD"), v.literal("HKD")
-    )),
-    measurements: v.optional(v.union(v.literal("metric"), v.literal("imperial"))),
+    currency: v.optional(
+      v.union(
+        v.literal("USD"),
+        v.literal("EUR"),
+        v.literal("PLN"),
+        v.literal("GBP"),
+        v.literal("CAD"),
+        v.literal("AUD"),
+        v.literal("JPY"),
+        v.literal("CHF"),
+        v.literal("SEK"),
+        v.literal("NOK"),
+        v.literal("DKK"),
+        v.literal("CZK"),
+        v.literal("HUF"),
+        v.literal("CNY"),
+        v.literal("INR"),
+        v.literal("BRL"),
+        v.literal("MXN"),
+        v.literal("KRW"),
+        v.literal("SGD"),
+        v.literal("HKD"),
+      ),
+    ),
+    measurements: v.optional(
+      v.union(v.literal("metric"), v.literal("imperial")),
+    ),
     taxEnabled: v.optional(v.boolean()),
     taxRate: v.optional(v.number()),
     responsibleClerkUserId: v.optional(v.string()),
@@ -942,20 +1068,34 @@ export const updateProject = mutation({
 
     await getProjectManagerMembership(ctx, projectId, identity.subject);
 
-    const coverImageProvided = Object.prototype.hasOwnProperty.call(args, "coverImageUrl");
-    const normalizedCoverImageUrl = coverImageProvided ? coverImageUrl?.trim() : undefined;
+    const coverImageProvided = Object.prototype.hasOwnProperty.call(
+      args,
+      "coverImageUrl",
+    );
+    const normalizedCoverImageUrl = coverImageProvided
+      ? coverImageUrl?.trim()
+      : undefined;
     const coverImagePatch = coverImageProvided
       ? { coverImageUrl: normalizedCoverImageUrl || undefined }
       : {};
-    const taxEnabledProvided = Object.prototype.hasOwnProperty.call(args, "taxEnabled");
-    const taxRateProvided = Object.prototype.hasOwnProperty.call(args, "taxRate");
+    const taxEnabledProvided = Object.prototype.hasOwnProperty.call(
+      args,
+      "taxEnabled",
+    );
+    const taxRateProvided = Object.prototype.hasOwnProperty.call(
+      args,
+      "taxRate",
+    );
     const resolvedTaxEnabled = taxEnabledProvided
       ? Boolean(taxEnabled)
-      : existingProject.taxEnabled ?? false;
+      : (existingProject.taxEnabled ?? false);
     const resolvedTaxRate = resolvedTaxEnabled
       ? Math.min(
-          Math.max((taxRateProvided ? taxRate : existingProject.taxRate) ?? 23, 0),
-          100
+          Math.max(
+            (taxRateProvided ? taxRate : existingProject.taxRate) ?? 23,
+            0,
+          ),
+          100,
         )
       : undefined;
     const taxPatch =
@@ -967,7 +1107,7 @@ export const updateProject = mutation({
         : {};
     const responsibleProvided = Object.prototype.hasOwnProperty.call(
       args,
-      "responsibleClerkUserId"
+      "responsibleClerkUserId",
     );
     let responsiblePatch: { responsibleClerkUserId?: string } = {};
 
@@ -979,32 +1119,37 @@ export const updateProject = mutation({
       const responsibleMember = await ctx.db
         .query("teamMembers")
         .withIndex("by_team_and_user", (q) =>
-          q.eq("teamId", existingProject.teamId).eq("clerkUserId", effectiveResponsibleUserId)
+          q
+            .eq("teamId", existingProject.teamId)
+            .eq("clerkUserId", effectiveResponsibleUserId),
         )
         .unique();
 
       if (
         !responsibleMember ||
         !responsibleMember.isActive ||
-        (responsibleMember.role !== "admin" && responsibleMember.role !== "member")
+        (responsibleMember.role !== "admin" &&
+          responsibleMember.role !== "member")
       ) {
-        throw new Error("Selected responsible person must be an active team member");
+        throw new Error(
+          "Selected responsible person must be an active team member",
+        );
       }
 
       responsiblePatch = { responsibleClerkUserId: effectiveResponsibleUserId };
     }
-    
+
     if (name && name !== existingProject.name) {
       const baseSlug = generateSlug(name);
       let slug = baseSlug;
       let counter = 1;
-      
+
       let existing;
       do {
         existing = await ctx.db
           .query("projects")
-          .withIndex("by_team_and_slug", (q) => 
-            q.eq("teamId", existingProject.teamId).eq("slug", slug)
+          .withIndex("by_team_and_slug", (q) =>
+            q.eq("teamId", existingProject.teamId).eq("slug", slug),
           )
           .first();
         if (existing) {
@@ -1012,7 +1157,7 @@ export const updateProject = mutation({
           counter++;
         }
       } while (existing);
-      
+
       await ctx.db.patch(projectId, {
         name,
         slug,
@@ -1033,7 +1178,7 @@ export const updateProject = mutation({
 
       return { slug: existingProject.slug };
     }
-  }
+  },
 });
 
 export const listTeamProjects = query({
@@ -1047,7 +1192,7 @@ export const listTeamProjects = query({
     const membership = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", args.teamId).eq("clerkUserId", identity.subject)
+        q.eq("teamId", args.teamId).eq("clerkUserId", identity.subject),
       )
       .filter((q) => q.eq(q.field("isActive"), true))
       .unique();
@@ -1066,11 +1211,12 @@ export const listTeamProjects = query({
     } else if (membership.role === "member") {
       if (membership.projectIds && membership.projectIds.length > 0) {
         const memberProjects = await Promise.all(
-          membership.projectIds.map((id) => ctx.db.get(id))
+          membership.projectIds.map((id) => ctx.db.get(id)),
         );
-        projects = memberProjects.filter((project): project is Doc<"projects"> => (
-          project !== null && project.teamId === args.teamId
-        ));
+        projects = memberProjects.filter(
+          (project): project is Doc<"projects"> =>
+            project !== null && project.teamId === args.teamId,
+        );
       } else {
         projects = await ctx.db
           .query("projects")
@@ -1086,18 +1232,18 @@ export const listTeamProjects = query({
           .withIndex("by_project", (q) => q.eq("projectId", project._id))
           .collect();
         const completedTasks = tasks.filter(
-          (task) => task.status === "done"
+          (task) => task.status === "done",
         ).length;
         return {
           ...project,
           taskCount: tasks.length,
           completedTasks: completedTasks,
         };
-      })
+      }),
     );
 
     return projectsWithTaskCounts;
-  }
+  },
 });
 
 export const getProjectsForTeam = query({
@@ -1113,7 +1259,7 @@ export const getProjectsForTeam = query({
     const membership = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", args.teamId).eq("clerkUserId", clerkUserId)
+        q.eq("teamId", args.teamId).eq("clerkUserId", clerkUserId),
       )
       .filter((q) => q.eq(q.field("isActive"), true))
       .first();
@@ -1135,9 +1281,11 @@ export const getProjectsForTeam = query({
       if (membership.projectIds && membership.projectIds.length > 0) {
         // Member with limited access - only assigned projects
         const memberProjects = await Promise.all(
-          membership.projectIds.map((id) => ctx.db.get(id))
+          membership.projectIds.map((id) => ctx.db.get(id)),
         );
-        projects = memberProjects.filter((p): p is Doc<"projects"> => p !== null);
+        projects = memberProjects.filter(
+          (p): p is Doc<"projects"> => p !== null,
+        );
       } else {
         // Member without restrictions - all team projects
         projects = await ctx.db
@@ -1168,10 +1316,10 @@ export const checkUserProjectAccess = query({
     // Check team membership
     const teamMember = await ctx.db
       .query("teamMembers")
-      .withIndex("by_team_and_user", q => 
-        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject),
       )
-      .filter(q => q.eq(q.field("isActive"), true))
+      .filter((q) => q.eq(q.field("isActive"), true))
       .unique();
 
     if (!teamMember) {
@@ -1187,14 +1335,16 @@ export const checkUserProjectAccess = query({
     if (teamMember.role === "member") {
       // If member has assigned projectIds, check if they have access to this project
       if (teamMember.projectIds && teamMember.projectIds.length > 0) {
-        return teamMember.projectIds.includes(args.projectId) ? teamMember : false;
+        return teamMember.projectIds.includes(args.projectId)
+          ? teamMember
+          : false;
       }
       return false;
     }
-    
+
     // In other cases, no access
     return false;
-  }
+  },
 });
 
 export const ensureClientPanelAccessToken = mutation({
@@ -1207,7 +1357,11 @@ export const ensureClientPanelAccessToken = mutation({
       throw new Error("Not authenticated");
     }
 
-    const { project } = await getProjectManagerMembership(ctx, args.projectId, identity.subject);
+    const { project } = await getProjectManagerMembership(
+      ctx,
+      args.projectId,
+      identity.subject,
+    );
 
     if (project.clientPanelAccessToken) {
       return { token: project.clientPanelAccessToken };
@@ -1253,7 +1407,11 @@ export const getClientPanelConfiguration = query({
       return null;
     }
 
-    const { project } = await getProjectManagerMembership(ctx, args.projectId, identity.subject);
+    const { project } = await getProjectManagerMembership(
+      ctx,
+      args.projectId,
+      identity.subject,
+    );
 
     const snapshotItems = await ctx.db
       .query("clientPanelItems")
@@ -1282,7 +1440,7 @@ export const getClientPanelConfiguration = query({
     return {
       accessToken: project.clientPanelAccessToken || null,
       settings: getResolvedClientPanelDisplaySettings(
-        project.clientPanelPublishedSettings as Partial<ClientPanelDisplaySettings> | null
+        project.clientPanelPublishedSettings as Partial<ClientPanelDisplaySettings> | null,
       ),
       version: project.clientPanelDataVersion || 0,
       updatedAt: project.clientPanelDataUpdatedAt || null,
@@ -1305,7 +1463,11 @@ export const publishClientPanelData = mutation({
       throw new Error("Not authenticated");
     }
 
-    const { project } = await getProjectManagerMembership(ctx, args.projectId, identity.subject);
+    const { project } = await getProjectManagerMembership(
+      ctx,
+      args.projectId,
+      identity.subject,
+    );
 
     const sections = await ctx.db
       .query("shoppingListSections")
@@ -1314,7 +1476,10 @@ export const publishClientPanelData = mutation({
       .collect();
 
     const sectionMetaById = new Map(
-      sections.map((section) => [String(section._id), { name: section.name, order: section.order }])
+      sections.map((section) => [
+        String(section._id),
+        { name: section.name, order: section.order },
+      ]),
     );
 
     const items = await ctx.db
@@ -1335,21 +1500,27 @@ export const publishClientPanelData = mutation({
       existingSnapshotItems.map((snapshotItem) => [
         String(snapshotItem.sourceItemId),
         snapshotItem,
-      ])
+      ]),
     );
-    await Promise.all(existingSnapshotItems.map((item) => ctx.db.delete(item._id)));
+    await Promise.all(
+      existingSnapshotItems.map((item) => ctx.db.delete(item._id)),
+    );
 
     const existingSnapshotSections = await ctx.db
       .query("clientPanelSections")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
-    await Promise.all(existingSnapshotSections.map((section) => ctx.db.delete(section._id)));
+    await Promise.all(
+      existingSnapshotSections.map((section) => ctx.db.delete(section._id)),
+    );
 
     const existingSnapshotFiles = await ctx.db
       .query("clientPanelFiles")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
-    await Promise.all(existingSnapshotFiles.map((file) => ctx.db.delete(file._id)));
+    await Promise.all(
+      existingSnapshotFiles.map((file) => ctx.db.delete(file._id)),
+    );
 
     for (const section of sections) {
       await ctx.db.insert("clientPanelSections", {
@@ -1364,7 +1535,9 @@ export const publishClientPanelData = mutation({
         item.sectionId && sectionMetaById.has(String(item.sectionId))
           ? sectionMetaById.get(String(item.sectionId))
           : null;
-      const existingSnapshotItem = existingSnapshotItemBySourceId.get(String(item._id));
+      const existingSnapshotItem = existingSnapshotItemBySourceId.get(
+        String(item._id),
+      );
       const set = item.setId ? setById.get(String(item.setId)) : null;
 
       await ctx.db.insert("clientPanelItems", {
@@ -1404,17 +1577,19 @@ export const publishClientPanelData = mutation({
     // Moodboard files are a dedicated portal section, so include them in the snapshot
     // even when they were uploaded before per-file visibility was introduced.
     const selectedFiles = files.filter(
-      (file) => file.showInClientPortal === true || !!file.moodboardSection
+      (file) => file.showInClientPortal === true || !!file.moodboardSection,
     );
     const folderNameById = new Map<string, string>();
     const folderIds = [
       ...new Set(
         selectedFiles
           .map((file) => file.folderId)
-          .filter((folderId): folderId is Id<"folders"> => !!folderId)
+          .filter((folderId): folderId is Id<"folders"> => !!folderId),
       ),
     ];
-    const folderRecords = await Promise.all(folderIds.map((folderId) => ctx.db.get(folderId)));
+    const folderRecords = await Promise.all(
+      folderIds.map((folderId) => ctx.db.get(folderId)),
+    );
     for (const folder of folderRecords) {
       if (!folder) continue;
       folderNameById.set(String(folder._id), folder.name);
@@ -1429,13 +1604,17 @@ export const publishClientPanelData = mutation({
         storageId: file.storageId,
         mimeType: file.mimeType,
         size: file.size,
-        folderName: file.folderId ? folderNameById.get(String(file.folderId)) : undefined,
+        folderName: file.folderId
+          ? folderNameById.get(String(file.folderId))
+          : undefined,
         moodboardSection: file.moodboardSection,
         uploadedAt: file._creationTime,
       });
     }
 
-    const resolvedSettings = getResolvedClientPanelDisplaySettings(args.settings);
+    const resolvedSettings = getResolvedClientPanelDisplaySettings(
+      args.settings,
+    );
     const publishedSnapshot = await buildClientPanelPublishedSnapshot(
       ctx,
       project,
@@ -1443,7 +1622,8 @@ export const publishClientPanelData = mutation({
     );
     const version = (project.clientPanelDataVersion || 0) + 1;
     const updatedAt = Date.now();
-    const token = project.clientPanelAccessToken || generateClientPanelAccessToken();
+    const token =
+      project.clientPanelAccessToken || generateClientPanelAccessToken();
 
     await ctx.db.patch(args.projectId, {
       clientPanelAccessToken: token,
@@ -1481,74 +1661,87 @@ export const deleteProject = mutation({
     // Check if user has permission to delete (only admin role)
     const teamMember = await ctx.db
       .query("teamMembers")
-      .withIndex("by_team_and_user", q => 
-        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject),
       )
       .unique();
 
     if (!teamMember || teamMember.role !== "admin") {
-      throw new Error("Insufficient permissions to delete this project. Only admin can delete projects.");
+      throw new Error(
+        "Insufficient permissions to delete this project. Only admin can delete projects.",
+      );
     }
 
     // Delete all tasks associated with the project
     const tasks = await ctx.db
       .query("tasks")
-      .withIndex("by_project", q => q.eq("projectId", args.projectId))
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
 
-    const taskDeletionPromises = tasks.map(task => ctx.db.delete(task._id));
+    const taskDeletionPromises = tasks.map((task) => ctx.db.delete(task._id));
     await Promise.all(taskDeletionPromises);
 
     // Delete all comments related to the project or its tasks
     const projectComments = await ctx.db
       .query("comments")
-      .withIndex("by_project", q => q.eq("projectId", args.projectId))
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
 
     const taskComments = await Promise.all(
-      tasks.map(task => 
+      tasks.map((task) =>
         ctx.db
           .query("comments")
-          .withIndex("by_task", q => q.eq("taskId", task._id))
-          .collect()
-      )
-    ).then(results => results.flat());
+          .withIndex("by_task", (q) => q.eq("taskId", task._id))
+          .collect(),
+      ),
+    ).then((results) => results.flat());
 
     const allComments = [...projectComments, ...taskComments];
-    const commentDeletionPromises = allComments.map(comment => ctx.db.delete(comment._id));
+    const commentDeletionPromises = allComments.map((comment) =>
+      ctx.db.delete(comment._id),
+    );
     await Promise.all(commentDeletionPromises);
 
     // Delete all folders related to the project
     const projectFolders = await ctx.db
       .query("folders")
-      .withIndex("by_project", q => q.eq("projectId", args.projectId))
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
 
-    const folderDeletionPromises = projectFolders.map(folder => ctx.db.delete(folder._id));
+    const folderDeletionPromises = projectFolders.map((folder) =>
+      ctx.db.delete(folder._id),
+    );
     await Promise.all(folderDeletionPromises);
 
     // Delete all shopping list sections and items for this project
     const shoppingListSections = await ctx.db
       .query("shoppingListSections")
-      .withIndex("by_project", q => q.eq("projectId", args.projectId))
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
 
     const shoppingListItems = await ctx.db
       .query("shoppingListItems")
-      .withIndex("by_project", q => q.eq("projectId", args.projectId))
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
 
-    const shoppingSectionDeletionPromises = shoppingListSections.map(section => ctx.db.delete(section._id));
-    const shoppingItemDeletionPromises = shoppingListItems.map(item => ctx.db.delete(item._id));
-    
-    await Promise.all([...shoppingSectionDeletionPromises, ...shoppingItemDeletionPromises]);
+    const shoppingSectionDeletionPromises = shoppingListSections.map(
+      (section) => ctx.db.delete(section._id),
+    );
+    const shoppingItemDeletionPromises = shoppingListItems.map((item) =>
+      ctx.db.delete(item._id),
+    );
+
+    await Promise.all([
+      ...shoppingSectionDeletionPromises,
+      ...shoppingItemDeletionPromises,
+    ]);
 
     // Finally, delete the project itself
     await ctx.db.delete(args.projectId);
 
     return { success: true };
-  }
-}); 
+  },
+});
 
 // Update project task status settings
 export const updateProjectTaskStatusSettings = mutation({
@@ -1598,5 +1791,5 @@ export const updateProjectTaskStatusSettings = mutation({
     });
 
     return { success: true };
-  }
-}); 
+  },
+});

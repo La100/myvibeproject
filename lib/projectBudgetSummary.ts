@@ -26,17 +26,12 @@ export type BudgetPayment = {
   amount?: number | null;
 };
 
-export type BudgetMilestone = {
-  budgetAmount?: number | null;
-};
-
 export type ProjectBudgetSummaryInput = {
   project: BudgetProject;
   shoppingItems: BudgetShoppingItem[];
   laborItems: BudgetLaborItem[];
   estimations: BudgetEstimation[];
   payments: BudgetPayment[];
-  milestones: BudgetMilestone[];
 };
 
 const asAmount = (value: number | null | undefined) => value || 0;
@@ -45,14 +40,7 @@ export function summarizeProjectBudget(
   input: ProjectBudgetSummaryInput,
   now: number = Date.now(),
 ) {
-  const {
-    project,
-    shoppingItems,
-    laborItems,
-    estimations,
-    payments,
-    milestones,
-  } = input;
+  const { project, shoppingItems, laborItems, estimations, payments } = input;
 
   const shoppingPlanned = shoppingItems.reduce(
     (sum, item) => sum + asAmount(item.totalPrice),
@@ -84,9 +72,7 @@ export function summarizeProjectBudget(
     )
     .reduce((sum, item) => sum + asAmount(item.totalPrice), 0);
   const laborActual = laborItems
-    .filter(
-      (item) => typeof item.endDate === "number" && item.endDate <= now,
-    )
+    .filter((item) => typeof item.endDate === "number" && item.endDate <= now)
     .reduce((sum, item) => sum + asAmount(item.totalPrice), 0);
 
   const plannedCost = shoppingPlanned + laborPlanned;
@@ -115,7 +101,9 @@ export function summarizeProjectBudget(
       0,
     );
 
-  const visiblePayments = payments.filter((payment) => payment.status !== "void");
+  const visiblePayments = payments.filter(
+    (payment) => payment.status !== "void",
+  );
   const scheduledPaymentValue = visiblePayments.reduce(
     (sum, payment) => sum + asAmount(payment.amount),
     0,
@@ -128,11 +116,6 @@ export function summarizeProjectBudget(
       (payment) => payment.status === "draft" || payment.status === "open",
     )
     .reduce((sum, payment) => sum + asAmount(payment.amount), 0);
-
-  const milestoneBudget = milestones.reduce(
-    (sum, milestone) => sum + asAmount(milestone.budgetAmount),
-    0,
-  );
 
   return {
     currency: project.currency || "PLN",
@@ -165,10 +148,6 @@ export function summarizeProjectBudget(
       collectedPayments: collectedPaymentValue,
       outstandingPayments: outstandingPaymentValue,
     },
-    milestones: {
-      count: milestones.length,
-      budgetAllocated: milestoneBudget,
-    },
     alerts: [
       budget > 0 && actualCost > budget
         ? { severity: "high", label: "Actual cost exceeds budget" }
@@ -183,9 +162,7 @@ export function summarizeProjectBudget(
           }
         : null,
     ].filter(
-      (
-        alert,
-      ): alert is { severity: "high" | "medium"; label: string } =>
+      (alert): alert is { severity: "high" | "medium"; label: string } =>
         alert !== null,
     ),
   };

@@ -1,6 +1,10 @@
 import { v } from "convex/values";
-import { api, internal } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
+// Keep runtime-loaded refs here to avoid deep TS instantiation.
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const apiAny = require("./_generated/api").api as any;
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const internalAny = require("./_generated/api").internal as any;
 
 export const addComment = mutation({
     args: {
@@ -19,7 +23,7 @@ export const addComment = mutation({
             throw new Error("Task not found");
         }
 
-        const hasAccess = await ctx.runQuery(api.projects.checkUserProjectAccess, {
+        const hasAccess = await ctx.runQuery(apiAny.projects.checkUserProjectAccess, {
             projectId: task.projectId,
         });
 
@@ -38,7 +42,7 @@ export const addComment = mutation({
         });
 
         // Log activity for task comment
-        await ctx.runMutation(internal.activityLog.logActivity, {
+        await ctx.runMutation(internalAny.activityLog.logActivity, {
             teamId: task.teamId,
             projectId: task.projectId,
             taskId: args.taskId,
@@ -47,6 +51,33 @@ export const addComment = mutation({
             entityId: commentId,
             entityType: "comment",
         });
+
+        const existingComments = await ctx.db
+            .query("comments")
+            .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+            .collect();
+
+        const recipientClerkUserIds = Array.from(
+            new Set(
+                [
+                    task.assignedTo ?? null,
+                    task.createdBy,
+                    ...existingComments.map((comment) => comment.authorId),
+                ]
+                    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+                    .filter((value) => value !== identity.subject)
+            )
+        );
+
+        if (recipientClerkUserIds.length > 0) {
+            await ctx.scheduler.runAfter(0, internalAny.notifications.sendTaskEventEmail, {
+                taskId: args.taskId,
+                eventType: "task.comment_added",
+                recipientClerkUserIds,
+                actorClerkUserId: identity.subject,
+                commentPreview: args.content.substring(0, 240),
+            });
+        }
 
         return commentId;
     },
@@ -67,7 +98,7 @@ export const getCommentsForTask = query({
             return [];
         }
 
-        const hasAccess = await ctx.runQuery(api.projects.checkUserProjectAccess, {
+        const hasAccess = await ctx.runQuery(apiAny.projects.checkUserProjectAccess, {
             projectId: task.projectId,
         });
 

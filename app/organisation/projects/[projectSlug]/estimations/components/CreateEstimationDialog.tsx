@@ -105,6 +105,10 @@ export function CreateEstimationDialog({
   const createEstimation = useMutation(apiAny.costEstimations.createCostEstimation);
   const updateEstimation = useMutation(apiAny.costEstimations.updateCostEstimation);
   const isEditMode = Boolean(estimationId);
+  const team = useQuery(
+    apiAny.teams.getTeamById,
+    project ? { teamId: project.teamId } : "skip",
+  );
 
   const contactOptions = useMemo(
     () => (projectContacts || []) as ProjectContactOption[],
@@ -149,7 +153,12 @@ export function CreateEstimationDialog({
   const defaultCustomerEmail = (primaryProjectContact?.email || '').trim();
   const defaultCustomerPhone = (primaryProjectContact?.phone || '').trim();
   const defaultCustomerAddress = buildContactAddress(primaryProjectContact);
-  const defaultVatPercent = project?.taxEnabled ? project.taxRate ?? 23 : 0;
+  const defaultVatPercent =
+    project?.taxEnabled
+      ? project.taxRate ?? 23
+      : team?.organizationTaxSettings?.taxEnabled
+        ? team.organizationTaxSettings.taxRate ?? 23
+        : 0;
   const hasProjectCustomerDefaults = Boolean(
     defaultCustomerName || defaultCustomerEmail || defaultCustomerPhone || defaultCustomerAddress
   );

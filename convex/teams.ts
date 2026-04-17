@@ -1,9 +1,18 @@
 import { v } from "convex/values";
-import { query, mutation, internalQuery, internalAction } from "./_generated/server";
+import {
+  query,
+  mutation,
+  internalQuery,
+  internalAction,
+} from "./_generated/server";
 import { Doc } from "./_generated/dataModel";
 import { r2 } from "./files";
 import { getEffectiveLimits } from "./stripe";
-import { ensureProjectAccess, ensureTeamAccess, getActiveTeamMembership } from "./authz";
+import {
+  ensureProjectAccess,
+  ensureTeamAccess,
+  getActiveTeamMembership,
+} from "./authz";
 import {
   billingProfileValidator,
   invoiceFieldRequirementsValidator,
@@ -17,11 +26,21 @@ import {
   clampOrganizationTaxRate,
   normalizeOrganizationPriceDisplay,
   normalizeOrganizationTaxLabel,
+  normalizeTeamTaxRates,
   resolveOrganizationTaxSettings,
+  resolveOrganizationTaxSettingsFromRates,
 } from "../lib/organizationTax";
+import {
+  resolveTeamMemberNotificationSettings,
+  type TeamMemberNotificationSettings,
+} from "../lib/teamMemberNotificationSettings";
 
 const buildPublicR2FileUrl = (key: string) => {
-  const publicBaseUrl = (process.env.NEXT_PUBLIC_R2_PUBLIC_URL || process.env.R2_PUBLIC_URL || "")
+  const publicBaseUrl = (
+    process.env.NEXT_PUBLIC_R2_PUBLIC_URL ||
+    process.env.R2_PUBLIC_URL ||
+    ""
+  )
     .trim()
     .replace(/\/+$/, "");
   if (!publicBaseUrl) {
@@ -89,7 +108,11 @@ export const getTeamByClerkOrg = query({
       return null;
     }
 
-    const membership = await getActiveTeamMembership(ctx, team._id, identity.subject);
+    const membership = await getActiveTeamMembership(
+      ctx,
+      team._id,
+      identity.subject,
+    );
     return membership ? team : null;
   },
 });
@@ -121,9 +144,13 @@ export const getTeamBySlug = query({
       return null;
     }
 
-    const membership = await getActiveTeamMembership(ctx, team._id, identity.subject);
+    const membership = await getActiveTeamMembership(
+      ctx,
+      team._id,
+      identity.subject,
+    );
     return membership ? team : null;
-  }
+  },
 });
 
 export const getTeam = query({
@@ -136,7 +163,7 @@ export const getTeam = query({
     } catch {
       return null;
     }
-  }
+  },
 });
 
 export const getCurrentUserTeamMember = query({
@@ -149,11 +176,11 @@ export const getCurrentUserTeamMember = query({
 
     return await ctx.db
       .query("teamMembers")
-      .withIndex("by_team_and_user", q =>
-        q.eq("teamId", args.teamId).eq("clerkUserId", identity.subject)
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", args.teamId).eq("clerkUserId", identity.subject),
       )
       .unique();
-  }
+  },
 });
 
 export const getTeamMemberByClerkId = internalQuery({
@@ -161,26 +188,38 @@ export const getTeamMemberByClerkId = internalQuery({
     teamId: v.id("teams"),
     clerkUserId: v.string(),
   },
-  returns: v.union(v.object({
-    _id: v.id("teamMembers"),
-    _creationTime: v.number(),
-    teamId: v.id("teams"),
-    clerkUserId: v.string(),
-    clerkOrgId: v.string(),
-    role: v.union(v.literal("admin"), v.literal("member")),
-    permissions: v.array(v.string()),
-    projectIds: v.optional(v.array(v.id("projects"))),
-    joinedAt: v.number(),
-    isActive: v.boolean(),
-  }), v.null()),
+  returns: v.union(
+    v.object({
+      _id: v.id("teamMembers"),
+      _creationTime: v.number(),
+      teamId: v.id("teams"),
+      clerkUserId: v.string(),
+      clerkOrgId: v.string(),
+      role: v.union(v.literal("admin"), v.literal("member")),
+      permissions: v.array(v.string()),
+      projectIds: v.optional(v.array(v.id("projects"))),
+      notificationSettings: v.optional(
+        v.object({
+          taskAssigned: v.optional(v.boolean()),
+          taskUnassigned: v.optional(v.boolean()),
+          taskStatusUpdated: v.optional(v.boolean()),
+          taskDueDateChanged: v.optional(v.boolean()),
+          taskComments: v.optional(v.boolean()),
+        }),
+      ),
+      joinedAt: v.number(),
+      isActive: v.boolean(),
+    }),
+    v.null(),
+  ),
   async handler(ctx, args) {
     return await ctx.db
       .query("teamMembers")
-      .withIndex("by_team_and_user", q =>
-        q.eq("teamId", args.teamId).eq("clerkUserId", args.clerkUserId)
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", args.teamId).eq("clerkUserId", args.clerkUserId),
       )
       .unique();
-  }
+  },
 });
 
 export const getCurrentUserRoleInTeam = query({
@@ -193,21 +232,21 @@ export const getCurrentUserRoleInTeam = query({
 
     const team = await ctx.db
       .query("teams")
-      .withIndex("by_slug", q => q.eq("slug", args.teamSlug))
+      .withIndex("by_slug", (q) => q.eq("slug", args.teamSlug))
       .unique();
 
     if (!team) return null;
 
     const teamMember = await ctx.db
       .query("teamMembers")
-      .withIndex("by_team_and_user", q =>
-        q.eq("teamId", team._id).eq("clerkUserId", identity.subject)
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", team._id).eq("clerkUserId", identity.subject),
       )
-      .filter(q => q.eq(q.field("isActive"), true))
+      .filter((q) => q.eq(q.field("isActive"), true))
       .unique();
 
     return teamMember?.role || null;
-  }
+  },
 });
 
 export const getCurrentUserRoleInClerkOrg = query({
@@ -220,21 +259,21 @@ export const getCurrentUserRoleInClerkOrg = query({
 
     const team = await ctx.db
       .query("teams")
-      .withIndex("by_clerk_org", q => q.eq("clerkOrgId", args.clerkOrgId))
+      .withIndex("by_clerk_org", (q) => q.eq("clerkOrgId", args.clerkOrgId))
       .unique();
 
     if (!team) return null;
 
     const teamMember = await ctx.db
       .query("teamMembers")
-      .withIndex("by_team_and_user", q =>
-        q.eq("teamId", team._id).eq("clerkUserId", identity.subject)
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", team._id).eq("clerkUserId", identity.subject),
       )
-      .filter(q => q.eq(q.field("isActive"), true))
+      .filter((q) => q.eq(q.field("isActive"), true))
       .unique();
 
     return teamMember?.role || null;
-  }
+  },
 });
 
 export const getTeamSettings = query({
@@ -247,7 +286,7 @@ export const getTeamSettings = query({
 
     const team = await ctx.db
       .query("teams")
-      .withIndex("by_slug", q => q.eq("slug", args.teamSlug))
+      .withIndex("by_slug", (q) => q.eq("slug", args.teamSlug))
       .unique();
 
     if (!team) return null;
@@ -255,10 +294,10 @@ export const getTeamSettings = query({
     // Sprawdź czy użytkownik ma dostęp do zespołu
     const teamMember = await ctx.db
       .query("teamMembers")
-      .withIndex("by_team_and_user", q =>
-        q.eq("teamId", team._id).eq("clerkUserId", identity.subject)
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", team._id).eq("clerkUserId", identity.subject),
       )
-      .filter(q => q.eq(q.field("isActive"), true))
+      .filter((q) => q.eq(q.field("isActive"), true))
       .unique();
 
     if (!teamMember) return null;
@@ -270,7 +309,7 @@ export const getTeamSettings = query({
       currency: team.currency || "PLN",
       userRole: teamMember.role,
     };
-  }
+  },
 });
 
 export const updateTeamTimezone = mutation({
@@ -293,7 +332,7 @@ export const updateTeamTimezone = mutation({
     const teamMember = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", args.teamId).eq("clerkUserId", identity.subject)
+        q.eq("teamId", args.teamId).eq("clerkUserId", identity.subject),
       )
       .unique();
 
@@ -319,17 +358,17 @@ export const getTeamSettingsByClerkOrg = query({
 
     const team = await ctx.db
       .query("teams")
-      .withIndex("by_clerk_org", q => q.eq("clerkOrgId", args.clerkOrgId))
+      .withIndex("by_clerk_org", (q) => q.eq("clerkOrgId", args.clerkOrgId))
       .unique();
 
     if (!team) return null;
 
     const teamMember = await ctx.db
       .query("teamMembers")
-      .withIndex("by_team_and_user", q =>
-        q.eq("teamId", team._id).eq("clerkUserId", identity.subject)
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", team._id).eq("clerkUserId", identity.subject),
       )
-      .filter(q => q.eq(q.field("isActive"), true))
+      .filter((q) => q.eq(q.field("isActive"), true))
       .unique();
 
     if (!teamMember) return null;
@@ -342,14 +381,67 @@ export const getTeamSettingsByClerkOrg = query({
       hasCustomOrganizationImage: Boolean(team.customOrganizationImageSetAt),
       currency: team.currency || "PLN",
       timezone: team.timezone,
-      billingProfile: resolveOrganizationBillingProfile(team.billingProfile, team),
-      invoiceFieldRequirements: resolveInvoiceFieldRequirements(team.invoiceFieldRequirements),
-      organizationTaxSettings: resolveOrganizationTaxSettings(
+      billingProfile: resolveOrganizationBillingProfile(
+        team.billingProfile,
+        team,
+      ),
+      invoiceFieldRequirements: resolveInvoiceFieldRequirements(
+        team.invoiceFieldRequirements,
+      ),
+      taxRates: normalizeTeamTaxRates(
+        (team as { taxRates?: unknown[] }).taxRates,
         team.organizationTaxSettings,
+      ),
+      organizationTaxSettings: resolveOrganizationTaxSettingsFromRates(
+        (team as { taxRates?: unknown[] }).taxRates,
+        resolveOrganizationTaxSettings(team.organizationTaxSettings),
+      ),
+      notificationSettings: resolveTeamMemberNotificationSettings(
+        teamMember.notificationSettings,
       ),
       userRole: teamMember.role,
     };
-  }
+  },
+});
+
+export const updateMyNotificationSettings = mutation({
+  args: {
+    teamId: v.id("teams"),
+    notificationSettings: v.object({
+      taskAssigned: v.optional(v.boolean()),
+      taskUnassigned: v.optional(v.boolean()),
+      taskStatusUpdated: v.optional(v.boolean()),
+      taskDueDateChanged: v.optional(v.boolean()),
+      taskComments: v.optional(v.boolean()),
+    }),
+  },
+  async handler(ctx, args) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const teamMember = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", args.teamId).eq("clerkUserId", identity.subject),
+      )
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .unique();
+
+    if (!teamMember) {
+      throw new Error("Not authorized for this team");
+    }
+
+    const normalizedSettings: TeamMemberNotificationSettings =
+      resolveTeamMemberNotificationSettings(args.notificationSettings);
+
+    await ctx.db.patch(teamMember._id, {
+      notificationSettings: normalizedSettings,
+    });
+
+    return { success: true };
+  },
 });
 
 const generateSlug = (name: string) => {
@@ -407,7 +499,7 @@ export const getTeamMembersForIndexing = internalQuery({
 
     // Keep only internal roles.
     const filteredMembers = members.filter(
-      (member) => member.role === "admin" || member.role === "member"
+      (member) => member.role === "admin" || member.role === "member",
     );
 
     // Get user details for each member (including name and email for AI matching)
@@ -415,14 +507,16 @@ export const getTeamMembersForIndexing = internalQuery({
       filteredMembers.map(async (member) => {
         const user = await ctx.db
           .query("users")
-          .withIndex("by_clerk_user_id", q => q.eq("clerkUserId", member.clerkUserId))
+          .withIndex("by_clerk_user_id", (q) =>
+            q.eq("clerkUserId", member.clerkUserId),
+          )
           .unique();
         return {
           clerkUserId: member.clerkUserId,
           name: user?.name,
           email: user?.email,
         };
-      })
+      }),
     );
   },
 });
@@ -447,7 +541,9 @@ export const getTeamMembersWithUserDetails = internalQuery({
         .map(async (member) => {
           const user = await ctx.db
             .query("users")
-            .withIndex("by_clerk_user_id", q => q.eq("clerkUserId", member.clerkUserId))
+            .withIndex("by_clerk_user_id", (q) =>
+              q.eq("clerkUserId", member.clerkUserId),
+            )
             .unique();
           return {
             ...member,
@@ -455,7 +551,7 @@ export const getTeamMembersWithUserDetails = internalQuery({
             email: user?.email ?? "No Email",
             imageUrl: user?.imageUrl,
           };
-        })
+        }),
     );
   },
 });
@@ -474,7 +570,9 @@ export const getTeamMembers = query({
       members.map(async (member) => {
         const user = await ctx.db
           .query("users")
-          .withIndex("by_clerk_user_id", q => q.eq("clerkUserId", member.clerkUserId))
+          .withIndex("by_clerk_user_id", (q) =>
+            q.eq("clerkUserId", member.clerkUserId),
+          )
           .unique();
         return {
           ...member,
@@ -482,7 +580,7 @@ export const getTeamMembers = query({
           email: user?.email ?? "No email",
           imageUrl: user?.imageUrl,
         };
-      })
+      }),
     );
   },
 });
@@ -490,7 +588,7 @@ export const getTeamMembers = query({
 export const getProjectMembers = query({
   args: {
     teamId: v.id("teams"),
-    projectId: v.optional(v.id("projects"))
+    projectId: v.optional(v.id("projects")),
   },
   async handler(ctx, args) {
     if (args.projectId) {
@@ -514,7 +612,9 @@ export const getProjectMembers = query({
     for (const member of teamMembers) {
       const user = await ctx.db
         .query("users")
-        .withIndex("by_clerk_user_id", q => q.eq("clerkUserId", member.clerkUserId))
+        .withIndex("by_clerk_user_id", (q) =>
+          q.eq("clerkUserId", member.clerkUserId),
+        )
         .unique();
 
       result.push({
@@ -522,9 +622,8 @@ export const getProjectMembers = query({
         name: user?.name ?? "User without name",
         email: user?.email ?? "No email",
         imageUrl: user?.imageUrl,
-        source: "teamMember"
+        source: "teamMember",
       });
-
     }
 
     return result;
@@ -543,8 +642,8 @@ export const removeTeamMember = mutation({
     // Sprawdź uprawnienia wywołującego (musi być admin)
     const callerMember = await ctx.db
       .query("teamMembers")
-      .withIndex("by_team_and_user", q =>
-        q.eq("teamId", args.teamId).eq("clerkUserId", identity.subject)
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", args.teamId).eq("clerkUserId", identity.subject),
       )
       .unique();
 
@@ -555,8 +654,8 @@ export const removeTeamMember = mutation({
     // Find the member to remove
     const targetMember = await ctx.db
       .query("teamMembers")
-      .withIndex("by_team_and_user", q =>
-        q.eq("teamId", args.teamId).eq("clerkUserId", args.clerkUserId)
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", args.teamId).eq("clerkUserId", args.clerkUserId),
       )
       .unique();
 
@@ -573,17 +672,14 @@ export const removeTeamMember = mutation({
     await ctx.db.delete(targetMember._id);
 
     return { success: true };
-  }
+  },
 });
 
 export const inviteTeamMember = mutation({
   args: {
     teamId: v.id("teams"),
     email: v.string(),
-    role: v.union(
-      v.literal("admin"),
-      v.literal("member")
-    ),
+    role: v.union(v.literal("admin"), v.literal("member")),
   },
   async handler(ctx, args) {
     const identity = await ctx.auth.getUserIdentity();
@@ -599,7 +695,7 @@ export const inviteTeamMember = mutation({
     const currentUserMember = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", args.teamId).eq("clerkUserId", identity.subject)
+        q.eq("teamId", args.teamId).eq("clerkUserId", identity.subject),
       )
       .unique();
 
@@ -608,6 +704,22 @@ export const inviteTeamMember = mutation({
     }
 
     const normalizedEmail = args.email.trim().toLowerCase();
+
+    const existingPendingInvitations = await ctx.db
+      .query("invitations")
+      .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("status"), "pending"),
+          q.eq(q.field("email"), normalizedEmail),
+        ),
+      )
+      .collect();
+
+    if (existingPendingInvitations.length > 0) {
+      throw new Error("An invitation has already been sent to this email address");
+    }
+
     const matchingUsers = await ctx.db
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
@@ -620,7 +732,11 @@ export const inviteTeamMember = mutation({
         .filter((q) => q.eq(q.field("isActive"), true))
         .collect();
 
-      if (activeMemberships.some((membership) => membership.teamId === args.teamId)) {
+      if (
+        activeMemberships.some(
+          (membership) => membership.teamId === args.teamId,
+        )
+      ) {
         throw new Error("User is already a member of this workspace");
       }
 
@@ -667,9 +783,10 @@ export const sendClerkInvitation = internalAction({
     }
 
     // Map our internal role to a Clerk role.
-    const clerkRole = args.role === 'admin' ? 'org:admin' : 'org:member';
+    const clerkRole = args.role === "admin" ? "org:admin" : "org:member";
 
-    const redirectUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+    const redirectUrl =
+      process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
     try {
       const response = await fetch(
@@ -686,16 +803,16 @@ export const sendClerkInvitation = internalAction({
             inviter_user_id: args.invitedBy,
             redirect_url: redirectUrl,
           }),
-        }
+        },
       );
 
       if (!response.ok) {
         const errorBody = await response.json();
         console.error("Clerk API Error:", JSON.stringify(errorBody, null, 2));
-        const clerkError = errorBody.errors[0]?.long_message || "Failed to send invitation.";
+        const clerkError =
+          errorBody.errors[0]?.long_message || "Failed to send invitation.";
         throw new Error(`Clerk API Error: ${clerkError}`);
       }
-
     } catch (error) {
       console.error("Failed to send Clerk invitation:", error);
       throw new Error((error as Error).message);
@@ -723,7 +840,7 @@ export const revokeClerkInvitation = internalAction({
           Authorization: `Bearer ${clerkApiKey}`,
         },
         body: JSON.stringify({}),
-      }
+      },
     );
 
     if (!response.ok) {
@@ -738,10 +855,7 @@ export const changeTeamMemberRole = mutation({
   args: {
     clerkUserId: v.string(),
     teamId: v.id("teams"),
-    role: v.union(
-      v.literal("admin"),
-      v.literal("member")
-    ),
+    role: v.union(v.literal("admin"), v.literal("member")),
   },
   async handler(ctx, args) {
     const identity = await ctx.auth.getUserIdentity();
@@ -750,8 +864,8 @@ export const changeTeamMemberRole = mutation({
     // Sprawdź uprawnienia wywołującego (musi być admin)
     const callerMember = await ctx.db
       .query("teamMembers")
-      .withIndex("by_team_and_user", q =>
-        q.eq("teamId", args.teamId).eq("clerkUserId", identity.subject)
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", args.teamId).eq("clerkUserId", identity.subject),
       )
       .unique();
 
@@ -762,8 +876,8 @@ export const changeTeamMemberRole = mutation({
     // Znajdź członka do zmiany
     const targetMember = await ctx.db
       .query("teamMembers")
-      .withIndex("by_team_and_user", q =>
-        q.eq("teamId", args.teamId).eq("clerkUserId", args.clerkUserId)
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", args.teamId).eq("clerkUserId", args.clerkUserId),
       )
       .unique();
 
@@ -775,7 +889,7 @@ export const changeTeamMemberRole = mutation({
     await ctx.db.patch(targetMember._id, { role: args.role });
 
     return { success: true };
-  }
+  },
 });
 
 export const addExistingMemberToProject = mutation({
@@ -797,20 +911,23 @@ export const addExistingMemberToProject = mutation({
     // Sprawdź uprawnienia wywołującego
     const callerMember = await ctx.db
       .query("teamMembers")
-      .withIndex("by_team_and_user", q =>
-        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject),
       )
       .unique();
 
-    if (!callerMember || (callerMember.role !== "admin" && callerMember.role !== "member")) {
+    if (
+      !callerMember ||
+      (callerMember.role !== "admin" && callerMember.role !== "member")
+    ) {
       throw new Error("Insufficient permissions");
     }
 
     // Znajdź członka organizacji do dodania
     const targetMember = await ctx.db
       .query("teamMembers")
-      .withIndex("by_team_and_user", q =>
-        q.eq("teamId", project.teamId).eq("clerkUserId", args.clerkUserId)
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", project.teamId).eq("clerkUserId", args.clerkUserId),
       )
       .unique();
 
@@ -819,7 +936,7 @@ export const addExistingMemberToProject = mutation({
     }
 
     return { success: true, message: "Project-scoped access is disabled." };
-  }
+  },
 });
 
 export const getAvailableOrgMembersForProject = query({
@@ -828,7 +945,7 @@ export const getAvailableOrgMembersForProject = query({
   },
   async handler() {
     return [];
-  }
+  },
 });
 
 export const debugTeamMembers = query({
@@ -853,18 +970,22 @@ export const debugTeamMembers = query({
     // Pobierz wszystkich członków tej organizacji
     const allMembers = await ctx.db
       .query("teamMembers")
-      .withIndex("by_team", q => q.eq("teamId", access.project.teamId))
+      .withIndex("by_team", (q) => q.eq("teamId", access.project.teamId))
       .collect();
 
     // Pobierz zespół
-    const team = await ctx.db.get(access.project.teamId) as Doc<"teams"> | null;
+    const team = (await ctx.db.get(
+      access.project.teamId,
+    )) as Doc<"teams"> | null;
 
     // Dodaj dane użytkowników
     const membersWithUserData = await Promise.all(
       allMembers.map(async (member) => {
         const user = await ctx.db
           .query("users")
-          .withIndex("by_clerk_user_id", q => q.eq("clerkUserId", member.clerkUserId))
+          .withIndex("by_clerk_user_id", (q) =>
+            q.eq("clerkUserId", member.clerkUserId),
+          )
           .unique();
 
         return {
@@ -875,7 +996,7 @@ export const debugTeamMembers = query({
           name: user?.name ?? "No user data",
           email: user?.email ?? "No email",
         };
-      })
+      }),
     );
 
     return {
@@ -883,9 +1004,9 @@ export const debugTeamMembers = query({
       teamName: team?.name,
       clerkOrgId: team?.clerkOrgId,
       totalMembers: allMembers.length,
-      members: membersWithUserData
+      members: membersWithUserData,
     };
-  }
+  },
 });
 
 export const getPendingInvitations = query({
@@ -929,7 +1050,7 @@ export const revokeInvitation = mutation({
     const currentUserMember = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", invitation.teamId).eq("clerkUserId", identity.subject)
+        q.eq("teamId", invitation.teamId).eq("clerkUserId", identity.subject),
       )
       .unique();
 
@@ -965,16 +1086,35 @@ export const updateTeamSettings = mutation({
     teamId: v.id("teams"),
     imageUrl: v.optional(v.string()),
     markCustomImageUploaded: v.optional(v.boolean()),
-    currency: v.optional(v.union(
-      v.literal("USD"), v.literal("EUR"), v.literal("PLN"), v.literal("GBP"),
-      v.literal("CAD"), v.literal("AUD"), v.literal("JPY"), v.literal("CHF"),
-      v.literal("SEK"), v.literal("NOK"), v.literal("DKK"), v.literal("CZK"),
-      v.literal("HUF"), v.literal("CNY"), v.literal("INR"), v.literal("BRL"),
-      v.literal("MXN"), v.literal("KRW"), v.literal("SGD"), v.literal("HKD")
-    )),
+    currency: v.optional(
+      v.union(
+        v.literal("USD"),
+        v.literal("EUR"),
+        v.literal("PLN"),
+        v.literal("GBP"),
+        v.literal("CAD"),
+        v.literal("AUD"),
+        v.literal("JPY"),
+        v.literal("CHF"),
+        v.literal("SEK"),
+        v.literal("NOK"),
+        v.literal("DKK"),
+        v.literal("CZK"),
+        v.literal("HUF"),
+        v.literal("CNY"),
+        v.literal("INR"),
+        v.literal("BRL"),
+        v.literal("MXN"),
+        v.literal("KRW"),
+        v.literal("SGD"),
+        v.literal("HKD"),
+      ),
+    ),
     timezone: v.optional(v.string()),
     billingProfile: v.optional(v.union(billingProfileValidator, v.null())),
-    invoiceFieldRequirements: v.optional(v.union(invoiceFieldRequirementsValidator, v.null())),
+    invoiceFieldRequirements: v.optional(
+      v.union(invoiceFieldRequirementsValidator, v.null()),
+    ),
     organizationTaxSettings: v.optional(
       v.union(
         v.object({
@@ -995,11 +1135,16 @@ export const updateTeamSettings = mutation({
       throw new Error("Not authenticated");
     }
 
+    const team = await ctx.db.get(args.teamId);
+    if (!team) {
+      throw new Error("Team not found");
+    }
+
     // Sprawdź uprawnienia - tylko admin może zmieniać ustawienia zespołu
     const teamMember = await ctx.db
       .query("teamMembers")
-      .withIndex("by_team_and_user", q =>
-        q.eq("teamId", args.teamId).eq("clerkUserId", identity.subject)
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", args.teamId).eq("clerkUserId", identity.subject),
       )
       .unique();
 
@@ -1013,7 +1158,9 @@ export const updateTeamSettings = mutation({
       imageUrl?: string | undefined;
       customOrganizationImageSetAt?: number;
       billingProfile?: ReturnType<typeof normalizeBillingProfile>;
-      invoiceFieldRequirements?: ReturnType<typeof normalizeInvoiceFieldRequirements>;
+      invoiceFieldRequirements?: ReturnType<
+        typeof normalizeInvoiceFieldRequirements
+      >;
       organizationTaxSettings?: typeof DEFAULT_ORGANIZATION_TAX_SETTINGS;
     } = {};
 
@@ -1038,23 +1185,41 @@ export const updateTeamSettings = mutation({
       patch.billingProfile = normalizeBillingProfile(args.billingProfile);
     }
 
-    if (Object.prototype.hasOwnProperty.call(args, "invoiceFieldRequirements")) {
-      patch.invoiceFieldRequirements = normalizeInvoiceFieldRequirements(args.invoiceFieldRequirements);
+    if (
+      Object.prototype.hasOwnProperty.call(args, "invoiceFieldRequirements")
+    ) {
+      patch.invoiceFieldRequirements = normalizeInvoiceFieldRequirements(
+        args.invoiceFieldRequirements,
+      );
     }
 
     if (Object.prototype.hasOwnProperty.call(args, "organizationTaxSettings")) {
-      const normalizedTaxSettings = args.organizationTaxSettings
-        ? resolveOrganizationTaxSettings({
-            taxEnabled: args.organizationTaxSettings.taxEnabled,
-            taxRate: clampOrganizationTaxRate(args.organizationTaxSettings.taxRate),
-            taxLabel: normalizeOrganizationTaxLabel(
-              args.organizationTaxSettings.taxLabel,
-            ),
-            priceDisplay: normalizeOrganizationPriceDisplay(
-              args.organizationTaxSettings.priceDisplay,
-            ),
-          })
-        : DEFAULT_ORGANIZATION_TAX_SETTINGS;
+      const currentTaxRates = normalizeTeamTaxRates(
+        (team as { taxRates?: unknown[] }).taxRates,
+        team.organizationTaxSettings,
+      );
+      const normalizedTaxSettings =
+        currentTaxRates.length > 0
+          ? resolveOrganizationTaxSettingsFromRates(currentTaxRates, {
+              ...team.organizationTaxSettings,
+              priceDisplay: normalizeOrganizationPriceDisplay(
+                args.organizationTaxSettings?.priceDisplay,
+              ),
+            })
+          : args.organizationTaxSettings
+            ? resolveOrganizationTaxSettings({
+                taxEnabled: args.organizationTaxSettings.taxEnabled,
+                taxRate: clampOrganizationTaxRate(
+                  args.organizationTaxSettings.taxRate,
+                ),
+                taxLabel: normalizeOrganizationTaxLabel(
+                  args.organizationTaxSettings.taxLabel,
+                ),
+                priceDisplay: normalizeOrganizationPriceDisplay(
+                  args.organizationTaxSettings.priceDisplay,
+                ),
+              })
+            : DEFAULT_ORGANIZATION_TAX_SETTINGS;
 
       patch.organizationTaxSettings = normalizedTaxSettings;
     }
@@ -1091,7 +1256,7 @@ export const generateTeamImageUploadUrl = mutation({
     const teamMember = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", args.teamId).eq("clerkUserId", identity.subject)
+        q.eq("teamId", args.teamId).eq("clerkUserId", identity.subject),
       )
       .unique();
 
@@ -1103,7 +1268,11 @@ export const generateTeamImageUploadUrl = mutation({
       ? args.fileName.split(".").pop()
       : "";
     const baseName = args.fileName.replace(/\.[^/.]+$/, "");
-    const safeBaseName = baseName.replace(/[^a-zA-Z0-9-_]/g, "-").replace(/-+/g, "-").slice(0, 80) || "logo";
+    const safeBaseName =
+      baseName
+        .replace(/[^a-zA-Z0-9-_]/g, "-")
+        .replace(/-+/g, "-")
+        .slice(0, 80) || "logo";
     const key = `${team.slug}/organization/logo/${crypto.randomUUID()}-${safeBaseName}${fileExtension ? `.${fileExtension}` : ""}`;
     const uploadData = await r2.generateUploadUrl(key);
     const publicUrl = buildPublicR2FileUrl(key);
@@ -1146,7 +1315,7 @@ export const getTeamResourceUsage = query({
     const membership = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", args.teamId).eq("clerkUserId", identity.subject)
+        q.eq("teamId", args.teamId).eq("clerkUserId", identity.subject),
       )
       .unique();
 
@@ -1175,8 +1344,10 @@ export const getTeamResourceUsage = query({
     const projectsLimit = limits.maxProjects;
     const membersLimit = limits.maxTeamMembers;
 
-    const projectsPercentUsed = projectsLimit > 0 ? Math.round((projectsUsed / projectsLimit) * 100) : 0;
-    const membersPercentUsed = membersLimit > 0 ? Math.round((membersUsed / membersLimit) * 100) : 0;
+    const projectsPercentUsed =
+      projectsLimit > 0 ? Math.round((projectsUsed / projectsLimit) * 100) : 0;
+    const membersPercentUsed =
+      membersLimit > 0 ? Math.round((membersUsed / membersLimit) * 100) : 0;
 
     return {
       projectsUsed,

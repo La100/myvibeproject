@@ -40,6 +40,20 @@ const getInviteErrorToast = (error: unknown) => {
     };
   }
 
+  if (message === "This user is already a member of this workspace.") {
+    return {
+      title: "Member already exists",
+      description: message,
+    };
+  }
+
+  if (message === "An invitation has already been sent to this email address.") {
+    return {
+      title: "Invitation already pending",
+      description: message,
+    };
+  }
+
   return {
     title: "Failed to send invitation",
     description: message,
@@ -50,11 +64,13 @@ export function InviteMemberDialog({ teamId, children }: InviteMemberDialogProps
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<InvitationRole>("member");
   const [isOpen, setIsOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const inviteTeamMember = useMutation(apiAny.teams.inviteTeamMember);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
     try {
       await inviteTeamMember({ teamId, email, role });
       toast.success("Invitation Sent", {
@@ -68,6 +84,8 @@ export function InviteMemberDialog({ teamId, children }: InviteMemberDialogProps
       toast.error(toastContent.title, {
         description: toastContent.description,
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -117,7 +135,9 @@ export function InviteMemberDialog({ teamId, children }: InviteMemberDialogProps
                 Cancel
               </Button>
             </DialogClose>
-            <Button type="submit">Send Invitation</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Sending..." : "Send Invitation"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
