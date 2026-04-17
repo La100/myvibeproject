@@ -7,6 +7,9 @@ import { UserButton, useUser } from "@clerk/nextjs";
 import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import Logo from "../Logo";
 
+const CHROME_WEB_STORE_URL =
+  "https://chromewebstore.google.com/detail/myvibeproject-web-clipper/nklbcopiimkboameblhnmdookkelncih";
+
 const navLinks = [
   { label: "Product", href: "/#product" },
   { label: "Pricing", href: "/#pricing" },
@@ -38,6 +41,19 @@ export function Navbar() {
         </nav>
 
         <div className="hidden items-center gap-2.5 md:flex">
+          <Button
+            asChild
+            variant="ghost"
+            className="h-9 rounded-full px-3 text-sm font-medium"
+          >
+            <Link
+              href={CHROME_WEB_STORE_URL}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Web Clipper
+            </Link>
+          </Button>
           {isSignedIn ? (
             <>
             <Button
@@ -78,6 +94,16 @@ export function Navbar() {
               <SheetTitle className="sr-only">Main navigation</SheetTitle>
               <div className="mx-auto flex w-full max-w-md flex-col gap-6">
                 <div className="flex flex-col gap-2">
+                  <SheetClose asChild>
+                    <Link
+                      href={CHROME_WEB_STORE_URL}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-2xl border border-border/60 px-5 py-4 text-base text-foreground"
+                    >
+                      Web Clipper
+                    </Link>
+                  </SheetClose>
                   {navLinks.map((link) => (
                     <SheetClose asChild key={link.label}>
                       <Link

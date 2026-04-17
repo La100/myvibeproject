@@ -1,5 +1,8 @@
 "use client";
 
+import Link from "next/link";
+import type { ReactNode } from "react";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -28,7 +31,7 @@ interface OnboardingStep {
   actionLabel: string;
   onAction: () => void;
   icon: typeof FolderPlusIcon;
-  helperText?: string;
+  helperText?: ReactNode;
 }
 
 function StepCard({
@@ -95,6 +98,9 @@ export function ShoppingListOnboarding({
   onConnectClipperClick,
   onAddProductClick,
 }: ShoppingListOnboardingProps) {
+  const chromeWebStoreUrl =
+    "https://chromewebstore.google.com/detail/myvibeproject-web-clipper/nklbcopiimkboameblhnmdookkelncih";
+
   const steps: OnboardingStep[] = [
     {
       title: sectionsCount > 0 ? "Sections are ready" : "Name your sections",
@@ -115,7 +121,20 @@ export function ShoppingListOnboarding({
               "Connect the browser extension once, then clip products from store pages instead of filling the list manually.",
             done: false,
             actionLabel: "Connect clipper",
-            helperText: "Chrome Web Store link will be added here once the extension is published.",
+            helperText: (
+              <>
+                Install it from the{" "}
+                <Link
+                  href={chromeWebStoreUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-medium text-foreground underline underline-offset-4"
+                >
+                  Chrome Web Store
+                </Link>{" "}
+                first, then sync your session in the extension.
+              </>
+            ),
             onAction: onConnectClipperClick,
             icon: PlugZapIcon,
           },

@@ -16,7 +16,6 @@ interface ToastState {
 
 type LocalStorageSnapshot = {
   [STORAGE_KEYS.TOKEN]?: string;
-  [STORAGE_KEYS.USER]?: string;
   [STORAGE_KEYS.TEAMS]?: string;
   [STORAGE_KEYS.SELECTED_TEAM_ID]?: string;
   [STORAGE_KEYS.SELECTED_PROJECT_ID]?: string;
@@ -68,7 +67,6 @@ const App = () => {
   const loadStorage = useCallback(async (): Promise<LocalStorageSnapshot> => {
     const data = await chrome.storage.local.get([
       STORAGE_KEYS.TOKEN,
-      STORAGE_KEYS.USER,
       STORAGE_KEYS.TEAMS,
       STORAGE_KEYS.SELECTED_TEAM_ID,
       STORAGE_KEYS.SELECTED_PROJECT_ID,
@@ -91,7 +89,6 @@ const App = () => {
     await chrome.storage.local.remove([
       STORAGE_KEYS.TOKEN,
       STORAGE_KEYS.TOKEN_TIMESTAMP,
-      STORAGE_KEYS.USER,
       STORAGE_KEYS.TEAMS,
       STORAGE_KEYS.SELECTED_TEAM_ID,
       STORAGE_KEYS.SELECTED_PROJECT_ID,
@@ -124,7 +121,6 @@ const App = () => {
         }
 
         await chrome.storage.local.set({
-          [STORAGE_KEYS.USER]: JSON.stringify(data.user),
           [STORAGE_KEYS.TEAMS]: JSON.stringify(data.teams),
         });
 
@@ -197,11 +193,21 @@ const App = () => {
         return;
       }
 
-      const cachedUser = safeJsonParse<User>(snapshot[STORAGE_KEYS.USER]);
       const cachedTeams = safeJsonParse<Team[]>(snapshot[STORAGE_KEYS.TEAMS]);
 
-      if (cachedUser && cachedTeams) {
-        await applySession(cachedUser, cachedTeams, snapshot);
+      if (cachedTeams) {
+        const refreshed = await refreshSession(token);
+        if (!refreshed || "authFailed" in refreshed) {
+          await clearCachedData();
+          setState((prev) => ({
+            ...prev,
+            isLoading: false,
+            currentView: "login",
+          }));
+          return;
+        }
+
+        await applySession(refreshed.user, refreshed.teams, snapshot);
       } else {
         const refreshed = await refreshSession(token);
         if (!refreshed || "authFailed" in refreshed) {
@@ -328,7 +334,6 @@ const App = () => {
         {state.currentView === "team" && state.user && (
           <TeamView
             teams={state.teams}
-            user={state.user}
             onTeamSelect={handleTeamSelect}
             onLogout={handleLogout}
           />

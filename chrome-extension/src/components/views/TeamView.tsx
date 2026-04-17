@@ -1,16 +1,15 @@
-import type { Team, User } from "../../types"
+import type { Team } from "../../types"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Building2, ChevronRight, LogOut, Users2 } from "lucide-react"
 
 interface TeamViewProps {
   teams: Team[]
-  user: User
   onTeamSelect: (team: Team) => void
   onLogout: () => void
 }
 
-const TeamView = ({ teams, user, onTeamSelect, onLogout }: TeamViewProps) => {
+const TeamView = ({ teams, onTeamSelect, onLogout }: TeamViewProps) => {
   return (
     <div className="flex h-full flex-col px-4 pb-4 pt-5">
       <div className="mb-4 flex items-start justify-between">
@@ -30,7 +29,7 @@ const TeamView = ({ teams, user, onTeamSelect, onLogout }: TeamViewProps) => {
           <Users2 className="h-4 w-4 text-primary" />
           <span className="font-semibold">{teams.length} teams</span>
         </div>
-        <span className="vp-chip">{user.email}</span>
+        <span className="vp-chip">MyVibeProject</span>
       </div>
 
       {teams.length === 0 ? (
