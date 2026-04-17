@@ -30,6 +30,20 @@ const ensureProductAccess = async (
   return product;
 };
 
+const ensureShoppingItemAccess = async (
+  ctx: MutationCtx,
+  itemId: Id<"shoppingListItems">,
+  actorClerkUserId?: string,
+) => {
+  const item = await ctx.db.get(itemId);
+  if (!item) {
+    throw new Error("Shopping list item not found");
+  }
+
+  const { project } = await ensureProjectAccess(ctx, item.projectId, actorClerkUserId);
+  return { item, project };
+};
+
 const ensureShoppingSectionBelongsToProject = async (
   ctx: MutationCtx,
   sectionId: Id<"shoppingListSections"> | undefined,
@@ -203,6 +217,32 @@ export const createProduct = mutation({
     return await ctx.db.insert("productLibrary", {
       ...args,
       createdBy: clerkUserId,
+      isActive: true,
+    });
+  },
+});
+
+export const createProductFromShoppingListItem = mutation({
+  args: {
+    itemId: v.id("shoppingListItems"),
+  },
+  handler: async (ctx, args) => {
+    const { item, project } = await ensureShoppingItemAccess(ctx, args.itemId);
+
+    return await ctx.db.insert("productLibrary", {
+      name: item.name,
+      description: item.notes,
+      category: item.category,
+      sku: item.catalogNumber,
+      imageUrl: item.imageUrl,
+      productLink: item.productLink,
+      supplier: item.supplier,
+      dimensions: item.dimensions,
+      unitPrice: item.unitPrice,
+      tags: [],
+      notes: item.notes,
+      teamId: project.teamId,
+      createdBy: item.createdBy,
       isActive: true,
     });
   },

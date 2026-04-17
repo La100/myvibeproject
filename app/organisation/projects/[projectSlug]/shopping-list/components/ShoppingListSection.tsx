@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
+import { useMutation } from "convex/react";
 import { Doc, Id } from "@/convex/_generated/dataModel";
 import type { TeamMember } from "@/lib/teamMember";
 import { buildShoppingSetContext, calculateShoppingTotal, isItemCountedInShoppingTotal } from "@/lib/shoppingSets";
+import { apiAny } from "@/lib/convexApiAny";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -24,6 +26,7 @@ import {
   CalendarIcon,
   Layers3Icon,
   Loader2,
+  LibraryBig,
   PlusIcon,
   SaveIcon,
   TrashIcon,
@@ -146,6 +149,10 @@ export function ShoppingListSection({
   const [showAddForm, setShowAddForm] = useState(false);
   const [addingAlternativeSetId, setAddingAlternativeSetId] = useState<string | null>(null);
   const [isEditScraping, setIsEditScraping] = useState(false);
+  const [savingToLibraryItemId, setSavingToLibraryItemId] = useState<string | null>(null);
+  const createProductFromShoppingListItem = useMutation(
+    apiAny.productLibrary.createProductFromShoppingListItem,
+  );
 
   const setsById = useMemo(
     () => new Map(allSets.map((set) => [String(set._id), set])),
@@ -361,6 +368,23 @@ export function ShoppingListSection({
       toast.error((error as Error).message || "Could not import product details");
     } finally {
       setIsEditScraping(false);
+    }
+  };
+
+  const handleAddToProductLibrary = async (item: ShoppingListItem) => {
+    const itemId = String(item._id);
+    if (savingToLibraryItemId === itemId) {
+      return;
+    }
+
+    setSavingToLibraryItemId(itemId);
+    try {
+      await createProductFromShoppingListItem({ itemId: item._id });
+      toast.success("Added to product library");
+    } catch (error) {
+      toast.error((error as Error).message || "Could not add product to library");
+    } finally {
+      setSavingToLibraryItemId((current) => (current === itemId ? null : current));
     }
   };
 
@@ -625,7 +649,21 @@ export function ShoppingListSection({
         ) : null}
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => void handleAddToProductLibrary(item)}
+          disabled={isPending || savingToLibraryItemId === String(item._id)}
+        >
+          {savingToLibraryItemId === String(item._id) ? (
+            <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+          ) : (
+            <LibraryBig className="mr-1 h-4 w-4" />
+          )}
+          Add to product library
+        </Button>
         <Button
           size="sm"
           onClick={() => handleSaveEdit(item._id)}

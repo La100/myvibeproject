@@ -43,6 +43,8 @@ export default function FilesView() {
   const [folderPath, setFolderPath] = useState<Array<{ id: Id<"folders"> | undefined, name: string }>>([]);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [uploadingFileName, setUploadingFileName] = useState<string | null>(null);
   const [aiKnowledgeBusyFileId, setAiKnowledgeBusyFileId] = useState<Id<"files"> | null>(null);
   const [fileForPreview, setFileForPreview] = useState<{
     _id: string;
@@ -131,6 +133,8 @@ export default function FilesView() {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    setIsUploadingFile(true);
+    setUploadingFileName(file.name);
     try {
       // 1. Generate upload URL with custom folder structure
       const uploadData = await generateUploadUrl({
@@ -166,11 +170,14 @@ export default function FilesView() {
       });
 
       toast.success("File uploaded successfully");
-      event.target.value = ""; // Reset file input
     } catch (error) {
       toast.error("Failed to upload file", {
         description: toUserFacingErrorMessage(error)
       });
+    } finally {
+      setIsUploadingFile(false);
+      setUploadingFileName(null);
+      event.target.value = ""; // Reset file input
     }
   };
 
@@ -378,15 +385,29 @@ export default function FilesView() {
               accept="image/*,video/*,application/pdf,.dwg,.dxf,.doc,.docx,.mp4,.avi,.mov,.wmv,.flv,.webm,.mkv"
               className="absolute inset-0 opacity-0 cursor-pointer"
               id="file-upload"
+              disabled={isUploadingFile}
             />
-            <Button asChild>
-              <label htmlFor="file-upload" className="cursor-pointer">
-                <Upload className="h-4 w-4 mr-2" />
-                Upload File
+            <Button asChild disabled={isUploadingFile}>
+              <label
+                htmlFor="file-upload"
+                className={isUploadingFile ? "cursor-not-allowed" : "cursor-pointer"}
+              >
+                {isUploadingFile ? <Spinner fullHeight={false} className="py-0 mr-2" iconClassName="size-4" /> : <Upload className="h-4 w-4 mr-2" />}
+                {isUploadingFile ? "Uploading..." : "Upload File"}
               </label>
             </Button>
           </div>
         </div>
+
+        {isUploadingFile && (
+          <div className="mb-6 flex items-center gap-3 rounded-2xl border border-border/70 bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+            <Spinner fullHeight={false} className="py-0" iconClassName="size-4" />
+            <span>
+              Uploading {uploadingFileName ? `"${uploadingFileName}"` : "file"}.
+              Larger files can take a while.
+            </span>
+          </div>
+        )}
 
         {/* Content Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
