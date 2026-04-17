@@ -145,15 +145,21 @@ function getAuthTokenFromRequest(req: Request): string | null {
   return value.trim();
 }
 
-function getConvexClient(token: string): ConvexHttpClient {
+function getConvexClient(token?: string | null): ConvexHttpClient {
   const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
   if (!convexUrl) {
     throw new Error("Missing NEXT_PUBLIC_CONVEX_URL");
   }
 
   const client = new ConvexHttpClient(convexUrl);
-  client.setAuth(token);
+  if (token) {
+    client.setAuth(token);
+  }
   return client;
+}
+
+function isExtensionSessionToken(token: string): boolean {
+  return token.startsWith("mvp_ext_");
 }
 
 function asOptionalBoundedString(
@@ -349,6 +355,7 @@ async function uploadCapturedClipperImage(
     mutation: (ref: unknown, args: unknown) => Promise<unknown>;
   },
   payload: AddShoppingListItemPayload,
+  extensionSessionToken: string | null,
 ): Promise<string> {
   if (!payload.capturedImageDataUrl) {
     throw new Error("Missing captured clipper image");
@@ -358,12 +365,21 @@ async function uploadCapturedClipperImage(
     payload.capturedImageDataUrl,
   );
   const uploadData = (await convexAny.mutation(
-    apiAny.files.generateUploadUrlWithCustomKey,
-    {
-      projectId: payload.projectId,
-      fileName: `clipper-capture.${extension}`,
-      fileSize: bytes.byteLength,
-    },
+    extensionSessionToken
+      ? apiAny.files.generateUploadUrlWithCustomKeyForExtensionSession
+      : apiAny.files.generateUploadUrlWithCustomKey,
+    extensionSessionToken
+      ? {
+          extensionToken: extensionSessionToken,
+          projectId: payload.projectId,
+          fileName: `clipper-capture.${extension}`,
+          fileSize: bytes.byteLength,
+        }
+      : {
+          projectId: payload.projectId,
+          fileName: `clipper-capture.${extension}`,
+          fileSize: bytes.byteLength,
+        },
   )) as { url: string; publicUrl: string };
   const uploadBody = new ArrayBuffer(bytes.byteLength);
   new Uint8Array(uploadBody).set(bytes);
@@ -405,7 +421,8 @@ export async function GET(req: Request) {
   }
 
   try {
-    const convex = getConvexClient(token);
+    const extensionSessionToken = isExtensionSessionToken(token) ? token : null;
+    const convex = getConvexClient(extensionSessionToken ? null : token);
     const convexAny = convex as typeof convex & {
       query: (ref: unknown, args: unknown) => Promise<unknown>;
     };
@@ -424,33 +441,51 @@ export async function GET(req: Request) {
 
     if (teamId && projectId) {
       const [sections, sets] = await Promise.all([
-        convexAny.query(apiAny.clipper.getShoppingListSections, {
-          projectId: projectId as Id<"projects">,
-          teamId: teamId as Id<"teams">,
-        }),
-        convexAny.query(apiAny.clipper.getShoppingSetsForProject, {
-          projectId: projectId as Id<"projects">,
-          teamId: teamId as Id<"teams">,
-        }),
+        extensionSessionToken
+          ? convexAny.query(apiAny.clipper.getShoppingListSectionsForExtensionSession, {
+              extensionToken: extensionSessionToken,
+              projectId: projectId as Id<"projects">,
+              teamId: teamId as Id<"teams">,
+            })
+          : convexAny.query(apiAny.clipper.getShoppingListSections, {
+              projectId: projectId as Id<"projects">,
+              teamId: teamId as Id<"teams">,
+            }),
+        extensionSessionToken
+          ? convexAny.query(apiAny.clipper.getShoppingSetsForProjectForExtensionSession, {
+              extensionToken: extensionSessionToken,
+              projectId: projectId as Id<"projects">,
+              teamId: teamId as Id<"teams">,
+            })
+          : convexAny.query(apiAny.clipper.getShoppingSetsForProject, {
+              projectId: projectId as Id<"projects">,
+              teamId: teamId as Id<"teams">,
+            }),
       ]);
       return withCors(req, NextResponse.json({ sections, sets }));
     }
 
     if (teamId) {
-      const projects = await convexAny.query(
-        apiAny.clipper.getProjectsForTeam,
-        {
-          teamId: teamId as Id<"teams">,
-        },
-      );
+      const projects = await (extensionSessionToken
+        ? convexAny.query(apiAny.clipper.getProjectsForTeamForExtensionSession, {
+            extensionToken: extensionSessionToken,
+            teamId: teamId as Id<"teams">,
+          })
+        : convexAny.query(apiAny.clipper.getProjectsForTeam, {
+            teamId: teamId as Id<"teams">,
+          }));
       return withCors(req, NextResponse.json({ projects }));
     }
 
-    const data = await convexAny.query(apiAny.clipper.getTeamsAndProjects, {});
+    const data = await (extensionSessionToken
+      ? convexAny.query(apiAny.clipper.getTeamsAndProjectsForExtensionSession, {
+          extensionToken: extensionSessionToken,
+        })
+      : convexAny.query(apiAny.clipper.getTeamsAndProjects, {}));
     return withCors(req, NextResponse.json(data));
   } catch (error: unknown) {
     const message = extractErrorMessage(error);
-    const status = /not authenticated|authorization|token/i.test(message)
+    const status = /not authenticated|authorization|token|session expired|invalid extension session/i.test(message)
       ? 401
       : /not a member|forbidden/i.test(message)
         ? 403
@@ -470,23 +505,36 @@ export async function POST(req: Request) {
   try {
     const payload = validateClipperPostPayload(await req.json());
 
-    const convex = getConvexClient(token);
+    const extensionSessionToken = isExtensionSessionToken(token) ? token : null;
+    const convex = getConvexClient(extensionSessionToken ? null : token);
     const convexAny = convex as typeof convex & {
       mutation: (ref: unknown, args: unknown) => Promise<unknown>;
     };
 
     const uploadedImageUrl = payload.capturedImageDataUrl
-      ? await uploadCapturedClipperImage(convexAny, payload)
+      ? await uploadCapturedClipperImage(
+          convexAny,
+          payload,
+          extensionSessionToken,
+        )
       : payload.imageUrl;
     const payloadWithoutCapture = { ...payload };
     delete payloadWithoutCapture.capturedImageDataUrl;
 
     const newItem = await convexAny.mutation(
-      apiAny.clipper.addShoppingListItem,
-      {
-        ...payloadWithoutCapture,
-        imageUrl: uploadedImageUrl,
-      },
+      extensionSessionToken
+        ? apiAny.clipper.addShoppingListItemForExtensionSession
+        : apiAny.clipper.addShoppingListItem,
+      extensionSessionToken
+        ? {
+            extensionToken: extensionSessionToken,
+            ...payloadWithoutCapture,
+            imageUrl: uploadedImageUrl,
+          }
+        : {
+            ...payloadWithoutCapture,
+            imageUrl: uploadedImageUrl,
+          },
     );
     return withCors(req, NextResponse.json(newItem));
   } catch (error: unknown) {
@@ -495,7 +543,7 @@ export async function POST(req: Request) {
       ? 400
       : /not a member|forbidden/i.test(message)
         ? 403
-        : /not authenticated|authorization|token/i.test(message)
+        : /not authenticated|authorization|token|session expired|invalid extension session/i.test(message)
           ? 401
           : 500;
 

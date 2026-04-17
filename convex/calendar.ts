@@ -459,35 +459,24 @@ export const getProjectCalendarData = query({
         tasks: [],
         shoppingItems: [],
         laborItems: [],
-        surveys: [],
-        notes: [],
-        estimations: [],
-        projectMilestones: [],
+        projectPayments: [],
       };
     }
 
     const { startTimestamp, endTimestamp } = monthRangeFromKey(args.month);
 
-    const [project, allTasks, allShoppingItems, allLaborItems, allSurveys, allNotes, allEstimations, allMilestones] =
-      await Promise.all([
-        ctx.db.get(args.projectId),
-        ctx.db.query("tasks").withIndex("by_project", (q: any) => q.eq("projectId", args.projectId)).collect(),
-        ctx.db
-          .query("shoppingListItems")
-          .withIndex("by_project", (q: any) => q.eq("projectId", args.projectId))
-          .collect(),
-        ctx.db.query("laborItems").withIndex("by_project", (q: any) => q.eq("projectId", args.projectId)).collect(),
-        ctx.db.query("surveys").withIndex("by_project", (q: any) => q.eq("projectId", args.projectId)).collect(),
-        ctx.db.query("notes").withIndex("by_project", (q: any) => q.eq("projectId", args.projectId)).collect(),
-        ctx.db
-          .query("costEstimations")
-          .withIndex("by_project", (q: any) => q.eq("projectId", args.projectId))
-          .collect(),
-        ctx.db
-          .query("projectMilestones")
-          .withIndex("by_project_and_order", (q: any) => q.eq("projectId", args.projectId))
-          .collect(),
-      ]);
+    const [allTasks, allShoppingItems, allLaborItems, allProjectPayments] = await Promise.all([
+      ctx.db.query("tasks").withIndex("by_project", (q: any) => q.eq("projectId", args.projectId)).collect(),
+      ctx.db
+        .query("shoppingListItems")
+        .withIndex("by_project", (q: any) => q.eq("projectId", args.projectId))
+        .collect(),
+      ctx.db.query("laborItems").withIndex("by_project", (q: any) => q.eq("projectId", args.projectId)).collect(),
+      ctx.db
+        .query("projectPayments")
+        .withIndex("by_project", (q: any) => q.eq("projectId", args.projectId))
+        .collect(),
+    ]);
 
     const tasksInRange = allTasks.filter((task: any) => {
       const taskStart = task.startDate ?? task.endDate;
@@ -507,36 +496,18 @@ export const getProjectCalendarData = query({
       return isRangeOverlapping(laborStart, laborEnd, startTimestamp, endTimestamp);
     });
 
-    const surveysInRange = allSurveys.filter((survey: any) => {
-      const surveyStart = survey.startDate ?? survey.endDate;
-      const surveyEnd = survey.endDate ?? survey.startDate;
-      if (!surveyStart || !surveyEnd) return false;
-      return isRangeOverlapping(surveyStart, surveyEnd, startTimestamp, endTimestamp);
-    });
-
-    const notesInRange = allNotes.filter(
-      (note: any) => note.createdAt >= startTimestamp && note.createdAt <= endTimestamp,
+    const projectPaymentsInRange = allProjectPayments.filter((payment: any) =>
+      [payment.dueDate, payment.invoiceIssuedAt, payment.sentAt, payment.paidAt].some(
+        (timestamp) =>
+          typeof timestamp === "number" && timestamp >= startTimestamp && timestamp <= endTimestamp,
+      ),
     );
-
-    const estimationsInRange = allEstimations.filter((estimation: any) => {
-      const plannedStart = estimation.plannedStartDate;
-      const validUntil = estimation.validUntil;
-      const estimationDate = estimation.estimationDate;
-
-      return (
-        (plannedStart && plannedStart >= startTimestamp && plannedStart <= endTimestamp) ||
-        (validUntil && validUntil >= startTimestamp && validUntil <= endTimestamp) ||
-        (estimationDate && estimationDate >= startTimestamp && estimationDate <= endTimestamp)
-      );
-    });
 
     const usersByClerkId = await fetchUsersByClerkIds(ctx, [
       ...tasksInRange.map((task: any) => task.assignedTo ?? null),
       ...shoppingInRange.map((item: any) => item.assignedTo ?? null),
       ...laborInRange.map((item: any) => item.assignedTo ?? null),
-      ...notesInRange.map((note: any) => note.createdBy),
-      ...surveysInRange.map((survey: any) => survey.createdBy),
-      ...estimationsInRange.map((estimation: any) => estimation.createdBy),
+      ...projectPaymentsInRange.map((payment: any) => payment.createdBy),
     ]);
 
     const enrichedTasks = tasksInRange.map((task: any) => ({
@@ -572,122 +543,50 @@ export const getProjectCalendarData = query({
       assignedToName: item.assignedTo ? usersByClerkId.get(item.assignedTo)?.name : undefined,
     }));
 
-    const enrichedSurveys = surveysInRange.map((survey: any) => ({
-      _id: survey._id,
-      title: survey.title,
-      description: survey.description,
-      status: survey.status,
-      startDate: survey.startDate,
-      endDate: survey.endDate,
-      createdByName: usersByClerkId.get(survey.createdBy)?.name,
+    const enrichedProjectPayments = projectPaymentsInRange.map((payment: any) => ({
+      _id: payment._id,
+      title: payment.title,
+      description: payment.description,
+      amount: payment.amount,
+      currency: payment.currency,
+      status: payment.status,
+      invoiceNumber: payment.invoiceNumber || payment.stripeInvoiceNumber,
+      paymentReference: payment.paymentReference,
+      dueDate: payment.dueDate,
+      invoiceIssuedAt: payment.invoiceIssuedAt,
+      sentAt: payment.sentAt,
+      paidAt: payment.paidAt,
+      createdByName: usersByClerkId.get(payment.createdBy)?.name,
+      relevantDates: [
+        {
+          type: "dueDate" as const,
+          timestamp: payment.dueDate,
+        },
+        {
+          type: "invoiceIssuedAt" as const,
+          timestamp: payment.invoiceIssuedAt,
+        },
+        {
+          type: "sentAt" as const,
+          timestamp: payment.sentAt,
+        },
+        {
+          type: "paidAt" as const,
+          timestamp: payment.paidAt,
+        },
+      ].filter(
+        (entry) =>
+          typeof entry.timestamp === "number" &&
+          entry.timestamp >= startTimestamp &&
+          entry.timestamp <= endTimestamp,
+      ),
     }));
-
-    const enrichedNotes = notesInRange.map((note: any) => ({
-      _id: note._id,
-      title: note.title,
-      createdAt: note.createdAt,
-      updatedAt: note.updatedAt,
-      createdByName: usersByClerkId.get(note.createdBy)?.name,
-    }));
-
-    const enrichedEstimations = estimationsInRange.map((estimation: any) => ({
-      _id: estimation._id,
-      title: estimation.title,
-      status: estimation.status,
-      estimationDate: estimation.estimationDate,
-      plannedStartDate: estimation.plannedStartDate,
-      validUntil: estimation.validUntil,
-      grossTotal: estimation.grossTotal,
-      createdByName: usersByClerkId.get(estimation.createdBy)?.name,
-    }));
-
-    const projectMilestones: Array<{
-      _id: string;
-      type:
-        | "project_start"
-        | "project_end"
-        | "planned_start"
-        | "planned_end"
-        | "actual_start"
-        | "actual_end";
-      title: string;
-      timestamp: number;
-      status?: "planned" | "in_progress" | "at_risk" | "blocked" | "completed";
-      color?: string;
-    }> = [];
-
-    if (project?.startDate && project.startDate >= startTimestamp && project.startDate <= endTimestamp) {
-      projectMilestones.push({
-        _id: `${project._id}-start`,
-        type: "project_start",
-        title: "Project start",
-        timestamp: project.startDate,
-      });
-    }
-
-    if (project?.endDate && project.endDate >= startTimestamp && project.endDate <= endTimestamp) {
-      projectMilestones.push({
-        _id: `${project._id}-end`,
-        type: "project_end",
-        title: "Project deadline",
-        timestamp: project.endDate,
-      });
-    }
-
-    for (const milestone of allMilestones) {
-      const milestoneDates = [
-        {
-          key: "planned-start",
-          type: "planned_start" as const,
-          label: `${milestone.name} planned start`,
-          timestamp: milestone.plannedStartDate,
-        },
-        {
-          key: "planned-end",
-          type: "planned_end" as const,
-          label: `${milestone.name} deadline`,
-          timestamp: milestone.plannedEndDate,
-        },
-        {
-          key: "actual-start",
-          type: "actual_start" as const,
-          label: `${milestone.name} actual start`,
-          timestamp: milestone.actualStartDate,
-        },
-        {
-          key: "actual-end",
-          type: "actual_end" as const,
-          label: `${milestone.name} completed`,
-          timestamp: milestone.actualEndDate,
-        },
-      ];
-
-      for (const milestoneDate of milestoneDates) {
-        if (
-          typeof milestoneDate.timestamp === "number" &&
-          milestoneDate.timestamp >= startTimestamp &&
-          milestoneDate.timestamp <= endTimestamp
-        ) {
-          projectMilestones.push({
-            _id: `${milestone._id}-${milestoneDate.key}`,
-            type: milestoneDate.type,
-            title: milestoneDate.label,
-            timestamp: milestoneDate.timestamp,
-            status: milestone.status,
-            color: milestone.color,
-          });
-        }
-      }
-    }
 
     return {
       tasks: enrichedTasks,
       shoppingItems: enrichedShoppingItems,
       laborItems: enrichedLaborItems,
-      surveys: enrichedSurveys,
-      notes: enrichedNotes,
-      estimations: enrichedEstimations,
-      projectMilestones,
+      projectPayments: enrichedProjectPayments,
     };
   },
 });

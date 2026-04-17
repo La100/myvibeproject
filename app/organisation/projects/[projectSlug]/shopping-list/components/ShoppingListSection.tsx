@@ -58,6 +58,7 @@ const SHOPPING_STATUS_OPTIONS: Array<{
   { value: "COMPLETED", label: "Completed" },
   { value: "CANCELLED", label: "Cancelled" },
 ];
+const formatItemCountLabel = (count: number) => `${count} ${count === 1 ? "item" : "items"}`;
 
 interface EditFormData {
   name?: string;
@@ -150,6 +151,7 @@ export function ShoppingListSection({
   const [addingAlternativeSetId, setAddingAlternativeSetId] = useState<string | null>(null);
   const [isEditScraping, setIsEditScraping] = useState(false);
   const [savingToLibraryItemId, setSavingToLibraryItemId] = useState<string | null>(null);
+  const [updatingStatusItemId, setUpdatingStatusItemId] = useState<string | null>(null);
   const createProductFromShoppingListItem = useMutation(
     apiAny.productLibrary.createProductFromShoppingListItem,
   );
@@ -388,17 +390,25 @@ export function ShoppingListSection({
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusLabel = (status: ShoppingListItem["realizationStatus"]) =>
+    SHOPPING_STATUS_OPTIONS.find((option) => option.value === status)?.label ?? status;
+
+  const getInlineStatusClassName = (status: ShoppingListItem["realizationStatus"]) => {
     switch (status) {
       case "PLANNED":
-        return "secondary";
+        return "border-[#e8ddd2] bg-[#faf6f1] text-[#6f5b4b] hover:border-[#dccbbb] hover:bg-[#f7efe6]";
       case "ORDERED":
-      case "COMPLETED":
-        return "default";
+        return "border-[#dfd2c4] bg-[#f4ebe2] text-[#5e4a3b] hover:border-[#d2c0af] hover:bg-[#efe3d7]";
       case "IN_TRANSIT":
-        return "destructive";
+        return "border-[#eadfba] bg-[#fbf5dc] text-[#7a6531] hover:border-[#ddce9f] hover:bg-[#f7efcf]";
+      case "DELIVERED":
+        return "border-[#d9dbd2] bg-[#f3f5ef] text-[#56604a] hover:border-[#cbcebf] hover:bg-[#ecefe6]";
+      case "COMPLETED":
+        return "border-transparent bg-[#4c3a2f] text-[#fcf8f3] hover:bg-[#584438]";
+      case "CANCELLED":
+        return "border-[#e6e0d9] bg-[#f8f7f5] text-[#8a8178] hover:border-[#ddd5cc] hover:bg-[#f3f1ee]";
       default:
-        return "outline";
+        return "border-border/80 bg-card text-foreground hover:bg-accent";
     }
   };
 
@@ -689,11 +699,28 @@ export function ShoppingListSection({
     const customerDecisionTone = getCustomerDecisionTone(item.customerDecision);
     const customerDecisionLabel = getCustomerDecisionLabel(item.customerDecision);
 
+    const handleInlineStatusChange = async (value: string) => {
+      const nextStatus = value as ShoppingListItem["realizationStatus"];
+      if (nextStatus === item.realizationStatus) {
+        return;
+      }
+
+      setUpdatingStatusItemId(itemId);
+      try {
+        await onUpdateItem(item._id, { realizationStatus: nextStatus });
+        toast.success(`Status changed to ${getStatusLabel(nextStatus)}`);
+      } catch (error) {
+        toast.error((error as Error).message || "Could not update status");
+      } finally {
+        setUpdatingStatusItemId((current) => (current === itemId ? null : current));
+      }
+    };
+
     return (
       <div
         key={item._id}
         className={cn(
-          "rounded-2xl border p-4",
+          "rounded-[28px] border border-border/70 px-5 py-4",
           customerDecisionTone &&
             (item.customerDecision === "accepted"
               ? "border-emerald-500/25 bg-emerald-500/6"
@@ -715,7 +742,7 @@ export function ShoppingListSection({
                 ) : null}
                 <div className="min-w-0 flex-1">
                   <div className="mb-2 flex flex-wrap items-center gap-2">
-                    <h4 className="text-sm font-medium text-foreground">{item.name}</h4>
+                    <h4 className="text-[15px] font-semibold text-foreground">{item.name}</h4>
                     {customerDecisionLabel ? (
                       <Badge variant="outline" className={cn("text-xs", customerDecisionTone)}>
                         {customerDecisionLabel}
@@ -732,8 +759,8 @@ export function ShoppingListSection({
                       </Badge>
                     ) : null}
                   </div>
-                  <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                    <span>Qty: {item.quantity}</span>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                    <span className="font-medium text-foreground/75">Qty {item.quantity}</span>
                     {renderPriceSpans(item.unitPrice, "unit")}
                     {renderPriceSpans(item.totalPrice, "total")}
                     {item.supplier ? <span>{item.supplier}</span> : null}
@@ -750,25 +777,68 @@ export function ShoppingListSection({
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-                <Badge variant={getStatusColor(item.realizationStatus)}>{item.realizationStatus}</Badge>
+              <div className="flex flex-wrap items-center gap-1 lg:justify-end">
+                <Select
+                  value={item.realizationStatus}
+                  onValueChange={(value) => void handleInlineStatusChange(value)}
+                  disabled={isPending || updatingStatusItemId === itemId}
+                >
+                  <SelectTrigger
+                    size="sm"
+                    aria-label={`Change status for ${item.name}`}
+                    className={cn(
+                      "h-10 w-fit min-w-0 rounded-full px-3.5 pr-2.5 text-xs font-semibold tracking-[0.01em] shadow-none transition-colors",
+                      "focus-visible:border-ring/40 focus-visible:ring-ring/15 disabled:opacity-70",
+                      getInlineStatusClassName(item.realizationStatus),
+                    )}
+                  >
+                    <span>{getStatusLabel(item.realizationStatus)}</span>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SHOPPING_STATUS_OPTIONS.map((status) => (
+                      <SelectItem key={status.value} value={status.value}>
+                        {status.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 {item.productLink ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button variant="ghost" size="sm" className="size-8 p-0" onClick={() => window.open(item.productLink, "_blank")}>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="rounded-full text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
+                        onClick={() => window.open(item.productLink, "_blank")}
+                      >
                         <ExternalLinkIcon className="h-4 w-4" />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>Open link</TooltipContent>
                   </Tooltip>
                 ) : null}
-                <Button variant="ghost" size="sm" className="size-8 p-0" onClick={() => toggleDetails(itemId)}>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="rounded-full text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
+                  onClick={() => toggleDetails(itemId)}
+                >
                   {expandedDetails[itemId] ? <ChevronUpIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
                 </Button>
-                <Button variant="ghost" size="sm" className="size-8 p-0" onClick={() => handleStartEdit(item)}>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="rounded-full text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
+                  onClick={() => handleStartEdit(item)}
+                >
                   <EditIcon className="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="sm" className="size-8 p-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive" onClick={() => onDeleteItem(item._id)}>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() => onDeleteItem(item._id)}
+                >
                   <TrashIcon className="h-4 w-4" />
                 </Button>
               </div>
@@ -834,7 +904,7 @@ export function ShoppingListSection({
     };
 
     return (
-      <div key={set._id} className="rounded-2xl border border-border/60 bg-white p-5">
+      <div key={set._id} className="rounded-[28px] border border-border/60 bg-white p-5">
         <div className="mb-4 flex flex-col gap-3 border-b pb-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <div className="flex flex-wrap items-center gap-2">
@@ -943,25 +1013,25 @@ export function ShoppingListSection({
   };
 
   return (
-    <div className="mb-10 rounded-3xl border bg-white p-4 shadow-sm sm:p-8">
-      <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+    <div className="mb-10 rounded-[32px] border border-border/70 bg-white p-5 shadow-sm sm:p-8">
+      <div className="mb-7 flex flex-col justify-between gap-4 border-b border-border/60 pb-5 sm:flex-row sm:items-center">
         <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-lg font-medium text-foreground sm:text-xl">{sectionName}</h2>
-          <span className="inline-flex items-center justify-center rounded-full border bg-white px-3 py-1 text-xs font-medium text-muted-foreground">
-            {items.length} items
+          <h2 className="text-xl font-semibold text-foreground">{sectionName}</h2>
+          <span className="inline-flex items-center justify-center rounded-full border border-border/60 bg-white px-3 py-1 text-xs font-medium text-muted-foreground">
+            {formatItemCountLabel(items.length)}
           </span>
-          <span className="inline-flex items-center justify-center rounded-full border bg-white px-3 py-1 text-xs font-medium text-foreground">
+          <span className="inline-flex items-center justify-center rounded-full border border-border/60 bg-secondary/25 px-3 py-1 text-xs font-medium text-foreground">
             {getTaxAmountKindLabel(primarySectionAmountKind, organizationTaxSettings)} total:{" "}
             {primarySectionTotal.toFixed(2)} {currencySymbol}
           </span>
         </div>
-        <Button variant="ghost" size="sm" className="self-end rounded-full sm:self-auto" onClick={() => setShowAddForm((current) => !current)}>
+        <Button variant="ghost" size="icon-sm" className="self-end rounded-full border border-border/60 bg-white sm:self-auto" onClick={() => setShowAddForm((current) => !current)}>
           <PlusIcon className="h-4 w-4" />
         </Button>
       </div>
 
       {showAddForm ? (
-        <div className="mb-8 rounded-3xl border bg-white p-6">
+        <div className="mb-8 rounded-[28px] border border-border/70 bg-secondary/15 p-6">
           <AddItemForm
             projectId={projectId}
             teamId={teamId}

@@ -1,9 +1,6 @@
 import Link from "next/link";
 import Logo from "../Logo";
 
-const CHROME_WEB_STORE_URL =
-  "https://chromewebstore.google.com/detail/myvibeproject-web-clipper/nklbcopiimkboameblhnmdookkelncih";
-
 const footerLinks = [
   {
     title: "Product",
@@ -19,10 +16,6 @@ const footerLinks = [
       { label: "Privacy", href: "/privacy" },
       { label: "Terms", href: "/terms" },
     ],
-  },
-  {
-    title: "Resources",
-    links: [{ label: "Chrome Web Store", href: CHROME_WEB_STORE_URL }],
   },
 ];
 

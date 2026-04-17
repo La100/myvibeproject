@@ -218,7 +218,7 @@ const ClipperView = ({
         undefined,
         {
           retryOnAuthFailure: true,
-          allowInteractiveAuth: false,
+          allowInteractiveAuth: true,
         },
       );
 

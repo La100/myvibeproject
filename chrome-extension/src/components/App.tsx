@@ -104,7 +104,7 @@ const App = () => {
           {
             retryOnAuthFailure: true,
             preferredToken: token,
-            allowInteractiveAuth: false,
+            allowInteractiveAuth: true,
           },
         );
 

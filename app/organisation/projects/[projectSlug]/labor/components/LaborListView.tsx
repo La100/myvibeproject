@@ -39,6 +39,8 @@ import { LaborListSection } from './LaborListSection';
 import { LaborSectionManager } from './LaborSectionManager';
 
 type LaborItem = Doc<"laborItems">;
+const formatItemCountLabel = (count: number) => `${count} ${count === 1 ? 'item' : 'items'}`;
+const getSectionOptionLabel = (section: string) => section === 'No Section' ? 'No section' : section;
 
 export function LaborListViewSkeleton() {
   return <Spinner className="p-4 sm:p-6" />;
@@ -87,8 +89,8 @@ export default function LaborListView() {
   const sectionMap = new Map(sections.map((section) => [String(section._id), section]));
 
   const resolveSectionName = (item: LaborItem) => {
-    if (!item.sectionId) return 'No Category';
-    return sectionMap.get(String(item.sectionId))?.name || 'No Category';
+    if (!item.sectionId) return 'No Section';
+    return sectionMap.get(String(item.sectionId))?.name || 'No Section';
   };
 
   const getAssignedMemberName = (assignedTo?: string) => {
@@ -100,7 +102,7 @@ export default function LaborListView() {
   const availableSections = Array.from(
     new Set([
       ...sections.map((section) => section.name),
-      ...(items.some((item) => !item.sectionId) ? ['No Category'] : []),
+      ...(items.some((item) => !item.sectionId) ? ['No Section'] : []),
     ]),
   );
 
@@ -135,8 +137,8 @@ export default function LaborListView() {
     }
 
     return Array.from(sectionBuckets.values()).sort((left, right) => {
-      if (left.name === 'No Category') return 1;
-      if (right.name === 'No Category') return -1;
+      if (left.name === 'No Section') return 1;
+      if (right.name === 'No Section') return -1;
       const leftOrder = left.sectionId ? sectionOrder.get(String(left.sectionId)) ?? Number.MAX_SAFE_INTEGER : Number.MAX_SAFE_INTEGER;
       const rightOrder = right.sectionId ? sectionOrder.get(String(right.sectionId)) ?? Number.MAX_SAFE_INTEGER : Number.MAX_SAFE_INTEGER;
       if (leftOrder !== rightOrder) return leftOrder - rightOrder;
@@ -388,7 +390,7 @@ export default function LaborListView() {
           />
 
           {showMainAddForm ? (
-            <div className="mb-8 rounded-3xl border bg-card p-6 shadow-sm">
+            <div className="mb-8 rounded-[30px] border border-border/70 bg-white p-6 shadow-sm">
               <AddLaborItemForm
                 projectId={project._id}
                 sections={sections}
@@ -415,95 +417,99 @@ export default function LaborListView() {
             />
           </div>
 
-          <div className="sticky top-16 z-10 mb-8 rounded-[30px] border border-border/70 bg-card/95 p-3 shadow-[0_18px_40px_-32px_rgba(22,22,22,0.45)] backdrop-blur-sm xl:top-0">
-            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-              <div className="flex flex-1 flex-wrap items-center gap-2.5">
-                <Badge variant="secondary" className="h-11 rounded-full px-4 text-[12px] font-semibold">
-                  {filteredItems.length} items
-                </Badge>
+          <div className="sticky top-16 z-10 mb-8 rounded-[30px] border border-border/70 bg-white p-4 shadow-sm xl:top-0">
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                <div className="flex flex-1 flex-wrap items-center gap-2.5">
+                  <Badge variant="outline" className="h-11 rounded-full border-border/70 bg-white px-4 text-[12px] font-semibold text-foreground">
+                    {formatItemCountLabel(filteredItems.length)}
+                  </Badge>
 
-                <Select value={sectionFilter} onValueChange={setSectionFilter}>
-                  <SelectTrigger className="h-11 min-w-[220px] rounded-full border-transparent bg-muted/55 px-5 shadow-none">
-                    <SelectValue placeholder="Show sections" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Show all sections</SelectItem>
-                    {availableSections.map((section) => (
-                      <SelectItem key={section} value={section}>
-                        {section}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <Select value={sectionFilter} onValueChange={setSectionFilter}>
+                    <SelectTrigger className="h-11 min-w-[210px] rounded-full border-border/70 bg-white px-5 shadow-none">
+                      <SelectValue placeholder="Section" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All sections</SelectItem>
+                      {availableSections.map((section) => (
+                        <SelectItem key={section} value={section}>
+                          {getSectionOptionLabel(section)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
 
-                <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
-                  <SelectTrigger className="h-11 min-w-[220px] rounded-full border-transparent bg-muted/55 px-5 shadow-none">
-                    <SelectValue placeholder="Show assignees" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Show all assignees</SelectItem>
-                    {availableAssignees.map((assigneeId) => (
-                      <SelectItem key={assigneeId} value={assigneeId}>
-                        {getAssignedMemberName(assigneeId) || assigneeId}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
+                    <SelectTrigger className="h-11 min-w-[210px] rounded-full border-border/70 bg-white px-5 shadow-none">
+                      <SelectValue placeholder="Assignee" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All assignees</SelectItem>
+                      {availableAssignees.map((assigneeId) => (
+                        <SelectItem key={assigneeId} value={assigneeId}>
+                          {getAssignedMemberName(assigneeId) || assigneeId}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-                <InputGroup className="h-11 min-w-[280px] flex-1 rounded-full border-border/70 bg-background shadow-none">
+                <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                  {hasActiveFilters ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={resetFilters}
+                      className="h-11 rounded-full border border-border/70 px-4"
+                    >
+                      <XIcon className="mr-2 h-4 w-4" />
+                      Clear filters
+                    </Button>
+                  ) : null}
+
+                  <div className="rounded-[22px] border border-border/60 bg-secondary/25 px-4 py-2.5">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                      Labor total
+                    </div>
+                    <div className="mt-1 text-[1.6rem] font-semibold leading-none tracking-[-0.03em] text-foreground">
+                      {formatCurrency(visibleGrandTotal, project.currency)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+                <InputGroup className="h-11 min-w-[280px] flex-1 rounded-full border-border/70 bg-white shadow-none">
                   <InputGroupAddon align="inline-start" className="pointer-events-none pl-4 text-muted-foreground">
                     <SearchIcon className="h-4 w-4" />
                   </InputGroupAddon>
                   <InputGroupInput
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
-                    placeholder="Search by work, notes, assignee, or link"
+                    placeholder="Search work items, notes, assignee, or link"
                     className="h-11 rounded-full pr-4"
                   />
                 </InputGroup>
-              </div>
 
-              <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-                {hasActiveFilters ? (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={resetFilters}
-                    className="h-11 rounded-full border border-border/70 px-4"
-                  >
-                    <XIcon className="mr-2 h-4 w-4" />
-                    Clear
-                  </Button>
-                ) : null}
-
-                <div className="inline-flex h-11 items-center justify-end gap-2 rounded-full px-2 text-sm">
-                  <span className="font-medium text-muted-foreground">total:</span>
-                  <span className="text-[1.75rem] font-semibold leading-none tracking-[-0.03em] text-foreground">
-                    {formatCurrency(visibleGrandTotal, project.currency)}
-                  </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  {searchQuery ? (
+                    <Badge variant="outline" className="rounded-full border-border/60 px-3 py-1.5">
+                      Search: {searchQuery}
+                    </Badge>
+                  ) : null}
+                  {sectionFilter !== 'all' ? (
+                    <Badge variant="outline" className="rounded-full border-border/60 px-3 py-1.5">
+                      Section: {getSectionOptionLabel(sectionFilter)}
+                    </Badge>
+                  ) : null}
+                  {assigneeFilter !== 'all' ? (
+                    <Badge variant="outline" className="rounded-full border-border/60 px-3 py-1.5">
+                      Assignee: {getAssignedMemberName(assigneeFilter) || assigneeFilter}
+                    </Badge>
+                  ) : null}
                 </div>
               </div>
             </div>
-
-            {hasActiveFilters ? (
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                {searchQuery ? (
-                  <Badge variant="outline" className="rounded-full px-3 py-1.5">
-                    Search: {searchQuery}
-                  </Badge>
-                ) : null}
-                {sectionFilter !== 'all' ? (
-                  <Badge variant="outline" className="rounded-full px-3 py-1.5">
-                    Section: {sectionFilter}
-                  </Badge>
-                ) : null}
-                {assigneeFilter !== 'all' ? (
-                  <Badge variant="outline" className="rounded-full px-3 py-1.5">
-                    Assignee: {getAssignedMemberName(assigneeFilter) || assigneeFilter}
-                  </Badge>
-                ) : null}
-              </div>
-            ) : null}
           </div>
 
           {visibleSectionEntries.map((entry) => (
@@ -525,26 +531,26 @@ export default function LaborListView() {
           ))}
 
           {visibleSectionEntries.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-border/70 bg-muted/10 p-10 text-center">
-              <p className="text-sm font-medium text-foreground">No labor items match the current filters.</p>
+            <div className="rounded-[32px] border border-dashed border-border/80 bg-white px-8 py-14 text-center shadow-sm">
+              <h3 className="text-lg font-semibold text-foreground">No labor items match the current view</h3>
               <p className="mt-2 text-sm text-muted-foreground">
-                Clear filters or add a new labor item.
+                Adjust your filters or clear the current search to bring labor items back into view.
               </p>
               {hasActiveFilters ? (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={resetFilters}
-                  className="mt-4 rounded-full"
+                  className="mt-4 rounded-full border-border/70 bg-white"
                 >
-                  Clear filters
+                  Reset filters
                 </Button>
               ) : (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setShowMainAddForm(true)}
-                  className="mt-4 rounded-full"
+                  className="mt-4 rounded-full border-border/70 bg-white"
                 >
                   Add labor item
                 </Button>
@@ -554,14 +560,7 @@ export default function LaborListView() {
 
           {filteredItems.length > 0 ? (
             <div className="mt-8 flex flex-wrap items-center justify-end gap-2">
-              {visibleSectionEntries
-                .filter((entry) => entry.items.length > 0)
-                .map((entry) => (
-                  <Badge key={entry.sectionId || entry.name} variant="outline" className="rounded-full px-3 py-1.5">
-                    {entry.name}: {formatCurrency(entry.items.reduce((sum, item) => sum + (item.totalPrice || 0), 0), project.currency)}
-                  </Badge>
-                ))}
-              <Badge variant="secondary" className="rounded-full px-4 py-2 text-sm font-semibold">
+              <Badge variant="secondary" className="rounded-full border border-border/60 bg-secondary/70 px-4 py-2 text-sm font-semibold">
                 Visible total: {formatCurrency(visibleGrandTotal, project.currency)}
               </Badge>
             </div>

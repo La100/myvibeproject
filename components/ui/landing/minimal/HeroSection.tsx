@@ -7,9 +7,6 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
-
-const CHROME_WEB_STORE_URL =
-  "https://chromewebstore.google.com/detail/myvibeproject-web-clipper/nklbcopiimkboameblhnmdookkelncih";
 const INITIAL_PROMPT =
   "Create the concept pack with blueprint, room visuals, materials, and review notes.";
 const FOLLOW_UP_PROMPT =
@@ -203,20 +200,6 @@ export function HeroSection() {
               </Link>
             </Button>
           )}
-
-          <Button
-            asChild
-            variant="outline"
-            className="h-9 rounded-full border-black/12 bg-white/70 px-4 text-sm font-medium"
-          >
-            <Link
-              href={CHROME_WEB_STORE_URL}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Install Web Clipper
-            </Link>
-          </Button>
         </div>
 
         <div className="mt-8 overflow-hidden rounded-[32px] border border-black/8 bg-[#ebe8e1] shadow-[0_20px_80px_rgba(20,20,20,0.08)]">

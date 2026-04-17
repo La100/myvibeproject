@@ -2,7 +2,7 @@
 "use client"
 
 import { useMutation } from "convex/react"
-import { useAuth, useUser } from "@clerk/nextjs"
+import { useUser } from "@clerk/nextjs"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { apiAny } from "@/lib/convexApiAny"
@@ -10,23 +10,10 @@ import { apiAny } from "@/lib/convexApiAny"
 const TOKEN_SYNC_KEY = "myvibeproject_extension_token_sync"
 const TOKEN_SYNC_META_KEY = "myvibeproject_extension_token_sync_meta"
 
-function extractTokenExpiry(token: string): number | null {
-  const parts = token.split(".")
-  if (parts.length < 2) return null
-
-  try {
-    const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")))
-    const exp = payload?.exp
-    return typeof exp === "number" && Number.isFinite(exp) ? exp * 1000 : null
-  } catch {
-    return null
-  }
-}
-
 export default function ExtensionAuthPage() {
-  const { getToken } = useAuth()
   const { isSignedIn, isLoaded } = useUser()
   const router = useRouter()
+  const createExtensionSession = useMutation(apiAny.extensionSessions.createExtensionSession)
   const markClipperConnected = useMutation(apiAny.onboarding.markClipperConnected)
 
   const [status, setStatus] = useState("Checking authentication...")
@@ -43,7 +30,7 @@ export default function ExtensionAuthPage() {
       return
     }
 
-    setStatus("Getting extension token...")
+    setStatus("Creating extension session...")
   }, [isLoaded, isSignedIn, router])
 
   useEffect(() => {
@@ -53,7 +40,8 @@ export default function ExtensionAuthPage() {
 
     const storeToken = async () => {
       try {
-        const token = await getToken({ template: "convex" })
+        const session = await createExtensionSession({})
+        const token = session?.token
 
         if (!token) {
           setStatus("Error")
@@ -66,7 +54,8 @@ export default function ExtensionAuthPage() {
           TOKEN_SYNC_META_KEY,
           JSON.stringify({
             updatedAt: Date.now(),
-            expiresAt: extractTokenExpiry(token),
+            expiresAt:
+              typeof session?.expiresAt === "number" ? session.expiresAt : null,
           }),
         )
         await markClipperConnected()
@@ -84,7 +73,7 @@ export default function ExtensionAuthPage() {
     }
 
     void storeToken()
-  }, [getToken, isLoaded, isSignedIn, markClipperConnected])
+  }, [createExtensionSession, isLoaded, isSignedIn, markClipperConnected])
 
   return (
     <div

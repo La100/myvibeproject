@@ -79,6 +79,7 @@ const getToolbarStatusLabel = (status: ShoppingListItem["realizationStatus"]) =>
   }
 };
 const getSectionOptionLabel = (section: string) => section === 'No Section' ? 'No section' : section;
+const formatItemCountLabel = (count: number) => `${count} ${count === 1 ? 'item' : 'items'}`;
 
 export function ShoppingListViewSkeleton() {
   return <Spinner className="p-4 sm:p-6" />;
@@ -609,7 +610,7 @@ export default function ShoppingListView() {
           />
 
           {showMainAddForm ? (
-            <div className="mb-8 rounded-3xl border bg-white p-6 shadow-sm">
+            <div className="mb-8 rounded-[30px] border border-border/70 bg-white p-6 shadow-sm">
               <AddItemForm
                 projectId={project._id}
                 teamId={project.teamId}
@@ -646,55 +647,82 @@ export default function ShoppingListView() {
             />
           </div>
 
-          <div className="sticky top-16 z-10 mb-8 rounded-[30px] border border-border/70 bg-white p-3 shadow-sm xl:top-0">
-            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-              <div className="flex flex-1 flex-wrap items-center gap-2.5">
-                <Badge variant="secondary" className="h-11 rounded-full px-4 text-[12px] font-semibold">
-                  {filteredItems.length} items
-                </Badge>
+          <div className="sticky top-16 z-10 mb-8 rounded-[30px] border border-border/70 bg-white p-4 shadow-sm xl:top-0">
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                <div className="flex flex-1 flex-wrap items-center gap-2.5">
+                  <Badge variant="outline" className="h-11 rounded-full border-border/70 bg-white px-4 text-[12px] font-semibold text-foreground">
+                    {formatItemCountLabel(filteredItems.length)}
+                  </Badge>
 
-                <Select value={sectionFilter} onValueChange={setSectionFilter}>
-                  <SelectTrigger className="h-11 min-w-[220px] rounded-full border-border/70 bg-white px-5 shadow-none">
-                    <SelectValue placeholder="Show sections" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Show all sections</SelectItem>
-                    {availableSections.map((section) => (
-                      <SelectItem key={section} value={section}>
-                        {getSectionOptionLabel(section)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <Select value={sectionFilter} onValueChange={setSectionFilter}>
+                    <SelectTrigger className="h-11 min-w-[210px] rounded-full border-border/70 bg-white px-5 shadow-none">
+                      <SelectValue placeholder="Section" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All sections</SelectItem>
+                      {availableSections.map((section) => (
+                        <SelectItem key={section} value={section}>
+                          {getSectionOptionLabel(section)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
 
-                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                  <SelectTrigger className="h-11 min-w-[220px] rounded-full border-border/70 bg-white px-5 shadow-none">
-                    <SelectValue placeholder="Show categories" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Show all categories</SelectItem>
-                    {availableCategories.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                    <SelectTrigger className="h-11 min-w-[210px] rounded-full border-border/70 bg-white px-5 shadow-none">
+                      <SelectValue placeholder="Category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All categories</SelectItem>
+                      {availableCategories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
 
-                <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}>
-                  <SelectTrigger className="h-11 min-w-[220px] rounded-full border-border/70 bg-white px-5 shadow-none">
-                    <SelectValue placeholder="Show statuses" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Show all statuses</SelectItem>
-                    {Object.keys(STATUS_LABELS).map((value) => (
-                      <SelectItem key={value} value={value}>
-                        {getToolbarStatusLabel(value as ShoppingListItem["realizationStatus"])}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}>
+                    <SelectTrigger className="h-11 min-w-[210px] rounded-full border-border/70 bg-white px-5 shadow-none">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All statuses</SelectItem>
+                      {Object.keys(STATUS_LABELS).map((value) => (
+                        <SelectItem key={value} value={value}>
+                          {getToolbarStatusLabel(value as ShoppingListItem["realizationStatus"])}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
+                <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                  {hasActiveFilters ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={resetFilters}
+                      className="h-11 rounded-full border border-border/70 px-4"
+                    >
+                      <XIcon className="mr-2 h-4 w-4" />
+                      Clear filters
+                    </Button>
+                  ) : null}
+
+                  <div className="rounded-[22px] border border-border/60 bg-secondary/25 px-4 py-2.5">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                      {getTaxAmountKindLabel(primaryAmountKind, organizationTaxSettings)} total
+                    </div>
+                    <div className="mt-1 text-[1.6rem] font-semibold leading-none tracking-[-0.03em] text-foreground">
+                      {formatDisplayAmount(visibleGrandTotal)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
                 <InputGroup className="h-11 min-w-[280px] flex-1 rounded-full border-border/70 bg-white shadow-none">
                   <InputGroupAddon align="inline-start" className="pointer-events-none pl-4 text-muted-foreground">
                     <SearchIcon className="h-4 w-4" />
@@ -702,83 +730,75 @@ export default function ShoppingListView() {
                   <InputGroupInput
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
-                    placeholder="Search by name, notes, supplier, or SKU"
+                    placeholder="Search products, supplier, notes, or SKU"
                     className="h-11 rounded-full pr-4"
                   />
                 </InputGroup>
-              </div>
 
-              <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-                {hasActiveFilters ? (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={resetFilters}
-                    className="h-11 rounded-full border border-border/70 px-4"
-                  >
-                    <XIcon className="mr-2 h-4 w-4" />
-                    Clear
-                  </Button>
-                ) : null}
+                <div className="flex flex-wrap items-center gap-2">
+                  <Select value={priorityFilter} onValueChange={(value) => setPriorityFilter(value as typeof priorityFilter)}>
+                    <SelectTrigger className="h-10 min-w-[190px] rounded-full border-border/70 bg-white px-4 shadow-none">
+                      <SelectValue placeholder="Priority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All priorities</SelectItem>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="urgent">Urgent</SelectItem>
+                    </SelectContent>
+                  </Select>
 
-                <div className="inline-flex h-11 items-center justify-end gap-2 rounded-full px-2 text-sm">
-                  <span className="font-medium text-muted-foreground">
-                    {getTaxAmountKindLabel(primaryAmountKind, organizationTaxSettings).toLowerCase()}:
-                  </span>
-                  <span className="text-[1.75rem] font-semibold leading-none tracking-[-0.03em] text-foreground">
-                    {formatDisplayAmount(visibleGrandTotal)}
-                  </span>
+                  {searchQuery ? (
+                    <Badge variant="outline" className="rounded-full border-border/60 px-3 py-1.5">
+                      Search: {searchQuery}
+                    </Badge>
+                  ) : null}
+
+                  {sectionFilter !== 'all' ? (
+                    <Badge variant="outline" className="rounded-full border-border/60 px-3 py-1.5">
+                      Section: {getSectionOptionLabel(sectionFilter)}
+                    </Badge>
+                  ) : null}
+
+                  {categoryFilter !== 'all' ? (
+                    <Badge variant="outline" className="rounded-full border-border/60 px-3 py-1.5">
+                      Category: {categoryFilter}
+                    </Badge>
+                  ) : null}
+
+                  {statusFilter !== 'all' ? (
+                    <Badge variant="outline" className="rounded-full border-border/60 px-3 py-1.5">
+                      Status: {getToolbarStatusLabel(statusFilter)}
+                    </Badge>
+                  ) : null}
+
+                  {priorityFilter !== 'all' ? (
+                    <Badge variant="outline" className="rounded-full border-border/60 px-3 py-1.5">
+                      Priority: {priorityFilter === 'low' ? 'Low' : priorityFilter === 'medium' ? 'Medium' : priorityFilter === 'high' ? 'High' : 'Urgent'}
+                    </Badge>
+                  ) : null}
                 </div>
               </div>
             </div>
-
-            {(priorityFilter !== 'all' || hasActiveFilters) ? (
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <Select value={priorityFilter} onValueChange={(value) => setPriorityFilter(value as typeof priorityFilter)}>
-                  <SelectTrigger className="h-10 min-w-[200px] rounded-full border-border/70 bg-white px-4 shadow-none">
-                    <SelectValue placeholder="Priority" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All priorities</SelectItem>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                {searchQuery ? (
-                  <Badge variant="outline" className="rounded-full px-3 py-1.5">
-                    Search: {searchQuery}
-                  </Badge>
-                ) : null}
-
-                {sectionFilter !== 'all' ? (
-                  <Badge variant="outline" className="rounded-full px-3 py-1.5">
-                    Section: {getSectionOptionLabel(sectionFilter)}
-                  </Badge>
-                ) : null}
-
-                {categoryFilter !== 'all' ? (
-                  <Badge variant="outline" className="rounded-full px-3 py-1.5">
-                    Category: {categoryFilter}
-                  </Badge>
-                ) : null}
-
-                {statusFilter !== 'all' ? (
-                  <Badge variant="outline" className="rounded-full px-3 py-1.5">
-                    Status: {getToolbarStatusLabel(statusFilter)}
-                  </Badge>
-                ) : null}
-
-                {priorityFilter !== 'all' ? (
-                  <Badge variant="outline" className="rounded-full px-3 py-1.5">
-                    Priority: {priorityFilter === 'low' ? 'Low' : priorityFilter === 'medium' ? 'Medium' : priorityFilter === 'high' ? 'High' : 'Urgent'}
-                  </Badge>
-                ) : null}
-              </div>
-            ) : null}
           </div>
+
+          {visibleSectionEntries.length === 0 ? (
+            <div className="rounded-[32px] border border-dashed border-border/80 bg-white px-8 py-14 text-center shadow-sm">
+              <h3 className="text-lg font-semibold text-foreground">No items match the current view</h3>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Adjust your filters or clear the current search to bring products back into view.
+              </p>
+              {hasActiveFilters ? (
+                <div className="mt-5">
+                  <Button variant="outline" onClick={resetFilters} className="rounded-full border-border/70 bg-white">
+                    <XIcon className="mr-2 h-4 w-4" />
+                    Reset filters
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
           {visibleSectionEntries.map((entry) => (
             <ShoppingListSection

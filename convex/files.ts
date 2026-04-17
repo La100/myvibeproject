@@ -14,6 +14,7 @@ import { getEffectiveLimits } from "./stripe";
 import { Doc, Id } from "./_generated/dataModel";
 import { aiDebugLog } from "./ai/helpers/debugLog";
 import { canAccessProjectWithMembership } from "./authz";
+import { resolveActorFromExtensionSessionToken } from "./extensionSessions";
 
 export const r2 = new R2(components.r2);
 const checkStorageLimitQueryRef =
@@ -443,6 +444,74 @@ export const generateUploadUrlWithCustomKey = mutation({
 
     const uploadData = await r2.generateUploadUrl(customKey);
     
+    return {
+      url: uploadData.url,
+      key: customKey,
+      publicUrl: buildPublicR2FileUrl(customKey),
+    };
+  },
+});
+
+export const generateUploadUrlWithCustomKeyForExtensionSession = mutation({
+  args: {
+    extensionToken: v.string(),
+    projectId: v.id("projects"),
+    fileName: v.string(),
+    origin: v.optional(v.union(v.literal("ai"), v.literal("general"))),
+    fileSize: v.number(),
+  },
+  returns: v.object({
+    url: v.string(),
+    key: v.string(),
+    publicUrl: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    if (!Number.isFinite(args.fileSize) || args.fileSize < 0) {
+      throw new Error("Invalid file size");
+    }
+
+    const user = await resolveActorFromExtensionSessionToken(ctx, args.extensionToken);
+    const access = await getProjectAccessForUser(ctx, args.projectId, user.clerkUserId);
+    if (!access) {
+      throw new Error("Permission denied.");
+    }
+
+    const { project } = access;
+    const team = (await ctx.db.get(project.teamId)) as Doc<"teams"> | null;
+    if (!team) throw new Error("Team not found");
+
+    const teamProjects = await ctx.db
+      .query("projects")
+      .withIndex("by_team", (q) => q.eq("teamId", project.teamId))
+      .collect();
+
+    let totalBytes = 0;
+    for (const teamProject of teamProjects) {
+      const files = await ctx.db
+        .query("files")
+        .withIndex("by_project", (q) => q.eq("projectId", teamProject._id))
+        .filter((q) => q.eq(q.field("isLatest"), true))
+        .collect();
+      totalBytes += files.reduce((sum, file) => sum + (file.size || 0), 0);
+    }
+
+    const limits = getEffectiveLimits(team);
+    const limitBytes = limits.maxStorageGB * 1024 * 1024 * 1024;
+    const newTotal = totalBytes + args.fileSize;
+
+    if (newTotal >= limitBytes) {
+      throw new Error(`Storage limit reached (${limits.maxStorageGB} GB). Please upgrade your plan.`);
+    }
+
+    const path = `${team.slug}/${project.slug}/files`;
+    const fileExtension = args.fileName.includes(".")
+      ? args.fileName.split(".").pop()
+      : "";
+    const baseName = args.fileName.replace(/\.[^/.]+$/, "");
+    const uuid = crypto.randomUUID();
+    const customKey = `${path}/${uuid}-${baseName}${fileExtension ? "." + fileExtension : ""}`;
+    const uploadData = await r2.generateUploadUrl(customKey);
+
     return {
       url: uploadData.url,
       key: customKey,

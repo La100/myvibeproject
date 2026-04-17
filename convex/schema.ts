@@ -557,8 +557,13 @@ export default defineSchema({
     imageUrl: v.optional(v.string()),
     onboardingCompletedAt: v.optional(v.number()),
     clipperConnectedAt: v.optional(v.number()),
+    extensionSessionTokenHash: v.optional(v.string()),
+    extensionSessionIssuedAt: v.optional(v.number()),
+    extensionSessionExpiresAt: v.optional(v.number()),
+    extensionSessionLastUsedAt: v.optional(v.number()),
   })
     .index("by_clerk_user_id", ["clerkUserId"])
+    .index("by_extension_session_token_hash", ["extensionSessionTokenHash"])
     .index("by_email", ["email"]),
 
   projectEmbeddings: defineTable({
