@@ -22,6 +22,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
+import type { TeamTaxRate } from "@/lib/organizationTax";
 
 type TaxFilter = "all" | "archived";
 
@@ -43,10 +44,10 @@ export default function TaxPage() {
   const archiveTaxRate = useMutation(apiAny.taxRates.archiveTaxRate);
 
   const visibleTaxRates = useMemo(() => {
-    const taxRates = taxData?.taxRates || [];
+    const taxRates: TeamTaxRate[] = taxData?.taxRates ?? [];
     return filter === "archived"
-      ? taxRates.filter((entry: any) => entry.isArchived)
-      : taxRates.filter((entry: any) => !entry.isArchived);
+      ? taxRates.filter((entry) => entry.isArchived)
+      : taxRates.filter((entry) => !entry.isArchived);
   }, [filter, taxData?.taxRates]);
 
   const handleCreate = async () => {
@@ -194,7 +195,7 @@ export default function TaxPage() {
             </div>
           ) : (
             <div className="flex flex-col gap-3 p-4 sm:p-6">
-              {visibleTaxRates.map((entry: any) => (
+              {visibleTaxRates.map((entry) => (
                 <div
                   key={entry.id}
                   className="flex flex-col gap-4 rounded-[28px] border border-border/60 bg-background px-5 py-5 sm:flex-row sm:items-center sm:justify-between"
