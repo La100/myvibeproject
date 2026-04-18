@@ -100,18 +100,18 @@ export const VisualizationSuggestions = memo(function VisualizationSuggestions({
   const { textInput } = usePromptInputController();
 
   return (
-    <div className="mt-16 flex w-full max-w-4xl flex-col items-center">
+    <div className="mt-16 flex w-full max-w-[96rem] flex-col items-center">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
-        className="mx-auto flex max-w-5xl snap-x snap-mandatory flex-nowrap gap-5 overflow-x-auto px-6 pb-4 no-scrollbar"
+        className="mx-auto flex w-full snap-x snap-mandatory flex-nowrap gap-5 overflow-x-auto px-0 pb-4 no-scrollbar md:px-2"
       >
         {suggestions.map((suggestion) => (
           <button
             key={suggestion.title}
             onClick={() => textInput.setInput(suggestion.text)}
-            className="group relative aspect-[5/3] min-w-[70vw] flex-shrink-0 snap-center overflow-hidden rounded-2xl border border-border/70 bg-card text-left shadow-lg transition-all duration-300 hover:-translate-y-1.5 hover:border-border hover:shadow-xl sm:min-w-[300px] md:min-w-[280px] lg:min-w-[260px]"
+            className="group relative aspect-[5/3] min-w-[70vw] flex-shrink-0 snap-center overflow-hidden rounded-2xl border border-border/70 bg-card text-left shadow-lg transition-all duration-300 hover:-translate-y-1.5 hover:border-border hover:shadow-xl sm:min-w-[320px] md:min-w-[360px] lg:min-w-[420px]"
           >
             <div className="absolute inset-0 z-0">
               <img
@@ -150,7 +150,7 @@ export const VisualizationEmptyState = memo(function VisualizationEmptyState({
   suggestions,
 }: VisualizationComposerProps & { suggestions: VisualizationSuggestion[] }) {
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-2xl animate-in flex-col items-center justify-center px-4 py-12 duration-500 fade-in zoom-in-95">
+    <div className="mx-auto flex min-h-full w-full max-w-[96rem] animate-in flex-col items-center justify-center px-4 py-12 duration-500 fade-in zoom-in-95 md:px-6 xl:px-8">
       <h1 className="mb-3 text-center font-display text-4xl font-medium tracking-tight text-foreground md:text-5xl">
         Visualizations
       </h1>
@@ -169,6 +169,7 @@ export const VisualizationEmptyState = memo(function VisualizationEmptyState({
         onStopResponse={onStopResponse}
         isUploading={isUploading}
         disabled={disabled}
+        className="max-w-[58rem]"
       />
 
       <VisualizationSuggestions suggestions={suggestions} />

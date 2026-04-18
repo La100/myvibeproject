@@ -288,7 +288,7 @@ export function HeroSection() {
                         {stage >= 1 ? (
                           <div
                             key={`${cycle}-message-request`}
-                            className="hero-chatkit-enter ml-auto max-w-[92%] rounded-[24px] bg-[#f4ede3] px-4 py-3 text-[13px] leading-relaxed text-foreground shadow-[0_18px_40px_rgba(28,24,19,0.08)] sm:max-w-[70%]"
+                            className="hero-chatkit-enter ml-auto max-w-[92%] rounded-[24px] border border-white/55 bg-white/88 px-4 py-3 text-[13px] leading-relaxed text-foreground shadow-[0_18px_40px_rgba(28,24,19,0.08)] backdrop-blur-sm sm:max-w-[70%]"
                           >
                             Build a concept package for the lounge refresh: room direction,
                             blueprint, materials, and selected furniture options.
@@ -353,7 +353,7 @@ export function HeroSection() {
                         {stage >= 4 ? (
                           <div
                             key={`${cycle}-message-revision`}
-                            className="hero-chatkit-enter ml-auto max-w-[92%] rounded-[24px] bg-[#f4ede3] px-4 py-3 text-[13px] leading-relaxed text-foreground shadow-[0_18px_40px_rgba(28,24,19,0.08)] sm:max-w-[72%]"
+                            className="hero-chatkit-enter ml-auto max-w-[92%] rounded-[24px] border border-white/55 bg-white/88 px-4 py-3 text-[13px] leading-relaxed text-foreground shadow-[0_18px_40px_rgba(28,24,19,0.08)] backdrop-blur-sm sm:max-w-[72%]"
                           >
                             Keep the oak palette, open shelving, and add a softer sofa option
                             before you package it for the client.
@@ -436,7 +436,7 @@ export function HeroSection() {
                         </div>
 
                         <div className="mt-3 flex items-center gap-2">
-                          <div className="rounded-full border border-black/8 bg-[#f4ede3] px-3 py-1 text-[11px] font-medium text-foreground/62">
+                          <div className="rounded-full border border-white/55 bg-white/88 px-3 py-1 text-[11px] font-medium text-foreground/62 backdrop-blur-sm">
                             design-brief.pdf
                           </div>
                           <div className="hidden rounded-full border border-black/8 bg-white px-3 py-1 text-[11px] font-medium text-foreground/62 sm:block">

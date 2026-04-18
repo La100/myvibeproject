@@ -628,6 +628,11 @@ export default defineSchema({
     ),
     preferredItemIds: v.optional(v.array(v.id("shoppingListItems"))),
     resolvedItemIds: v.optional(v.array(v.id("shoppingListItems"))),
+    resolvedBySource: v.optional(
+      v.union(v.literal("team"), v.literal("client"), v.null()),
+    ),
+    resolvedByName: v.optional(v.union(v.string(), v.null())),
+    resolvedAt: v.optional(v.union(v.number(), v.null())),
     order: v.number(),
     createdBy: v.string(),
     updatedAt: v.optional(v.number()),

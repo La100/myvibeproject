@@ -88,6 +88,9 @@ export default function NewProjectPage() {
   });
   const selectedCurrency = useDefaultCurrency ? (team?.currency || "PLN") : newProject.currency;
   const selectedCurrencySymbol = currencySymbols[selectedCurrency] || selectedCurrency;
+  const activeTaxRates =
+    team?.taxRates?.filter((entry: { isArchived?: boolean }) => entry.isArchived !== true) || [];
+  const hasAvailableTaxRates = activeTaxRates.length > 0;
 
   useEffect(() => {
     if (!team || hydratedTaxDefaultsRef.current) {
@@ -101,6 +104,21 @@ export default function NewProjectPage() {
       taxRate: String(team.organizationTaxSettings?.taxRate ?? 23),
     }));
   }, [team]);
+
+  useEffect(() => {
+    if (hasAvailableTaxRates) {
+      return;
+    }
+
+    setNewProject((current) =>
+      current.tax
+        ? {
+            ...current,
+            tax: false,
+          }
+        : current,
+    );
+  }, [hasAvailableTaxRates]);
 
   useEffect(() => {
     if (!coverImageFile) {
@@ -189,6 +207,12 @@ export default function NewProjectPage() {
 
     if (checkLimits && !checkLimits.allowed) {
       setShowUpgradeDialog(true);
+      return;
+    }
+
+    if (newProject.tax && !hasAvailableTaxRates) {
+      toast.error("Add at least one tax rate before enabling tax on a project");
+      router.push("/organisation/tax");
       return;
     }
 
@@ -488,7 +512,7 @@ export default function NewProjectPage() {
                   placeholder="23"
                   value={newProject.taxRate}
                   onChange={(e) => setNewProject({ ...newProject, taxRate: e.target.value })}
-                  disabled={!newProject.tax}
+                  disabled={!newProject.tax || !hasAvailableTaxRates}
                 />
               </div>
             </div>
@@ -498,14 +522,26 @@ export default function NewProjectPage() {
                 type="checkbox"
                 id="tax"
                 checked={newProject.tax}
-                onChange={(e) => setNewProject({ ...newProject, tax: e.target.checked })}
+                onChange={(e) =>
+                  setNewProject({ ...newProject, tax: hasAvailableTaxRates && e.target.checked })
+                }
                 className="mt-1 h-4 w-4 rounded border-border"
+                disabled={!hasAvailableTaxRates}
               />
               <div>
                 <label htmlFor="tax" className="cursor-pointer text-sm font-medium">Tax</label>
                 <p className="text-sm text-muted-foreground">
                   When enabled, project cost overview includes tax and new estimations start with this VAT rate.
                 </p>
+                {!hasAvailableTaxRates ? (
+                  <p className="mt-2 text-sm text-amber-700">
+                    Add at least one tax rate first in{" "}
+                    <Link href="/organisation/tax" className="font-medium underline underline-offset-4">
+                      Tax settings
+                    </Link>
+                    .
+                  </p>
+                ) : null}
               </div>
             </div>
           </div>

@@ -21,6 +21,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import type { TeamTaxRate } from "@/lib/organizationTax";
 
@@ -49,6 +56,11 @@ export default function TaxPage() {
       ? taxRates.filter((entry) => entry.isArchived)
       : taxRates.filter((entry) => !entry.isArchived);
   }, [filter, taxData?.taxRates]);
+  const activeTaxRates = useMemo(
+    () => (taxData?.taxRates ?? []).filter((entry: TeamTaxRate) => !entry.isArchived),
+    [taxData?.taxRates],
+  );
+  const defaultTaxRate = activeTaxRates.find((entry) => entry.isDefault) ?? null;
 
   const handleCreate = async () => {
     if (!taxData?.teamId || submitting) {
@@ -94,63 +106,127 @@ export default function TaxPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-semibold tracking-tight text-foreground">Tax</h1>
-          <p className="max-w-2xl text-sm text-muted-foreground">
-            Manage reusable tax rates and keep one default synced wherever totals should match.
-          </p>
-        </div>
+      <div className="space-y-2">
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground">Tax</h1>
+        <p className="max-w-2xl text-sm text-muted-foreground">
+          Manage reusable tax rates and keep one default synced wherever totals should match.
+        </p>
+      </div>
 
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="self-start">
-              <Plus className="mr-2 h-4 w-4" />
-              Create tax rate
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[460px]">
-            <DialogHeader>
-              <DialogTitle>Create tax rate</DialogTitle>
-              <DialogDescription>
-                Add a reusable rate for the whole workspace.
-              </DialogDescription>
-            </DialogHeader>
+      <Card className="clean-surface">
+        <CardContent className="flex flex-col gap-6 p-6">
+          <div className="space-y-1">
+            <h2 className="text-2xl font-medium text-foreground">Tax setup</h2>
+            <p className="text-sm text-muted-foreground">
+              The selected default tax rate is used across schedules, totals, and invoice flows.
+            </p>
+          </div>
 
-            <div className="grid gap-4 py-2">
-              <div className="grid gap-2">
-                <Label htmlFor="tax-rate-name">Name</Label>
-                <Input
-                  id="tax-rate-name"
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  placeholder="VAT"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="tax-rate-rate">Rate (%)</Label>
-                <Input
-                  id="tax-rate-rate"
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  value={rate}
-                  onChange={(event) => setRate(event.target.value)}
-                  placeholder="23"
-                />
-              </div>
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+            <div className="grid gap-2">
+              <Label htmlFor="default-tax-rate">Default tax rate</Label>
+              <Select
+                value={defaultTaxRate?.id}
+                onValueChange={async (value) => {
+                  try {
+                    await setDefaultTaxRate({
+                      teamId: taxData.teamId,
+                      taxRateId: value,
+                    });
+                    toast.success("Default tax rate updated");
+                  } catch (error) {
+                    toast.error((error as Error).message || "Failed to set default rate");
+                  }
+                }}
+                disabled={activeTaxRates.length === 0}
+              >
+                <SelectTrigger id="default-tax-rate" className="w-full">
+                  <SelectValue
+                    placeholder={
+                      activeTaxRates.length === 0
+                        ? "Create a tax rate first"
+                        : "Select default tax rate"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeTaxRates.map((entry) => (
+                    <SelectItem key={entry.id} value={entry.id}>
+                      {entry.name} ({entry.rate.toFixed(2)}%)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            <DialogFooter>
-              <Button onClick={handleCreate} disabled={submitting}>
-                <Plus className="mr-2 h-4 w-4" />
-                Create tax rate
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="w-full lg:w-auto">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create tax rate
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[460px]">
+                <DialogHeader>
+                  <DialogTitle>Create tax rate</DialogTitle>
+                  <DialogDescription>
+                    Add a reusable rate for the whole workspace.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="grid gap-4 py-2">
+                  <div className="grid gap-2">
+                    <Label htmlFor="tax-rate-name">Name</Label>
+                    <Input
+                      id="tax-rate-name"
+                      value={name}
+                      onChange={(event) => setName(event.target.value)}
+                      placeholder="VAT"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="tax-rate-rate">Rate (%)</Label>
+                    <Input
+                      id="tax-rate-rate"
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={rate}
+                      onChange={(event) => setRate(event.target.value)}
+                      placeholder="23"
+                    />
+                  </div>
+                </div>
+
+                <DialogFooter>
+                  <Button onClick={handleCreate} disabled={submitting}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create tax rate
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          {defaultTaxRate ? (
+            <div className="rounded-2xl border border-border/60 bg-muted/20 px-4 py-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-medium text-foreground">Current default</span>
+                <Badge>{defaultTaxRate.name}</Badge>
+                <Badge variant="secondary">{defaultTaxRate.rate.toFixed(2)}%</Badge>
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">
+                This rate is currently synced as the workspace default.
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-border/70 bg-muted/10 px-4 py-4 text-sm text-muted-foreground">
+              No default tax rate is active yet.
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="flex items-center gap-2">
         <Button

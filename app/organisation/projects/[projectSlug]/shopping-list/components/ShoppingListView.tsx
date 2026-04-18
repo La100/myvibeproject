@@ -48,7 +48,11 @@ import { ShoppingListOnboarding } from './ShoppingListOnboarding';
 import { ShoppingListSection } from './ShoppingListSection';
 
 type ShoppingListItem = Doc<"shoppingListItems">;
-type ShoppingSet = Doc<"shoppingSets">;
+type ShoppingSet = Doc<"shoppingSets"> & {
+  resolvedBySource?: "team" | "client" | null;
+  resolvedByName?: string | null;
+  resolvedAt?: number | null;
+};
 
 const STATUS_LABELS: Record<ShoppingListItem["realizationStatus"], string> = {
   PLANNED: 'Planned',

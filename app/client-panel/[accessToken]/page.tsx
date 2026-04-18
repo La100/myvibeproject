@@ -1453,43 +1453,37 @@ export default function PublicClientPanelPage() {
 
     return (
       <div className="mt-4 rounded-2xl border border-border/70 bg-muted/20 px-4 py-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline" className="text-xs">
-            Client feedback
-          </Badge>
-          {item.customerDecision ? (
-            <Badge variant="outline" className={cn("text-xs", decisionTone)}>
-              {item.customerDecision === "accepted" ? "Accepted" : "Rejected"}
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className="text-xs">
+              Client feedback
             </Badge>
-          ) : settings.allowShoppingItemDecisions ? (
-            <span className="text-xs text-muted-foreground">
-              Awaiting decision
-            </span>
-          ) : settings.allowShoppingItemComments ? (
-            <span className="text-xs text-muted-foreground">
-              Comments enabled
-            </span>
-          ) : (
-            <span className="text-xs text-muted-foreground">
-              Feedback disabled
-            </span>
-          )}
-          {item.customerDecisionUpdatedAt ? (
-            <span className="text-xs text-muted-foreground">
-              Updated{" "}
-              {new Date(item.customerDecisionUpdatedAt).toLocaleString()}
-            </span>
-          ) : null}
-        </div>
+            {item.customerDecision ? (
+              <Badge variant="outline" className={cn("text-xs", decisionTone)}>
+                {item.customerDecision === "accepted" ? "Accepted" : "Rejected"}
+              </Badge>
+            ) : settings.allowShoppingItemDecisions ? (
+              <span className="text-xs text-muted-foreground">
+                Awaiting decision
+              </span>
+            ) : settings.allowShoppingItemComments ? (
+              <span className="text-xs text-muted-foreground">
+                Comments enabled
+              </span>
+            ) : (
+              <span className="text-xs text-muted-foreground">
+                Feedback disabled
+              </span>
+            )}
+            {item.customerDecisionUpdatedAt ? (
+              <span className="text-xs text-muted-foreground">
+                Updated{" "}
+                {new Date(item.customerDecisionUpdatedAt).toLocaleString()}
+              </span>
+            ) : null}
+          </div>
 
-        {hasDecision && item.customerDecisionComment ? (
-          <p className="mt-3 text-sm leading-6 text-foreground">
-            {item.customerDecisionComment}
-          </p>
-        ) : null}
-
-        <div className="mt-4 flex flex-col gap-3">
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2 lg:justify-end">
             {settings.allowShoppingItemDecisions ? (
               hasDecision ? (
                 <DropdownMenu>
@@ -1579,6 +1573,15 @@ export default function PublicClientPanelPage() {
               </Button>
             ) : null}
           </div>
+        </div>
+
+        {hasDecision && item.customerDecisionComment ? (
+          <p className="mt-3 text-sm leading-6 text-foreground">
+            {item.customerDecisionComment}
+          </p>
+        ) : null}
+
+        <div className="mt-4 flex flex-col gap-3">
           {settings.allowShoppingItemComments && isCommentExpanded ? (
             <div className="flex flex-col gap-2">
               <Label
@@ -1632,35 +1635,29 @@ export default function PublicClientPanelPage() {
 
     return (
       <div className="mt-4 rounded-2xl border border-border/70 bg-muted/20 px-4 py-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline" className="text-xs">
-            Client feedback
-          </Badge>
-          {item.customerDecision ? (
-            <Badge variant="outline" className={cn("text-xs", decisionTone)}>
-              {item.customerDecision === "accepted" ? "Accepted" : "Rejected"}
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className="text-xs">
+              Client feedback
             </Badge>
-          ) : (
-            <span className="text-xs text-muted-foreground">
-              Awaiting decision
-            </span>
-          )}
-          {item.customerDecisionUpdatedAt ? (
-            <span className="text-xs text-muted-foreground">
-              Updated{" "}
-              {new Date(item.customerDecisionUpdatedAt).toLocaleString()}
-            </span>
-          ) : null}
-        </div>
+            {item.customerDecision ? (
+              <Badge variant="outline" className={cn("text-xs", decisionTone)}>
+                {item.customerDecision === "accepted" ? "Accepted" : "Rejected"}
+              </Badge>
+            ) : (
+              <span className="text-xs text-muted-foreground">
+                Awaiting decision
+              </span>
+            )}
+            {item.customerDecisionUpdatedAt ? (
+              <span className="text-xs text-muted-foreground">
+                Updated{" "}
+                {new Date(item.customerDecisionUpdatedAt).toLocaleString()}
+              </span>
+            ) : null}
+          </div>
 
-        {hasDecision && item.customerDecisionComment ? (
-          <p className="mt-3 text-sm leading-6 text-foreground">
-            {item.customerDecisionComment}
-          </p>
-        ) : null}
-
-        <div className="mt-4 flex flex-col gap-3">
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2 lg:justify-end">
             {hasDecision ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -1747,6 +1744,15 @@ export default function PublicClientPanelPage() {
                   : "Add comment"}
             </Button>
           </div>
+        </div>
+
+        {hasDecision && item.customerDecisionComment ? (
+          <p className="mt-3 text-sm leading-6 text-foreground">
+            {item.customerDecisionComment}
+          </p>
+        ) : null}
+
+        <div className="mt-4 flex flex-col gap-3">
           {isCommentExpanded ? (
             <div className="flex flex-col gap-2">
               <Label
@@ -3693,8 +3699,8 @@ export default function PublicClientPanelPage() {
                                           }
                                         >
                                           {isSelected
-                                            ? "Default option"
-                                            : "Set default"}
+                                            ? "Selected"
+                                            : "Choose this option"}
                                         </Button>
                                       )}
                                     </div>

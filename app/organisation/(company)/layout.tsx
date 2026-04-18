@@ -67,6 +67,7 @@ export default function CompanyLayout({
   const breadcrumbs = useMemo(() => {
     const routeLabels: Record<string, string> = {
       "/organisation": "Projects",
+      "/organisation/calendar": "Calendar",
       "/organisation/projects/new": "New Project",
       "/organisation/contacts": "Contacts",
       "/organisation/tax": "Tax",
@@ -116,6 +117,7 @@ export default function CompanyLayout({
 
     return crumbs;
   }, [pathname]);
+  const isFullBleedRoute = pathname === "/organisation/visualizations";
 
   if (
     onboardingStatus === undefined ||
@@ -143,27 +145,53 @@ export default function CompanyLayout({
             <span className="text-lg font-medium text-foreground">Workspace</span>
           </header>
           <main className="flex-1 min-h-0 overflow-auto">
-            <div className="mx-auto flex w-full max-w-[1540px] flex-col px-4 pb-8 pt-4 md:px-6 xl:px-8 xl:pt-8">
-              {breadcrumbs.length > 1 && (
-                <nav className="mb-4 flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
-                  {breadcrumbs.map((crumb, i) => (
-                    <span key={crumb.href} className="flex items-center gap-1">
-                      {i > 0 && <ChevronRight className="h-3.5 w-3.5" />}
-                      {i < breadcrumbs.length - 1 ? (
-                        <Link href={crumb.href} className="hover:text-foreground transition-colors">
-                          {crumb.label}
-                        </Link>
-                      ) : (
-                        <span className="text-foreground font-medium">{crumb.label}</span>
-                      )}
-                    </span>
-                  ))}
-                </nav>
-              )}
-              <div className="flex flex-col gap-6">
-                {children}
+            {isFullBleedRoute ? (
+              <div className="flex w-full flex-col pb-8 pt-4 xl:pt-8">
+                {breadcrumbs.length > 1 && (
+                  <div className="mx-auto w-full max-w-[1540px] px-4 md:px-6 xl:px-8">
+                    <nav className="mb-4 flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
+                      {breadcrumbs.map((crumb, i) => (
+                        <span key={crumb.href} className="flex items-center gap-1">
+                          {i > 0 && <ChevronRight className="h-3.5 w-3.5" />}
+                          {i < breadcrumbs.length - 1 ? (
+                            <Link href={crumb.href} className="hover:text-foreground transition-colors">
+                              {crumb.label}
+                            </Link>
+                          ) : (
+                            <span className="text-foreground font-medium">{crumb.label}</span>
+                          )}
+                        </span>
+                      ))}
+                    </nav>
+                  </div>
+                )}
+                <div className="flex flex-col gap-6">
+                  {children}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="mx-auto flex w-full max-w-[1540px] flex-col px-4 pb-8 pt-4 md:px-6 xl:px-8 xl:pt-8">
+                {breadcrumbs.length > 1 && (
+                  <nav className="mb-4 flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
+                    {breadcrumbs.map((crumb, i) => (
+                      <span key={crumb.href} className="flex items-center gap-1">
+                        {i > 0 && <ChevronRight className="h-3.5 w-3.5" />}
+                        {i < breadcrumbs.length - 1 ? (
+                          <Link href={crumb.href} className="hover:text-foreground transition-colors">
+                            {crumb.label}
+                          </Link>
+                        ) : (
+                          <span className="text-foreground font-medium">{crumb.label}</span>
+                        )}
+                      </span>
+                    ))}
+                  </nav>
+                )}
+                <div className="flex flex-col gap-6">
+                  {children}
+                </div>
+              </div>
+            )}
           </main>
         </SidebarInset>
       </SidebarProvider>

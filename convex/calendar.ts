@@ -88,6 +88,47 @@ const monthRangeFromKey = (month: string) => {
   return { startTimestamp, endTimestamp };
 };
 
+const getAccessibleProjectsForClerkOrg = async (ctx: any, clerkOrgId: string) => {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) return [];
+
+  const team = await ctx.db
+    .query("teams")
+    .withIndex("by_clerk_org", (q: any) => q.eq("clerkOrgId", clerkOrgId))
+    .unique();
+
+  if (!team) return [];
+
+  const membership = await ctx.db
+    .query("teamMembers")
+    .withIndex("by_team_and_user", (q: any) =>
+      q.eq("teamId", team._id).eq("clerkUserId", identity.subject),
+    )
+    .filter((q: any) => q.eq(q.field("isActive"), true))
+    .unique();
+
+  if (!membership) return [];
+
+  if (membership.role === "admin") {
+    return await ctx.db
+      .query("projects")
+      .withIndex("by_team", (q: any) => q.eq("teamId", team._id))
+      .collect();
+  }
+
+  if (membership.projectIds && membership.projectIds.length > 0) {
+    const projectResults = await Promise.all(
+      membership.projectIds.map((projectId: Id<"projects">) => ctx.db.get(projectId)),
+    );
+    return projectResults.filter(Boolean);
+  }
+
+  return await ctx.db
+    .query("projects")
+    .withIndex("by_team", (q: any) => q.eq("teamId", team._id))
+    .collect();
+};
+
 // ====== QUERIES ======
 
 export const getProjectCalendarEvents = query({
@@ -464,6 +505,15 @@ export const getProjectCalendarData = query({
     }
 
     const { startTimestamp, endTimestamp } = monthRangeFromKey(args.month);
+    const project = await ctx.db.get(args.projectId);
+    if (!project) {
+      return {
+        tasks: [],
+        shoppingItems: [],
+        laborItems: [],
+        projectPayments: [],
+      };
+    }
 
     const [allTasks, allShoppingItems, allLaborItems, allProjectPayments] = await Promise.all([
       ctx.db.query("tasks").withIndex("by_project", (q: any) => q.eq("projectId", args.projectId)).collect(),
@@ -519,6 +569,8 @@ export const getProjectCalendarData = query({
       startDate: task.startDate,
       endDate: task.endDate,
       assignedToName: task.assignedTo ? usersByClerkId.get(task.assignedTo)?.name : undefined,
+      projectSlug: project.slug,
+      projectName: project.name,
     }));
 
     const enrichedShoppingItems = shoppingInRange.map((item: any) => ({
@@ -530,6 +582,8 @@ export const getProjectCalendarData = query({
       realizationStatus: item.realizationStatus,
       quantity: item.quantity,
       assignedToName: item.assignedTo ? usersByClerkId.get(item.assignedTo)?.name : undefined,
+      projectSlug: project.slug,
+      projectName: project.name,
     }));
 
     const enrichedLaborItems = laborInRange.map((item: any) => ({
@@ -541,6 +595,8 @@ export const getProjectCalendarData = query({
       startDate: item.startDate,
       endDate: item.endDate,
       assignedToName: item.assignedTo ? usersByClerkId.get(item.assignedTo)?.name : undefined,
+      projectSlug: project.slug,
+      projectName: project.name,
     }));
 
     const enrichedProjectPayments = projectPaymentsInRange.map((payment: any) => ({
@@ -557,6 +613,8 @@ export const getProjectCalendarData = query({
       sentAt: payment.sentAt,
       paidAt: payment.paidAt,
       createdByName: usersByClerkId.get(payment.createdBy)?.name,
+      projectSlug: project.slug,
+      projectName: project.name,
       relevantDates: [
         {
           type: "dueDate" as const,
@@ -581,6 +639,198 @@ export const getProjectCalendarData = query({
           entry.timestamp <= endTimestamp,
       ),
     }));
+
+    return {
+      tasks: enrichedTasks,
+      shoppingItems: enrichedShoppingItems,
+      laborItems: enrichedLaborItems,
+      projectPayments: enrichedProjectPayments,
+    };
+  },
+});
+
+export const getOrganizationCalendarData = query({
+  args: {
+    clerkOrgId: v.string(),
+    month: v.string(),
+  },
+  async handler(ctx, args) {
+    const projects = await getAccessibleProjectsForClerkOrg(ctx, args.clerkOrgId);
+    if (projects.length === 0) {
+      return {
+        tasks: [],
+        shoppingItems: [],
+        laborItems: [],
+        projectPayments: [],
+      };
+    }
+
+    const { startTimestamp, endTimestamp } = monthRangeFromKey(args.month);
+    const projectMetaById = new Map<string, { slug: string; name: string }>(
+      projects.map((project: any) => [
+        String(project._id),
+        { slug: project.slug as string, name: project.name as string },
+      ]),
+    );
+
+    const [tasksByProject, shoppingByProject, laborByProject, projectPaymentsByProject] =
+      await Promise.all([
+        Promise.all(
+          projects.map((project: any) =>
+            ctx.db.query("tasks").withIndex("by_project", (q: any) => q.eq("projectId", project._id)).collect(),
+          ),
+        ),
+        Promise.all(
+          projects.map((project: any) =>
+            ctx.db
+              .query("shoppingListItems")
+              .withIndex("by_project", (q: any) => q.eq("projectId", project._id))
+              .collect(),
+          ),
+        ),
+        Promise.all(
+          projects.map((project: any) =>
+            ctx.db.query("laborItems").withIndex("by_project", (q: any) => q.eq("projectId", project._id)).collect(),
+          ),
+        ),
+        Promise.all(
+          projects.map((project: any) =>
+            ctx.db
+              .query("projectPayments")
+              .withIndex("by_project", (q: any) => q.eq("projectId", project._id))
+              .collect(),
+          ),
+        ),
+      ]);
+
+    const allTasks = tasksByProject.flat();
+    const allShoppingItems = shoppingByProject.flat();
+    const allLaborItems = laborByProject.flat();
+    const allProjectPayments = projectPaymentsByProject.flat();
+
+    const tasksInRange = allTasks.filter((task: any) => {
+      const taskStart = task.startDate ?? task.endDate;
+      const taskEnd = task.endDate ?? task.startDate;
+      if (!taskStart || !taskEnd) return false;
+      return isRangeOverlapping(taskStart, taskEnd, startTimestamp, endTimestamp);
+    });
+
+    const shoppingInRange = allShoppingItems.filter(
+      (item: any) => !!item.buyBefore && item.buyBefore >= startTimestamp && item.buyBefore <= endTimestamp,
+    );
+
+    const laborInRange = allLaborItems.filter((item: any) => {
+      const laborStart = item.startDate ?? item.endDate;
+      const laborEnd = item.endDate ?? item.startDate;
+      if (!laborStart || !laborEnd) return false;
+      return isRangeOverlapping(laborStart, laborEnd, startTimestamp, endTimestamp);
+    });
+
+    const projectPaymentsInRange = allProjectPayments.filter((payment: any) =>
+      [payment.dueDate, payment.invoiceIssuedAt, payment.sentAt, payment.paidAt].some(
+        (timestamp) =>
+          typeof timestamp === "number" && timestamp >= startTimestamp && timestamp <= endTimestamp,
+      ),
+    );
+
+    const usersByClerkId = await fetchUsersByClerkIds(ctx, [
+      ...tasksInRange.map((task: any) => task.assignedTo ?? null),
+      ...shoppingInRange.map((item: any) => item.assignedTo ?? null),
+      ...laborInRange.map((item: any) => item.assignedTo ?? null),
+      ...projectPaymentsInRange.map((payment: any) => payment.createdBy),
+    ]);
+
+    const enrichedTasks = tasksInRange.map((task: any) => {
+      const projectMeta = projectMetaById.get(String(task.projectId));
+      return {
+        _id: task._id,
+        title: task.title,
+        description: task.description,
+        status: task.status,
+        priority: task.priority,
+        startDate: task.startDate,
+        endDate: task.endDate,
+        assignedToName: task.assignedTo ? usersByClerkId.get(task.assignedTo)?.name : undefined,
+        projectSlug: projectMeta?.slug,
+        projectName: projectMeta?.name,
+      };
+    });
+
+    const enrichedShoppingItems = shoppingInRange.map((item: any) => {
+      const projectMeta = projectMetaById.get(String(item.projectId));
+      return {
+        _id: item._id,
+        name: item.name,
+        notes: item.notes,
+        buyBefore: item.buyBefore,
+        priority: item.priority,
+        realizationStatus: item.realizationStatus,
+        quantity: item.quantity,
+        assignedToName: item.assignedTo ? usersByClerkId.get(item.assignedTo)?.name : undefined,
+        projectSlug: projectMeta?.slug,
+        projectName: projectMeta?.name,
+      };
+    });
+
+    const enrichedLaborItems = laborInRange.map((item: any) => {
+      const projectMeta = projectMetaById.get(String(item.projectId));
+      return {
+        _id: item._id,
+        name: item.name,
+        notes: item.notes,
+        quantity: item.quantity,
+        unit: item.unit,
+        startDate: item.startDate,
+        endDate: item.endDate,
+        assignedToName: item.assignedTo ? usersByClerkId.get(item.assignedTo)?.name : undefined,
+        projectSlug: projectMeta?.slug,
+        projectName: projectMeta?.name,
+      };
+    });
+
+    const enrichedProjectPayments = projectPaymentsInRange.map((payment: any) => {
+      const projectMeta = projectMetaById.get(String(payment.projectId));
+      return {
+        _id: payment._id,
+        title: payment.title,
+        description: payment.description,
+        amount: payment.amount,
+        currency: payment.currency,
+        status: payment.status,
+        invoiceNumber: payment.invoiceNumber || payment.stripeInvoiceNumber,
+        paymentReference: payment.paymentReference,
+        dueDate: payment.dueDate,
+        invoiceIssuedAt: payment.invoiceIssuedAt,
+        sentAt: payment.sentAt,
+        paidAt: payment.paidAt,
+        createdByName: usersByClerkId.get(payment.createdBy)?.name,
+        projectSlug: projectMeta?.slug,
+        projectName: projectMeta?.name,
+        relevantDates: [
+          {
+            type: "dueDate" as const,
+            timestamp: payment.dueDate,
+          },
+          {
+            type: "invoiceIssuedAt" as const,
+            timestamp: payment.invoiceIssuedAt,
+          },
+          {
+            type: "sentAt" as const,
+            timestamp: payment.sentAt,
+          },
+          {
+            type: "paidAt" as const,
+            timestamp: payment.paidAt,
+          },
+        ].filter(
+          (entry) =>
+            typeof entry.timestamp === "number" &&
+            entry.timestamp >= startTimestamp &&
+            entry.timestamp <= endTimestamp,
+        ),
+      };
+    });
 
     return {
       tasks: enrichedTasks,

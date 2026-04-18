@@ -32,6 +32,7 @@ import {
   CreditCard,
   Users,
   FolderOpen,
+  Calendar,
   BarChart3,
   Contact,
   Package,
@@ -98,6 +99,7 @@ function CompanySidebarContent() {
   // Define navigation items based on user role
   const allNavItems = [
     { href: "/organisation", label: "Projects", icon: FolderOpen, allowedRoles: ["admin", "member"] },
+    { href: "/organisation/calendar", label: "Calendar", icon: Calendar, allowedRoles: ["admin", "member"] },
     { href: "/organisation/visualizations", label: "Visualizations", icon: Sparkles, allowedRoles: ["admin", "member"] },
     { href: "/organisation/product-library", label: "Product Library", icon: Package, allowedRoles: ["admin", "member"] },
     { href: "/organisation/team", label: "Team", icon: Users, allowedRoles: ["admin", "member"] },

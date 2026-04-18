@@ -44,7 +44,11 @@ import {
 } from "@/lib/organizationTax";
 
 type ShoppingListItem = Doc<"shoppingListItems">;
-type ShoppingSet = Doc<"shoppingSets">;
+type ShoppingSet = Doc<"shoppingSets"> & {
+  resolvedBySource?: "team" | "client" | null;
+  resolvedByName?: string | null;
+  resolvedAt?: number | null;
+};
 type Priority = ShoppingListItem["priority"];
 
 const SHOPPING_STATUS_OPTIONS: Array<{
@@ -118,7 +122,7 @@ interface ShoppingListSectionProps {
   ) => Promise<Id<"shoppingSets">>;
   onUpdateSet: (
     id: Id<"shoppingSets">,
-    updates: Partial<Doc<"shoppingSets">>,
+    updates: Partial<ShoppingSet>,
   ) => Promise<void>;
   onDeleteSet: (id: Id<"shoppingSets">) => Promise<void>;
   isPending: boolean;
@@ -430,6 +434,35 @@ export function ShoppingListSection({
     if (decision === "accepted") return "Accepted";
     if (decision === "rejected") return "Rejected";
     return null;
+  };
+
+  const getSelectionSourceTone = (
+    source: ShoppingSet["resolvedBySource"],
+  ) => {
+    if (source === "client") {
+      return "border-emerald-500/30 bg-emerald-500/12 text-emerald-700";
+    }
+    if (source === "team") {
+      return "border-sky-500/25 bg-sky-500/10 text-sky-700";
+    }
+    return "border-border/60 bg-secondary/30 text-muted-foreground";
+  };
+
+  const getSelectionSourceLabel = (
+    source: ShoppingSet["resolvedBySource"],
+    selectionMode: ShoppingSet["selectionMode"],
+  ) => {
+    if (source === "client") {
+      return selectionMode === "multiple"
+        ? "Chosen by client"
+        : "Client chose this option";
+    }
+    if (source === "team") {
+      return selectionMode === "multiple"
+        ? "Selected by team"
+        : "Team selected option";
+    }
+    return "Selected option";
   };
 
   const renderEditForm = (item: ShoppingListItem) => (
@@ -870,6 +903,7 @@ export function ShoppingListSection({
       : setItems;
     const selectedIds = new Set((set.resolvedItemIds ?? []).map((id) => String(id)));
     const preferredIds = new Set((set.preferredItemIds ?? []).map((id) => String(id)));
+    const hasClientSelection = set.resolvedBySource === "client" && selectedIds.size > 0;
     const fallbackSelectedId = orderedSetItems[0]?._id ? String(orderedSetItems[0]._id) : null;
     const effectiveSelectedIds =
       selectedIds.size > 0
@@ -887,6 +921,9 @@ export function ShoppingListSection({
         await onUpdateSet(set._id, {
           resolvedItemIds: [itemId as Id<"shoppingListItems">],
           status: "resolved",
+          resolvedBySource: "team",
+          resolvedByName: null,
+          resolvedAt: Date.now(),
         });
         return;
       }
@@ -900,6 +937,9 @@ export function ShoppingListSection({
       await onUpdateSet(set._id, {
         resolvedItemIds: Array.from(next) as Id<"shoppingListItems">[],
         status: next.size > 0 ? "resolved" : set.status,
+        resolvedBySource: next.size > 0 ? "team" : null,
+        resolvedByName: null,
+        resolvedAt: next.size > 0 ? Date.now() : null,
       });
     };
 
@@ -914,6 +954,16 @@ export function ShoppingListSection({
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <Badge variant="outline" className="text-xs">Alternative group</Badge>
               <Badge variant="secondary" className="text-xs">{setItems.length} options</Badge>
+              {hasClientSelection ? (
+                <Badge
+                  variant="outline"
+                  className={cn("text-xs", getSelectionSourceTone(set.resolvedBySource))}
+                >
+                  {set.resolvedByName
+                    ? `Chosen by client: ${set.resolvedByName}`
+                    : "Chosen by client"}
+                </Badge>
+              ) : null}
             </div>
             {set.notes ? <p className="mt-3 text-sm text-muted-foreground">{set.notes}</p> : null}
           </div>
@@ -972,6 +1022,7 @@ export function ShoppingListSection({
         <div className="flex flex-col gap-3">
           {orderedSetItems.map((item) => {
             const isSelected = effectiveSelectedIds.has(String(item._id));
+            const isPreferred = preferredIds.has(String(item._id));
             return (
               <div key={item._id} className="flex flex-col gap-3">
                 {set.selectionMode !== "none" ? (
@@ -995,7 +1046,10 @@ export function ShoppingListSection({
                       {isSelected ? <CheckIcon className="mr-1 h-4 w-4" /> : null}
                       {set.selectionMode === "single"
                         ? isSelected
-                          ? "Default option"
+                          ? getSelectionSourceLabel(
+                              set.resolvedBySource,
+                              set.selectionMode,
+                            )
                           : "Set default"
                         : isSelected
                           ? "Included"
@@ -1003,7 +1057,29 @@ export function ShoppingListSection({
                     </Button>
                   </div>
                 ) : null}
-                {renderItemRow(item, set)}
+                <div className="flex flex-col gap-2">
+                  {set.selectionMode === "single" && (isSelected || isPreferred) ? (
+                    <div className="flex flex-wrap items-center gap-2 px-1">
+                      {isSelected ? (
+                        <Badge
+                          variant="outline"
+                          className={cn("text-xs", getSelectionSourceTone(set.resolvedBySource))}
+                        >
+                          {getSelectionSourceLabel(
+                            set.resolvedBySource,
+                            set.selectionMode,
+                          )}
+                        </Badge>
+                      ) : null}
+                      {isPreferred && !isSelected ? (
+                        <Badge variant="secondary" className="text-xs">
+                          Team default
+                        </Badge>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  {renderItemRow(item, set)}
+                </div>
               </div>
             );
           })}

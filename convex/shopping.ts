@@ -308,6 +308,11 @@ export const createShoppingSet = mutation({
     status: v.optional(v.union(v.literal("draft"), v.literal("active"), v.literal("resolved"), v.literal("archived"))),
     preferredItemIds: v.optional(v.array(v.id("shoppingListItems"))),
     resolvedItemIds: v.optional(v.array(v.id("shoppingListItems"))),
+    resolvedBySource: v.optional(
+      v.union(v.literal("team"), v.literal("client"), v.null()),
+    ),
+    resolvedByName: v.optional(v.union(v.string(), v.null())),
+    resolvedAt: v.optional(v.union(v.number(), v.null())),
   },
   handler: async (ctx, args) => {
     const { project, clerkUserId } = await ensureProjectAccess(ctx, args.projectId);
@@ -330,6 +335,9 @@ export const createShoppingSet = mutation({
       status: args.status ?? "active",
       preferredItemIds: args.preferredItemIds ? normalizeIdList(args.preferredItemIds) as any : undefined,
       resolvedItemIds: args.resolvedItemIds ? normalizeIdList(args.resolvedItemIds) as any : undefined,
+      resolvedBySource: args.resolvedBySource ?? null,
+      resolvedByName: args.resolvedByName?.trim() || null,
+      resolvedAt: args.resolvedAt ?? null,
       order: existingSets.length,
       createdBy: clerkUserId,
       updatedAt: Date.now(),
@@ -349,6 +357,11 @@ export const updateShoppingSet = mutation({
     status: v.optional(v.union(v.literal("draft"), v.literal("active"), v.literal("resolved"), v.literal("archived"))),
     preferredItemIds: v.optional(v.array(v.id("shoppingListItems"))),
     resolvedItemIds: v.optional(v.array(v.id("shoppingListItems"))),
+    resolvedBySource: v.optional(
+      v.union(v.literal("team"), v.literal("client"), v.null()),
+    ),
+    resolvedByName: v.optional(v.union(v.string(), v.null())),
+    resolvedAt: v.optional(v.union(v.number(), v.null())),
   },
   handler: async (ctx, args) => {
     const set = await ensureShoppingSetAccess(ctx, args.setId);
@@ -368,6 +381,11 @@ export const updateShoppingSet = mutation({
 
     const normalizeIdsForSet = (ids?: readonly string[]) =>
       ids ? normalizeIdList(ids).filter((id) => validItemIds.has(id)) : undefined;
+    const nextResolvedItemIds = normalizeIdsForSet(args.resolvedItemIds);
+    const isUpdatingResolvedSelection = args.resolvedItemIds !== undefined;
+    const hasResolvedSelection = Boolean(nextResolvedItemIds && nextResolvedItemIds.length > 0);
+    const normalizedResolvedByName =
+      args.resolvedByName === undefined ? undefined : args.resolvedByName?.trim() || null;
 
     await ctx.db.patch(args.setId, {
       ...(args.title !== undefined ? { title: args.title.trim() } : {}),
@@ -378,7 +396,27 @@ export const updateShoppingSet = mutation({
       ...(args.pricingMode !== undefined ? { pricingMode: args.pricingMode } : {}),
       ...(args.status !== undefined ? { status: args.status } : {}),
       ...(args.preferredItemIds !== undefined ? { preferredItemIds: normalizeIdsForSet(args.preferredItemIds) as any } : {}),
-      ...(args.resolvedItemIds !== undefined ? { resolvedItemIds: normalizeIdsForSet(args.resolvedItemIds) as any } : {}),
+      ...(isUpdatingResolvedSelection
+        ? {
+            resolvedItemIds: nextResolvedItemIds as any,
+            resolvedBySource:
+              args.resolvedBySource !== undefined
+                ? args.resolvedBySource
+                : hasResolvedSelection
+                  ? "team"
+                  : null,
+            resolvedByName:
+              normalizedResolvedByName !== undefined
+                ? normalizedResolvedByName
+                : null,
+            resolvedAt:
+              args.resolvedAt !== undefined
+                ? args.resolvedAt
+                : hasResolvedSelection
+                  ? Date.now()
+                  : null,
+          }
+        : {}),
       updatedAt: Date.now(),
     });
   },
@@ -604,6 +642,12 @@ export const selectShoppingSetItemsByAccessToken = mutation({
     await ctx.db.patch(set._id, {
       resolvedItemIds: requestedIds as any,
       status: requestedIds.length > 0 ? "resolved" : set.status,
+      resolvedBySource: requestedIds.length > 0 ? "client" : null,
+      resolvedByName:
+        requestedIds.length > 0
+          ? getClientPortalActorName(args.respondentName)
+          : null,
+      resolvedAt: requestedIds.length > 0 ? Date.now() : null,
       updatedAt: Date.now(),
     });
 
