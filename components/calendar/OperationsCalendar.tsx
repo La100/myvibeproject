@@ -136,6 +136,13 @@ type WeekTaskBar = {
   endsWithinWeek: boolean;
 };
 
+type DaySingleEventDots = {
+  task: number;
+  shopping: number;
+  labor: number;
+  invoice: number;
+};
+
 export type CalendarResponse = {
   tasks: CalendarTask[];
   shoppingItems: CalendarShoppingItem[];
@@ -178,6 +185,20 @@ const invoiceStatusClassNames: Record<CalendarProjectPayment["status"], string> 
   paid: "border-emerald-200 bg-emerald-50 text-emerald-700",
   void: "border-stone-300 bg-stone-100 text-stone-700",
   uncollectible: "border-rose-200 bg-rose-50 text-rose-700",
+};
+
+const taskCalendarBarClassNames: Record<CalendarTask["status"], string> = {
+  todo: "border-stone-300/90 bg-stone-200/98 text-stone-700",
+  in_progress: "border-sky-300/90 bg-sky-200/98 text-sky-800",
+  review: "border-amber-300/90 bg-amber-200/98 text-amber-800",
+  done: "border-emerald-300/90 bg-emerald-200/98 text-emerald-800",
+};
+
+const taskCalendarDotClassNames: Record<CalendarTask["status"], string> = {
+  todo: "bg-stone-500",
+  in_progress: "bg-sky-500",
+  review: "bg-amber-500",
+  done: "bg-emerald-500",
 };
 
 const detailLinkClassName =
@@ -229,6 +250,12 @@ function createEmptyDay(): DayData {
     labor: [],
     invoices: [],
   };
+}
+
+function isSingleDayRange(startTimestamp?: number, endTimestamp?: number) {
+  const normalizedRange = getNormalizedRange(startTimestamp, endTimestamp);
+  if (!normalizedRange) return false;
+  return normalizedRange.start.getTime() === normalizedRange.end.getTime();
 }
 
 function buildProjectBasePath(projectSlug?: string) {
@@ -372,6 +399,7 @@ export function OperationsCalendar({
         .map((task) => {
           const normalizedRange = getNormalizedRange(task.startDate, task.endDate);
           if (!normalizedRange) return null;
+          if (normalizedRange.start.getTime() === normalizedRange.end.getTime()) return null;
           if (normalizedRange.end < weekStart || normalizedRange.start > weekEnd) return null;
 
           const segmentStart = max([normalizedRange.start, weekStart]);
@@ -435,6 +463,50 @@ export function OperationsCalendar({
       };
     });
   }, [calendarData, weeks]);
+
+  const daySingleEventDots = useMemo(() => {
+    const map = new Map<string, DaySingleEventDots>();
+
+    const getDayDots = (key: string) => {
+      if (!map.has(key)) {
+        map.set(key, {
+          task: 0,
+          shopping: 0,
+          labor: 0,
+          invoice: 0,
+        });
+      }
+
+      return map.get(key)!;
+    };
+
+    if (!calendarData) return map;
+
+    for (const task of calendarData.tasks) {
+      if (!isSingleDayRange(task.startDate, task.endDate)) continue;
+      const key = timestampToKey(task.startDate ?? task.endDate!);
+      getDayDots(key).task += 1;
+    }
+
+    for (const item of calendarData.shoppingItems) {
+      if (!item.buyBefore) continue;
+      getDayDots(timestampToKey(item.buyBefore)).shopping += 1;
+    }
+
+    for (const item of calendarData.laborItems) {
+      if (!isSingleDayRange(item.startDate, item.endDate)) continue;
+      const key = timestampToKey(item.startDate ?? item.endDate!);
+      getDayDots(key).labor += 1;
+    }
+
+    for (const payment of calendarData.projectPayments) {
+      for (const relevantDate of payment.relevantDates) {
+        getDayDots(timestampToKey(relevantDate.timestamp)).invoice += 1;
+      }
+    }
+
+    return map;
+  }, [calendarData]);
 
   const selectedDayData = useMemo(
     () => (selectedDate ? dayDataMap.get(selectedDate) ?? createEmptyDay() : null),
@@ -576,7 +648,7 @@ export function OperationsCalendar({
             </div>
           </CardHeader>
 
-          <CardContent className="grid gap-6 p-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.9fr)]">
+          <CardContent className="space-y-6 p-6">
             <div className="overflow-hidden rounded-[1.5rem] border border-border/70">
               <div className="grid grid-cols-7 border-b border-border/60 bg-muted/20">
                 {WEEKDAY_HEADERS.map((day) => (
@@ -594,13 +666,14 @@ export function OperationsCalendar({
                   const taskBars = weekTaskBars[weekIndex];
                   const visibleTaskBars = visibleTypes.has("task") ? taskBars.bars : [];
                   const taskLaneCount = visibleTypes.has("task") ? taskBars.laneCount : 0;
-                  const rowMinHeight = 124 + taskLaneCount * 28;
+                  const rowMinHeight = 170;
 
                   return (
                     <div key={week[0]?.toISOString()} className="relative grid grid-cols-7">
                       {week.map((day) => {
                         const key = dateToKey(day);
                         const data = dayDataMap.get(key);
+                        const singleEventDots = daySingleEventDots.get(key);
                         const visibleCount =
                           (visibleTypes.has("task") ? data?.tasks.length ?? 0 : 0) +
                           (visibleTypes.has("shopping") ? data?.shopping.length ?? 0 : 0) +
@@ -615,71 +688,87 @@ export function OperationsCalendar({
                             type="button"
                             onClick={() => setSelectedDate(isSelected ? null : key)}
                             className={cn(
-                              "border-b border-r border-border/60 bg-white p-3 text-left transition-[background-color,border-color,box-shadow]",
+                              "flex flex-col border-b border-r border-border/60 bg-white p-3 text-left transition-[background-color,border-color,box-shadow]",
                               !isSameMonth(day, monthDate) && "bg-stone-50/80 text-muted-foreground",
                               isSelected && "bg-stone-50 shadow-[inset_0_0_0_1px_rgba(70,52,37,0.14)]",
                               !isSelected && "hover:bg-stone-50/60",
                             )}
                             style={{ minHeight: `${rowMinHeight}px` }}
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <span
-                                className={cn(
-                                  "inline-flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-sm font-semibold",
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <span
+                                  className={cn(
+                                    "inline-flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-sm font-semibold",
                                   isToday(day)
                                     ? "bg-stone-900 text-white"
                                     : "bg-transparent text-foreground",
                                 )}
-                              >
-                                {day.getDate()}
-                              </span>
-                              {visibleCount > 0 ? (
-                                <span
-                                  className={cn(
-                                    "inline-flex h-7 min-w-7 items-center justify-center rounded-full px-2 text-[11px] font-semibold shadow-sm",
-                                    isSelected
-                                      ? "bg-stone-900 text-white"
-                                      : "bg-stone-100 text-stone-700",
-                                  )}
                                 >
-                                  {visibleCount}
+                                  {day.getDate()}
                                 </span>
-                              ) : null}
-                            </div>
+                                {visibleCount > 0 ? (
+                                  <span
+                                    className={cn(
+                                      "inline-flex h-7 min-w-7 items-center justify-center rounded-full px-2 text-[11px] font-semibold shadow-sm",
+                                      isSelected
+                                        ? "bg-stone-900 text-white"
+                                        : "bg-stone-100 text-stone-700",
+                                    )}
+                                  >
+                                    {visibleCount}
+                                  </span>
+                                ) : null}
+                              </div>
 
-                            <div className="mt-3 flex flex-wrap gap-1.5">
-                              {visibleTypes.has("task") && (data?.tasks.length ?? 0) > 0 ? (
-                                <span className="h-2 w-2 rounded-full bg-stone-700" />
-                              ) : null}
-                              {visibleTypes.has("shopping") && (data?.shopping.length ?? 0) > 0 ? (
-                                <span className="h-2 w-2 rounded-full bg-amber-500" />
-                              ) : null}
-                              {visibleTypes.has("labor") && (data?.labor.length ?? 0) > 0 ? (
-                                <span className="h-2 w-2 rounded-full bg-sky-600" />
-                              ) : null}
+                            <div className="mt-auto flex items-end justify-between gap-2 pt-8">
+                              <div className="flex flex-wrap gap-1.5">
+                                {visibleTypes.has("task") && (singleEventDots?.task ?? 0) > 0 ? (
+                                  <span
+                                    className={cn(
+                                      "h-2.5 w-2.5 rounded-full",
+                                      data?.tasks.find((task) => isSingleDayRange(task.startDate, task.endDate))
+                                        ? taskCalendarDotClassNames[
+                                            data.tasks.find((task) =>
+                                              isSingleDayRange(task.startDate, task.endDate),
+                                            )!.status
+                                          ]
+                                        : "bg-stone-500",
+                                    )}
+                                  />
+                                ) : null}
+                                {visibleTypes.has("shopping") && (singleEventDots?.shopping ?? 0) > 0 ? (
+                                  <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
+                                ) : null}
+                                {visibleTypes.has("labor") && (singleEventDots?.labor ?? 0) > 0 ? (
+                                  <span className="h-2.5 w-2.5 rounded-full bg-sky-600" />
+                                ) : null}
+                                {visibleTypes.has("invoice") && (singleEventDots?.invoice ?? 0) > 0 ? (
+                                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" />
+                                ) : null}
+                              </div>
+
                               {visibleTypes.has("invoice") && (data?.invoices.length ?? 0) > 0 ? (
-                                <span className="h-2 w-2 rounded-full bg-emerald-600" />
-                              ) : null}
-                            </div>
-
-                            <div className="mt-3 hidden space-y-1.5 lg:block">
-                              {visibleTypes.has("invoice") && (data?.invoices.length ?? 0) > 0
-                                ? data?.invoices.slice(0, 1).map((invoice) => (
+                                <div className="hidden max-w-[70%] lg:block">
+                                  {data?.invoices.slice(0, 1).map((invoice) => (
                                     <div
                                       key={invoice._id}
                                       className="truncate rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700"
                                     >
                                       {getInvoiceDateLabel(invoice.dateType)}: {invoice.title}
                                     </div>
-                                  ))
-                                : null}
+                                  ))}
+                                </div>
+                              ) : null}
                             </div>
                           </button>
                         );
                       })}
 
                       {visibleTaskBars.length > 0 ? (
-                        <div className="pointer-events-none absolute inset-x-0 top-[56px] z-10">
+                        <div
+                          className="pointer-events-none absolute inset-x-0 z-10"
+                          style={{ bottom: "16px", height: `${Math.max(taskLaneCount, 1) * 18}px` }}
+                        >
                           {visibleTaskBars.map((bar) => {
                             const width = ((bar.endColumn - bar.startColumn + 1) / 7) * 100;
                             const left = (bar.startColumn / 7) * 100;
@@ -688,14 +777,15 @@ export function OperationsCalendar({
                               <div
                                 key={`${bar.task._id}-${weekIndex}`}
                                 className={cn(
-                                  "absolute flex h-9 items-center overflow-hidden border border-stone-200 bg-stone-100/95 px-3 text-[11px] font-medium text-stone-700 shadow-sm backdrop-blur-[1px]",
-                                  bar.startsWithinWeek ? "rounded-l-full" : "rounded-l-md border-l-0",
-                                  bar.endsWithinWeek ? "rounded-r-full" : "rounded-r-md border-r-0",
+                                  "absolute flex h-5 items-center overflow-hidden px-3 text-[11px] font-medium shadow-[0_1px_3px_rgba(0,0,0,0.05)]",
+                                  taskCalendarBarClassNames[bar.task.status],
+                                  bar.startsWithinWeek ? "rounded-l-full" : "rounded-l-sm border-l-0",
+                                  bar.endsWithinWeek ? "rounded-r-full" : "rounded-r-sm border-r-0",
                                 )}
                                 style={{
-                                  left: `calc(${left}% + 8px)`,
-                                  width: `calc(${width}% - 16px)`,
-                                  top: `${bar.lane * 28}px`,
+                                  left: `calc(${left}% + 10px)`,
+                                  width: `calc(${width}% - 20px)`,
+                                  top: `${bar.lane * 18}px`,
                                 }}
                               >
                                 <span className="truncate">
