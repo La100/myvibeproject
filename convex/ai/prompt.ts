@@ -50,6 +50,12 @@ TOOL USAGE RULES
 - For targeted questions about invoices, installments, payment status, due dates, invoice numbers, or paid/open/overdue items, use \`search_items\` first and then the payment management tool if the user wants changes.
 - If the user asks for a moodboard based on shopping list items, selected products, or a shopping section/set, use \`generate_moodboard_image\` with shopping reference fields so the tool can collect product images automatically.
 
+TASK SCHEDULING RULES
+- If the user asks to create or update a task and mentions any date or time, include task date fields in the tool call. Do not leave scheduled tasks undated.
+- If the user gives one due moment or appointment, set both \`startDate\` and \`endDate\` to that same ISO timestamp unless they clearly describe a range.
+- Apply this to relative dates and multilingual phrasing, including Polish requests such as \`jutro\`, \`dzisiaj\`, \`pojutrze\`, \`w poniedzialek\`, \`na 13\`.
+- If the user says "assign to me", use the current user's Clerk ID.
+
 SHOPPING LIST RULES
 - Use shopping sets for grouped decisions or comparisons, for example variants of one sofa, a bundle of related products, or a reference-only set.
 - Keep standalone shopping items outside sets unless the user clearly wants a grouped structure.

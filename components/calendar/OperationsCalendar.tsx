@@ -16,8 +16,11 @@ import {
   endOfMonth,
   endOfWeek,
   format,
+  max,
+  min,
   isSameMonth,
   isToday,
+  startOfDay,
   startOfMonth,
   startOfWeek,
 } from "date-fns";
@@ -124,6 +127,15 @@ type DayData = {
 
 type EventType = "task" | "shopping" | "labor" | "invoice";
 
+type WeekTaskBar = {
+  task: CalendarTask;
+  lane: number;
+  startColumn: number;
+  endColumn: number;
+  startsWithinWeek: boolean;
+  endsWithinWeek: boolean;
+};
+
 export type CalendarResponse = {
   tasks: CalendarTask[];
   shoppingItems: CalendarShoppingItem[];
@@ -177,6 +189,22 @@ function dateToKey(date: Date) {
 
 function timestampToKey(timestamp: number) {
   return format(new Date(timestamp), "yyyy-MM-dd");
+}
+
+function getNormalizedRange(
+  startTimestamp?: number,
+  endTimestamp?: number,
+): { start: Date; end: Date } | null {
+  const startValue = startTimestamp ?? endTimestamp;
+  const endValue = endTimestamp ?? startTimestamp;
+  if (!startValue || !endValue) return null;
+
+  const start = startOfDay(new Date(startValue));
+  const end = startOfDay(new Date(endValue));
+
+  return start.getTime() <= end.getTime()
+    ? { start, end }
+    : { start: end, end: start };
 }
 
 function getInvoiceDateLabel(type: ProjectPaymentDateType) {
@@ -255,6 +283,14 @@ export function OperationsCalendar({
     });
   }, [monthDate]);
 
+  const weeks = useMemo(() => {
+    const nextWeeks: Date[][] = [];
+    for (let index = 0; index < allDays.length; index += 7) {
+      nextWeeks.push(allDays.slice(index, index + 7));
+    }
+    return nextWeeks;
+  }, [allDays]);
+
   const dayDataMap = useMemo(() => {
     const map = new Map<string, DayData>();
     if (!calendarData) return map;
@@ -324,6 +360,81 @@ export function OperationsCalendar({
 
     return map;
   }, [calendarData]);
+
+  const weekTaskBars = useMemo(() => {
+    if (!calendarData) return weeks.map(() => ({ bars: [] as WeekTaskBar[], laneCount: 0 }));
+
+    return weeks.map((week) => {
+      const weekStart = startOfDay(week[0]);
+      const weekEnd = startOfDay(week[6]);
+
+      const rawBars = calendarData.tasks
+        .map((task) => {
+          const normalizedRange = getNormalizedRange(task.startDate, task.endDate);
+          if (!normalizedRange) return null;
+          if (normalizedRange.end < weekStart || normalizedRange.start > weekEnd) return null;
+
+          const segmentStart = max([normalizedRange.start, weekStart]);
+          const segmentEnd = min([normalizedRange.end, weekEnd]);
+
+          return {
+            task,
+            segmentStart,
+            segmentEnd,
+            startsWithinWeek: normalizedRange.start.getTime() >= weekStart.getTime(),
+            endsWithinWeek: normalizedRange.end.getTime() <= weekEnd.getTime(),
+            startColumn: week.findIndex(
+              (day) => startOfDay(day).getTime() === segmentStart.getTime(),
+            ),
+            endColumn: week.findIndex(
+              (day) => startOfDay(day).getTime() === segmentEnd.getTime(),
+            ),
+          };
+        })
+        .filter(
+          (
+            bar,
+          ): bar is Omit<WeekTaskBar, "lane"> & {
+            segmentStart: Date;
+            segmentEnd: Date;
+          } => Boolean(bar && bar.startColumn >= 0 && bar.endColumn >= 0),
+        )
+        .sort((left, right) => {
+          const startDiff = left.segmentStart.getTime() - right.segmentStart.getTime();
+          if (startDiff !== 0) return startDiff;
+
+          const endDiff = left.segmentEnd.getTime() - right.segmentEnd.getTime();
+          if (endDiff !== 0) return endDiff;
+
+          return left.task.title.localeCompare(right.task.title);
+        });
+
+      const laneEndColumns: number[] = [];
+      const bars: WeekTaskBar[] = rawBars.map((bar) => {
+        let lane = laneEndColumns.findIndex((endColumn) => bar.startColumn > endColumn);
+        if (lane === -1) {
+          lane = laneEndColumns.length;
+          laneEndColumns.push(bar.endColumn);
+        } else {
+          laneEndColumns[lane] = bar.endColumn;
+        }
+
+        return {
+          task: bar.task,
+          lane,
+          startColumn: bar.startColumn,
+          endColumn: bar.endColumn,
+          startsWithinWeek: bar.startsWithinWeek,
+          endsWithinWeek: bar.endsWithinWeek,
+        };
+      });
+
+      return {
+        bars,
+        laneCount: laneEndColumns.length,
+      };
+    });
+  }, [calendarData, weeks]);
 
   const selectedDayData = useMemo(
     () => (selectedDate ? dayDataMap.get(selectedDate) ?? createEmptyDay() : null),
@@ -478,93 +589,124 @@ export function OperationsCalendar({
                 ))}
               </div>
 
-              <div className="grid grid-cols-7 bg-border/60">
-                {allDays.map((day) => {
-                  const key = dateToKey(day);
-                  const data = dayDataMap.get(key);
-                  const visibleCount =
-                    (visibleTypes.has("task") ? data?.tasks.length ?? 0 : 0) +
-                    (visibleTypes.has("shopping") ? data?.shopping.length ?? 0 : 0) +
-                    (visibleTypes.has("labor") ? data?.labor.length ?? 0 : 0) +
-                    (visibleTypes.has("invoice") ? data?.invoices.length ?? 0 : 0);
-
-                  const isSelected = selectedDate === key;
+              <div className="space-y-px bg-border/60">
+                {weeks.map((week, weekIndex) => {
+                  const taskBars = weekTaskBars[weekIndex];
+                  const visibleTaskBars = visibleTypes.has("task") ? taskBars.bars : [];
+                  const taskLaneCount = visibleTypes.has("task") ? taskBars.laneCount : 0;
+                  const rowMinHeight = 124 + taskLaneCount * 28;
 
                   return (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => setSelectedDate(isSelected ? null : key)}
-                      className={cn(
-                        "min-h-[124px] border-b border-r border-border/60 bg-white p-3 text-left transition-[background-color,border-color,box-shadow]",
-                        !isSameMonth(day, monthDate) && "bg-stone-50/80 text-muted-foreground",
-                        isSelected && "bg-stone-50 shadow-[inset_0_0_0_1px_rgba(70,52,37,0.14)]",
-                        !isSelected && "hover:bg-stone-50/60",
-                      )}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <span
-                          className={cn(
-                            "inline-flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-sm font-semibold",
-                            isToday(day)
-                              ? "bg-stone-900 text-white"
-                              : "bg-transparent text-foreground",
-                          )}
-                        >
-                          {day.getDate()}
-                        </span>
-                        {visibleCount > 0 ? (
-                          <span
+                    <div key={week[0]?.toISOString()} className="relative grid grid-cols-7">
+                      {week.map((day) => {
+                        const key = dateToKey(day);
+                        const data = dayDataMap.get(key);
+                        const visibleCount =
+                          (visibleTypes.has("task") ? data?.tasks.length ?? 0 : 0) +
+                          (visibleTypes.has("shopping") ? data?.shopping.length ?? 0 : 0) +
+                          (visibleTypes.has("labor") ? data?.labor.length ?? 0 : 0) +
+                          (visibleTypes.has("invoice") ? data?.invoices.length ?? 0 : 0);
+
+                        const isSelected = selectedDate === key;
+
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            onClick={() => setSelectedDate(isSelected ? null : key)}
                             className={cn(
-                              "inline-flex h-7 min-w-7 items-center justify-center rounded-full px-2 text-[11px] font-semibold shadow-sm",
-                              isSelected
-                                ? "bg-stone-900 text-white"
-                                : "bg-stone-100 text-stone-700",
+                              "border-b border-r border-border/60 bg-white p-3 text-left transition-[background-color,border-color,box-shadow]",
+                              !isSameMonth(day, monthDate) && "bg-stone-50/80 text-muted-foreground",
+                              isSelected && "bg-stone-50 shadow-[inset_0_0_0_1px_rgba(70,52,37,0.14)]",
+                              !isSelected && "hover:bg-stone-50/60",
                             )}
+                            style={{ minHeight: `${rowMinHeight}px` }}
                           >
-                            {visibleCount}
-                          </span>
-                        ) : null}
-                      </div>
-
-                      <div className="mt-3 flex flex-wrap gap-1.5">
-                        {visibleTypes.has("task") && (data?.tasks.length ?? 0) > 0 ? (
-                          <span className="h-2 w-2 rounded-full bg-stone-700" />
-                        ) : null}
-                        {visibleTypes.has("shopping") && (data?.shopping.length ?? 0) > 0 ? (
-                          <span className="h-2 w-2 rounded-full bg-amber-500" />
-                        ) : null}
-                        {visibleTypes.has("labor") && (data?.labor.length ?? 0) > 0 ? (
-                          <span className="h-2 w-2 rounded-full bg-sky-600" />
-                        ) : null}
-                        {visibleTypes.has("invoice") && (data?.invoices.length ?? 0) > 0 ? (
-                          <span className="h-2 w-2 rounded-full bg-emerald-600" />
-                        ) : null}
-                      </div>
-
-                      <div className="mt-3 hidden space-y-1.5 lg:block">
-                        {visibleTypes.has("task")
-                          ? data?.tasks.slice(0, 2).map((task) => (
-                              <div
-                                key={task._id}
-                                className="truncate rounded-full bg-stone-100 px-2.5 py-1 text-[11px] font-medium text-stone-700"
+                            <div className="flex items-start justify-between gap-2">
+                              <span
+                                className={cn(
+                                  "inline-flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-sm font-semibold",
+                                  isToday(day)
+                                    ? "bg-stone-900 text-white"
+                                    : "bg-transparent text-foreground",
+                                )}
                               >
-                                {task.title}
-                              </div>
-                            ))
-                          : null}
-                        {visibleTypes.has("invoice") && (data?.tasks.length ?? 0) === 0
-                          ? data?.invoices.slice(0, 1).map((invoice) => (
+                                {day.getDate()}
+                              </span>
+                              {visibleCount > 0 ? (
+                                <span
+                                  className={cn(
+                                    "inline-flex h-7 min-w-7 items-center justify-center rounded-full px-2 text-[11px] font-semibold shadow-sm",
+                                    isSelected
+                                      ? "bg-stone-900 text-white"
+                                      : "bg-stone-100 text-stone-700",
+                                  )}
+                                >
+                                  {visibleCount}
+                                </span>
+                              ) : null}
+                            </div>
+
+                            <div className="mt-3 flex flex-wrap gap-1.5">
+                              {visibleTypes.has("task") && (data?.tasks.length ?? 0) > 0 ? (
+                                <span className="h-2 w-2 rounded-full bg-stone-700" />
+                              ) : null}
+                              {visibleTypes.has("shopping") && (data?.shopping.length ?? 0) > 0 ? (
+                                <span className="h-2 w-2 rounded-full bg-amber-500" />
+                              ) : null}
+                              {visibleTypes.has("labor") && (data?.labor.length ?? 0) > 0 ? (
+                                <span className="h-2 w-2 rounded-full bg-sky-600" />
+                              ) : null}
+                              {visibleTypes.has("invoice") && (data?.invoices.length ?? 0) > 0 ? (
+                                <span className="h-2 w-2 rounded-full bg-emerald-600" />
+                              ) : null}
+                            </div>
+
+                            <div className="mt-3 hidden space-y-1.5 lg:block">
+                              {visibleTypes.has("invoice") && (data?.invoices.length ?? 0) > 0
+                                ? data?.invoices.slice(0, 1).map((invoice) => (
+                                    <div
+                                      key={invoice._id}
+                                      className="truncate rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700"
+                                    >
+                                      {getInvoiceDateLabel(invoice.dateType)}: {invoice.title}
+                                    </div>
+                                  ))
+                                : null}
+                            </div>
+                          </button>
+                        );
+                      })}
+
+                      {visibleTaskBars.length > 0 ? (
+                        <div className="pointer-events-none absolute inset-x-0 top-[56px] z-10">
+                          {visibleTaskBars.map((bar) => {
+                            const width = ((bar.endColumn - bar.startColumn + 1) / 7) * 100;
+                            const left = (bar.startColumn / 7) * 100;
+
+                            return (
                               <div
-                                key={invoice._id}
-                                className="truncate rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700"
+                                key={`${bar.task._id}-${weekIndex}`}
+                                className={cn(
+                                  "absolute flex h-9 items-center overflow-hidden border border-stone-200 bg-stone-100/95 px-3 text-[11px] font-medium text-stone-700 shadow-sm backdrop-blur-[1px]",
+                                  bar.startsWithinWeek ? "rounded-l-full" : "rounded-l-md border-l-0",
+                                  bar.endsWithinWeek ? "rounded-r-full" : "rounded-r-md border-r-0",
+                                )}
+                                style={{
+                                  left: `calc(${left}% + 8px)`,
+                                  width: `calc(${width}% - 16px)`,
+                                  top: `${bar.lane * 28}px`,
+                                }}
                               >
-                                {getInvoiceDateLabel(invoice.dateType)}: {invoice.title}
+                                <span className="truncate">
+                                  {bar.startsWithinWeek ? bar.task.title : ""}
+                                </span>
                               </div>
-                            ))
-                          : null}
-                      </div>
-                    </button>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                    </div>
                   );
                 })}
               </div>

@@ -1110,6 +1110,7 @@ The available properties are:
 
 The title is a short, concise summary. The description contains all other details, notes, and context.
 If a single date or deadline is mentioned, set both startDate and endDate to that date. For date ranges like "from Monday to Friday", set startDate to Monday and endDate to Friday.
+This applies to relative dates and multilingual phrasing, including Polish requests such as "jutro", "dzisiaj", "pojutrze", "w poniedzialek", and times like "na 13" or "o 13:00".
 
 Here are the available team members for assignment. When assigning a task, match the name or email mentioned in the prompt to one of these users and return their ID (clerkUserId).
 For example, if the prompt mentions "assign to John" or "assign to john@example.com", find the matching user in this list and use their 'id' value for the assignedTo field.

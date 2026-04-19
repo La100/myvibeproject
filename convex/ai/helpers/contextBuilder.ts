@@ -115,6 +115,12 @@ ${teamMembersContext}${currentUserSection}
 
 Create or update only the item types the user explicitly requests. Do not add extra categories unless asked.
 
+TASK DATE RULES:
+- When creating or updating a task, if the user mentions any date or time, you must include the corresponding task date fields.
+- If the user gives one specific due moment or appointment (for example "tomorrow at 13:00", "jutro o 13", "on Monday", "next Friday at 9"), set BOTH startDate and endDate to that same UTC ISO timestamp unless the user clearly describes a range.
+- If the user gives a date range, set startDate to the start and endDate to the finish.
+- Do not omit task dates when the user explicitly requested a scheduled task.
+
 CRITICAL INSTRUCTION ON TIMEZONES:
 If a TIMEZONE is provided above, you MUST convert any user-requested local times to UTC before setting them in startDate/endDate.
 The user's request is in LOCAL time. The stored time must be in UTC.

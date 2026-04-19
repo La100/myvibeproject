@@ -108,8 +108,8 @@ const taskFields = z.object({
   status: z.enum(["todo", "in_progress", "review", "done"]).optional().describe("Task status"),
   assignedTo: z.string().optional().describe("Clerk ID of the team member (format: user_xxxxx)"),
   assignedToName: z.string().optional().describe("Display name of the assigned team member"),
-  startDate: z.string().optional().describe("Start date in ISO format (YYYY-MM-DDTHH:mm:ss.sssZ)"),
-  endDate: z.string().optional().describe("End date in ISO format (YYYY-MM-DDTHH:mm:ss.sssZ)"),
+  startDate: z.string().optional().describe("Start date in ISO format (YYYY-MM-DDTHH:mm:ss.sssZ). If the user mentions a single deadline or appointment time for the task, set this to the same moment as endDate."),
+  endDate: z.string().optional().describe("End date in ISO format (YYYY-MM-DDTHH:mm:ss.sssZ). If the user mentions any due date, deadline, schedule, or relative time such as tomorrow/today/next week or Polish phrases like jutro/dzisiaj/pojutrze, you must set endDate."),
   tags: z.array(z.string()).optional().describe("Task tags for categorization"),
 }).passthrough();
 
@@ -2544,7 +2544,7 @@ export function createStreamingTools(options?: StreamingToolOptions) {
 
   const manageTools = {
     manage_tasks: createAssistantTool({
-      description: "Manage tasks with one tool. Use action=create|update|delete and provide task fields plus taskId for updates or deletes.",
+      description: "Manage tasks with one tool. Use action=create|update|delete and provide task fields plus taskId for updates or deletes. If the user specifies any task date or time, include endDate; for a single deadline or appointment, set both startDate and endDate to that same ISO timestamp.",
       inputSchema: manageTasksSchema,
       requiresConfirmation: true,
       execute: async (args: z.infer<typeof manageTasksSchema>) => {

@@ -422,6 +422,15 @@ export default function TaskDetail() {
                 </div>
               </div>
 
+              <div className="lg:hidden">
+                <TaskDetailSidebar
+                  task={task}
+                  project={project}
+                  onDelete={handleDeleteTask}
+                  className="static top-auto"
+                />
+              </div>
+
               {/* Activity Log Section */}
               <div>
                 <h2 className="mb-4 text-2xl font-bold text-foreground">
@@ -434,7 +443,7 @@ export default function TaskDetail() {
             </div>
 
             {/* Sidebar */}
-            <div className="lg:col-span-2">
+            <div className="hidden lg:col-span-2 lg:block">
               <TaskDetailSidebar
                 task={task}
                 project={project}

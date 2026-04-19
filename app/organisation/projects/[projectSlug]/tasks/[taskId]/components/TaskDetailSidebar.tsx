@@ -67,9 +67,15 @@ interface TaskDetailSidebarProps {
     taskStatusSettings?: Record<string, TaskStatusSetting>;
   };
   onDelete: () => void;
+  className?: string;
 }
 
-export default function TaskDetailSidebar({ task, project, onDelete }: TaskDetailSidebarProps) {
+export default function TaskDetailSidebar({
+  task,
+  project,
+  onDelete,
+  className,
+}: TaskDetailSidebarProps) {
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const [tagsInput, setTagsInput] = useState(task.tags?.join(", ") || "");
   const [isAllDay, setIsAllDay] = useState(true);
@@ -326,7 +332,7 @@ export default function TaskDetailSidebar({ task, project, onDelete }: TaskDetai
   const assignedMember = teamMembers?.find((m: TeamMemberWithUser) => m.clerkUserId === task.assignedTo);
 
   return (
-    <Card className="sticky top-24">
+    <Card className={cn("sticky top-24", className)}>
       <CardHeader>
         <CardTitle className="text-lg font-semibold">Task Details</CardTitle>
         <p className="text-sm text-muted-foreground">Edit fields directly</p>
