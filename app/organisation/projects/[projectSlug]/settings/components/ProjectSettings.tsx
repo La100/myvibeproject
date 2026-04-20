@@ -105,7 +105,6 @@ type SettingsTabValue = "general" | "members" | "taskstatus" | "advanced";
 interface SettingsTabConfig {
   value: SettingsTabValue;
   label: string;
-  description: string;
   icon: LucideIcon;
 }
 
@@ -113,25 +112,21 @@ const SETTINGS_TABS: SettingsTabConfig[] = [
   {
     value: "general",
     label: "General",
-    description: "Project identity and business details",
     icon: Settings,
   },
   {
     value: "members",
     label: "Members",
-    description: "Who can access and collaborate",
     icon: Users,
   },
   {
     value: "taskstatus",
     label: "Task Status",
-    description: "Workflow naming and colors",
     icon: Shield,
   },
   {
     value: "advanced",
     label: "Advanced",
-    description: "Destructive and irreversible actions",
     icon: AlertTriangle,
   },
 ];
@@ -186,6 +181,13 @@ function formatDateInputValue(timestamp?: number | null) {
   }
 
   return new Date(timestamp).toISOString().slice(0, 10);
+}
+
+function formatSavedTimeLabel(timestamp: number) {
+  return new Date(timestamp).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function resolveClientPortalDigestRecipientIds(
@@ -408,7 +410,10 @@ function ProjectSettingsContent() {
     defaultValues: { confirmName: "" },
   });
 
-  const onSettingsSubmit = useCallback(async (values: z.infer<typeof settingsFormSchema>) => {
+  const onSettingsSubmit = useCallback(async (
+    values: z.infer<typeof settingsFormSchema>,
+    options?: { silent?: boolean },
+  ) => {
     if (!project) {
       return false;
     }
@@ -456,18 +461,18 @@ function ProjectSettingsContent() {
             values.clientPortalDigestRecipientClerkUserIds ?? [],
         },
       });
-      toast.success("Project settings updated");
-
       if (result?.slug && result.slug !== params.projectSlug) {
         router.push(`/organisation/projects/${result.slug}/settings`);
       }
       return true;
     } catch (error) {
-      toast.error("Error updating project settings", {
-        description:
-          (error as Error).message ||
-          "There was a problem updating the project settings.",
-      });
+      if (!options?.silent) {
+        toast.error("Error updating project settings", {
+          description:
+            (error as Error).message ||
+            "There was a problem updating the project settings.",
+        });
+      }
       return false;
     }
   }, [params.projectSlug, project, responsibleOptions, router, updateProject]);
@@ -619,7 +624,10 @@ function GeneralTab({
   ownerOption: { clerkUserId: string; label: string; email: string } | null;
   digestRecipientOptions: Array<{ clerkUserId: string; label: string; email: string }>;
   settingsForm: UseFormReturn<z.infer<typeof settingsFormSchema>>;
-  onSettingsSubmit: (values: z.infer<typeof settingsFormSchema>) => Promise<boolean>;
+  onSettingsSubmit: (
+    values: z.infer<typeof settingsFormSchema>,
+    options?: { silent?: boolean },
+  ) => Promise<boolean>;
 }) {
   const generateUploadUrl = useMutation(apiAny.files.generateUploadUrlWithCustomKey);
   const addFile = useMutation(apiAny.files.addFile);
@@ -657,7 +665,10 @@ function GeneralTab({
   const autosaveSnapshotRef = useRef<string | null>(null);
   const autosaveInitializedRef = useRef(false);
   const autosaveStatusTimeoutRef = useRef<number | null>(null);
+  const autosaveRequestIdRef = useRef(0);
+  const autosaveHandledRequestIdRef = useRef(0);
   const [autosaveState, setAutosaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
 
   const replaceLocalCoverPreviewUrl = (nextUrl: string | null) => {
     if (localCoverPreviewUrlRef.current) {
@@ -745,11 +756,19 @@ function GeneralTab({
     }
 
     const timeoutId = window.setTimeout(() => {
+      const requestId = autosaveRequestIdRef.current + 1;
+      autosaveRequestIdRef.current = requestId;
       setAutosaveState("saving");
 
       void settingsForm.handleSubmit(
         async (values) => {
-          const didSave = await onSettingsSubmit(values);
+          const didSave = await onSettingsSubmit(values, { silent: true });
+
+          if (requestId < autosaveHandledRequestIdRef.current) {
+            return;
+          }
+
+          autosaveHandledRequestIdRef.current = requestId;
 
           if (!didSave) {
             setAutosaveState("error");
@@ -758,6 +777,7 @@ function GeneralTab({
 
           autosaveSnapshotRef.current = serializedValues;
           setAutosaveState("saved");
+          setLastSavedAt(Date.now());
 
           if (autosaveStatusTimeoutRef.current) {
             clearTimeout(autosaveStatusTimeoutRef.current);
@@ -850,10 +870,10 @@ function GeneralTab({
       if (optimized.optimized) {
         const savedKb = Math.max(1, Math.round((optimized.originalSize - uploadFile.size) / 1024));
         toast.success("Cover image uploaded and optimized", {
-          description: `Reduced by about ${savedKb} KB. Save changes to apply.`,
+          description: `Reduced by about ${savedKb} KB and queued for automatic save.`,
         });
       } else {
-        toast.success("Cover image uploaded. Save changes to apply.");
+        toast.success("Cover image uploaded and queued for automatic save.");
       }
     } catch (error) {
       toast.error("Failed to upload cover image", {
@@ -921,7 +941,7 @@ function GeneralTab({
             {autosaveState === "saving"
               ? "Saving..."
               : autosaveState === "saved"
-              ? "Saved"
+              ? `Saved ${lastSavedAt ? formatSavedTimeLabel(lastSavedAt) : ""}`.trim()
               : autosaveState === "error"
               ? "Save failed"
               : "Auto-save on"}
@@ -931,7 +951,10 @@ function GeneralTab({
 
       <CardContent className="flex flex-col gap-6 p-4 md:p-6">
         <Form {...settingsForm}>
-          <form onSubmit={settingsForm.handleSubmit(onSettingsSubmit)} className="flex flex-col gap-6">
+          <form
+            onSubmit={settingsForm.handleSubmit((values) => onSettingsSubmit(values))}
+            className="flex flex-col gap-6"
+          >
             <section className="rounded-2xl border border-border/70 bg-card p-4 md:p-5">
               <div className="mb-4 flex flex-col gap-1">
                 <h3 className="text-sm font-semibold text-foreground">Identity</h3>
@@ -1278,7 +1301,7 @@ function GeneralTab({
                       </p>
                     </div>
                     <p className="text-xs leading-relaxed text-muted-foreground">
-                      Uploading updates the draft immediately. Save this section to apply the new cover across the project.
+                      Uploading updates the draft immediately and the section saves automatically once the file is ready.
                     </p>
                   </div>
                 </div>
@@ -1289,11 +1312,11 @@ function GeneralTab({
               <div className="mb-4 flex flex-col gap-1">
                 <h3 className="text-sm font-semibold text-foreground">Business Details</h3>
                 <p className="text-xs text-muted-foreground">
-                  Optional project metadata for reporting and planning.
+                  Financial context and the combined address string used in project records.
                 </p>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
                 <FormField
                   control={settingsForm.control}
                   name="customer"
@@ -1316,39 +1339,69 @@ function GeneralTab({
                   control={settingsForm.control}
                   name="location"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm font-medium">Location</FormLabel>
+                    <FormItem className="md:col-span-2 xl:col-span-1">
+                      <FormLabel className="text-sm font-medium">Address / Location</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="Project location"
+                          placeholder="Street, city, state, postcode"
                           {...field}
                           className="h-10 w-full"
                         />
                       </FormControl>
+                      <p className="text-xs text-muted-foreground">
+                        Stored as one combined address line so it matches the project record created in the new-project flow.
+                      </p>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
 
-                <FormField
-                  control={settingsForm.control}
-                  name="budget"
-                  render={({ field }) => (
-                    <FormItem id="project-budget">
-                      <FormLabel className="text-sm font-medium">Budget</FormLabel>
-                      <FormControl>
-                        <Input
-                          id="project-budget-input"
-                          type="number"
-                          placeholder="Project budget"
-                          {...field}
-                          className="h-10 w-full"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="grid gap-4 xl:grid-cols-2">
+                  <FormField
+                    control={settingsForm.control}
+                    name="budget"
+                    render={({ field }) => (
+                      <FormItem id="project-budget">
+                        <FormLabel className="text-sm font-medium">Budget</FormLabel>
+                        <FormControl>
+                          <Input
+                            id="project-budget-input"
+                            type="number"
+                            placeholder="Project budget"
+                            {...field}
+                            className="h-10 w-full"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={settingsForm.control}
+                    name="currency"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium">Currency</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value ?? undefined}>
+                          <FormControl>
+                            <SelectTrigger className="h-10 w-full">
+                              <SelectValue placeholder="Select project currency" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {CURRENCY_OPTIONS.map((currency) => (
+                              <SelectItem key={currency.value} value={currency.value}>
+                                {currency.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
                 <FormField
                   control={settingsForm.control}
@@ -1365,31 +1418,6 @@ function GeneralTab({
                         <SelectContent>
                           <SelectItem value="metric">Metric</SelectItem>
                           <SelectItem value="imperial">Imperial</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={settingsForm.control}
-                  name="currency"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm font-medium">Currency</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value ?? undefined}>
-                        <FormControl>
-                          <SelectTrigger className="h-10 w-full">
-                            <SelectValue placeholder="Select project currency" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {CURRENCY_OPTIONS.map((currency) => (
-                            <SelectItem key={currency.value} value={currency.value}>
-                              {currency.label}
-                            </SelectItem>
-                          ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
