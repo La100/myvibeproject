@@ -19,11 +19,15 @@ const swappedSurfaceVars = {
 function ProjectLayoutContent({ children }: { children: React.ReactNode }) {
   return (
     <div style={swappedSurfaceVars}>
-      <SidebarProvider>
+      <SidebarProvider
+        style={{
+          "--sidebar-width": "16rem",
+        } as CSSProperties}
+      >
         <ProjectSidebar />
-        <SidebarInset className="xl:clean-panel xl:overflow-hidden">
+        <SidebarInset className="bg-[#faf9f7] xl:clean-panel xl:overflow-hidden">
           <MobileProjectHeader />
-          <main className="flex-1 min-h-0 overflow-auto">
+          <main className="flex-1 min-h-0 overflow-auto bg-[#faf9f7]">
             <Suspense fallback={
               <div className="flex flex-col gap-4">
                 <div className="h-8 w-1/3 animate-pulse rounded bg-muted" />
@@ -35,7 +39,7 @@ function ProjectLayoutContent({ children }: { children: React.ReactNode }) {
                 </div>
               </div>
             }>
-              <div className="mx-auto flex w-full max-w-[1540px] flex-col gap-6 px-4 pb-8 pt-4 md:px-6 xl:px-8 xl:pt-8">
+              <div className="mx-auto flex w-full max-w-[1380px] flex-col gap-6 px-5 pb-10 pt-5 md:px-7 xl:px-10 xl:pt-10">
                 {children}
               </div>
             </Suspense>

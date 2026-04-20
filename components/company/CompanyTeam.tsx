@@ -2,23 +2,20 @@
 
 import { useState } from "react";
 import { useOrganization } from "@clerk/nextjs";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 
-import { Users, Mail, Search, Crown, Trash2, Building2 } from "lucide-react";
+import { Users, Mail, Crown, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { apiAny } from "@/lib/convexApiAny";
 import {
   Avatar,
   AvatarFallback,
   AvatarImage,
-} from "@/components/ui/avatar"
+} from "@/components/ui/avatar";
 import { InviteMemberDialog } from "@/components/team/InviteMemberDialog";
-import { useMutation } from "convex/react";
 import { toast } from "sonner";
 import { Id } from "@/convex/_generated/dataModel";
 import MemberDetailsModal from "@/components/team/MemberDetailsModal";
@@ -63,10 +60,7 @@ export default function CompanyTeam() {
   const teamMembers = useQuery(apiAny.teams.getTeamMembers, team ? { teamId: team._id } : "skip");
   const currentUserMember = useQuery(apiAny.teams.getCurrentUserTeamMember, team ? { teamId: team._id } : "skip");
   const pendingInvitations = useQuery(apiAny.teams.getPendingInvitations, team ? { teamId: team._id } : "skip");
-  const teamProjects = useQuery(apiAny.projects.listProjectsByTeam, team ? { teamId: team._id } : "skip");
 
-  const [searchTerm, setSearchTerm] = useState("");
-  const [roleFilter, setRoleFilter] = useState<string>("all");
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
   const [optimisticallyRevokedInvitationIds, setOptimisticallyRevokedInvitationIds] = useState<Set<Id<"invitations">>>(new Set());
@@ -89,24 +83,19 @@ export default function CompanyTeam() {
     }
   };
 
-  if (!isLoaded || !organization || !team || !teamMembers || !currentUserMember || !pendingInvitations || !teamProjects) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  if (!isLoaded || !organization || !team || !teamMembers || !currentUserMember || !pendingInvitations) {
+    return <div className="flex min-h-[40vh] items-center justify-center text-sm text-muted-foreground">Loading team...</div>;
   }
 
-  const filteredMembers = teamMembers.filter((member: TeamMember) => {
-    const nameMatch = member.name?.toLowerCase().includes(searchTerm.toLowerCase());
-    const emailMatch = member.email?.toLowerCase().includes(searchTerm.toLowerCase());
-    const roleMatch = roleFilter === 'all' || member.role === roleFilter;
-    return (nameMatch || emailMatch) && roleMatch;
-  });
-
   // Only internal team members (no more organizational customers)
-  const teamMembersOnly = filteredMembers.filter((member: TeamMember) => 
+  const teamMembersOnly = teamMembers.filter((member: TeamMember) =>
     member.role === 'admin' || member.role === 'member'
   );
   const visiblePendingInvitations = pendingInvitations.filter(
     (inv: PendingInvitation) => !optimisticallyRevokedInvitationIds.has(inv._id),
   );
+  const adminCount = teamMembersOnly.filter((member) => member.role === "admin").length;
+  const memberCount = teamMembersOnly.length;
 
   const handleMemberClick = (member: TeamMember) => {
     setSelectedMember(member);
@@ -116,247 +105,210 @@ export default function CompanyTeam() {
   return (
     <div className="flex flex-col flex-1 min-h-0">
       {/* Header */}
-      <div className="flex flex-col gap-4 border-b p-6">
-        <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 border-b px-4 py-4 sm:px-6">
+        <div className="flex flex-col gap-2">
           <div>
-            <h1 className="text-3xl font-bold">Team Management</h1>
-            <p className="text-muted-foreground mt-1">
-              Manage your organization members and permissions
+            <h1 className="text-2xl font-semibold tracking-tight">Team Management</h1>
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+              Manage workspace members, roles, and invitations without the extra dashboard noise.
             </p>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <InviteMemberDialog teamId={team._id}>
-              <Button>
-                <Mail className="mr-2 h-4 w-4" />
-                Invite Member
-              </Button>
-            </InviteMemberDialog>
           </div>
         </div>
 
         {/* Search and Filters */}
-        <div className="flex gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search team members..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <Select value={roleFilter} onValueChange={setRoleFilter}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Filter by role" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Roles</SelectItem>
-              <SelectItem value="admin">Admin</SelectItem>
-              <SelectItem value="member">Member</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="flex justify-end">
+          <InviteMemberDialog teamId={team._id}>
+            <Button size="sm" className="h-10 px-4">
+              <Mail className="mr-2 h-4 w-4" />
+              Invite Member
+            </Button>
+          </InviteMemberDialog>
         </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 p-6">
+      <div className="flex-1 px-4 py-4 sm:px-6">
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList>
+          <TabsList className="h-10">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="team">Team Members</TabsTrigger>
             <TabsTrigger value="invitations">Invitations</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="mt-6">
-            <div className="flex flex-col gap-6">
-              {/* Team Overview Stats */}
-              <div className="grid gap-4 md:grid-cols-4">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-                    <CardTitle className="text-sm font-medium">Team Members</CardTitle>
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{teamMembersOnly.length}</div>
-                    <p className="text-xs text-muted-foreground">Internal team members</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-                    <CardTitle className="text-sm font-medium">Administrators</CardTitle>
-                    <Crown className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{teamMembersOnly.filter(m => m.role === 'admin').length}</div>
-                    <p className="text-xs text-muted-foreground">Admin users</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-                    <CardTitle className="text-sm font-medium">Projects</CardTitle>
-                    <Building2 className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{teamProjects.length}</div>
-                    <p className="text-xs text-muted-foreground">{teamProjects.filter(p => p.status === 'active').length} active</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-                    <CardTitle className="text-sm font-medium">Pending Invites</CardTitle>
-                    <Mail className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{pendingInvitations.length}</div>
-                    <p className="text-xs text-muted-foreground">Awaiting response</p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Quick Actions */}
-              <Card>
-                  <CardHeader>
-                    <CardTitle>Quick Actions</CardTitle>
-                    <CardDescription>Common team management tasks</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex gap-4">
-                    <InviteMemberDialog teamId={team._id}>
-                      <Button>
-                        <Mail className="mr-2 h-4 w-4" />
-                        Invite Team Member
-                      </Button>
-                    </InviteMemberDialog>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Recent Members & Projects Grid */}
-              <div className="grid gap-6 md:grid-cols-2">
-                {/* Recent Members */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Recent Members</CardTitle>
-                    <CardDescription>Latest team members joined</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {teamMembersOnly.length > 0 ? (
-                      <div className="flex flex-col gap-3">
-                        {teamMembersOnly
-                          .sort((a, b) => (b.joinedAt || 0) - (a.joinedAt || 0))
-                          .slice(0, 5)
-                          .map((member) => (
-                            <div
-                              key={member.clerkUserId}
-                              className="flex items-center gap-3 p-2 hover:bg-muted/50 rounded-lg cursor-pointer transition-colors"
-                              onClick={() => handleMemberClick(member)}
-                            >
-                              <Avatar className="h-8 w-8">
-                                {member.imageUrl && <AvatarImage src={member.imageUrl} />}
-                                <AvatarFallback className="text-xs">
-                                  {member.name ? member.name[0].toUpperCase() : 'U'}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium truncate">{member.name}</p>
-                                <p className="text-xs text-muted-foreground truncate">{member.email}</p>
-                              </div>
-                              <Badge variant={member.role === 'admin' ? 'default' : 'secondary'} className="text-xs">
-                                {member.role}
-                              </Badge>
-                            </div>
-                          ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                        <p className="text-sm">No members yet</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Recent Projects */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Recent Projects</CardTitle>
-                    <CardDescription>Latest projects in this team</CardDescription>
-                  </CardHeader>
-                <CardContent>
-                  {teamProjects.length > 0 ? (
+          <TabsContent value="overview" className="mt-5">
+            <div className="flex flex-col gap-4">
+              <section className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)]">
+                <div className="rounded-2xl border bg-white p-4 sm:p-5">
+                  <div className="flex flex-col gap-5">
                     <div className="flex flex-col gap-3">
-                      {teamProjects.slice(0, 5).map((project) => (
-                        <div
-                          key={project._id}
-                          className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                          onClick={() => window.location.href = `/organisation/projects/${project.slug}`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                              <Building2 className="h-5 w-5 text-primary" />
-                            </div>
-                            <div>
-                              <p className="font-medium">{project.name}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {project.customer || 'No customer'} • {project.location || 'No location'}
+                      <div>
+                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                          Workspace access
+                        </p>
+                        <h2 className="mt-1 text-lg font-semibold">Keep the team surface focused</h2>
+                        <p className="mt-1 max-w-xl text-sm text-muted-foreground">
+                          This view now stays centered on people, roles, and pending invites instead of mixing in project management.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <div className="rounded-xl border bg-muted/20 px-4 py-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">Members</span>
+                          <Users className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <p className="mt-2 text-2xl font-semibold">{memberCount}</p>
+                        <p className="text-xs text-muted-foreground">Internal seats in use</p>
+                      </div>
+                      <div className="rounded-xl border bg-muted/20 px-4 py-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">Admins</span>
+                          <Crown className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <p className="mt-2 text-2xl font-semibold">{adminCount}</p>
+                        <p className="text-xs text-muted-foreground">People with elevated access</p>
+                      </div>
+                      <div className="rounded-xl border bg-muted/20 px-4 py-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">Invites</span>
+                          <Mail className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <p className="mt-2 text-2xl font-semibold">{visiblePendingInvitations.length}</p>
+                        <p className="text-xs text-muted-foreground">Awaiting acceptance</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border bg-white p-4 sm:p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-base font-semibold">Pending invitations</h3>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Open invites stay visible here until accepted or revoked.
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="text-xs">
+                      {visiblePendingInvitations.length}
+                    </Badge>
+                  </div>
+
+                  <div className="mt-4">
+                    {visiblePendingInvitations.length > 0 ? (
+                      <div className="space-y-2">
+                        {visiblePendingInvitations.slice(0, 4).map((inv) => (
+                          <div key={inv._id} className="flex items-center justify-between rounded-xl border px-3 py-2.5">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium">{inv.email}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {inv.role === "admin" ? "Administrator" : "Member"} invited
                               </p>
                             </div>
+                            <Badge variant="secondary" className="ml-3 text-[11px]">
+                              {inv.status}
+                            </Badge>
                           </div>
-                          <Badge variant={
-                            project.status === 'active' ? 'default' :
-                            project.status === 'completed' ? 'secondary' :
-                            project.status === 'planning' ? 'outline' : 'destructive'
-                          }>
-                            {project.status}
-                          </Badge>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-dashed bg-muted/20 px-4 py-8 text-center">
+                        <Mail className="mx-auto h-8 w-8 text-muted-foreground" />
+                        <p className="mt-3 text-sm font-medium">No open invitations</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          New invitations will appear here as soon as they are sent.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-2xl border bg-white p-4 sm:p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-base font-semibold">Recent members</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      The newest people added to this workspace.
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="text-xs">
+                    {memberCount}
+                  </Badge>
+                </div>
+
+                <div className="mt-4">
+                  {teamMembersOnly.length > 0 ? (
+                    <div className="grid gap-2">
+                      {teamMembersOnly
+                        .sort((a, b) => (b.joinedAt || 0) - (a.joinedAt || 0))
+                        .slice(0, 5)
+                        .map((member) => (
+                          <button
+                            key={member.clerkUserId}
+                            type="button"
+                            className="flex items-center gap-3 rounded-xl border bg-muted/20 px-3 py-3 text-left transition-colors hover:bg-muted/40"
+                            onClick={() => handleMemberClick(member)}
+                          >
+                            <Avatar className="h-9 w-9">
+                              {member.imageUrl && <AvatarImage src={member.imageUrl} />}
+                              <AvatarFallback className="text-xs">
+                                {member.name ? member.name[0].toUpperCase() : "U"}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium">{member.name}</p>
+                              <p className="truncate text-xs text-muted-foreground">{member.email}</p>
+                            </div>
+                            <Badge variant={member.role === "admin" ? "default" : "secondary"} className="text-[11px]">
+                              {member.role === "admin" ? "Admin" : "Member"}
+                            </Badge>
+                          </button>
+                        ))}
                     </div>
                   ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                      <p>No projects yet</p>
+                    <div className="rounded-xl border border-dashed px-4 py-8 text-center text-muted-foreground">
+                      <Users className="mx-auto mb-3 h-8 w-8" />
+                      <p className="text-sm">No members yet</p>
                     </div>
                   )}
-                </CardContent>
-              </Card>
-              </div>
+                </div>
+              </section>
             </div>
           </TabsContent>
 
 
-          <TabsContent value="team" className="mt-6">
+          <TabsContent value="team" className="mt-5">
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-xl font-semibold">Internal Team Members</h3>
-                  <p className="text-muted-foreground">Manage core team member roles and permissions</p>
+                  <h3 className="text-lg font-semibold">Internal Team Members</h3>
+                  <p className="text-sm text-muted-foreground">Manage core team member roles and permissions</p>
                 </div>
                 <InviteMemberDialog teamId={team._id}>
-                  <Button>
+                  <Button size="sm" className="h-9">
                     <Mail className="mr-2 h-4 w-4" />
                     Invite Member
                   </Button>
                 </InviteMemberDialog>
               </div>
                 
-              <Card>
+              <Card className="rounded-2xl bg-background">
                 <CardContent className="p-0">
                   <div className="flex flex-col gap-0">
                     {teamMembersOnly.map((member: TeamMember) => (
                       <div
                         key={member.clerkUserId}
-                        className="flex items-center justify-between p-4 border-b last:border-b-0 hover:bg-muted/50 cursor-pointer transition-colors"
+                        className="flex items-center justify-between border-b px-4 py-3.5 last:border-b-0 hover:bg-muted/40 cursor-pointer transition-colors"
                         onClick={() => handleMemberClick(member)}
                       >
                         <div className="flex items-center gap-4">
-                          <Avatar>
+                          <Avatar className="h-10 w-10">
                             {member.imageUrl && <AvatarImage src={member.imageUrl} />}
                             <AvatarFallback>{member.name ? member.name[0].toUpperCase() : 'U'}</AvatarFallback>
                           </Avatar>
                           <div>
-                            <p className="font-semibold">{member.name}</p>
+                            <p className="text-sm font-semibold">{member.name}</p>
                             <p className="text-sm text-muted-foreground">{member.email}</p>
                           <div className="flex items-center gap-2 mt-1">
                             <Badge variant={member.role === 'admin' ? 'default' : 'secondary'} className="text-xs">
@@ -389,16 +341,16 @@ export default function CompanyTeam() {
             </div>
           </TabsContent>
 
-          <TabsContent value="invitations" className="mt-6">
+          <TabsContent value="invitations" className="mt-5">
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-xl font-semibold">Pending Invitations</h3>
-                  <p className="text-muted-foreground">Manage team invitations and track their status</p>
+                  <h3 className="text-lg font-semibold">Pending Invitations</h3>
+                  <p className="text-sm text-muted-foreground">Manage team invitations and track their status</p>
                 </div>
                 {visiblePendingInvitations.length > 0 && currentUserMember?.role === 'admin' && (
                   <InviteMemberDialog teamId={team._id}>
-                    <Button>
+                    <Button size="sm" className="h-9">
                       <Mail className="mr-2 h-4 w-4" />
                       Send Another Invitation
                     </Button>
@@ -406,12 +358,12 @@ export default function CompanyTeam() {
                 )}
               </div>
 
-              <Card>
-                <CardContent className="pt-6">
+              <Card className="rounded-2xl bg-background">
+                <CardContent className="pt-5">
                   {visiblePendingInvitations.length > 0 ? (
                     <div className="flex flex-col gap-3">
                       {visiblePendingInvitations.map((inv: PendingInvitation) => (
-                        <div key={inv._id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                        <div key={inv._id} className="flex items-center justify-between rounded-xl border px-4 py-3 hover:bg-muted/40 transition-colors">
                           <div className="flex items-center gap-4 flex-1">
                             <Avatar className="h-10 w-10">
                               <AvatarFallback className="bg-primary/10 text-primary">
@@ -478,8 +430,8 @@ export default function CompanyTeam() {
 
               {/* Invitation Info Card */}
               {visiblePendingInvitations.length > 0 && (
-                <Card className="border-border bg-muted/30">
-                  <CardContent className="pt-6">
+                <Card className="rounded-2xl border-border bg-muted/30">
+                  <CardContent className="pt-5">
                     <div className="flex items-start gap-3">
                       <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
                         <Mail className="h-4 w-4 text-primary" />

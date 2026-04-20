@@ -1,15 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, Suspense } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
-import { useForm, type UseFormReturn } from "react-hook-form";
+import { useForm, useWatch, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useOrganization } from "@clerk/nextjs";
 import { z } from "zod";
 import { toast } from "sonner";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
-import { type LucideIcon, AlertTriangle, ImagePlus, Settings, Shield, Sparkles, Users, X } from "lucide-react";
+import { type LucideIcon, AlertTriangle, CalendarRange, CheckCircle2, ImagePlus, Settings, Shield, Users, X } from "lucide-react";
 
 import { apiAny } from "@/lib/convexApiAny";
 import { optimizeCoverImageForUpload } from "@/lib/coverImageUpload";
@@ -40,7 +40,6 @@ import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
-import AISettings from "./AISettings";
 import ProjectMembers from "./ProjectMembers";
 import TaskStatusSettings from "./TaskStatusSettings";
 
@@ -49,11 +48,17 @@ const settingsFormSchema = z.object({
   description: z.string().optional(),
   coverImageUrl: z.string().optional().or(z.literal("")),
   responsibleClerkUserId: z.string().optional(),
+  clientPortalDigestRecipientClerkUserIds: z.array(z.string()).optional(),
+  startDate: z.string().optional().or(z.literal("")),
+  endDate: z.string().optional().or(z.literal("")),
   customer: z.string().optional(),
   budget: z.coerce.number().positive("Budget must be positive").optional().or(z.literal("")),
   location: z.string().optional(),
   status: z
     .enum(["planning", "active", "on_hold", "completed", "cancelled"])
+    .optional(),
+  measurements: z
+    .enum(["metric", "imperial"])
     .optional(),
   currency: z
     .enum([
@@ -95,7 +100,7 @@ const deleteFormSchema = z.object({
   confirmName: z.string().min(1, "Please enter the project name to confirm deletion"),
 });
 
-type SettingsTabValue = "general" | "members" | "taskstatus" | "ai" | "advanced";
+type SettingsTabValue = "general" | "members" | "taskstatus" | "advanced";
 
 interface SettingsTabConfig {
   value: SettingsTabValue;
@@ -122,12 +127,6 @@ const SETTINGS_TABS: SettingsTabConfig[] = [
     label: "Task Status",
     description: "Workflow naming and colors",
     icon: Shield,
-  },
-  {
-    value: "ai",
-    label: "AI",
-    description: "AI execution and permissions",
-    icon: Sparkles,
   },
   {
     value: "advanced",
@@ -181,6 +180,86 @@ function normalizeCoverImageUrl(rawUrl?: string) {
   }
 }
 
+function formatDateInputValue(timestamp?: number | null) {
+  if (typeof timestamp !== "number" || !Number.isFinite(timestamp)) {
+    return "";
+  }
+
+  return new Date(timestamp).toISOString().slice(0, 10);
+}
+
+function resolveClientPortalDigestRecipientIds(
+  project:
+    | ({
+        createdBy: string;
+        responsibleClerkUserId?: string;
+        clientPortalNotificationSettings?: {
+          sendToOwner?: boolean;
+          sendToResponsible?: boolean;
+          sendToAdmins?: boolean;
+          recipientClerkUserIds?: string[];
+        };
+      } & Record<string, unknown>)
+    | null
+    | undefined,
+  teamMembers:
+    | Array<{
+        clerkUserId: string;
+        isActive: boolean;
+        role: "admin" | "member";
+      }>
+    | undefined,
+) {
+  if (!project) {
+    return [];
+  }
+
+  const configuredRecipientIds =
+    project.clientPortalNotificationSettings?.recipientClerkUserIds ?? [];
+  const normalizedConfiguredRecipientIds = Array.from(
+    new Set(
+      configuredRecipientIds
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0),
+    ),
+  );
+
+  if (normalizedConfiguredRecipientIds.length > 0) {
+    return normalizedConfiguredRecipientIds;
+  }
+
+  const activeMembers = (teamMembers ?? []).filter(
+    (member) =>
+      member.isActive &&
+      (member.role === "admin" || member.role === "member"),
+  );
+  const legacyRecipientIds: string[] = [];
+
+  if (project.clientPortalNotificationSettings?.sendToOwner ?? true) {
+    legacyRecipientIds.push(project.createdBy);
+  }
+  if (project.clientPortalNotificationSettings?.sendToResponsible ?? true) {
+    legacyRecipientIds.push(
+      project.responsibleClerkUserId?.trim() || project.createdBy,
+    );
+  }
+  if (project.clientPortalNotificationSettings?.sendToAdmins ?? false) {
+    legacyRecipientIds.push(
+      ...activeMembers
+        .filter((member) => member.role === "admin")
+        .map((member) => member.clerkUserId),
+    );
+  }
+
+  return Array.from(
+    new Set(
+      legacyRecipientIds
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0),
+    ),
+  );
+}
+
 function ProjectSettingsSkeleton() {
   return <Spinner className="pb-8" />;
 }
@@ -232,10 +311,27 @@ function ProjectSettingsContent() {
             ((project as { responsibleClerkUserId?: string }).responsibleClerkUserId ||
               project.createdBy) ??
             "",
+          clientPortalDigestRecipientClerkUserIds:
+            resolveClientPortalDigestRecipientIds(
+              project as {
+                createdBy: string;
+                responsibleClerkUserId?: string;
+                clientPortalNotificationSettings?: {
+                  sendToOwner?: boolean;
+                  sendToResponsible?: boolean;
+                  sendToAdmins?: boolean;
+                  recipientClerkUserIds?: string[];
+                };
+              },
+              teamMembers,
+            ),
+          startDate: formatDateInputValue(project.startDate),
+          endDate: formatDateInputValue(project.endDate),
           customer: project.customer || "",
           budget: project.budget || "",
           location: project.location || "",
           status: project.status || "planning",
+          measurements: project.measurements || "metric",
           currency: project.currency || "PLN",
           taxEnabled: project.taxEnabled || false,
           taxRate: project.taxRate ?? 23,
@@ -245,10 +341,14 @@ function ProjectSettingsContent() {
           description: "",
           coverImageUrl: "",
           responsibleClerkUserId: "",
+          clientPortalDigestRecipientClerkUserIds: [],
+          startDate: "",
+          endDate: "",
           customer: "",
           budget: "",
           location: "",
           status: "planning",
+          measurements: "metric",
           currency: "PLN",
           taxEnabled: false,
           taxRate: 23,
@@ -273,6 +373,12 @@ function ProjectSettingsContent() {
       }))
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [teamMembers]);
+
+  const ownerOption = useMemo(
+    () =>
+      responsibleOptions.find((option) => option.clerkUserId === project?.createdBy) ?? null,
+    [project?.createdBy, responsibleOptions],
+  );
 
   useEffect(() => {
     if (!project || responsibleOptions.length === 0) {
@@ -302,29 +408,18 @@ function ProjectSettingsContent() {
     defaultValues: { confirmName: "" },
   });
 
-  if (!project || !teamMember || teamMembers === undefined) {
-    return null;
-  }
+  const onSettingsSubmit = useCallback(async (values: z.infer<typeof settingsFormSchema>) => {
+    if (!project) {
+      return false;
+    }
 
-  const canEdit = teamMember.role === "admin" || teamMember.role === "member";
-
-  if (!canEdit) {
-    return (
-      <div className="flex min-h-[400px] flex-col items-center justify-center text-center">
-        <h1 className="mb-2 text-2xl font-bold text-destructive">Read Only</h1>
-        <p className="text-muted-foreground">
-          You can view this project but cannot modify its settings.
-        </p>
-      </div>
-    );
-  }
-
-  async function onSettingsSubmit(values: z.infer<typeof settingsFormSchema>) {
     const normalizedBudget =
       values.budget === "" || values.budget === undefined ? undefined : Number(values.budget);
     const normalizedCoverUrl = normalizeCoverImageUrl(values.coverImageUrl);
     const normalizedTaxRate =
       values.taxRate === "" || values.taxRate === undefined ? undefined : Number(values.taxRate);
+    const normalizedStartDate = values.startDate ? new Date(values.startDate).getTime() : undefined;
+    const normalizedEndDate = values.endDate ? new Date(values.endDate).getTime() : undefined;
 
     try {
       const validResponsibleIds = new Set(
@@ -349,23 +444,49 @@ function ProjectSettingsContent() {
         budget: normalizedBudget,
         location: values.location || undefined,
         status: values.status,
+        startDate: normalizedStartDate,
+        endDate: normalizedEndDate,
+        measurements: values.measurements,
         currency: values.currency,
         taxEnabled: values.taxEnabled || false,
         taxRate: values.taxEnabled ? normalizedTaxRate ?? 23 : undefined,
         responsibleClerkUserId: resolvedResponsibleClerkUserId,
+        clientPortalNotificationSettings: {
+          recipientClerkUserIds:
+            values.clientPortalDigestRecipientClerkUserIds ?? [],
+        },
       });
       toast.success("Project settings updated");
 
       if (result?.slug && result.slug !== params.projectSlug) {
         router.push(`/organisation/projects/${result.slug}/settings`);
       }
+      return true;
     } catch (error) {
       toast.error("Error updating project settings", {
         description:
           (error as Error).message ||
           "There was a problem updating the project settings.",
       });
+      return false;
     }
+  }, [params.projectSlug, project, responsibleOptions, router, updateProject]);
+
+  if (!project || !teamMember || teamMembers === undefined) {
+    return null;
+  }
+
+  const canEdit = teamMember.role === "admin" || teamMember.role === "member";
+
+  if (!canEdit) {
+    return (
+      <div className="flex min-h-[400px] flex-col items-center justify-center text-center">
+        <h1 className="mb-2 text-2xl font-bold text-destructive">Read Only</h1>
+        <p className="text-muted-foreground">
+          You can view this project but cannot modify its settings.
+        </p>
+      </div>
+    );
   }
 
   async function onDeleteSubmit(values: z.infer<typeof deleteFormSchema>) {
@@ -402,50 +523,42 @@ function ProjectSettingsContent() {
         onValueChange={(value) => setActiveTab(value as SettingsTabValue)}
         className="w-full"
       >
-        <div className="grid gap-5 lg:grid-cols-[290px_minmax(0,1fr)]">
-          <div className="flex flex-col gap-3 self-start lg:sticky lg:top-6">
-            <TabsList className="grid h-auto w-full grid-cols-1 gap-1.5 rounded-2xl border border-border/70 bg-card/90 p-2">
-              {SETTINGS_TABS.map((tab) => {
-                const Icon = tab.icon;
+        <div className="flex flex-col gap-5">
+          <TabsList className="grid h-auto w-full grid-cols-2 gap-2 rounded-[28px] border border-border/70 bg-card/95 p-3 shadow-[0_16px_40px_-34px_rgba(25,25,25,0.55)] md:grid-cols-4">
+            {SETTINGS_TABS.map((tab) => {
+              const Icon = tab.icon;
 
-                return (
-                  <TabsTrigger
-                    key={tab.value}
-                    value={tab.value}
-                    className="h-auto w-full flex-none justify-start rounded-xl border border-transparent px-3 py-2.5 text-left data-[state=active]:border-border/70 data-[state=active]:bg-muted data-[state=active]:shadow-none"
-                  >
-                    <span className="flex w-full items-start gap-2.5">
-                      <span className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border/70 bg-card">
-                        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block text-sm font-medium text-foreground">
-                          {tab.label}
-                        </span>
-                        <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">
-                          {tab.description}
-                        </span>
-                      </span>
+              return (
+                <TabsTrigger
+                  key={tab.value}
+                  value={tab.value}
+                  className="h-auto w-full flex-none justify-start rounded-[22px] border border-transparent px-4 py-4 text-left transition-all hover:border-border/60 hover:bg-background data-[state=active]:border-border/80 data-[state=active]:bg-background data-[state=active]:shadow-[0_14px_30px_-26px_rgba(25,25,25,0.5)]"
+                >
+                  <span className="flex w-full items-center gap-3">
+                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/70 bg-card">
+                      <Icon className="h-3.5 w-3.5 text-muted-foreground" />
                     </span>
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
-
-            <p className="rounded-xl border border-border/70 bg-muted/70 px-3 py-2 text-xs text-muted-foreground">
-              Changes are saved per section. Keep this page open while editing to avoid losing form state.
-            </p>
-          </div>
+                    <span className="min-w-0 text-[1rem] font-medium text-foreground">
+                      {tab.label}
+                    </span>
+                  </span>
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
 
           <div className="min-w-0">
             <TabsContent value="general" className="mt-0">
               <GeneralTab
                 projectId={project._id}
+                projectOwnerClerkUserId={project.createdBy}
                 projectCoverImageUrl={project.coverImageUrl}
                 projectCoverImageDisplayUrl={
                   (project as { coverImageDisplayUrl?: string }).coverImageDisplayUrl
                 }
                 responsibleOptions={responsibleOptions}
+                ownerOption={ownerOption}
+                digestRecipientOptions={responsibleOptions}
                 settingsForm={settingsForm}
                 onSettingsSubmit={onSettingsSubmit}
               />
@@ -460,12 +573,6 @@ function ProjectSettingsContent() {
             <TabsContent value="taskstatus" className="mt-0">
               <Suspense fallback={<SettingsTabSkeleton />}>
                 <TaskStatusTab project={project} />
-              </Suspense>
-            </TabsContent>
-
-            <TabsContent value="ai" className="mt-0">
-              <Suspense fallback={<SettingsTabSkeleton />}>
-                <AISettings projectId={project._id} />
               </Suspense>
             </TabsContent>
 
@@ -495,18 +602,24 @@ export default function ProjectSettings() {
 
 function GeneralTab({
   projectId,
+  projectOwnerClerkUserId,
   projectCoverImageUrl,
   projectCoverImageDisplayUrl,
   responsibleOptions,
+  ownerOption,
+  digestRecipientOptions,
   settingsForm,
   onSettingsSubmit,
 }: {
   projectId: Id<"projects">;
+  projectOwnerClerkUserId: string;
   projectCoverImageUrl?: string;
   projectCoverImageDisplayUrl?: string;
   responsibleOptions: Array<{ clerkUserId: string; label: string; email: string }>;
+  ownerOption: { clerkUserId: string; label: string; email: string } | null;
+  digestRecipientOptions: Array<{ clerkUserId: string; label: string; email: string }>;
   settingsForm: UseFormReturn<z.infer<typeof settingsFormSchema>>;
-  onSettingsSubmit: (values: z.infer<typeof settingsFormSchema>) => void;
+  onSettingsSubmit: (values: z.infer<typeof settingsFormSchema>) => Promise<boolean>;
 }) {
   const generateUploadUrl = useMutation(apiAny.files.generateUploadUrlWithCustomKey);
   const addFile = useMutation(apiAny.files.addFile);
@@ -535,8 +648,16 @@ function GeneralTab({
     return candidates.filter((value, index) => candidates.indexOf(value) === index);
   }, [localCoverPreviewUrl, persistedCoverPreviewUrl, uploadedCoverPreviewUrl]);
   const coverPreviewUrl = coverPreviewCandidates[coverPreviewCandidateIndex] ?? null;
-  const hasUnsavedChanges = settingsForm.formState.isDirty;
   const hasCoverPreview = coverPreviewStatus === "ready";
+  const selectedDigestRecipientIds =
+    settingsForm.watch("clientPortalDigestRecipientClerkUserIds") ?? [];
+  const selectedStatus = settingsForm.watch("status") ?? "planning";
+  const selectedMeasurements = settingsForm.watch("measurements") ?? "metric";
+  const watchedSettingsValues = useWatch({ control: settingsForm.control });
+  const autosaveSnapshotRef = useRef<string | null>(null);
+  const autosaveInitializedRef = useRef(false);
+  const autosaveStatusTimeoutRef = useRef<number | null>(null);
+  const [autosaveState, setAutosaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
   const replaceLocalCoverPreviewUrl = (nextUrl: string | null) => {
     if (localCoverPreviewUrlRef.current) {
@@ -550,6 +671,9 @@ function GeneralTab({
     return () => {
       if (localCoverPreviewUrlRef.current) {
         URL.revokeObjectURL(localCoverPreviewUrlRef.current);
+      }
+      if (autosaveStatusTimeoutRef.current) {
+        clearTimeout(autosaveStatusTimeoutRef.current);
       }
     };
   }, []);
@@ -602,6 +726,63 @@ function GeneralTab({
       imageProbe.onerror = null;
     };
   }, [coverPreviewCandidateIndex, coverPreviewCandidates.length, coverPreviewUrl]);
+
+  useEffect(() => {
+    const serializedValues = JSON.stringify(watchedSettingsValues ?? {});
+
+    if (!autosaveInitializedRef.current) {
+      autosaveInitializedRef.current = true;
+      autosaveSnapshotRef.current = serializedValues;
+      return;
+    }
+
+    if (!settingsForm.formState.isDirty || settingsForm.formState.isSubmitting) {
+      return;
+    }
+
+    if (serializedValues === autosaveSnapshotRef.current) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setAutosaveState("saving");
+
+      void settingsForm.handleSubmit(
+        async (values) => {
+          const didSave = await onSettingsSubmit(values);
+
+          if (!didSave) {
+            setAutosaveState("error");
+            return;
+          }
+
+          autosaveSnapshotRef.current = serializedValues;
+          setAutosaveState("saved");
+
+          if (autosaveStatusTimeoutRef.current) {
+            clearTimeout(autosaveStatusTimeoutRef.current);
+          }
+
+          autosaveStatusTimeoutRef.current = window.setTimeout(() => {
+            setAutosaveState("idle");
+          }, 1800);
+        },
+        () => {
+          setAutosaveState("error");
+        },
+      )();
+    }, 700);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [
+    onSettingsSubmit,
+    settingsForm,
+    settingsForm.formState.isDirty,
+    settingsForm.formState.isSubmitting,
+    watchedSettingsValues,
+  ]);
 
   const handleCoverImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -701,11 +882,51 @@ function GeneralTab({
 
   return (
     <Card className="clean-panel overflow-hidden">
-      <CardHeader className="border-b border-border/70 bg-muted/40 pb-5">
-        <CardTitle className="text-lg lg:text-xl">General Settings</CardTitle>
-        <CardDescription className="text-sm">
-          Update the project identity, cover image, and operational details visible across the workspace.
-        </CardDescription>
+      <CardHeader className="border-b border-border/70 bg-transparent pb-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-2">
+            <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              General
+            </p>
+            <CardTitle className="text-xl lg:text-2xl">Project identity and operating details</CardTitle>
+            <CardDescription className="max-w-2xl text-sm">
+              Keep the project profile, timeline, recipients, and financial defaults aligned with how the team actually runs the work.
+            </CardDescription>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="rounded-2xl border border-border/70 bg-card px-4 py-3">
+              <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                Status
+              </p>
+              <p className="mt-1 text-sm font-medium capitalize text-foreground">
+                {selectedStatus.replace("_", " ")}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-border/70 bg-card px-4 py-3">
+              <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                Measurements
+              </p>
+              <p className="mt-1 text-sm font-medium text-foreground">
+                {selectedMeasurements === "imperial" ? "Imperial" : "Metric"}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="mt-4 flex items-center justify-between border-t border-border/70 pt-4">
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Changes in this section save automatically.
+          </p>
+          <p className="text-xs font-medium text-muted-foreground">
+            {autosaveState === "saving"
+              ? "Saving..."
+              : autosaveState === "saved"
+              ? "Saved"
+              : autosaveState === "error"
+              ? "Save failed"
+              : "Auto-save on"}
+          </p>
+        </div>
       </CardHeader>
 
       <CardContent className="flex flex-col gap-6 p-4 md:p-6">
@@ -770,7 +991,7 @@ function GeneralTab({
                 render={({ field }) => (
                   <FormItem className="mt-4">
                     <FormLabel className="text-sm font-medium">
-                      Project Owner (Email Notifications)
+                      Responsible Person
                     </FormLabel>
                     <Select
                       onValueChange={field.onChange}
@@ -792,12 +1013,93 @@ function GeneralTab({
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground">
-                      Client portal response emails are sent to this person. Default is the project creator.
+                      This is the person operationally responsible for the project. They can also receive client portal digests.
                     </p>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+
+              <div className="mt-4 rounded-xl border border-border/70 bg-muted/40 p-4">
+                <p className="text-sm font-medium text-foreground">Project Owner</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {ownerOption
+                    ? `${ownerOption.label}${ownerOption.email ? ` (${ownerOption.email})` : ""}`
+                    : projectOwnerClerkUserId}
+                </p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  The project owner is always the person who created the project.
+                </p>
+              </div>
+
+              <div className="mt-4 rounded-xl border border-border/70 bg-muted/30 p-4">
+                <div className="mb-3 flex flex-col gap-1">
+                  <h4 className="text-sm font-medium text-foreground">Client Portal Digest Recipients</h4>
+                  <p className="text-xs text-muted-foreground">
+                    Choose which project people receive the hourly summary email for client portal updates.
+                  </p>
+                </div>
+
+                <FormField
+                  control={settingsForm.control}
+                  name="clientPortalDigestRecipientClerkUserIds"
+                  render={({ field }) => (
+                    <FormItem className="grid gap-3">
+                      {digestRecipientOptions.map((option) => {
+                        const isChecked = selectedDigestRecipientIds.includes(
+                          option.clerkUserId,
+                        );
+                        const isOwner = option.clerkUserId === projectOwnerClerkUserId;
+                        const isResponsible =
+                          option.clerkUserId ===
+                          (settingsForm.watch("responsibleClerkUserId") ||
+                            projectOwnerClerkUserId);
+
+                        const descriptionParts = [
+                          option.email,
+                          isOwner ? "Project owner" : null,
+                          isResponsible ? "Responsible person" : null,
+                        ].filter(Boolean);
+
+                        return (
+                          <FormItem
+                            key={option.clerkUserId}
+                            className="flex flex-row items-start gap-3 rounded-xl border border-border/70 bg-background/70 p-3"
+                          >
+                            <FormControl>
+                              <Checkbox
+                                checked={isChecked}
+                                onCheckedChange={(checked) => {
+                                  const nextValue = Boolean(checked)
+                                    ? Array.from(
+                                        new Set([
+                                          ...(field.value ?? []),
+                                          option.clerkUserId,
+                                        ]),
+                                      )
+                                    : (field.value ?? []).filter(
+                                        (value) => value !== option.clerkUserId,
+                                      );
+                                  field.onChange(nextValue);
+                                }}
+                              />
+                            </FormControl>
+                            <div className="flex flex-col gap-1 leading-none">
+                              <FormLabel className="text-sm font-medium">
+                                {option.label}
+                              </FormLabel>
+                              <p className="text-xs text-muted-foreground">
+                                {descriptionParts.join(" • ") || option.clerkUserId}
+                              </p>
+                            </div>
+                          </FormItem>
+                        );
+                      })}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               <FormField
                 control={settingsForm.control}
@@ -821,14 +1123,107 @@ function GeneralTab({
 
             <section className="rounded-2xl border border-border/70 bg-card p-4 md:p-5">
               <div className="mb-4 flex flex-col gap-1">
+                <h3 className="text-sm font-semibold text-foreground">Timeline</h3>
+                <p className="text-xs text-muted-foreground">
+                  Set the planned project window shown across calendars, reports, and operational views.
+                </p>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <FormField
+                  control={settingsForm.control}
+                  name="startDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium">Start Date</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="date"
+                          {...field}
+                          value={field.value ?? ""}
+                          className="h-10 w-full"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={settingsForm.control}
+                  name="endDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium">End Date</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="date"
+                          {...field}
+                          value={field.value ?? ""}
+                          className="h-10 w-full"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="mt-4 flex items-start gap-3 rounded-2xl border border-border/70 bg-muted/20 px-4 py-3">
+                <CalendarRange className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Leave dates empty if the project is still open-ended. Once set, they feed project reporting and timeline views.
+                </p>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-border/70 bg-card p-4 md:p-5">
+              <div className="mb-4 flex flex-col gap-1">
                 <h3 className="text-sm font-semibold text-foreground">Cover Image</h3>
                 <p className="text-xs text-muted-foreground">
                   Upload an image from your device. No manual URL needed.
                 </p>
               </div>
 
-              <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
-                <div className="flex flex-col gap-3">
+              <div className="grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.85fr)]">
+                <div className="overflow-hidden rounded-[28px] border border-border/70 bg-muted/30">
+                  {hasCoverPreview ? (
+                    <div className="relative">
+                      <img
+                        src={coverPreviewUrl ?? undefined}
+                        alt="Project cover preview"
+                        className="aspect-[16/10] w-full object-cover"
+                      />
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/45 to-transparent px-5 py-4">
+                        <p className="text-xs font-medium uppercase tracking-[0.14em] text-white/80">
+                          Project Cover
+                        </p>
+                        <p className="mt-1 text-sm text-white">
+                          This image appears in the workspace as the visual anchor for the project.
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex aspect-[16/10] flex-col items-center justify-center gap-3 px-6 text-center">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full border border-border/70 bg-card">
+                        <ImagePlus className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium text-foreground">
+                          {coverPreviewStatus === "loading" ? "Loading preview..." : "No cover image yet"}
+                        </p>
+                        <p className="max-w-xs text-xs leading-relaxed text-muted-foreground">
+                          {coverPreviewStatus === "error"
+                            ? coverPreviewErrorMessage ||
+                              "This image preview could not be loaded. Upload a different file or remove the current one."
+                            : "Upload a landscape image to give the project a strong visual identity in lists and overview screens."}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col justify-between rounded-[28px] border border-border/70 bg-card p-5">
                   <input
                     ref={coverFileInputRef}
                     type="file"
@@ -837,52 +1232,55 @@ function GeneralTab({
                     onChange={handleCoverImageUpload}
                   />
 
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => coverFileInputRef.current?.click()}
-                    disabled={uploadingCoverImage}
-                  >
-                    <ImagePlus className="mr-2 h-4 w-4" />
-                    {uploadingCoverImage ? "Uploading..." : "Upload image"}
-                  </Button>
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-foreground">Asset</p>
+                      <p className="text-xs leading-relaxed text-muted-foreground">
+                        Use one clean visual instead of a dense collage. Wide crops work best across project surfaces.
+                      </p>
+                    </div>
 
-                  {coverImageValue ? (
                     <Button
                       type="button"
-                      variant="ghost"
                       size="sm"
-                      onClick={handleCoverImageRemove}
+                      onClick={() => coverFileInputRef.current?.click()}
                       disabled={uploadingCoverImage}
+                      className="w-full justify-center rounded-full"
                     >
-                      <X className="mr-2 h-4 w-4" />
-                      Remove image
+                      <ImagePlus className="mr-2 h-4 w-4" />
+                      {uploadingCoverImage
+                        ? "Uploading..."
+                        : coverImageValue
+                        ? "Replace image"
+                        : "Upload image"}
                     </Button>
-                  ) : null}
 
-                  <p className="text-xs text-muted-foreground">
-                    Pick a file and save the section to apply the new cover. Large images are optimized automatically.
-                  </p>
-                </div>
+                    {coverImageValue ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleCoverImageRemove}
+                        disabled={uploadingCoverImage}
+                        className="w-full justify-center rounded-full"
+                      >
+                        <X className="mr-2 h-4 w-4" />
+                        Remove image
+                      </Button>
+                    ) : null}
+                  </div>
 
-                <div className="overflow-hidden rounded-xl border border-border/70 bg-muted/40">
-                  {hasCoverPreview ? (
-                    <img
-                      src={coverPreviewUrl ?? undefined}
-                      alt="Project cover preview"
-                      className="h-[184px] w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-[184px] items-center justify-center px-4 text-center text-xs text-muted-foreground">
-                      {coverPreviewStatus === "loading"
-                        ? "Loading preview..."
-                        : coverPreviewStatus === "error"
-                        ? coverPreviewErrorMessage ||
-                          "Could not load this image. Upload a different file or remove it."
-                        : "Upload an image to preview it here."}
+                  <div className="mt-6 space-y-3">
+                    <div className="flex items-start gap-3 rounded-2xl border border-border/70 bg-muted/20 px-4 py-3">
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                      <p className="text-xs leading-relaxed text-muted-foreground">
+                        Large images are optimized automatically before upload.
+                      </p>
                     </div>
-                  )}
+                    <p className="text-xs leading-relaxed text-muted-foreground">
+                      Uploading updates the draft immediately. Save this section to apply the new cover across the project.
+                    </p>
+                  </div>
                 </div>
               </div>
             </section>
@@ -947,6 +1345,28 @@ function GeneralTab({
                           className="h-10 w-full"
                         />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={settingsForm.control}
+                  name="measurements"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium">Measurements</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value ?? undefined}>
+                        <FormControl>
+                          <SelectTrigger className="h-10 w-full">
+                            <SelectValue placeholder="Select measurement system" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="metric">Metric</SelectItem>
+                          <SelectItem value="imperial">Imperial</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -1025,20 +1445,6 @@ function GeneralTab({
               </div>
             </section>
 
-            <div className="flex flex-col-reverse gap-3 rounded-xl border border-border/70 bg-muted/70 p-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-muted-foreground">
-                {hasUnsavedChanges
-                  ? "You have unsaved changes in this section."
-                  : "Everything in this section is up to date."}
-              </p>
-              <Button
-                type="submit"
-                disabled={settingsForm.formState.isSubmitting}
-                className="w-full text-sm font-medium sm:w-auto sm:min-w-[170px]"
-              >
-                {settingsForm.formState.isSubmitting ? "Saving..." : "Save Changes"}
-              </Button>
-            </div>
           </form>
         </Form>
       </CardContent>

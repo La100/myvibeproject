@@ -170,6 +170,13 @@ const teamMemberNotificationSettingsValidator = v.object({
   taskComments: v.optional(v.boolean()),
 });
 
+const clientPortalNotificationSettingsValidator = v.object({
+  sendToOwner: v.optional(v.boolean()),
+  sendToResponsible: v.optional(v.boolean()),
+  sendToAdmins: v.optional(v.boolean()),
+  recipientClerkUserIds: v.optional(v.array(v.string())),
+});
+
 const clientPortalDigestEventValidator = v.object({
   createdAt: v.number(),
   actionType: v.union(
@@ -364,6 +371,9 @@ export default defineSchema({
     createdBy: v.string(), // Clerk user ID
     // Project owner responsible for client notifications and updates
     responsibleClerkUserId: v.optional(v.string()),
+    clientPortalNotificationSettings: v.optional(
+      clientPortalNotificationSettingsValidator,
+    ),
     clientNotificationsLastReadAt: v.optional(v.number()),
     assignedTo: v.array(v.string()), // Array of Clerk user IDs
     taskStatusSettings: v.optional(

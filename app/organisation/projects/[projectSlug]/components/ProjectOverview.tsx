@@ -3,28 +3,11 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { Suspense, useMemo, useState } from "react";
 import { useQueries, useQuery } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import { useProject } from "@/components/providers/ProjectProvider";
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
-import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -34,20 +17,22 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Spinner } from "@/components/ui/spinner";
+import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 import {
-  ArrowUpRight,
+  Building2,
+  CalendarRange,
   ClipboardList,
-  Download,
-  TrendingUp,
-  MapPin,
   CreditCard,
+  Download,
+  ExternalLink,
   Files,
-  AlertTriangle,
+  Globe,
+  MapPin,
   MoreHorizontal,
   Settings2,
+  Users,
 } from "lucide-react";
-import { Suspense, useMemo, useState } from "react";
-import { Spinner } from "@/components/ui/spinner";
 import {
   exportProjectBookPdf,
   type ProjectBookChapter,
@@ -60,7 +45,6 @@ import {
 } from "@/lib/shoppingSets";
 import { formatShoppingExportProductLabel } from "@/lib/shoppingListExport";
 import { resolveOrganizationTaxSettings } from "@/lib/organizationTax";
-import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 import {
   ProjectBookExportDialog,
   type ProjectBookExportOptions,
@@ -68,18 +52,12 @@ import {
 import { cn, formatCurrency, getTaskPreview } from "@/lib/utils";
 
 function ProjectOverviewSkeleton() {
-  return <Spinner />;
+  return (
+    <div className="flex min-h-[480px] items-center justify-center rounded-[28px] border border-border/60 bg-background/95 shadow-[0_22px_70px_-48px_rgba(27,27,27,0.45)]">
+      <Spinner />
+    </div>
+  );
 }
-
-const percentageOf = (value: number, total: number) =>
-  total > 0 ? (value / total) * 100 : null;
-
-const formatPercent = (value: number | null) =>
-  value === null || !Number.isFinite(value)
-    ? "No baseline"
-    : `${Math.round(value)}%`;
-
-const isPresent = <T,>(value: T): value is NonNullable<T> => value != null;
 
 const DEFAULT_PROJECT_BOOK_OPTIONS: ProjectBookExportOptions = {
   sections: {
@@ -104,13 +82,6 @@ const SHOPPING_STATUS_LABELS = {
   CANCELLED: "Cancelled",
 } as const;
 
-const getShoppingStatusLabel = (
-  status?: keyof typeof SHOPPING_STATUS_LABELS | string,
-) =>
-  status && status in SHOPPING_STATUS_LABELS
-    ? SHOPPING_STATUS_LABELS[status as keyof typeof SHOPPING_STATUS_LABELS]
-    : status || "-";
-
 const PROJECT_STATUS_LABELS = {
   planning: "Planning",
   active: "Active",
@@ -120,12 +91,19 @@ const PROJECT_STATUS_LABELS = {
   cancelled: "Cancelled",
 } as const;
 
+const getShoppingStatusLabel = (
+  status?: keyof typeof SHOPPING_STATUS_LABELS | string,
+) =>
+  status && status in SHOPPING_STATUS_LABELS
+    ? SHOPPING_STATUS_LABELS[status as keyof typeof SHOPPING_STATUS_LABELS]
+    : status || "-";
+
 const formatProjectDate = (value?: number) =>
   value
     ? new Intl.DateTimeFormat("en-GB", {
         day: "2-digit",
         month: "short",
-        year: "numeric",
+        year: "2-digit",
       }).format(new Date(value))
     : null;
 
@@ -192,7 +170,6 @@ function ProjectOverviewContent() {
   const tasks = useQuery(apiAny.tasks.listProjectTasks, {
     projectId: project._id,
   });
-
   const shoppingListItems = useQuery(
     apiAny.shopping.getShoppingListItemsByProject,
     {
@@ -205,7 +182,6 @@ function ProjectOverviewContent() {
   const shoppingSections = useQuery(apiAny.shopping.listShoppingListSections, {
     projectId: project._id,
   });
-
   const laborItems = useQuery(apiAny.labor.listLaborItems, {
     projectId: project._id,
   });
@@ -233,6 +209,13 @@ function ProjectOverviewContent() {
   const moodboardSections = useQuery(apiAny.files.getMoodboardSections, {
     projectId: project._id,
   });
+  const estimations = useQuery(apiAny.costEstimations.listCostEstimations, {
+    projectId: project._id,
+  });
+  const projectContacts = useQuery(apiAny.contacts.getProjectContacts, {
+    projectId: project._id,
+  });
+
   const moodboardImageQueries = useMemo(
     () =>
       Object.fromEntries(
@@ -250,10 +233,6 @@ function ProjectOverviewContent() {
     [moodboardSections, project._id],
   );
   const moodboardImageResults = useQueries(moodboardImageQueries);
-  const projectTokenUsage = useQuery(apiAny.ai.usage.getProjectTokenUsage, {
-    projectId: project._id,
-    days: 365,
-  });
 
   if (
     tasks === undefined ||
@@ -268,7 +247,8 @@ function ProjectOverviewContent() {
     team === undefined ||
     teamMembers === undefined ||
     moodboardSections === undefined ||
-    projectTokenUsage === undefined
+    estimations === undefined ||
+    projectContacts === undefined
   ) {
     return <ProjectOverviewSkeleton />;
   }
@@ -287,8 +267,6 @@ function ProjectOverviewContent() {
   }
 
   const projectBasePath = `/organisation/projects/${project.slug}`;
-  const projectBudgetSettingsHref = `${projectBasePath}/settings#project-budget`;
-
   const shoppingListCost = calculateShoppingTotal(
     shoppingListItems,
     shoppingSets,
@@ -412,6 +390,7 @@ function ProjectOverviewContent() {
       note: "Payments collected so far",
     },
   ];
+
   const moodboardExportSections = moodboardSections
     .map((section) => ({
       title: section.title,
@@ -595,17 +574,24 @@ function ProjectOverviewContent() {
       setIsExportingProjectBook(false);
     }
   };
-  const netCost = shoppingListCost + laborCost;
-  const teamTaxSettings = resolveOrganizationTaxSettings(
-    team?.organizationTaxSettings,
+
+  const projectCoverUrl =
+    (project as { coverImageDisplayUrl?: string }).coverImageDisplayUrl ||
+    project.coverImageUrl;
+  const projectEditedLabel = formatRelativeProjectEdit(
+    (project as { updatedAt?: number }).updatedAt ?? project._creationTime,
   );
-  const taxRate = project.taxEnabled
-    ? (project.taxRate ?? 23)
-    : teamTaxSettings.taxEnabled
-      ? teamTaxSettings.taxRate
-      : 0;
-  const taxAmount = taxRate > 0 ? netCost * (taxRate / 100) : 0;
-  const totalCost = netCost + taxAmount;
+  const projectStatusLabel =
+    PROJECT_STATUS_LABELS[
+      project.status as keyof typeof PROJECT_STATUS_LABELS
+    ] || project.status.replace(/_/g, " ");
+  const activeTasksCount = tasks.filter((task) => task.status !== "done").length;
+  const overdueTasksCount = tasks.filter(
+    (task) =>
+      task.status !== "done" &&
+      typeof task.endDate === "number" &&
+      task.endDate < Date.now(),
+  ).length;
   const unpaidInstallments = (
     (paymentsData?.installments as
       | Array<{
@@ -618,402 +604,158 @@ function ProjectOverviewContent() {
           isOverdue?: boolean;
         }>
       | undefined) ?? []
-  )
-    .filter(
-      (installment) =>
-        installment.status !== "paid" && installment.status !== "void",
-    )
-    .slice(0, 3);
-
-  const statusVariants = {
-    planning: "outline",
-    active: "secondary",
-    on_hold: "outline",
-    completed: "default",
-    done: "default",
-    cancelled: "destructive",
-  } as const;
-
-  const hasBudgetBaseline = budgetSummary.budget > 0;
-  const hasFinancialActivity =
-    budgetSummary.plannedCost > 0 ||
-    budgetSummary.committedCost > 0 ||
-    budgetSummary.actualCost > 0 ||
-    budgetSummary.clientFunding.acceptedEstimations > 0 ||
-    budgetSummary.clientFunding.scheduledPayments > 0 ||
-    budgetSummary.clientFunding.collectedPayments > 0;
-  const shouldShowBudgetEmptyState =
-    !hasBudgetBaseline && !hasFinancialActivity;
-  const budgetReference = hasBudgetBaseline
-    ? budgetSummary.budget
-    : Math.max(
-        budgetSummary.plannedCost,
-        budgetSummary.committedCost,
-        budgetSummary.actualCost,
-        1,
-      );
-
-  const actualBudgetPercent = hasBudgetBaseline
-    ? percentageOf(budgetSummary.actualCost, budgetSummary.budget)
-    : null;
-  const committedBudgetPercent = hasBudgetBaseline
-    ? percentageOf(budgetSummary.committedCost, budgetSummary.budget)
-    : null;
-  const plannedBudgetPercent = hasBudgetBaseline
-    ? percentageOf(budgetSummary.plannedCost, budgetSummary.budget)
-    : null;
-  const collectedCoveragePercent = percentageOf(
-    budgetSummary.clientFunding.collectedPayments,
-    budgetSummary.actualCost,
+  ).filter(
+    (installment) =>
+      installment.status !== "paid" && installment.status !== "void",
   );
-  const acceptedCoveragePercent = percentageOf(
-    budgetSummary.clientFunding.acceptedEstimations,
-    budgetSummary.plannedCost,
-  );
-  const scheduledCoveragePercent = percentageOf(
-    budgetSummary.clientFunding.scheduledPayments,
-    budgetSummary.committedCost,
-  );
-  const shoppingListSharePercent = percentageOf(
-    budgetSummary.breakdown.shopping.planned,
-    budgetSummary.plannedCost,
-  );
-  const laborSharePercent = percentageOf(
-    budgetSummary.breakdown.labor.actual,
-    budgetSummary.actualCost,
-  );
-  const remainingBudget = hasBudgetBaseline
-    ? budgetSummary.budget - budgetSummary.actualCost
-    : null;
-
-  const budgetHealth = shouldShowBudgetEmptyState
-    ? null
-    : (() => {
-        if (!hasBudgetBaseline && hasFinancialActivity) {
-          return {
-            badgeVariant: "outline" as const,
-            label: "No budget baseline",
-            description:
-              "Costs, approved estimates, or payments are already moving, but the project still has no budget ceiling.",
-          };
-        }
-
-        if (
-          hasBudgetBaseline &&
-          budgetSummary.actualCost > budgetSummary.budget
-        ) {
-          return {
-            badgeVariant: "destructive" as const,
-            label: "Over budget",
-            description: `${formatCurrency(
-              budgetSummary.actualCost,
-              budgetSummary.currency,
-            )} has already been spent against a ${formatCurrency(
-              budgetSummary.budget,
-              budgetSummary.currency,
-            )} budget.`,
-          };
-        }
-
-        if (
-          hasBudgetBaseline &&
-          budgetSummary.plannedCost > budgetSummary.budget
-        ) {
-          return {
-            badgeVariant: "secondary" as const,
-            label: "Forecast over budget",
-            description: `The current plan lands ${formatCurrency(
-              Math.abs(budgetSummary.projectedVariance),
-              budgetSummary.currency,
-            )} above the available budget.`,
-          };
-        }
-
-        if (
-          hasBudgetBaseline &&
-          actualBudgetPercent !== null &&
-          actualBudgetPercent >= 80
-        ) {
-          return {
-            badgeVariant: "secondary" as const,
-            label: "High spend",
-            description: `${formatPercent(
-              actualBudgetPercent,
-            )} of the budget is already consumed by actual spend.`,
-          };
-        }
-
-        return {
-          badgeVariant: "default" as const,
-          label: "On track",
-          description: hasBudgetBaseline
-            ? `${formatCurrency(
-                Math.max(remainingBudget ?? 0, 0),
-                budgetSummary.currency,
-              )} remains before the current actual spend hits the budget limit.`
-            : "Project costs, estimates, and payments are being tracked and ready for a budget baseline.",
-        };
-      })();
-
-  const spendRows = [
-    {
-      label: "Actual spend",
-      amount: budgetSummary.actualCost,
-      caption:
-        actualBudgetPercent !== null
-          ? `${formatPercent(actualBudgetPercent)} of budget`
-          : "Completed cost recorded so far",
-      indicatorClassName:
-        hasBudgetBaseline && budgetSummary.actualCost > budgetSummary.budget
-          ? "bg-destructive"
-          : "bg-foreground",
-    },
-    {
-      label: "Committed work",
-      amount: budgetSummary.committedCost,
-      caption:
-        committedBudgetPercent !== null
-          ? `${formatPercent(committedBudgetPercent)} of budget`
-          : "Booked costs not yet fully realized",
-      indicatorClassName: "bg-primary/80",
-    },
-    {
-      label: "Planned scope",
-      amount: budgetSummary.plannedCost,
-      caption:
-        plannedBudgetPercent !== null
-          ? `${formatPercent(plannedBudgetPercent)} of budget`
-          : "Projected total based on current scope",
-      indicatorClassName:
-        hasBudgetBaseline && budgetSummary.plannedCost > budgetSummary.budget
-          ? "bg-destructive/80"
-          : "bg-primary/45",
-    },
-  ];
-
-  const spendMixRows = [
-    {
-      label: "Shopping list total",
-      amount: budgetSummary.breakdown.shopping.planned,
-      note:
-        shoppingListSharePercent !== null
-          ? `${formatPercent(shoppingListSharePercent)} of planned cost`
-          : "No shopping list items yet",
-    },
-    {
-      label: "Labor actual",
-      amount: budgetSummary.breakdown.labor.actual,
-      note:
-        laborSharePercent !== null
-          ? `${formatPercent(laborSharePercent)} of actual spend`
-          : "No completed labor cost yet",
-    },
-    hasBudgetBaseline
-      ? {
-          label:
-            (remainingBudget ?? 0) >= 0 ? "Budget remaining" : "Budget overrun",
-          amount: Math.abs(remainingBudget ?? 0),
-          note:
-            (remainingBudget ?? 0) >= 0
-              ? "Headroom left against actual spend"
-              : "Actual spend is already beyond the cap",
-        }
-      : {
-          label: "Forecast total",
-          amount: budgetSummary.plannedCost,
-          note: "Budget is missing, so remaining budget cannot be measured yet",
-        },
-  ];
-
-  const coverageRows = [
-    {
-      label: "Accepted estimates",
-      amount: budgetSummary.clientFunding.acceptedEstimations,
-      note:
-        acceptedCoveragePercent !== null
-          ? `${formatPercent(acceptedCoveragePercent)} of planned cost covered`
-          : "No planned cost to cover yet",
-    },
-    {
-      label: "Scheduled payments",
-      amount: budgetSummary.clientFunding.scheduledPayments,
-      note:
-        scheduledCoveragePercent !== null
-          ? `${formatPercent(scheduledCoveragePercent)} of committed cost covered`
-          : "No committed cost to cover yet",
-    },
-    {
-      label: "Collected payments",
-      amount: budgetSummary.clientFunding.collectedPayments,
-      note:
-        collectedCoveragePercent !== null
-          ? `${formatPercent(collectedCoveragePercent)} of actual cost covered`
-          : "No actual spend recorded yet",
-    },
-  ];
-
-  const financialAlerts = [
-    !hasBudgetBaseline && hasFinancialActivity
-      ? {
-          title: "Missing budget baseline",
-          description:
-            "Add a project budget so actual spend, remaining budget, and variance can be measured against a real ceiling.",
-          actionHref: projectBudgetSettingsHref,
-          actionLabel: "Open project settings",
-          variant: "default" as const,
-          className: "border-border/60 bg-muted/30",
-        }
-      : null,
-    hasBudgetBaseline && budgetSummary.actualCost > budgetSummary.budget
-      ? {
-          title: "Actual spend is above budget",
-          description: `${formatCurrency(
-            budgetSummary.actualCost - budgetSummary.budget,
-            budgetSummary.currency,
-          )} has been spent beyond the current budget cap.`,
-          variant: "destructive" as const,
-          className: "",
-        }
-      : null,
-    hasBudgetBaseline &&
-    budgetSummary.actualCost <= budgetSummary.budget &&
-    budgetSummary.plannedCost > budgetSummary.budget
-      ? {
-          title: "Current scope will likely break budget",
-          description: `Planned cost is ${formatCurrency(
-            Math.abs(budgetSummary.projectedVariance),
-            budgetSummary.currency,
-          )} higher than the available budget.`,
-          variant: "default" as const,
-          className: "border-border/60 bg-muted/30",
-        }
-      : null,
-    budgetSummary.actualCost > 0 &&
-    budgetSummary.clientFunding.collectedPayments < budgetSummary.actualCost
-      ? {
-          title: "Collected payments are behind actual cost",
-          description: `${formatCurrency(
-            budgetSummary.clientFunding.collectedPayments,
-            budgetSummary.currency,
-          )} has been collected against ${formatCurrency(
-            budgetSummary.actualCost,
-            budgetSummary.currency,
-          )} of actual cost.`,
-          variant: "default" as const,
-          className: "border-border/60 bg-muted/30",
-        }
-      : null,
-  ].filter(isPresent);
-
-  const projectCoverUrl =
-    (project as { coverImageDisplayUrl?: string }).coverImageDisplayUrl ||
-    project.coverImageUrl;
-  const projectEditedLabel = formatRelativeProjectEdit(
-    (project as { updatedAt?: number }).updatedAt ?? project._creationTime,
-  );
-  const projectStatusLabel =
-    PROJECT_STATUS_LABELS[
-      project.status as keyof typeof PROJECT_STATUS_LABELS
-    ] || project.status.replace(/_/g, " ");
-  const activeTasksCount = tasks.filter(
-    (task) => task.status !== "done",
+  const acceptedEstimationsCount = estimations.filter(
+    (estimation) => estimation.status === "accepted",
   ).length;
-  const completedTasksCount = tasks.length - activeTasksCount;
-  const overdueTasksCount = tasks.filter(
-    (task) =>
-      task.status !== "done" &&
-      typeof task.endDate === "number" &&
-      task.endDate < Date.now(),
+  const sentEstimationsCount = estimations.filter(
+    (estimation) => estimation.status === "sent",
   ).length;
-  const visibleTeamMembers = teamMembers.slice(0, 4);
-  const hiddenTeamMembersCount = Math.max(
-    teamMembers.length - visibleTeamMembers.length,
-    0,
-  );
+  const overdueInstallmentsCount = unpaidInstallments.filter(
+    (installment) => installment.status === "open" && installment.isOverdue,
+  ).length;
+  const openInstallmentsCount = unpaidInstallments.filter(
+    (installment) => installment.status === "open",
+  ).length;
   const paidAmount = paymentsData?.totals.paid || 0;
   const outstandingAmount = paymentsData?.totals.outstanding || 0;
-  const summaryCards = [
+  const scheduledAmount = budgetSummary.clientFunding.scheduledPayments || 0;
+
+  const teamTaxSettings = resolveOrganizationTaxSettings(
+    team?.organizationTaxSettings,
+  );
+  const taxRate = project.taxEnabled
+    ? (project.taxRate ?? 23)
+    : teamTaxSettings.taxEnabled
+      ? teamTaxSettings.taxRate
+      : 0;
+  const taxAmount =
+    taxRate > 0 ? (shoppingListCost + laborCost) * (taxRate / 100) : 0;
+  const totalCost = shoppingListCost + laborCost + taxAmount;
+
+  const overviewMetrics = [
     {
-      title: "Active tasks",
       value: String(activeTasksCount),
-      detail:
+      label: "Active tasks",
+      meta:
         overdueTasksCount > 0
           ? `${overdueTasksCount} overdue`
-          : completedTasksCount > 0
-            ? `${completedTasksCount} completed`
-            : "No completed tasks yet",
-      icon: ClipboardList,
+          : `${Math.max(tasks.length - activeTasksCount, 0)} completed`,
     },
     {
-      title: "Tracked spend",
-      value: formatCurrency(totalCost, project.currency),
-      detail:
-        taxRate > 0 ? `Incl. ${taxRate}% tax` : "Shopping and labor combined",
-      icon: TrendingUp,
+      value: String(estimations.length),
+      label: "Estimations",
+      meta:
+        acceptedEstimationsCount > 0
+          ? `${acceptedEstimationsCount} accepted`
+          : sentEstimationsCount > 0
+            ? `${sentEstimationsCount} sent`
+            : "No estimations yet",
     },
     {
-      title: "Payments",
+      value: String(unpaidInstallments.length),
+      label: "Open payments",
+      meta:
+        overdueInstallmentsCount > 0
+          ? `${overdueInstallmentsCount} overdue`
+          : openInstallmentsCount > 0
+            ? `${openInstallmentsCount} awaiting payment`
+            : "No open payments",
+    },
+    {
       value: formatCurrency(
-        paidAmount,
-        paymentsData?.currency || project.currency,
+        budgetSummary.plannedCost || scheduledAmount || project.budget || totalCost,
+        budgetSummary.currency || paymentsData?.currency || project.currency,
+        {
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 0,
+        },
       ),
-      detail:
-        outstandingAmount > 0
-          ? `${formatCurrency(outstandingAmount, paymentsData?.currency || project.currency)} outstanding`
-          : "No outstanding payments",
-      icon: CreditCard,
+      label: "Planned cost",
+      meta:
+        budgetSummary.plannedCost > 0
+          ? "Shopping and labor scope"
+          : projectContacts.length > 0
+            ? `${projectContacts.length} project contacts assigned`
+            : "No scoped costs yet",
     },
   ];
+
+  const visibleTeamMembers = teamMembers.slice(0, 4);
+  const hiddenTeamMembersCount = Math.max(teamMembers.length - 4, 0);
+
+  const recentCards = [
+    ...moodboardSections.flatMap((section) => {
+      const files =
+        ((moodboardImageResults[section.id] as
+          | Array<{ name: string; url: string }>
+          | undefined) ?? []).slice(0, 3);
+
+      return files.map((file, index) => ({
+        id: `${section.id}-${file.url}-${index}`,
+        title: file.name || section.title,
+        subtitle: section.title,
+        href: `${projectBasePath}/moodboard`,
+        imageUrl: file.url,
+        status: "Pinboard",
+      }));
+    }),
+    ...notes.slice(0, 2).map((note) => ({
+      id: String(note._id),
+      title: note.title || "Project note",
+      subtitle: note.content?.slice(0, 48) || "Notes",
+      href: `${projectBasePath}/notes`,
+      imageUrl: "",
+      status: "Notes",
+    })),
+  ].slice(0, 5);
+
+  const projectLink =
+    (project as { websiteUrl?: string; website?: string }).websiteUrl ||
+    (project as { websiteUrl?: string; website?: string }).website ||
+    null;
+
+  const statusVariant =
+    project.status === "cancelled"
+      ? "destructive"
+      : project.status === "completed"
+        ? "default"
+        : "secondary";
 
   return (
     <ProjectPageLayout>
-      <div className="flex flex-col gap-7">
-        <Card className="overflow-hidden border-border/70 bg-card/95 shadow-sm">
-          <CardContent className="p-6 sm:p-8">
-            <div
-              className={cn(
-                "grid gap-8",
-                projectCoverUrl
-                  ? "xl:grid-cols-[minmax(0,1.08fr)_minmax(320px,0.92fr)] xl:items-start"
-                  : "grid-cols-1",
-              )}
-            >
-              <div className="flex flex-col gap-6">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="space-y-3">
-                    <h1 className="max-w-3xl text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-                      {project.name}
-                    </h1>
-                    <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                      {project.location ? (
-                        <span className="inline-flex items-center gap-1.5">
-                          <MapPin className="h-3.5 w-3.5" />
-                          {project.location}
-                        </span>
-                      ) : null}
-                      {projectEditedLabel ? <span>{projectEditedLabel}</span> : null}
-                    </div>
+      <section className="mx-auto w-full max-w-[1180px]">
+        <div className="overflow-hidden rounded-[30px] border border-border/80 bg-card shadow-[var(--shadow-lg)]">
+          <div className="min-h-[600px] bg-card">
+              <div className="border-b border-border/70 px-6 py-6 sm:px-8">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-2 text-[11px] font-medium tracking-[0.01em] text-muted-foreground">
+                    <Building2 className="h-3.5 w-3.5" />
+                    <span>Projects</span>
+                    <span>/</span>
+                    <ClipboardList className="h-3.5 w-3.5" />
+                    <span>Overview</span>
                   </div>
-
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
-                        variant="outline"
+                        variant="ghost"
                         size="icon"
-                        className="shrink-0 rounded-full"
+                        className="h-8 w-8 rounded-md border border-border/80 bg-background text-muted-foreground hover:bg-muted"
                       >
                         <MoreHorizontal className="h-4 w-4" />
-                        <span className="sr-only">Open project actions</span>
+                        <span className="sr-only">Project actions</span>
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
                       align="end"
-                      className="w-56 rounded-xl border-border/70"
+                      className="w-56 rounded-xl border-border/80 bg-popover"
                     >
                       <DropdownMenuItem
-                        onSelect={() =>
-                          router.push(`${projectBasePath}/settings`)
-                        }
+                        onSelect={() => router.push(`${projectBasePath}/settings`)}
                       >
                         <Settings2 className="mr-2 h-4 w-4" />
                         Project settings
@@ -1025,9 +767,7 @@ function ProjectOverviewContent() {
                         Open tasks board
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        onSelect={() =>
-                          router.push(`${projectBasePath}/payments`)
-                        }
+                        onSelect={() => router.push(`${projectBasePath}/payments`)}
                       >
                         <CreditCard className="mr-2 h-4 w-4" />
                         Open payments
@@ -1047,490 +787,231 @@ function ProjectOverviewContent() {
                   </DropdownMenu>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge
-                    variant={
-                      statusVariants[
-                        project.status as keyof typeof statusVariants
-                      ]
-                    }
-                    className="capitalize"
-                  >
-                    {projectStatusLabel}
-                  </Badge>
-                  {project.customer ? (
-                    <Badge variant="outline">{project.customer}</Badge>
-                  ) : null}
-                  <Badge variant="outline">
-                    {formatDateRange(project.startDate, project.endDate)}
-                  </Badge>
-                  {project.budget ? (
-                    <Badge variant="outline">
-                      Budget{" "}
-                      {formatCurrency(project.budget, project.currency, {
-                        minimumFractionDigits: 0,
-                        maximumFractionDigits: 0,
-                      })}
-                    </Badge>
-                  ) : null}
-                </div>
-
-                {project.description ? (
-                  <p className="max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">
-                    {project.description}
-                  </p>
-                ) : null}
-
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-2">
-                  {summaryCards.map((card) => (
-                    <div
-                      key={card.title}
-                      className="rounded-2xl border border-border/60 bg-muted/20 p-4"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm font-medium text-muted-foreground">
-                          {card.title}
-                        </p>
-                        <card.icon className="h-4 w-4 text-muted-foreground" />
+                <div className="mt-6 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_400px]">
+                  <div className="max-w-[560px] space-y-4">
+                    <div className="space-y-2.5">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                        Project Workspace
+                      </p>
+                      <h1 className="text-[30px] font-medium leading-none tracking-tight text-foreground sm:text-[34px]">
+                        {project.name}
+                      </h1>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-muted-foreground">
+                        {project.location ? (
+                          <span className="inline-flex items-center gap-1.5">
+                            <MapPin className="h-3.5 w-3.5" />
+                            {project.location}
+                          </span>
+                        ) : null}
+                        {projectEditedLabel ? <span>{projectEditedLabel}</span> : null}
                       </div>
-                      <p className="mt-3 text-2xl font-semibold tracking-tight text-foreground">
-                        {card.value}
-                      </p>
-                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                        {card.detail}
-                      </p>
                     </div>
-                  ))}
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <Badge
+                        variant={statusVariant}
+                        className="rounded-md px-2.5 py-1 text-[11px] font-medium shadow-none"
+                      >
+                        {projectStatusLabel}
+                      </Badge>
+                      {project.customer ? (
+                        <Badge
+                          variant="outline"
+                          className="rounded-md border-border/80 bg-muted/35 px-2.5 py-1 text-[11px] font-medium text-muted-foreground"
+                        >
+                          {project.customer}
+                        </Badge>
+                      ) : null}
+                      <Badge
+                        variant="outline"
+                        className="rounded-md border-border/80 bg-muted/35 px-2.5 py-1 text-[11px] font-medium text-muted-foreground"
+                      >
+                        {formatDateRange(project.startDate, project.endDate)}
+                      </Badge>
+                    </div>
+                    {project.description ? (
+                      <p className="max-w-[430px] text-[13px] leading-6 text-muted-foreground">
+                        {project.description}
+                      </p>
+                    ) : null}
+                    <div className="flex flex-wrap items-center gap-3 pt-1.5">
+                      <div className="flex -space-x-2">
+                        {visibleTeamMembers.map((member) => (
+                          <Avatar
+                            key={member._id}
+                            className="h-8 w-8 border border-white shadow-sm"
+                          >
+                            <AvatarImage src={member.imageUrl} alt={member.name} />
+                            <AvatarFallback className="bg-muted text-[11px] font-medium text-foreground">
+                              {getInitials(member.name)}
+                            </AvatarFallback>
+                          </Avatar>
+                        ))}
+                        {hiddenTeamMembersCount > 0 ? (
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full border border-background bg-muted text-[11px] font-medium text-foreground shadow-sm">
+                            +{hiddenTeamMembersCount}
+                          </div>
+                        ) : null}
+                      </div>
+                      <div className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground">
+                        <Users className="h-3.5 w-3.5" />
+                        <span>
+                          {teamMembers.length} collaborator
+                          {teamMembers.length === 1 ? "" : "s"}
+                        </span>
+                      </div>
+                      {projectLink ? (
+                        <Link
+                          href={projectLink}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 text-[12px] font-medium text-foreground underline-offset-4 hover:underline"
+                        >
+                          <Globe className="h-3.5 w-3.5" />
+                          Visit website
+                          <ExternalLink className="h-3 w-3" />
+                        </Link>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="overflow-hidden rounded-[18px] border border-border/70 bg-muted/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.3)]">
+                    <div className="relative aspect-[1.55/1]">
+                      {projectCoverUrl ? (
+                        <Image
+                          src={projectCoverUrl}
+                          alt={`${project.name} cover`}
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 1024px) 100vw, 400px"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 bg-[linear-gradient(135deg,var(--muted)_0%,var(--background)_58%,var(--secondary)_100%)]" />
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="flex flex-col gap-4">
-                {projectCoverUrl ? (
-                  <div className="overflow-hidden rounded-[28px] border border-border/60 bg-muted/20">
-                    <div className="relative aspect-[1.35/1] min-h-[300px]">
-                      <Image
-                        src={projectCoverUrl}
-                        alt={`${project.name} cover`}
-                        fill
-                        className="object-cover"
-                        sizes="(max-width: 1279px) 100vw, 42vw"
-                      />
-                    </div>
-                  </div>
-                ) : null}
-
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                  <div className="rounded-2xl border border-border/60 bg-muted/20 p-5">
-                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                      Financial base
+              <div className="grid border-b border-border/70 bg-muted/[0.14] md:grid-cols-2 xl:grid-cols-4">
+                {overviewMetrics.map((metric, index) => (
+                  <div
+                    key={metric.label}
+                    className={cn(
+                      "px-6 py-5 sm:px-8",
+                      index < overviewMetrics.length - 1 &&
+                        "xl:border-r xl:border-border/70",
+                      index < 2 && "md:border-b md:border-border/70 xl:border-b-0",
+                    )}
+                  >
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      {metric.label}
                     </p>
-                    <p className="mt-3 text-2xl font-semibold text-foreground">
+                    <p className="mt-3 text-[30px] font-semibold tracking-tight tabular-nums text-foreground">
+                      {metric.value}
+                    </p>
+                    <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
+                      {metric.meta}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="border-b border-border/70 px-6 py-5 sm:px-8">
+                <div className="grid items-end gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      Total invoices
+                    </p>
+                    <p className="mt-3 text-[30px] font-semibold tracking-tight tabular-nums text-foreground">
                       {formatCurrency(
-                        project.budget || budgetSummary.budget || totalCost,
-                        project.currency,
+                        paidAmount + outstandingAmount,
+                        paymentsData?.currency || project.currency,
                         {
                           minimumFractionDigits: 0,
                           maximumFractionDigits: 0,
                         },
                       )}
                     </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {project.budget
-                        ? "Declared project budget"
-                        : "Current working financial baseline"}
+                    <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
+                      {formatCurrency(
+                        paidAmount,
+                        paymentsData?.currency || project.currency,
+                      )}{" "}
+                      paid,{" "}
+                      {formatCurrency(
+                        outstandingAmount,
+                        paymentsData?.currency || project.currency,
+                      )}{" "}
+                      unpaid
                     </p>
                   </div>
+                  <div className="flex items-end justify-start lg:justify-end">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-background px-3 py-1.5 text-[11px] font-medium text-muted-foreground">
+                      <CalendarRange className="h-3.5 w-3.5" />
+                      <span>{formatDateRange(project.startDate, project.endDate)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-                  <div className="rounded-2xl border border-border/60 bg-muted/20 p-5">
-                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                      Cost mix
+              <div className="px-6 py-6 sm:px-8">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      Recent
                     </p>
-                    <div className="mt-4 space-y-3">
-                      <div className="flex items-center justify-between gap-3 text-sm">
-                        <span className="text-muted-foreground">Shopping</span>
-                        <span className="font-medium text-foreground">
-                          {formatCurrency(shoppingListCost, project.currency)}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between gap-3 text-sm">
-                        <span className="text-muted-foreground">Labor</span>
-                        <span className="font-medium text-foreground">
-                          {formatCurrency(laborCost, project.currency)}
-                        </span>
-                      </div>
-                      {taxRate > 0 ? (
-                        <div className="flex items-center justify-between gap-3 text-sm">
-                          <span className="text-muted-foreground">Tax</span>
-                          <span className="font-medium text-foreground">
-                            {formatCurrency(taxAmount, project.currency)}
-                          </span>
+                    <p className="text-[13px] text-muted-foreground">
+                      Latest visual references and working materials linked to this project.
+                    </p>
+                  </div>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  {recentCards.length > 0 ? (
+                    recentCards.map((card) => (
+                      <Link
+                        key={card.id}
+                        href={card.href}
+                        className="group overflow-hidden rounded-[16px] border border-border/80 bg-card transition-[transform,background-color,border-color] duration-200 hover:-translate-y-0.5 hover:bg-muted/20"
+                      >
+                        <div className="relative aspect-[1.65/1] border-b border-border/70 bg-muted/30">
+                          {card.imageUrl ? (
+                            <Image
+                              src={card.imageUrl}
+                              alt={card.title}
+                              fill
+                              className="object-cover"
+                              sizes="(max-width: 1280px) 50vw, 220px"
+                            />
+                          ) : (
+                            <div className="absolute inset-0 bg-[linear-gradient(135deg,var(--muted)_0%,var(--card)_100%)]" />
+                          )}
                         </div>
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border/60 bg-muted/10 p-4">
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-foreground">
-                  Team on project
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {teamMembers.length > 0
-                    ? `${teamMembers.length} collaborator${teamMembers.length === 1 ? "" : "s"} with access`
-                    : "No collaborators assigned yet"}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="flex -space-x-3">
-                  {visibleTeamMembers.map((member) => (
-                    <Avatar
-                      key={member._id}
-                      className="h-10 w-10 border-2 border-background shadow-sm"
-                    >
-                      <AvatarImage src={member.imageUrl} alt={member.name} />
-                      <AvatarFallback>
-                        {getInitials(member.name)}
-                      </AvatarFallback>
-                    </Avatar>
-                  ))}
-                  {hiddenTeamMembersCount > 0 ? (
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-background bg-muted text-xs font-medium text-muted-foreground shadow-sm">
-                      +{hiddenTeamMembersCount}
-                    </div>
-                  ) : null}
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="rounded-full"
-                  onClick={() => router.push(`${projectBasePath}/settings`)}
-                >
-                  Manage project
-                  <ArrowUpRight className="ml-2 h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {unpaidInstallments.length > 0 ? (
-          <Card className="bg-card/92">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg font-medium lg:text-xl">
-                Upcoming Installments
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3 px-6">
-              {unpaidInstallments.map((installment) => (
-                <div
-                  key={installment._id}
-                  className="flex items-center justify-between rounded-xl border p-4"
-                >
-                  <div>
-                    <p className="font-medium">{installment.title}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {installment.dueDate
-                        ? `Due ${new Date(installment.dueDate).toLocaleDateString()}`
-                        : "No due date"}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold">
-                      {formatCurrency(installment.amount, installment.currency)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {installment.isOverdue
-                        ? "Overdue"
-                        : installment.status.replace("_", " ")}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        ) : null}
-
-        {budgetSummary ? (
-          <Card className="bg-card/92">
-            <CardHeader className="border-b pb-4">
-              <CardTitle className="text-lg font-medium lg:text-xl">
-                Budget vs Actual
-              </CardTitle>
-              <CardDescription>
-                {shouldShowBudgetEmptyState
-                  ? "This block becomes useful once the project has a budget, tracked costs, approved estimates, or payment activity."
-                  : budgetHealth?.description}
-              </CardDescription>
-              {budgetHealth ? (
-                <CardAction>
-                  <Badge variant={budgetHealth.badgeVariant}>
-                    {budgetHealth.label}
-                  </Badge>
-                </CardAction>
-              ) : null}
-            </CardHeader>
-            <CardContent className="px-6 pt-6">
-              {shouldShowBudgetEmptyState ? (
-                <Empty className="border-border/60 bg-muted/20">
-                  <EmptyHeader>
-                    <EmptyMedia variant="icon">
-                      <TrendingUp />
-                    </EmptyMedia>
-                    <EmptyTitle>No budget baseline yet</EmptyTitle>
-                    <EmptyDescription>
-                      Set a project budget and start logging materials, labor,
-                      estimates, or payments. Then this area will show actual
-                      cost, forecast variance, and payment coverage instead of
-                      empty values.
-                    </EmptyDescription>
-                  </EmptyHeader>
-                  <EmptyContent className="max-w-xl">
-                    <div className="flex flex-wrap items-center justify-center gap-2">
-                      <Badge variant="outline">Set budget</Badge>
-                      <Badge variant="outline">Track shopping and labor</Badge>
-                      <Badge variant="outline">Add estimates or payments</Badge>
-                    </div>
-                  </EmptyContent>
-                </Empty>
-              ) : (
-                <div className="flex flex-col gap-6">
-                  <div className="grid gap-4 xl:grid-cols-4">
-                    <div
-                      className={cn(
-                        "rounded-2xl border p-4",
-                        hasBudgetBaseline && (remainingBudget ?? 0) < 0
-                          ? "border-destructive/20 bg-destructive/5"
-                          : "border-border/60 bg-muted/20",
-                      )}
-                    >
-                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                        {hasBudgetBaseline ? "Budget remaining" : "Actual cost"}
-                      </p>
-                      <p className="mt-2 text-2xl font-semibold">
-                        {hasBudgetBaseline
-                          ? formatCurrency(
-                              Math.abs(remainingBudget ?? 0),
-                              budgetSummary.currency,
-                            )
-                          : formatCurrency(
-                              budgetSummary.actualCost,
-                              budgetSummary.currency,
-                            )}
-                      </p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {hasBudgetBaseline
-                          ? (remainingBudget ?? 0) >= 0
-                            ? "remaining before actual spend hits the budget"
-                            : "already spent beyond the budget cap"
-                          : "tracked actual cost so far"}
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
-                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                        Forecast
-                      </p>
-                      <p className="mt-2 text-2xl font-semibold">
-                        {hasBudgetBaseline
-                          ? formatCurrency(
-                              Math.abs(budgetSummary.projectedVariance),
-                              budgetSummary.currency,
-                            )
-                          : formatCurrency(
-                              budgetSummary.plannedCost,
-                              budgetSummary.currency,
-                            )}
-                      </p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {hasBudgetBaseline
-                          ? budgetSummary.projectedVariance >= 0
-                            ? "projected buffer at completion"
-                            : "projected overrun at completion"
-                          : "current planned total without a budget ceiling"}
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
-                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                        Payment coverage
-                      </p>
-                      <p className="mt-2 text-2xl font-semibold">
-                        {collectedCoveragePercent !== null
-                          ? formatPercent(collectedCoveragePercent)
-                          : formatCurrency(
-                              budgetSummary.clientFunding.collectedPayments,
-                              budgetSummary.currency,
-                            )}
-                      </p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {budgetSummary.actualCost > 0
-                          ? "collected payments against actual cost"
-                          : "collected payments recorded so far"}
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
-                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                        Approved estimates
-                      </p>
-                      <p className="mt-2 text-2xl font-semibold">
-                        {formatCurrency(
-                          budgetSummary.clientFunding.acceptedEstimations,
-                          budgetSummary.currency,
-                        )}
-                      </p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {acceptedCoveragePercent !== null
-                          ? `${formatPercent(acceptedCoveragePercent)} of planned cost covered`
-                          : "accepted estimates will show coverage here"}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-border/60 bg-muted/10 p-4">
-                    <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-                      <div className="flex flex-col gap-1">
-                        <p className="text-sm font-medium">Cost ladder</p>
-                        <p className="text-sm text-muted-foreground">
-                          Compare realized spend, committed work, and full
-                          planned scope against the current ceiling.
-                        </p>
-                      </div>
-                      <Badge variant="outline">
-                        {hasBudgetBaseline
-                          ? `Budget ${formatCurrency(
-                              budgetSummary.budget,
-                              budgetSummary.currency,
-                            )}`
-                          : "No budget ceiling yet"}
-                      </Badge>
-                    </div>
-
-                    <div className="mt-4 flex flex-col gap-4">
-                      {spendRows.map((row) => (
-                        <div key={row.label} className="flex flex-col gap-2">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex flex-col gap-1">
-                              <p className="text-sm font-medium">{row.label}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {row.caption}
-                              </p>
-                            </div>
-                            <p className="text-sm font-semibold">
-                              {formatCurrency(
-                                row.amount,
-                                budgetSummary.currency,
-                              )}
-                            </p>
-                          </div>
-                          <Progress
-                            value={row.amount}
-                            max={budgetReference}
-                            indicatorClassName={row.indicatorClassName}
-                          />
+                        <div className="space-y-1.5 px-3 py-3">
+                          <p className="truncate text-[12px] font-medium text-foreground">
+                            {card.title}
+                          </p>
+                          <p className="truncate text-[11px] text-muted-foreground">
+                            {card.subtitle}
+                          </p>
+                          <Badge
+                            variant="outline"
+                            className="rounded-md border-border/80 bg-muted/25 px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+                          >
+                            {card.status}
+                          </Badge>
                         </div>
-                      ))}
+                      </Link>
+                    ))
+                  ) : (
+                    <div className="col-span-full rounded-[12px] border border-dashed border-border/80 bg-muted/20 px-4 py-6 text-[12px] text-muted-foreground">
+                      Add moodboard items, files, or notes to populate the recent strip.
                     </div>
-                  </div>
-
-                  <div className="grid gap-4 xl:grid-cols-2">
-                    <div className="rounded-2xl border border-border/60 bg-muted/10 p-4">
-                      <p className="text-sm font-medium">Cost breakdown</p>
-                      <div className="mt-4 flex flex-col gap-3">
-                        {spendMixRows.map((row) => (
-                          <div
-                            key={row.label}
-                            className="flex items-start justify-between gap-4"
-                          >
-                            <div className="flex flex-col gap-1">
-                              <span className="text-sm text-muted-foreground">
-                                {row.label}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                {row.note}
-                              </span>
-                            </div>
-                            <span className="text-sm font-semibold">
-                              {formatCurrency(
-                                row.amount,
-                                budgetSummary.currency,
-                              )}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl border border-border/60 bg-muted/10 p-4">
-                      <p className="text-sm font-medium">
-                        Estimates and payment coverage
-                      </p>
-                      <div className="mt-4 flex flex-col gap-3">
-                        {coverageRows.map((row) => (
-                          <div
-                            key={row.label}
-                            className="flex items-start justify-between gap-4"
-                          >
-                            <div className="flex flex-col gap-1">
-                              <span className="text-sm text-muted-foreground">
-                                {row.label}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                {row.note}
-                              </span>
-                            </div>
-                            <span className="text-sm font-semibold">
-                              {formatCurrency(
-                                row.amount,
-                                budgetSummary.currency,
-                              )}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  {financialAlerts.length > 0 ? (
-                    <div className="flex flex-col gap-3">
-                      {financialAlerts.map((alert) => (
-                        <Alert
-                          key={alert.title}
-                          variant={alert.variant}
-                          className={alert.className}
-                        >
-                          <AlertTriangle />
-                          <AlertTitle>{alert.title}</AlertTitle>
-                          <AlertDescription>
-                            {alert.description}
-                            {alert.actionHref && alert.actionLabel ? (
-                              <div className="mt-2">
-                                <Button
-                                  asChild
-                                  variant="link"
-                                  className="h-auto px-0"
-                                >
-                                  <Link href={alert.actionHref}>
-                                    {alert.actionLabel}
-                                  </Link>
-                                </Button>
-                              </div>
-                            ) : null}
-                          </AlertDescription>
-                        </Alert>
-                      ))}
-                    </div>
-                  ) : null}
+                  )}
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        ) : null}
-      </div>
+              </div>
+          </div>
+        </div>
+      </section>
+
       <ProjectBookExportDialog
         exportOptions={projectBookExportOptions}
         isOpen={isProjectBookExportOpen}

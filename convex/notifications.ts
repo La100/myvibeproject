@@ -45,6 +45,22 @@ type ClientPortalDigestEvent = {
   comment?: string;
 };
 
+const resolveClientPortalNotificationSettings = (
+  value?: {
+    sendToOwner?: boolean;
+    sendToResponsible?: boolean;
+    sendToAdmins?: boolean;
+    recipientClerkUserIds?: string[];
+  } | null,
+) =>
+  Array.from(
+    new Set(
+      (value?.recipientClerkUserIds ?? [])
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0),
+    ),
+  );
+
 const isValidEmail = (email: string) =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
@@ -242,34 +258,52 @@ export const getEmailNotificationContext = internalQuery({
         member.isActive &&
         (member.role === "admin" || member.role === "member"),
     );
-    const activeMemberIds = new Set(
-      activeMembers.map((member) => member.clerkUserId),
+    const activeMembersById = new Map(
+      activeMembers.map((member) => [member.clerkUserId, member]),
     );
-
+    const settings = (project as {
+      clientPortalNotificationSettings?: {
+        sendToOwner?: boolean;
+        sendToResponsible?: boolean;
+        sendToAdmins?: boolean;
+        recipientClerkUserIds?: string[];
+      };
+    }).clientPortalNotificationSettings;
     const responsibleClerkUserId = (
       project as { responsibleClerkUserId?: string }
     ).responsibleClerkUserId;
-    const candidateIds = Array.from(
+
+    let candidateIds = resolveClientPortalNotificationSettings(settings);
+
+    if (candidateIds.length === 0) {
+      candidateIds = [project.createdBy];
+      if (responsibleClerkUserId) {
+        candidateIds.push(responsibleClerkUserId);
+      }
+      candidateIds.push(
+        ...activeMembers
+          .filter((member) => member.role === "admin")
+          .map((member) => member.clerkUserId),
+      );
+    }
+
+    const orderedCandidateIds = Array.from(
       new Set(
-        [
-          responsibleClerkUserId,
-          project.createdBy,
-          ...activeMembers.map((member) => member.clerkUserId),
-        ].filter(
-          (value): value is string =>
-            typeof value === "string" && value.trim().length > 0,
-        ),
+        candidateIds
+          .map((value) => value.trim())
+          .filter((value) => value.length > 0),
       ),
     );
 
-    let selectedRecipient: {
+    const recipients: Array<{
       email: string;
       name: string | null;
       clerkUserId: string;
-    } | null = null;
+    }> = [];
+    const seenEmails = new Set<string>();
 
-    for (const clerkUserId of candidateIds) {
-      if (!activeMemberIds.has(clerkUserId)) {
+    for (const clerkUserId of orderedCandidateIds) {
+      if (!activeMembersById.has(clerkUserId)) {
         continue;
       }
 
@@ -279,16 +313,65 @@ export const getEmailNotificationContext = internalQuery({
         .unique();
 
       if (user && isValidEmail(user.email)) {
-        selectedRecipient = {
+        const normalizedEmail = user.email.trim().toLowerCase();
+        if (seenEmails.has(normalizedEmail)) {
+          continue;
+        }
+
+        seenEmails.add(normalizedEmail);
+        recipients.push({
           email: user.email,
           name: user.name || null,
           clerkUserId,
-        };
-        break;
+        });
       }
     }
 
-    const recipients = selectedRecipient ? [selectedRecipient] : [];
+    if (recipients.length === 0) {
+      const fallbackIds = Array.from(
+        new Set(
+          [
+            project.createdBy,
+            responsibleClerkUserId,
+            ...activeMembers
+              .filter((member) => member.role === "admin")
+              .map((member) => member.clerkUserId),
+          ].filter(
+            (value): value is string =>
+              typeof value === "string" && value.trim().length > 0,
+          ),
+        ),
+      );
+
+      for (const clerkUserId of fallbackIds) {
+        if (!activeMembersById.has(clerkUserId)) {
+          continue;
+        }
+
+        const user = await ctx.db
+          .query("users")
+          .withIndex("by_clerk_user_id", (q) =>
+            q.eq("clerkUserId", clerkUserId),
+          )
+          .unique();
+
+        if (!user || !isValidEmail(user.email)) {
+          continue;
+        }
+
+        const normalizedEmail = user.email.trim().toLowerCase();
+        if (seenEmails.has(normalizedEmail)) {
+          continue;
+        }
+
+        seenEmails.add(normalizedEmail);
+        recipients.push({
+          email: user.email,
+          name: user.name || null,
+          clerkUserId,
+        });
+      }
+    }
 
     return {
       projectName: project.name,

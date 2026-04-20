@@ -82,6 +82,9 @@ export default function CompanyLayout({
     };
 
     const routeBreadcrumbs: Record<string, { label: string; href: string }[]> = {
+      "/organisation/team": [
+        { label: "Team", href: "/organisation/team" },
+      ],
       "/organisation/product-library/new": [
         { label: "Projects", href: "/organisation" },
         { label: "Product Library", href: "/organisation/product-library" },

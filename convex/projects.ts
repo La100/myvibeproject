@@ -23,6 +23,23 @@ const generateSlug = (name: string) => {
 const generateClientPanelAccessToken = () =>
   crypto.randomUUID().replace(/-/g, "");
 
+const resolveClientPortalNotificationSettings = (
+  value?: {
+    sendToOwner?: boolean;
+    sendToResponsible?: boolean;
+    sendToAdmins?: boolean;
+    recipientClerkUserIds?: string[];
+  } | null,
+) => ({
+  recipientClerkUserIds: Array.from(
+    new Set(
+      (value?.recipientClerkUserIds ?? [])
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0),
+    ),
+  ),
+});
+
 const configuredR2PublicBaseUrl = (() => {
   const rawValue = (
     process.env.NEXT_PUBLIC_R2_PUBLIC_URL ||
@@ -769,6 +786,9 @@ export const createProjectInOrg = mutation({
       endDate: args.endDate,
       createdBy: identity.subject,
       responsibleClerkUserId: identity.subject,
+      clientPortalNotificationSettings: {
+        recipientClerkUserIds: [identity.subject],
+      },
       assignedTo: [],
       taskStatusSettings: defaultStatusSettings,
       aiAutoConfirmCrud: false,
@@ -1044,6 +1064,14 @@ export const updateProject = mutation({
     taxEnabled: v.optional(v.boolean()),
     taxRate: v.optional(v.number()),
     responsibleClerkUserId: v.optional(v.string()),
+    clientPortalNotificationSettings: v.optional(
+      v.object({
+        sendToOwner: v.optional(v.boolean()),
+        sendToResponsible: v.optional(v.boolean()),
+        sendToAdmins: v.optional(v.boolean()),
+        recipientClerkUserIds: v.optional(v.array(v.string())),
+      }),
+    ),
     taskStatusSettings: v.optional(projectTaskStatusSettingsValidator),
     aiAutoConfirmCrud: v.optional(v.boolean()),
   },
@@ -1056,6 +1084,7 @@ export const updateProject = mutation({
       name,
       coverImageUrl,
       responsibleClerkUserId,
+      clientPortalNotificationSettings,
       taxEnabled,
       taxRate,
       ...rest
@@ -1110,6 +1139,13 @@ export const updateProject = mutation({
       "responsibleClerkUserId",
     );
     let responsiblePatch: { responsibleClerkUserId?: string } = {};
+    const clientPortalSettingsProvided = Object.prototype.hasOwnProperty.call(
+      args,
+      "clientPortalNotificationSettings",
+    );
+    let clientPortalSettingsPatch: {
+      clientPortalNotificationSettings?: { recipientClerkUserIds: string[] };
+    } = {};
 
     if (responsibleProvided) {
       const normalizedResponsibleUserId = (responsibleClerkUserId || "").trim();
@@ -1139,6 +1175,77 @@ export const updateProject = mutation({
       responsiblePatch = { responsibleClerkUserId: effectiveResponsibleUserId };
     }
 
+    if (clientPortalSettingsProvided) {
+      const normalizedRecipientIds = resolveClientPortalNotificationSettings(
+        clientPortalNotificationSettings,
+      ).recipientClerkUserIds;
+
+      let resolvedRecipientIds = normalizedRecipientIds;
+      const teamMembers = await ctx.db
+        .query("teamMembers")
+        .withIndex("by_team", (q) => q.eq("teamId", existingProject.teamId))
+        .collect();
+      const activeMemberIds = new Set(
+        teamMembers
+          .filter(
+            (member) =>
+              member.isActive &&
+              (member.role === "admin" || member.role === "member"),
+          )
+          .map((member) => member.clerkUserId),
+      );
+
+      if (
+        resolvedRecipientIds.some((clerkUserId) => !activeMemberIds.has(clerkUserId))
+      ) {
+        throw new Error(
+          "Selected digest recipients must be active team members",
+        );
+      }
+
+      if (resolvedRecipientIds.length === 0) {
+        const settings = clientPortalNotificationSettings ?? {};
+        const activeMembers = teamMembers.filter(
+          (member) =>
+            member.isActive &&
+            (member.role === "admin" || member.role === "member"),
+        );
+        const effectiveResponsibleClerkUserId =
+          responsiblePatch.responsibleClerkUserId ??
+          existingProject.responsibleClerkUserId ??
+          existingProject.createdBy;
+
+        const legacyRecipientIds: string[] = [];
+        if (settings.sendToOwner ?? true) {
+          legacyRecipientIds.push(existingProject.createdBy);
+        }
+        if (settings.sendToResponsible ?? true) {
+          legacyRecipientIds.push(effectiveResponsibleClerkUserId);
+        }
+        if (settings.sendToAdmins ?? false) {
+          legacyRecipientIds.push(
+            ...activeMembers
+              .filter((member) => member.role === "admin")
+              .map((member) => member.clerkUserId),
+          );
+        }
+
+        resolvedRecipientIds = Array.from(
+          new Set(
+            legacyRecipientIds
+              .map((item) => item.trim())
+              .filter((item) => item.length > 0),
+          ),
+        );
+      }
+
+      clientPortalSettingsPatch = {
+        clientPortalNotificationSettings: {
+          recipientClerkUserIds: resolvedRecipientIds,
+        },
+      };
+    }
+
     if (name && name !== existingProject.name) {
       const baseSlug = generateSlug(name);
       let slug = baseSlug;
@@ -1164,6 +1271,7 @@ export const updateProject = mutation({
         ...coverImagePatch,
         ...taxPatch,
         ...responsiblePatch,
+        ...clientPortalSettingsPatch,
         ...rest,
       });
 
@@ -1173,6 +1281,7 @@ export const updateProject = mutation({
         ...coverImagePatch,
         ...taxPatch,
         ...responsiblePatch,
+        ...clientPortalSettingsPatch,
         ...rest,
       });
 

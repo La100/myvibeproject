@@ -71,7 +71,6 @@ export default function NewProjectPage() {
   const [newProject, setNewProject] = useState({
     name: "",
     description: "",
-    projectType: "",
     client: "",
     location: "",
     streetAddress2: "",
@@ -275,33 +274,15 @@ export default function NewProjectPage() {
           </div>
 
           <div className="flex flex-col gap-5 rounded-lg border bg-card p-6">
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="name">Project name</Label>
-                <Input
-                  id="name"
-                  placeholder="Enter project name"
-                  value={newProject.name}
-                  onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <Label>Project type</Label>
-                <Select value={newProject.projectType} onValueChange={(v) => setNewProject({ ...newProject, projectType: v })}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="residential">Residential</SelectItem>
-                    <SelectItem value="commercial">Commercial</SelectItem>
-                    <SelectItem value="industrial">Industrial</SelectItem>
-                    <SelectItem value="renovation">Renovation / Retrofit</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="name">Project name</Label>
+              <Input
+                id="name"
+                placeholder="Enter project name"
+                value={newProject.name}
+                onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
+                required
+              />
             </div>
 
             <div className="flex flex-col gap-2">
