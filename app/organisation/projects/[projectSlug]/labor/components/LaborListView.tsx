@@ -243,6 +243,8 @@ export default function LaborListView() {
     assignedTo?: string;
     referenceLink?: string | null;
     attachmentFileId?: Id<"files"> | null;
+    startDate?: number;
+    endDate?: number;
   }) => {
     await createItem({
       projectId: project._id,

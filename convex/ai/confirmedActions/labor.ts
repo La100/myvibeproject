@@ -40,6 +40,8 @@ export const createConfirmedLaborItem = action({
       unitPrice: v.optional(v.number()),
       sectionId: v.optional(v.id("laborSections")),
       assignedTo: v.optional(v.string()),
+      startDate: v.optional(v.string()),
+      endDate: v.optional(v.string()),
     }),
   },
   returns: v.object({
@@ -60,6 +62,12 @@ export const createConfirmedLaborItem = action({
         unitPrice: args.itemData.unitPrice,
         sectionId: args.itemData.sectionId,
         assignedTo: args.itemData.assignedTo,
+        startDate: args.itemData.startDate
+          ? new Date(args.itemData.startDate).getTime()
+          : undefined,
+        endDate: args.itemData.endDate
+          ? new Date(args.itemData.endDate).getTime()
+          : undefined,
       });
 
       return {
@@ -128,6 +136,8 @@ export const editConfirmedLaborItem = action({
       unitPrice: v.optional(v.number()),
       sectionId: v.optional(v.union(v.id("laborSections"), v.null())),
       assignedTo: v.optional(v.string()),
+      startDate: v.optional(v.string()),
+      endDate: v.optional(v.string()),
     }),
   },
   returns: v.object({
@@ -158,6 +168,12 @@ export const editConfirmedLaborItem = action({
         unitPrice: args.updates.unitPrice,
         sectionId: args.updates.sectionId,
         assignedTo: args.updates.assignedTo,
+        startDate: args.updates.startDate
+          ? new Date(args.updates.startDate).getTime()
+          : undefined,
+        endDate: args.updates.endDate
+          ? new Date(args.updates.endDate).getTime()
+          : undefined,
       });
 
       return {

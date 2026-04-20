@@ -444,6 +444,139 @@ export const updateMyNotificationSettings = mutation({
   },
 });
 
+export const markOrganizationClientNotificationsRead = mutation({
+  args: {
+    clerkOrgId: v.string(),
+    lastReadAt: v.number(),
+    projectReads: v.array(
+      v.object({
+        projectId: v.id("projects"),
+        lastReadAt: v.number(),
+      }),
+    ),
+  },
+  async handler(ctx, args) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const team = await ctx.db
+      .query("teams")
+      .withIndex("by_clerk_org", (q) => q.eq("clerkOrgId", args.clerkOrgId))
+      .unique();
+
+    if (!team) {
+      throw new Error("Team not found");
+    }
+
+    const teamMember = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", team._id).eq("clerkUserId", identity.subject),
+      )
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .unique();
+
+    if (!teamMember) {
+      throw new Error("Not authorized for this team");
+    }
+
+    const normalizedLastReadAt = Number.isFinite(args.lastReadAt)
+      ? args.lastReadAt
+      : Date.now();
+    const currentOrganizationLastReadAt = Math.max(
+      0,
+      Number(
+        (
+          teamMember as unknown as {
+            organizationClientNotificationsLastReadAt?: number;
+          }
+        ).organizationClientNotificationsLastReadAt ?? 0,
+      ) || 0,
+    );
+
+    if (normalizedLastReadAt > currentOrganizationLastReadAt) {
+      await ctx.db.patch(teamMember._id, {
+        organizationClientNotificationsLastReadAt: normalizedLastReadAt,
+      });
+    }
+
+    const restrictedProjectIds =
+      teamMember.role === "member" &&
+      Array.isArray(teamMember.projectIds) &&
+      teamMember.projectIds.length > 0
+        ? new Set(teamMember.projectIds.map((projectId) => String(projectId)))
+        : null;
+
+    type ProjectReadEntry = (typeof args.projectReads)[number];
+    const projectReadEntries = new Map<string, ProjectReadEntry>();
+    for (const readState of args.projectReads) {
+      const normalizedProjectReadAt = Number.isFinite(readState.lastReadAt)
+        ? readState.lastReadAt
+        : normalizedLastReadAt;
+      const key = String(readState.projectId);
+      const existingEntry = projectReadEntries.get(key);
+
+      if (!existingEntry || normalizedProjectReadAt > existingEntry.lastReadAt) {
+        projectReadEntries.set(key, {
+          projectId: readState.projectId,
+          lastReadAt: normalizedProjectReadAt,
+        });
+      }
+    }
+
+    for (const readState of projectReadEntries.values()) {
+      if (restrictedProjectIds && !restrictedProjectIds.has(String(readState.projectId))) {
+        continue;
+      }
+
+      const project = (await ctx.db.get(readState.projectId)) as
+        | {
+            teamId?: unknown;
+            clientNotificationsLastReadAt?: number;
+          }
+        | null;
+      if (!project || project.teamId !== team._id) {
+        continue;
+      }
+
+      const existingReadState = await ctx.db
+        .query("clientNotificationReads")
+        .withIndex("by_project_and_user", (q) =>
+          q.eq("projectId", readState.projectId).eq("clerkUserId", identity.subject),
+        )
+        .unique();
+      const currentProjectLastReadAt = Math.max(
+        project.clientNotificationsLastReadAt ?? 0,
+        existingReadState?.lastReadAt ?? 0,
+      );
+
+      if (readState.lastReadAt <= currentProjectLastReadAt) {
+        continue;
+      }
+
+      if (existingReadState) {
+        await ctx.db.patch(existingReadState._id, {
+          lastReadAt: readState.lastReadAt,
+        });
+      } else {
+        await ctx.db.insert("clientNotificationReads", {
+          projectId: readState.projectId,
+          teamId: team._id,
+          clerkUserId: identity.subject,
+          lastReadAt: readState.lastReadAt,
+        });
+      }
+    }
+
+    return {
+      success: true,
+      lastReadAt: Math.max(normalizedLastReadAt, currentOrganizationLastReadAt),
+    };
+  },
+});
+
 const generateSlug = (name: string) => {
   return name
     .toLowerCase()

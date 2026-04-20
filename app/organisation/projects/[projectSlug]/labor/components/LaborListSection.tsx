@@ -1,26 +1,18 @@
 import { useState } from 'react';
+import { format } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Field, FieldLabel } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   EditIcon,
   ExternalLinkIcon,
   PaperclipIcon,
   PlusIcon,
-  SaveIcon,
   TrashIcon,
-  XIcon,
 } from 'lucide-react';
 import { Doc, Id } from '@/convex/_generated/dataModel';
 import { AddLaborItemForm } from './AddLaborItemForm';
-import {
-  getDefaultLaborUnit,
-  getLaborUnitsForMeasurementSystem,
-  type MeasurementSystem,
-} from './laborUnits';
+import { type MeasurementSystem } from './laborUnits';
 import { cn } from '@/lib/utils';
 
 type LaborItem = Doc<'laborItems'>;
@@ -40,16 +32,6 @@ type TeamMember = {
   projectIds?: Id<'projects'>[];
   isActive: boolean;
 };
-
-interface EditFormData {
-  name?: string;
-  notes?: string;
-  sectionId?: string | Id<'laborSections'>;
-  quantity?: number;
-  unit?: string;
-  unitPrice?: string;
-  assignedTo?: string;
-}
 
 interface LaborListSectionProps {
   projectId: Id<'projects'>;
@@ -71,6 +53,8 @@ interface LaborListSectionProps {
     assignedTo?: string;
     referenceLink?: string | null;
     attachmentFileId?: Id<'files'> | null;
+    startDate?: number;
+    endDate?: number;
   }) => Promise<void>;
   isPending: boolean;
   measurementSystem?: MeasurementSystem;
@@ -93,53 +77,16 @@ export function LaborListSection({
   measurementSystem = 'metric',
 }: LaborListSectionProps) {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
-  const [editFormData, setEditFormData] = useState<EditFormData>({});
   const [showAddForm, setShowAddForm] = useState(false);
-  const laborUnits = getLaborUnitsForMeasurementSystem(measurementSystem);
-  const defaultLaborUnit = getDefaultLaborUnit(measurementSystem);
 
   const sectionTotal = items.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
 
   const handleStartEdit = (item: LaborItem) => {
     setEditingItemId(String(item._id));
-    setEditFormData({
-      name: item.name,
-      notes: item.notes || '',
-      sectionId: item.sectionId || 'none',
-      quantity: item.quantity,
-      unit: item.unit,
-      unitPrice: item.unitPrice ? item.unitPrice.toString() : '',
-      assignedTo: item.assignedTo || 'none',
-    });
-  };
-
-  const handleSaveEdit = async (itemId: Id<'laborItems'>) => {
-    const nextName = editFormData.name?.trim() || '';
-    if (!nextName) {
-      return;
-    }
-
-    const unitPrice = parseFloat(editFormData.unitPrice || '0') || undefined;
-
-    await onUpdateItem(itemId, {
-      name: nextName,
-      notes: editFormData.notes?.trim() || undefined,
-      sectionId:
-        editFormData.sectionId === 'none'
-          ? undefined
-          : (editFormData.sectionId as Id<'laborSections'>),
-      quantity: editFormData.quantity || 1,
-      unit: editFormData.unit || defaultLaborUnit,
-      unitPrice,
-      assignedTo: editFormData.assignedTo === 'none' ? undefined : editFormData.assignedTo,
-    });
-    setEditingItemId(null);
-    setEditFormData({});
   };
 
   const handleCancelEdit = () => {
     setEditingItemId(null);
-    setEditFormData({});
   };
 
   const getAssignedMemberName = (assignedTo?: string) => {
@@ -164,121 +111,60 @@ export function LaborListSection({
     return null;
   };
 
-  const renderEditForm = (item: LaborItem) => (
-    <div className="flex flex-col gap-4 rounded-[28px] border border-border/70 bg-white p-5">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Field className="lg:col-span-2">
-          <FieldLabel>Work Item *</FieldLabel>
-          <Input
-            value={editFormData.name || ''}
-            onChange={(event) => setEditFormData({ ...editFormData, name: event.target.value })}
-            placeholder="e.g. Bathroom waterproofing"
-            className="h-12 text-sm"
-          />
-        </Field>
-        <Field>
-          <FieldLabel>Section</FieldLabel>
-          <Select
-            value={editFormData.sectionId || 'none'}
-            onValueChange={(value) => setEditFormData({ ...editFormData, sectionId: value })}
-          >
-            <SelectTrigger className="h-12 text-sm">
-              <SelectValue placeholder="Select section" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">No Section</SelectItem>
-              {sections.map((section) => (
-                <SelectItem key={section._id} value={section._id}>
-                  {section.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-        <Field>
-          <FieldLabel>Quantity</FieldLabel>
-          <Input
-            type="number"
-            min="0.01"
-            step="0.01"
-            value={editFormData.quantity || 1}
-            onChange={(event) => setEditFormData({ ...editFormData, quantity: parseFloat(event.target.value) || 1 })}
-            className="h-12 text-sm"
-          />
-        </Field>
-        <Field>
-          <FieldLabel>Unit</FieldLabel>
-          <Select
-            value={editFormData.unit || defaultLaborUnit}
-            onValueChange={(value) => setEditFormData({ ...editFormData, unit: value })}
-          >
-            <SelectTrigger className="h-12 text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {laborUnits.map((unit) => (
-                <SelectItem key={unit.value} value={unit.value}>
-                  {unit.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-        <Field>
-          <FieldLabel>Unit Price ({currencySymbol})</FieldLabel>
-          <Input
-            type="number"
-            step="0.01"
-            value={editFormData.unitPrice || ''}
-            onChange={(event) => setEditFormData({ ...editFormData, unitPrice: event.target.value })}
-            className="h-12 text-sm"
-          />
-        </Field>
-        <Field>
-          <FieldLabel>Assign To</FieldLabel>
-          <Select
-            value={editFormData.assignedTo || 'none'}
-            onValueChange={(value) => setEditFormData({ ...editFormData, assignedTo: value })}
-          >
-            <SelectTrigger className="h-12 text-sm">
-              <SelectValue placeholder="Select contractor" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Unassigned</SelectItem>
-              {teamMembers?.map((member) => (
-                <SelectItem key={member.clerkUserId} value={member.clerkUserId}>
-                  {member.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-        <Field className="md:col-span-2 lg:col-span-3">
-          <FieldLabel>Notes</FieldLabel>
-          <Input
-            value={editFormData.notes || ''}
-            onChange={(event) => setEditFormData({ ...editFormData, notes: event.target.value })}
-            placeholder="Additional scope, assumptions, or delivery notes"
-            className="h-12 text-sm"
-          />
-        </Field>
-      </div>
+  const formatSchedule = (startDate?: number, endDate?: number) => {
+    const startValue = startDate ?? endDate;
+    const endValue = endDate ?? startDate;
+    if (!startValue || !endValue) return null;
 
-      <div className="flex flex-wrap gap-2">
-        <Button
-          size="sm"
-          onClick={() => void handleSaveEdit(item._id)}
-          disabled={isPending}
-          className="bg-primary text-primary-foreground hover:bg-primary/90"
-        >
-          <SaveIcon className="mr-1 h-4 w-4" />
-          Save
-        </Button>
-        <Button variant="outline" size="sm" onClick={handleCancelEdit}>
-          <XIcon className="mr-1 h-4 w-4" />
-          Cancel
-        </Button>
-      </div>
+    const start = new Date(startValue);
+    const end = new Date(endValue);
+    const isSingleDay = start.toDateString() === end.toDateString();
+    const hasTime =
+      start.getHours() !== 0 ||
+      start.getMinutes() !== 0 ||
+      end.getHours() !== 0 ||
+      end.getMinutes() !== 0;
+
+    if (isSingleDay) {
+      if (!hasTime) {
+        return format(start, 'PPP');
+      }
+      const startLabel = format(start, 'PPP p');
+      const endLabel = format(end, 'p');
+      return startValue === endValue ? startLabel : `${startLabel} - ${endLabel}`;
+    }
+
+    const datePattern = hasTime ? 'PPP p' : 'PPP';
+    return `${format(start, datePattern)} - ${format(end, datePattern)}`;
+  };
+
+  const renderEditForm = (item: LaborItem) => (
+    <div className="rounded-[28px] border border-border/70 bg-white p-5">
+      <AddLaborItemForm
+        projectId={projectId}
+        sections={sections}
+        teamMembers={teamMembers}
+        currencySymbol={currencySymbol}
+        onAddItem={async (itemData) => {
+          await onUpdateItem(item._id, itemData);
+        }}
+        isPending={isPending}
+        measurementSystem={measurementSystem}
+        initialValues={{
+          name: item.name,
+          notes: item.notes,
+          sectionId: item.sectionId ?? null,
+          quantity: item.quantity,
+          unit: item.unit,
+          unitPrice: item.unitPrice,
+          assignedTo: item.assignedTo,
+          referenceLink: item.referenceLink,
+          startDate: item.startDate,
+          endDate: item.endDate,
+        }}
+        submitLabel="Save"
+        onSubmitted={handleCancelEdit}
+      />
     </div>
   );
 
@@ -334,6 +220,9 @@ export function LaborListSection({
                 <span className="font-medium text-foreground">
                   Total: {item.totalPrice ? `${item.totalPrice.toFixed(2)} ${currencySymbol}` : '-'}
                 </span>
+                {formatSchedule(item.startDate, item.endDate) ? (
+                  <span>Schedule: {formatSchedule(item.startDate, item.endDate)}</span>
+                ) : null}
               </div>
 
               {item.notes ? (

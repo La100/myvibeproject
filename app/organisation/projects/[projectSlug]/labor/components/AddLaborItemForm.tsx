@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation } from 'convex/react';
 import { Button } from '@/components/ui/button';
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Doc, Id } from '@/convex/_generated/dataModel';
 import { apiAny } from '@/lib/convexApiAny';
@@ -32,11 +35,27 @@ interface AddLaborItemFormProps {
     assignedTo?: string;
     referenceLink?: string | null;
     attachmentFileId?: Id<"files"> | null;
+    startDate?: number;
+    endDate?: number;
   }) => Promise<void>;
   isPending: boolean;
   defaultSectionId?: Id<"laborSections">;
   isInline?: boolean;
   measurementSystem?: MeasurementSystem;
+  initialValues?: {
+    name?: string;
+    notes?: string;
+    sectionId?: Id<"laborSections"> | null;
+    quantity?: number;
+    unit?: string;
+    unitPrice?: number;
+    assignedTo?: string;
+    referenceLink?: string | null;
+    startDate?: number;
+    endDate?: number;
+  };
+  submitLabel?: string;
+  onSubmitted?: () => void;
 }
 
 export function AddLaborItemForm({
@@ -48,6 +67,9 @@ export function AddLaborItemForm({
   isPending,
   defaultSectionId,
   measurementSystem = 'metric',
+  initialValues,
+  submitLabel = 'Add Labor Item',
+  onSubmitted,
 }: AddLaborItemFormProps) {
   const ensureLaborFolder = useMutation(apiAny.files.ensureLaborFolder);
   const generateUploadUrl = useMutation(apiAny.files.generateUploadUrlWithCustomKey);
@@ -55,16 +77,82 @@ export function AddLaborItemForm({
   const laborUnits = getLaborUnitsForMeasurementSystem(measurementSystem);
   const defaultLaborUnit = getDefaultLaborUnit(measurementSystem);
 
-  const [newItemName, setNewItemName] = useState('');
-  const [newItemNotes, setNewItemNotes] = useState('');
-  const [newItemSectionId, setNewItemSectionId] = useState<Id<"laborSections"> | "none" | "">(defaultSectionId || "");
-  const [newItemQuantity, setNewItemQuantity] = useState(1);
-  const [newItemUnit, setNewItemUnit] = useState(defaultLaborUnit);
-  const [newItemUnitPrice, setNewItemUnitPrice] = useState('');
-  const [newItemAssignedTo, setNewItemAssignedTo] = useState<string>('none');
-  const [newItemReferenceLink, setNewItemReferenceLink] = useState('');
+  const [newItemName, setNewItemName] = useState(initialValues?.name ?? '');
+  const [newItemNotes, setNewItemNotes] = useState(initialValues?.notes ?? '');
+  const [newItemSectionId, setNewItemSectionId] = useState<Id<"laborSections"> | "none" | "">(
+    initialValues?.sectionId ?? defaultSectionId ?? '',
+  );
+  const [newItemQuantity, setNewItemQuantity] = useState(initialValues?.quantity ?? 1);
+  const [newItemUnit, setNewItemUnit] = useState(initialValues?.unit ?? defaultLaborUnit);
+  const [newItemUnitPrice, setNewItemUnitPrice] = useState(
+    initialValues?.unitPrice !== undefined ? initialValues.unitPrice.toString() : '',
+  );
+  const [newItemAssignedTo, setNewItemAssignedTo] = useState<string>(initialValues?.assignedTo ?? 'none');
+  const [newItemReferenceLink, setNewItemReferenceLink] = useState(initialValues?.referenceLink ?? '');
   const [newItemAttachment, setNewItemAttachment] = useState<File | null>(null);
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
+  const [singleDayItem, setSingleDayItem] = useState(false);
+  const [isAllDay, setIsAllDay] = useState(false);
+  const [startTime, setStartTime] = useState('09:00');
+  const [endTime, setEndTime] = useState('');
+  const [hasEndTime, setHasEndTime] = useState(false);
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
+
+  useEffect(() => {
+    const initialStartDate = initialValues?.startDate ? new Date(initialValues.startDate) : undefined;
+    const initialEndDate = initialValues?.endDate ? new Date(initialValues.endDate) : undefined;
+
+    setNewItemName(initialValues?.name ?? '');
+    setNewItemNotes(initialValues?.notes ?? '');
+    setNewItemSectionId(initialValues?.sectionId ?? defaultSectionId ?? '');
+    setNewItemQuantity(initialValues?.quantity ?? 1);
+    setNewItemUnit(initialValues?.unit ?? defaultLaborUnit);
+    setNewItemUnitPrice(initialValues?.unitPrice !== undefined ? initialValues.unitPrice.toString() : '');
+    setNewItemAssignedTo(initialValues?.assignedTo ?? 'none');
+    setNewItemReferenceLink(initialValues?.referenceLink ?? '');
+    setNewItemAttachment(null);
+    setStartDate(initialStartDate);
+    setEndDate(initialEndDate);
+
+    const isSingleDayRange =
+      initialStartDate && initialEndDate
+        ? initialStartDate.toDateString() === initialEndDate.toDateString()
+        : false;
+    setSingleDayItem(isSingleDayRange);
+
+    const hasStartTimeValue =
+      Boolean(initialStartDate) &&
+      (initialStartDate!.getHours() !== 0 || initialStartDate!.getMinutes() !== 0);
+    const hasEndTimeValue =
+      Boolean(initialEndDate) &&
+      (initialEndDate!.getHours() !== 0 || initialEndDate!.getMinutes() !== 0);
+    const hasSpecificTime = hasStartTimeValue || hasEndTimeValue;
+    setIsAllDay(!hasSpecificTime);
+
+    if (hasStartTimeValue && initialStartDate) {
+      setStartTime(`${String(initialStartDate.getHours()).padStart(2, '0')}:${String(initialStartDate.getMinutes()).padStart(2, '0')}`);
+    } else {
+      setStartTime('09:00');
+    }
+
+    if (hasEndTimeValue && initialEndDate) {
+      const endTimeStr = `${String(initialEndDate.getHours()).padStart(2, '0')}:${String(initialEndDate.getMinutes()).padStart(2, '0')}`;
+      const startTimeStr = initialStartDate
+        ? `${String(initialStartDate.getHours()).padStart(2, '0')}:${String(initialStartDate.getMinutes()).padStart(2, '0')}`
+        : '';
+      if (!hasStartTimeValue || endTimeStr !== startTimeStr) {
+        setEndTime(endTimeStr);
+        setHasEndTime(true);
+      } else {
+        setEndTime('');
+        setHasEndTime(false);
+      }
+    } else {
+      setEndTime('');
+      setHasEndTime(false);
+    }
+  }, [defaultSectionId, defaultLaborUnit, initialValues]);
 
   const normalizeReferenceLink = (value: string) => {
     const trimmed = value.trim();
@@ -109,6 +197,18 @@ export function AddLaborItemForm({
     });
   };
 
+  const buildTimestamp = (date: Date | undefined, time: string) => {
+    if (!date) return undefined;
+    const next = new Date(date);
+    if (isAllDay) {
+      next.setHours(0, 0, 0, 0);
+      return next.getTime();
+    }
+    const [hours, minutes] = time.split(':').map(Number);
+    next.setHours(hours, minutes, 0, 0);
+    return next.getTime();
+  };
+
   const handleAddItem = async () => {
     if (!newItemName.trim() || isUploadingAttachment) return;
 
@@ -122,6 +222,12 @@ export function AddLaborItemForm({
         attachmentFileId = await uploadAttachmentToLaborFolder(newItemAttachment);
       }
 
+      const computedStartDate = buildTimestamp(startDate, startTime);
+      const computedEndDate = buildTimestamp(
+        singleDayItem ? startDate : endDate,
+        hasEndTime && endTime ? endTime : startTime,
+      );
+
       await onAddItem({
         name: newItemName.trim(),
         notes: newItemNotes.trim() || undefined,
@@ -132,18 +238,30 @@ export function AddLaborItemForm({
         assignedTo: newItemAssignedTo === 'none' ? undefined : newItemAssignedTo,
         referenceLink: normalizedReferenceLink,
         attachmentFileId,
+        startDate: computedStartDate,
+        endDate: computedEndDate,
       });
 
       // Reset form
-      setNewItemName('');
-      setNewItemNotes('');
-      setNewItemSectionId(defaultSectionId || '');
-      setNewItemQuantity(1);
-      setNewItemUnit(defaultLaborUnit);
-      setNewItemUnitPrice('');
-      setNewItemAssignedTo('none');
-      setNewItemReferenceLink('');
-      setNewItemAttachment(null);
+      if (!initialValues) {
+        setNewItemName('');
+        setNewItemNotes('');
+        setNewItemSectionId(defaultSectionId || '');
+        setNewItemQuantity(1);
+        setNewItemUnit(defaultLaborUnit);
+        setNewItemUnitPrice('');
+        setNewItemAssignedTo('none');
+        setNewItemReferenceLink('');
+        setNewItemAttachment(null);
+        setSingleDayItem(false);
+        setIsAllDay(false);
+        setStartTime('09:00');
+        setEndTime('');
+        setHasEndTime(false);
+        setStartDate(undefined);
+        setEndDate(undefined);
+      }
+      onSubmitted?.();
     } catch (error) {
       console.error('Error creating item:', error);
       toast.error('Failed to add labor item', {
@@ -258,6 +376,103 @@ export function AddLaborItemForm({
             className="h-12 text-sm"
           />
         </Field>
+        <Field className="gap-3 lg:col-span-3">
+          <div className="flex items-center justify-between">
+            <FieldLabel>Schedule</FieldLabel>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="labor-all-day"
+                checked={isAllDay}
+                onCheckedChange={(checked) => setIsAllDay(checked as boolean)}
+              />
+              <Label htmlFor="labor-all-day" className="cursor-pointer text-sm font-normal">
+                All day
+              </Label>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="labor-single-day"
+              checked={singleDayItem}
+              onCheckedChange={(checked) => {
+                const nextChecked = checked as boolean;
+                setSingleDayItem(nextChecked);
+                if (nextChecked && startDate) {
+                  setEndDate(startDate);
+                }
+              }}
+            />
+            <Label htmlFor="labor-single-day" className="cursor-pointer text-sm font-normal">
+              Single day
+            </Label>
+          </div>
+          <div className={singleDayItem ? 'grid grid-cols-1 gap-4' : 'grid grid-cols-1 gap-4 md:grid-cols-2'}>
+            <div className="flex flex-col gap-2">
+              <Label className="text-sm text-muted-foreground">
+                {singleDayItem ? 'Date' : 'Start Date'}
+              </Label>
+              <DatePicker
+                date={startDate}
+                onDateChange={(date) => {
+                  setStartDate(date);
+                  if (singleDayItem && date) {
+                    setEndDate(date);
+                  }
+                }}
+              />
+            </div>
+            {!singleDayItem ? (
+              <div className="flex flex-col gap-2">
+                <Label className="text-sm text-muted-foreground">End Date</Label>
+                <DatePicker date={endDate} onDateChange={setEndDate} />
+              </div>
+            ) : null}
+          </div>
+          {!isAllDay ? (
+            <div className="flex flex-col gap-3">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <Label className="text-sm text-muted-foreground">Start Time</Label>
+                  <Input
+                    type="time"
+                    value={startTime}
+                    onChange={(event) => setStartTime(event.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+                {hasEndTime ? (
+                  <div>
+                    <Label className="text-sm text-muted-foreground">End Time</Label>
+                    <Input
+                      type="time"
+                      value={endTime}
+                      onChange={(event) => setEndTime(event.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                ) : null}
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="labor-has-end-time"
+                  checked={hasEndTime}
+                  onCheckedChange={(checked) => {
+                    const nextChecked = checked as boolean;
+                    setHasEndTime(nextChecked);
+                    if (nextChecked && !endTime) {
+                      const [hours, minutes] = startTime.split(':').map(Number);
+                      const nextHour = (hours + 1) % 24;
+                      setEndTime(`${String(nextHour).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`);
+                    }
+                  }}
+                />
+                <Label htmlFor="labor-has-end-time" className="cursor-pointer text-sm font-normal">
+                  Specify end time
+                </Label>
+              </div>
+            </div>
+          ) : null}
+        </Field>
         <Field className="gap-2 lg:col-span-2">
           <FieldLabel>Reference Link</FieldLabel>
           <div className="relative">
@@ -316,7 +531,7 @@ export function AddLaborItemForm({
           disabled={isPending || isUploadingAttachment || !newItemName.trim()}
           className="h-11 px-6"
         >
-          {isUploadingAttachment ? 'Uploading...' : isPending ? 'Adding...' : 'Add Labor Item'}
+          {isUploadingAttachment ? 'Uploading...' : isPending ? 'Saving...' : submitLabel}
         </Button>
       </div>
     </div>

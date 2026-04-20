@@ -972,35 +972,26 @@ function ProjectOverviewContent() {
           <CardContent className="p-6 sm:p-8">
             <div
               className={cn(
-                "grid gap-6",
+                "grid gap-8",
                 projectCoverUrl
-                  ? "xl:grid-cols-[1.02fr_0.84fr]"
+                  ? "xl:grid-cols-[minmax(0,1.08fr)_minmax(320px,0.92fr)] xl:items-start"
                   : "grid-cols-1",
               )}
             >
               <div className="flex flex-col gap-6">
                 <div className="flex items-start justify-between gap-4">
                   <div className="space-y-3">
-                    <div className="flex flex-wrap items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                      <span>Overview</span>
-                      <span className="text-border">/</span>
-                      <span>Project #{project.projectId}</span>
-                    </div>
-                    <div className="space-y-3">
-                      <h1 className="max-w-3xl text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-                        {project.name}
-                      </h1>
-                      <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                        {project.location ? (
-                          <span className="inline-flex items-center gap-1.5">
-                            <MapPin className="h-3.5 w-3.5" />
-                            {project.location}
-                          </span>
-                        ) : null}
-                        {projectEditedLabel ? (
-                          <span>{projectEditedLabel}</span>
-                        ) : null}
-                      </div>
+                    <h1 className="max-w-3xl text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+                      {project.name}
+                    </h1>
+                    <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                      {project.location ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          <MapPin className="h-3.5 w-3.5" />
+                          {project.location}
+                        </span>
+                      ) : null}
+                      {projectEditedLabel ? <span>{projectEditedLabel}</span> : null}
                     </div>
                   </div>
 
@@ -1088,14 +1079,9 @@ function ProjectOverviewContent() {
                   <p className="max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">
                     {project.description}
                   </p>
-                ) : (
-                  <p className="max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">
-                    This project is ready for planning, task execution, budget
-                    tracking, and client-facing delivery updates.
-                  </p>
-                )}
+                ) : null}
 
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-2">
                   {summaryCards.map((card) => (
                     <div
                       key={card.title}
@@ -1116,52 +1102,6 @@ function ProjectOverviewContent() {
                     </div>
                   ))}
                 </div>
-
-                <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border/60 bg-muted/10 p-4">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-foreground">
-                      Team on project
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {teamMembers.length > 0
-                        ? `${teamMembers.length} collaborator${teamMembers.length === 1 ? "" : "s"} with access`
-                        : "No collaborators assigned yet"}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <div className="flex -space-x-3">
-                      {visibleTeamMembers.map((member) => (
-                        <Avatar
-                          key={member._id}
-                          className="h-10 w-10 border-2 border-background shadow-sm"
-                        >
-                          <AvatarImage
-                            src={member.imageUrl}
-                            alt={member.name}
-                          />
-                          <AvatarFallback>
-                            {getInitials(member.name)}
-                          </AvatarFallback>
-                        </Avatar>
-                      ))}
-                      {hiddenTeamMembersCount > 0 ? (
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-background bg-muted text-xs font-medium text-muted-foreground shadow-sm">
-                          +{hiddenTeamMembersCount}
-                        </div>
-                      ) : null}
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="rounded-full"
-                      onClick={() => router.push(`${projectBasePath}/settings`)}
-                    >
-                      Manage project
-                      <ArrowUpRight className="ml-2 h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
               </div>
 
               <div className="flex flex-col gap-4">
@@ -1179,7 +1119,7 @@ function ProjectOverviewContent() {
                   </div>
                 ) : null}
 
-                <div className="grid gap-3 content-start sm:grid-cols-2 xl:grid-cols-1">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
                   <div className="rounded-2xl border border-border/60 bg-muted/20 p-5">
                     <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                       Financial base
@@ -1200,6 +1140,7 @@ function ProjectOverviewContent() {
                         : "Current working financial baseline"}
                     </p>
                   </div>
+
                   <div className="rounded-2xl border border-border/60 bg-muted/20 p-5">
                     <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                       Cost mix
@@ -1228,6 +1169,49 @@ function ProjectOverviewContent() {
                     </div>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border/60 bg-muted/10 p-4">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-foreground">
+                  Team on project
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {teamMembers.length > 0
+                    ? `${teamMembers.length} collaborator${teamMembers.length === 1 ? "" : "s"} with access`
+                    : "No collaborators assigned yet"}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="flex -space-x-3">
+                  {visibleTeamMembers.map((member) => (
+                    <Avatar
+                      key={member._id}
+                      className="h-10 w-10 border-2 border-background shadow-sm"
+                    >
+                      <AvatarImage src={member.imageUrl} alt={member.name} />
+                      <AvatarFallback>
+                        {getInitials(member.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                  ))}
+                  {hiddenTeamMembersCount > 0 ? (
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-background bg-muted text-xs font-medium text-muted-foreground shadow-sm">
+                      +{hiddenTeamMembersCount}
+                    </div>
+                  ) : null}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="rounded-full"
+                  onClick={() => router.push(`${projectBasePath}/settings`)}
+                >
+                  Manage project
+                  <ArrowUpRight className="ml-2 h-4 w-4" />
+                </Button>
               </div>
             </div>
           </CardContent>

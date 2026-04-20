@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation, internalQuery, type MutationCtx, type QueryCtx } from "./_generated/server";
-import { makeFunctionReference, type SchedulableFunctionReference } from "convex/server";
+import { makeFunctionReference } from "convex/server";
 import { Doc, Id } from "./_generated/dataModel";
 import { ensureProjectAccess } from "./authz";
 
@@ -13,11 +13,7 @@ const getPortalActorName = (name?: string) => {
 const logActivityMutation = makeFunctionReference<"mutation">("activityLog:logActivity");
 // Keep internal scheduler refs runtime-loaded here to avoid deep TS instantiation.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const internalAny = require("./_generated/api").internal as {
-  notifications: { sendClientPortalEventEmail: unknown };
-};
-const sendClientPortalEventEmail =
-  internalAny.notifications.sendClientPortalEventEmail as SchedulableFunctionReference;
+const internalAny = require("./_generated/api").internal as any;
 
 const isSurveyVisibleInPublicPortal = (survey: Doc<"surveys">, now: number) => {
   if (survey.status === "closed") return false;
@@ -492,12 +488,17 @@ export const submitPublicSurveyResponseByAccessToken = mutation({
 
     await ctx.scheduler.runAfter(
       0,
-      sendClientPortalEventEmail,
+      internalAny.notifications.enqueueClientPortalDigestEvent,
       {
         projectId: project._id,
-        actionType: "survey.response.submit",
-        actorName: getPortalActorName(args.respondentName),
-        surveyTitle: survey.title,
+        event: {
+          createdAt: now,
+          actionType: "survey.response.submit",
+          actorName: getPortalActorName(args.respondentName),
+          entityId: String(args.surveyId),
+          entityType: "survey",
+          surveyTitle: survey.title,
+        },
       }
     );
 

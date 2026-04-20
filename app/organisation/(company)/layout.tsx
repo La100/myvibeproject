@@ -67,6 +67,7 @@ export default function CompanyLayout({
   const breadcrumbs = useMemo(() => {
     const routeLabels: Record<string, string> = {
       "/organisation": "Projects",
+      "/organisation/notifications": "Notifications",
       "/organisation/calendar": "Calendar",
       "/organisation/projects/new": "New Project",
       "/organisation/contacts": "Contacts",

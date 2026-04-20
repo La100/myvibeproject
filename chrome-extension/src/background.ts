@@ -252,6 +252,26 @@ async function waitForFreshTokenFromAuthTab(
   return null
 }
 
+async function getStoredFreshToken(): Promise<string | null> {
+  const stored = await chrome.storage.local.get([STORAGE_KEYS.TOKEN])
+  const token =
+    typeof stored[STORAGE_KEYS.TOKEN] === "string"
+      ? stored[STORAGE_KEYS.TOKEN]
+      : null
+
+  return token && isTokenFresh(token) ? token : null
+}
+
+async function handleExtensionOpen(): Promise<void> {
+  const token = await getStoredFreshToken()
+  if (!token) {
+    await initiateAuthFlow()
+    return
+  }
+
+  await openClipperInActiveTab()
+}
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (!isObjectMessage(request)) {
     return false
@@ -344,11 +364,11 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 })
 
 chrome.action.onClicked.addListener(() => {
-  void openClipperInActiveTab()
+  void handleExtensionOpen()
 })
 
 chrome.commands.onCommand.addListener((command) => {
   if (command === "open-clipper") {
-    void openClipperInActiveTab()
+    void handleExtensionOpen()
   }
 })

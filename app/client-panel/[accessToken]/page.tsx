@@ -5,13 +5,19 @@ import { useParams } from "next/navigation";
 import { useAction, useMutation, useQuery } from "convex/react";
 import {
   Banknote,
+  ChevronDown,
   CheckCircle2,
+  CheckSquare2,
   ClipboardList,
   Download,
   ExternalLink,
   FileSpreadsheet,
+  FolderOpen,
+  Hammer,
+  ImageIcon,
   MoreHorizontal,
   Send,
+  ShoppingCart,
   Users,
   Wallet,
   XCircle,
@@ -302,15 +308,15 @@ const getChoiceLabel = (selectionMode: ShoppingGroup["selectionMode"]) => {
 };
 
 const getInitialSelectedOptionIds = (
-  item: ClientPanelItem,
+  _item: ClientPanelItem,
   options: ClientPanelItem[],
 ) => {
   const optionIds = new Set(
     options.map((option) => String(option.sourceItemId)),
   );
   const selectedIds = (
-    item.setResolvedSourceItemIds ||
-    item.setPreferredSourceItemIds ||
+    _item.setResolvedSourceItemIds ||
+    _item.setPreferredSourceItemIds ||
     []
   )
     .map((entry) => String(entry))
@@ -318,10 +324,6 @@ const getInitialSelectedOptionIds = (
 
   if (selectedIds.length > 0) {
     return selectedIds;
-  }
-
-  if (item.setSelectionMode === "single" && options[0]) {
-    return [String(options[0].sourceItemId)];
   }
 
   return [];
@@ -1119,32 +1121,72 @@ export default function PublicClientPanelPage() {
           id: "portal-materials",
           label: "Shopping List",
           count: materialsItemCount,
+          icon: ShoppingCart,
+          eyebrow: "Materials",
         }
       : null,
     settings.showSurveys
-      ? { id: "portal-surveys", label: "Surveys", count: surveys.length }
+      ? {
+          id: "portal-surveys",
+          label: "Surveys",
+          count: surveys.length,
+          icon: ClipboardList,
+          eyebrow: "Forms",
+        }
       : null,
     settings.showFiles
-      ? { id: "portal-files", label: "Files", count: files.length }
+      ? {
+          id: "portal-files",
+          label: "Files",
+          count: files.length,
+          icon: FolderOpen,
+          eyebrow: "Assets",
+        }
       : null,
     settings.showMoodboard
       ? {
           id: "portal-moodboard",
           label: "Moodboard",
           count: moodboardFiles.length,
+          icon: ImageIcon,
+          eyebrow: "Inspiration",
         }
       : null,
     settings.showTasks
-      ? { id: "portal-tasks", label: "Tasks", count: tasks.length }
+      ? {
+          id: "portal-tasks",
+          label: "Tasks",
+          count: tasks.length,
+          icon: CheckSquare2,
+          eyebrow: "Plan",
+        }
       : null,
     settings.showLabor
-      ? { id: "portal-labor", label: "Labor", count: laborItems.length }
+      ? {
+          id: "portal-labor",
+          label: "Labor",
+          count: laborItems.length,
+          icon: Hammer,
+          eyebrow: "Work",
+        }
       : null,
     settings.showContacts
-      ? { id: "portal-contacts", label: "Contacts", count: contacts.length }
+      ? {
+          id: "portal-contacts",
+          label: "Contacts",
+          count: contacts.length,
+          icon: Users,
+          eyebrow: "People",
+        }
       : null,
     settings.showPayments
-      ? { id: "portal-payments", label: "Payments", count: payments.length }
+      ? {
+          id: "portal-payments",
+          label: "Payments",
+          count: payments.length,
+          icon: Wallet,
+          eyebrow: "Finance",
+        }
       : null,
     settings.showBudget
       ? {
@@ -1155,11 +1197,20 @@ export default function PublicClientPanelPage() {
             : typeof project?.budget === "number"
               ? 1
               : 0,
+          icon: Banknote,
+          eyebrow: "Overview",
         }
       : null,
   ].filter(
-    (section): section is { id: string; label: string; count: number } =>
-      !!section,
+    (
+      section,
+    ): section is {
+      id: string;
+      label: string;
+      count: number;
+      icon: typeof ShoppingCart;
+      eyebrow: string;
+    } => !!section,
   );
 
   useEffect(() => {
@@ -2087,6 +2138,64 @@ export default function PublicClientPanelPage() {
     }
   };
 
+  const activeExportMenu = (() => {
+    if (
+      activeSectionId === "portal-materials" &&
+      settings.showShoppingList &&
+      sectionSummaries.length > 0
+    ) {
+      return {
+        label: "Export shopping list",
+        busyLabel: isExportingMaterialsPdf ? "Exporting PDF..." : null,
+        items: [
+          {
+            key: "shopping-csv",
+            label: "Download CSV",
+            icon: FileSpreadsheet,
+            action: handleExportMaterialsCsv,
+            disabled: false,
+          },
+          {
+            key: "shopping-pdf",
+            label: isExportingMaterialsPdf ? "Exporting PDF..." : "Download PDF",
+            icon: Download,
+            action: () => void handleExportMaterialsPdf(),
+            disabled: isExportingMaterialsPdf,
+          },
+        ],
+      };
+    }
+
+    if (
+      activeSectionId === "portal-labor" &&
+      settings.showLabor &&
+      laborItems.length > 0
+    ) {
+      return {
+        label: "Export labor",
+        busyLabel: isExportingLaborPdf ? "Exporting PDF..." : null,
+        items: [
+          {
+            key: "labor-csv",
+            label: "Download CSV",
+            icon: FileSpreadsheet,
+            action: handleExportLaborCsv,
+            disabled: false,
+          },
+          {
+            key: "labor-pdf",
+            label: isExportingLaborPdf ? "Exporting PDF..." : "Download PDF",
+            icon: Download,
+            action: () => void handleExportLaborPdf(),
+            disabled: isExportingLaborPdf,
+          },
+        ],
+      };
+    }
+
+    return null;
+  })();
+
   if (panelData === undefined) {
     return <ClientPanelSkeleton />;
   }
@@ -2131,91 +2240,97 @@ export default function PublicClientPanelPage() {
             ) : null}
           </div>
           <p className="max-w-4xl text-sm text-muted-foreground">
-            Use the cards below to switch between portal sections shared by the
-            project team.
+            Choose a section shared by the project team.
           </p>
-          {settings.showShoppingList &&
-          sectionSummaries.length > 0 &&
-          activeSectionId === "portal-materials" ? (
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleExportMaterialsCsv}
-              >
-                <FileSpreadsheet data-icon="inline-start" />
-                Export shopping list CSV
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => void handleExportMaterialsPdf()}
-                disabled={isExportingMaterialsPdf}
-              >
-                <Download data-icon="inline-start" />
-                {isExportingMaterialsPdf
-                  ? "Exporting PDF..."
-                  : "Export shopping list PDF"}
-              </Button>
-            </div>
-          ) : null}
-          {settings.showLabor &&
-          laborItems.length > 0 &&
-          activeSectionId === "portal-labor" ? (
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleExportLaborCsv}
-              >
-                <FileSpreadsheet data-icon="inline-start" />
-                Export labor CSV
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => void handleExportLaborPdf()}
-                disabled={isExportingLaborPdf}
-              >
-                <Download data-icon="inline-start" />
-                {isExportingLaborPdf ? "Exporting PDF..." : "Export labor PDF"}
-              </Button>
-            </div>
-          ) : null}
           {sectionCards.length > 0 ? (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {sectionCards.map((section) => {
-                const isActive = activeSectionId === section.id;
+            <>
+              <div className="flex flex-wrap gap-3">
+                {sectionCards.map((section) => {
+                  const isActive = activeSectionId === section.id;
+                  const Icon = section.icon;
 
-                return (
-                  <Button
-                    key={section.id}
-                    type="button"
-                    onClick={() => setActiveSectionId(section.id)}
-                    variant="outline"
-                    size="sm"
-                    className={cn(
-                      "h-auto min-h-24 flex-col items-start gap-2 rounded-[28px] border px-5 py-4 text-left transition-all duration-200",
-                      isActive
-                        ? "border-primary/15 bg-primary/[0.05] text-foreground shadow-[0_14px_40px_-28px_rgba(43,31,23,0.55)]"
-                        : "bg-card/80 text-foreground hover:border-primary/15 hover:bg-background",
-                    )}
-                  >
-                    <span className="text-sm font-medium">{section.label}</span>
-                    <span
+                  return (
+                    <Button
+                      key={section.id}
+                      type="button"
+                      onClick={() => setActiveSectionId(section.id)}
+                      variant="outline"
+                      size="sm"
                       className={cn(
-                        "text-xs",
+                        "h-auto min-h-0 items-center gap-3 rounded-full border px-3 py-3 text-left transition-all duration-150 sm:px-4",
                         isActive
-                          ? "text-foreground/70"
-                          : "text-muted-foreground",
+                          ? "border-foreground/15 bg-[#f3ede6] text-foreground shadow-[0_10px_30px_-22px_rgba(43,31,23,0.45)] hover:border-foreground/25 hover:bg-[#efe6dc]"
+                          : "border-border bg-white text-foreground hover:-translate-y-0.5 hover:border-foreground/20 hover:bg-[#f8f3ed] hover:shadow-[0_10px_24px_-20px_rgba(43,31,23,0.35)]",
                       )}
                     >
-                      {section.count} items
-                    </span>
-                  </Button>
-                );
-              })}
-            </div>
+                      <div
+                        className={cn(
+                          "flex size-9 items-center justify-center rounded-full border",
+                          isActive
+                            ? "border-foreground/10 bg-white text-foreground"
+                            : "border-border bg-muted/30 text-muted-foreground",
+                        )}
+                      >
+                        <Icon className="size-4" />
+                      </div>
+                      <div className="flex flex-col items-start leading-none">
+                        <span className="text-sm font-medium sm:text-[15px]">
+                          {section.label}
+                        </span>
+                        <span
+                          className={cn(
+                            "mt-1 text-xs",
+                            isActive
+                              ? "text-foreground/65"
+                              : "text-muted-foreground",
+                          )}
+                        >
+                          {section.count} items
+                        </span>
+                      </div>
+                      {isActive ? (
+                        <span className="rounded-full border border-foreground/10 bg-white px-2.5 py-1 text-[11px] font-medium text-foreground/70">
+                          Current
+                        </span>
+                      ) : null}
+                    </Button>
+                  );
+                })}
+              </div>
+              {activeExportMenu ? (
+                <div className="pt-1">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-fit rounded-full border-border bg-white pr-3 text-foreground shadow-none hover:bg-white"
+                      >
+                        <Download data-icon="inline-start" />
+                        {activeExportMenu.busyLabel ?? activeExportMenu.label}
+                        <ChevronDown className="ml-1 size-4 text-muted-foreground" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="start"
+                      className="w-56 rounded-2xl border-border/70 p-1"
+                    >
+                      {activeExportMenu.items.map((item) => (
+                        <DropdownMenuItem
+                          key={item.key}
+                          onClick={item.action}
+                          disabled={item.disabled}
+                          className="rounded-xl"
+                        >
+                          <item.icon data-icon="inline-start" />
+                          {item.label}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              ) : null}
+            </>
           ) : null}
         </div>
       </div>
@@ -3652,6 +3767,8 @@ export default function PublicClientPanelPage() {
                             {group.items.map((option) => {
                               const optionId = String(option.sourceItemId);
                               const isSelected = selectedIds.includes(optionId);
+                              const showFeedback =
+                                group.selectionMode === "none" || isSelected;
                               const optionStatusLabel = getStatusLabel(
                                 option.realizationStatus,
                               );
@@ -3659,7 +3776,11 @@ export default function PublicClientPanelPage() {
                               return (
                                 <div
                                   key={optionId}
-                                  className="flex flex-col gap-3"
+                                  className={cn(
+                                    "flex flex-col gap-3 rounded-2xl transition-colors",
+                                    isSelected &&
+                                      "bg-emerald-500/5 ring-1 ring-emerald-500/20",
+                                  )}
                                 >
                                   {group.selectionMode !== "none" ? (
                                     <div className="flex justify-end">
@@ -3710,6 +3831,8 @@ export default function PublicClientPanelPage() {
                                     imageUrl={option.imageUrl}
                                     name={option.name}
                                     className={cn(
+                                      isSelected &&
+                                        "border-emerald-500/40 bg-emerald-500/5 shadow-sm",
                                       !countedItems.some(
                                         (entry) =>
                                           entry.sourceItemId ===
@@ -3718,6 +3841,16 @@ export default function PublicClientPanelPage() {
                                     )}
                                     badges={
                                       <>
+                                        {isSelected ? (
+                                          <Badge
+                                            variant="secondary"
+                                            className="border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
+                                          >
+                                            {group.selectionMode === "multiple"
+                                              ? "Included"
+                                              : "Selected option"}
+                                          </Badge>
+                                        ) : null}
                                         <Badge
                                           variant="outline"
                                           className="text-xs"
@@ -3779,6 +3912,13 @@ export default function PublicClientPanelPage() {
                                     }
                                     sideContent={
                                       <>
+                                        {isSelected ? (
+                                          <Badge className="bg-emerald-600 text-white hover:bg-emerald-600">
+                                            {group.selectionMode === "multiple"
+                                              ? "Included"
+                                              : "Selected"}
+                                          </Badge>
+                                        ) : null}
                                         {optionStatusLabel ? (
                                           <Badge variant="secondary">
                                             {optionStatusLabel}
@@ -3796,7 +3936,11 @@ export default function PublicClientPanelPage() {
                                         ) : null}
                                       </>
                                     }
-                                    footer={renderShoppingItemFeedback(option)}
+                                    footer={
+                                      showFeedback
+                                        ? renderShoppingItemFeedback(option)
+                                        : null
+                                    }
                                   />
                                 </div>
                               );

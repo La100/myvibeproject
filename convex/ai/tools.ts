@@ -177,6 +177,8 @@ const laborFields = z.object({
   sectionId: z.string().optional().describe("Labor section ID"),
   sectionName: z.string().optional().describe("Labor section name"),
   assignedTo: z.string().optional().describe("Contractor or team member name"),
+  startDate: z.string().optional().describe("Start date in ISO format (YYYY-MM-DDTHH:mm:ss.sssZ). For a single scheduled labor item, set this to the same moment as endDate."),
+  endDate: z.string().optional().describe("End date in ISO format (YYYY-MM-DDTHH:mm:ss.sssZ). If the user gives any labor schedule, date, deadline, or time window, set endDate."),
 }).passthrough();
 
 const surveyQuestionFields = z.object({
@@ -1090,6 +1092,8 @@ async function executeSinglePayload(
     unitPrice: typeof data.unitPrice === "number" ? data.unitPrice : undefined,
     sectionId: data.sectionId,
     assignedTo: typeof data.assignedTo === "string" ? data.assignedTo : undefined,
+    startDate: typeof data.startDate === "string" ? data.startDate : undefined,
+    endDate: typeof data.endDate === "string" ? data.endDate : undefined,
   });
 
   const laborUpdateData = compactRecord({
@@ -1103,6 +1107,8 @@ async function executeSinglePayload(
         ? updates.sectionId
         : undefined,
     assignedTo: typeof updates.assignedTo === "string" ? updates.assignedTo : undefined,
+    startDate: typeof updates.startDate === "string" ? updates.startDate : undefined,
+    endDate: typeof updates.endDate === "string" ? updates.endDate : undefined,
   });
 
   const surveyCreateQuestions = Array.isArray(data.questions)
@@ -2822,7 +2828,7 @@ export function createStreamingTools(options?: StreamingToolOptions) {
     }, options),
 
     manage_labor: createAssistantTool({
-      description: "Manage labor items or labor sections with one tool. Use action=create|update|delete and entity=item|section.",
+      description: "Manage labor items or labor sections with one tool. Use action=create|update|delete and entity=item|section. If the user specifies any labor date or time, include endDate; for a single scheduled slot, set both startDate and endDate to that same ISO timestamp.",
       inputSchema: manageLaborSchema,
       requiresConfirmation: true,
       execute: async (args: z.infer<typeof manageLaborSchema>) => {

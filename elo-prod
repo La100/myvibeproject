@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+git checkout main
+
 git add .
 
 if git diff --cached --quiet; then

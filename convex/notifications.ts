@@ -1,9 +1,49 @@
 import { v } from "convex/values";
-import { internalAction, internalQuery } from "./_generated/server";
+import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { resolveTeamMemberNotificationSettings } from "../lib/teamMemberNotificationSettings";
 // Keep generated API refs runtime-loaded here to avoid deep TS instantiation.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const internalLoose = require("./_generated/api").internal as any;
+
+const CLIENT_PORTAL_DIGEST_WINDOW_MS = 60 * 60 * 1000;
+const CLIENT_PORTAL_DIGEST_EVENT_VALIDATOR = v.object({
+  createdAt: v.number(),
+  actionType: v.union(
+    v.literal("shopping.customer.decision"),
+    v.literal("shopping.customer.feedback"),
+    v.literal("labor.customer.decision"),
+    v.literal("labor.customer.feedback"),
+    v.literal("survey.response.submit"),
+  ),
+  actorName: v.optional(v.string()),
+  entityId: v.string(),
+  entityType: v.union(
+    v.literal("shopping"),
+    v.literal("labor"),
+    v.literal("survey"),
+  ),
+  itemName: v.optional(v.string()),
+  surveyTitle: v.optional(v.string()),
+  decision: v.optional(v.union(v.literal("accepted"), v.literal("rejected"))),
+  comment: v.optional(v.string()),
+});
+
+type ClientPortalDigestEvent = {
+  createdAt: number;
+  actionType:
+    | "shopping.customer.decision"
+    | "shopping.customer.feedback"
+    | "labor.customer.decision"
+    | "labor.customer.feedback"
+    | "survey.response.submit";
+  actorName?: string;
+  entityId: string;
+  entityType: "shopping" | "labor" | "survey";
+  itemName?: string;
+  surveyTitle?: string;
+  decision?: "accepted" | "rejected";
+  comment?: string;
+};
 
 const isValidEmail = (email: string) =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -29,55 +69,95 @@ const escapeHtml = (value: string) =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
-const buildEmailMessage = (args: {
-  actionType:
-    | "shopping.customer.decision"
-    | "shopping.customer.feedback"
-    | "labor.customer.decision"
-    | "labor.customer.feedback"
-    | "survey.response.submit";
-  actorName?: string;
+const formatDigestTime = (timestamp: number) =>
+  new Date(timestamp).toLocaleString("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+
+const renderDigestEventText = (event: ClientPortalDigestEvent) => {
+  const actorName = event.actorName?.trim() || "Client";
+  const itemName = event.itemName?.trim() || "item";
+  const surveyTitle = event.surveyTitle?.trim() || "survey";
+
+  if (
+    event.actionType === "shopping.customer.decision" ||
+    event.actionType === "labor.customer.decision"
+  ) {
+    const decisionLabel = event.decision === "accepted" ? "accepted" : "rejected";
+    return `${actorName} ${decisionLabel} "${itemName}"`;
+  }
+
+  if (
+    event.actionType === "shopping.customer.feedback" ||
+    event.actionType === "labor.customer.feedback"
+  ) {
+    return `${actorName} left a comment on "${itemName}"`;
+  }
+
+  return `${actorName} submitted survey "${surveyTitle}"`;
+};
+
+const renderDigestEventHtml = (event: ClientPortalDigestEvent) => {
+  const actorName = escapeHtml(event.actorName?.trim() || "Client");
+  const itemName = escapeHtml(event.itemName?.trim() || "item");
+  const surveyTitle = escapeHtml(event.surveyTitle?.trim() || "survey");
+
+  if (
+    event.actionType === "shopping.customer.decision" ||
+    event.actionType === "labor.customer.decision"
+  ) {
+    const decisionLabel = event.decision === "accepted" ? "accepted" : "rejected";
+    return `<strong>${actorName}</strong> ${decisionLabel} <strong>"${itemName}"</strong>`;
+  }
+
+  if (
+    event.actionType === "shopping.customer.feedback" ||
+    event.actionType === "labor.customer.feedback"
+  ) {
+    return `<strong>${actorName}</strong> left a comment on <strong>"${itemName}"</strong>`;
+  }
+
+  return `<strong>${actorName}</strong> submitted survey <strong>"${surveyTitle}"</strong>`;
+};
+
+const buildClientPortalDigestEmail = (args: {
   projectName: string;
   projectUrl: string;
-  itemName?: string;
-  surveyTitle?: string;
-  decision?: "accepted" | "rejected";
-  comment?: string;
+  events: ClientPortalDigestEvent[];
 }) => {
-  const actorName = args.actorName?.trim() || "Client";
-  const itemName = args.itemName?.trim() || "item";
-  const surveyTitle = args.surveyTitle?.trim() || "survey";
+  const subjectCount = args.events.length;
+  const textLines = [
+    `Client portal updates for project "${args.projectName}" (${subjectCount})`,
+    "",
+    ...args.events.flatMap((event) => {
+      const lines = [
+        `- ${formatDigestTime(event.createdAt)}: ${renderDigestEventText(event)}`,
+      ];
+      if (event.comment?.trim()) {
+        lines.push(`  Comment: ${event.comment.trim()}`);
+      }
+      return lines;
+    }),
+    "",
+    `Open notifications: ${args.projectUrl}`,
+  ];
 
-  if (
-    args.actionType === "shopping.customer.decision" ||
-    args.actionType === "labor.customer.decision"
-  ) {
-    const decisionLabel =
-      args.decision === "accepted" ? "accepted" : "rejected";
-    return {
-      subject: `[${args.projectName}] Client ${decisionLabel} "${itemName}"`,
-      text: `${actorName} ${decisionLabel} "${itemName}" in client portal for project "${args.projectName}".\n\nOpen notifications: ${args.projectUrl}`,
-      html: `<p><strong>${escapeHtml(actorName)}</strong> ${decisionLabel} <strong>"${escapeHtml(itemName)}"</strong> in client portal for project <strong>${escapeHtml(args.projectName)}</strong>.</p><p><a href="${escapeHtml(args.projectUrl)}">Open notifications</a></p>`,
-    };
-  }
-
-  if (
-    args.actionType === "shopping.customer.feedback" ||
-    args.actionType === "labor.customer.feedback"
-  ) {
-    const commentPreview =
-      args.comment?.trim() || "No comment preview available.";
-    return {
-      subject: `[${args.projectName}] Client left a comment on "${itemName}"`,
-      text: `${actorName} left a comment on "${itemName}" in client portal for project "${args.projectName}".\n\nComment: ${commentPreview}\n\nOpen notifications: ${args.projectUrl}`,
-      html: `<p><strong>${escapeHtml(actorName)}</strong> left a comment on <strong>"${escapeHtml(itemName)}"</strong> in client portal for project <strong>${escapeHtml(args.projectName)}</strong>.</p><p><strong>Comment:</strong> ${escapeHtml(commentPreview)}</p><p><a href="${escapeHtml(args.projectUrl)}">Open notifications</a></p>`,
-    };
-  }
+  const htmlItems = args.events
+    .map((event) => {
+      const commentHtml = event.comment?.trim()
+        ? `<div><strong>Comment:</strong> ${escapeHtml(event.comment.trim())}</div>`
+        : "";
+      return `<li><div>${escapeHtml(formatDigestTime(event.createdAt))}: ${renderDigestEventHtml(
+        event,
+      )}</div>${commentHtml}</li>`;
+    })
+    .join("");
 
   return {
-    subject: `[${args.projectName}] Client submitted survey "${surveyTitle}"`,
-    text: `${actorName} submitted survey "${surveyTitle}" in client portal for project "${args.projectName}".\n\nOpen notifications: ${args.projectUrl}`,
-    html: `<p><strong>${escapeHtml(actorName)}</strong> submitted survey <strong>"${escapeHtml(surveyTitle)}"</strong> in client portal for project <strong>${escapeHtml(args.projectName)}</strong>.</p><p><a href="${escapeHtml(args.projectUrl)}">Open notifications</a></p>`,
+    subject: `[${args.projectName}] Client portal updates (${subjectCount})`,
+    text: textLines.join("\n"),
+    html: `<p>Client portal updates for project <strong>${escapeHtml(args.projectName)}</strong>.</p><ul>${htmlItems}</ul><p><a href="${escapeHtml(args.projectUrl)}">Open notifications</a></p>`,
   };
 };
 
@@ -324,58 +404,189 @@ export const getTaskEventEmailContext = internalQuery({
   },
 });
 
-export const sendClientPortalEventEmail = internalAction({
+export const enqueueClientPortalDigestEvent = internalMutation({
   args: {
     projectId: v.id("projects"),
-    actionType: v.union(
-      v.literal("shopping.customer.decision"),
-      v.literal("shopping.customer.feedback"),
-      v.literal("labor.customer.decision"),
-      v.literal("labor.customer.feedback"),
-      v.literal("survey.response.submit"),
-    ),
-    actorName: v.optional(v.string()),
-    itemName: v.optional(v.string()),
-    surveyTitle: v.optional(v.string()),
-    decision: v.optional(v.union(v.literal("accepted"), v.literal("rejected"))),
-    comment: v.optional(v.string()),
+    event: CLIENT_PORTAL_DIGEST_EVENT_VALIDATOR,
   },
   async handler(ctx, args) {
+    const project = await ctx.db.get(args.projectId);
+    if (!project) {
+      return { digestId: null, created: false };
+    }
+
+    const activeDigest = await ctx.db
+      .query("clientPortalNotificationDigests")
+      .withIndex("by_project_and_status", (q) =>
+        q.eq("projectId", args.projectId).eq("status", "pending"),
+      )
+      .unique();
+
+    if (activeDigest) {
+      await ctx.db.patch(activeDigest._id, {
+        events: [...activeDigest.events, args.event],
+        lastEventAt: Math.max(activeDigest.lastEventAt, args.event.createdAt),
+      });
+      return { digestId: activeDigest._id, created: false };
+    }
+
+    const digestId = await ctx.db.insert("clientPortalNotificationDigests", {
+      projectId: args.projectId,
+      teamId: project.teamId,
+      status: "pending",
+      startedAt: args.event.createdAt,
+      sendAt: args.event.createdAt + CLIENT_PORTAL_DIGEST_WINDOW_MS,
+      lastEventAt: args.event.createdAt,
+      events: [args.event],
+    });
+
+    await ctx.scheduler.runAfter(
+      CLIENT_PORTAL_DIGEST_WINDOW_MS,
+      internalLoose.notifications.processClientPortalDigest,
+      { digestId },
+    );
+
+    return { digestId, created: true };
+  },
+});
+
+export const getClientPortalDigestContext = internalQuery({
+  args: {
+    digestId: v.id("clientPortalNotificationDigests"),
+  },
+  async handler(ctx, args) {
+    const digest = await ctx.db.get(args.digestId);
+    if (!digest) {
+      return null;
+    }
+
+    const project = await ctx.db.get(digest.projectId);
+    if (!project) {
+      return null;
+    }
+
+    const notificationContext = await ctx.runQuery(
+      internalLoose.notifications.getEmailNotificationContext,
+      { projectId: digest.projectId },
+    );
+
+    if (!notificationContext) {
+      return null;
+    }
+
+    return {
+      digest,
+      projectName: notificationContext.projectName,
+      projectSlug: notificationContext.projectSlug,
+      recipients: notificationContext.recipients,
+    };
+  },
+});
+
+export const markClientPortalDigestStatus = internalMutation({
+  args: {
+    digestId: v.id("clientPortalNotificationDigests"),
+    status: v.union(
+      v.literal("sending"),
+      v.literal("sent"),
+      v.literal("failed"),
+    ),
+    lastError: v.optional(v.string()),
+    sentAt: v.optional(v.number()),
+  },
+  async handler(ctx, args) {
+    const digest = await ctx.db.get(args.digestId);
+    if (!digest) {
+      return null;
+    }
+
+    const patch: {
+      status: "sending" | "sent" | "failed";
+      lastError?: string;
+      sentAt?: number;
+    } = {
+      status: args.status,
+    };
+    if (typeof args.lastError === "string") {
+      patch.lastError = args.lastError;
+    }
+    if (typeof args.sentAt === "number") {
+      patch.sentAt = args.sentAt;
+    }
+
+    await ctx.db.patch(args.digestId, patch);
+
+    return null;
+  },
+});
+
+export const processClientPortalDigest = internalAction({
+  args: {
+    digestId: v.id("clientPortalNotificationDigests"),
+  },
+  async handler(ctx, args) {
+    const digestContext = await ctx.runQuery(
+      internalLoose.notifications.getClientPortalDigestContext,
+      { digestId: args.digestId },
+    );
+
+    if (!digestContext) {
+      return { sent: 0, skipped: true };
+    }
+
+    const { digest, projectName, projectSlug, recipients } = digestContext;
+    if (digest.status !== "pending") {
+      return { sent: 0, skipped: true };
+    }
+
+    if (digest.sendAt > Date.now()) {
+      return { sent: 0, skipped: true };
+    }
+
+    if (digest.events.length === 0 || recipients.length === 0) {
+      await ctx.runMutation(internalLoose.notifications.markClientPortalDigestStatus, {
+        digestId: args.digestId,
+        status: "sent",
+        sentAt: Date.now(),
+      });
+      return { sent: 0, skipped: true };
+    }
+
     const resendApiKey = process.env.RESEND_API_KEY;
     const resendFromEmail = process.env.RESEND_FROM_EMAIL;
     if (!resendApiKey || !resendFromEmail) {
       console.warn(
         "Resend email skipped: RESEND_API_KEY or RESEND_FROM_EMAIL not configured.",
       );
+      await ctx.runMutation(internalLoose.notifications.markClientPortalDigestStatus, {
+        digestId: args.digestId,
+        status: "failed",
+        lastError: "RESEND_API_KEY or RESEND_FROM_EMAIL not configured",
+      });
       return { sent: 0, skipped: true };
     }
 
-    const notificationContext = await ctx.runQuery(
-      internalLoose.notifications.getEmailNotificationContext,
-      { projectId: args.projectId },
-    );
-
-    if (!notificationContext || notificationContext.recipients.length === 0) {
-      return { sent: 0, skipped: true };
-    }
+    await ctx.runMutation(internalLoose.notifications.markClientPortalDigestStatus, {
+      digestId: args.digestId,
+      status: "sending",
+    });
 
     const baseUrl = trimTrailingSlash(
       process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3001",
     );
-    const projectUrl = `${baseUrl}/organisation/projects/${notificationContext.projectSlug}/changelog`;
-    const message = buildEmailMessage({
-      actionType: args.actionType,
-      actorName: args.actorName,
-      projectName: notificationContext.projectName,
+    const projectUrl = `${baseUrl}/organisation/projects/${projectSlug}/changelog`;
+    const orderedEvents = [...digest.events].sort(
+      (left, right) => left.createdAt - right.createdAt,
+    );
+    const message = buildClientPortalDigestEmail({
+      projectName,
       projectUrl,
-      itemName: args.itemName,
-      surveyTitle: args.surveyTitle,
-      decision: args.decision,
-      comment: args.comment,
+      events: orderedEvents,
     });
 
     let sent = 0;
-    for (const recipient of notificationContext.recipients) {
+    let lastError: string | undefined;
+    for (const recipient of recipients) {
       try {
         const response = await fetch("https://api.resend.com/emails", {
           method: "POST",
@@ -394,17 +605,26 @@ export const sendClientPortalEventEmail = internalAction({
 
         if (!response.ok) {
           const errorText = await response.text();
+          lastError = `${response.status} ${response.statusText} ${errorText}`;
           console.error(
-            `Resend send failed for ${recipient.email}: ${response.status} ${response.statusText} ${errorText}`,
+            `Resend send failed for ${recipient.email}: ${lastError}`,
           );
           continue;
         }
 
         sent += 1;
       } catch (error) {
+        lastError = error instanceof Error ? error.message : String(error);
         console.error(`Resend send failed for ${recipient.email}:`, error);
       }
     }
+
+    await ctx.runMutation(internalLoose.notifications.markClientPortalDigestStatus, {
+      digestId: args.digestId,
+      status: sent > 0 ? "sent" : "failed",
+      sentAt: sent > 0 ? Date.now() : undefined,
+      lastError,
+    });
 
     return { sent, skipped: false };
   },

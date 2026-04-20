@@ -170,6 +170,28 @@ const teamMemberNotificationSettingsValidator = v.object({
   taskComments: v.optional(v.boolean()),
 });
 
+const clientPortalDigestEventValidator = v.object({
+  createdAt: v.number(),
+  actionType: v.union(
+    v.literal("shopping.customer.decision"),
+    v.literal("shopping.customer.feedback"),
+    v.literal("labor.customer.decision"),
+    v.literal("labor.customer.feedback"),
+    v.literal("survey.response.submit"),
+  ),
+  actorName: v.optional(v.string()),
+  entityId: v.string(),
+  entityType: v.union(
+    v.literal("shopping"),
+    v.literal("labor"),
+    v.literal("survey"),
+  ),
+  itemName: v.optional(v.string()),
+  surveyTitle: v.optional(v.string()),
+  decision: v.optional(v.union(v.literal("accepted"), v.literal("rejected"))),
+  comment: v.optional(v.string()),
+});
+
 const clientPanelPublishedSnapshotValidator = v.object({
   tasks: v.array(clientPanelPublishedTaskValidator),
   labor: v.array(clientPanelPublishedLaborItemValidator),
@@ -545,6 +567,7 @@ export default defineSchema({
     permissions: v.array(v.string()),
     projectIds: v.optional(v.array(v.id("projects"))),
     notificationSettings: v.optional(teamMemberNotificationSettingsValidator),
+    organizationClientNotificationsLastReadAt: v.optional(v.number()),
     joinedAt: v.number(),
     isActive: v.boolean(),
   })
@@ -947,6 +970,25 @@ export default defineSchema({
   })
     .index("by_project_and_user", ["projectId", "clerkUserId"])
     .index("by_user", ["clerkUserId"]),
+
+  clientPortalNotificationDigests: defineTable({
+    projectId: v.id("projects"),
+    teamId: v.id("teams"),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("sending"),
+      v.literal("sent"),
+      v.literal("failed"),
+    ),
+    startedAt: v.number(),
+    sendAt: v.number(),
+    sentAt: v.optional(v.number()),
+    lastEventAt: v.number(),
+    events: v.array(clientPortalDigestEventValidator),
+    lastError: v.optional(v.string()),
+  })
+    .index("by_project_and_status", ["projectId", "status"])
+    .index("by_status_and_send_at", ["status", "sendAt"]),
 
   // Surveys
   surveys: defineTable({

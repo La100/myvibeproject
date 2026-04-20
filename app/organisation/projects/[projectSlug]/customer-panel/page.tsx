@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useMutation, useQuery } from "convex/react";
-import { Copy, ExternalLink, RefreshCw } from "lucide-react";
+import { useAction, useMutation, useQuery } from "convex/react";
+import { Copy, ExternalLink, Mail, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import { apiAny } from "@/lib/convexApiAny";
@@ -41,11 +41,14 @@ export default function CustomerPanelPage() {
   const ensureClientPanelAccessToken = useMutation(apiAny.projects.ensureClientPanelAccessToken);
   const regenerateClientPanelAccessToken = useMutation(apiAny.projects.regenerateClientPanelAccessToken);
   const publishClientPanelData = useMutation(apiAny.projects.publishClientPanelData);
+  const sendClientPortalLinkEmail = useAction(apiAny.clientPortalActions.sendClientPortalLinkEmail);
 
   const [accessToken, setAccessToken] = useState("");
+  const [recipientEmail, setRecipientEmail] = useState("");
   const [isPreparingLink, setIsPreparingLink] = useState(false);
   const [isRegeneratingLink, setIsRegeneratingLink] = useState(false);
   const [isPublishingPortal, setIsPublishingPortal] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [portalSettings, setPortalSettings] = useState<ClientPanelSettings>(
     DEFAULT_CLIENT_PANEL_SETTINGS
   );
@@ -137,6 +140,32 @@ export default function CustomerPanelPage() {
     }
   };
 
+  const handleSendLink = async () => {
+    const normalizedEmail = recipientEmail.trim();
+    if (!normalizedEmail) {
+      toast.error("Enter a customer email");
+      return;
+    }
+
+    setIsSendingEmail(true);
+    try {
+      await sendClientPortalLinkEmail({
+        projectId: project._id,
+        recipientEmail: normalizedEmail,
+        baseUrl: typeof window !== "undefined" ? window.location.origin : undefined,
+      });
+      toast.success("Client portal link sent", {
+        description: `Email sent to ${normalizedEmail}.`,
+      });
+    } catch (error) {
+      toast.error("Failed to send client portal link", {
+        description: toUserFacingErrorMessage(error),
+      });
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
   const handlePublishPortal = async () => {
     setIsPublishingPortal(true);
     try {
@@ -175,30 +204,100 @@ export default function CustomerPanelPage() {
             <span className="mt-1 block text-xs">Portal version: #{panelConfig?.version || 0}</span>
           </>
         }
-        actions={
-          <Button
-            type="button"
-            size="sm"
-            onClick={handlePublishPortal}
-            disabled={isPublishingPortal}
-          >
-            {isPublishingPortal ? "Updating..." : "Update portal"}
-          </Button>
-        }
-        />
+      />
 
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-10">
-      <section className="flex flex-col gap-5">
+        <section className="flex flex-col gap-5">
         <div>
-          <h2 className="text-lg font-semibold">Visibility</h2>
+          <h2 className="text-lg font-semibold">Portal Link</h2>
           <p className="text-sm text-muted-foreground">
-            Choose what customers can see in the portal after Update portal.
+            Share this link directly with a customer. The portal refreshes after Update portal.
           </p>
         </div>
 
-        <div className="flex flex-col gap-6 rounded-2xl border bg-card p-6">
-          <div className="flex flex-col gap-4">
-            <h3 className="text-sm font-medium text-foreground">Portal sections</h3>
+        <div className="flex flex-col gap-4 rounded-2xl border bg-card p-6">
+          <Input value={panelUrlValue || (isPreparingLink ? "Preparing link..." : "")} readOnly />
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="customer-portal-email">Customer email</Label>
+            <Input
+              id="customer-portal-email"
+              type="email"
+              placeholder="client@example.com"
+              value={recipientEmail}
+              onChange={(event) => setRecipientEmail(event.target.value)}
+              disabled={isSendingEmail || isPreparingLink}
+            />
+            <p className="text-xs text-muted-foreground">
+              Send the current client portal link directly through Resend.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" size="sm" onClick={handleCopyLink} disabled={!panelUrlValue || isPreparingLink}>
+              <Copy className="mr-2 h-4 w-4" />
+              Copy link
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (!panelPath || typeof window === "undefined") return;
+                window.open(panelPath, "_blank", "noopener,noreferrer");
+              }}
+              disabled={!panelPath || isPreparingLink}
+            >
+              <ExternalLink className="mr-2 h-4 w-4" />
+              Open portal
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleSendLink}
+              disabled={!panelUrlValue || isSendingEmail || isPreparingLink}
+            >
+              <Mail className="mr-2 h-4 w-4" />
+              {isSendingEmail ? "Sending..." : "Send link"}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleRegenerateLink}
+              disabled={!panelUrlValue || isRegeneratingLink || isPreparingLink}
+            >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              {isRegeneratingLink ? "Regenerating..." : "Regenerate link"}
+            </Button>
+          </div>
+        </div>
+        </section>
+
+        <section className="flex flex-col gap-5">
+          <div>
+            <h2 className="text-lg font-semibold">Visibility</h2>
+            <p className="text-sm text-muted-foreground">
+              Choose what customers can see in the portal after Update portal.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-6 rounded-2xl border bg-card p-6">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h3 className="text-sm font-medium text-foreground">Portal sections</h3>
+                <p className="text-xs text-muted-foreground">
+                  Save your visibility changes to publish them to the live portal.
+                </p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handlePublishPortal}
+                disabled={isPublishingPortal}
+              >
+                {isPublishingPortal ? "Updating..." : "Update portal"}
+              </Button>
+            </div>
             <div className="flex flex-col gap-3">
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -372,50 +471,7 @@ export default function CustomerPanelPage() {
               </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      <section className="flex flex-col gap-5">
-        <div>
-          <h2 className="text-lg font-semibold">Portal Link</h2>
-          <p className="text-sm text-muted-foreground">
-            Share this link directly with a customer. The portal refreshes after Update portal.
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-4 rounded-2xl border bg-card p-6">
-          <Input value={panelUrlValue || (isPreparingLink ? "Preparing link..." : "")} readOnly />
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" size="sm" onClick={handleCopyLink} disabled={!panelUrlValue || isPreparingLink}>
-              <Copy className="mr-2 h-4 w-4" />
-              Copy link
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                if (!panelPath || typeof window === "undefined") return;
-                window.open(panelPath, "_blank", "noopener,noreferrer");
-              }}
-              disabled={!panelPath || isPreparingLink}
-            >
-              <ExternalLink className="mr-2 h-4 w-4" />
-              Open portal
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={handleRegenerateLink}
-              disabled={!panelUrlValue || isRegeneratingLink || isPreparingLink}
-            >
-              <RefreshCw className="mr-2 h-4 w-4" />
-              {isRegeneratingLink ? "Regenerating..." : "Regenerate link"}
-            </Button>
-          </div>
-        </div>
-      </section>
+        </section>
 
       </div>
     </div>

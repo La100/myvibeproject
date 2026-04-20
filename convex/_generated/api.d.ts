@@ -56,6 +56,8 @@ import type * as ai_workflows_types from "../ai/workflows/types.js";
 import type * as authz from "../authz.js";
 import type * as calendar from "../calendar.js";
 import type * as clerk from "../clerk.js";
+import type * as clientPortalActions from "../clientPortalActions.js";
+import type * as clientPortalInternal from "../clientPortalInternal.js";
 import type * as clipper from "../clipper.js";
 import type * as comments from "../comments.js";
 import type * as contacts from "../contacts.js";
@@ -144,6 +146,8 @@ declare const fullApi: ApiFromModules<{
   authz: typeof authz;
   calendar: typeof calendar;
   clerk: typeof clerk;
+  clientPortalActions: typeof clientPortalActions;
+  clientPortalInternal: typeof clientPortalInternal;
   clipper: typeof clipper;
   comments: typeof comments;
   contacts: typeof contacts;

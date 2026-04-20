@@ -3,10 +3,11 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useMemo } from "react";
 import { useQuery } from "convex/react";
 import { useClerk, useOrganization, useUser } from "@clerk/nextjs";
 import { apiAny } from "@/lib/convexApiAny";
+import { dedupeActivityLogActivities } from "@/lib/activityLogDeduplication";
 import {
   Sidebar,
   SidebarContent,
@@ -26,6 +27,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Settings,
@@ -42,6 +44,7 @@ import {
   LogOut,
   Settings2,
   ChevronDown,
+  BellRing,
 } from "lucide-react";
 
 function OrganizationAvatar({
@@ -95,10 +98,31 @@ function CompanySidebarContent() {
     apiAny.teams.getCurrentUserRoleInClerkOrg,
     organization?.id ? { clerkOrgId: organization.id } : "skip"
   );
+  const organizationNotifications = useQuery(
+    apiAny.activityLog.getClientNotificationsForTeam,
+    organization?.id ? { clerkOrgId: organization.id } : "skip",
+  );
+  const notificationsHref = "/organisation/notifications";
+  const dedupedOrganizationNotifications = useMemo(
+    () => dedupeActivityLogActivities(organizationNotifications ?? []),
+    [organizationNotifications],
+  );
+  const unreadOrganizationNotificationCount = dedupedOrganizationNotifications.filter(
+    (notification) =>
+      notification._creationTime >
+      ((notification as { effectiveLastReadAt?: number }).effectiveLastReadAt ?? 0),
+  ).length;
 
   // Define navigation items based on user role
   const allNavItems = [
     { href: "/organisation", label: "Projects", icon: FolderOpen, allowedRoles: ["admin", "member"] },
+    {
+      href: notificationsHref,
+      label: "Notifications",
+      icon: BellRing,
+      allowedRoles: ["admin", "member"],
+      notificationCount: pathname.startsWith(notificationsHref) ? 0 : unreadOrganizationNotificationCount,
+    },
     { href: "/organisation/calendar", label: "Calendar", icon: Calendar, allowedRoles: ["admin", "member"] },
     { href: "/organisation/visualizations", label: "Visualizations", icon: Sparkles, allowedRoles: ["admin", "member"] },
     { href: "/organisation/product-library", label: "Product Library", icon: Package, allowedRoles: ["admin", "member"] },
@@ -189,6 +213,11 @@ function CompanySidebarContent() {
                           className={`h-4 w-4 ${isActive ? "text-sidebar-foreground/88" : "text-sidebar-foreground/72"}`}
                         />
                         <span className="truncate">{item.label}</span>
+                        {typeof item.notificationCount === "number" && item.notificationCount > 0 ? (
+                          <Badge variant="secondary" className="ml-auto min-w-5 px-1.5 py-0.5 text-[10px] leading-none">
+                            {item.notificationCount > 99 ? "99+" : item.notificationCount}
+                          </Badge>
+                        ) : null}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

@@ -763,12 +763,18 @@ export const respondToShoppingItemByAccessToken = mutation({
       },
     );
 
-    await ctx.scheduler.runAfter(0, internalAny.notifications.sendClientPortalEventEmail, {
+    await ctx.scheduler.runAfter(0, internalAny.notifications.enqueueClientPortalDigestEvent, {
       projectId: project._id,
-      actionType: "shopping.customer.decision",
-      actorName: getClientPortalActorName(args.respondentName),
-      itemName: item.name,
-      decision: args.decision,
+      event: {
+        createdAt: now,
+        actionType: "shopping.customer.decision",
+        actorName: getClientPortalActorName(args.respondentName),
+        entityId: String(args.itemId),
+        entityType: "shopping",
+        itemName: item.name,
+        decision: args.decision,
+        ...(normalizedComment ? { comment: normalizedComment } : {}),
+      },
     });
 
     return {
@@ -870,12 +876,17 @@ export const saveShoppingItemCommentByAccessToken = mutation({
         },
       );
 
-      await ctx.scheduler.runAfter(0, internalAny.notifications.sendClientPortalEventEmail, {
+      await ctx.scheduler.runAfter(0, internalAny.notifications.enqueueClientPortalDigestEvent, {
         projectId: project._id,
-        actionType: "shopping.customer.feedback",
-        actorName: getClientPortalActorName(args.respondentName),
-        itemName: item.name,
-        comment: normalizedComment,
+        event: {
+          createdAt: now,
+          actionType: "shopping.customer.feedback",
+          actorName: getClientPortalActorName(args.respondentName),
+          entityId: String(args.itemId),
+          entityType: "shopping",
+          itemName: item.name,
+          comment: normalizedComment ?? undefined,
+        },
       });
     }
 
