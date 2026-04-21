@@ -2259,8 +2259,8 @@ export default function PublicClientPanelPage() {
                       className={cn(
                         "h-auto min-h-0 items-center gap-3 rounded-full border px-3 py-3 text-left transition-all duration-150 sm:px-4",
                         isActive
-                          ? "border-foreground/15 bg-[#f3ede6] text-foreground shadow-[0_10px_30px_-22px_rgba(43,31,23,0.45)] hover:border-foreground/25 hover:bg-[#efe6dc]"
-                          : "border-border bg-white text-foreground hover:-translate-y-0.5 hover:border-foreground/20 hover:bg-[#f8f3ed] hover:shadow-[0_10px_24px_-20px_rgba(43,31,23,0.35)]",
+                          ? "border-foreground/15 bg-background text-foreground shadow-[0_10px_30px_-22px_rgba(0,0,0,0.18)] hover:border-foreground/25 hover:bg-background"
+                          : "border-border bg-white text-foreground hover:-translate-y-0.5 hover:border-foreground/20 hover:bg-background hover:shadow-[0_10px_24px_-20px_rgba(0,0,0,0.14)]",
                       )}
                     >
                       <div

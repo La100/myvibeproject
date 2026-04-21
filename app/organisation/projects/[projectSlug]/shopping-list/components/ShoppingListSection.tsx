@@ -400,17 +400,17 @@ export function ShoppingListSection({
   const getInlineStatusClassName = (status: ShoppingListItem["realizationStatus"]) => {
     switch (status) {
       case "PLANNED":
-        return "border-[#e8ddd2] bg-[#faf6f1] text-[#6f5b4b] hover:border-[#dccbbb] hover:bg-[#f7efe6]";
+        return "border-border/70 bg-background text-foreground/75 hover:border-foreground/15 hover:bg-white";
       case "ORDERED":
-        return "border-[#dfd2c4] bg-[#f4ebe2] text-[#5e4a3b] hover:border-[#d2c0af] hover:bg-[#efe3d7]";
+        return "border-border/70 bg-white text-foreground hover:border-foreground/15 hover:bg-background";
       case "IN_TRANSIT":
-        return "border-[#eadfba] bg-[#fbf5dc] text-[#7a6531] hover:border-[#ddce9f] hover:bg-[#f7efcf]";
+        return "border-foreground/15 bg-background text-foreground hover:border-foreground/25 hover:bg-white";
       case "DELIVERED":
-        return "border-[#d9dbd2] bg-[#f3f5ef] text-[#56604a] hover:border-[#cbcebf] hover:bg-[#ecefe6]";
+        return "border-border/70 bg-white text-foreground/80 hover:border-foreground/15 hover:bg-background";
       case "COMPLETED":
-        return "border-transparent bg-[#4c3a2f] text-[#fcf8f3] hover:bg-[#584438]";
+        return "border-transparent bg-foreground text-background hover:bg-foreground/90";
       case "CANCELLED":
-        return "border-[#e6e0d9] bg-[#f8f7f5] text-[#8a8178] hover:border-[#ddd5cc] hover:bg-[#f3f1ee]";
+        return "border-border/70 bg-background text-muted-foreground hover:border-foreground/10 hover:bg-white";
       default:
         return "border-border/80 bg-card text-foreground hover:bg-accent";
     }

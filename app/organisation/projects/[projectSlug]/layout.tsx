@@ -25,9 +25,9 @@ function ProjectLayoutContent({ children }: { children: React.ReactNode }) {
         } as CSSProperties}
       >
         <ProjectSidebar />
-        <SidebarInset className="bg-[#faf9f7] xl:clean-panel xl:overflow-hidden">
+        <SidebarInset className="bg-background xl:clean-panel xl:overflow-hidden">
           <MobileProjectHeader />
-          <main className="flex-1 min-h-0 overflow-auto bg-[#faf9f7]">
+          <main className="flex-1 min-h-0 overflow-auto bg-background">
             <Suspense fallback={
               <div className="flex flex-col gap-4">
                 <div className="h-8 w-1/3 animate-pulse rounded bg-muted" />

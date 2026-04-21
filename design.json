@@ -130,11 +130,11 @@
     },
     "colors": {
       "base": {
-        "background": "#FAF7F2",
+        "background": "#F7F7F4",
         "surface": "#FFFFFF",
         "text": "#1A1A1A",
         "textMuted": "#3C3A37",
-        "border": "#E7E2D9",
+        "border": "#DCDCDC",
         "focus": "#0A84FF"
       },
       "brand": {
@@ -151,7 +151,7 @@
       },
       "inputs": {
         "bg": "#FFFFFF",
-        "border": "#E7E2D9",
+        "border": "#DCDCDC",
         "placeholder": "#8C8880",
         "text": "#1A1A1A",
         "focusRing": "colors.base.focus"
@@ -163,16 +163,16 @@
       },
       "secondaryBtn": {
         "bg": "#FFFFFF",
-        "border": "#E7E2D9",
+        "border": "#DCDCDC",
         "text": "colors.base.text"
       },
       "googleBtn": {
         "bg": "#FFFFFF",
-        "border": "#E7E2D9",
+        "border": "#DCDCDC",
         "text": "colors.base.text"
       },
       "notice": {
-        "muted": "#F2EEE6",
+        "muted": "#F7F7F4",
         "mutedText": "#5A5752"
       }
     },

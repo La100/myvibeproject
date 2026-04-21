@@ -130,7 +130,7 @@ export const UI_VIBES: Record<UiVibeId, UiVibeDefinition> = {
     label: "Linen Atelier",
     radius: "1rem", // changed from 0.5rem to match radii.lg
     light: {
-      background: "#FAF7F2", // colors.base.background
+      background: "#F7F7F4", // app token background
       foreground: "#1A1A1A", // colors.base.text
       card: "#FFFFFF", // colors.base.surface
       cardForeground: "#1A1A1A",
@@ -140,12 +140,12 @@ export const UI_VIBES: Record<UiVibeId, UiVibeDefinition> = {
       primaryForeground: "#FFFFFF",
       secondary: "#FFFFFF", // colors.secondaryBtn.bg
       secondaryForeground: "#1A1A1A", // colors.base.text
-      muted: "#F2EEE6", // colors.notice.muted
-      mutedForeground: "#5A5752", // colors.notice.mutedText
-      accent: "#E7E2D9", // colors.base.border
+      muted: "#F7F7F4", // app token background
+      mutedForeground: "#525252", // neutral muted text
+      accent: "#F7F7F4", // app token background
       accentForeground: "#1A1A1A",
       destructive: "#FF7A6E", // colors.decorative.sprinkleCoral
-      border: "#E7E2D9", // colors.base.border
+      border: "#DCDCDC", // neutral border
       input: "#FFFFFF", // colors.inputs.bg
       ring: "#0A84FF", // colors.base.focus
       chart1: "oklch(0.646 0.222 41.116)",
@@ -153,20 +153,20 @@ export const UI_VIBES: Record<UiVibeId, UiVibeDefinition> = {
       chart3: "oklch(0.398 0.07 227.392)",
       chart4: "oklch(0.828 0.189 84.429)",
       chart5: "oklch(0.769 0.188 70.08)",
-      sidebar: "#FAF7F2",
+      sidebar: "#F7F7F4",
       sidebarForeground: "#1A1A1A",
       sidebarPrimary: "#0E0E0E",
       sidebarPrimaryForeground: "#FFFFFF",
-      sidebarAccent: "#E7E2D9",
+      sidebarAccent: "#FFFFFF",
       sidebarAccentForeground: "#1A1A1A",
-      sidebarBorder: "#E7E2D9",
+      sidebarBorder: "#DCDCDC",
       sidebarRing: "#0A84FF",
       uiTextStrong: "#1A1A1A",
       uiTextMain: "#3C3A37",
       uiTextMuted: "#8C8880",
       uiTextSubtle: "#C0B9AF",
-      uiBorderSoft: "#E7E2D9",
-      uiSurfaceSoft: "#FAF7F2",
+      uiBorderSoft: "#DCDCDC",
+      uiSurfaceSoft: "#F7F7F4",
       uiSurfaceBase: "#FFFFFF",
       uiAccentBrand: "#6D8B73", // colors.brand.accentSage
       uiActionBg: "#0E0E0E",

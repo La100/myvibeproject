@@ -202,7 +202,7 @@ export function HeroSection() {
           )}
         </div>
 
-        <div className="mt-8 overflow-hidden rounded-[32px] border border-black/8 bg-[#ebe8e1] shadow-[0_20px_80px_rgba(20,20,20,0.08)]">
+        <div className="mt-8 overflow-hidden rounded-[32px] border border-black/8 bg-background shadow-[0_20px_80px_rgba(20,20,20,0.08)]">
           <div className="relative min-h-[560px] overflow-hidden lg:h-[820px]">
             <Image
               src="/visualization-1773318760233.jpg"

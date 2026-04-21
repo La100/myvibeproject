@@ -688,6 +688,26 @@ function asTimestamp(value: unknown): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function asDateInput(value: unknown): string | undefined {
+  const text = asNonEmptyString(value);
+  if (text) {
+    const parsed = Date.parse(text);
+    return Number.isFinite(parsed) ? text : undefined;
+  }
+
+  const timestamp = asNumber(value);
+  if (timestamp === undefined) return undefined;
+  return new Date(timestamp).toISOString();
+}
+
+function formatTimestampAsIso(timestamp: number | undefined): string | undefined {
+  if (timestamp === undefined || !Number.isFinite(timestamp)) {
+    return undefined;
+  }
+
+  return new Date(timestamp).toISOString();
+}
+
 function extractTaskTitle(params: Record<string, unknown>): string | undefined {
   return (
     asNonEmptyString(params.title) ??
@@ -754,6 +774,8 @@ function truncate(
 }
 
 function summarizeTask(task: Record<string, unknown>) {
+  const startDate = asNumber(task.startDate);
+  const endDate = asNumber(task.endDate);
   return {
     id: typeof task._id === "string" ? task._id : undefined,
     title:
@@ -764,7 +786,10 @@ function summarizeTask(task: Record<string, unknown>) {
     status: asNonEmptyString(task.status) ?? "todo",
     priority: asNonEmptyString(task.priority) ?? "medium",
     assignedTo: asNonEmptyString(task.assignedTo),
-    endDate: asNumber(task.endDate),
+    startDate,
+    startDateIso: formatTimestampAsIso(startDate),
+    endDate,
+    endDateIso: formatTimestampAsIso(endDate),
     sectionId: asNonEmptyString(task.sectionId),
     description: truncate(
       asNonEmptyString(task.description) ?? asNonEmptyString(task.content),
@@ -805,6 +830,7 @@ function summarizeShoppingItem(
   options?: { sectionNameById?: Map<string, string> },
 ) {
   const sectionId = asNonEmptyString(item.sectionId);
+  const buyBefore = asNumber(item.buyBefore);
   return {
     id: typeof item._id === "string" ? item._id : undefined,
     name: asNonEmptyString(item.name) ?? "Unnamed item",
@@ -812,12 +838,17 @@ function summarizeShoppingItem(
     priority: asNonEmptyString(item.priority) ?? "medium",
     status: asNonEmptyString(item.realizationStatus) ?? "PLANNED",
     supplier: asNonEmptyString(item.supplier),
+    assignedTo: asNonEmptyString(item.assignedTo),
     unitPrice: asNumber(item.unitPrice),
     productLink: asNonEmptyString(item.productLink),
+    buyBefore,
+    buyBeforeIso: formatTimestampAsIso(buyBefore),
     sectionId,
     sectionName: sectionId
       ? options?.sectionNameById?.get(sectionId)
       : undefined,
+    setId: asNonEmptyString(item.setId),
+    setTitle: asNonEmptyString(item.setTitle),
     notes: truncate(asNonEmptyString(item.notes)),
   };
 }
@@ -853,6 +884,8 @@ function summarizeLaborItem(
   options?: { sectionNameById?: Map<string, string> },
 ) {
   const sectionId = asNonEmptyString(item.sectionId);
+  const startDate = asNumber(item.startDate);
+  const endDate = asNumber(item.endDate);
   return {
     id: typeof item._id === "string" ? item._id : undefined,
     name: asNonEmptyString(item.name) ?? "Unnamed labor item",
@@ -865,6 +898,10 @@ function summarizeLaborItem(
     sectionName: sectionId
       ? options?.sectionNameById?.get(sectionId)
       : undefined,
+    startDate,
+    startDateIso: formatTimestampAsIso(startDate),
+    endDate,
+    endDateIso: formatTimestampAsIso(endDate),
     notes: truncate(asNonEmptyString(item.notes)),
   };
 }
@@ -963,6 +1000,9 @@ function summarizeProjectFile(file: Record<string, unknown>) {
 function summarizeProject(project: Record<string, unknown> | null) {
   if (!project) return null;
 
+  const startDate = asNumber(project.startDate);
+  const endDate = asNumber(project.endDate);
+
   return {
     id: typeof project._id === "string" ? project._id : undefined,
     title:
@@ -972,6 +1012,10 @@ function summarizeProject(project: Record<string, unknown> | null) {
     description: truncate(asNonEmptyString(project.description)),
     status: asNonEmptyString(project.status),
     address: asNonEmptyString(project.address),
+    startDate,
+    startDateIso: formatTimestampAsIso(startDate),
+    endDate,
+    endDateIso: formatTimestampAsIso(endDate),
     budget: asNumber(project.budget),
   };
 }
@@ -1988,6 +2032,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                     unitPrice: asNumber(item.unitPrice) ?? asNumber(item.price),
                     sectionId: asNonEmptyString(item.sectionId) ?? undefined,
                     assignedTo: asNonEmptyString(item.assignedTo),
+                    startDate: asDateInput(item.startDate),
+                    endDate: asDateInput(item.endDate),
                   },
                 },
               );
@@ -2030,12 +2076,14 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                     ? null
                     : asNonEmptyString(item.sectionId),
                 assignedTo: asNonEmptyString(item.assignedTo),
+                startDate: asDateInput(item.startDate),
+                endDate: asDateInput(item.endDate),
               });
               if (!hasManagedUpdateFields(updates, [])) {
                 return {
                   ok: false,
                   error:
-                    "No valid labor item update fields were provided. Use at least one editable field such as name, notes, quantity, unit, unitPrice, sectionId, or assignedTo.",
+                    "No valid labor item update fields were provided. Use at least one editable field such as name, notes, quantity, unit, unitPrice, sectionId, assignedTo, startDate, or endDate.",
                 };
               }
 
@@ -3290,6 +3338,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                     asNumber(params.unitPrice) ?? asNumber(params.price),
                   sectionId: asNonEmptyString(params.sectionId) ?? undefined,
                   assignedTo: asNonEmptyString(params.assignedTo),
+                  startDate: asDateInput(params.startDate),
+                  endDate: asDateInput(params.endDate),
                 },
               },
             );
@@ -3325,12 +3375,14 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                   ? null
                   : asNonEmptyString(params.sectionId),
               assignedTo: asNonEmptyString(params.assignedTo),
+              startDate: asDateInput(params.startDate),
+              endDate: asDateInput(params.endDate),
             });
             if (!hasManagedUpdateFields(updates, [])) {
               return {
                 ok: false,
                 error:
-                  "No valid labor item update fields were provided. Use at least one editable field such as name, notes, quantity, unit, unitPrice, sectionId, or assignedTo.",
+                  "No valid labor item update fields were provided. Use at least one editable field such as name, notes, quantity, unit, unitPrice, sectionId, assignedTo, startDate, or endDate.",
               };
             }
 
@@ -3902,7 +3954,9 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                   includes(task.description) ||
                   includes(task.assignedTo) ||
                   includes(task.priority) ||
-                  includes(task.status),
+                  includes(task.status) ||
+                  includes(task.startDateIso) ||
+                  includes(task.endDateIso),
               )
               .slice(0, limit);
 
@@ -3936,7 +3990,10 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                   includes(item.notes) ||
                   includes(item.supplier) ||
                   includes(item.status) ||
-                  includes(item.sectionName),
+                  includes(item.sectionName) ||
+                  includes(item.setTitle) ||
+                  includes(item.assignedTo) ||
+                  includes(item.buyBeforeIso),
               )
               .slice(0, limit);
 
@@ -3961,7 +4018,9 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                   includes(item.notes) ||
                   includes(item.assignedTo) ||
                   includes(item.unit) ||
-                  includes(item.sectionName),
+                  includes(item.sectionName) ||
+                  includes(item.startDateIso) ||
+                  includes(item.endDateIso),
               )
               .slice(0, limit);
 

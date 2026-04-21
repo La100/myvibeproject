@@ -403,7 +403,10 @@ export default function MoodboardPage() {
               <Badge variant="outline" className="px-4 py-2 text-sm font-medium text-primary">
                 {project.name}
               </Badge>
-              <Badge variant="secondary" className="px-4 py-2 text-sm font-medium">
+              <Badge
+                variant="outline"
+                className="border-border bg-background px-4 py-2 text-sm font-medium text-foreground"
+              >
                 {rows.length} sections
               </Badge>
             </>

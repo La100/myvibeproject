@@ -343,7 +343,7 @@ export function AddLaborItemForm({
           />
         </Field>
         <Field className="gap-2">
-          <FieldLabel>Assign To (Contractor)</FieldLabel>
+          <FieldLabel>Assign To</FieldLabel>
           <Select
             value={newItemAssignedTo}
             onValueChange={setNewItemAssignedTo}

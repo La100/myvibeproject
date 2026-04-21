@@ -68,7 +68,7 @@ export default function ProductLibraryPage() {
       onClick={() => setSelectedProduct(product)}
     >
       <div className="relative overflow-hidden rounded-[1.75rem] border border-border/60 bg-white transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-foreground/15 group-hover:shadow-[0_16px_36px_-24px_rgba(15,15,15,0.28)]">
-        <div className="aspect-square bg-[#fbfbf8] p-7 sm:p-8">
+        <div className="aspect-square bg-background p-7 sm:p-8">
           {product.imageUrl ? (
             <img
               src={product.imageUrl}
@@ -138,7 +138,7 @@ export default function ProductLibraryPage() {
       className="group flex cursor-pointer items-center gap-4 rounded-[1.5rem] border border-border/60 bg-white px-4 py-3 transition-all duration-200 hover:border-foreground/15 hover:shadow-[0_12px_30px_-24px_rgba(15,15,15,0.25)]"
       onClick={() => setSelectedProduct(product)}
     >
-      <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[1.25rem] bg-[#fbfbf8] p-3">
+      <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[1.25rem] bg-background p-3">
         {product.imageUrl ? (
           <img
             src={product.imageUrl}
