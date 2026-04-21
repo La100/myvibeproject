@@ -1,9 +1,9 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import type { ChatStatus } from "ai";
 import { motion, AnimatePresence } from "framer-motion";
-import { Download, History, X } from "lucide-react";
+import { ArrowRight, Download, History, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -98,45 +98,119 @@ export const VisualizationSuggestions = memo(function VisualizationSuggestions({
   suggestions: VisualizationSuggestion[];
 }) {
   const { textInput } = usePromptInputController();
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const [canScroll, setCanScroll] = useState(false);
+  const [showScrollHint, setShowScrollHint] = useState(false);
+
+  useEffect(() => {
+    const element = scrollerRef.current;
+    if (!element) {
+      return;
+    }
+
+    const updateScrollState = () => {
+      const hasOverflow = element.scrollWidth > element.clientWidth + 16;
+      setCanScroll(hasOverflow);
+      setShowScrollHint(hasOverflow && element.scrollLeft < 24);
+    };
+
+    updateScrollState();
+
+    const resizeObserver = new ResizeObserver(updateScrollState);
+    resizeObserver.observe(element);
+    window.addEventListener("resize", updateScrollState);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", updateScrollState);
+    };
+  }, [suggestions.length]);
 
   return (
     <div className="mt-16 flex w-full max-w-[96rem] flex-col items-center">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-        className="mx-auto flex w-full snap-x snap-mandatory flex-nowrap gap-5 overflow-x-auto px-0 pb-4 no-scrollbar md:px-2"
-      >
-        {suggestions.map((suggestion) => (
-          <button
-            key={suggestion.title}
-            onClick={() => textInput.setInput(suggestion.text)}
-            className="group relative aspect-[5/3] min-w-[70vw] flex-shrink-0 snap-center overflow-hidden rounded-2xl border border-border/70 bg-card text-left shadow-lg transition-all duration-300 hover:-translate-y-1.5 hover:border-border hover:shadow-xl sm:min-w-[320px] md:min-w-[360px] lg:min-w-[420px]"
+      <AnimatePresence>
+        {canScroll && showScrollHint ? (
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            className="mb-4 flex items-center gap-2 rounded-full border border-border/60 bg-background/90 px-4 py-2 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground shadow-sm backdrop-blur-sm"
           >
-            <div className="absolute inset-0 z-0">
-              <img
-                src={suggestion.image}
-                alt={suggestion.title}
-                className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                loading="lazy"
-                decoding="async"
-              />
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/78 via-black/28 via-38% to-transparent" />
-            </div>
+            <span>Swipe or scroll to explore prompts</span>
+            <motion.span
+              animate={{ x: [0, 5, 0] }}
+              transition={{ duration: 1.4, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+            >
+              <ArrowRight className="h-3.5 w-3.5" />
+            </motion.span>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
-            <div className="relative z-10 flex h-full flex-col justify-start p-5">
-              <div className="max-w-[85%] rounded-2xl border border-white/12 bg-black/42 p-4 backdrop-blur-md">
-                <p className="text-base font-semibold leading-tight text-white drop-shadow-md">
-                  {suggestion.title}
-                </p>
-                <p className="mt-2 line-clamp-3 text-sm leading-snug text-white/85 drop-shadow-sm">
-                  {suggestion.description}
-                </p>
+      <div className="relative w-full">
+        <AnimatePresence>
+          {canScroll && showScrollHint ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="pointer-events-none absolute inset-y-0 right-0 z-20 hidden w-24 items-center justify-end bg-gradient-to-l from-background via-background/85 to-transparent pr-3 md:flex"
+            >
+              <motion.div
+                animate={{ x: [0, 6, 0] }}
+                transition={{ duration: 1.4, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+                className="rounded-full border border-border/60 bg-background/90 p-2 text-muted-foreground shadow-md backdrop-blur-sm"
+              >
+                <ArrowRight className="h-4 w-4" />
+              </motion.div>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          ref={scrollerRef}
+          onScroll={(event) => {
+            const target = event.currentTarget;
+            if (target.scrollLeft > 24) {
+              setShowScrollHint(false);
+            }
+          }}
+          className="mx-auto flex w-full snap-x snap-mandatory flex-nowrap gap-5 overflow-x-auto px-0 pb-4 no-scrollbar md:px-2"
+        >
+          {suggestions.map((suggestion) => (
+            <button
+              key={suggestion.title}
+              onClick={() => textInput.setInput(suggestion.text)}
+              className="group relative aspect-[5/3] min-w-[70vw] flex-shrink-0 snap-center overflow-hidden rounded-2xl border border-border/70 bg-card text-left shadow-lg transition-all duration-300 hover:-translate-y-1.5 hover:border-border hover:shadow-xl sm:min-w-[320px] md:min-w-[360px] lg:min-w-[420px]"
+            >
+              <div className="absolute inset-0 z-0">
+                <img
+                  src={suggestion.image}
+                  alt={suggestion.title}
+                  className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/78 via-black/28 via-38% to-transparent" />
               </div>
-            </div>
-          </button>
-        ))}
-      </motion.div>
+
+              <div className="relative z-10 flex h-full flex-col justify-start p-5">
+                <div className="max-w-[85%] rounded-2xl border border-white/12 bg-black/42 p-4 backdrop-blur-md">
+                  <p className="text-base font-semibold leading-tight text-white drop-shadow-md">
+                    {suggestion.title}
+                  </p>
+                  <p className="mt-2 line-clamp-3 text-sm leading-snug text-white/85 drop-shadow-sm">
+                    {suggestion.description}
+                  </p>
+                </div>
+              </div>
+            </button>
+          ))}
+        </motion.div>
+      </div>
     </div>
   );
 });

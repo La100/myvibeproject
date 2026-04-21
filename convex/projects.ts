@@ -8,7 +8,6 @@ import {
 import { Id, Doc } from "./_generated/dataModel";
 import { r2 } from "./files";
 import { canAccessProjectWithMembership, ensureProjectAccess } from "./authz";
-import { resolveOrganizationTaxSettings } from "../lib/organizationTax";
 import { summarizeProjectBudget } from "../lib/projectBudgetSummary";
 const internalAny = require("./_generated/api").internal as any;
 
@@ -753,20 +752,6 @@ export const createProjectInOrg = mutation({
     }
 
     const normalizedCoverImageUrl = args.coverImageUrl?.trim();
-    const teamTaxSettings = resolveOrganizationTaxSettings(
-      (team as { organizationTaxSettings?: unknown })
-        .organizationTaxSettings as
-        | Parameters<typeof resolveOrganizationTaxSettings>[0]
-        | undefined,
-    );
-    const taxEnabled = args.taxEnabled ?? teamTaxSettings.taxEnabled;
-    const taxRate = taxEnabled
-      ? Math.min(
-          Math.max(args.taxRate ?? teamTaxSettings.taxRate ?? 23, 0),
-          100,
-        )
-      : undefined;
-
     const projectId = await ctx.db.insert("projects", {
       name: args.name,
       description: args.description,
@@ -780,8 +765,6 @@ export const createProjectInOrg = mutation({
       budget: args.budget,
       currency: args.currency || team.currency || "PLN",
       measurements: args.measurements || "metric",
-      taxEnabled,
-      taxRate,
       startDate: args.startDate,
       endDate: args.endDate,
       createdBy: identity.subject,
@@ -1083,10 +1066,10 @@ export const updateProject = mutation({
       projectId,
       name,
       coverImageUrl,
+      taxEnabled: _ignoredTaxEnabled,
+      taxRate: _ignoredTaxRate,
       responsibleClerkUserId,
       clientPortalNotificationSettings,
-      taxEnabled,
-      taxRate,
       ...rest
     } = args;
 
@@ -1107,33 +1090,6 @@ export const updateProject = mutation({
     const coverImagePatch = coverImageProvided
       ? { coverImageUrl: normalizedCoverImageUrl || undefined }
       : {};
-    const taxEnabledProvided = Object.prototype.hasOwnProperty.call(
-      args,
-      "taxEnabled",
-    );
-    const taxRateProvided = Object.prototype.hasOwnProperty.call(
-      args,
-      "taxRate",
-    );
-    const resolvedTaxEnabled = taxEnabledProvided
-      ? Boolean(taxEnabled)
-      : (existingProject.taxEnabled ?? false);
-    const resolvedTaxRate = resolvedTaxEnabled
-      ? Math.min(
-          Math.max(
-            (taxRateProvided ? taxRate : existingProject.taxRate) ?? 23,
-            0,
-          ),
-          100,
-        )
-      : undefined;
-    const taxPatch =
-      taxEnabledProvided || taxRateProvided
-        ? {
-            taxEnabled: resolvedTaxEnabled,
-            taxRate: resolvedTaxRate,
-          }
-        : {};
     const responsibleProvided = Object.prototype.hasOwnProperty.call(
       args,
       "responsibleClerkUserId",
@@ -1269,7 +1225,6 @@ export const updateProject = mutation({
         name,
         slug,
         ...coverImagePatch,
-        ...taxPatch,
         ...responsiblePatch,
         ...clientPortalSettingsPatch,
         ...rest,
@@ -1279,7 +1234,6 @@ export const updateProject = mutation({
     } else {
       await ctx.db.patch(projectId, {
         ...coverImagePatch,
-        ...taxPatch,
         ...responsiblePatch,
         ...clientPortalSettingsPatch,
         ...rest,

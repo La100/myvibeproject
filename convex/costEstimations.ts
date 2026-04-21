@@ -1,6 +1,10 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
+import {
+  resolveOrganizationTaxSettings,
+  type OrganizationPriceDisplay,
+} from "../lib/organizationTax";
 
 const ESTIMATION_NUMBER_REGEX = /^EST-(\d{4})-(\d{3,})$/;
 
@@ -30,13 +34,17 @@ export const getCostEstimationWithItems = query({
     const estimation = await ctx.db.get(args.estimationId);
     if (!estimation) return null;
 
-    const laborItems = await Promise.all(
-      estimation.laborItemIds.map((id) => ctx.db.get(id))
-    );
+    const laborItems =
+      estimation.laborSnapshots ??
+      (
+        await Promise.all(estimation.laborItemIds.map((id) => ctx.db.get(id)))
+      ).filter(Boolean);
 
-    const materialItems = await Promise.all(
-      estimation.materialItemIds.map((id) => ctx.db.get(id))
-    );
+    const materialItems =
+      estimation.materialSnapshots ??
+      (
+        await Promise.all(estimation.materialItemIds.map((id) => ctx.db.get(id)))
+      ).filter(Boolean);
 
     const contact = estimation.contactId
       ? await ctx.db.get(estimation.contactId)
@@ -44,8 +52,8 @@ export const getCostEstimationWithItems = query({
 
     return {
       ...estimation,
-      laborItems: laborItems.filter(Boolean),
-      materialItems: materialItems.filter(Boolean),
+      laborItems,
+      materialItems,
       contact,
     };
   },
@@ -86,8 +94,12 @@ export const createCostEstimation = mutation({
     const validUntil = normalizeTimestamp(args.validUntil, "Valid until date");
     assertValidDateRange(plannedStartDate, validUntil);
 
-    const vatPercent = normalizePercent(args.vatPercent, "VAT");
-    const discountPercent = normalizePercent(args.discountPercent ?? 0, "Discount");
+    const taxSnapshot = await resolveActiveEstimationTaxSnapshot(ctx, {
+      project,
+      legacyVatPercent: args.vatPercent,
+    });
+    const vatPercent = taxSnapshot?.taxEnabled ? taxSnapshot.taxRate : 0;
+    const discountPercent = 0;
 
     const laborItemIds = deduplicateIds(args.laborItemIds);
     const materialItemIds = deduplicateIds(args.materialItemIds);
@@ -124,14 +136,15 @@ export const createCostEstimation = mutation({
       estimationNumber,
     });
 
+    const resolvedItems = await resolveEstimationSourceItems(ctx, {
+      projectId: args.projectId,
+      laborItemIds,
+      materialItemIds,
+    });
     const { laborTotal, materialsTotal, netTotal, discountAmount, vatAmount, grossTotal } =
-      await calculateEstimationTotals(ctx, {
-        projectId: args.projectId,
-        laborItemIds,
-        materialItemIds,
-        vatPercent,
-        discountPercent,
-      });
+      calculateEstimationTotalsFromItems(resolvedItems, vatPercent);
+    const { laborSnapshots, materialSnapshots } =
+      buildEstimationItemSnapshots(resolvedItems);
 
     const estimationId = await ctx.db.insert("costEstimations", {
       title,
@@ -142,9 +155,12 @@ export const createCostEstimation = mutation({
       validUntil,
       vatPercent,
       discountPercent,
+      taxSnapshot,
       status: "draft",
       materialItemIds,
+      materialSnapshots,
       laborItemIds,
+      laborSnapshots,
       laborTotal,
       materialsTotal,
       netTotal,
@@ -215,6 +231,8 @@ export const updateCostEstimation = mutation({
     const { estimationId } = args;
     const estimation = await ctx.db.get(estimationId);
     if (!estimation) throw new Error("Estimation not found");
+    const project = await ctx.db.get(estimation.projectId);
+    if (!project) throw new Error("Project not found");
 
     const laborItemIds = args.laborItemIds
       ? deduplicateIds(args.laborItemIds)
@@ -224,15 +242,13 @@ export const updateCostEstimation = mutation({
       : estimation.materialItemIds;
     assertHasAnyItems(laborItemIds, materialItemIds);
 
-    const vatPercent =
-      args.vatPercent !== undefined
-        ? normalizePercent(args.vatPercent, "VAT")
-        : normalizePercent(estimation.vatPercent, "VAT");
-
-    const discountPercent =
-      args.discountPercent !== undefined
-        ? normalizePercent(args.discountPercent, "Discount")
-        : normalizePercent(estimation.discountPercent ?? 0, "Discount");
+    const taxSnapshot = await resolveActiveEstimationTaxSnapshot(ctx, {
+      project,
+      legacyVatPercent:
+        args.vatPercent !== undefined ? args.vatPercent : estimation.vatPercent,
+    });
+    const vatPercent = taxSnapshot?.taxEnabled ? taxSnapshot.taxRate : 0;
+    const discountPercent = 0;
 
     const plannedStartDate =
       args.plannedStartDate !== undefined
@@ -289,6 +305,7 @@ export const updateCostEstimation = mutation({
       customerPhone: finalCustomerPhone,
       customerAddress: finalCustomerAddress,
       contactId: linkedContact?._id,
+      taxSnapshot,
       updatedAt: Date.now(),
     };
 
@@ -323,14 +340,15 @@ export const updateCostEstimation = mutation({
       patch.estimationNumber = normalizedNumber;
     }
 
+    const resolvedItems = await resolveEstimationSourceItems(ctx, {
+      projectId: estimation.projectId,
+      laborItemIds,
+      materialItemIds,
+    });
     const { laborTotal, materialsTotal, netTotal, discountAmount, vatAmount, grossTotal } =
-      await calculateEstimationTotals(ctx, {
-        projectId: estimation.projectId,
-        laborItemIds,
-        materialItemIds,
-        vatPercent,
-        discountPercent,
-      });
+      calculateEstimationTotalsFromItems(resolvedItems, vatPercent);
+    const { laborSnapshots, materialSnapshots } =
+      buildEstimationItemSnapshots(resolvedItems);
 
     patch.laborTotal = laborTotal;
     patch.materialsTotal = materialsTotal;
@@ -338,6 +356,8 @@ export const updateCostEstimation = mutation({
     patch.discountAmount = discountAmount;
     patch.vatAmount = vatAmount;
     patch.grossTotal = grossTotal;
+    patch.laborSnapshots = laborSnapshots;
+    patch.materialSnapshots = materialSnapshots;
 
     await ctx.db.patch(estimationId, patch);
 
@@ -437,14 +457,25 @@ export const recalculateEstimation = mutation({
     const estimation = await ctx.db.get(args.estimationId);
     if (!estimation) throw new Error("Estimation not found");
 
+    const resolvedItems = await resolveEstimationSourceItems(ctx, {
+      projectId: estimation.projectId,
+      laborItemIds: estimation.laborItemIds,
+      materialItemIds: estimation.materialItemIds,
+    });
     const { laborTotal, materialsTotal, netTotal, discountAmount, vatAmount, grossTotal } =
-      await calculateEstimationTotals(ctx, {
-        projectId: estimation.projectId,
-        laborItemIds: estimation.laborItemIds,
-        materialItemIds: estimation.materialItemIds,
-        vatPercent: normalizePercent(estimation.vatPercent, "VAT"),
-        discountPercent: normalizePercent(estimation.discountPercent ?? 0, "Discount"),
-      });
+      calculateEstimationTotalsFromItems(
+        resolvedItems,
+        resolveStoredEstimationVatPercent(estimation),
+      );
+    const { laborSnapshots, materialSnapshots } =
+      buildEstimationItemSnapshots(resolvedItems);
+
+    const taxSnapshot =
+      estimation.taxSnapshot ??
+      (await resolveLegacyEstimationTaxSnapshot(ctx, {
+        teamId: estimation.teamId,
+        legacyVatPercent: estimation.vatPercent,
+      }));
 
     await ctx.db.patch(args.estimationId, {
       laborTotal,
@@ -453,6 +484,10 @@ export const recalculateEstimation = mutation({
       discountAmount,
       vatAmount,
       grossTotal,
+      discountPercent: 0,
+      taxSnapshot,
+      laborSnapshots,
+      materialSnapshots,
       updatedAt: Date.now(),
     });
 
@@ -548,8 +583,6 @@ interface CalculateTotalsArgs {
   projectId: Id<"projects">;
   laborItemIds: Id<"laborItems">[];
   materialItemIds: Id<"shoppingListItems">[];
-  vatPercent: number;
-  discountPercent: number;
 }
 
 interface CalculateTotalsResult {
@@ -579,6 +612,59 @@ type ContactSnapshot = {
   city?: string;
   country?: string;
 } | null;
+
+type EstimationTaxSnapshot = {
+  taxEnabled: boolean;
+  taxRate: number;
+  taxLabel: string;
+  priceDisplay?: OrganizationPriceDisplay;
+  source: "organization" | "project" | "legacy_estimation";
+};
+
+type ResolvedLaborItem = {
+  _id: Id<"laborItems">;
+  name: string;
+  notes?: string | null;
+  quantity: number;
+  unit?: string;
+  unitPrice?: number;
+  totalPrice?: number;
+  projectId: Id<"projects">;
+};
+
+type ResolvedMaterialItem = {
+  _id: Id<"shoppingListItems">;
+  name: string;
+  notes?: string | null;
+  quantity: number;
+  unitPrice?: number;
+  totalPrice?: number;
+  projectId: Id<"projects">;
+};
+
+type ResolvedEstimationItems = {
+  laborItems: ResolvedLaborItem[];
+  materialItems: ResolvedMaterialItem[];
+};
+
+type EstimationLaborSnapshot = {
+  sourceItemId?: string;
+  name: string;
+  notes?: string;
+  quantity: number;
+  unit?: string;
+  unitPrice?: number;
+  totalPrice?: number;
+};
+
+type EstimationMaterialSnapshot = {
+  sourceItemId?: string;
+  name: string;
+  notes?: string;
+  quantity: number;
+  unitPrice?: number;
+  totalPrice?: number;
+};
 
 function hasOwn<T extends object>(obj: T, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(obj, key);
@@ -727,9 +813,11 @@ async function resolveProjectContact(
 
   const assignment = await ctx.db
     .query("projectContacts")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .withIndex("by_project_and_contact", (q: any) =>
       q.eq("projectId", args.projectId).eq("contactId", contactId)
     )
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .filter((q: any) => q.eq(q.field("isActive"), true))
     .first();
 
@@ -760,12 +848,14 @@ async function assertEstimationNumberAvailable(
 ) {
   const estimations = await ctx.db
     .query("costEstimations")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .withIndex("by_project", (q: any) => q.eq("projectId", args.projectId))
     .collect();
 
   const normalizedTarget = args.estimationNumber.toUpperCase();
 
   const duplicate = estimations.find(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (estimation: any) =>
       estimation._id !== args.excludeEstimationId &&
       estimation.estimationNumber?.toUpperCase() === normalizedTarget
@@ -783,6 +873,7 @@ async function generateNextEstimationNumber(
 ): Promise<string> {
   const estimations = await ctx.db
     .query("costEstimations")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .withIndex("by_project", (q: any) => q.eq("projectId", projectId))
     .collect();
 
@@ -799,11 +890,11 @@ async function generateNextEstimationNumber(
   return `EST-${year}-${String(maxSequence + 1).padStart(3, "0")}`;
 }
 
-async function calculateEstimationTotals(
+async function resolveEstimationSourceItems(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ctx: any,
-  args: CalculateTotalsArgs
-): Promise<CalculateTotalsResult> {
+  args: CalculateTotalsArgs,
+): Promise<ResolvedEstimationItems> {
   const laborItems = await Promise.all(
     args.laborItemIds.map((id) => ctx.db.get(id))
   );
@@ -811,7 +902,7 @@ async function calculateEstimationTotals(
     args.materialItemIds.map((id) => ctx.db.get(id))
   );
 
-  let laborTotal = 0;
+  const resolvedLaborItems: ResolvedLaborItem[] = [];
   for (let i = 0; i < args.laborItemIds.length; i++) {
     const item = laborItems[i];
     if (!item) {
@@ -820,10 +911,10 @@ async function calculateEstimationTotals(
     if (item.projectId !== args.projectId) {
       throw new Error("Labor item does not belong to this project");
     }
-    laborTotal += item.totalPrice || 0;
+    resolvedLaborItems.push(item as ResolvedLaborItem);
   }
 
-  let materialsTotal = 0;
+  const resolvedMaterialItems: ResolvedMaterialItem[] = [];
   for (let i = 0; i < args.materialItemIds.length; i++) {
     const item = materialItems[i];
     if (!item) {
@@ -832,14 +923,32 @@ async function calculateEstimationTotals(
     if (item.projectId !== args.projectId) {
       throw new Error("Shopping list item does not belong to this project");
     }
-    materialsTotal += item.totalPrice || 0;
+    resolvedMaterialItems.push(item as ResolvedMaterialItem);
   }
 
+  return {
+    laborItems: resolvedLaborItems,
+    materialItems: resolvedMaterialItems,
+  };
+}
+
+function calculateEstimationTotalsFromItems(
+  items: ResolvedEstimationItems,
+  vatPercent: number,
+): CalculateTotalsResult {
+  const laborTotal = items.laborItems.reduce(
+    (sum, item) => sum + (item.totalPrice || 0),
+    0,
+  );
+  const materialsTotal = items.materialItems.reduce(
+    (sum, item) => sum + (item.totalPrice || 0),
+    0,
+  );
+
   const netTotal = laborTotal + materialsTotal;
-  const discountAmount = netTotal * (args.discountPercent / 100);
-  const afterDiscount = netTotal - discountAmount;
-  const vatAmount = afterDiscount * (args.vatPercent / 100);
-  const grossTotal = afterDiscount + vatAmount;
+  const discountAmount = 0;
+  const vatAmount = netTotal * (vatPercent / 100);
+  const grossTotal = netTotal + vatAmount;
 
   return {
     laborTotal: roundCurrency(laborTotal),
@@ -849,4 +958,133 @@ async function calculateEstimationTotals(
     vatAmount: roundCurrency(vatAmount),
     grossTotal: roundCurrency(grossTotal),
   };
+}
+
+function buildEstimationItemSnapshots(
+  items: ResolvedEstimationItems,
+): {
+  laborSnapshots: EstimationLaborSnapshot[];
+  materialSnapshots: EstimationMaterialSnapshot[];
+} {
+  return {
+    laborSnapshots: items.laborItems.map((item) => ({
+      sourceItemId: String(item._id),
+      name: item.name,
+      notes: normalizeOptionalString(item.notes ?? undefined),
+      quantity: item.quantity,
+      unit: normalizeOptionalString(item.unit),
+      unitPrice: item.unitPrice,
+      totalPrice: item.totalPrice,
+    })),
+    materialSnapshots: items.materialItems.map((item) => ({
+      sourceItemId: String(item._id),
+      name: item.name,
+      notes: normalizeOptionalString(item.notes ?? undefined),
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      totalPrice: item.totalPrice,
+    })),
+  };
+}
+
+async function resolveActiveEstimationTaxSnapshot(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any,
+  args: {
+    project: {
+      teamId: Id<"teams">;
+    };
+    legacyVatPercent?: number;
+  },
+): Promise<EstimationTaxSnapshot | undefined> {
+  const organizationTaxSettings = await resolveEstimationPresentationSettings(
+    ctx,
+    args.project.teamId,
+  );
+
+  if (organizationTaxSettings.taxEnabled) {
+    return {
+      taxEnabled: true,
+      taxRate: normalizePercent(organizationTaxSettings.taxRate, "Organization tax"),
+      taxLabel: organizationTaxSettings.taxLabel,
+      priceDisplay: organizationTaxSettings.priceDisplay,
+      source: "organization",
+    };
+  }
+
+  if (args.legacyVatPercent !== undefined) {
+    const legacyTaxRate = normalizePercent(args.legacyVatPercent, "VAT");
+    if (legacyTaxRate > 0) {
+      return {
+        taxEnabled: true,
+        taxRate: legacyTaxRate,
+        taxLabel: organizationTaxSettings.taxLabel,
+        priceDisplay: organizationTaxSettings.priceDisplay,
+        source: "legacy_estimation",
+      };
+    }
+  }
+
+  return undefined;
+}
+
+async function resolveLegacyEstimationTaxSnapshot(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any,
+  args: {
+    teamId: Id<"teams">;
+    legacyVatPercent?: number;
+  },
+): Promise<EstimationTaxSnapshot | undefined> {
+  if (args.legacyVatPercent === undefined) {
+    return undefined;
+  }
+
+  const legacyTaxRate = normalizePercent(args.legacyVatPercent, "VAT");
+  if (legacyTaxRate <= 0) {
+    return undefined;
+  }
+
+  const presentation = await resolveEstimationPresentationSettings(
+    ctx,
+    args.teamId,
+  );
+
+  return {
+    taxEnabled: true,
+    taxRate: legacyTaxRate,
+    taxLabel: presentation.taxLabel,
+    priceDisplay: presentation.priceDisplay,
+    source: "legacy_estimation",
+  };
+}
+
+function resolveStoredEstimationVatPercent(
+  estimation: {
+    vatPercent: number;
+    taxSnapshot?: EstimationTaxSnapshot;
+  },
+): number {
+  if (estimation.taxSnapshot?.taxEnabled) {
+    return normalizePercent(estimation.taxSnapshot.taxRate, "Tax");
+  }
+
+  return normalizePercent(estimation.vatPercent, "VAT");
+}
+
+async function resolveEstimationPresentationSettings(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any,
+  teamId: Id<"teams">,
+): Promise<ReturnType<typeof resolveOrganizationTaxSettings>> {
+  const team = await ctx.db.get(teamId);
+  if (!team) {
+    throw new Error("Team not found");
+  }
+
+  return resolveOrganizationTaxSettings(
+    (team as { organizationTaxSettings?: unknown }).organizationTaxSettings as
+      | Parameters<typeof resolveOrganizationTaxSettings>[0]
+      | undefined,
+  );
 }

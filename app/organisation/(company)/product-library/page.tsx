@@ -68,7 +68,7 @@ export default function ProductLibraryPage() {
       onClick={() => setSelectedProduct(product)}
     >
       <div className="relative overflow-hidden rounded-[1.75rem] border border-border/60 bg-white transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-foreground/15 group-hover:shadow-[0_16px_36px_-24px_rgba(15,15,15,0.28)]">
-        <div className="aspect-square bg-background p-7 sm:p-8">
+        <div className="h-36 bg-background p-3 sm:aspect-square sm:h-auto sm:p-8">
           {product.imageUrl ? (
             <img
               src={product.imageUrl}

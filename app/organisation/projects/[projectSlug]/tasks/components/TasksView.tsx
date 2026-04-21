@@ -10,7 +10,6 @@ import { useQuery, useMutation } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import { Id } from "@/convex/_generated/dataModel";
 import { useProject } from "@/components/providers/ProjectProvider";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -623,99 +622,97 @@ export default function TasksView() {
             </div>
           </KanbanProvider>
         ) : (
-          <Card className="flex-grow">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead onClick={() => handleSortChange("title")}>
-                    <div className="flex items-center cursor-pointer">
-                      Task <ChevronsUpDown data-icon="inline-end" />
-                    </div>
-                  </TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Priority</TableHead>
-                  <TableHead>Assignee</TableHead>
-                  <TableHead onClick={() => handleSortChange("endDate")}>
-                    <div className="flex items-center cursor-pointer">
-                      End Date <ChevronsUpDown data-icon="inline-end" />
-                    </div>
-                  </TableHead>
-                  <TableHead>Tags</TableHead>
-                  <TableHead></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {tasksToDisplay?.map((task) => (
-                  <TableRow key={task._id}>
-                    <TableCell className="font-medium">
-                      <Link
-                        href={`/organisation/projects/${params.projectSlug}/tasks/${task._id}`}
-                      >
-                        {task.title}
-                      </Link>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">
-                        {project.taskStatusSettings?.[task.status]?.name ||
-                          task.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {task.priority && (
-                        <Badge variant="outline">{task.priority}</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {task.assignedToName && (
-                        <div className="flex items-center gap-2">
-                          <Avatar className="size-6">
-                            <AvatarImage src={task.assignedToImageUrl} />
-                            <AvatarFallback>
-                              {task.assignedToName?.charAt(0)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span>{task.assignedToName}</span>
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {task.endDate
-                        ? formatDateTime(task.endDate)
-                        : task.startDate
-                          ? formatDateTime(task.startDate)
-                          : "-"}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        {task.tags?.map((tag) => (
-                          <Badge key={tag} variant="secondary">
-                            {tag}
-                          </Badge>
-                        ))}
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead onClick={() => handleSortChange("title")}>
+                  <div className="flex items-center cursor-pointer">
+                    Task <ChevronsUpDown data-icon="inline-end" />
+                  </div>
+                </TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Priority</TableHead>
+                <TableHead>Assignee</TableHead>
+                <TableHead onClick={() => handleSortChange("endDate")}>
+                  <div className="flex items-center cursor-pointer">
+                    End Date <ChevronsUpDown data-icon="inline-end" />
+                  </div>
+                </TableHead>
+                <TableHead>Tags</TableHead>
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {tasksToDisplay?.map((task) => (
+                <TableRow key={task._id}>
+                  <TableCell className="font-medium">
+                    <Link
+                      href={`/organisation/projects/${params.projectSlug}/tasks/${task._id}`}
+                    >
+                      {task.title}
+                    </Link>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary">
+                      {project.taskStatusSettings?.[task.status]?.name ||
+                        task.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {task.priority && (
+                      <Badge variant="outline">{task.priority}</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {task.assignedToName && (
+                      <div className="flex items-center gap-2">
+                        <Avatar className="size-6">
+                          <AvatarImage src={task.assignedToImageUrl} />
+                          <AvatarFallback>
+                            {task.assignedToName?.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span>{task.assignedToName}</span>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>
-                            <ChevronsUpDown />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuGroup>
-                            <DropdownMenuItem>Edit</DropdownMenuItem>
-                            <DropdownMenuItem>Delete</DropdownMenuItem>
-                          </DropdownMenuGroup>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {task.endDate
+                      ? formatDateTime(task.endDate)
+                      : task.startDate
+                        ? formatDateTime(task.startDate)
+                        : "-"}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-1">
+                      {task.tags?.map((tag) => (
+                        <Badge key={tag} variant="secondary">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <span className="sr-only">Open menu</span>
+                          <ChevronsUpDown />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuGroup>
+                          <DropdownMenuItem>Edit</DropdownMenuItem>
+                          <DropdownMenuItem>Delete</DropdownMenuItem>
+                        </DropdownMenuGroup>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         )}
       </div>
     </div>

@@ -28,7 +28,6 @@ import {
   normalizeOrganizationTaxLabel,
   normalizeTeamTaxRates,
   resolveOrganizationTaxSettings,
-  resolveOrganizationTaxSettingsFromRates,
 } from "../lib/organizationTax";
 import {
   resolveTeamMemberNotificationSettings,
@@ -392,9 +391,8 @@ export const getTeamSettingsByClerkOrg = query({
         (team as { taxRates?: unknown[] }).taxRates,
         team.organizationTaxSettings,
       ),
-      organizationTaxSettings: resolveOrganizationTaxSettingsFromRates(
-        (team as { taxRates?: unknown[] }).taxRates,
-        resolveOrganizationTaxSettings(team.organizationTaxSettings),
+      organizationTaxSettings: resolveOrganizationTaxSettings(
+        team.organizationTaxSettings,
       ),
       notificationSettings: resolveTeamMemberNotificationSettings(
         teamMember.notificationSettings,
@@ -1327,32 +1325,20 @@ export const updateTeamSettings = mutation({
     }
 
     if (Object.prototype.hasOwnProperty.call(args, "organizationTaxSettings")) {
-      const currentTaxRates = normalizeTeamTaxRates(
-        (team as { taxRates?: unknown[] }).taxRates,
-        team.organizationTaxSettings,
-      );
-      const normalizedTaxSettings =
-        currentTaxRates.length > 0
-          ? resolveOrganizationTaxSettingsFromRates(currentTaxRates, {
-              ...team.organizationTaxSettings,
-              priceDisplay: normalizeOrganizationPriceDisplay(
-                args.organizationTaxSettings?.priceDisplay,
-              ),
-            })
-          : args.organizationTaxSettings
-            ? resolveOrganizationTaxSettings({
-                taxEnabled: args.organizationTaxSettings.taxEnabled,
-                taxRate: clampOrganizationTaxRate(
-                  args.organizationTaxSettings.taxRate,
-                ),
-                taxLabel: normalizeOrganizationTaxLabel(
-                  args.organizationTaxSettings.taxLabel,
-                ),
-                priceDisplay: normalizeOrganizationPriceDisplay(
-                  args.organizationTaxSettings.priceDisplay,
-                ),
-              })
-            : DEFAULT_ORGANIZATION_TAX_SETTINGS;
+      const normalizedTaxSettings = args.organizationTaxSettings
+        ? resolveOrganizationTaxSettings({
+            taxEnabled: args.organizationTaxSettings.taxEnabled,
+            taxRate: clampOrganizationTaxRate(
+              args.organizationTaxSettings.taxRate,
+            ),
+            taxLabel: normalizeOrganizationTaxLabel(
+              args.organizationTaxSettings.taxLabel,
+            ),
+            priceDisplay: normalizeOrganizationPriceDisplay(
+              args.organizationTaxSettings.priceDisplay,
+            ),
+          })
+        : DEFAULT_ORGANIZATION_TAX_SETTINGS;
 
       patch.organizationTaxSettings = normalizedTaxSettings;
     }

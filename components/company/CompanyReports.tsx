@@ -15,6 +15,9 @@ import {
   AlertCircle,
   FileText,
   Receipt,
+  Activity,
+  FolderPlus,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -63,11 +66,11 @@ const SHOPPING_STATUSES = [
 ] as const;
 
 const TIME_RANGE_CONFIG = {
-  "7d": { days: 7, label: "Last 7 days", metricLabel: "7d" },
-  "30d": { days: 30, label: "Last 30 days", metricLabel: "30d" },
-  "90d": { days: 90, label: "Last 3 months", metricLabel: "90d" },
-  "1y": { days: 365, label: "Last year", metricLabel: "1y" },
-} as const satisfies Record<string, { days: number; label: string; metricLabel: string }>;
+  "7d": { days: 7, label: "Last 7 days" },
+  "30d": { days: 30, label: "Last 30 days" },
+  "90d": { days: 90, label: "Last 3 months" },
+  "1y": { days: 365, label: "Last year" },
+} as const satisfies Record<string, { days: number; label: string }>;
 
 const ALL_REPORT_SECTIONS: Record<ReportSectionKey, boolean> = {
   overview: true,
@@ -150,8 +153,12 @@ export default function CompanyReports() {
     apiAny.shopping.getShoppingSetsByTeam,
     team && team._id ? { teamId: team._id } : "skip",
   );
+  const teamMembers = useQuery(
+    apiAny.teams.getTeamMembers,
+    team && team._id ? { teamId: team._id } : "skip",
+  );
 
-  const analyticsMetrics = useQuery(
+  const activityMetrics = useQuery(
     apiAny.activityLog.getTeamProductKpis,
     team && team._id ? { teamId: team._id, days: timeRangeConfig.days } : "skip",
   );
@@ -171,6 +178,7 @@ export default function CompanyReports() {
   const tasksList = teamTasks || [];
   const shoppingList = shoppingItems || [];
   const shoppingSetList = shoppingSets || [];
+  const teamMembersList = teamMembers || [];
   const shoppingListWithStatus = shoppingList as Array<{
     _id: string;
     totalPrice?: number | null;
@@ -206,6 +214,9 @@ export default function CompanyReports() {
   const completedTasks = tasksList.filter((task) => task.status === "done").length;
   const inProgressTasks = tasksList.filter((task) => task.status === "in_progress").length;
   const completionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+  const timeRangeStart = Date.now() - timeRangeConfig.days * 24 * 60 * 60 * 1000;
+  const recentProjectsCount = projectList.filter((project) => project._creationTime >= timeRangeStart).length;
+  const teamMembersCount = teamMembersList.length;
 
   const totalShoppingCost = calculateShoppingTotal(shoppingListWithStatus, shoppingSetList as Array<{
     _id: string;
@@ -273,7 +284,6 @@ export default function CompanyReports() {
     };
   }).filter((entry) => entry.count > 0);
 
-  const analyticsRangeSuffix = timeRangeConfig.metricLabel;
   const generatedOn = new Date();
   const generatedOnLabel = generatedOn.toLocaleString("en-US", {
     dateStyle: "medium",
@@ -318,16 +328,16 @@ export default function CompanyReports() {
   const overviewExportRows = [
     ["Total Projects", totalProjects],
     ["Active Projects", activeProjects],
+    ["Active Team Members", teamMembersCount],
     ["Total Budget", formatMoney(totalBudget)],
     ["Total Tasks", totalTasks],
     ["Completed Tasks", completedTasks],
     ["Tasks In Progress", inProgressTasks],
     ["Completion Rate", `${completionRate.toFixed(1)}%`],
     ["Overdue Tasks", overdueTasks],
-    [`Onboarding (${analyticsRangeSuffix})`, analyticsMetrics?.onboardingCompleted ?? 0],
-    [`Projects Created (${analyticsRangeSuffix})`, analyticsMetrics?.projectsCreated ?? 0],
-    [`AI Messages (${analyticsRangeSuffix})`, analyticsMetrics?.aiMessagesSent ?? 0],
-    [`Active Users (${analyticsRangeSuffix})`, analyticsMetrics?.activeUsers ?? 0],
+    [`New Projects (${timeRangeConfig.label})`, recentProjectsCount],
+    [`Recorded Activity (${timeRangeConfig.label})`, activityMetrics?.activityEvents ?? 0],
+    [`Active Collaborators (${timeRangeConfig.label})`, activityMetrics?.activeCollaborators ?? 0],
   ] as Array<[string, string | number]>;
 
   const projectStatusExportRows = Object.entries(projectsByStatus).map(([status, count]) => [
@@ -673,7 +683,7 @@ export default function CompanyReports() {
     });
 
     yPosition = addDocumentMeta(doc, {
-      title: "Reports & Analytics",
+      title: "Reports",
       subtitle: `${timeRangeConfig.label} | ${selectedSections.map((section) => REPORT_SECTION_LABELS[section]).join(", ")}`,
       generatedOn: generatedOnLabel,
       startY: yPosition,
@@ -941,7 +951,7 @@ export default function CompanyReports() {
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Reports & Analytics</h1>
+        <h1 className="text-2xl font-semibold">Reports</h1>
 
         <div className="flex items-center gap-3">
           <Select value={timeRange} onValueChange={setTimeRange}>
@@ -981,7 +991,7 @@ export default function CompanyReports() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{totalProjects}</div>
-                  <p className="text-xs text-muted-foreground">{activeProjects} active</p>
+                  <p className="text-xs text-muted-foreground">{activeProjects} currently active</p>
                 </CardContent>
               </Card>
 
@@ -992,19 +1002,19 @@ export default function CompanyReports() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{formatMoney(totalBudget)}</div>
-                  <p className="text-xs text-muted-foreground">Across all projects</p>
+                  <p className="text-xs text-muted-foreground">Across the full project portfolio</p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-                  <CardTitle className="text-sm font-medium">Tasks Progress</CardTitle>
+                  <CardTitle className="text-sm font-medium">Task Completion</CardTitle>
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{completionRate.toFixed(1)}%</div>
                   <p className="text-xs text-muted-foreground">
-                    {completedTasks} done, {inProgressTasks} in progress
+                    {completedTasks} completed, {inProgressTasks} in progress
                   </p>
                 </CardContent>
               </Card>
@@ -1018,9 +1028,9 @@ export default function CompanyReports() {
                   <div className="text-2xl font-bold">{overdueTasks}</div>
                   <p className="text-xs text-muted-foreground">
                     {overdueTasks > 0 ? (
-                      <span className="text-destructive">Require attention</span>
+                      <span className="text-destructive">Action required</span>
                     ) : (
-                      <span className="text-foreground">All on track</span>
+                      <span className="text-foreground">No delays detected</span>
                     )}
                   </p>
                 </CardContent>
@@ -1028,38 +1038,30 @@ export default function CompanyReports() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">{`Onboarding (${analyticsRangeSuffix})`}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{analyticsMetrics?.onboardingCompleted ?? 0}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">{`Projects Created (${analyticsRangeSuffix})`}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{analyticsMetrics?.projectsCreated ?? 0}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">{`AI Messages (${analyticsRangeSuffix})`}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{analyticsMetrics?.aiMessagesSent ?? 0}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">{`Active Users (${analyticsRangeSuffix})`}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{analyticsMetrics?.activeUsers ?? 0}</div>
-                </CardContent>
-              </Card>
+              <FinancialCard
+                title="Active Team Members"
+                value={String(teamMembersCount)}
+                subtitle="Current organization members"
+                icon={<Users className="h-4 w-4 text-muted-foreground" />}
+              />
+              <FinancialCard
+                title="New Projects"
+                value={String(recentProjectsCount)}
+                subtitle={timeRangeConfig.label}
+                icon={<FolderPlus className="h-4 w-4 text-muted-foreground" />}
+              />
+              <FinancialCard
+                title="Recorded Activity"
+                value={String(activityMetrics?.activityEvents ?? 0)}
+                subtitle={timeRangeConfig.label}
+                icon={<Activity className="h-4 w-4 text-muted-foreground" />}
+              />
+              <FinancialCard
+                title="Active Collaborators"
+                value={String(activityMetrics?.activeCollaborators ?? 0)}
+                subtitle={timeRangeConfig.label}
+                icon={<Users className="h-4 w-4 text-muted-foreground" />}
+              />
             </div>
           </div>
         </TabsContent>

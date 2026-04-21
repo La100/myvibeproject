@@ -443,7 +443,10 @@ export const addToShoppingList = mutation({
       dimensions: product.dimensions,
       quantity: args.quantity,
       unitPrice: product.unitPrice,
-      totalPrice: product.unitPrice ? product.unitPrice * args.quantity : undefined,
+      totalPrice:
+        product.unitPrice !== undefined
+          ? product.unitPrice * args.quantity
+          : undefined,
       realizationStatus: "PLANNED" as const,
       sectionId: args.sectionId,
       projectId: args.projectId,

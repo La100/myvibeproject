@@ -44,7 +44,6 @@ import {
   isItemCountedInShoppingTotal,
 } from "@/lib/shoppingSets";
 import { formatShoppingExportProductLabel } from "@/lib/shoppingListExport";
-import { resolveOrganizationTaxSettings } from "@/lib/organizationTax";
 import {
   ProjectBookExportDialog,
   type ProjectBookExportOptions,
@@ -98,21 +97,45 @@ const getShoppingStatusLabel = (
     ? SHOPPING_STATUS_LABELS[status as keyof typeof SHOPPING_STATUS_LABELS]
     : status || "-";
 
-const formatProjectDate = (value?: number) =>
+const formatProjectDate = (
+  value?: number,
+  options?: Intl.DateTimeFormatOptions,
+) =>
   value
     ? new Intl.DateTimeFormat("en-GB", {
         day: "2-digit",
         month: "short",
-        year: "2-digit",
+        year: "numeric",
+        ...options,
       }).format(new Date(value))
     : null;
 
 const formatDateRange = (startDate?: number, endDate?: number) => {
   const startLabel = formatProjectDate(startDate);
   const endLabel = formatProjectDate(endDate);
+  const startCompactLabel = formatProjectDate(startDate, {
+    day: "2-digit",
+    month: "short",
+    year: undefined,
+  });
+  const endCompactLabel = formatProjectDate(endDate, {
+    day: "2-digit",
+    month: "short",
+    year: undefined,
+  });
+  const startYear = startDate ? new Date(startDate).getFullYear() : null;
+  const endYear = endDate ? new Date(endDate).getFullYear() : null;
+
+  if (startCompactLabel && endCompactLabel && startYear && endYear) {
+    if (startYear === endYear) {
+      return `${startCompactLabel} - ${endCompactLabel} ${endYear}`;
+    }
+
+    return `${startCompactLabel} ${startYear} - ${endCompactLabel} ${endYear}`;
+  }
 
   if (startLabel && endLabel) {
-    return `${startLabel} -> ${endLabel}`;
+    return `${startLabel} - ${endLabel}`;
   }
 
   return startLabel || endLabel || "Timeline not set";
@@ -209,12 +232,6 @@ function ProjectOverviewContent() {
   const moodboardSections = useQuery(apiAny.files.getMoodboardSections, {
     projectId: project._id,
   });
-  const estimations = useQuery(apiAny.costEstimations.listCostEstimations, {
-    projectId: project._id,
-  });
-  const projectContacts = useQuery(apiAny.contacts.getProjectContacts, {
-    projectId: project._id,
-  });
 
   const moodboardImageQueries = useMemo(
     () =>
@@ -246,9 +263,7 @@ function ProjectOverviewContent() {
     notes === undefined ||
     team === undefined ||
     teamMembers === undefined ||
-    moodboardSections === undefined ||
-    estimations === undefined ||
-    projectContacts === undefined
+    moodboardSections === undefined
   ) {
     return <ProjectOverviewSkeleton />;
   }
@@ -592,49 +607,33 @@ function ProjectOverviewContent() {
       typeof task.endDate === "number" &&
       task.endDate < Date.now(),
   ).length;
-  const unpaidInstallments = (
-    (paymentsData?.installments as
-      | Array<{
-          _id: string;
-          title: string;
-          amount: number;
-          currency: string;
-          dueDate?: number;
-          status: "draft" | "open" | "paid" | "void" | "uncollectible";
-          isOverdue?: boolean;
-        }>
-      | undefined) ?? []
-  ).filter(
-    (installment) =>
-      installment.status !== "paid" && installment.status !== "void",
-  );
-  const acceptedEstimationsCount = estimations.filter(
-    (estimation) => estimation.status === "accepted",
-  ).length;
-  const sentEstimationsCount = estimations.filter(
-    (estimation) => estimation.status === "sent",
-  ).length;
-  const overdueInstallmentsCount = unpaidInstallments.filter(
-    (installment) => installment.status === "open" && installment.isOverdue,
-  ).length;
-  const openInstallmentsCount = unpaidInstallments.filter(
-    (installment) => installment.status === "open",
-  ).length;
   const paidAmount = paymentsData?.totals.paid || 0;
   const outstandingAmount = paymentsData?.totals.outstanding || 0;
-  const scheduledAmount = budgetSummary.clientFunding.scheduledPayments || 0;
-
-  const teamTaxSettings = resolveOrganizationTaxSettings(
-    team?.organizationTaxSettings,
-  );
-  const taxRate = project.taxEnabled
-    ? (project.taxRate ?? 23)
-    : teamTaxSettings.taxEnabled
-      ? teamTaxSettings.taxRate
-      : 0;
-  const taxAmount =
-    taxRate > 0 ? (shoppingListCost + laborCost) * (taxRate / 100) : 0;
-  const totalCost = shoppingListCost + laborCost + taxAmount;
+  const totalCost = shoppingListCost + laborCost;
+  const totalCostBreakdown = [
+    ...(shoppingListCost > 0
+      ? [
+          {
+            label: "Shopping",
+            value: formatCurrency(shoppingListCost, project.currency, {
+              minimumFractionDigits: 0,
+              maximumFractionDigits: 0,
+            }),
+          },
+        ]
+      : []),
+    ...(laborCost > 0
+      ? [
+          {
+            label: "Labor",
+            value: formatCurrency(laborCost, project.currency, {
+              minimumFractionDigits: 0,
+              maximumFractionDigits: 0,
+            }),
+          },
+        ]
+      : []),
+  ];
 
   const overviewMetrics = [
     {
@@ -644,43 +643,39 @@ function ProjectOverviewContent() {
         overdueTasksCount > 0
           ? `${overdueTasksCount} overdue`
           : `${Math.max(tasks.length - activeTasksCount, 0)} completed`,
+      spanClass: "xl:col-span-2",
     },
     {
-      value: String(estimations.length),
-      label: "Estimations",
+      value: formatCurrency(totalCost, project.currency, {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }),
+      label: "Total cost",
       meta:
-        acceptedEstimationsCount > 0
-          ? `${acceptedEstimationsCount} accepted`
-          : sentEstimationsCount > 0
-            ? `${sentEstimationsCount} sent`
-            : "No estimations yet",
-    },
-    {
-      value: String(unpaidInstallments.length),
-      label: "Open payments",
-      meta:
-        overdueInstallmentsCount > 0
-          ? `${overdueInstallmentsCount} overdue`
-          : openInstallmentsCount > 0
-            ? `${openInstallmentsCount} awaiting payment`
-            : "No open payments",
+        totalCostBreakdown.length > 0
+          ? "Shopping and labor scope"
+          : "No scoped costs yet",
+      breakdown: totalCostBreakdown,
+      spanClass: "xl:col-span-2",
     },
     {
       value: formatCurrency(
-        budgetSummary.plannedCost || scheduledAmount || project.budget || totalCost,
-        budgetSummary.currency || paymentsData?.currency || project.currency,
+        paidAmount + outstandingAmount,
+        paymentsData?.currency || project.currency,
         {
           minimumFractionDigits: 0,
           maximumFractionDigits: 0,
         },
       ),
-      label: "Planned cost",
-      meta:
-        budgetSummary.plannedCost > 0
-          ? "Shopping and labor scope"
-          : projectContacts.length > 0
-            ? `${projectContacts.length} project contacts assigned`
-            : "No scoped costs yet",
+      label: "Total invoices",
+      meta: `${formatCurrency(
+        paidAmount,
+        paymentsData?.currency || project.currency,
+      )} paid, ${formatCurrency(
+        outstandingAmount,
+        paymentsData?.currency || project.currency,
+      )} unpaid`,
+      spanClass: "xl:col-span-2",
     },
   ];
 
@@ -823,9 +818,10 @@ function ProjectOverviewContent() {
                       ) : null}
                       <Badge
                         variant="outline"
-                        className="rounded-md border-border/80 bg-muted/35 px-2.5 py-1 text-[11px] font-medium text-muted-foreground"
+                        className="inline-flex items-center gap-2 rounded-full border-border/80 bg-background px-3 py-1.5 text-[11px] font-medium text-foreground shadow-none"
                       >
-                        {formatDateRange(project.startDate, project.endDate)}
+                        <CalendarRange className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span>{formatDateRange(project.startDate, project.endDate)}</span>
                       </Badge>
                     </div>
                     {project.description ? (
@@ -891,65 +887,42 @@ function ProjectOverviewContent() {
                 </div>
               </div>
 
-              <div className="grid border-b border-border/70 bg-muted/[0.14] md:grid-cols-2 xl:grid-cols-4">
-                {overviewMetrics.map((metric, index) => (
-                  <div
-                    key={metric.label}
-                    className={cn(
-                      "px-6 py-5 sm:px-8",
-                      index < overviewMetrics.length - 1 &&
-                        "xl:border-r xl:border-border/70",
-                      index < 2 && "md:border-b md:border-border/70 xl:border-b-0",
-                    )}
-                  >
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                      {metric.label}
-                    </p>
-                    <p className="mt-3 text-[30px] font-semibold tracking-tight tabular-nums text-foreground">
-                      {metric.value}
-                    </p>
-                    <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
-                      {metric.meta}
-                    </p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="border-b border-border/70 px-6 py-5 sm:px-8">
-                <div className="grid items-end gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                      Total invoices
-                    </p>
-                    <p className="mt-3 text-[30px] font-semibold tracking-tight tabular-nums text-foreground">
-                      {formatCurrency(
-                        paidAmount + outstandingAmount,
-                        paymentsData?.currency || project.currency,
-                        {
-                          minimumFractionDigits: 0,
-                          maximumFractionDigits: 0,
-                        },
+              <div className="border-b border-border/70 px-6 py-6 sm:px-8">
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+                  {overviewMetrics.map((metric, index) => (
+                    <div
+                      key={metric.label}
+                      className={cn(
+                        "rounded-[18px] border border-border/80 bg-card px-5 py-5",
+                        metric.spanClass,
+                        index === overviewMetrics.length - 1 && "md:col-span-2",
                       )}
-                    </p>
-                    <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
-                      {formatCurrency(
-                        paidAmount,
-                        paymentsData?.currency || project.currency,
-                      )}{" "}
-                      paid,{" "}
-                      {formatCurrency(
-                        outstandingAmount,
-                        paymentsData?.currency || project.currency,
-                      )}{" "}
-                      unpaid
-                    </p>
-                  </div>
-                  <div className="flex items-end justify-start lg:justify-end">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-background px-3 py-1.5 text-[11px] font-medium text-muted-foreground">
-                      <CalendarRange className="h-3.5 w-3.5" />
-                      <span>{formatDateRange(project.startDate, project.endDate)}</span>
+                    >
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                        {metric.label}
+                      </p>
+                      <p className="mt-3 text-[30px] font-semibold tracking-tight tabular-nums text-foreground">
+                        {metric.value}
+                      </p>
+                      <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
+                        {metric.meta}
+                      </p>
+                      {"breakdown" in metric && metric.breakdown?.length ? (
+                        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border/70 pt-3">
+                          {metric.breakdown.map((item) => (
+                            <div key={item.label} className="space-y-0.5">
+                              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                                {item.label}
+                              </p>
+                              <p className="text-[12px] font-medium text-foreground">
+                                {item.value}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
                     </div>
-                  </div>
+                  ))}
                 </div>
               </div>
 

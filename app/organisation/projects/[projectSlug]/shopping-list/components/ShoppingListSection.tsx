@@ -62,6 +62,25 @@ const SHOPPING_STATUS_OPTIONS: Array<{
   { value: "COMPLETED", label: "Completed" },
   { value: "CANCELLED", label: "Cancelled" },
 ];
+
+const SHOPPING_STATUS_TRIGGER_CLASSNAMES: Record<
+  ShoppingListItem["realizationStatus"],
+  string
+> = {
+  PLANNED:
+    "border-border/70 bg-background text-foreground/75 hover:border-foreground/15 hover:bg-white",
+  ORDERED:
+    "border-amber-200 bg-amber-50 text-amber-900 hover:border-amber-300 hover:bg-amber-100",
+  IN_TRANSIT:
+    "border-sky-200 bg-sky-50 text-sky-900 hover:border-sky-300 hover:bg-sky-100",
+  DELIVERED:
+    "border-violet-200 bg-violet-50 text-violet-900 hover:border-violet-300 hover:bg-violet-100",
+  COMPLETED:
+    "border-emerald-200 bg-emerald-50 text-emerald-900 hover:border-emerald-300 hover:bg-emerald-100",
+  CANCELLED:
+    "border-rose-200 bg-rose-50 text-rose-900 hover:border-rose-300 hover:bg-rose-100",
+};
+
 const formatItemCountLabel = (count: number) => `${count} ${count === 1 ? "item" : "items"}`;
 
 interface EditFormData {
@@ -247,7 +266,8 @@ export function ShoppingListSection({
       catalogNumber: item.catalogNumber || "",
       dimensions: item.dimensions || "",
       quantity: item.quantity,
-      unitPrice: item.unitPrice ? item.unitPrice.toString() : "",
+      unitPrice:
+        item.unitPrice !== undefined ? item.unitPrice.toString() : "",
       productLink: item.productLink || "",
       imageUrl: item.imageUrl || "",
       priority: item.priority,
@@ -270,7 +290,11 @@ export function ShoppingListSection({
       return;
     }
 
-    const unitPrice = parseFloat(editFormData.unitPrice || "0") || undefined;
+    const normalizedUnitPrice = editFormData.unitPrice?.trim() || "";
+    const unitPrice =
+      normalizedUnitPrice === ""
+        ? undefined
+        : Number.parseFloat(normalizedUnitPrice);
     const buyBefore = editFormData.buyBefore ? new Date(editFormData.buyBefore).getTime() : undefined;
     const nextSectionId =
       editFormData.sectionId === "none"
@@ -305,7 +329,7 @@ export function ShoppingListSection({
       catalogNumber: editFormData.catalogNumber?.trim() || undefined,
       dimensions: editFormData.dimensions?.trim() || undefined,
       quantity: editFormData.quantity || 1,
-      unitPrice,
+      unitPrice: Number.isFinite(unitPrice) ? unitPrice : undefined,
       productLink: editFormData.productLink?.trim() || undefined,
       imageUrl: editFormData.imageUrl?.trim() || undefined,
       priority: editFormData.priority,
@@ -398,22 +422,10 @@ export function ShoppingListSection({
     SHOPPING_STATUS_OPTIONS.find((option) => option.value === status)?.label ?? status;
 
   const getInlineStatusClassName = (status: ShoppingListItem["realizationStatus"]) => {
-    switch (status) {
-      case "PLANNED":
-        return "border-border/70 bg-background text-foreground/75 hover:border-foreground/15 hover:bg-white";
-      case "ORDERED":
-        return "border-border/70 bg-white text-foreground hover:border-foreground/15 hover:bg-background";
-      case "IN_TRANSIT":
-        return "border-foreground/15 bg-background text-foreground hover:border-foreground/25 hover:bg-white";
-      case "DELIVERED":
-        return "border-border/70 bg-white text-foreground/80 hover:border-foreground/15 hover:bg-background";
-      case "COMPLETED":
-        return "border-transparent bg-foreground text-background hover:bg-foreground/90";
-      case "CANCELLED":
-        return "border-border/70 bg-background text-muted-foreground hover:border-foreground/10 hover:bg-white";
-      default:
-        return "border-border/80 bg-card text-foreground hover:bg-accent";
-    }
+    return (
+      SHOPPING_STATUS_TRIGGER_CLASSNAMES[status] ??
+      "border-border/80 bg-card text-foreground hover:bg-accent"
+    );
   };
 
   const getCustomerDecisionTone = (

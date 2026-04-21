@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useOrganization } from "@clerk/nextjs";
 import { useQuery, useMutation } from "convex/react";
@@ -16,7 +17,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import Link from "next/link";
 
 const currencySymbols: Record<string, string> = {
   PLN: "zł",
@@ -47,7 +47,6 @@ export default function NewProjectPage() {
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isOptimizingCoverImage, setIsOptimizingCoverImage] = useState(false);
-  const hydratedTaxDefaultsRef = useRef(false);
 
   const team = useQuery(apiAny.teams.getTeamByClerkOrg,
     organization?.id ? { clerkOrgId: organization.id } : "skip"
@@ -82,42 +81,9 @@ export default function NewProjectPage() {
     endDate: "",
     currency: "PLN",
     measurements: "metric",
-    tax: false,
-    taxRate: "23",
   });
   const selectedCurrency = useDefaultCurrency ? (team?.currency || "PLN") : newProject.currency;
   const selectedCurrencySymbol = currencySymbols[selectedCurrency] || selectedCurrency;
-  const activeTaxRates =
-    team?.taxRates?.filter((entry: { isArchived?: boolean }) => entry.isArchived !== true) || [];
-  const hasAvailableTaxRates = activeTaxRates.length > 0;
-
-  useEffect(() => {
-    if (!team || hydratedTaxDefaultsRef.current) {
-      return;
-    }
-
-    hydratedTaxDefaultsRef.current = true;
-    setNewProject((current) => ({
-      ...current,
-      tax: Boolean(team.organizationTaxSettings?.taxEnabled),
-      taxRate: String(team.organizationTaxSettings?.taxRate ?? 23),
-    }));
-  }, [team]);
-
-  useEffect(() => {
-    if (hasAvailableTaxRates) {
-      return;
-    }
-
-    setNewProject((current) =>
-      current.tax
-        ? {
-            ...current,
-            tax: false,
-          }
-        : current,
-    );
-  }, [hasAvailableTaxRates]);
 
   useEffect(() => {
     if (!coverImageFile) {
@@ -209,12 +175,6 @@ export default function NewProjectPage() {
       return;
     }
 
-    if (newProject.tax && !hasAvailableTaxRates) {
-      toast.error("Add at least one tax rate before enabling tax on a project");
-      router.push("/organisation/tax");
-      return;
-    }
-
     setIsSubmitting(true);
     try {
       const fullAddress = [
@@ -238,10 +198,6 @@ export default function NewProjectPage() {
         endDate: newProject.endDate ? new Date(newProject.endDate).getTime() : undefined,
         currency: selectedCurrency,
         measurements: newProject.measurements === "imperial" ? "imperial" : "metric",
-        taxEnabled: newProject.tax,
-        taxRate: newProject.tax
-          ? Math.min(Math.max(parseFloat(newProject.taxRate) || 0, 0), 100)
-          : undefined,
       });
 
       if (coverImageFile && createdProject?.id) {
@@ -481,48 +437,6 @@ export default function NewProjectPage() {
                     <SelectItem value="imperial">Imperial</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="taxRate">Tax Rate (%)</Label>
-                <Input
-                  id="taxRate"
-                  type="number"
-                  min="0"
-                  max="100"
-                  placeholder="23"
-                  value={newProject.taxRate}
-                  onChange={(e) => setNewProject({ ...newProject, taxRate: e.target.value })}
-                  disabled={!newProject.tax || !hasAvailableTaxRates}
-                />
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3 rounded-lg bg-muted/50 p-4">
-              <input
-                type="checkbox"
-                id="tax"
-                checked={newProject.tax}
-                onChange={(e) =>
-                  setNewProject({ ...newProject, tax: hasAvailableTaxRates && e.target.checked })
-                }
-                className="mt-1 h-4 w-4 rounded border-border"
-                disabled={!hasAvailableTaxRates}
-              />
-              <div>
-                <label htmlFor="tax" className="cursor-pointer text-sm font-medium">Tax</label>
-                <p className="text-sm text-muted-foreground">
-                  When enabled, project cost overview includes tax and new estimations start with this VAT rate.
-                </p>
-                {!hasAvailableTaxRates ? (
-                  <p className="mt-2 text-sm text-amber-700">
-                    Add at least one tax rate first in{" "}
-                    <Link href="/organisation/tax" className="font-medium underline underline-offset-4">
-                      Tax settings
-                    </Link>
-                    .
-                  </p>
-                ) : null}
               </div>
             </div>
           </div>

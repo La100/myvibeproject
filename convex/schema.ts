@@ -162,6 +162,39 @@ const teamTaxRateValidator = v.object({
   updatedAt: v.number(),
 });
 
+const costEstimationTaxSnapshotValidator = v.object({
+  taxEnabled: v.boolean(),
+  taxRate: v.number(),
+  taxLabel: v.string(),
+  priceDisplay: v.optional(
+    v.union(v.literal("net"), v.literal("gross"), v.literal("both")),
+  ),
+  source: v.union(
+    v.literal("organization"),
+    v.literal("project"),
+    v.literal("legacy_estimation"),
+  ),
+});
+
+const costEstimationMaterialSnapshotValidator = v.object({
+  sourceItemId: v.optional(v.string()),
+  name: v.string(),
+  notes: v.optional(v.string()),
+  quantity: v.number(),
+  unitPrice: v.optional(v.number()),
+  totalPrice: v.optional(v.number()),
+});
+
+const costEstimationLaborSnapshotValidator = v.object({
+  sourceItemId: v.optional(v.string()),
+  name: v.string(),
+  notes: v.optional(v.string()),
+  quantity: v.number(),
+  unit: v.optional(v.string()),
+  unitPrice: v.optional(v.number()),
+  totalPrice: v.optional(v.number()),
+});
+
 const teamMemberNotificationSettingsValidator = v.object({
   taskAssigned: v.optional(v.boolean()),
   taskUnassigned: v.optional(v.boolean()),
@@ -920,8 +953,9 @@ export default defineSchema({
     estimationDate: v.number(), // Date created (Unix timestamp)
     plannedStartDate: v.optional(v.number()), // Planned start of work (Unix timestamp)
     validUntil: v.optional(v.number()), // Quote valid until (Unix timestamp)
-    vatPercent: v.number(), // VAT percentage (default 23%)
-    discountPercent: v.optional(v.number()), // Discount percentage
+    vatPercent: v.number(), // Stored tax rate snapshot used for this estimation
+    discountPercent: v.optional(v.number()), // Legacy discount field retained for compatibility
+    taxSnapshot: v.optional(costEstimationTaxSnapshotValidator),
     status: v.union(
       v.literal("draft"),
       v.literal("sent"),
@@ -931,21 +965,23 @@ export default defineSchema({
     ),
     // Selected items from shopping list (materials)
     materialItemIds: v.array(v.id("shoppingListItems")),
+    materialSnapshots: v.optional(v.array(costEstimationMaterialSnapshotValidator)),
     // Selected items from labor list
     laborItemIds: v.array(v.id("laborItems")),
+    laborSnapshots: v.optional(v.array(costEstimationLaborSnapshotValidator)),
     // Calculated totals (stored for quick access)
     laborTotal: v.optional(v.number()),
     materialsTotal: v.optional(v.number()),
     netTotal: v.optional(v.number()),
-    discountAmount: v.optional(v.number()),
+    discountAmount: v.optional(v.number()), // Legacy discount amount retained for compatibility
     vatAmount: v.optional(v.number()),
     grossTotal: v.optional(v.number()),
-    // Customer info (optional, can be linked to contacts)
+    // Customer info snapshot for the estimation.
     customerName: v.optional(v.string()),
     customerEmail: v.optional(v.string()),
     customerPhone: v.optional(v.string()),
     customerAddress: v.optional(v.string()),
-    contactId: v.optional(v.id("contacts")), // Link to contacts table
+    contactId: v.optional(v.id("contacts")), // Legacy link to contacts table
     notes: v.optional(v.string()),
     projectId: v.id("projects"),
     teamId: v.id("teams"),

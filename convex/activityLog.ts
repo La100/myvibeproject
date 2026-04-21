@@ -331,35 +331,24 @@ export const getTeamProductKpis = query({
       .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
       .collect();
 
-    let onboardingCompleted = 0;
-    let projectsCreated = 0;
-    let aiMessagesSent = 0;
-    const activeUsers = new Set<string>();
+    let activityEvents = 0;
+    const activeCollaborators = new Set<string>();
 
     for (const event of analyticsEvents) {
       if (event._creationTime < since) {
         continue;
       }
 
-      if (event.actionType === "analytics.onboarding.completed") {
-        onboardingCompleted += 1;
-        activeUsers.add(event.userId);
-      } else if (event.actionType === "analytics.project.created") {
-        projectsCreated += 1;
-        activeUsers.add(event.userId);
-      } else if (event.actionType === "analytics.ai.message_sent") {
-        aiMessagesSent += 1;
-        activeUsers.add(event.userId);
-      }
+      activityEvents += 1;
+      activeCollaborators.add(event.userId);
+
     }
 
     return {
       days,
       since,
-      onboardingCompleted,
-      projectsCreated,
-      aiMessagesSent,
-      activeUsers: activeUsers.size,
+      activityEvents,
+      activeCollaborators: activeCollaborators.size,
     };
   },
 });

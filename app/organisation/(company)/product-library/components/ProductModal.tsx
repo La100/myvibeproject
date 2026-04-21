@@ -25,7 +25,7 @@ export function ProductModal({ product, onClose, teamCurrency, teamId }: Product
   return (
     <>
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
           <Package className="h-5 w-5" />
@@ -36,11 +36,11 @@ export function ProductModal({ product, onClose, teamCurrency, teamId }: Product
         <div className="flex flex-col gap-6">
           {/* Product Image */}
           {product.imageUrl && (
-            <div className="overflow-hidden rounded-2xl border border-border/70 bg-muted">
+            <div className="flex h-40 items-center justify-center overflow-hidden rounded-2xl border border-border/70 bg-muted p-3 sm:h-72 sm:p-4 md:h-80">
               <img 
                 src={product.imageUrl} 
                 alt={product.name}
-                className="w-full h-full object-contain"
+                className="h-full w-full object-contain"
               />
             </div>
           )}
@@ -189,7 +189,7 @@ export function ProductModal({ product, onClose, teamCurrency, teamId }: Product
 
           {/* Meta Info */}
           <Separator />
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          <div className="flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:gap-4">
             <div className="flex items-center gap-1">
               <User className="h-3 w-3" />
               <span>Added by {product.creatorName || "Unknown User"}</span>
@@ -201,17 +201,28 @@ export function ProductModal({ product, onClose, teamCurrency, teamId }: Product
           </div>
 
           {/* Actions */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Button className="flex-1" onClick={() => setShowAddToProjectModal(true)}>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Button
+              className="h-11 w-full justify-start rounded-2xl px-4 sm:flex-1 sm:justify-center"
+              onClick={() => setShowAddToProjectModal(true)}
+            >
               <ShoppingCart className="h-4 w-4 mr-2" />
               Add to Project
             </Button>
-            <Button variant="outline" onClick={() => setShowEditModal(true)}>
+            <Button
+              variant="outline"
+              className="h-11 w-full justify-start rounded-2xl px-4 sm:w-auto sm:justify-center"
+              onClick={() => setShowEditModal(true)}
+            >
               <Edit className="h-4 w-4 mr-2" />
               Edit
             </Button>
             {product.productLink && (
-              <Button variant="outline" asChild>
+              <Button
+                variant="outline"
+                className="h-11 w-full justify-start rounded-2xl px-4 sm:w-auto sm:justify-center"
+                asChild
+              >
                 <a href={product.productLink} target="_blank" rel="noopener noreferrer">
                   <ExternalLink className="h-4 w-4 mr-2" />
                   View Product

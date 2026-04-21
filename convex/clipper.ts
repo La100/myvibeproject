@@ -213,7 +213,8 @@ export const saveProduct = mutation({
         }
 
         const quantity = args.quantity ?? 1;
-        const totalPrice = args.price ? quantity * args.price : undefined;
+        const totalPrice =
+          args.price !== undefined ? quantity * args.price : undefined;
 
         return await ctx.db.insert("shoppingListItems", {
             projectId: args.projectId,

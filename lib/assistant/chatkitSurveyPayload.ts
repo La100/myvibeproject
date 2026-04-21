@@ -119,7 +119,9 @@ export function buildUpdateSurveyPayload(params: Record<string, unknown>) {
     surveyId,
     updates: surveyId
       ? {
-          title: asNonEmptyString(params.title),
+          title:
+            asNonEmptyString(params.title) ??
+            asNonEmptyString(params.name),
           description: asNonEmptyString(params.description),
           isRequired: asBoolean(params.isRequired),
           allowMultipleResponses: asBoolean(params.allowMultipleResponses),

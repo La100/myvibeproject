@@ -924,7 +924,9 @@ export const createShoppingListItem = mutation({
     await ensureSectionBelongsToProject(ctx, args.sectionId ?? null, args.projectId);
     await ensureSetBelongsToProject(ctx, args.setId ?? null, args.projectId);
 
-    const totalPrice = args.unitPrice ? args.quantity * args.unitPrice : undefined;
+    const unitPrice = args.unitPrice;
+    const hasUnitPrice = unitPrice !== undefined;
+    const totalPrice = hasUnitPrice ? args.quantity * unitPrice : undefined;
 
     const itemId = await ctx.db.insert("shoppingListItems", {
       name: args.name,
@@ -941,7 +943,7 @@ export const createShoppingListItem = mutation({
       realizationStatus: args.realizationStatus,
       sectionId: args.sectionId || null,
       setId: args.setId || null,
-      unitPrice: args.unitPrice || undefined,
+      unitPrice: hasUnitPrice ? unitPrice : undefined,
       totalPrice: totalPrice,
       catalogNumber: args.catalogNumber || undefined,
       productLink: args.productLink || undefined,
@@ -1007,7 +1009,7 @@ export const updateShoppingListItem = mutation({
     const unitPrice = updates.unitPrice ?? item.unitPrice;
 
     if (updates.quantity !== undefined || updates.unitPrice !== undefined) {
-      totalPrice = unitPrice ? quantity * unitPrice : undefined;
+      totalPrice = unitPrice !== undefined ? quantity * unitPrice : undefined;
     }
 
     const patch: Record<string, unknown> = {

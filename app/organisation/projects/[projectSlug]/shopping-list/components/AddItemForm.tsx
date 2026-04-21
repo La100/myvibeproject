@@ -162,7 +162,11 @@ export function AddItemForm({
       }
     }
 
-    const unitPrice = parseFloat(newItemUnitPrice) || undefined;
+    const normalizedUnitPrice = newItemUnitPrice.trim();
+    const unitPrice =
+      normalizedUnitPrice === ""
+        ? undefined
+        : Number.parseFloat(normalizedUnitPrice);
 
     try {
       const itemId = await onAddItem({
@@ -174,7 +178,7 @@ export function AddItemForm({
         catalogNumber: newItemCatalogNumber.trim() || undefined,
         dimensions: newItemDimensions.trim() || undefined,
         quantity: newItemQuantity,
-        unitPrice,
+        unitPrice: Number.isFinite(unitPrice) ? unitPrice : undefined,
         productLink: normalizedProductLink,
         imageUrl: newItemImageUrl.trim() || undefined,
         priority: "medium",

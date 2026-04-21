@@ -133,7 +133,7 @@ export default function ShoppingListView() {
   }
 
   const currencySymbol = project.currency === "EUR" ? "€" : project.currency === "PLN" ? "zł" : "$";
-  const organizationTaxSettings = resolveOrganizationTaxSettings(
+  const effectiveTaxSettings = resolveOrganizationTaxSettings(
     team.organizationTaxSettings,
   );
   const sectionMap = new Map(sections.map((section) => [String(section._id), section]));
@@ -238,22 +238,22 @@ export default function ShoppingListView() {
   const grandTotal = calculateShoppingTotal(items, sets);
   const visibleGrandTotal = calculateShoppingTotal(filteredItems, sets);
   const primaryAmountKind = getPrimaryAmountKindForDisplay(
-    organizationTaxSettings,
+    effectiveTaxSettings,
   );
   const grandTotalBreakdown = calculateTaxBreakdown(
     grandTotal,
-    organizationTaxSettings,
+    effectiveTaxSettings,
   );
   const formatDisplayAmount = (value: number) => {
-    const breakdown = calculateTaxBreakdown(value, organizationTaxSettings);
+    const breakdown = calculateTaxBreakdown(value, effectiveTaxSettings);
     return formatCurrency(breakdown[primaryAmountKind], project.currency);
   };
   const formatBreakdownSummary = (value: number) => {
-    const breakdown = calculateTaxBreakdown(value, organizationTaxSettings);
-    return getTaxAmountKindsForDisplay(organizationTaxSettings)
+    const breakdown = calculateTaxBreakdown(value, effectiveTaxSettings);
+    return getTaxAmountKindsForDisplay(effectiveTaxSettings)
       .map(
         (kind) =>
-          `${getTaxAmountKindLabel(kind, organizationTaxSettings)}: ${formatMoney(
+          `${getTaxAmountKindLabel(kind, effectiveTaxSettings)}: ${formatMoney(
             breakdown[kind],
             currencySymbol,
           )}`,
@@ -261,13 +261,13 @@ export default function ShoppingListView() {
       .join(' | ');
   };
   const shoppingPdfPriceColumns =
-    organizationTaxSettings.priceDisplay === 'both'
+    effectiveTaxSettings.priceDisplay === 'both'
       ? [
           { key: 'totalNet', label: 'Net' },
-          { key: 'totalTax', label: organizationTaxSettings.taxLabel },
+          { key: 'totalTax', label: effectiveTaxSettings.taxLabel },
           { key: 'totalGross', label: 'Gross' },
         ]
-      : organizationTaxSettings.priceDisplay === 'gross'
+      : effectiveTaxSettings.priceDisplay === 'gross'
         ? [{ key: 'totalGross', label: 'Gross' }]
         : [{ key: 'totalNet', label: 'Net' }];
   const showFirstRunOnboarding = items.length === 0;
@@ -440,11 +440,11 @@ export default function ShoppingListView() {
     rows: sectionItems.map((item): ShoppingExportRow => {
       const unitBreakdown = calculateTaxBreakdown(
         item.unitPrice,
-        organizationTaxSettings,
+        effectiveTaxSettings,
       );
       const totalBreakdown = calculateTaxBreakdown(
         item.totalPrice,
-        organizationTaxSettings,
+        effectiveTaxSettings,
       );
 
       return {
@@ -497,10 +497,10 @@ export default function ShoppingListView() {
       fileName: `shopping-list-${sanitizeFileName(project.name)}-${format(new Date(), 'yyyy-MM-dd')}.csv`,
       headers: getShoppingExportHeaders(
         flatShoppingColumnOptions,
-        organizationTaxSettings,
+        effectiveTaxSettings,
       ),
       rows: flatShoppingExportRows.map((row) =>
-        getShoppingExportCsvRow(row, flatShoppingColumnOptions, organizationTaxSettings),
+        getShoppingExportCsvRow(row, flatShoppingColumnOptions, effectiveTaxSettings),
       ),
     });
     setIsExportModalOpen(false);
@@ -569,10 +569,10 @@ export default function ShoppingListView() {
                 accentColor: getSectionAccentColor(index),
                 headers: getShoppingExportHeaders(
                   groupedShoppingColumnOptions,
-                  organizationTaxSettings,
+                  effectiveTaxSettings,
                 ),
                 rows: section.rows.map((row) =>
-                  getShoppingExportCsvRow(row, groupedShoppingColumnOptions, organizationTaxSettings),
+                  getShoppingExportCsvRow(row, groupedShoppingColumnOptions, effectiveTaxSettings),
                 ),
                 title: section.sectionName,
               }))
@@ -580,10 +580,10 @@ export default function ShoppingListView() {
                 {
                   headers: getShoppingExportHeaders(
                     flatShoppingColumnOptions,
-                    organizationTaxSettings,
+                    effectiveTaxSettings,
                   ),
                   rows: flatShoppingExportRows.map((row) =>
-                    getShoppingExportCsvRow(row, flatShoppingColumnOptions, organizationTaxSettings),
+                    getShoppingExportCsvRow(row, flatShoppingColumnOptions, effectiveTaxSettings),
                   ),
                   title: 'Items',
                 },
@@ -604,7 +604,7 @@ export default function ShoppingListView() {
             projectName={project.name}
             grandTotalLabel={`${getTaxAmountKindLabel(
               primaryAmountKind,
-              organizationTaxSettings,
+              effectiveTaxSettings,
             )} total: ${formatCurrency(
               grandTotalBreakdown[primaryAmountKind],
               project.currency,
@@ -717,7 +717,7 @@ export default function ShoppingListView() {
 
                   <div className="rounded-[22px] border border-border/60 bg-secondary/25 px-4 py-2.5">
                     <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                      {getTaxAmountKindLabel(primaryAmountKind, organizationTaxSettings)} total
+                      {getTaxAmountKindLabel(primaryAmountKind, effectiveTaxSettings)} total
                     </div>
                     <div className="mt-1 text-[1.6rem] font-semibold leading-none tracking-[-0.03em] text-foreground">
                       {formatDisplayAmount(visibleGrandTotal)}
@@ -817,7 +817,7 @@ export default function ShoppingListView() {
               currencySymbol={currencySymbol}
               teamMembers={teamMembers}
               sections={sections}
-              organizationTaxSettings={organizationTaxSettings}
+              organizationTaxSettings={effectiveTaxSettings}
               onUpdateItem={handleUpdateItem}
               onDeleteItem={handleDeleteItem}
               onAddItem={handleAddItem}

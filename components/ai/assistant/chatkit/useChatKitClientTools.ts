@@ -716,6 +716,26 @@ function extractTaskTitle(params: Record<string, unknown>): string | undefined {
   );
 }
 
+function extractNoteTitle(
+  params: Record<string, unknown>,
+): string | undefined {
+  return (
+    asNonEmptyString(params.title) ??
+    asNonEmptyString(params.name) ??
+    asNonEmptyString(params.subject)
+  );
+}
+
+function extractContactName(
+  params: Record<string, unknown>,
+): string | undefined {
+  return (
+    asNonEmptyString(params.name) ??
+    asNonEmptyString(params.contactName) ??
+    asNonEmptyString(params.title)
+  );
+}
+
 function extractTaskAssigneeIdentifier(
   params: Record<string, unknown>,
 ): string | undefined {
@@ -744,6 +764,30 @@ function extractShoppingName(
     asNonEmptyString(params.productName) ??
     asNonEmptyString(params.selectedItemName) ??
     asNonEmptyString(params.itemName) ??
+    asNonEmptyString(params.title)
+  );
+}
+
+function extractLaborName(
+  params: Record<string, unknown>,
+): string | undefined {
+  return (
+    asNonEmptyString(params.name) ??
+    asNonEmptyString(params.itemName) ??
+    asNonEmptyString(params.workName) ??
+    asNonEmptyString(params.workDescription) ??
+    asNonEmptyString(params.title)
+  );
+}
+
+function extractSectionName(
+  params: Record<string, unknown>,
+): string | undefined {
+  return (
+    asNonEmptyString(params.name) ??
+    asNonEmptyString(params.sectionName) ??
+    asNonEmptyString(params.section) ??
+    asNonEmptyString(params.sectionTitle) ??
     asNonEmptyString(params.title)
   );
 }
@@ -1089,6 +1133,110 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
         return resolved;
       };
 
+      let shoppingSectionsPromise:
+        | Promise<Array<Record<string, unknown>>>
+        | null = null;
+      let laborSectionsPromise:
+        | Promise<Array<Record<string, unknown>>>
+        | null = null;
+
+      const getShoppingSections = async (): Promise<
+        Array<Record<string, unknown>>
+      > => {
+        if (!shoppingSectionsPromise) {
+          shoppingSectionsPromise = convex.query(
+            apiAny.shopping.listShoppingListSections,
+            { projectId },
+          ) as Promise<Array<Record<string, unknown>>>;
+        }
+        return shoppingSectionsPromise;
+      };
+
+      const getLaborSections = async (): Promise<
+        Array<Record<string, unknown>>
+      > => {
+        if (!laborSectionsPromise) {
+          laborSectionsPromise = convex.query(apiAny.labor.listLaborSections, {
+            projectId,
+          }) as Promise<Array<Record<string, unknown>>>;
+        }
+        return laborSectionsPromise;
+      };
+
+      const resolveSectionId = async (
+        domain: "shopping" | "labor",
+        params: Record<string, unknown>,
+      ): Promise<string | null | undefined> => {
+        if (params.sectionId === null) {
+          return null;
+        }
+
+        const explicitSectionId = asNonEmptyString(params.sectionId);
+        if (explicitSectionId !== undefined) {
+          return explicitSectionId;
+        }
+
+        const sectionName = extractSectionName(params);
+        if (sectionName === undefined) {
+          return undefined;
+        }
+
+        const sections =
+          domain === "shopping"
+            ? await getShoppingSections()
+            : await getLaborSections();
+        const normalizedSectionName = normalizeLookupValue(sectionName);
+        const existingSection = sections.find((section) => {
+          const existingName = asNonEmptyString(section.name);
+          return (
+            existingName !== undefined &&
+            normalizeLookupValue(existingName) === normalizedSectionName
+          );
+        });
+
+        const existingSectionId =
+          existingSection && typeof existingSection._id === "string"
+            ? existingSection._id
+            : undefined;
+        if (existingSectionId) {
+          return existingSectionId;
+        }
+
+        const createResult =
+          domain === "shopping"
+            ? await convex.action(
+                apiAny.ai.confirmedActions.createConfirmedShoppingSection,
+                {
+                  projectId,
+                  sectionData: { name: sectionName },
+                },
+              )
+            : await convex.action(
+                apiAny.ai.confirmedActions.createConfirmedLaborSection,
+                {
+                  projectId,
+                  sectionData: { name: sectionName },
+                },
+              );
+
+        const createdSectionId = asNonEmptyString(
+          asRecord(createResult).sectionId,
+        );
+        if (!createdSectionId) {
+          throw new Error(
+            `Could not create ${domain} section "${sectionName}".`,
+          );
+        }
+
+        if (domain === "shopping") {
+          shoppingSectionsPromise = null;
+        } else {
+          laborSectionsPromise = null;
+        }
+
+        return createdSectionId;
+      };
+
       const runBulk = async (
         items: Record<string, unknown>[],
         label: string,
@@ -1339,10 +1487,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
           case "bulk_create_notes": {
             const items = asRecordArray(params.items);
             return runBulk(items, "Bulk note creation", async (item) => {
-              const title =
-                asNonEmptyString(item.title) ??
-                asNonEmptyString(item.name) ??
-                asNonEmptyString(item.subject);
+              const title = extractNoteTitle(item);
               const content =
                 asNonEmptyString(item.content) ??
                 asNonEmptyString(item.description) ??
@@ -1385,8 +1530,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 return { ok: false, error: "Note not found." };
               }
 
-              const title =
-                asNonEmptyString(item.title) ??
+              const title = extractNoteTitle(item) ??
                 asNonEmptyString(existingNote.title) ??
                 "Untitled note";
               const content =
@@ -1425,10 +1569,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
           case "bulk_create_contacts": {
             const items = asRecordArray(params.items);
             return runBulk(items, "Bulk contact creation", async (item) => {
-              const name =
-                asNonEmptyString(item.name) ??
-                asNonEmptyString(item.contactName) ??
-                asNonEmptyString(item.title);
+              const name = extractContactName(item);
               if (!name) {
                 return {
                   ok: false,
@@ -1483,9 +1624,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
 
               await convex.mutation(apiAny.contacts.updateContact, {
                 contactId,
-                name:
-                  asNonEmptyString(item.name) ??
-                  asNonEmptyString(item.contactName) ??
+                name: extractContactName(item) ??
                   asNonEmptyString(existingContact.name) ??
                   "Unnamed contact",
                 companyName:
@@ -1560,6 +1699,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                   };
                 }
 
+                const sectionId = await resolveSectionId("shopping", item);
+
                 const itemId = await convex.mutation(
                   apiAny.shopping.createShoppingListItem,
                   {
@@ -1591,7 +1732,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                     setId: asNonEmptyString(item.setId),
                     realizationStatus:
                       extractShoppingRealizationStatus(item) ?? "PLANNED",
-                    sectionId: asNonEmptyString(item.sectionId) ?? null,
+                    sectionId: sectionId ?? null,
                     assignedTo: asNonEmptyString(item.assignedTo),
                   },
                 );
@@ -1670,11 +1811,11 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               if (realizationStatus !== undefined) {
                 updates.realizationStatus = realizationStatus;
               }
-              if (item.sectionId === null) {
+              const sectionId = await resolveSectionId("shopping", item);
+              if (sectionId === null) {
                 updates.sectionId = null;
-              } else {
-                const sectionId = asNonEmptyString(item.sectionId);
-                if (sectionId !== undefined) updates.sectionId = sectionId;
+              } else if (sectionId !== undefined) {
+                updates.sectionId = sectionId;
               }
               const assignedTo = asNonEmptyString(item.assignedTo);
               if (assignedTo !== undefined) updates.assignedTo = assignedTo;
@@ -1721,9 +1862,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               items,
               "Bulk shopping section creation",
               async (item) => {
-                const sectionName =
-                  asNonEmptyString(item.name) ??
-                  asNonEmptyString(item.sectionName);
+                const sectionName = extractSectionName(item);
                 if (!sectionName) {
                   return {
                     ok: false,
@@ -1772,9 +1911,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 }
 
                 const updates = compactDefinedFields({
-                  name:
-                    asNonEmptyString(item.name) ??
-                    asNonEmptyString(item.sectionName),
+                  name: extractSectionName(item),
                 });
                 if (!hasManagedUpdateFields(updates, [])) {
                   return {
@@ -1853,6 +1990,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                   };
                 }
 
+                const sectionId = await resolveSectionId("shopping", item);
+
                 const result = await convex.action(
                   apiAny.ai.confirmedActions.createConfirmedShoppingSet,
                   {
@@ -1860,7 +1999,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                     setData: {
                       title,
                       notes: asNonEmptyString(item.notes),
-                      sectionId: asNonEmptyString(item.sectionId),
+                      sectionId:
+                        sectionId === null ? undefined : sectionId,
                       setType:
                         item.setType === "variant" ||
                         item.setType === "bundle" ||
@@ -1918,14 +2058,13 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 };
               }
 
+              const sectionId = await resolveSectionId("shopping", item);
+
               const updates = compactDefinedFields({
                 title:
                   asNonEmptyString(item.title) ?? asNonEmptyString(item.name),
                 notes: asNonEmptyString(item.notes),
-                sectionId:
-                  item.sectionId === null
-                    ? null
-                    : asNonEmptyString(item.sectionId),
+                sectionId,
                 setType:
                   item.setType === "variant" ||
                   item.setType === "bundle" ||
@@ -2011,7 +2150,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
           case "bulk_create_labor_items": {
             const items = asRecordArray(params.items);
             return runBulk(items, "Bulk labor item creation", async (item) => {
-              const laborName = asNonEmptyString(item.name);
+              const laborName = extractLaborName(item);
               if (!laborName) {
                 return {
                   ok: false,
@@ -2030,7 +2169,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                     unit: asNonEmptyString(item.unit) ?? "item",
                     notes: asNonEmptyString(item.notes),
                     unitPrice: asNumber(item.unitPrice) ?? asNumber(item.price),
-                    sectionId: asNonEmptyString(item.sectionId) ?? undefined,
+                    sectionId:
+                      (await resolveSectionId("labor", item)) ?? undefined,
                     assignedTo: asNonEmptyString(item.assignedTo),
                     startDate: asDateInput(item.startDate),
                     endDate: asDateInput(item.endDate),
@@ -2065,16 +2205,15 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 };
               }
 
+              const sectionId = await resolveSectionId("labor", item);
+
               const updates = compactDefinedFields({
-                name: asNonEmptyString(item.name),
+                name: extractLaborName(item),
                 notes: asNonEmptyString(item.notes),
                 quantity: asNumber(item.quantity),
                 unit: asNonEmptyString(item.unit),
                 unitPrice: asNumber(item.unitPrice) ?? asNumber(item.price),
-                sectionId:
-                  item.sectionId === null
-                    ? null
-                    : asNonEmptyString(item.sectionId),
+                sectionId,
                 assignedTo: asNonEmptyString(item.assignedTo),
                 startDate: asDateInput(item.startDate),
                 endDate: asDateInput(item.endDate),
@@ -2558,9 +2697,15 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             const updates = compactDefinedFields({
               title:
                 asNonEmptyString(params.title) ?? asNonEmptyString(params.name),
-              description: asNonEmptyString(params.description),
+              description:
+                params.description === null
+                  ? null
+                  : asNonEmptyString(params.description),
               amount: asNumber(params.amount),
-              dueDate: asNonEmptyString(params.dueDate),
+              dueDate:
+                params.dueDate === null
+                  ? null
+                  : asNonEmptyString(params.dueDate),
               invoiceNumber: asNonEmptyString(params.invoiceNumber),
               status: asPaymentStatus(params.status),
             });
@@ -2650,6 +2795,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               asNonEmptyString(params.selectionReason),
               asNonEmptyString(params.sourceSummary),
             );
+            const sectionId = await resolveSectionId("shopping", params);
 
             const itemId = await convex.mutation(
               apiAny.shopping.createShoppingListItem,
@@ -2670,7 +2816,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 setId: asNonEmptyString(params.setId),
                 realizationStatus:
                   extractShoppingRealizationStatus(params) ?? "PLANNED",
-                sectionId: asNonEmptyString(params.sectionId) ?? null,
+                sectionId: sectionId ?? null,
                 assignedTo: asNonEmptyString(params.assignedTo),
               },
             );
@@ -2758,11 +2904,11 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             if (realizationStatus !== undefined)
               updates.realizationStatus = realizationStatus;
 
-            if (params.sectionId === null) {
+            const sectionId = await resolveSectionId("shopping", params);
+            if (sectionId === null) {
               updates.sectionId = null;
-            } else {
-              const sectionId = asNonEmptyString(params.sectionId);
-              if (sectionId !== undefined) updates.sectionId = sectionId;
+            } else if (sectionId !== undefined) {
+              updates.sectionId = sectionId;
             }
 
             const assignedTo = asNonEmptyString(params.assignedTo);
@@ -2809,10 +2955,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
           }
 
           case "create_note": {
-            const title =
-              asNonEmptyString(params.title) ??
-              asNonEmptyString(params.name) ??
-              asNonEmptyString(params.subject);
+            const title = extractNoteTitle(params);
 
             const content =
               asNonEmptyString(params.content) ??
@@ -2859,8 +3002,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               };
             }
 
-            const title =
-              asNonEmptyString(params.title) ??
+            const title = extractNoteTitle(params) ??
               asNonEmptyString(existingNote.title) ??
               "Untitled note";
             const content =
@@ -2901,10 +3043,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
           }
 
           case "create_contact": {
-            const name =
-              asNonEmptyString(params.name) ??
-              asNonEmptyString(params.contactName) ??
-              asNonEmptyString(params.title);
+            const name = extractContactName(params);
             if (!name) {
               return {
                 ok: false,
@@ -2962,9 +3101,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
 
             await convex.mutation(apiAny.contacts.updateContact, {
               contactId,
-              name:
-                asNonEmptyString(params.name) ??
-                asNonEmptyString(params.contactName) ??
+              name: extractContactName(params) ??
                 asNonEmptyString(existingContact.name) ??
                 "Unnamed contact",
               companyName:
@@ -3068,7 +3205,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
           }
 
           case "create_shopping_section": {
-            const name = asNonEmptyString(params.name);
+            const name = extractSectionName(params);
             if (!name) {
               return {
                 ok: false,
@@ -3110,7 +3247,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             }
 
             const updates = compactDefinedFields({
-              name: asNonEmptyString(params.name),
+              name: extractSectionName(params),
             });
             if (!hasManagedUpdateFields(updates, [])) {
               return {
@@ -3176,6 +3313,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               };
             }
 
+            const sectionId = await resolveSectionId("shopping", params);
+
             const result = await convex.action(
               apiAny.ai.confirmedActions.createConfirmedShoppingSet,
               {
@@ -3183,7 +3322,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 setData: {
                   title,
                   notes: asNonEmptyString(params.notes),
-                  sectionId: asNonEmptyString(params.sectionId),
+                  sectionId: sectionId === null ? undefined : sectionId,
                   setType:
                     params.setType === "variant" ||
                     params.setType === "bundle" ||
@@ -3232,14 +3371,13 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               };
             }
 
+            const sectionId = await resolveSectionId("shopping", params);
+
             const updates = compactDefinedFields({
               title:
                 asNonEmptyString(params.title) ?? asNonEmptyString(params.name),
               notes: asNonEmptyString(params.notes),
-              sectionId:
-                params.sectionId === null
-                  ? null
-                  : asNonEmptyString(params.sectionId),
+              sectionId,
               setType:
                 params.setType === "variant" ||
                 params.setType === "bundle" ||
@@ -3317,13 +3455,15 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
           }
 
           case "create_labor_item": {
-            const name = asNonEmptyString(params.name);
+            const name = extractLaborName(params);
             if (!name) {
               return {
                 ok: false,
                 error: "Missing required `name` for create_labor_item.",
               };
             }
+
+            const sectionId = await resolveSectionId("labor", params);
 
             const result = await convex.action(
               apiAny.ai.confirmedActions.createConfirmedLaborItem,
@@ -3336,7 +3476,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                   notes: asNonEmptyString(params.notes),
                   unitPrice:
                     asNumber(params.unitPrice) ?? asNumber(params.price),
-                  sectionId: asNonEmptyString(params.sectionId) ?? undefined,
+                  sectionId: sectionId ?? undefined,
                   assignedTo: asNonEmptyString(params.assignedTo),
                   startDate: asDateInput(params.startDate),
                   endDate: asDateInput(params.endDate),
@@ -3364,16 +3504,15 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               };
             }
 
+            const sectionId = await resolveSectionId("labor", params);
+
             const updates = compactDefinedFields({
-              name: asNonEmptyString(params.name),
+              name: extractLaborName(params),
               notes: asNonEmptyString(params.notes),
               quantity: asNumber(params.quantity),
               unit: asNonEmptyString(params.unit),
               unitPrice: asNumber(params.unitPrice) ?? asNumber(params.price),
-              sectionId:
-                params.sectionId === null
-                  ? null
-                  : asNonEmptyString(params.sectionId),
+              sectionId,
               assignedTo: asNonEmptyString(params.assignedTo),
               startDate: asDateInput(params.startDate),
               endDate: asDateInput(params.endDate),
@@ -3431,7 +3570,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
           }
 
           case "create_labor_section": {
-            const name = asNonEmptyString(params.name);
+            const name = extractSectionName(params);
             if (!name) {
               return {
                 ok: false,
@@ -3472,7 +3611,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             }
 
             const updates = compactDefinedFields({
-              name: asNonEmptyString(params.name),
+              name: extractSectionName(params),
             });
             if (!hasManagedUpdateFields(updates, [])) {
               return {

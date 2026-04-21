@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useQuery, useMutation } from 'convex/react';
 import { apiAny } from '@/lib/convexApiAny';
 import { Id } from '@/convex/_generated/dataModel';
@@ -32,6 +32,12 @@ import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, ChevronRightIcon, ChevronLeftIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import {
+  calculateTaxBreakdown,
+  getPrimaryAmountKindForDisplay,
+  getTaxAmountKindLabel,
+  resolveOrganizationTaxSettings,
+} from '@/lib/organizationTax';
 
 interface CreateEstimationDialogProps {
   open: boolean;
@@ -54,7 +60,6 @@ interface ProjectContactOption {
   projectRole?: string;
 }
 
-const MANUAL_CONTACT_VALUE = '__manual__' as const;
 const CUSTOMER_EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function CreateEstimationDialog({
@@ -64,7 +69,7 @@ export function CreateEstimationDialog({
   currencySymbol,
   estimationId,
 }: CreateEstimationDialogProps) {
-  const { project } = useProject();
+  const { project, team } = useProject();
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hydratedEditId, setHydratedEditId] = useState<Id<"costEstimations"> | null>(null);
@@ -75,17 +80,18 @@ export function CreateEstimationDialog({
   const [plannedStartDate, setPlannedStartDate] = useState<Date | undefined>(undefined);
   const [validUntil, setValidUntil] = useState<Date | undefined>(undefined);
   const [vatPercent, setVatPercent] = useState(23);
-  const [discountPercent, setDiscountPercent] = useState(0);
+  const [selectedContactId, setSelectedContactId] = useState<Id<"contacts"> | "custom">("custom");
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
-  const [selectedContactId, setSelectedContactId] = useState<Id<"contacts"> | typeof MANUAL_CONTACT_VALUE>(MANUAL_CONTACT_VALUE);
   const [notes, setNotes] = useState('');
   const [selectedLaborIds, setSelectedLaborIds] = useState<Id<"laborItems">[]>([]);
   const [selectedMaterialIds, setSelectedMaterialIds] = useState<Id<"shoppingListItems">[]>([]);
   const [laborFilter, setLaborFilter] = useState('all');
   const [materialFilter, setMaterialFilter] = useState('all');
+  const [didInitializeLaborSelection, setDidInitializeLaborSelection] = useState(false);
+  const [didInitializeMaterialSelection, setDidInitializeMaterialSelection] = useState(false);
 
   // Queries
   const laborItems = useQuery(apiAny.labor.listLaborItems, { projectId });
@@ -105,21 +111,15 @@ export function CreateEstimationDialog({
   const createEstimation = useMutation(apiAny.costEstimations.createCostEstimation);
   const updateEstimation = useMutation(apiAny.costEstimations.updateCostEstimation);
   const isEditMode = Boolean(estimationId);
-  const team = useQuery(
-    apiAny.teams.getTeamById,
-    project ? { teamId: project.teamId } : "skip",
-  );
 
   const contactOptions = useMemo(
     () => (projectContacts || []) as ProjectContactOption[],
     [projectContacts]
   );
   const primaryProjectContact = contactOptions[0];
-  const selectedContact = selectedContactId === MANUAL_CONTACT_VALUE
-    ? undefined
-    : contactOptions.find((contact) => contact._id === selectedContactId);
+  const primaryProjectContactId = primaryProjectContact?._id;
 
-  const buildContactAddress = (contact: Pick<ProjectContactOption, 'address' | 'postalCode' | 'city' | 'country'> | undefined) => {
+  const buildContactAddress = useCallback((contact: Pick<ProjectContactOption, 'address' | 'postalCode' | 'city' | 'country'> | undefined) => {
     if (!contact) return '';
 
     const parts: string[] = [];
@@ -139,30 +139,21 @@ export function CreateEstimationDialog({
     }
 
     return parts.join(', ');
-  };
-
-  const applyContactData = (contact: ProjectContactOption | undefined) => {
-    if (!contact) return;
-    setCustomerName(contact.name?.trim() || '');
-    setCustomerEmail(contact.email?.trim() || '');
-    setCustomerPhone(contact.phone?.trim() || '');
-    setCustomerAddress(buildContactAddress(contact));
-  };
+  }, []);
 
   const defaultCustomerName = (primaryProjectContact?.name || project?.customer || '').trim();
   const defaultCustomerEmail = (primaryProjectContact?.email || '').trim();
   const defaultCustomerPhone = (primaryProjectContact?.phone || '').trim();
   const defaultCustomerAddress = buildContactAddress(primaryProjectContact);
-  const defaultVatPercent =
-    project?.taxEnabled
-      ? project.taxRate ?? 23
-      : team?.organizationTaxSettings?.taxEnabled
-        ? team.organizationTaxSettings.taxRate ?? 23
-        : 0;
-  const hasProjectCustomerDefaults = Boolean(
-    defaultCustomerName || defaultCustomerEmail || defaultCustomerPhone || defaultCustomerAddress
+  const defaultPlannedStartTimestamp = project?.startDate;
+  const defaultValidUntilTimestamp = project?.endDate;
+  const organizationTaxSettings = useMemo(
+    () => resolveOrganizationTaxSettings(team?.organizationTaxSettings),
+    [team?.organizationTaxSettings],
   );
-
+  const estimationTaxLabel = organizationTaxSettings.taxLabel;
+  const defaultVatPercent =
+    organizationTaxSettings.taxEnabled ? organizationTaxSettings.taxRate : 0;
   const laborSectionNameById = new Map<Id<"laborSections">, string>(
     (laborSections || []).map((section) => [section._id, section.name])
   );
@@ -211,22 +202,34 @@ export function CreateEstimationDialog({
     setStep(1);
     setTitle('');
     setLocation('');
-    setPlannedStartDate(undefined);
-    setValidUntil(undefined);
+    setPlannedStartDate(
+      defaultPlannedStartTimestamp ? new Date(defaultPlannedStartTimestamp) : undefined
+    );
+    setValidUntil(
+      defaultValidUntilTimestamp ? new Date(defaultValidUntilTimestamp) : undefined
+    );
     setVatPercent(defaultVatPercent);
-    setDiscountPercent(0);
+    setSelectedContactId(primaryProjectContactId || 'custom');
     setCustomerName('');
     setCustomerEmail('');
     setCustomerPhone('');
     setCustomerAddress('');
-    setSelectedContactId(MANUAL_CONTACT_VALUE);
     setNotes('');
     setSelectedLaborIds([]);
     setSelectedMaterialIds([]);
     setLaborFilter('all');
     setMaterialFilter('all');
+    setDidInitializeLaborSelection(false);
+    setDidInitializeMaterialSelection(false);
     setHydratedEditId(null);
-  }, [defaultVatPercent, isEditMode, open]);
+  }, [
+    defaultPlannedStartTimestamp,
+    defaultValidUntilTimestamp,
+    defaultVatPercent,
+    isEditMode,
+    open,
+    primaryProjectContactId,
+  ]);
 
   useEffect(() => {
     if (!open || !isEditMode || !estimationToEdit) return;
@@ -241,25 +244,35 @@ export function CreateEstimationDialog({
     setValidUntil(
       estimationToEdit.validUntil ? new Date(estimationToEdit.validUntil) : undefined
     );
-    setVatPercent(estimationToEdit.vatPercent ?? defaultVatPercent);
-    setDiscountPercent(estimationToEdit.discountPercent ?? 0);
+    setVatPercent(
+      estimationToEdit.taxSnapshot?.taxRate ?? estimationToEdit.vatPercent ?? defaultVatPercent,
+    );
+    setSelectedContactId(estimationToEdit.contactId || 'custom');
     setCustomerName(estimationToEdit.customerName || '');
     setCustomerEmail(estimationToEdit.customerEmail || '');
     setCustomerPhone(estimationToEdit.customerPhone || '');
     setCustomerAddress(estimationToEdit.customerAddress || '');
-    setSelectedContactId(
-      estimationToEdit.contactId &&
-        contactOptions.some((contact) => contact._id === estimationToEdit.contactId)
-        ? estimationToEdit.contactId
-        : MANUAL_CONTACT_VALUE
-    );
     setNotes(estimationToEdit.notes || '');
     setSelectedLaborIds(estimationToEdit.laborItemIds || []);
     setSelectedMaterialIds(estimationToEdit.materialItemIds || []);
     setLaborFilter('all');
     setMaterialFilter('all');
+    setDidInitializeLaborSelection(true);
+    setDidInitializeMaterialSelection(true);
     setHydratedEditId(estimationToEdit._id);
-  }, [contactOptions, defaultVatPercent, estimationToEdit, hydratedEditId, isEditMode, open]);
+  }, [defaultVatPercent, estimationToEdit, hydratedEditId, isEditMode, open]);
+
+  useEffect(() => {
+    if (!open || isEditMode || didInitializeLaborSelection || laborItems === undefined) return;
+
+    setDidInitializeLaborSelection(true);
+  }, [didInitializeLaborSelection, isEditMode, laborItems, open]);
+
+  useEffect(() => {
+    if (!open || isEditMode || didInitializeMaterialSelection || materialItems === undefined) return;
+
+    setDidInitializeMaterialSelection(true);
+  }, [didInitializeMaterialSelection, isEditMode, materialItems, open]);
 
   useEffect(() => {
     if (!open || isEditMode) return;
@@ -267,10 +280,11 @@ export function CreateEstimationDialog({
     if (project?.location) {
       setLocation((prev) => prev || project.location || '');
     }
-    if (primaryProjectContact?._id) {
-      setSelectedContactId((prev) => (
-        prev === MANUAL_CONTACT_VALUE ? primaryProjectContact._id : prev
-      ));
+    if (defaultPlannedStartTimestamp) {
+      setPlannedStartDate((prev) => prev || new Date(defaultPlannedStartTimestamp));
+    }
+    if (defaultValidUntilTimestamp) {
+      setValidUntil((prev) => prev || new Date(defaultValidUntilTimestamp));
     }
     if (defaultCustomerName) {
       setCustomerName((prev) => prev || defaultCustomerName);
@@ -287,13 +301,31 @@ export function CreateEstimationDialog({
   }, [
     open,
     project?.location,
+    defaultPlannedStartTimestamp,
+    defaultValidUntilTimestamp,
     defaultCustomerName,
     defaultCustomerEmail,
     defaultCustomerPhone,
     defaultCustomerAddress,
     isEditMode,
-    primaryProjectContact?._id,
+    primaryProjectContactId,
   ]);
+
+  useEffect(() => {
+    if (!open || !selectedContactId || selectedContactId === 'custom') {
+      return;
+    }
+
+    const selectedContact = contactOptions.find((contact) => contact._id === selectedContactId);
+    if (!selectedContact) {
+      return;
+    }
+
+    setCustomerName(selectedContact.name || '');
+    setCustomerEmail(selectedContact.email || '');
+    setCustomerPhone(selectedContact.phone || '');
+    setCustomerAddress(buildContactAddress(selectedContact));
+  }, [buildContactAddress, contactOptions, open, selectedContactId]);
 
   // Calculate totals
   const laborTotal = laborItems
@@ -305,21 +337,29 @@ export function CreateEstimationDialog({
     .reduce((sum, item) => sum + (item.totalPrice || 0), 0) || 0;
 
   const netTotal = laborTotal + materialsTotal;
-  const discountAmount = netTotal * (discountPercent / 100);
-  const afterDiscount = netTotal - discountAmount;
-  const vatAmount = afterDiscount * (vatPercent / 100);
-  const grossTotal = afterDiscount + vatAmount;
-
-  const handleContactSelectionChange = (value: string) => {
-    if (value === MANUAL_CONTACT_VALUE) {
-      setSelectedContactId(MANUAL_CONTACT_VALUE);
-      return;
-    }
-
-    const contactId = value as Id<"contacts">;
-    setSelectedContactId(contactId);
-    applyContactData(contactOptions.find((contact) => contact._id === contactId));
+  const vatAmount = netTotal * (vatPercent / 100);
+  const grossTotal = netTotal + vatAmount;
+  const hasTaxApplied = vatPercent > 0;
+  const summaryTaxSettings = {
+    taxEnabled: hasTaxApplied,
+    taxRate: vatPercent,
+    taxLabel: estimationTaxLabel,
+    priceDisplay: organizationTaxSettings.priceDisplay,
   };
+  const primarySummaryAmountKind = getPrimaryAmountKindForDisplay(summaryTaxSettings);
+  const primarySummaryAmountLabel = getTaxAmountKindLabel(
+    primarySummaryAmountKind,
+    summaryTaxSettings,
+  );
+  const laborSummaryAmount =
+    calculateTaxBreakdown(laborTotal, summaryTaxSettings)[primarySummaryAmountKind];
+  const materialsSummaryAmount =
+    calculateTaxBreakdown(materialsTotal, summaryTaxSettings)[primarySummaryAmountKind];
+  const totalSummaryAmount =
+    calculateTaxBreakdown(netTotal, summaryTaxSettings)[primarySummaryAmountKind];
+  const taxSettingsDescription = hasTaxApplied
+    ? 'Uses the current workspace tax default and follows the same display mode as document exports.'
+    : 'No default tax is configured for this workspace.';
 
   const validateStep = (targetStep: number) => {
     if (targetStep === 2) {
@@ -342,15 +382,15 @@ export function CreateEstimationDialog({
 
     if (targetStep === 4) {
       if (!customerName.trim()) {
-        toast.error('Please provide customer name or choose a contact');
+        toast.error('Please provide a customer name');
         return false;
       }
       if (customerEmail.trim() && !CUSTOMER_EMAIL_REGEX.test(customerEmail.trim())) {
         toast.error('Customer email is invalid');
         return false;
       }
-      if (vatPercent < 0 || vatPercent > 100 || discountPercent < 0 || discountPercent > 100) {
-        toast.error('VAT and discount must be between 0 and 100');
+      if (vatPercent < 0 || vatPercent > 100) {
+        toast.error('Tax must be between 0 and 100');
         return false;
       }
     }
@@ -377,14 +417,14 @@ export function CreateEstimationDialog({
         plannedStartDate: plannedStartDate?.getTime(),
         validUntil: validUntil?.getTime(),
         vatPercent,
-        discountPercent,
+        discountPercent: 0,
         materialItemIds: selectedMaterialIds,
         laborItemIds: selectedLaborIds,
         customerName: customerName.trim() || undefined,
         customerEmail: customerEmail.trim() || undefined,
         customerPhone: customerPhone.trim() || undefined,
         customerAddress: customerAddress.trim() || undefined,
-        contactId: selectedContactId === MANUAL_CONTACT_VALUE ? undefined : selectedContactId,
+        contactId: selectedContactId !== 'custom' ? selectedContactId : undefined,
         notes: notes.trim() || undefined,
       };
 
@@ -421,42 +461,34 @@ export function CreateEstimationDialog({
     );
   };
 
-  const visibleLaborIds = filteredLaborItems.map((item) => item._id);
-  const allVisibleLaborSelected = visibleLaborIds.length > 0
-    && visibleLaborIds.every((id) => selectedLaborIds.includes(id));
+  const allLaborIds = (laborItems || []).map((item) => item._id);
+  const allLaborSelected = allLaborIds.length > 0
+    && allLaborIds.every((id) => selectedLaborIds.includes(id));
 
-  const toggleVisibleLaborSelection = () => {
-    if (visibleLaborIds.length === 0) return;
+  const toggleAllLaborSelection = () => {
+    if (allLaborIds.length === 0) return;
 
-    if (allVisibleLaborSelected) {
-      setSelectedLaborIds((prev) => prev.filter((id) => !visibleLaborIds.includes(id)));
+    if (allLaborSelected) {
+      setSelectedLaborIds([]);
       return;
     }
 
-    setSelectedLaborIds((prev) => {
-      const next = new Set(prev);
-      visibleLaborIds.forEach((id) => next.add(id));
-      return Array.from(next) as Id<"laborItems">[];
-    });
+    setSelectedLaborIds(allLaborIds);
   };
 
-  const visibleMaterialIds = filteredMaterialItems.map((item) => item._id);
-  const allVisibleMaterialsSelected = visibleMaterialIds.length > 0
-    && visibleMaterialIds.every((id) => selectedMaterialIds.includes(id));
+  const allMaterialIds = (materialItems || []).map((item) => item._id);
+  const allMaterialsSelected = allMaterialIds.length > 0
+    && allMaterialIds.every((id) => selectedMaterialIds.includes(id));
 
-  const toggleVisibleMaterialSelection = () => {
-    if (visibleMaterialIds.length === 0) return;
+  const toggleAllMaterialSelection = () => {
+    if (allMaterialIds.length === 0) return;
 
-    if (allVisibleMaterialsSelected) {
-      setSelectedMaterialIds((prev) => prev.filter((id) => !visibleMaterialIds.includes(id)));
+    if (allMaterialsSelected) {
+      setSelectedMaterialIds([]);
       return;
     }
 
-    setSelectedMaterialIds((prev) => {
-      const next = new Set(prev);
-      visibleMaterialIds.forEach((id) => next.add(id));
-      return Array.from(next) as Id<"shoppingListItems">[];
-    });
+    setSelectedMaterialIds(allMaterialIds);
   };
 
   const dialogTitle = isEditMode ? 'Edit Cost Estimation' : 'New Cost Estimation';
@@ -516,23 +548,23 @@ export function CreateEstimationDialog({
 
         {step === 1 && (
           <div className="flex flex-col gap-4">
-            <h3 className="mb-4 text-lg font-medium">Basic Information</h3>
+            <h3 className="mb-4 text-lg font-medium">Details</h3>
             <div className="grid gap-4">
               <div>
-                <Label>Estimation Title *</Label>
+                <Label>Title *</Label>
                 <Input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Residential Architecture Phase 1"
+                  placeholder="Estimation title"
                   className="mt-1"
                 />
               </div>
               <div>
-                <Label>Location / Address</Label>
+                <Label>Location</Label>
                 <Input
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  placeholder="e.g. Warsaw, ul. Nowa 5"
+                  placeholder="Location"
                   className="mt-1"
                 />
               </div>
@@ -544,7 +576,7 @@ export function CreateEstimationDialog({
                       <Button
                         variant="outline"
                         className={cn(
-                          "w-full justify-start text-left font-normal mt-1",
+                          "mt-1 w-full justify-start border-border bg-white text-left font-normal hover:bg-white aria-expanded:bg-white",
                           !plannedStartDate && "text-muted-foreground"
                         )}
                       >
@@ -569,7 +601,7 @@ export function CreateEstimationDialog({
                       <Button
                         variant="outline"
                         className={cn(
-                          "w-full justify-start text-left font-normal mt-1",
+                          "mt-1 w-full justify-start border-border bg-white text-left font-normal hover:bg-white aria-expanded:bg-white",
                           !validUntil && "text-muted-foreground"
                         )}
                       >
@@ -594,7 +626,7 @@ export function CreateEstimationDialog({
 
         {step === 2 && (
           <div className="flex flex-col gap-6">
-            <h3 className="mb-4 text-lg font-medium">Select Labor Items</h3>
+            <h3 className="mb-4 text-lg font-medium">Labor</h3>
             <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-sm text-muted-foreground">{selectedLaborIds.length} selected</span>
               <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
@@ -612,11 +644,14 @@ export function CreateEstimationDialog({
                     <SelectItem value="unassigned">No section</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button className="w-full sm:w-auto" variant="ghost" size="sm" onClick={toggleVisibleLaborSelection}>
-                  {allVisibleLaborSelected ? 'Deselect visible' : 'Select visible'}
+                <Button className="w-full sm:w-auto" variant="ghost" size="sm" onClick={toggleAllLaborSelection}>
+                  {allLaborSelected ? 'Deselect all' : 'Select all'}
                 </Button>
               </div>
             </div>
+            <p className="text-sm text-muted-foreground">
+              Start from an empty document and choose only the work items you want in this estimation.
+            </p>
             <div className="max-h-64 overflow-y-auto overflow-x-hidden rounded-lg border">
               {laborItems?.length === 0 ? (
                 <div className="p-4 text-center text-muted-foreground">
@@ -653,7 +688,7 @@ export function CreateEstimationDialog({
               )}
             </div>
 
-            <h3 className="mb-4 mt-6 text-lg font-medium">Select Shopping List Items</h3>
+            <h3 className="mb-4 mt-6 text-lg font-medium">Materials</h3>
             <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-sm text-muted-foreground">{selectedMaterialIds.length} selected</span>
               <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
@@ -670,19 +705,22 @@ export function CreateEstimationDialog({
                     ))}
                   </SelectContent>
                 </Select>
-                <Button className="w-full sm:w-auto" variant="ghost" size="sm" onClick={toggleVisibleMaterialSelection}>
-                  {allVisibleMaterialsSelected ? 'Deselect visible' : 'Select visible'}
+                <Button className="w-full sm:w-auto" variant="ghost" size="sm" onClick={toggleAllMaterialSelection}>
+                  {allMaterialsSelected ? 'Deselect all' : 'Select all'}
                 </Button>
               </div>
             </div>
+            <p className="text-sm text-muted-foreground">
+              Materials are not auto-included anymore. Select the exact scope for this client document.
+            </p>
             <div className="max-h-64 overflow-y-auto overflow-x-hidden rounded-lg border">
               {materialItems?.length === 0 ? (
                 <div className="p-4 text-center text-muted-foreground">
-                  No shopping list items. Add some in the Shopping List section first.
+                  No materials available. Add items in Shopping list first.
                 </div>
               ) : filteredMaterialItems.length === 0 ? (
                 <div className="p-4 text-center text-muted-foreground">
-                  No shopping list items match this category filter.
+                  No materials match this category filter.
                 </div>
               ) : (
                 filteredMaterialItems.map((item) => (
@@ -713,44 +751,39 @@ export function CreateEstimationDialog({
 
         {step === 3 && (
           <div className="flex flex-col gap-4">
-            <h3 className="mb-4 text-lg font-medium">Customer Information & Settings</h3>
-            {hasProjectCustomerDefaults && (
-              <p className="text-sm text-muted-foreground">
-                Customer details were pre-filled from {primaryProjectContact ? 'the project contact' : 'the project settings'}.
-              </p>
-            )}
+            <h3 className="mb-4 text-lg font-medium">Customer</h3>
             <div>
-              <Label>Customer Source</Label>
+              <Label>Project Contact</Label>
               <Select
                 value={selectedContactId}
-                onValueChange={handleContactSelectionChange}
+                onValueChange={(value) =>
+                  setSelectedContactId(value === 'custom' ? 'custom' : (value as Id<"contacts">))
+                }
               >
                 <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Manual entry" />
+                  <SelectValue placeholder="Choose project contact" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={MANUAL_CONTACT_VALUE}>Manual entry</SelectItem>
+                  <SelectItem value="custom">Custom details</SelectItem>
                   {contactOptions.map((contact) => (
                     <SelectItem key={contact._id} value={contact._id}>
                       {contact.name}
-                      {contact.companyName ? ` (${contact.companyName})` : ''}
+                      {contact.companyName ? ` • ${contact.companyName}` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {selectedContact?.projectRole && (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Project role: {selectedContact.projectRole}
-                </p>
-              )}
+              <p className="mt-2 text-sm text-muted-foreground">
+                The selected contact fills the document snapshot, but you can still adjust the values below before saving.
+              </p>
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <Label>Customer Name</Label>
+                <Label>Name</Label>
                 <Input
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="John Smith"
+                  placeholder="Customer name"
                   className="mt-1"
                 />
               </div>
@@ -769,7 +802,7 @@ export function CreateEstimationDialog({
                 <Input
                   value={customerPhone}
                   onChange={(e) => setCustomerPhone(e.target.value)}
-                  placeholder="+48 123 456 789"
+                  placeholder="Phone"
                   className="mt-1"
                 />
               </div>
@@ -778,34 +811,28 @@ export function CreateEstimationDialog({
                 <Input
                   value={customerAddress}
                   onChange={(e) => setCustomerAddress(e.target.value)}
-                  placeholder="Customer address"
+                  placeholder="Address"
                   className="mt-1"
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 border-t pt-4 sm:grid-cols-2">
-              <div>
-                <Label>VAT (%)</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={vatPercent}
-                  onChange={(e) => setVatPercent(parseFloat(e.target.value) || 0)}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label>Discount (%)</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={discountPercent}
-                  onChange={(e) => setDiscountPercent(parseFloat(e.target.value) || 0)}
-                  className="mt-1"
-                />
+            <div className="border-t pt-4">
+              <Label>Tax</Label>
+              <div className="mt-1 rounded-xl border border-border/70 bg-muted/30 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">
+                      {hasTaxApplied ? `${estimationTaxLabel} (${vatPercent}%)` : 'No tax'}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {taxSettingsDescription}
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="shrink-0">
+                    {hasTaxApplied ? `${vatPercent}%` : '0%'}
+                  </Badge>
+                </div>
               </div>
             </div>
 
@@ -814,7 +841,7 @@ export function CreateEstimationDialog({
               <Textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Additional notes for the estimation..."
+                placeholder="Notes"
                 className="mt-1"
                 rows={3}
               />
@@ -828,44 +855,57 @@ export function CreateEstimationDialog({
 
             <Card className="rounded-2xl border border-border/70 bg-muted/30 shadow-none">
               <CardContent className="flex flex-col gap-2 p-4">
-              <div className="flex items-center justify-between">
-                <span className="font-medium">{title || 'Untitled Estimation'}</span>
-                {summaryNumber && (
-                  <Badge variant="outline" className="text-xs">#{summaryNumber}</Badge>
-                )}
-              </div>
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">{title || 'Untitled estimation'}</span>
+                  {summaryNumber && (
+                    <Badge variant="outline" className="text-xs">#{summaryNumber}</Badge>
+                  )}
+                </div>
                 {location && <p className="text-sm text-muted-foreground">{location}</p>}
-                {customerName && <p className="text-sm text-muted-foreground">Client: {customerName}</p>}
+                {customerName && <p className="text-sm text-muted-foreground">Customer: {customerName}</p>}
               </CardContent>
             </Card>
 
             <div className="flex flex-col gap-3 pt-4">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Labor ({selectedLaborIds.length} items)</span>
-                <span>{laborTotal.toFixed(2)} {currencySymbol}</span>
+                <span className="text-muted-foreground">
+                  Labor ({selectedLaborIds.length} items, {primarySummaryAmountLabel.toLowerCase()})
+                </span>
+                <span>{laborSummaryAmount.toFixed(2)} {currencySymbol}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Shopping List ({selectedMaterialIds.length} items)</span>
-                <span>{materialsTotal.toFixed(2)} {currencySymbol}</span>
+                <span className="text-muted-foreground">
+                  Materials ({selectedMaterialIds.length} items, {primarySummaryAmountLabel.toLowerCase()})
+                </span>
+                <span>{materialsSummaryAmount.toFixed(2)} {currencySymbol}</span>
               </div>
-              <div className="flex justify-between font-medium border-t pt-3">
-                <span>Net Total</span>
-                <span>{netTotal.toFixed(2)} {currencySymbol}</span>
-              </div>
-              {discountPercent > 0 && (
-                <div className="flex justify-between text-destructive">
-                  <span>Discount ({discountPercent}%)</span>
-                  <span>-{discountAmount.toFixed(2)} {currencySymbol}</span>
+              {summaryTaxSettings.priceDisplay === 'both' ? (
+                <>
+                  <div className="flex justify-between border-t pt-3 font-medium">
+                    <span>Net total</span>
+                    <span>{netTotal.toFixed(2)} {currencySymbol}</span>
+                  </div>
+                  {hasTaxApplied && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{estimationTaxLabel} ({vatPercent}%)</span>
+                      <span>{vatAmount.toFixed(2)} {currencySymbol}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between border-t pt-3 text-xl font-semibold">
+                    <span>Gross total</span>
+                    <span>{grossTotal.toFixed(2)} {currencySymbol}</span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex justify-between border-t pt-3">
+                  <span className="text-xl font-semibold">
+                    Total ({primarySummaryAmountLabel.toLowerCase()})
+                  </span>
+                  <span className="text-xl font-semibold">
+                    {totalSummaryAmount.toFixed(2)} {currencySymbol}
+                  </span>
                 </div>
               )}
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">VAT ({vatPercent}%)</span>
-                <span>{vatAmount.toFixed(2)} {currencySymbol}</span>
-              </div>
-              <div className="flex justify-between text-xl font-semibold border-t pt-3">
-                <span>Gross Total</span>
-                <span>{grossTotal.toFixed(2)} {currencySymbol}</span>
-              </div>
             </div>
           </div>
         )}

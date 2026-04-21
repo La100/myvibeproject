@@ -39,7 +39,6 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-
 import ProjectMembers from "./ProjectMembers";
 import TaskStatusSettings from "./TaskStatusSettings";
 
@@ -82,16 +81,6 @@ const settingsFormSchema = z.object({
       "KRW",
       "SGD",
       "HKD",
-    ])
-    .optional(),
-  taxEnabled: z.boolean().optional(),
-  taxRate: z
-    .union([
-      z.coerce
-        .number()
-        .min(0, "Tax rate must be at least 0")
-        .max(100, "Tax rate cannot exceed 100"),
-      z.literal(""),
     ])
     .optional(),
 });
@@ -294,11 +283,14 @@ function ProjectSettingsContent() {
     apiAny.teams.getCurrentUserTeamMember,
     project ? { teamId: project.teamId } : "skip"
   );
+  const team = useQuery(
+    apiAny.teams.getTeamById,
+    project ? { teamId: project.teamId } : "skip"
+  );
   const teamMembers = useQuery(
     apiAny.teams.getTeamMembers,
     project ? { teamId: project.teamId } : "skip"
   );
-
   const updateProject = useMutation(apiAny.projects.updateProject);
   const deleteProject = useMutation(apiAny.projects.deleteProject);
 
@@ -335,8 +327,6 @@ function ProjectSettingsContent() {
           status: project.status || "planning",
           measurements: project.measurements || "metric",
           currency: project.currency || "PLN",
-          taxEnabled: project.taxEnabled || false,
-          taxRate: project.taxRate ?? 23,
         }
       : {
           name: "",
@@ -352,8 +342,6 @@ function ProjectSettingsContent() {
           status: "planning",
           measurements: "metric",
           currency: "PLN",
-          taxEnabled: false,
-          taxRate: 23,
         },
   });
 
@@ -421,8 +409,6 @@ function ProjectSettingsContent() {
     const normalizedBudget =
       values.budget === "" || values.budget === undefined ? undefined : Number(values.budget);
     const normalizedCoverUrl = normalizeCoverImageUrl(values.coverImageUrl);
-    const normalizedTaxRate =
-      values.taxRate === "" || values.taxRate === undefined ? undefined : Number(values.taxRate);
     const normalizedStartDate = values.startDate ? new Date(values.startDate).getTime() : undefined;
     const normalizedEndDate = values.endDate ? new Date(values.endDate).getTime() : undefined;
 
@@ -453,8 +439,6 @@ function ProjectSettingsContent() {
         endDate: normalizedEndDate,
         measurements: values.measurements,
         currency: values.currency,
-        taxEnabled: values.taxEnabled || false,
-        taxRate: values.taxEnabled ? normalizedTaxRate ?? 23 : undefined,
         responsibleClerkUserId: resolvedResponsibleClerkUserId,
         clientPortalNotificationSettings: {
           recipientClerkUserIds:
@@ -475,7 +459,14 @@ function ProjectSettingsContent() {
       }
       return false;
     }
-  }, [params.projectSlug, project, responsibleOptions, router, updateProject]);
+  }, [
+    params.projectSlug,
+    project,
+    responsibleOptions,
+    router,
+    settingsForm,
+    updateProject,
+  ]);
 
   if (!project || !teamMember || teamMembers === undefined) {
     return null;
@@ -1420,52 +1411,6 @@ function GeneralTab({
                           <SelectItem value="imperial">Imperial</SelectItem>
                         </SelectContent>
                       </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={settingsForm.control}
-                  name="taxEnabled"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-start gap-3 rounded-xl border border-border/70 bg-muted/60 p-4 md:col-span-2">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={(checked) => field.onChange(Boolean(checked))}
-                        />
-                      </FormControl>
-                      <div className="flex flex-col gap-1 leading-none">
-                        <FormLabel className="text-sm font-medium">
-                          Include tax in project cost analysis
-                        </FormLabel>
-                        <p className="text-xs text-muted-foreground">
-                          Overview totals will show net, tax, and gross. Estimations will use this as the default VAT.
-                        </p>
-                      </div>
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={settingsForm.control}
-                  name="taxRate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm font-medium">Tax Rate (%)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min="0"
-                          max="100"
-                          placeholder="23"
-                          {...field}
-                          value={field.value ?? ""}
-                          disabled={!settingsForm.watch("taxEnabled")}
-                          className="h-10 w-full"
-                        />
-                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}

@@ -107,7 +107,7 @@ export const ensureTeamMembership = async (
 };
 
 export const parseOptionalDateToMillis = (
-  value: string | undefined,
+  value: string | null | undefined,
   fieldName: string,
 ) => {
   if (!value) {
@@ -121,7 +121,6 @@ export const parseOptionalDateToMillis = (
 
   return timestamp;
 };
-
 
 
 

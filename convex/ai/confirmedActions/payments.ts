@@ -88,9 +88,9 @@ export const editConfirmedPayment = action({
     paymentId: v.id("projectPayments"),
     updates: v.object({
       title: v.optional(v.string()),
-      description: v.optional(v.string()),
+      description: v.optional(v.union(v.string(), v.null())),
       amount: v.optional(v.number()),
-      dueDate: v.optional(v.string()),
+      dueDate: v.optional(v.union(v.string(), v.null())),
       invoiceNumber: v.optional(v.string()),
       status: v.optional(paymentStatusValidator),
     }),
