@@ -741,7 +741,7 @@ function ProjectOverviewContent() {
               className={cn(
                 "group relative overflow-hidden",
                 hasProjectCover
-                  ? "min-h-[320px] bg-[#d8d1c8] sm:min-h-[380px] lg:min-h-[440px]"
+                  ? "aspect-[16/6] min-h-[220px] bg-[#d8d1c8] sm:min-h-[260px] lg:min-h-[320px]"
                   : "min-h-[210px] bg-[#f7f7f4] sm:min-h-[230px] lg:min-h-[250px]",
               )}
             >
@@ -751,8 +751,10 @@ function ProjectOverviewContent() {
                   alt={`${project.name} cover`}
                   fill
                   priority
-                  className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.02]"
-                  sizes="(max-width: 1280px) 100vw, 1280px"
+                  quality={90}
+                  className="object-cover transition-transform duration-700 ease-out will-change-transform group-hover:scale-[1.02]"
+                  style={{ objectPosition: "center center" }}
+                  sizes="100vw"
                 />
               ) : (
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_18%,rgba(255,255,255,0.78),transparent_22%),radial-gradient(circle_at_82%_20%,rgba(49,45,38,0.03),transparent_26%)]" />

@@ -354,10 +354,10 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
           strategy="afterInteractive"
         />
 
-        <div className="flex items-center justify-between gap-3 border-b border-border/70 bg-background/95 px-4 py-2.5">
+        <div className="flex items-center justify-between gap-3 border-b border-border/70 bg-white px-4 py-2.5">
           <div className="min-w-0">
-            <p className="text-[15px] font-semibold leading-tight text-foreground">Vibe Assistant</p>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-[15px] font-semibold leading-tight text-slate-900">Vibe Assistant</p>
+            <p className="text-[11px] text-slate-500">
               {canMakeChanges ? "Live changes enabled" : "Read-only mode"}
             </p>
           </div>

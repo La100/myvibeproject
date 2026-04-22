@@ -33,7 +33,7 @@ export function FloatingChatKitLauncher() {
       <div className="pointer-events-auto flex max-w-[calc(100vw-2rem)] flex-col items-end gap-2.5">
         {isOpen ? (
           <div className="w-[min(390px,calc(100vw-2rem))] origin-bottom-right translate-y-0 scale-100 opacity-100 transition-all duration-200 ease-out">
-            <div className="h-[min(640px,calc(100vh-6rem))] overflow-hidden rounded-3xl border border-border/70 bg-background/95 shadow-lg backdrop-blur-xl">
+            <div className="h-[min(640px,calc(100vh-6rem))] overflow-hidden rounded-3xl border border-border/70 bg-white shadow-lg">
               <HostedChatKit mode="panel" />
             </div>
           </div>

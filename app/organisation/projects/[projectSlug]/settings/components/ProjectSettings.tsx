@@ -1194,7 +1194,7 @@ function GeneralTab({
                 </p>
               </div>
 
-              <div className="grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.85fr)]">
+              <div className="grid gap-5 lg:items-start lg:grid-cols-[minmax(0,1.45fr)_minmax(260px,0.65fr)]">
                 <div className="overflow-hidden rounded-[28px] border border-border/70 bg-muted/30">
                   {hasCoverPreview ? (
                     <div className="relative">
@@ -1232,7 +1232,7 @@ function GeneralTab({
                   )}
                 </div>
 
-                <div className="flex flex-col justify-between rounded-[28px] border border-border/70 bg-card p-5">
+                <div className="flex flex-col gap-5 self-start rounded-[28px] border border-border/70 bg-card p-4 md:p-5">
                   <input
                     ref={coverFileInputRef}
                     type="file"
@@ -1279,7 +1279,7 @@ function GeneralTab({
                     ) : null}
                   </div>
 
-                  <div className="mt-6 space-y-3">
+                  <div className="space-y-3">
                     <div className="flex items-start gap-3 rounded-2xl border border-border/70 bg-muted/20 px-4 py-3">
                       <CheckCircle2 className="mt-0.5 h-4 w-4 text-muted-foreground" />
                       <p className="text-xs leading-relaxed text-muted-foreground">
