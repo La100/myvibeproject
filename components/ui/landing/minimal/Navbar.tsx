@@ -9,7 +9,7 @@ import Logo from "../Logo";
 
 const navLinks = [
   { label: "Product", href: "/#product" },
-  { label: "Pricing", href: "/#pricing" },
+  { label: "Workflow", href: "/#workflow" },
   { label: "Resources", href: "/#resources" },
 ];
 

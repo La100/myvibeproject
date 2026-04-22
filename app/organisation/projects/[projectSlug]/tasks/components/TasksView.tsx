@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import { toast } from "sonner";
-import { useState, useMemo, useEffect, memo } from "react";
+import { useState, useMemo, useEffect, memo, type CSSProperties } from "react";
 import {
   LayoutGrid,
   List,
@@ -104,6 +104,7 @@ type KanbanTask = {
   assignedTo: string | null | undefined;
   assignedToName: string | undefined;
   assignedToImageUrl: string | undefined;
+  statusColor: string | undefined;
   tags: string[] | undefined;
   commentCount: number;
 };
@@ -227,6 +228,22 @@ const getPriorityDisplay = (priority: TaskPriority) => {
   return priorityStyles[priority];
 };
 
+const getTaskCardSurfaceStyle = (
+  statusColor: string | undefined,
+): CSSProperties | undefined => {
+  if (!statusColor) {
+    return undefined;
+  }
+
+  return {
+    ["--task-status-color" as string]: statusColor,
+    backgroundColor:
+      "color-mix(in srgb, var(--task-status-color) var(--task-card-status-bg-strength), var(--card))",
+    borderColor:
+      "color-mix(in srgb, var(--task-status-color) var(--task-card-status-border-strength), var(--border))",
+  } as CSSProperties;
+};
+
 export function TasksViewSkeleton({
   viewMode = "kanban",
 }: {
@@ -342,10 +359,11 @@ export default function TasksView() {
         assignedTo: task.assignedTo,
         assignedToName: task.assignedToName,
         assignedToImageUrl: task.assignedToImageUrl,
+        statusColor: project.taskStatusSettings?.[task.status]?.color,
         tags: task.tags,
         commentCount: task.commentCount,
       })) || [],
-    [tasksToDisplay],
+    [project.taskStatusSettings, tasksToDisplay],
   );
 
   const [localKanbanTasks, setLocalKanbanTasks] =
@@ -727,9 +745,13 @@ const TaskCardContent = memo(function TaskCardContent({
   projectSlug: string;
 }) {
   const priority = getPriorityDisplay(task.priority);
+  const surfaceStyle = getTaskCardSurfaceStyle(task.statusColor);
 
   return (
-    <div className="relative block hover-lift bg-card border border-border rounded-lg p-4 shadow-sm hover:shadow-md transition-all cursor-pointer">
+    <div
+      className="relative block hover-lift rounded-lg border border-border bg-card p-4 shadow-sm transition-all cursor-pointer hover:shadow-md"
+      style={surfaceStyle}
+    >
       <div className="flex justify-between items-start mb-2">
         <Link
           href={`/organisation/projects/${projectSlug}/tasks/${task.id}`}
@@ -823,9 +845,13 @@ const TaskCardContent = memo(function TaskCardContent({
 
 function TaskDragPreview({ task }: { task: KanbanTask }) {
   const priority = getPriorityDisplay(task.priority);
+  const surfaceStyle = getTaskCardSurfaceStyle(task.statusColor);
 
   return (
-    <div className="w-[340px] rounded-lg border bg-card px-4 py-3 shadow-lg">
+    <div
+      className="w-[340px] rounded-lg border bg-card px-4 py-3 shadow-lg"
+      style={surfaceStyle}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="truncate text-sm font-semibold">{task.title}</div>

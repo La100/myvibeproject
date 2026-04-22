@@ -54,18 +54,18 @@ export default function ChooseOrganizationTaskPage() {
               </Link>
 
               <h1 className="max-w-[12ch] text-5xl font-medium leading-[0.98] tracking-[-0.04em] text-foreground">
-                Choose your workspace and continue.
+                Confirm organization access and continue.
               </h1>
 
               <p className="mt-5 max-w-lg text-lg leading-8 text-muted-foreground">
                 This screen resolves your current Clerk session task. After
-                choosing the organization, we will route you to the correct app
+                confirming the organization, we will route you to the correct app
                 destination.
               </p>
 
               <div className="mt-10 flex flex-wrap gap-3">
                 <span className="rounded-full border border-border/80 bg-background/80 px-4 py-2 text-sm text-foreground">
-                  1. Choose organization
+                  1. Confirm organization
                 </span>
                 <span className="rounded-full border border-border/60 bg-background/60 px-4 py-2 text-sm text-muted-foreground">
                   2. Activate workspace
@@ -99,10 +99,10 @@ export default function ChooseOrganizationTaskPage() {
                   Session task
                 </p>
                 <h2 className="mt-3 text-3xl font-medium tracking-[-0.03em] text-foreground">
-                  Choose organization
+                  Confirm organization
                 </h2>
                 <p className="mt-3 max-w-[38ch] text-sm leading-6 text-muted-foreground">
-                  Select the organization for this session. If that workspace
+                  Confirm the organization for this session. If that workspace
                   still needs setup, we will send you there next.
                 </p>
               </div>

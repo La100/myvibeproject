@@ -17,7 +17,7 @@ const sections = [
     body: [
       "You must provide accurate account information and keep it up to date. You are responsible for all activity that occurs under your account, organization, and connected devices.",
       "You must keep credentials, API sessions, browser extension sessions, and access links confidential. Notify us promptly if you believe your account or workspace has been compromised.",
-      "Organization administrators are responsible for managing team members, permissions, shared workspaces, and client-facing access granted through the Service.",
+      "Organization administrators are responsible for managing team members, permissions, workspace access, and client-facing access granted through the Service.",
     ],
   },
   {
@@ -145,7 +145,7 @@ export default function TermsOfServicePage() {
         <CardContent className="prose prose-sm max-w-none text-foreground">
           <p>
             These Terms are designed for a professional SaaS workflow and reflect how
-            MyVibeProject currently operates across team workspaces, client collaboration, billing,
+            MyVibeProject currently operates across team collaboration, billing,
             AI tools, and browser-extension features.
           </p>
 

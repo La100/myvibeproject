@@ -157,6 +157,8 @@
   --ui-gradient-brand: color-mix(in oklab, var(--chart-2) 78%, var(--background) 22%);
   --ui-gradient-violet: color-mix(in oklab, var(--chart-3) 74%, var(--background) 26%);
   --ui-gradient-end: color-mix(in oklab, var(--chart-4) 68%, var(--background) 32%);
+  --task-card-status-bg-strength: 16%;
+  --task-card-status-border-strength: 34%;
   --ui-clerk-border: var(--ui-border-soft);
   --ui-clerk-modal-bg: color-mix(in oklab, var(--card) 94%, white 6%);
   --ui-clerk-card-bg: var(--card);

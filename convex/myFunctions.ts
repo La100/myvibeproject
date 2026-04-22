@@ -316,7 +316,7 @@ export const createOrUpdateMembership = internalMutation({
         const conflictingMembership = activeMemberships.find((entry) => entry.teamId !== team._id);
         if (!membership && conflictingMembership) {
             console.warn(
-                `[createOrUpdateMembership] Skipping secondary workspace membership for clerkUserId=${args.clerkUserId}. Existing teamId=${conflictingMembership.teamId}, incoming teamId=${team._id}`,
+                `[createOrUpdateMembership] Skipping additional workspace membership for clerkUserId=${args.clerkUserId}. Existing teamId=${conflictingMembership.teamId}, incoming teamId=${team._id}`,
             );
             return;
         }

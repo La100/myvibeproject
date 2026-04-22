@@ -283,10 +283,6 @@ function ProjectSettingsContent() {
     apiAny.teams.getCurrentUserTeamMember,
     project ? { teamId: project.teamId } : "skip"
   );
-  const team = useQuery(
-    apiAny.teams.getTeamById,
-    project ? { teamId: project.teamId } : "skip"
-  );
   const teamMembers = useQuery(
     apiAny.teams.getTeamMembers,
     project ? { teamId: project.teamId } : "skip"
@@ -464,7 +460,6 @@ function ProjectSettingsContent() {
     project,
     responsibleOptions,
     router,
-    settingsForm,
     updateProject,
   ]);
 

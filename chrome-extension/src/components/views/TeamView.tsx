@@ -15,7 +15,7 @@ const TeamView = ({ teams, onTeamSelect, onLogout }: TeamViewProps) => {
       <div className="mb-4 flex items-start justify-between">
         <div>
           <p className="vp-title">Your teams</p>
-          <h2 className="mt-1 text-xl font-semibold">Choose a workspace</h2>
+          <h2 className="mt-1 text-xl font-semibold">Choose a team</h2>
         </div>
 
         <Button variant="ghost" size="sm" onClick={onLogout} className="text-foreground/70">

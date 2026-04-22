@@ -5,10 +5,14 @@ const footerLinks = [
   {
     title: "Product",
     links: [
-      { label: "Features", href: "/#features" },
-      { label: "Pricing", href: "/#pricing" },
-      { label: "FAQ", href: "/#faq" },
+      { label: "Overview", href: "/#product" },
+      { label: "Workflow", href: "/#workflow" },
+      { label: "Client Portal", href: "/#client-collaboration" },
     ],
+  },
+  {
+    title: "Resources",
+    links: [{ label: "Studio Memory", href: "/#resources" }],
   },
   {
     title: "Legal",

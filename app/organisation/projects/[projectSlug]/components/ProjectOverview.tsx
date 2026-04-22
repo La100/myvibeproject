@@ -593,6 +593,7 @@ function ProjectOverviewContent() {
   const projectCoverUrl =
     (project as { coverImageDisplayUrl?: string }).coverImageDisplayUrl ||
     project.coverImageUrl;
+  const hasProjectCover = Boolean(projectCoverUrl);
   const projectEditedLabel = formatRelativeProjectEdit(
     (project as { updatedAt?: number }).updatedAt ?? project._creationTime,
   );
@@ -600,7 +601,9 @@ function ProjectOverviewContent() {
     PROJECT_STATUS_LABELS[
       project.status as keyof typeof PROJECT_STATUS_LABELS
     ] || project.status.replace(/_/g, " ");
-  const activeTasksCount = tasks.filter((task) => task.status !== "done").length;
+  const activeTasksCount = tasks.filter(
+    (task) => task.status !== "done",
+  ).length;
   const overdueTasksCount = tasks.filter(
     (task) =>
       task.status !== "done" &&
@@ -684,10 +687,11 @@ function ProjectOverviewContent() {
 
   const recentCards = [
     ...moodboardSections.flatMap((section) => {
-      const files =
-        ((moodboardImageResults[section.id] as
+      const files = (
+        (moodboardImageResults[section.id] as
           | Array<{ name: string; url: string }>
-          | undefined) ?? []).slice(0, 3);
+          | undefined) ?? []
+      ).slice(0, 3);
 
       return files.map((file, index) => ({
         id: `${section.id}-${file.url}-${index}`,
@@ -713,274 +717,392 @@ function ProjectOverviewContent() {
     (project as { websiteUrl?: string; website?: string }).website ||
     null;
 
-  const statusVariant =
-    project.status === "cancelled"
-      ? "destructive"
-      : project.status === "completed"
-        ? "default"
-        : "secondary";
+  const projectStatusBadgeClass = cn(
+    hasProjectCover
+      ? "border-white/16 bg-white/12 text-white shadow-none backdrop-blur-md"
+      : "border-border/80 bg-background/82 text-foreground shadow-none backdrop-blur-md",
+    project.status === "cancelled" &&
+      (hasProjectCover
+        ? "border-red-300/35 bg-red-500/16 text-white"
+        : "border-red-200/80 bg-red-50/90 text-red-900"),
+    project.status === "completed" &&
+      (hasProjectCover
+        ? "border-emerald-300/35 bg-emerald-500/16 text-white"
+        : "border-emerald-200/80 bg-emerald-50/90 text-emerald-900"),
+  );
 
   return (
     <ProjectPageLayout>
-      <section className="mx-auto w-full max-w-[1180px]">
-        <div className="overflow-hidden rounded-[30px] border border-border/80 bg-card shadow-[var(--shadow-lg)]">
-          <div className="min-h-[600px] bg-card">
-              <div className="border-b border-border/70 px-6 py-6 sm:px-8">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-2 text-[11px] font-medium tracking-[0.01em] text-muted-foreground">
-                    <Building2 className="h-3.5 w-3.5" />
-                    <span>Projects</span>
-                    <span>/</span>
-                    <ClipboardList className="h-3.5 w-3.5" />
-                    <span>Overview</span>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 rounded-md border border-border/80 bg-background text-muted-foreground hover:bg-muted"
-                      >
-                        <MoreHorizontal className="h-4 w-4" />
-                        <span className="sr-only">Project actions</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="end"
-                      className="w-56 rounded-xl border-border/80 bg-popover"
-                    >
-                      <DropdownMenuItem
-                        onSelect={() => router.push(`${projectBasePath}/settings`)}
-                      >
-                        <Settings2 className="mr-2 h-4 w-4" />
-                        Project settings
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onSelect={() => router.push(`${projectBasePath}/tasks`)}
-                      >
-                        <ClipboardList className="mr-2 h-4 w-4" />
-                        Open tasks board
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onSelect={() => router.push(`${projectBasePath}/payments`)}
-                      >
-                        <CreditCard className="mr-2 h-4 w-4" />
-                        Open payments
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onSelect={() => router.push(`${projectBasePath}/files`)}
-                      >
-                        <Files className="mr-2 h-4 w-4" />
-                        Open files
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onSelect={openProjectBookExport}>
-                        <Download className="mr-2 h-4 w-4" />
-                        Export project book
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
+      <section className="w-full">
+        <div className="overflow-hidden rounded-[34px] border border-border/70 bg-card shadow-[0_24px_80px_-52px_rgba(25,25,25,0.42)]">
+          <div className="bg-card">
+            <div
+              className={cn(
+                "group relative overflow-hidden",
+                hasProjectCover
+                  ? "min-h-[320px] bg-[#d8d1c8] sm:min-h-[380px] lg:min-h-[440px]"
+                  : "min-h-[210px] bg-[#f7f7f4] sm:min-h-[230px] lg:min-h-[250px]",
+              )}
+            >
+              {hasProjectCover ? (
+                <Image
+                  src={projectCoverUrl}
+                  alt={`${project.name} cover`}
+                  fill
+                  priority
+                  className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.02]"
+                  sizes="(max-width: 1280px) 100vw, 1280px"
+                />
+              ) : (
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_18%,rgba(255,255,255,0.78),transparent_22%),radial-gradient(circle_at_82%_20%,rgba(49,45,38,0.03),transparent_26%)]" />
+              )}
+              <div
+                className={cn(
+                  "absolute inset-0",
+                  hasProjectCover
+                    ? "bg-[linear-gradient(180deg,rgba(21,20,18,0.12)_0%,rgba(21,20,18,0.12)_24%,rgba(21,20,18,0.54)_74%,rgba(12,11,10,0.78)_100%)]"
+                    : "bg-[linear-gradient(180deg,rgba(255,255,255,0.18)_0%,rgba(255,255,255,0.03)_44%,rgba(49,45,38,0.035)_100%)]",
+                )}
+              />
+              <div
+                className={cn(
+                  "absolute inset-0",
+                  hasProjectCover
+                    ? "bg-[linear-gradient(90deg,rgba(20,18,16,0.52)_0%,rgba(20,18,16,0.28)_34%,rgba(20,18,16,0.08)_64%,rgba(20,18,16,0.44)_100%)]"
+                    : "bg-[linear-gradient(90deg,rgba(49,45,38,0.025)_0%,rgba(255,255,255,0.04)_48%,rgba(49,45,38,0.02)_100%)]",
+                )}
+              />
+              {!hasProjectCover ? (
+                <div className="absolute inset-x-[28%] top-[-36%] h-[150px] rounded-full bg-white/42 blur-3xl sm:h-[180px]" />
+              ) : null}
 
-                <div className="mt-6 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_400px]">
-                  <div className="max-w-[560px] space-y-4">
-                    <div className="space-y-2.5">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                        Project Workspace
-                      </p>
-                      <h1 className="text-[30px] font-medium leading-none tracking-tight text-foreground sm:text-[34px]">
-                        {project.name}
-                      </h1>
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-muted-foreground">
-                        {project.location ? (
-                          <span className="inline-flex items-center gap-1.5">
-                            <MapPin className="h-3.5 w-3.5" />
-                            {project.location}
-                          </span>
-                        ) : null}
-                        {projectEditedLabel ? <span>{projectEditedLabel}</span> : null}
-                      </div>
-                    </div>
+              <div
+                className={cn(
+                  "absolute inset-x-0 top-0 flex items-start justify-between gap-3",
+                  hasProjectCover ? "p-5 sm:p-7" : "p-4 sm:p-5 lg:p-6",
+                )}
+              >
+                <div
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[11px] font-medium tracking-[0.08em] backdrop-blur-md",
+                    hasProjectCover
+                      ? "border border-white/14 bg-black/16 text-white/80"
+                      : "border border-border/70 bg-background/72 text-muted-foreground",
+                  )}
+                >
+                  <Building2 className="h-3.5 w-3.5" />
+                  <span>Projects</span>
+                  <span
+                    className={cn(
+                      hasProjectCover
+                        ? "text-white/45"
+                        : "text-muted-foreground/60",
+                    )}
+                  >
+                    /
+                  </span>
+                  <ClipboardList className="h-3.5 w-3.5" />
+                  <span>Overview</span>
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={cn(
+                        "h-12 w-12 rounded-2xl backdrop-blur-md transition-colors",
+                        hasProjectCover
+                          ? "border border-white/16 bg-black/18 text-white/90 hover:bg-black/28 hover:text-white"
+                          : "border border-border/70 bg-background/72 text-foreground/75 hover:bg-background hover:text-foreground",
+                      )}
+                    >
+                      <MoreHorizontal className="h-5 w-5" />
+                      <span className="sr-only">Project actions</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    className="w-56 rounded-xl border-border/80 bg-popover"
+                  >
+                    <DropdownMenuItem
+                      onSelect={() =>
+                        router.push(`${projectBasePath}/settings`)
+                      }
+                    >
+                      <Settings2 className="mr-2 h-4 w-4" />
+                      Project settings
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={() => router.push(`${projectBasePath}/tasks`)}
+                    >
+                      <ClipboardList className="mr-2 h-4 w-4" />
+                      Open tasks board
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={() =>
+                        router.push(`${projectBasePath}/payments`)
+                      }
+                    >
+                      <CreditCard className="mr-2 h-4 w-4" />
+                      Open payments
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={() => router.push(`${projectBasePath}/files`)}
+                    >
+                      <Files className="mr-2 h-4 w-4" />
+                      Open files
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={openProjectBookExport}>
+                      <Download className="mr-2 h-4 w-4" />
+                      Export project book
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              <div
+                className={cn(
+                  "absolute inset-x-0 bottom-0",
+                  hasProjectCover ? "p-5 sm:p-7 lg:p-9" : "p-4 sm:p-5 lg:p-6",
+                )}
+              >
+                <div
+                  className={cn(
+                    "max-w-[760px] space-y-4 sm:space-y-5",
+                    !hasProjectCover && "space-y-2.5 sm:space-y-3",
+                  )}
+                >
+                  <p
+                    className={cn(
+                      "text-[11px] font-semibold uppercase tracking-[0.24em] sm:text-[12px]",
+                      hasProjectCover
+                        ? "text-white/70"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    Project Workspace
+                  </p>
+                  <div
+                    className={cn("space-y-3", !hasProjectCover && "space-y-2")}
+                  >
+                    <h1
+                      className={cn(
+                        "max-w-[11ch] font-serif leading-[0.94] tracking-[-0.055em]",
+                        hasProjectCover
+                          ? "text-[3rem] text-white sm:text-[4rem] lg:text-[4.7rem]"
+                          : "text-[2.35rem] text-foreground sm:text-[2.8rem] lg:text-[3.2rem]",
+                      )}
+                    >
+                      {project.name}
+                    </h1>
                     <div className="flex flex-wrap items-center gap-2.5">
-                      <Badge
-                        variant={statusVariant}
-                        className="rounded-md px-2.5 py-1 text-[11px] font-medium shadow-none"
-                      >
+                      <Badge className={projectStatusBadgeClass}>
                         {projectStatusLabel}
                       </Badge>
                       {project.customer ? (
                         <Badge
-                          variant="outline"
-                          className="rounded-md border-border/80 bg-muted/35 px-2.5 py-1 text-[11px] font-medium text-muted-foreground"
+                          className={cn(
+                            "shadow-none backdrop-blur-md",
+                            hasProjectCover
+                              ? "border-white/16 bg-black/18 text-white/88"
+                              : "border-border/80 bg-background/82 text-foreground/88",
+                          )}
                         >
                           {project.customer}
                         </Badge>
                       ) : null}
                       <Badge
-                        variant="outline"
-                        className="inline-flex items-center gap-2 rounded-full border-border/80 bg-background px-3 py-1.5 text-[11px] font-medium text-foreground shadow-none"
+                        className={cn(
+                          "gap-2 px-3 shadow-none backdrop-blur-md",
+                          hasProjectCover
+                            ? "border-white/16 bg-black/18 text-white/88"
+                            : "border-border/80 bg-background/82 text-foreground/88",
+                        )}
                       >
-                        <CalendarRange className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span>{formatDateRange(project.startDate, project.endDate)}</span>
+                        <CalendarRange
+                          className={cn(
+                            "h-3.5 w-3.5",
+                            hasProjectCover
+                              ? "text-white/70"
+                              : "text-muted-foreground",
+                          )}
+                        />
+                        <span>
+                          {formatDateRange(project.startDate, project.endDate)}
+                        </span>
                       </Badge>
                     </div>
-                    {project.description ? (
-                      <p className="max-w-[430px] text-[13px] leading-6 text-muted-foreground">
-                        {project.description}
-                      </p>
-                    ) : null}
-                    <div className="flex flex-wrap items-center gap-3 pt-1.5">
-                      <div className="flex -space-x-2">
-                        {visibleTeamMembers.map((member) => (
-                          <Avatar
-                            key={member._id}
-                            className="h-8 w-8 border border-white shadow-sm"
-                          >
-                            <AvatarImage src={member.imageUrl} alt={member.name} />
-                            <AvatarFallback className="bg-muted text-[11px] font-medium text-foreground">
-                              {getInitials(member.name)}
-                            </AvatarFallback>
-                          </Avatar>
-                        ))}
-                        {hiddenTeamMembersCount > 0 ? (
-                          <div className="flex h-8 w-8 items-center justify-center rounded-full border border-background bg-muted text-[11px] font-medium text-foreground shadow-sm">
-                            +{hiddenTeamMembersCount}
-                          </div>
-                        ) : null}
-                      </div>
-                      <div className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground">
-                        <Users className="h-3.5 w-3.5" />
-                        <span>
-                          {teamMembers.length} collaborator
-                          {teamMembers.length === 1 ? "" : "s"}
-                        </span>
-                      </div>
-                      {projectLink ? (
-                        <Link
-                          href={projectLink}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 text-[12px] font-medium text-foreground underline-offset-4 hover:underline"
-                        >
-                          <Globe className="h-3.5 w-3.5" />
-                          Visit website
-                          <ExternalLink className="h-3 w-3" />
-                        </Link>
-                      ) : null}
-                    </div>
-                  </div>
-                  <div className="overflow-hidden rounded-[18px] border border-border/70 bg-muted/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.3)]">
-                    <div className="relative aspect-[1.55/1]">
-                      {projectCoverUrl ? (
-                        <Image
-                          src={projectCoverUrl}
-                          alt={`${project.name} cover`}
-                          fill
-                          className="object-cover"
-                          sizes="(max-width: 1024px) 100vw, 400px"
-                        />
-                      ) : (
-                        <div className="absolute inset-0 bg-[linear-gradient(135deg,var(--muted)_0%,var(--background)_58%,var(--secondary)_100%)]" />
-                      )}
-                    </div>
                   </div>
                 </div>
               </div>
+            </div>
 
-              <div className="border-b border-border/70 px-6 py-6 sm:px-8">
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-                  {overviewMetrics.map((metric, index) => (
-                    <div
-                      key={metric.label}
-                      className={cn(
-                        "rounded-[18px] border border-border/80 bg-card px-5 py-5",
-                        metric.spanClass,
-                        index === overviewMetrics.length - 1 && "md:col-span-2",
-                      )}
-                    >
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                        {metric.label}
-                      </p>
-                      <p className="mt-3 text-[30px] font-semibold tracking-tight tabular-nums text-foreground">
-                        {metric.value}
-                      </p>
-                      <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
-                        {metric.meta}
-                      </p>
-                      {"breakdown" in metric && metric.breakdown?.length ? (
-                        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border/70 pt-3">
-                          {metric.breakdown.map((item) => (
-                            <div key={item.label} className="space-y-0.5">
-                              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                                {item.label}
-                              </p>
-                              <p className="text-[12px] font-medium text-foreground">
-                                {item.value}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
-                  ))}
+            <div className="border-b border-border/70 bg-card px-5 py-5 sm:px-7 sm:py-6 lg:px-9">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[13px] text-muted-foreground sm:text-[15px]">
+                  {project.location ? (
+                    <span className="inline-flex items-center gap-2 font-medium text-foreground/82">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      {project.location}
+                    </span>
+                  ) : null}
+                  {project.location && projectEditedLabel ? (
+                    <span className="hidden text-border sm:inline">·</span>
+                  ) : null}
+                  {projectEditedLabel ? (
+                    <span>{projectEditedLabel}</span>
+                  ) : null}
                 </div>
-              </div>
 
-              <div className="px-6 py-6 sm:px-8">
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <div className="space-y-1">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                      Recent
-                    </p>
-                    <p className="text-[13px] text-muted-foreground">
-                      Latest visual references and working materials linked to this project.
-                    </p>
-                  </div>
-                </div>
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                  {recentCards.length > 0 ? (
-                    recentCards.map((card) => (
-                      <Link
-                        key={card.id}
-                        href={card.href}
-                        className="group overflow-hidden rounded-[16px] border border-border/80 bg-card transition-[transform,background-color,border-color] duration-200 hover:-translate-y-0.5 hover:bg-muted/20"
+                <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+                  <div className="flex -space-x-2.5">
+                    {visibleTeamMembers.map((member) => (
+                      <Avatar
+                        key={member._id}
+                        className="h-10 w-10 border-[3px] border-card shadow-sm"
                       >
-                        <div className="relative aspect-[1.65/1] border-b border-border/70 bg-muted/30">
-                          {card.imageUrl ? (
-                            <Image
-                              src={card.imageUrl}
-                              alt={card.title}
-                              fill
-                              className="object-cover"
-                              sizes="(max-width: 1280px) 50vw, 220px"
-                            />
-                          ) : (
-                            <div className="absolute inset-0 bg-[linear-gradient(135deg,var(--muted)_0%,var(--card)_100%)]" />
-                          )}
-                        </div>
-                        <div className="space-y-1.5 px-3 py-3">
-                          <p className="truncate text-[12px] font-medium text-foreground">
-                            {card.title}
-                          </p>
-                          <p className="truncate text-[11px] text-muted-foreground">
-                            {card.subtitle}
-                          </p>
-                          <Badge
-                            variant="outline"
-                            className="rounded-md border-border/80 bg-muted/25 px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
-                          >
-                            {card.status}
-                          </Badge>
-                        </div>
-                      </Link>
-                    ))
-                  ) : (
-                    <div className="col-span-full rounded-[12px] border border-dashed border-border/80 bg-muted/20 px-4 py-6 text-[12px] text-muted-foreground">
-                      Add moodboard items, files, or notes to populate the recent strip.
-                    </div>
-                  )}
+                        <AvatarImage src={member.imageUrl} alt={member.name} />
+                        <AvatarFallback className="bg-muted text-[11px] font-semibold text-foreground">
+                          {getInitials(member.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                    ))}
+                    {hiddenTeamMembersCount > 0 ? (
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full border-[3px] border-card bg-muted text-[11px] font-semibold text-foreground shadow-sm">
+                        +{hiddenTeamMembersCount}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="inline-flex items-center gap-2 text-[13px] font-medium text-foreground/82 sm:text-[15px]">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <span>
+                      {teamMembers.length} collaborator
+                      {teamMembers.length === 1 ? "" : "s"}
+                    </span>
+                  </div>
+
+                  {projectLink ? (
+                    <Link
+                      href={projectLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 text-[13px] font-medium text-foreground/82 underline-offset-4 transition-colors hover:text-foreground hover:underline sm:text-[15px]"
+                    >
+                      <Globe className="h-4 w-4 text-muted-foreground" />
+                      Visit website
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </Link>
+                  ) : null}
                 </div>
               </div>
+            </div>
+
+            {project.description ? (
+              <div className="border-b border-border/70 px-5 py-5 sm:px-7 lg:px-9">
+                <p className="max-w-[860px] text-[15px] leading-7 text-foreground/78">
+                  {project.description}
+                </p>
+              </div>
+            ) : null}
+
+            <div className="border-b border-border/70 px-5 py-6 sm:px-7 sm:py-7 lg:px-9">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+                {overviewMetrics.map((metric, index) => (
+                  <div
+                    key={metric.label}
+                    className={cn(
+                      "rounded-[18px] border border-border/80 bg-card px-5 py-5",
+                      metric.spanClass,
+                      index === overviewMetrics.length - 1 && "md:col-span-2",
+                    )}
+                  >
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      {metric.label}
+                    </p>
+                    <p className="mt-3 text-[30px] font-semibold tracking-tight tabular-nums text-foreground">
+                      {metric.value}
+                    </p>
+                    <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
+                      {metric.meta}
+                    </p>
+                    {"breakdown" in metric && metric.breakdown?.length ? (
+                      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border/70 pt-3">
+                        {metric.breakdown.map((item) => (
+                          <div key={item.label} className="space-y-0.5">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                              {item.label}
+                            </p>
+                            <p className="text-[12px] font-medium text-foreground">
+                              {item.value}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="px-5 py-6 sm:px-7 sm:py-7 lg:px-9">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                    Recent
+                  </p>
+                  <p className="text-[13px] text-muted-foreground">
+                    Latest visual references and working materials linked to
+                    this project.
+                  </p>
+                </div>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                {recentCards.length > 0 ? (
+                  recentCards.map((card) => (
+                    <Link
+                      key={card.id}
+                      href={card.href}
+                      className="group overflow-hidden rounded-[16px] border border-border/80 bg-card transition-[transform,background-color,border-color] duration-200 hover:-translate-y-0.5 hover:bg-muted/20"
+                    >
+                      <div className="relative aspect-[1.65/1] border-b border-border/70 bg-muted/30">
+                        {card.imageUrl ? (
+                          <Image
+                            src={card.imageUrl}
+                            alt={card.title}
+                            fill
+                            className="object-cover"
+                            sizes="(max-width: 1280px) 50vw, 220px"
+                          />
+                        ) : (
+                          <div className="absolute inset-0 bg-[linear-gradient(135deg,var(--muted)_0%,var(--card)_100%)]" />
+                        )}
+                      </div>
+                      <div className="space-y-1.5 px-3 py-3">
+                        <p className="truncate text-[12px] font-medium text-foreground">
+                          {card.title}
+                        </p>
+                        <p className="truncate text-[11px] text-muted-foreground">
+                          {card.subtitle}
+                        </p>
+                        <Badge
+                          variant="outline"
+                          className="rounded-md border-border/80 bg-muted/25 px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+                        >
+                          {card.status}
+                        </Badge>
+                      </div>
+                    </Link>
+                  ))
+                ) : (
+                  <div className="col-span-full rounded-[12px] border border-dashed border-border/80 bg-muted/20 px-4 py-6 text-[12px] text-muted-foreground">
+                    Add moodboard items, files, or notes to populate the recent
+                    strip.
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </section>

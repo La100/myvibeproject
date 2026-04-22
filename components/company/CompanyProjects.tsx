@@ -61,7 +61,7 @@ export default function CompanyProjects() {
         <div>
           <h2 className="clean-title text-3xl font-medium tracking-tight">Projects</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Search, launch, and expand the workspaces that drive the campaign forward.
+            Search, launch, and expand the projects that drive the campaign forward.
           </p>
         </div>
 
@@ -131,7 +131,7 @@ export default function CompanyProjects() {
               <EmptyDescription className="max-w-lg text-base/relaxed md:text-lg/relaxed">
                 {searchQuery
                   ? "Try a different search phrase or create a new project."
-                  : "Create your first live workspace and start running execution from one place."}
+                  : "Create your first live project and start running execution from one place."}
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent className="flex-row flex-wrap justify-center gap-3 text-base">

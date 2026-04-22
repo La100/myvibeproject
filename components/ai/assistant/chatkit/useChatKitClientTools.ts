@@ -3777,7 +3777,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
           }
 
           case "generate_moodboard_image": {
-            const prompt = asNonEmptyString(params.prompt);
+            const payload = flattenManagedToolParams(params);
+            const prompt = asNonEmptyString(payload.prompt);
             if (!prompt) {
               return {
                 ok: false,
@@ -3791,7 +3792,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               {
                 prompt,
                 projectId,
-                section: asNonEmptyString(params.section),
+                section: asNonEmptyString(payload.section),
               },
             );
 

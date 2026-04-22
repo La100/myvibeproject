@@ -165,9 +165,6 @@ export function SmartDashboard() {
     if (activeOrganization?.id && onboardingStatus?.activeOrganization) {
       return "Redirecting to your organization...";
     }
-    if (organizations.length > 1) {
-      return "Using your primary workspace...";
-    }
     return "Activating your workspace...";
   }, [
     isEnsuringMembership,
