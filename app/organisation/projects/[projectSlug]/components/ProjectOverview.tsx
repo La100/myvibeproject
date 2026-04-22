@@ -591,9 +591,10 @@ function ProjectOverviewContent() {
   };
 
   const projectCoverUrl =
-    (project as { coverImageDisplayUrl?: string }).coverImageDisplayUrl ||
-    project.coverImageUrl;
-  const hasProjectCover = Boolean(projectCoverUrl);
+    (project as { coverImageDisplayUrl?: string }).coverImageDisplayUrl?.trim() ||
+    project.coverImageUrl?.trim() ||
+    null;
+  const hasProjectCover = projectCoverUrl !== null;
   const projectEditedLabel = formatRelativeProjectEdit(
     (project as { updatedAt?: number }).updatedAt ?? project._creationTime,
   );
@@ -744,7 +745,7 @@ function ProjectOverviewContent() {
                   : "min-h-[210px] bg-[#f7f7f4] sm:min-h-[230px] lg:min-h-[250px]",
               )}
             >
-              {hasProjectCover ? (
+              {projectCoverUrl ? (
                 <Image
                   src={projectCoverUrl}
                   alt={`${project.name} cover`}
