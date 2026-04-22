@@ -260,16 +260,7 @@ export default function ShoppingListView() {
       )
       .join(' | ');
   };
-  const shoppingPdfPriceColumns =
-    effectiveTaxSettings.priceDisplay === 'both'
-      ? [
-          { key: 'totalNet', label: 'Net' },
-          { key: 'totalTax', label: effectiveTaxSettings.taxLabel },
-          { key: 'totalGross', label: 'Gross' },
-        ]
-      : effectiveTaxSettings.priceDisplay === 'gross'
-        ? [{ key: 'totalGross', label: 'Gross' }]
-        : [{ key: 'totalNet', label: 'Net' }];
+  const shoppingPdfPriceColumns = [{ key: 'totalNet', label: 'Net' }];
   const showFirstRunOnboarding = items.length === 0;
   const hasActiveFilters =
     normalizedSearchQuery.length > 0 ||

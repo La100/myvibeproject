@@ -9,7 +9,6 @@ import { toast } from "sonner";
 import { apiAny } from "@/lib/convexApiAny";
 import { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 
@@ -87,17 +86,16 @@ export default function TaskStatusSettings({ projectId, initialSettings }: TaskS
   };
 
   return (
-    <Card className="clean-panel overflow-hidden">
-      <CardHeader className="border-b border-border/70 bg-muted/40 pb-5">
-        <CardTitle>Task Status Settings</CardTitle>
-        <CardDescription>
+    <div className="space-y-8">
+      <div className="border-b border-border/70 pb-5">
+        <h3 className="text-lg font-semibold text-foreground">Task Status Settings</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
           Customize labels and colors for each stage in your task workflow.
-        </CardDescription>
-      </CardHeader>
+        </p>
+      </div>
 
-      <CardContent className="flex flex-col gap-6 p-4 md:p-6">
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-6">
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-6">
             <div className="grid gap-4 lg:grid-cols-2">
               {statusKeys.map((key) => {
                 const statusMeta = STATUS_META[key];
@@ -107,7 +105,7 @@ export default function TaskStatusSettings({ projectId, initialSettings }: TaskS
                 return (
                   <div
                     key={key}
-                    className="rounded-2xl border border-border/70 bg-card p-4"
+                    className="rounded-2xl bg-muted/25 p-4"
                   >
                     <div className="mb-4 flex items-start justify-between gap-3">
                       <div>
@@ -173,7 +171,7 @@ export default function TaskStatusSettings({ projectId, initialSettings }: TaskS
               })}
             </div>
 
-            <div className="flex flex-col-reverse gap-3 rounded-xl border border-border/70 bg-muted/60 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col-reverse gap-3 rounded-xl bg-muted/60 p-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-muted-foreground">
                 Updated labels and colors are used across boards and task details.
               </p>
@@ -183,7 +181,6 @@ export default function TaskStatusSettings({ projectId, initialSettings }: TaskS
             </div>
           </form>
         </Form>
-      </CardContent>
-    </Card>
+    </div>
   );
 }

@@ -24,32 +24,81 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 type ProjectStatus = "active" | "planning" | "on_hold" | "completed" | "cancelled";
+type ProjectSort = "recent_activity" | "date_created";
 
 
 export default function CompanyProjects() {
   const router = useRouter();
   const { organization } = useOrganization();
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<ProjectSort>("recent_activity");
 
   const projects = useQuery(
     apiAny.projects.listProjectsByClerkOrg,
     organization?.id ? { clerkOrgId: organization.id } : "skip",
   );
+  const activities = useQuery(
+    apiAny.activityLog.getForTeam,
+    organization?.id ? { clerkOrgId: organization.id } : "skip",
+  );
 
   const filteredProjects = useMemo(
-    () =>
-      projects?.filter((project) => {
-        const query = searchQuery.toLowerCase();
-        return (
-          project.name.toLowerCase().includes(query) ||
-          project.description?.toLowerCase().includes(query) ||
-          project.customer?.toLowerCase().includes(query)
+    () => {
+      const latestActivityByProject = new Map<string, number>();
+
+      for (const activity of activities || []) {
+        if (!activity.projectId) {
+          continue;
+        }
+
+        const projectId = String(activity.projectId);
+        const currentLatestActivity = latestActivityByProject.get(projectId) || 0;
+        latestActivityByProject.set(
+          projectId,
+          Math.max(currentLatestActivity, activity._creationTime),
         );
-      }) || [],
-    [projects, searchQuery],
+      }
+
+      return (
+        projects
+          ?.filter((project) => {
+            const query = searchQuery.toLowerCase();
+            return (
+              project.name.toLowerCase().includes(query) ||
+              project.description?.toLowerCase().includes(query) ||
+              project.customer?.toLowerCase().includes(query)
+            );
+          })
+          .map((project) => ({
+            ...project,
+            recentActivityAt: latestActivityByProject.get(String(project._id)),
+          }))
+          .sort((left, right) => {
+            const leftRecentActivity =
+              left.recentActivityAt ||
+              (typeof left.updatedAt === "number" ? left.updatedAt : left._creationTime);
+            const rightRecentActivity =
+              right.recentActivityAt ||
+              (typeof right.updatedAt === "number" ? right.updatedAt : right._creationTime);
+            if (sortBy === "date_created") {
+              return right._creationTime - left._creationTime;
+            }
+
+            return rightRecentActivity - leftRecentActivity;
+          }) || []
+      );
+    },
+    [activities, projects, searchQuery, sortBy],
   );
 
   const projectGridClass = "grid grid-cols-1 gap-x-6 gap-y-8 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4";
@@ -60,12 +109,24 @@ export default function CompanyProjects() {
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="clean-title text-3xl font-medium tracking-tight">Projects</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Search, launch, and expand the projects that drive the campaign forward.
-          </p>
         </div>
 
-        <div className="flex items-center gap-2 md:justify-end">
+        <div className="flex flex-wrap items-center gap-2 md:justify-end">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Sort by</span>
+            <Select
+              value={sortBy}
+              onValueChange={(value) => setSortBy(value as ProjectSort)}
+            >
+              <SelectTrigger className="h-9 min-w-[12rem] rounded-xl border-border/80 bg-white shadow-none">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-white">
+                <SelectItem value="recent_activity">Last activity</SelectItem>
+                <SelectItem value="date_created">Date created</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -104,6 +165,10 @@ export default function CompanyProjects() {
                   budget: project.budget,
                   currency: project.currency,
                   status: project.status as ProjectStatus,
+                  recentActivityAt:
+                    typeof project.recentActivityAt === "number"
+                      ? project.recentActivityAt
+                      : undefined,
                   updatedAt: typeof project.updatedAt === "number" ? project.updatedAt : undefined,
                   createdAt: project._creationTime,
                   taskCount: project.taskCount || 0,
@@ -176,6 +241,7 @@ function ProjectCard({
     budget?: number;
     currency?: string;
     status?: ProjectStatus;
+    recentActivityAt?: number;
     updatedAt?: number;
     createdAt?: number;
     taskCount: number;
@@ -185,12 +251,30 @@ function ProjectCard({
   onHover: () => void;
 }) {
   const hasCoverImage = Boolean(project.coverImageUrl?.trim());
-  const statusDotClasses: Record<ProjectStatus, string> = {
-    active: "bg-muted-foreground",
-    planning: "bg-muted-foreground",
-    on_hold: "bg-muted-foreground",
-    completed: "bg-muted-foreground",
-    cancelled: "bg-muted-foreground",
+  const statusMeta: Record<
+    ProjectStatus,
+    { dotClassName: string; textClassName: string }
+  > = {
+    active: {
+      dotClassName: "bg-emerald-500",
+      textClassName: "text-emerald-700",
+    },
+    planning: {
+      dotClassName: "bg-amber-500",
+      textClassName: "text-amber-700",
+    },
+    on_hold: {
+      dotClassName: "bg-orange-500",
+      textClassName: "text-orange-700",
+    },
+    completed: {
+      dotClassName: "bg-sky-500",
+      textClassName: "text-sky-700",
+    },
+    cancelled: {
+      dotClassName: "bg-rose-500",
+      textClassName: "text-rose-700",
+    },
   };
 
   const getStatusLabel = (status: ProjectStatus) => {
@@ -209,7 +293,7 @@ function ProjectCard({
         return "Unknown";
     }
   };
-  const lastEditedAt = project.updatedAt ?? project.createdAt;
+  const lastEditedAt = project.recentActivityAt ?? project.updatedAt ?? project.createdAt;
   const editedLabel = lastEditedAt
     ? `Edited ${formatDistanceToNow(new Date(lastEditedAt), { addSuffix: true })}`
     : null;
@@ -239,7 +323,11 @@ function ProjectCard({
               <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
             </>
           ) : (
-            <div className="absolute inset-0 bg-gradient-to-br from-stone-100 via-white to-stone-50" />
+            <>
+              <div className="absolute inset-0 bg-background" />
+              <div className="absolute inset-0 bg-gradient-to-br from-white via-white/70 to-background" />
+              <div className="absolute inset-0 bg-gradient-to-tl from-background via-transparent to-white/85" />
+            </>
           )}
           <div className="relative flex h-full items-start p-4 sm:p-5 md:p-6">
             <h3
@@ -259,11 +347,16 @@ function ProjectCard({
             </p>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs leading-5 text-muted-foreground">
               {project.status ? (
-                <span className="inline-flex items-center gap-2">
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-2",
+                    statusMeta[project.status].textClassName,
+                  )}
+                >
                   <span
                     className={cn(
                       "inline-block h-2.5 w-2.5 shrink-0 rounded-[2px]",
-                      statusDotClasses[project.status],
+                      statusMeta[project.status].dotClassName,
                     )}
                   />
                   <span>{getStatusLabel(project.status)}</span>

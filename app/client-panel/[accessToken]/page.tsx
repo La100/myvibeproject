@@ -767,35 +767,11 @@ export default function PublicClientPanelPage() {
         }: ${formatAmount(breakdown[kind], currencySymbol)}`,
     );
   };
-  const shoppingPdfPriceColumns =
-    organizationTaxSettings.priceDisplay === "both"
-      ? [
-          { key: "totalNet", label: "Net" },
-          { key: "totalTax", label: organizationTaxSettings.taxLabel },
-          { key: "totalGross", label: "Gross" },
-        ]
-      : organizationTaxSettings.priceDisplay === "gross"
-        ? [{ key: "totalGross", label: "Gross" }]
-        : [{ key: "totalNet", label: "Net" }];
-  const laborPdfPriceColumns =
-    organizationTaxSettings.priceDisplay === "both"
-      ? [
-          { key: "unitNet", label: "Unit Net" },
-          { key: "unitTax", label: `Unit ${organizationTaxSettings.taxLabel}` },
-          { key: "unitGross", label: "Unit Gross" },
-          { key: "totalNet", label: "Net" },
-          { key: "totalTax", label: organizationTaxSettings.taxLabel },
-          { key: "totalGross", label: "Gross" },
-        ]
-      : organizationTaxSettings.priceDisplay === "gross"
-        ? [
-            { key: "unitGross", label: "Unit Gross" },
-            { key: "totalGross", label: "Gross" },
-          ]
-        : [
-            { key: "unitNet", label: "Unit Net" },
-            { key: "totalNet", label: "Net" },
-          ];
+  const shoppingPdfPriceColumns = [{ key: "totalNet", label: "Net" }];
+  const laborPdfPriceColumns = [
+    { key: "unitNet", label: "Unit Net" },
+    { key: "totalNet", label: "Net" },
+  ];
   const moodboardSections = useMemo(() => {
     const grouped = new Map<
       string,

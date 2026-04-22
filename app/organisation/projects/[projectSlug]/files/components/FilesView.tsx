@@ -316,7 +316,6 @@ export default function FilesView() {
           <ProjectPageHeader
             title="Files"
             icon={<FolderOpen className="h-8 w-8 text-primary" />}
-            subtitle={`Organize files and folders for ${project.name}`}
             actions={
               currentFolderId && currentFolder ? (
                 <Button

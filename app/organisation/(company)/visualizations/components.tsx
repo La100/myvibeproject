@@ -1,14 +1,15 @@
 "use client";
 
-import { memo, useEffect, useRef, useState } from "react";
+import { memo } from "react";
 import type { ChatStatus } from "ai";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, Download, History, X } from "lucide-react";
+import { Download, History, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Composer } from "@/components/ai/assistant/ui/Composer";
 import { usePromptInputController } from "@/components/ai/primitives/prompt-input";
+import { cn } from "@/lib/utils";
 
 import {
   VISUALIZATION_MAX_FILES,
@@ -40,18 +41,25 @@ export const VisualizationComposer = memo(function VisualizationComposer({
   className,
 }: VisualizationComposerProps) {
   return (
-    <Composer
-      className={className}
-      submitStatus={submitStatus}
-      onSubmit={onSubmit}
-      onStopResponse={onStopResponse}
-      placeholder={VISUALIZATION_PLACEHOLDER}
-      accept="image/*"
-      maxFiles={VISUALIZATION_MAX_FILES}
-      maxFileSize={VISUALIZATION_MAX_FILE_SIZE}
-      isUploading={isUploading}
-      disabled={disabled}
-    />
+    <div data-visualization-composer>
+      <Composer
+        className={[
+          "max-w-[58rem] [&_[data-slot=input-group]]:border-slate-200 [&_[data-slot=input-group]]:bg-white [&_[data-slot=input-group]]:shadow-[0_10px_30px_rgba(15,23,42,0.08)] [&_textarea]:bg-transparent [&_textarea]:text-slate-900 [&_textarea]:placeholder:text-slate-500",
+          className,
+        ]
+          .filter(Boolean)
+          .join(" ")}
+        submitStatus={submitStatus}
+        onSubmit={onSubmit}
+        onStopResponse={onStopResponse}
+        placeholder={VISUALIZATION_PLACEHOLDER}
+        accept="image/*"
+        maxFiles={VISUALIZATION_MAX_FILES}
+        maxFileSize={VISUALIZATION_MAX_FILE_SIZE}
+        isUploading={isUploading}
+        disabled={disabled}
+      />
+    </div>
   );
 });
 
@@ -98,93 +106,54 @@ export const VisualizationSuggestions = memo(function VisualizationSuggestions({
   suggestions: VisualizationSuggestion[];
 }) {
   const { textInput } = usePromptInputController();
-  const scrollerRef = useRef<HTMLDivElement | null>(null);
-  const [canScroll, setCanScroll] = useState(false);
-  const [showScrollHint, setShowScrollHint] = useState(false);
+  const handleSuggestionClick = (prompt: string) => {
+    textInput.setInput(prompt);
 
-  useEffect(() => {
-    const element = scrollerRef.current;
-    if (!element) {
-      return;
-    }
+    window.requestAnimationFrame(() => {
+      const composer = document.querySelector("[data-visualization-composer]");
+      const textarea = composer?.querySelector("textarea");
 
-    const updateScrollState = () => {
-      const hasOverflow = element.scrollWidth > element.clientWidth + 16;
-      setCanScroll(hasOverflow);
-      setShowScrollHint(hasOverflow && element.scrollLeft < 24);
-    };
-
-    updateScrollState();
-
-    const resizeObserver = new ResizeObserver(updateScrollState);
-    resizeObserver.observe(element);
-    window.addEventListener("resize", updateScrollState);
-
-    return () => {
-      resizeObserver.disconnect();
-      window.removeEventListener("resize", updateScrollState);
-    };
-  }, [suggestions.length]);
+      composer?.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (textarea instanceof HTMLTextAreaElement) {
+        textarea.focus();
+        const length = textarea.value.length;
+        textarea.setSelectionRange(length, length);
+      }
+    });
+  };
 
   return (
-    <div className="mt-16 flex w-full max-w-[96rem] flex-col items-center">
-      <AnimatePresence>
-        {canScroll && showScrollHint ? (
-          <motion.div
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            className="mb-4 flex items-center gap-2 rounded-full border border-border/60 bg-background/90 px-4 py-2 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground shadow-sm backdrop-blur-sm"
-          >
-            <span>Swipe or scroll to explore prompts</span>
-            <motion.span
-              animate={{ x: [0, 5, 0] }}
-              transition={{ duration: 1.4, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
-            >
-              <ArrowRight className="h-3.5 w-3.5" />
-            </motion.span>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+    <motion.section
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.5 }}
+      className="mt-12 w-full max-w-[72rem]"
+    >
+      <div className="mb-5 flex items-end justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+            Prompt Ideas
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Pick a direction to prefill the prompt and start from a stronger base.
+          </p>
+        </div>
+      </div>
 
-      <div className="relative w-full">
-        <AnimatePresence>
-          {canScroll && showScrollHint ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="pointer-events-none absolute inset-y-0 right-0 z-20 hidden w-24 items-center justify-end bg-gradient-to-l from-background via-background/85 to-transparent pr-3 md:flex"
-            >
-              <motion.div
-                animate={{ x: [0, 6, 0] }}
-                transition={{ duration: 1.4, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
-                className="rounded-full border border-border/60 bg-background/90 p-2 text-muted-foreground shadow-md backdrop-blur-sm"
-              >
-                <ArrowRight className="h-4 w-4" />
-              </motion.div>
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:auto-rows-[180px] xl:grid-cols-[minmax(0,1.55fr)_minmax(380px,1fr)] xl:auto-rows-[205px]">
+        {suggestions.map((suggestion, index) => {
+          const isFeatured = index === 0 || index === 3;
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          ref={scrollerRef}
-          onScroll={(event) => {
-            const target = event.currentTarget;
-            if (target.scrollLeft > 24) {
-              setShowScrollHint(false);
-            }
-          }}
-          className="mx-auto flex w-full snap-x snap-mandatory flex-nowrap gap-5 overflow-x-auto px-0 pb-4 no-scrollbar md:px-2"
-        >
-          {suggestions.map((suggestion) => (
+          return (
             <button
               key={suggestion.title}
-              onClick={() => textInput.setInput(suggestion.text)}
-              className="group relative aspect-[5/3] min-w-[70vw] flex-shrink-0 snap-center overflow-hidden rounded-2xl border border-border/70 bg-card text-left shadow-lg transition-all duration-300 hover:-translate-y-1.5 hover:border-border hover:shadow-xl sm:min-w-[320px] md:min-w-[360px] lg:min-w-[420px]"
+              onClick={() => handleSuggestionClick(suggestion.text)}
+              className={cn(
+                "group relative w-full overflow-hidden rounded-[28px] border border-border/70 bg-card text-left shadow-lg transition-all duration-300 hover:-translate-y-1 hover:border-border hover:shadow-xl",
+                isFeatured
+                  ? "min-h-[260px] sm:col-span-2 sm:row-span-2 sm:min-h-0 xl:col-span-1"
+                  : "min-h-[220px] sm:min-h-0"
+              )}
             >
               <div className="absolute inset-0 z-0">
                 <img
@@ -194,24 +163,33 @@ export const VisualizationSuggestions = memo(function VisualizationSuggestions({
                   loading="lazy"
                   decoding="async"
                 />
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/78 via-black/28 via-38% to-transparent" />
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/78 via-black/30 via-40% to-black/18" />
               </div>
 
-              <div className="relative z-10 flex h-full flex-col justify-start p-5">
-                <div className="max-w-[85%] rounded-2xl border border-white/12 bg-black/42 p-4 backdrop-blur-md">
-                  <p className="text-base font-semibold leading-tight text-white drop-shadow-md">
+              <div className="relative z-10 flex h-full items-end p-4 sm:p-5">
+                <div className={cn(
+                  "rounded-2xl border border-white/12 bg-black/42 backdrop-blur-md",
+                  isFeatured ? "max-w-[28rem] p-5" : "max-w-[18rem] p-3.5 xl:max-w-[16rem]"
+                )}>
+                  <p className={cn(
+                    "font-semibold leading-tight text-white drop-shadow-md",
+                    isFeatured ? "text-lg sm:text-[1.35rem]" : "text-base"
+                  )}>
                     {suggestion.title}
                   </p>
-                  <p className="mt-2 line-clamp-3 text-sm leading-snug text-white/85 drop-shadow-sm">
+                  <p className={cn(
+                    "mt-2 text-sm leading-snug text-white/85 drop-shadow-sm",
+                    isFeatured ? "line-clamp-3" : "line-clamp-2"
+                  )}>
                     {suggestion.description}
                   </p>
                 </div>
               </div>
             </button>
-          ))}
-        </motion.div>
+          );
+        })}
       </div>
-    </div>
+    </motion.section>
   );
 });
 
@@ -243,7 +221,6 @@ export const VisualizationEmptyState = memo(function VisualizationEmptyState({
         onStopResponse={onStopResponse}
         isUploading={isUploading}
         disabled={disabled}
-        className="max-w-[58rem]"
       />
 
       <VisualizationSuggestions suggestions={suggestions} />

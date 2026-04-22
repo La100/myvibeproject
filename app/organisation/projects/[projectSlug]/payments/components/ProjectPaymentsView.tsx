@@ -1154,7 +1154,6 @@ export default function ProjectPaymentsView() {
         <ProjectPageHeader
           title="Payments"
           icon={<Wallet />}
-          subtitle="Manage invoices, Stripe payment links, customer billing data, invoice PDFs, and payment reconciliation."
           actions={
             <Button type="button" onClick={openCreateDialog}>
               <Plus data-icon="inline-start" />

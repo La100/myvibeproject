@@ -36,7 +36,6 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
       <ProjectPageHeader
         title="Surveys"
         icon={<BarChart3 className="h-8 w-8 text-primary" />}
-        subtitle={`Manage surveys for ${project.name}`}
         actions={
           canEdit ? (
             <Button asChild>

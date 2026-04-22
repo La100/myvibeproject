@@ -9,15 +9,13 @@ import { useOrganization } from "@clerk/nextjs";
 import { z } from "zod";
 import { toast } from "sonner";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
-import { type LucideIcon, AlertTriangle, CalendarRange, CheckCircle2, ImagePlus, Settings, Shield, Users, X } from "lucide-react";
+import { ImagePlus, X } from "lucide-react";
 
 import { apiAny } from "@/lib/convexApiAny";
 import { optimizeCoverImageForUpload } from "@/lib/coverImageUpload";
 import { Id } from "@/convex/_generated/dataModel";
-import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -37,8 +35,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import ProjectMembers from "./ProjectMembers";
 import TaskStatusSettings from "./TaskStatusSettings";
 
@@ -94,29 +92,29 @@ type SettingsTabValue = "general" | "members" | "taskstatus" | "advanced";
 interface SettingsTabConfig {
   value: SettingsTabValue;
   label: string;
-  icon: LucideIcon;
+  description: string;
 }
 
 const SETTINGS_TABS: SettingsTabConfig[] = [
   {
     value: "general",
     label: "General",
-    icon: Settings,
+    description: "Identity, timeline, cover, and business defaults.",
   },
   {
     value: "members",
     label: "Members",
-    icon: Users,
+    description: "Who has access to the project workspace.",
   },
   {
     value: "taskstatus",
     label: "Task Status",
-    icon: Shield,
+    description: "Labels and colors used across task flow.",
   },
   {
     value: "advanced",
     label: "Advanced",
-    icon: AlertTriangle,
+    description: "Project-level actions and destructive controls.",
   },
 ];
 
@@ -170,13 +168,6 @@ function formatDateInputValue(timestamp?: number | null) {
   }
 
   return new Date(timestamp).toISOString().slice(0, 10);
-}
-
-function formatSavedTimeLabel(timestamp: number) {
-  return new Date(timestamp).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 function resolveClientPortalDigestRecipientIds(
@@ -360,12 +351,6 @@ function ProjectSettingsContent() {
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [teamMembers]);
 
-  const ownerOption = useMemo(
-    () =>
-      responsibleOptions.find((option) => option.clerkUserId === project?.createdBy) ?? null,
-    [project?.createdBy, responsibleOptions],
-  );
-
   useEffect(() => {
     if (!project || responsibleOptions.length === 0) {
       return;
@@ -480,6 +465,9 @@ function ProjectSettingsContent() {
     );
   }
 
+  const activeTabConfig =
+    SETTINGS_TABS.find((tab) => tab.value === activeTab) ?? SETTINGS_TABS[0];
+
   async function onDeleteSubmit(values: z.infer<typeof deleteFormSchema>) {
     if (values.confirmName !== project.name) {
       deleteForm.setError("confirmName", {
@@ -502,83 +490,93 @@ function ProjectSettingsContent() {
   }
 
   return (
-    <div className="flex flex-col gap-6 pb-10">
-      <ProjectPageHeader
-        title="Project Settings"
-        icon={<Settings className="h-8 w-8 text-primary" />}
-        subtitle="Manage your project configuration and access."
-      />
+    <div className="min-h-screen pb-20">
+      <div className="flex w-full flex-col gap-6 py-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="clean-title text-[1.65rem] font-medium tracking-tight text-foreground md:text-[1.9rem]">
+            Settings
+          </h1>
+          <p className="text-sm text-muted-foreground">{project.name}</p>
+        </div>
 
-      <Tabs
-        value={activeTab}
-        onValueChange={(value) => setActiveTab(value as SettingsTabValue)}
-        className="w-full"
-      >
-        <div className="flex flex-col gap-5">
-          <TabsList className="grid h-auto w-full grid-cols-2 gap-2 rounded-[28px] border border-border/70 bg-card/95 p-3 shadow-[0_16px_40px_-34px_rgba(25,25,25,0.55)] md:grid-cols-4">
-            {SETTINGS_TABS.map((tab) => {
-              const Icon = tab.icon;
+        <div className="grid gap-8 lg:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[240px_minmax(0,1fr)] xl:gap-12">
+          <aside className="self-start lg:sticky lg:top-8">
+            <div className="space-y-6">
+              <div className="space-y-1">
+                <p className="px-4 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                  Project
+                </p>
+                <nav className="flex flex-col gap-1">
+                  {SETTINGS_TABS.map((tab) => {
+                    const isActive = activeTab === tab.value;
 
-              return (
-                <TabsTrigger
-                  key={tab.value}
-                  value={tab.value}
-                  className="h-auto w-full flex-none justify-start rounded-[22px] border border-transparent px-4 py-4 text-left transition-all hover:border-border/60 hover:bg-background data-[state=active]:border-border/80 data-[state=active]:bg-background data-[state=active]:shadow-[0_14px_30px_-26px_rgba(25,25,25,0.5)]"
-                >
-                  <span className="flex w-full items-center gap-3">
-                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/70 bg-card">
-                      <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-                    </span>
-                    <span className="min-w-0 text-[1rem] font-medium text-foreground">
-                      {tab.label}
-                    </span>
-                  </span>
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
+                    return (
+                      <button
+                        key={tab.value}
+                        type="button"
+                        onClick={() => setActiveTab(tab.value)}
+                        className={cn(
+                          "rounded-2xl px-4 py-3 text-left text-[1rem] transition-colors",
+                          isActive
+                            ? "bg-muted text-foreground"
+                            : "text-foreground/80 hover:bg-muted/60 hover:text-foreground",
+                        )}
+                      >
+                        {tab.label}
+                      </button>
+                    );
+                  })}
+                </nav>
+              </div>
+            </div>
+          </aside>
 
-          <div className="min-w-0">
-            <TabsContent value="general" className="mt-0">
-              <GeneralTab
-                projectId={project._id}
-                projectOwnerClerkUserId={project.createdBy}
-                projectCoverImageUrl={project.coverImageUrl}
-                projectCoverImageDisplayUrl={
-                  (project as { coverImageDisplayUrl?: string }).coverImageDisplayUrl
-                }
-                responsibleOptions={responsibleOptions}
-                ownerOption={ownerOption}
-                digestRecipientOptions={responsibleOptions}
-                settingsForm={settingsForm}
-                onSettingsSubmit={onSettingsSubmit}
-              />
-            </TabsContent>
+          <div className="grid gap-8">
+            <section className="grid gap-8">
+              <div className="space-y-2 border-b border-border/70 pb-5">
+                <h2 className="text-[1.2rem] font-semibold tracking-tight text-foreground md:text-[1.3rem]">
+                  {activeTabConfig.label}
+                </h2>
+              </div>
 
-            <TabsContent value="members" className="mt-0">
-              <Suspense fallback={<SettingsTabSkeleton />}>
-                <MembersTab project={project} />
-              </Suspense>
-            </TabsContent>
+              {activeTab === "general" ? (
+                <GeneralTab
+                  projectId={project._id}
+                  projectCoverImageUrl={project.coverImageUrl}
+                  projectCoverImageDisplayUrl={
+                    (project as { coverImageDisplayUrl?: string }).coverImageDisplayUrl
+                  }
+                  responsibleOptions={responsibleOptions}
+                  settingsForm={settingsForm}
+                  onSettingsSubmit={onSettingsSubmit}
+                />
+              ) : null}
 
-            <TabsContent value="taskstatus" className="mt-0">
-              <Suspense fallback={<SettingsTabSkeleton />}>
-                <TaskStatusTab project={project} />
-              </Suspense>
-            </TabsContent>
+              {activeTab === "members" ? (
+                <Suspense fallback={<SettingsTabSkeleton />}>
+                  <MembersTab project={project} />
+                </Suspense>
+              ) : null}
 
-            <TabsContent value="advanced" className="mt-0">
-              <AdvancedTab
-                project={project}
-                deleteForm={deleteForm}
-                deleteDialogOpen={deleteDialogOpen}
-                setDeleteDialogOpen={setDeleteDialogOpen}
-                onDeleteSubmit={onDeleteSubmit}
-              />
-            </TabsContent>
+              {activeTab === "taskstatus" ? (
+                <Suspense fallback={<SettingsTabSkeleton />}>
+                  <TaskStatusTab project={project} />
+                </Suspense>
+              ) : null}
+
+              {activeTab === "advanced" ? (
+                <AdvancedTab
+                  project={project}
+                  deleteForm={deleteForm}
+                  deleteDialogOpen={deleteDialogOpen}
+                  setDeleteDialogOpen={setDeleteDialogOpen}
+                  onDeleteSubmit={onDeleteSubmit}
+                />
+              ) : null}
+            </section>
           </div>
         </div>
-      </Tabs>
+      </div>
     </div>
   );
 }
@@ -593,22 +591,16 @@ export default function ProjectSettings() {
 
 function GeneralTab({
   projectId,
-  projectOwnerClerkUserId,
   projectCoverImageUrl,
   projectCoverImageDisplayUrl,
   responsibleOptions,
-  ownerOption,
-  digestRecipientOptions,
   settingsForm,
   onSettingsSubmit,
 }: {
   projectId: Id<"projects">;
-  projectOwnerClerkUserId: string;
   projectCoverImageUrl?: string;
   projectCoverImageDisplayUrl?: string;
   responsibleOptions: Array<{ clerkUserId: string; label: string; email: string }>;
-  ownerOption: { clerkUserId: string; label: string; email: string } | null;
-  digestRecipientOptions: Array<{ clerkUserId: string; label: string; email: string }>;
   settingsForm: UseFormReturn<z.infer<typeof settingsFormSchema>>;
   onSettingsSubmit: (
     values: z.infer<typeof settingsFormSchema>,
@@ -643,18 +635,12 @@ function GeneralTab({
   }, [localCoverPreviewUrl, persistedCoverPreviewUrl, uploadedCoverPreviewUrl]);
   const coverPreviewUrl = coverPreviewCandidates[coverPreviewCandidateIndex] ?? null;
   const hasCoverPreview = coverPreviewStatus === "ready";
-  const selectedDigestRecipientIds =
-    settingsForm.watch("clientPortalDigestRecipientClerkUserIds") ?? [];
-  const selectedStatus = settingsForm.watch("status") ?? "planning";
-  const selectedMeasurements = settingsForm.watch("measurements") ?? "metric";
   const watchedSettingsValues = useWatch({ control: settingsForm.control });
   const autosaveSnapshotRef = useRef<string | null>(null);
   const autosaveInitializedRef = useRef(false);
   const autosaveStatusTimeoutRef = useRef<number | null>(null);
   const autosaveRequestIdRef = useRef(0);
   const autosaveHandledRequestIdRef = useRef(0);
-  const [autosaveState, setAutosaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
-  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
 
   const replaceLocalCoverPreviewUrl = (nextUrl: string | null) => {
     if (localCoverPreviewUrlRef.current) {
@@ -744,7 +730,6 @@ function GeneralTab({
     const timeoutId = window.setTimeout(() => {
       const requestId = autosaveRequestIdRef.current + 1;
       autosaveRequestIdRef.current = requestId;
-      setAutosaveState("saving");
 
       void settingsForm.handleSubmit(
         async (values) => {
@@ -757,24 +742,19 @@ function GeneralTab({
           autosaveHandledRequestIdRef.current = requestId;
 
           if (!didSave) {
-            setAutosaveState("error");
             return;
           }
 
           autosaveSnapshotRef.current = serializedValues;
-          setAutosaveState("saved");
-          setLastSavedAt(Date.now());
 
           if (autosaveStatusTimeoutRef.current) {
             clearTimeout(autosaveStatusTimeoutRef.current);
           }
 
           autosaveStatusTimeoutRef.current = window.setTimeout(() => {
-            setAutosaveState("idle");
           }, 1800);
         },
         () => {
-          setAutosaveState("error");
         },
       )();
     }, 700);
@@ -887,64 +867,16 @@ function GeneralTab({
   };
 
   return (
-    <Card className="clean-panel overflow-hidden">
-      <CardHeader className="border-b border-border/70 bg-transparent pb-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-2">
-            <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-              General
-            </p>
-            <CardTitle className="text-xl lg:text-2xl">Project identity and operating details</CardTitle>
-            <CardDescription className="max-w-2xl text-sm">
-              Keep the project profile, timeline, recipients, and financial defaults aligned with how the team actually runs the work.
-            </CardDescription>
-          </div>
-
-          <div className="grid gap-2 sm:grid-cols-2">
-            <div className="rounded-2xl border border-border/70 bg-card px-4 py-3">
-              <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                Status
-              </p>
-              <p className="mt-1 text-sm font-medium capitalize text-foreground">
-                {selectedStatus.replace("_", " ")}
-              </p>
-            </div>
-            <div className="rounded-2xl border border-border/70 bg-card px-4 py-3">
-              <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                Measurements
-              </p>
-              <p className="mt-1 text-sm font-medium text-foreground">
-                {selectedMeasurements === "imperial" ? "Imperial" : "Metric"}
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="mt-4 flex items-center justify-between border-t border-border/70 pt-4">
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            Changes in this section save automatically.
-          </p>
-          <p className="text-xs font-medium text-muted-foreground">
-            {autosaveState === "saving"
-              ? "Saving..."
-              : autosaveState === "saved"
-              ? `Saved ${lastSavedAt ? formatSavedTimeLabel(lastSavedAt) : ""}`.trim()
-              : autosaveState === "error"
-              ? "Save failed"
-              : "Auto-save on"}
-          </p>
-        </div>
-      </CardHeader>
-
-      <CardContent className="flex flex-col gap-6 p-4 md:p-6">
-        <Form {...settingsForm}>
-          <form
-            onSubmit={settingsForm.handleSubmit((values) => onSettingsSubmit(values))}
-            className="flex flex-col gap-6"
-          >
-            <section className="rounded-2xl border border-border/70 bg-card p-4 md:p-5">
+    <div className="space-y-8">
+      <Form {...settingsForm}>
+        <form
+          onSubmit={settingsForm.handleSubmit((values) => onSettingsSubmit(values))}
+          className="flex flex-col gap-8"
+        >
+          <section className="space-y-4">
               <div className="mb-4 flex flex-col gap-1">
-                <h3 className="text-sm font-semibold text-foreground">Identity</h3>
-                <p className="text-xs text-muted-foreground">
+                <h3 className="text-lg font-semibold text-foreground">Identity</h3>
+                <p className="text-sm text-muted-foreground">
                   This information appears in dashboards, lists, and notifications.
                 </p>
               </div>
@@ -1022,107 +954,26 @@ function GeneralTab({
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground">
-                      This is the person operationally responsible for the project. They can also receive client portal digests.
+                      This is the main internal owner for day-to-day work on the project.
                     </p>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              <div className="mt-4 rounded-xl border border-border/70 bg-muted/40 p-4">
-                <p className="text-sm font-medium text-foreground">Project Owner</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {ownerOption
-                    ? `${ownerOption.label}${ownerOption.email ? ` (${ownerOption.email})` : ""}`
-                    : projectOwnerClerkUserId}
-                </p>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  The project owner is always the person who created the project.
-                </p>
-              </div>
-
-              <div className="mt-4 rounded-xl border border-border/70 bg-muted/30 p-4">
-                <div className="mb-3 flex flex-col gap-1">
-                  <h4 className="text-sm font-medium text-foreground">Client Portal Digest Recipients</h4>
-                  <p className="text-xs text-muted-foreground">
-                    Choose which project people receive the hourly summary email for client portal updates.
-                  </p>
-                </div>
-
-                <FormField
-                  control={settingsForm.control}
-                  name="clientPortalDigestRecipientClerkUserIds"
-                  render={({ field }) => (
-                    <FormItem className="grid gap-3">
-                      {digestRecipientOptions.map((option) => {
-                        const isChecked = selectedDigestRecipientIds.includes(
-                          option.clerkUserId,
-                        );
-                        const isOwner = option.clerkUserId === projectOwnerClerkUserId;
-                        const isResponsible =
-                          option.clerkUserId ===
-                          (settingsForm.watch("responsibleClerkUserId") ||
-                            projectOwnerClerkUserId);
-
-                        const descriptionParts = [
-                          option.email,
-                          isOwner ? "Project owner" : null,
-                          isResponsible ? "Responsible person" : null,
-                        ].filter(Boolean);
-
-                        return (
-                          <FormItem
-                            key={option.clerkUserId}
-                            className="flex flex-row items-start gap-3 rounded-xl border border-border/70 bg-background/70 p-3"
-                          >
-                            <FormControl>
-                              <Checkbox
-                                checked={isChecked}
-                                onCheckedChange={(checked) => {
-                                  const nextValue = Boolean(checked)
-                                    ? Array.from(
-                                        new Set([
-                                          ...(field.value ?? []),
-                                          option.clerkUserId,
-                                        ]),
-                                      )
-                                    : (field.value ?? []).filter(
-                                        (value) => value !== option.clerkUserId,
-                                      );
-                                  field.onChange(nextValue);
-                                }}
-                              />
-                            </FormControl>
-                            <div className="flex flex-col gap-1 leading-none">
-                              <FormLabel className="text-sm font-medium">
-                                {option.label}
-                              </FormLabel>
-                              <p className="text-xs text-muted-foreground">
-                                {descriptionParts.join(" • ") || option.clerkUserId}
-                              </p>
-                            </div>
-                          </FormItem>
-                        );
-                      })}
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
               <FormField
                 control={settingsForm.control}
                 name="description"
                 render={({ field }) => (
                   <FormItem className="mt-4">
-                      <FormLabel className="text-sm font-medium">Description</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="What is this project about?"
-                          {...field}
-                          className="min-h-[110px] w-full resize-none"
-                          rows={4}
-                        />
+                    <FormLabel className="text-sm font-medium">Description</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="What is this project about?"
+                        {...field}
+                        className="min-h-[110px] w-full resize-none"
+                        rows={4}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -1130,10 +981,10 @@ function GeneralTab({
               />
             </section>
 
-            <section className="rounded-2xl border border-border/70 bg-card p-4 md:p-5">
+            <section className="border-t border-border/70 pt-8">
               <div className="mb-4 flex flex-col gap-1">
-                <h3 className="text-sm font-semibold text-foreground">Timeline</h3>
-                <p className="text-xs text-muted-foreground">
+                <h3 className="text-lg font-semibold text-foreground">Timeline</h3>
+                <p className="text-sm text-muted-foreground">
                   Set the planned project window shown across calendars, reports, and operational views.
                 </p>
               </div>
@@ -1178,42 +1029,60 @@ function GeneralTab({
                 />
               </div>
 
-              <div className="mt-4 flex items-start gap-3 rounded-2xl border border-border/70 bg-muted/20 px-4 py-3">
-                <CalendarRange className="mt-0.5 h-4 w-4 text-muted-foreground" />
+              <div className="mt-4 rounded-2xl bg-muted/20 px-4 py-3">
                 <p className="text-xs leading-relaxed text-muted-foreground">
                   Leave dates empty if the project is still open-ended. Once set, they feed project reporting and timeline views.
                 </p>
               </div>
             </section>
 
-            <section className="rounded-2xl border border-border/70 bg-card p-4 md:p-5">
+            <section className="border-t border-border/70 pt-8">
               <div className="mb-4 flex flex-col gap-1">
-                <h3 className="text-sm font-semibold text-foreground">Cover Image</h3>
-                <p className="text-xs text-muted-foreground">
-                  Upload an image from your device. No manual URL needed.
+                <h3 className="text-lg font-semibold text-foreground">Cover Image</h3>
+                <p className="text-sm text-muted-foreground">
+                  Optional image shown on the project.
                 </p>
               </div>
 
-              <div className="grid gap-5 lg:items-start lg:grid-cols-[minmax(0,1.45fr)_minmax(260px,0.65fr)]">
-                <div className="overflow-hidden rounded-[28px] border border-border/70 bg-muted/30">
+              <div className="grid gap-4">
+                <div className="overflow-hidden rounded-[28px] border border-border/70 bg-muted/20">
                   {hasCoverPreview ? (
                     <div className="relative">
                       <img
                         src={coverPreviewUrl ?? undefined}
                         alt="Project cover preview"
-                        className="aspect-[16/10] w-full object-cover"
+                        className="aspect-[16/7] w-full object-cover"
                       />
-                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/45 to-transparent px-5 py-4">
-                        <p className="text-xs font-medium uppercase tracking-[0.14em] text-white/80">
-                          Project Cover
-                        </p>
-                        <p className="mt-1 text-sm text-white">
-                          This image appears in the workspace as the visual anchor for the project.
-                        </p>
+                      <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-3 bg-gradient-to-t from-black/55 via-black/15 to-transparent px-5 py-4">
+                        <p className="text-sm font-medium text-white">Project cover</p>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => coverFileInputRef.current?.click()}
+                            disabled={uploadingCoverImage}
+                            className="rounded-full"
+                          >
+                            <ImagePlus className="mr-2 h-4 w-4" />
+                            {uploadingCoverImage ? "Uploading..." : "Replace"}
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            onClick={handleCoverImageRemove}
+                            disabled={uploadingCoverImage}
+                            className="rounded-full"
+                          >
+                            <X className="mr-2 h-4 w-4" />
+                            Remove
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   ) : (
-                    <div className="flex aspect-[16/10] flex-col items-center justify-center gap-3 px-6 text-center">
+                    <div className="flex aspect-[16/7] flex-col items-center justify-center gap-4 px-6 text-center">
                       <div className="flex h-12 w-12 items-center justify-center rounded-full border border-border/70 bg-card">
                         <ImagePlus className="h-5 w-5 text-muted-foreground" />
                       </div>
@@ -1221,88 +1090,50 @@ function GeneralTab({
                         <p className="text-sm font-medium text-foreground">
                           {coverPreviewStatus === "loading" ? "Loading preview..." : "No cover image yet"}
                         </p>
-                        <p className="max-w-xs text-xs leading-relaxed text-muted-foreground">
+                        <p className="max-w-xs text-sm leading-relaxed text-muted-foreground">
                           {coverPreviewStatus === "error"
                             ? coverPreviewErrorMessage ||
                               "This image preview could not be loaded. Upload a different file or remove the current one."
-                            : "Upload a landscape image to give the project a strong visual identity in lists and overview screens."}
+                            : "Upload a simple wide image if you want a visual header for this project."}
                         </p>
                       </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => coverFileInputRef.current?.click()}
+                        disabled={uploadingCoverImage}
+                        className="rounded-full"
+                      >
+                        <ImagePlus className="mr-2 h-4 w-4" />
+                        {uploadingCoverImage ? "Uploading..." : "Upload image"}
+                      </Button>
                     </div>
                   )}
                 </div>
 
-                <div className="flex flex-col gap-5 self-start rounded-[28px] border border-border/70 bg-card p-4 md:p-5">
-                  <input
-                    ref={coverFileInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleCoverImageUpload}
-                  />
+                <input
+                  ref={coverFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleCoverImageUpload}
+                />
 
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <p className="text-sm font-semibold text-foreground">Asset</p>
-                      <p className="text-xs leading-relaxed text-muted-foreground">
-                        Use one clean visual instead of a dense collage. Wide crops work best across project surfaces.
-                      </p>
-                    </div>
-
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => coverFileInputRef.current?.click()}
-                      disabled={uploadingCoverImage}
-                      className="w-full justify-center rounded-full"
-                    >
-                      <ImagePlus className="mr-2 h-4 w-4" />
-                      {uploadingCoverImage
-                        ? "Uploading..."
-                        : coverImageValue
-                        ? "Replace image"
-                        : "Upload image"}
-                    </Button>
-
-                    {coverImageValue ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleCoverImageRemove}
-                        disabled={uploadingCoverImage}
-                        className="w-full justify-center rounded-full"
-                      >
-                        <X className="mr-2 h-4 w-4" />
-                        Remove image
-                      </Button>
-                    ) : null}
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="flex items-start gap-3 rounded-2xl border border-border/70 bg-muted/20 px-4 py-3">
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 text-muted-foreground" />
-                      <p className="text-xs leading-relaxed text-muted-foreground">
-                        Large images are optimized automatically before upload.
-                      </p>
-                    </div>
-                    <p className="text-xs leading-relaxed text-muted-foreground">
-                      Uploading updates the draft immediately and the section saves automatically once the file is ready.
-                    </p>
-                  </div>
-                </div>
+                {coverPreviewErrorMessage ? (
+                  <p className="text-sm text-muted-foreground">{coverPreviewErrorMessage}</p>
+                ) : null}
               </div>
             </section>
 
-            <section className="rounded-2xl border border-border/70 bg-card p-4 md:p-5">
+            <section className="border-t border-border/70 pt-8">
               <div className="mb-4 flex flex-col gap-1">
-                <h3 className="text-sm font-semibold text-foreground">Business Details</h3>
-                <p className="text-xs text-muted-foreground">
-                  Financial context and the combined address string used in project records.
+                <h3 className="text-lg font-semibold text-foreground">Business Details</h3>
+                <p className="text-sm text-muted-foreground">
+                  Client, location, budget, and defaults for this project.
                 </p>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-2">
                 <FormField
                   control={settingsForm.control}
                   name="customer"
@@ -1325,8 +1156,8 @@ function GeneralTab({
                   control={settingsForm.control}
                   name="location"
                   render={({ field }) => (
-                    <FormItem className="md:col-span-2 xl:col-span-1">
-                      <FormLabel className="text-sm font-medium">Address / Location</FormLabel>
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium">Location</FormLabel>
                       <FormControl>
                         <Input
                           placeholder="Street, city, state, postcode"
@@ -1334,15 +1165,12 @@ function GeneralTab({
                           className="h-10 w-full"
                         />
                       </FormControl>
-                      <p className="text-xs text-muted-foreground">
-                        Stored as one combined address line so it matches the project record created in the new-project flow.
-                      </p>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
 
-                <div className="grid gap-4 xl:grid-cols-2">
+                <div className="grid gap-4 md:col-span-2 xl:grid-cols-3">
                   <FormField
                     control={settingsForm.control}
                     name="budget"
@@ -1387,36 +1215,35 @@ function GeneralTab({
                       </FormItem>
                     )}
                   />
-                </div>
 
-                <FormField
-                  control={settingsForm.control}
-                  name="measurements"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm font-medium">Measurements</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value ?? undefined}>
-                        <FormControl>
-                          <SelectTrigger className="h-10 w-full">
-                            <SelectValue placeholder="Select measurement system" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="metric">Metric</SelectItem>
-                          <SelectItem value="imperial">Imperial</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                  <FormField
+                    control={settingsForm.control}
+                    name="measurements"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium">Measurements</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value ?? undefined}>
+                          <FormControl>
+                            <SelectTrigger className="h-10 w-full">
+                              <SelectValue placeholder="Select measurement system" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="metric">Metric</SelectItem>
+                            <SelectItem value="imperial">Imperial</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
             </section>
 
           </form>
         </Form>
-      </CardContent>
-    </Card>
+    </div>
   );
 }
 
@@ -1438,19 +1265,15 @@ function TaskStatusTab({ project }: { project: { _id: string; taskStatusSettings
           }}
         />
       ) : (
-        <Card className="clean-surface">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-lg lg:text-xl">Task Status Settings</CardTitle>
-            <CardDescription className="text-sm">
+        <div className="border-b border-border/70 pb-5">
+          <h3 className="text-lg font-semibold text-foreground">Task Status Settings</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
               Configure custom task statuses for this project.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="px-4 lg:px-6">
-            <p className="text-sm text-muted-foreground">
-              Task status settings will be available here.
-            </p>
-          </CardContent>
-        </Card>
+          </p>
+          <p className="mt-5 text-sm text-muted-foreground">
+            Task status settings will be available here.
+          </p>
+        </div>
       )}
     </div>
   );
@@ -1470,94 +1293,90 @@ function AdvancedTab({
   onDeleteSubmit: (values: z.infer<typeof deleteFormSchema>) => void;
 }) {
   return (
-    <div className="flex flex-col gap-4 lg:gap-6">
-      <Card className="clean-surface">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-lg lg:text-xl">Advanced Settings</CardTitle>
-          <CardDescription className="text-sm">
+    <div className="flex flex-col gap-8">
+      <div className="border-b border-border/70 pb-5">
+        <h3 className="text-lg font-semibold text-foreground">Advanced Settings</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
             Use advanced actions carefully. Some operations cannot be reversed.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="px-4 lg:px-6">
-          <p className="text-sm text-muted-foreground">
-            Future project-level controls will be added here.
-          </p>
-        </CardContent>
-      </Card>
+        </p>
+      </div>
 
-      <Card className="border-destructive/20 bg-destructive/5">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-lg text-destructive lg:text-xl">Danger Zone</CardTitle>
-          <CardDescription className="text-sm">
+      <div className="text-sm text-muted-foreground">
+        Future project-level controls will be added here.
+      </div>
+
+      <div className="border-t border-destructive/20 pt-8">
+        <div className="pb-5">
+          <h3 className="text-lg font-semibold text-destructive">Danger Zone</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
             Permanent actions that remove data for the whole team.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4 px-4 lg:px-6">
-          <div className="rounded-xl border border-destructive/20 bg-background/80 p-4">
-            <h4 className="mb-2 text-sm font-medium text-destructive">Delete Project</h4>
-            <p className="mb-4 text-sm text-muted-foreground">
-              Deleting this project removes tasks, files, comments, and related history. This action is irreversible.
-            </p>
-            <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="destructive" className="w-full sm:w-auto">
-                  Delete Project
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="mx-4 sm:max-w-[460px]">
-                <DialogHeader>
-                  <DialogTitle className="text-lg">Delete Project</DialogTitle>
-                  <DialogDescription className="text-sm">
-                    This action cannot be undone. Type the project name exactly to confirm permanent deletion.
-                  </DialogDescription>
-                </DialogHeader>
-                <Form {...deleteForm}>
-                  <form onSubmit={deleteForm.handleSubmit(onDeleteSubmit)} className="flex flex-col gap-4 lg:gap-6">
-                    <FormField
-                      control={deleteForm.control}
-                      name="confirmName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-sm">
-                            Type <span className="font-mono font-semibold">{project.name}</span> to confirm:
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder={project.name}
-                              {...field}
-                              autoComplete="off"
-                              className="w-full"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setDeleteDialogOpen(false)}
-                        className="w-full sm:w-auto"
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        type="submit"
-                        variant="destructive"
-                        disabled={deleteForm.formState.isSubmitting}
-                        className="w-full sm:w-auto"
-                      >
-                        {deleteForm.formState.isSubmitting ? "Deleting..." : "Delete Project"}
-                      </Button>
-                    </DialogFooter>
-                  </form>
-                </Form>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </CardContent>
-      </Card>
+          </p>
+        </div>
+
+        <div className="rounded-2xl bg-destructive/5 p-4">
+          <h4 className="mb-2 text-sm font-medium text-destructive">Delete Project</h4>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Deleting this project removes tasks, files, comments, and related history. This action is irreversible.
+          </p>
+          <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="destructive" className="w-full sm:w-auto">
+                Delete Project
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="mx-4 sm:max-w-[460px]">
+              <DialogHeader>
+                <DialogTitle className="text-lg">Delete Project</DialogTitle>
+                <DialogDescription className="text-sm">
+                  This action cannot be undone. Type the project name exactly to confirm permanent deletion.
+                </DialogDescription>
+              </DialogHeader>
+              <Form {...deleteForm}>
+                <form onSubmit={deleteForm.handleSubmit(onDeleteSubmit)} className="flex flex-col gap-4 lg:gap-6">
+                  <FormField
+                    control={deleteForm.control}
+                    name="confirmName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm">
+                          Type <span className="font-mono font-semibold">{project.name}</span> to confirm:
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder={project.name}
+                            {...field}
+                            autoComplete="off"
+                            className="w-full"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setDeleteDialogOpen(false)}
+                      className="w-full sm:w-auto"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      variant="destructive"
+                      disabled={deleteForm.formState.isSubmitting}
+                      className="w-full sm:w-auto"
+                    >
+                      {deleteForm.formState.isSubmitting ? "Deleting..." : "Delete Project"}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
     </div>
   );
 }

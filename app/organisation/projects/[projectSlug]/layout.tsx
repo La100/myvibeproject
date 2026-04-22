@@ -39,7 +39,7 @@ function ProjectLayoutContent({ children }: { children: React.ReactNode }) {
                 </div>
               </div>
             }>
-              <div className="mx-auto flex w-full max-w-[1540px] flex-col gap-6 px-5 pb-10 pt-5 md:px-7 xl:px-10 xl:pt-10">
+              <div className="mx-auto flex w-full max-w-[1540px] flex-col gap-6 px-5 pb-10 pt-3 md:px-7 xl:px-10 xl:pt-0">
                 {children}
               </div>
             </Suspense>

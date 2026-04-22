@@ -41,7 +41,6 @@ export function ProjectChangelog({
           <ProjectPageHeader
             title="Project Changelog"
             icon={<History className="h-8 w-8 text-primary" />}
-            subtitle={`Complete activity history for ${project.name}`}
           />
         </div>
       ) : null}

@@ -107,7 +107,7 @@ function buildDocumentTaxSettings(
       taxEnabled: true,
       taxLabel: snapshot.taxLabel || base.taxLabel,
       taxRate: snapshot.taxRate,
-      priceDisplay: snapshot.priceDisplay || base.priceDisplay,
+      priceDisplay: base.priceDisplay,
     };
   }
 
@@ -128,26 +128,8 @@ function buildDocumentTaxSettings(
 }
 
 function getPriceColumns(
-  taxSettings: OrganizationTaxSettings,
+  _taxSettings: OrganizationTaxSettings,
 ): Array<{ key: string; label: string }> {
-  if (taxSettings.priceDisplay === "both") {
-    return [
-      { key: "unitNet", label: "Unit Net" },
-      { key: "unitTax", label: `Unit ${taxSettings.taxLabel}` },
-      { key: "unitGross", label: "Unit Gross" },
-      { key: "totalNet", label: "Net Total" },
-      { key: "totalTax", label: `${taxSettings.taxLabel} Amount` },
-      { key: "totalGross", label: "Gross Total" },
-    ];
-  }
-
-  if (taxSettings.priceDisplay === "gross") {
-    return [
-      { key: "unitGross", label: "Unit Gross" },
-      { key: "totalGross", label: "Gross Total" },
-    ];
-  }
-
   return [
     { key: "unitNet", label: "Unit Net" },
     { key: "totalNet", label: "Net Total" },

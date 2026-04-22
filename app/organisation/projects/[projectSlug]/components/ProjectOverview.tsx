@@ -690,9 +690,9 @@ function ProjectOverviewContent() {
     ...moodboardSections.flatMap((section) => {
       const files = (
         (moodboardImageResults[section.id] as
-          | Array<{ name: string; url: string }>
+          | Array<{ name: string; url: string; _creationTime: number }>
           | undefined) ?? []
-      ).slice(0, 3);
+      );
 
       return files.map((file, index) => ({
         id: `${section.id}-${file.url}-${index}`,
@@ -701,17 +701,21 @@ function ProjectOverviewContent() {
         href: `${projectBasePath}/moodboard`,
         imageUrl: file.url,
         status: "Pinboard",
+        timestamp: file._creationTime || 0,
       }));
     }),
-    ...notes.slice(0, 2).map((note) => ({
+    ...notes.map((note) => ({
       id: String(note._id),
       title: note.title || "Project note",
       subtitle: note.content?.slice(0, 48) || "Notes",
       href: `${projectBasePath}/notes`,
       imageUrl: "",
       status: "Notes",
+      timestamp: note.updatedAt || note.createdAt || note._creationTime || 0,
     })),
-  ].slice(0, 5);
+  ]
+    .sort((left, right) => right.timestamp - left.timestamp)
+    .slice(0, 5);
 
   const projectLink =
     (project as { websiteUrl?: string; website?: string }).websiteUrl ||
@@ -741,8 +745,8 @@ function ProjectOverviewContent() {
               className={cn(
                 "group relative overflow-hidden",
                 hasProjectCover
-                  ? "aspect-[16/6] min-h-[220px] bg-[#d8d1c8] sm:min-h-[260px] lg:min-h-[320px]"
-                  : "min-h-[210px] bg-[#f7f7f4] sm:min-h-[230px] lg:min-h-[250px]",
+                  ? "aspect-[16/4] min-h-[150px] bg-[#d8d1c8] sm:min-h-[180px] lg:min-h-[220px]"
+                  : "min-h-[150px] bg-[#f7f7f4] sm:min-h-[170px] lg:min-h-[190px]",
               )}
             >
               {projectCoverUrl ? (
@@ -752,7 +756,7 @@ function ProjectOverviewContent() {
                   fill
                   priority
                   quality={90}
-                  className="object-cover transition-transform duration-700 ease-out will-change-transform group-hover:scale-[1.02]"
+                  className="object-contain object-center transition-transform duration-700 ease-out will-change-transform group-hover:scale-[1.01]"
                   style={{ objectPosition: "center center" }}
                   sizes="100vw"
                 />
@@ -782,7 +786,7 @@ function ProjectOverviewContent() {
               <div
                 className={cn(
                   "absolute inset-x-0 top-0 flex items-start justify-between gap-3",
-                  hasProjectCover ? "p-5 sm:p-7" : "p-4 sm:p-5 lg:p-6",
+                  hasProjectCover ? "p-4 sm:p-5 lg:p-6" : "p-4 sm:p-5 lg:p-6",
                 )}
               >
                 <div
@@ -867,7 +871,7 @@ function ProjectOverviewContent() {
               <div
                 className={cn(
                   "absolute inset-x-0 bottom-0",
-                  hasProjectCover ? "p-5 sm:p-7 lg:p-9" : "p-4 sm:p-5 lg:p-6",
+                  hasProjectCover ? "p-4 sm:p-5 lg:p-6" : "p-4 sm:p-5 lg:p-6",
                 )}
               >
                 <div
@@ -876,16 +880,6 @@ function ProjectOverviewContent() {
                     !hasProjectCover && "space-y-2.5 sm:space-y-3",
                   )}
                 >
-                  <p
-                    className={cn(
-                      "text-[11px] font-semibold uppercase tracking-[0.24em] sm:text-[12px]",
-                      hasProjectCover
-                        ? "text-white/70"
-                        : "text-muted-foreground",
-                    )}
-                  >
-                    Project Workspace
-                  </p>
                   <div
                     className={cn("space-y-3", !hasProjectCover && "space-y-2")}
                   >
@@ -1051,53 +1045,81 @@ function ProjectOverviewContent() {
 
             <div className="px-5 py-6 sm:px-7 sm:py-7 lg:px-9">
               <div className="mb-4 flex items-center justify-between gap-3">
-                <div className="space-y-1">
+                <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                     Recent
                   </p>
-                  <p className="text-[13px] text-muted-foreground">
-                    Latest visual references and working materials linked to
-                    this project.
-                  </p>
                 </div>
               </div>
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div className="grid gap-2.5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                 {recentCards.length > 0 ? (
-                  recentCards.map((card) => (
-                    <Link
-                      key={card.id}
-                      href={card.href}
-                      className="group overflow-hidden rounded-[16px] border border-border/80 bg-card transition-[transform,background-color,border-color] duration-200 hover:-translate-y-0.5 hover:bg-muted/20"
-                    >
-                      <div className="relative aspect-[1.65/1] border-b border-border/70 bg-muted/30">
-                        {card.imageUrl ? (
-                          <Image
-                            src={card.imageUrl}
-                            alt={card.title}
-                            fill
-                            className="object-cover"
-                            sizes="(max-width: 1280px) 50vw, 220px"
-                          />
-                        ) : (
-                          <div className="absolute inset-0 bg-[linear-gradient(135deg,var(--muted)_0%,var(--card)_100%)]" />
+                  recentCards.map((card) => {
+                    const hasImage = Boolean(card.imageUrl);
+
+                    return (
+                      <Link
+                        key={card.id}
+                        href={card.href}
+                        className={cn(
+                          "group overflow-hidden rounded-[16px] border border-border/80 bg-card transition-[transform,background-color,border-color] duration-200 hover:-translate-y-0.5 hover:bg-muted/20",
+                          !hasImage &&
+                            "flex min-h-[180px] flex-col bg-[linear-gradient(180deg,rgba(247,247,244,0.88)_0%,rgba(255,255,255,0.98)_100%)]",
                         )}
-                      </div>
-                      <div className="space-y-1.5 px-3 py-3">
-                        <p className="truncate text-[12px] font-medium text-foreground">
-                          {card.title}
-                        </p>
-                        <p className="truncate text-[11px] text-muted-foreground">
-                          {card.subtitle}
-                        </p>
-                        <Badge
-                          variant="outline"
-                          className="rounded-md border-border/80 bg-muted/25 px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
-                        >
-                          {card.status}
-                        </Badge>
-                      </div>
-                    </Link>
-                  ))
+                      >
+                        {hasImage ? (
+                          <>
+                            <div className="relative aspect-[1.38/1] border-b border-border/70 bg-muted/30">
+                              <Image
+                                src={card.imageUrl}
+                                alt={card.title}
+                                fill
+                                className="object-cover"
+                                sizes="(max-width: 1280px) 50vw, 220px"
+                              />
+                            </div>
+                            <div className="space-y-1 px-3 py-2.5">
+                              <p className="truncate text-[11px] font-medium text-foreground">
+                                {card.title}
+                              </p>
+                              <p className="truncate text-[10px] text-muted-foreground">
+                                {card.subtitle}
+                              </p>
+                              <Badge
+                                variant="outline"
+                                className="rounded-md border-border/80 bg-muted/25 px-2 py-0.5 text-[9px] font-medium text-muted-foreground"
+                              >
+                                {card.status}
+                              </Badge>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="flex items-center justify-between border-b border-border/70 px-3.5 py-3.5">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-[12px] border border-border/70 bg-background/85 text-foreground shadow-sm">
+                                <Files className="h-3.5 w-3.5" />
+                              </div>
+                              <Badge
+                                variant="outline"
+                                className="rounded-md border-border/80 bg-background/80 px-2 py-0.5 text-[9px] font-medium text-muted-foreground"
+                              >
+                                {card.status}
+                              </Badge>
+                            </div>
+                            <div className="flex flex-1 flex-col justify-between px-3.5 py-3.5">
+                              <div className="space-y-2">
+                                <p className="line-clamp-2 text-[15px] font-medium leading-[1.15] tracking-tight text-foreground">
+                                  {card.title}
+                                </p>
+                                <p className="line-clamp-4 text-[12px] leading-5 text-muted-foreground">
+                                  {card.subtitle}
+                                </p>
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </Link>
+                    );
+                  })
                 ) : (
                   <div className="col-span-full rounded-[12px] border border-dashed border-border/80 bg-muted/20 px-4 py-6 text-[12px] text-muted-foreground">
                     Add moodboard items, files, or notes to populate the recent

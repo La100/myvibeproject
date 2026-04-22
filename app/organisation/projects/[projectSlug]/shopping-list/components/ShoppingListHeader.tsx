@@ -19,7 +19,6 @@ export function ShoppingListHeader({
   return (
     <ProjectPageHeader
       title="Shopping List"
-      subtitle="Track sourcing, pricing, and progress across every product in the project."
       icon={<ShoppingCart className="h-8 w-8 text-primary" />}
       tags={(
         <>

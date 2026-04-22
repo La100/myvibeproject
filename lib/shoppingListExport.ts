@@ -1,6 +1,5 @@
 import {
   type OrganizationTaxSettings,
-  resolveOrganizationTaxSettings,
 } from "./organizationTax.ts";
 
 const normalizeLabel = (value?: string | null) => value?.trim() || "";
@@ -59,28 +58,14 @@ export function formatShoppingExportProductLabel(
 
 export function getShoppingExportHeaders(
   options: ShoppingExportColumnOptions,
-  taxSettings?: Partial<OrganizationTaxSettings> | null,
+  _taxSettings?: Partial<OrganizationTaxSettings> | null,
 ): string[] {
-  const resolvedTaxSettings = resolveOrganizationTaxSettings(taxSettings);
-  const priceHeaders =
-    resolvedTaxSettings.priceDisplay === "both"
-      ? [
-          "Unit Net",
-          `Unit ${resolvedTaxSettings.taxLabel}`,
-          "Unit Gross",
-          "Net Total",
-          `${resolvedTaxSettings.taxLabel} Amount`,
-          "Gross Total",
-        ]
-      : resolvedTaxSettings.priceDisplay === "gross"
-        ? ["Unit Gross", "Gross Total"]
-        : ["Unit Net", "Net Total"];
-
   return [
     ...(options.includeSection ? ["Section"] : []),
     "Product",
     "Qty",
-    ...priceHeaders,
+    "Unit Net",
+    "Net Total",
     ...(options.includeStatus ? ["Status"] : []),
     ...(options.includeSupplier ? ["Supplier"] : []),
     ...(options.includeNotes ? ["Notes"] : []),
@@ -90,28 +75,14 @@ export function getShoppingExportHeaders(
 export function getShoppingExportCsvRow(
   row: ShoppingExportRow,
   options: ShoppingExportColumnOptions,
-  taxSettings?: Partial<OrganizationTaxSettings> | null,
+  _taxSettings?: Partial<OrganizationTaxSettings> | null,
 ): string[] {
-  const resolvedTaxSettings = resolveOrganizationTaxSettings(taxSettings);
-  const priceColumns =
-    resolvedTaxSettings.priceDisplay === "both"
-      ? [
-          row.unitNet,
-          row.unitTax,
-          row.unitGross,
-          row.totalNet,
-          row.totalTax,
-          row.totalGross,
-        ]
-      : resolvedTaxSettings.priceDisplay === "gross"
-        ? [row.unitGross, row.totalGross]
-        : [row.unitNet, row.totalNet];
-
   return [
     ...(options.includeSection ? [row.sectionName] : []),
     row.product,
     row.qty,
-    ...priceColumns,
+    row.unitNet,
+    row.totalNet,
     ...(options.includeStatus ? [row.status] : []),
     ...(options.includeSupplier ? [row.supplier] : []),
     ...(options.includeNotes ? [row.notes] : []),

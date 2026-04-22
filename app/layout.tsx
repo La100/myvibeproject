@@ -28,6 +28,7 @@ const brandFontVariables = {
     '"SFMono-Regular", "JetBrains Mono", "Fira Code", "Menlo", "Monaco", monospace',
   "--font-serif": '"Canela", "Noe Display", "Georgia", "Times New Roman", serif',
   "--font-display-serif": '"Canela", "Noe Display", "Georgia", "Times New Roman", serif',
+  "--font-sidebar": 'var(--font-serif)',
 } as CSSProperties;
 
 export const metadata: Metadata = {

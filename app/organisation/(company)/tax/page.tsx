@@ -10,7 +10,6 @@ import { apiAny } from "@/lib/convexApiAny";
 import {
   DEFAULT_ORGANIZATION_TAX_SETTINGS,
   resolveOrganizationTaxSettings,
-  type OrganizationPriceDisplay,
 } from "@/lib/organizationTax";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,9 +34,6 @@ export default function TaxPage() {
   const [taxRate, setTaxRate] = useState(
     String(DEFAULT_ORGANIZATION_TAX_SETTINGS.taxRate),
   );
-  const [priceDisplay, setPriceDisplay] = useState<OrganizationPriceDisplay>(
-    DEFAULT_ORGANIZATION_TAX_SETTINGS.priceDisplay,
-  );
   const [submitting, setSubmitting] = useState(false);
 
   const teamData = useQuery(
@@ -58,7 +54,6 @@ export default function TaxPage() {
     setTaxEnabled(resolvedTaxSettings.taxEnabled);
     setTaxLabel(resolvedTaxSettings.taxLabel);
     setTaxRate(String(resolvedTaxSettings.taxRate));
-    setPriceDisplay(resolvedTaxSettings.priceDisplay);
   }, [resolvedTaxSettings, teamData]);
 
   const handleSave = async () => {
@@ -87,7 +82,6 @@ export default function TaxPage() {
           taxEnabled,
           taxRate: normalizedRate,
           taxLabel: normalizedLabel,
-          priceDisplay,
         },
       });
       toast.success("Tax settings updated");
@@ -165,24 +159,6 @@ export default function TaxPage() {
               />
             </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="price-display">Display mode</Label>
-              <Select
-                value={priceDisplay}
-                onValueChange={(value) =>
-                  setPriceDisplay(value as OrganizationPriceDisplay)
-                }
-              >
-                <SelectTrigger id="price-display">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="net">Net</SelectItem>
-                  <SelectItem value="gross">Gross</SelectItem>
-                  <SelectItem value="both">Net, tax, gross</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
           </div>
 
           {taxEnabled ? (
@@ -193,10 +169,9 @@ export default function TaxPage() {
                 <Badge variant="secondary">
                   {Number.parseFloat(taxRate || "0").toFixed(2)}%
                 </Badge>
-                <Badge variant="outline">{priceDisplay}</Badge>
               </div>
               <p className="mt-2 text-sm text-muted-foreground">
-                Internal planning screens can stay simple, while outgoing documents start from this default.
+                Internal planning screens stay net. Outgoing documents reuse this tax default.
               </p>
             </div>
           ) : (
@@ -213,7 +188,7 @@ export default function TaxPage() {
               <div className="space-y-1">
                 <p className="text-sm font-medium text-foreground">Tax stays lightweight</p>
                 <p className="text-sm text-muted-foreground">
-                  Shopping and labor stay internal planning tools. Estimations and invoice drafts are where tax matters commercially.
+                  Shopping and labor stay internal planning tools. Estimations and invoice drafts reuse this tax rate when needed.
                 </p>
               </div>
             </div>

@@ -337,14 +337,11 @@ export function CreateEstimationDialog({
     .reduce((sum, item) => sum + (item.totalPrice || 0), 0) || 0;
 
   const netTotal = laborTotal + materialsTotal;
-  const vatAmount = netTotal * (vatPercent / 100);
-  const grossTotal = netTotal + vatAmount;
   const hasTaxApplied = vatPercent > 0;
   const summaryTaxSettings = {
     taxEnabled: hasTaxApplied,
     taxRate: vatPercent,
     taxLabel: estimationTaxLabel,
-    priceDisplay: organizationTaxSettings.priceDisplay,
   };
   const primarySummaryAmountKind = getPrimaryAmountKindForDisplay(summaryTaxSettings);
   const primarySummaryAmountLabel = getTaxAmountKindLabel(
@@ -358,7 +355,7 @@ export function CreateEstimationDialog({
   const totalSummaryAmount =
     calculateTaxBreakdown(netTotal, summaryTaxSettings)[primarySummaryAmountKind];
   const taxSettingsDescription = hasTaxApplied
-    ? 'Uses the current workspace tax default and follows the same display mode as document exports.'
+    ? 'Uses the current workspace tax default for document exports.'
     : 'No default tax is configured for this workspace.';
 
   const validateStep = (targetStep: number) => {
@@ -879,33 +876,14 @@ export function CreateEstimationDialog({
                 </span>
                 <span>{materialsSummaryAmount.toFixed(2)} {currencySymbol}</span>
               </div>
-              {summaryTaxSettings.priceDisplay === 'both' ? (
-                <>
-                  <div className="flex justify-between border-t pt-3 font-medium">
-                    <span>Net total</span>
-                    <span>{netTotal.toFixed(2)} {currencySymbol}</span>
-                  </div>
-                  {hasTaxApplied && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">{estimationTaxLabel} ({vatPercent}%)</span>
-                      <span>{vatAmount.toFixed(2)} {currencySymbol}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between border-t pt-3 text-xl font-semibold">
-                    <span>Gross total</span>
-                    <span>{grossTotal.toFixed(2)} {currencySymbol}</span>
-                  </div>
-                </>
-              ) : (
-                <div className="flex justify-between border-t pt-3">
-                  <span className="text-xl font-semibold">
-                    Total ({primarySummaryAmountLabel.toLowerCase()})
-                  </span>
-                  <span className="text-xl font-semibold">
-                    {totalSummaryAmount.toFixed(2)} {currencySymbol}
-                  </span>
-                </div>
-              )}
+              <div className="flex justify-between border-t pt-3">
+                <span className="text-xl font-semibold">
+                  Total ({primarySummaryAmountLabel.toLowerCase()})
+                </span>
+                <span className="text-xl font-semibold">
+                  {totalSummaryAmount.toFixed(2)} {currencySymbol}
+                </span>
+              </div>
             </div>
           </div>
         )}

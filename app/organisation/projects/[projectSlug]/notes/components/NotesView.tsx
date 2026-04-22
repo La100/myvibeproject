@@ -280,7 +280,6 @@ export default function NotesView() {
       <ProjectPageHeader
         title="Notes"
         icon={<StickyNote className="h-8 w-8 text-primary" />}
-        subtitle="Manage project notes and documentation"
         actions={
           <Button onClick={() => setIsFormOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />

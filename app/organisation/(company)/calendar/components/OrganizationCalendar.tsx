@@ -35,7 +35,6 @@ export default function OrganizationCalendar() {
       currentMonth={currentMonth}
       onMonthChange={setCurrentMonth}
       title="Calendar"
-      subtitle={`Operational timeline across all projects in ${organization?.name ?? "your organization"}`}
     />
   );
 }

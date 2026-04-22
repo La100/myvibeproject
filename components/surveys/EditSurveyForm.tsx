@@ -165,7 +165,6 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
       <ProjectPageHeader
         title="Edit Survey"
         icon={<Save className="h-8 w-8 text-primary" />}
-        subtitle={`Edit survey for ${project.name}`}
         actions={
           <Button
             variant="outline"

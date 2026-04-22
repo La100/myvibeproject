@@ -2,11 +2,10 @@
 
 import { useQuery, useMutation } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Users, UserX, Crown, User } from "lucide-react";
+import { UserX, Crown, User } from "lucide-react";
 import { toast } from "sonner";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import { Id } from "@/convex/_generated/dataModel";
@@ -50,20 +49,15 @@ export default function ProjectMembers({ project }: ProjectMembersProps) {
   const members = teamMembers.filter((member: TeamMember) => member.role === "member");
 
   return (
-    <div className="flex flex-col gap-4 lg:gap-6">
-      {/* Team Members Section */}
-      <Card>
-        <CardHeader className="pb-4">
-          <CardTitle className="flex items-center gap-2 text-lg lg:text-xl">
-            <Users className="h-4 w-4 lg:h-5 lg:w-5" />
-            Team Members
-          </CardTitle>
-          <CardDescription className="text-sm">
-            All team members have access to this project based on their team role.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4 px-4 lg:px-6">
-          {/* Admins */}
+    <div className="flex flex-col gap-8">
+      <div className="border-b border-border/70 pb-5">
+        <h3 className="text-lg font-semibold text-foreground">Team Members</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          All team members have access to this project based on their team role.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-8">
           {admins.length > 0 && (
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-2">
@@ -86,7 +80,6 @@ export default function ProjectMembers({ project }: ProjectMembersProps) {
             </div>
           )}
 
-          {/* Members */}
           {members.length > 0 && (
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-2 border-t pt-4">
@@ -108,10 +101,7 @@ export default function ProjectMembers({ project }: ProjectMembersProps) {
               </div>
             </div>
           )}
-
-        </CardContent>
-      </Card>
-
+      </div>
     </div>
   );
 }
@@ -155,7 +145,7 @@ function MemberRow({
   };
 
   return (
-    <div className="flex items-center justify-between rounded-lg bg-muted/30 p-3">
+    <div className="flex items-center justify-between rounded-2xl bg-muted/25 px-3 py-3.5">
       <div className="flex items-center gap-2 lg:gap-3 min-w-0 flex-1">
         <Avatar className="h-6 w-6 lg:h-8 lg:w-8 flex-shrink-0">
           <AvatarImage src={member.imageUrl} />

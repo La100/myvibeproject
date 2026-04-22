@@ -105,20 +105,13 @@ export default function CompanyTeam() {
   return (
     <div className="flex flex-col flex-1 min-h-0">
       {/* Header */}
-      <div className="flex flex-col gap-4 border-b px-4 py-4 sm:px-6">
-        <div className="flex flex-col gap-2">
-          <div>
+      <div className="border-b px-4 py-4 sm:px-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-2">
             <h1 className="text-2xl font-semibold tracking-tight">Team Management</h1>
-            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              Manage workspace members, roles, and invitations without the extra dashboard noise.
-            </p>
           </div>
-        </div>
-
-        {/* Search and Filters */}
-        <div className="flex justify-end">
           <InviteMemberDialog teamId={team._id}>
-            <Button size="sm" className="h-10 px-4">
+            <Button size="sm" className="h-10 w-full px-4 sm:w-auto">
               <Mail className="mr-2 h-4 w-4" />
               Invite Member
             </Button>
@@ -129,7 +122,7 @@ export default function CompanyTeam() {
       {/* Content */}
       <div className="flex-1 px-4 py-4 sm:px-6">
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="h-10">
+          <TabsList className="h-10 w-fit">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="team">Team Members</TabsTrigger>
             <TabsTrigger value="invitations">Invitations</TabsTrigger>
@@ -137,45 +130,34 @@ export default function CompanyTeam() {
 
           <TabsContent value="overview" className="mt-5">
             <div className="flex flex-col gap-4">
-              <section className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)]">
+              <section className="grid gap-4 xl:grid-cols-[minmax(0,760px)_minmax(320px,1fr)]">
                 <div className="rounded-2xl border bg-white p-4 sm:p-5">
-                  <div className="flex flex-col gap-5">
-                    <div className="flex flex-col gap-3">
-                      <div>
-                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                          Workspace access
-                        </p>
-                        <h2 className="mt-1 text-lg font-semibold">Keep the team surface focused</h2>
-                        <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-                          This view now stays centered on people, roles, and pending invites instead of mixing in project management.
-                        </p>
-                      </div>
-                    </div>
+                  <div className="flex flex-col gap-3">
+                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                      Workspace access
+                    </p>
 
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      <div className="rounded-xl border bg-muted/20 px-4 py-3">
+                    <div className="grid w-full gap-2 sm:grid-cols-3 xl:max-w-[620px]">
+                      <div className="rounded-xl border bg-muted px-4 py-4">
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-muted-foreground">Members</span>
                           <Users className="h-4 w-4 text-muted-foreground" />
                         </div>
-                        <p className="mt-2 text-2xl font-semibold">{memberCount}</p>
-                        <p className="text-xs text-muted-foreground">Internal seats in use</p>
+                        <p className="mt-4 text-3xl font-semibold leading-none">{memberCount}</p>
                       </div>
-                      <div className="rounded-xl border bg-muted/20 px-4 py-3">
+                      <div className="rounded-xl border bg-muted px-4 py-4">
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-muted-foreground">Admins</span>
                           <Crown className="h-4 w-4 text-muted-foreground" />
                         </div>
-                        <p className="mt-2 text-2xl font-semibold">{adminCount}</p>
-                        <p className="text-xs text-muted-foreground">People with elevated access</p>
+                        <p className="mt-4 text-3xl font-semibold leading-none">{adminCount}</p>
                       </div>
-                      <div className="rounded-xl border bg-muted/20 px-4 py-3">
+                      <div className="rounded-xl border bg-muted px-4 py-4">
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-muted-foreground">Invites</span>
                           <Mail className="h-4 w-4 text-muted-foreground" />
                         </div>
-                        <p className="mt-2 text-2xl font-semibold">{visiblePendingInvitations.length}</p>
-                        <p className="text-xs text-muted-foreground">Awaiting acceptance</p>
+                        <p className="mt-4 text-3xl font-semibold leading-none">{visiblePendingInvitations.length}</p>
                       </div>
                     </div>
                   </div>
@@ -183,12 +165,7 @@ export default function CompanyTeam() {
 
                 <div className="rounded-2xl border bg-white p-4 sm:p-5">
                   <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h3 className="text-base font-semibold">Pending invitations</h3>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        Open invites stay visible here until accepted or revoked.
-                      </p>
-                    </div>
+                    <h3 className="text-base font-semibold">Pending invitations</h3>
                     <Badge variant="outline" className="text-xs">
                       {visiblePendingInvitations.length}
                     </Badge>
@@ -198,7 +175,7 @@ export default function CompanyTeam() {
                     {visiblePendingInvitations.length > 0 ? (
                       <div className="space-y-2">
                         {visiblePendingInvitations.slice(0, 4).map((inv) => (
-                          <div key={inv._id} className="flex items-center justify-between rounded-xl border px-3 py-2.5">
+                          <div key={inv._id} className="flex items-center justify-between rounded-xl border bg-muted px-3 py-3">
                             <div className="min-w-0">
                               <p className="truncate text-sm font-medium">{inv.email}</p>
                               <p className="text-xs text-muted-foreground">
@@ -212,12 +189,9 @@ export default function CompanyTeam() {
                         ))}
                       </div>
                     ) : (
-                      <div className="rounded-xl border border-dashed bg-muted/20 px-4 py-8 text-center">
+                      <div className="rounded-xl border border-dashed bg-muted px-4 py-8 text-center">
                         <Mail className="mx-auto h-8 w-8 text-muted-foreground" />
                         <p className="mt-3 text-sm font-medium">No open invitations</p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          New invitations will appear here as soon as they are sent.
-                        </p>
                       </div>
                     )}
                   </div>
@@ -226,12 +200,7 @@ export default function CompanyTeam() {
 
               <section className="rounded-2xl border bg-white p-4 sm:p-5">
                 <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-base font-semibold">Recent members</h3>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      The newest people added to this workspace.
-                    </p>
-                  </div>
+                  <h3 className="text-base font-semibold">Recent members</h3>
                   <Badge variant="outline" className="text-xs">
                     {memberCount}
                   </Badge>
@@ -247,7 +216,7 @@ export default function CompanyTeam() {
                           <button
                             key={member.clerkUserId}
                             type="button"
-                            className="flex items-center gap-3 rounded-xl border bg-muted/20 px-3 py-3 text-left transition-colors hover:bg-muted/40"
+                            className="flex items-center gap-3 rounded-xl border bg-muted px-3 py-3 text-left transition-colors hover:bg-muted/80"
                             onClick={() => handleMemberClick(member)}
                           >
                             <Avatar className="h-9 w-9">
@@ -281,16 +250,7 @@ export default function CompanyTeam() {
           <TabsContent value="team" className="mt-5">
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold">Internal Team Members</h3>
-                  <p className="text-sm text-muted-foreground">Manage core team member roles and permissions</p>
-                </div>
-                <InviteMemberDialog teamId={team._id}>
-                  <Button size="sm" className="h-9">
-                    <Mail className="mr-2 h-4 w-4" />
-                    Invite Member
-                  </Button>
-                </InviteMemberDialog>
+                <h3 className="text-lg font-semibold">Internal Team Members</h3>
               </div>
                 
               <Card className="rounded-2xl bg-background">
@@ -299,7 +259,7 @@ export default function CompanyTeam() {
                     {teamMembersOnly.map((member: TeamMember) => (
                       <div
                         key={member.clerkUserId}
-                        className="flex items-center justify-between border-b px-4 py-3.5 last:border-b-0 hover:bg-muted/40 cursor-pointer transition-colors"
+                        className="flex items-center justify-between border-b bg-muted px-4 py-3.5 last:border-b-0 hover:bg-muted/80 cursor-pointer transition-colors"
                         onClick={() => handleMemberClick(member)}
                       >
                         <div className="flex items-center gap-4">
@@ -326,7 +286,6 @@ export default function CompanyTeam() {
                       <div className="text-center py-12 text-muted-foreground">
                         <Users className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
                         <h3 className="text-lg font-semibold mb-2">No team members yet</h3>
-                        <p className="mb-4">Start by inviting your first team member.</p>
                         <InviteMemberDialog teamId={team._id}>
                           <Button>
                             <Mail className="mr-2 h-4 w-4" />
@@ -344,18 +303,7 @@ export default function CompanyTeam() {
           <TabsContent value="invitations" className="mt-5">
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold">Pending Invitations</h3>
-                  <p className="text-sm text-muted-foreground">Manage team invitations and track their status</p>
-                </div>
-                {visiblePendingInvitations.length > 0 && currentUserMember?.role === 'admin' && (
-                  <InviteMemberDialog teamId={team._id}>
-                    <Button size="sm" className="h-9">
-                      <Mail className="mr-2 h-4 w-4" />
-                      Send Another Invitation
-                    </Button>
-                  </InviteMemberDialog>
-                )}
+                <h3 className="text-lg font-semibold">Pending Invitations</h3>
               </div>
 
               <Card className="rounded-2xl bg-background">
@@ -363,7 +311,7 @@ export default function CompanyTeam() {
                   {visiblePendingInvitations.length > 0 ? (
                     <div className="flex flex-col gap-3">
                       {visiblePendingInvitations.map((inv: PendingInvitation) => (
-                        <div key={inv._id} className="flex items-center justify-between rounded-xl border px-4 py-3 hover:bg-muted/40 transition-colors">
+                        <div key={inv._id} className="flex items-center justify-between rounded-xl border bg-muted px-4 py-3 hover:bg-muted/80 transition-colors">
                           <div className="flex items-center gap-4 flex-1">
                             <Avatar className="h-10 w-10">
                               <AvatarFallback className="bg-primary/10 text-primary">
@@ -413,9 +361,6 @@ export default function CompanyTeam() {
                           <Mail className="h-8 w-8 text-muted-foreground" />
                         </div>
                         <h3 className="text-lg font-semibold mb-2">No pending invitations</h3>
-                        <p className="text-muted-foreground mb-6 max-w-md">
-                          All team invitations have been accepted or there are no pending invites. Invite new members to grow your team.
-                        </p>
                         <InviteMemberDialog teamId={team._id}>
                           <Button>
                             <Mail className="mr-2 h-4 w-4" />
@@ -428,28 +373,6 @@ export default function CompanyTeam() {
                 </CardContent>
               </Card>
 
-              {/* Invitation Info Card */}
-              {visiblePendingInvitations.length > 0 && (
-                <Card className="rounded-2xl border-border bg-muted/30">
-                  <CardContent className="pt-5">
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-                        <Mail className="h-4 w-4 text-primary" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-foreground">About Invitations</h3>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          Invitations are sent via email and remain valid until accepted or revoked.
-                          Invited users will receive full access based on their assigned role once they accept.
-                        </p>
-                        <p className="mt-2 text-xs text-muted-foreground">
-                          Total pending: {visiblePendingInvitations.length} invitation{visiblePendingInvitations.length !== 1 ? 's' : ''}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
             </div>
           </TabsContent>
 

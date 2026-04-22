@@ -56,13 +56,9 @@ export function normalizeOrganizationTaxLabel(value?: string | null): string {
 }
 
 export function normalizeOrganizationPriceDisplay(
-  value?: string | null,
+  _value?: string | null,
 ): OrganizationPriceDisplay {
-  return ORGANIZATION_PRICE_DISPLAY_OPTIONS.includes(
-    value as OrganizationPriceDisplay,
-  )
-    ? (value as OrganizationPriceDisplay)
-    : DEFAULT_ORGANIZATION_TAX_SETTINGS.priceDisplay;
+  return DEFAULT_ORGANIZATION_TAX_SETTINGS.priceDisplay;
 }
 
 function isTeamTaxRate(value: unknown): value is Partial<TeamTaxRate> {
@@ -196,18 +192,8 @@ export function calculateTaxBreakdown(
 }
 
 export function getTaxAmountKindsForDisplay(
-  settings?: Partial<OrganizationTaxSettings> | null,
+  _settings?: Partial<OrganizationTaxSettings> | null,
 ): TaxAmountKind[] {
-  const { priceDisplay } = resolveOrganizationTaxSettings(settings);
-
-  if (priceDisplay === "both") {
-    return ["net", "tax", "gross"];
-  }
-
-  if (priceDisplay === "gross") {
-    return ["gross"];
-  }
-
   return ["net"];
 }
 
@@ -225,9 +211,7 @@ export function getTaxAmountKindLabel(
 }
 
 export function getPrimaryAmountKindForDisplay(
-  settings?: Partial<OrganizationTaxSettings> | null,
+  _settings?: Partial<OrganizationTaxSettings> | null,
 ): TaxAmountKind {
-  const { priceDisplay } = resolveOrganizationTaxSettings(settings);
-
-  return priceDisplay === "net" ? "net" : "gross";
+  return "net";
 }

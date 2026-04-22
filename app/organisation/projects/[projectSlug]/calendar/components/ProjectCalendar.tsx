@@ -30,7 +30,6 @@ export default function ProjectCalendar() {
       currentMonth={currentMonth}
       onMonthChange={setCurrentMonth}
       title="Calendar"
-      subtitle={`Operational timeline for ${project.name}`}
     />
   );
 }

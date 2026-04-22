@@ -1,6 +1,5 @@
 import {
   type OrganizationTaxSettings,
-  resolveOrganizationTaxSettings,
 } from "./organizationTax.ts";
 
 export type LaborExportRow = {
@@ -26,29 +25,15 @@ export type LaborExportColumnOptions = {
 
 export function getLaborExportHeaders(
   options: LaborExportColumnOptions,
-  taxSettings?: Partial<OrganizationTaxSettings> | null,
+  _taxSettings?: Partial<OrganizationTaxSettings> | null,
 ): string[] {
-  const resolvedTaxSettings = resolveOrganizationTaxSettings(taxSettings);
-  const priceHeaders =
-    resolvedTaxSettings.priceDisplay === "both"
-      ? [
-          "Unit Net",
-          `Unit ${resolvedTaxSettings.taxLabel}`,
-          "Unit Gross",
-          "Net Total",
-          `${resolvedTaxSettings.taxLabel} Amount`,
-          "Gross Total",
-        ]
-      : resolvedTaxSettings.priceDisplay === "gross"
-        ? ["Unit Gross", "Gross Total"]
-        : ["Unit Net", "Net Total"];
-
   return [
     ...(options.includeSection ? ["Section"] : []),
     "Work",
     "Qty",
     "Unit",
-    ...priceHeaders,
+    "Unit Net",
+    "Net Total",
     ...(options.includeNotes ? ["Notes"] : []),
     ...(options.includeReferenceLink ? ["Reference Link"] : []),
   ];
@@ -57,29 +42,15 @@ export function getLaborExportHeaders(
 export function getLaborExportCsvRow(
   row: LaborExportRow,
   options: LaborExportColumnOptions,
-  taxSettings?: Partial<OrganizationTaxSettings> | null,
+  _taxSettings?: Partial<OrganizationTaxSettings> | null,
 ): string[] {
-  const resolvedTaxSettings = resolveOrganizationTaxSettings(taxSettings);
-  const priceColumns =
-    resolvedTaxSettings.priceDisplay === "both"
-      ? [
-          row.unitNet,
-          row.unitTax,
-          row.unitGross,
-          row.totalNet,
-          row.totalTax,
-          row.totalGross,
-        ]
-      : resolvedTaxSettings.priceDisplay === "gross"
-        ? [row.unitGross, row.totalGross]
-        : [row.unitNet, row.totalNet];
-
   return [
     ...(options.includeSection ? [row.sectionName] : []),
     row.work,
     row.qty,
     row.unit,
-    ...priceColumns,
+    row.unitNet,
+    row.totalNet,
     ...(options.includeNotes ? [row.notes] : []),
     ...(options.includeReferenceLink ? [row.referenceLink] : []),
   ];

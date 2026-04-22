@@ -174,7 +174,7 @@ function Sidebar({
       <div
         data-slot="sidebar"
         className={cn(
-          "bg-sidebar text-sidebar-foreground flex h-full w-(--sidebar-width) flex-col [background-image:none]",
+          "bg-sidebar text-sidebar-foreground flex h-full w-(--sidebar-width) flex-col font-[var(--font-sidebar)] [background-image:none]",
           className
         )}
         {...props}
@@ -191,7 +191,7 @@ function Sidebar({
           data-sidebar="sidebar"
           data-slot="sidebar"
           data-mobile="true"
-          className="bg-sidebar text-sidebar-foreground w-(--sidebar-width) p-0 [background-image:none]"
+          className="bg-sidebar text-sidebar-foreground w-(--sidebar-width) p-0 font-[var(--font-sidebar)] [background-image:none]"
           style={
             {
               "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
@@ -248,7 +248,7 @@ function Sidebar({
         <div
           data-sidebar="sidebar"
           data-slot="sidebar-inner"
-          className="bg-sidebar border-sidebar-border/80 flex h-full w-full flex-col rounded-2xl border shadow-[0_18px_44px_-34px_rgba(22,22,22,0.55)] group-data-[variant=floating]:rounded-2xl group-data-[variant=floating]:border"
+          className="bg-sidebar border-sidebar-border/80 flex h-full w-full flex-col rounded-2xl border font-[var(--font-sidebar)] shadow-[0_18px_44px_-34px_rgba(22,22,22,0.55)] group-data-[variant=floating]:rounded-2xl group-data-[variant=floating]:border"
           style={{ backgroundImage: "none" }}
         >
           {children}
@@ -346,7 +346,7 @@ function SidebarHeader({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="sidebar-header"
       data-sidebar="header"
-      className={cn("flex flex-col gap-2 p-3 font-[var(--font-sans)]", className)}
+      className={cn("flex flex-col gap-2 p-3", className)}
       {...props}
     />
   )
@@ -383,7 +383,7 @@ function SidebarContent({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="sidebar-content"
       data-sidebar="content"
       className={cn(
-        "flex min-h-0 flex-1 flex-col gap-2.5 overflow-auto px-1 pb-2 font-[var(--font-sans)] group-data-[collapsible=icon]:overflow-hidden",
+        "flex min-h-0 flex-1 flex-col gap-2.5 overflow-auto px-1 pb-2 group-data-[collapsible=icon]:overflow-hidden",
         className
       )}
       {...props}

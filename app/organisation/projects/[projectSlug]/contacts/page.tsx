@@ -95,7 +95,6 @@ export default function ContactsPage() {
         <ProjectPageHeader
           title="Contacts"
           icon={<User className="h-8 w-8 text-primary" />}
-          subtitle={`Manage contacts for ${project.name}`}
         />
 
         <Card>
@@ -103,9 +102,6 @@ export default function ContactsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-lg lg:text-xl">Project Contacts</CardTitle>
-                <CardDescription className="text-sm">
-                  Create and manage contacts for this project
-                </CardDescription>
               </div>
 
               <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>

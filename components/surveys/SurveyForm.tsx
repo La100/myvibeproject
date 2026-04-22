@@ -126,7 +126,6 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
       <ProjectPageHeader
         title="New Survey"
         icon={<FileText className="h-8 w-8 text-primary" />}
-        subtitle={`Create a survey for ${project.name}`}
         actions={
           <Button
             variant="outline"

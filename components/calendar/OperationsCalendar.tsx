@@ -287,7 +287,7 @@ export function OperationsCalendar({
   currentMonth: string;
   onMonthChange: (month: string) => void;
   title: string;
-  subtitle: string;
+  subtitle?: string;
 }) {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [visibleTypes, setVisibleTypes] = useState<Set<EventType>>(

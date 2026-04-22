@@ -5,6 +5,7 @@ import { Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 type OrganizationImagePickerProps = {
   buttonLabel?: string;
@@ -12,8 +13,10 @@ type OrganizationImagePickerProps = {
   description?: string;
   disabled?: boolean;
   inputId: string;
+  layout?: "inline" | "stacked";
   name: string;
   onPick: () => void;
+  previewClassName?: string;
   statusLabel?: string;
 };
 
@@ -23,13 +26,29 @@ export function OrganizationImagePicker({
   description,
   disabled = false,
   inputId,
+  layout = "inline",
   name,
   onPick,
+  previewClassName,
   statusLabel,
 }: OrganizationImagePickerProps) {
   return (
-    <div className="flex items-center gap-4 rounded-lg border border-border/40 bg-muted/20 p-4">
-      <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-border/40 bg-background">
+    <div
+      className={cn(
+        layout === "stacked"
+          ? "flex flex-col items-center gap-5 text-center"
+          : "flex items-center gap-4",
+      )}
+    >
+      <div
+        className={cn(
+          "relative shrink-0 overflow-hidden border border-border/50 bg-background",
+          layout === "stacked"
+            ? "h-40 w-full rounded-2xl"
+            : "h-16 w-16 rounded-xl",
+          previewClassName,
+        )}
+      >
         {currentImageUrl.trim() ? (
           <img
             src={currentImageUrl}
@@ -45,7 +64,12 @@ export function OrganizationImagePicker({
           />
         )}
       </div>
-      <div className="flex min-w-0 flex-1 flex-col gap-3">
+      <div
+        className={cn(
+          "flex min-w-0 flex-1 flex-col gap-3",
+          layout === "stacked" ? "items-center" : "",
+        )}
+      >
         <div className="space-y-1">
           <Label htmlFor={inputId}>Organization image</Label>
           {statusLabel ? (
@@ -53,7 +77,12 @@ export function OrganizationImagePicker({
           ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" onClick={onPick} disabled={disabled}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onPick}
+            disabled={disabled}
+          >
             <Upload data-icon="inline-start" />
             {buttonLabel}
           </Button>

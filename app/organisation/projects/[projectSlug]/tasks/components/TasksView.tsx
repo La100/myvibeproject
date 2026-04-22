@@ -493,7 +493,6 @@ export default function TasksView() {
         <ProjectPageHeader
           title="Tasks"
           icon={<ListTodo className="h-8 w-8 text-primary" />}
-          subtitle={`Manage tasks for ${project.name}`}
           actions={
             <div className="flex items-center gap-2">
               <Button onClick={() => setIsTaskFormOpen(true)}>Add Task</Button>

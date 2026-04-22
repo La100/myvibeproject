@@ -22,7 +22,6 @@ export function LaborListHeader({
   return (
     <ProjectPageHeader
       title="Labor"
-      subtitle="Track contractors, unit pricing, and delivery progress across the project scope."
       icon={<Hammer className="h-8 w-8 text-primary" />}
       tags={(
         <>

@@ -15,7 +15,6 @@ export default function ChangelogPage() {
           <ProjectPageHeader
             title="Notifications"
             icon={<BellRing className="h-8 w-8 text-primary" />}
-            subtitle="Client responses and full project activity history."
           />
           <ProjectClientNotifications showHeader={false} />
           <ProjectChangelog showHeader={false} />
