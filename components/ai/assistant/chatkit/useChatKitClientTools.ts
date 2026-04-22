@@ -38,6 +38,127 @@ const READ_ONLY_TOOL_NAMES = new Set([
   "search_items",
   "scrape_shopping_product",
 ]);
+const OPEN_TASK_STATUSES = ["todo", "in_progress", "review"] as const;
+const CLOSED_TASK_STATUSES = ["done"] as const;
+const TASK_DOMAIN_QUERY_WORDS = new Set([
+  "task",
+  "tasks",
+  "todo",
+  "todos",
+  "zadanie",
+  "zadania",
+  "zadan",
+]);
+const TASK_OPEN_QUERY_WORDS = new Set([
+  "open",
+  "opened",
+  "active",
+  "pending",
+  "unfinished",
+  "otwarte",
+  "otwarty",
+  "aktywny",
+  "aktywne",
+  "niezamkniete",
+  "niedokonczone",
+  "niedokonczony",
+]);
+const TASK_CLOSED_QUERY_WORDS = new Set([
+  "done",
+  "closed",
+  "completed",
+  "zamkniete",
+  "zamkniety",
+  "ukonczone",
+  "ukonczony",
+  "zakonczone",
+  "zakonczony",
+]);
+const TASK_RECENT_QUERY_WORDS = new Set([
+  "latest",
+  "newest",
+  "recent",
+  "recently",
+  "najnowsze",
+  "najnowszy",
+  "ostatnie",
+  "ostatni",
+]);
+const TASK_FILLER_QUERY_WORDS = new Set([
+  "czy",
+  "sa",
+  "jakies",
+  "jakis",
+  "jakie",
+  "podaj",
+  "pokaz",
+  "show",
+  "list",
+  "tell",
+  "there",
+  "are",
+  "the",
+  "this",
+  "project",
+  "projekcie",
+  "projektu",
+  "tym",
+  "teraz",
+  "obecnie",
+  "if",
+  "tak",
+  "tytuly",
+  "titles",
+  "title",
+  "status",
+  "statusy",
+  "termin",
+  "deadline",
+  "deadlines",
+  "due",
+  "date",
+  "dates",
+  "all",
+  "wszystkie",
+]);
+const NON_TASK_DOMAIN_QUERY_WORDS = new Set([
+  "note",
+  "notes",
+  "notatka",
+  "notatki",
+  "payment",
+  "payments",
+  "invoice",
+  "invoices",
+  "faktura",
+  "faktury",
+  "shopping",
+  "zakupy",
+  "labor",
+  "contacts",
+  "contact",
+  "survey",
+  "surveys",
+  "moodboard",
+  "file",
+  "files",
+  "pdf",
+  "document",
+  "documents",
+]);
+const MOODBOARD_QUERY_WORDS = new Set([
+  "moodboard",
+  "moodboards",
+  "inspiration",
+  "reference",
+  "references",
+  "image",
+  "images",
+  "render",
+  "renders",
+  "wizualizacja",
+  "wizualizacje",
+]);
 const TASK_UPDATE_MUTATION_FIELDS = new Set([
   "title",
   "description",
@@ -194,6 +315,103 @@ type TeamMemberRecord = {
 
 function normalizeLookupValue(value: string): string {
   return value.trim().toLowerCase();
+}
+
+function normalizeSearchText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase();
+}
+
+function tokenizeSearchText(value: string): string[] {
+  const normalized = normalizeSearchText(value).replace(/[^a-z0-9]+/g, " ").trim();
+  return normalized ? normalized.split(/\s+/) : [];
+}
+
+function parseRequestedLimit(tokens: string[], fallbackLimit: number): number {
+  const numericToken = tokens.find((token) => /^\d{1,2}$/.test(token));
+  if (!numericToken) return fallbackLimit;
+
+  const parsed = Number(numericToken);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallbackLimit;
+  }
+
+  return Math.min(parsed, 25);
+}
+
+function looksLikeMoodboardQuery(rawQueryInput: string): boolean {
+  const tokens = tokenizeSearchText(rawQueryInput);
+  return tokens.some((token) => MOODBOARD_QUERY_WORDS.has(token));
+}
+
+type TaskSearchPlan = {
+  effectiveScope: string;
+  query: string;
+  limit: number;
+  statuses?: string[];
+};
+
+function buildTaskSearchPlan(
+  rawQueryInput: string,
+  scope: string,
+  fallbackLimit: number,
+): TaskSearchPlan {
+  const tokens = tokenizeSearchText(rawQueryInput);
+  const hasTaskWord = tokens.some((token) => TASK_DOMAIN_QUERY_WORDS.has(token));
+  const hasNonTaskDomainWord = tokens.some((token) =>
+    NON_TASK_DOMAIN_QUERY_WORDS.has(token),
+  );
+  const effectiveScope =
+    scope === "all" && hasTaskWord && !hasNonTaskDomainWord ? "tasks" : scope;
+  const shouldInspectTasks = effectiveScope === "all" || effectiveScope === "tasks";
+
+  if (!shouldInspectTasks) {
+    return {
+      effectiveScope,
+      query: normalizeSearchText(rawQueryInput.trim()),
+      limit: fallbackLimit,
+    };
+  }
+
+  const hasOpenQualifier = tokens.some((token) => TASK_OPEN_QUERY_WORDS.has(token));
+  const hasClosedQualifier = tokens.some((token) =>
+    TASK_CLOSED_QUERY_WORDS.has(token),
+  );
+  const remainingTokens = tokens.filter(
+    (token) =>
+      !TASK_DOMAIN_QUERY_WORDS.has(token) &&
+      !TASK_OPEN_QUERY_WORDS.has(token) &&
+      !TASK_CLOSED_QUERY_WORDS.has(token) &&
+      !TASK_RECENT_QUERY_WORDS.has(token) &&
+      !TASK_FILLER_QUERY_WORDS.has(token) &&
+      !/^\d+$/.test(token),
+  );
+
+  let statuses: string[] | undefined;
+  if (hasOpenQualifier && !hasClosedQualifier) {
+    statuses = [...OPEN_TASK_STATUSES];
+  } else if (hasClosedQualifier && !hasOpenQualifier) {
+    statuses = [...CLOSED_TASK_STATUSES];
+  }
+
+  return {
+    effectiveScope,
+    query: remainingTokens.join(" "),
+    limit: parseRequestedLimit(tokens, fallbackLimit),
+    statuses,
+  };
+}
+
+function sortTasksByRecency<T extends { updatedAt?: number; createdAt?: number }>(
+  tasks: T[],
+): T[] {
+  return [...tasks].sort(
+    (left, right) =>
+      (right.updatedAt ?? right.createdAt ?? 0) -
+      (left.updatedAt ?? left.createdAt ?? 0),
+  );
 }
 
 function resolveAssigneeFromTeamMembers(
@@ -820,6 +1038,8 @@ function truncate(
 function summarizeTask(task: Record<string, unknown>) {
   const startDate = asNumber(task.startDate);
   const endDate = asNumber(task.endDate);
+  const createdAt = asNumber(task._creationTime);
+  const updatedAt = asNumber(task.updatedAt) ?? createdAt;
   return {
     id: typeof task._id === "string" ? task._id : undefined,
     title:
@@ -834,6 +1054,12 @@ function summarizeTask(task: Record<string, unknown>) {
     startDateIso: formatTimestampAsIso(startDate),
     endDate,
     endDateIso: formatTimestampAsIso(endDate),
+    dueDate: endDate,
+    dueDateIso: formatTimestampAsIso(endDate),
+    createdAt,
+    createdAtIso: formatTimestampAsIso(createdAt),
+    updatedAt,
+    updatedAtIso: formatTimestampAsIso(updatedAt),
     sectionId: asNonEmptyString(task.sectionId),
     description: truncate(
       asNonEmptyString(task.description) ?? asNonEmptyString(task.content),
@@ -3919,9 +4145,19 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               rawQueryInput.trim().toLowerCase() == "wszystko"
                 ? ""
                 : rawQueryInput;
-            const query = rawQuery.toLowerCase();
-            const scope = normalizedScopeCandidate;
-            const limit = asNumber(params.limit) ?? 8;
+            const requestedScope = normalizedScopeCandidate.toLowerCase();
+            const defaultLimit = asNumber(params.limit) ?? 8;
+            const taskSearchPlan = buildTaskSearchPlan(
+              rawQuery,
+              requestedScope,
+              defaultLimit,
+            );
+            const query = normalizeSearchText(rawQuery);
+            const scope = taskSearchPlan.effectiveScope;
+            const limit = defaultLimit;
+            const shouldFetchMoodboard =
+              scope === "moodboard" ||
+              (scope === "all" && looksLikeMoodboardQuery(rawQuery));
 
             const [
               tasks,
@@ -3940,7 +4176,9 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               scope === "all" || scope === "tasks"
                 ? convex.query(apiAny.tasks.listProjectTasks, {
                     projectId,
-                    filters: query ? { searchQuery: query } : undefined,
+                    filters: taskSearchPlan.statuses
+                      ? { status: taskSearchPlan.statuses }
+                      : undefined,
                   })
                 : Promise.resolve([]),
               scope === "all" || scope === "notes"
@@ -3984,7 +4222,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                     projectId,
                   })
                 : Promise.resolve([]),
-              scope === "all" || scope === "moodboard"
+              shouldFetchMoodboard
                 ? convex.query(apiAny.files.getMoodboardSections, { projectId })
                 : Promise.resolve([]),
               scope === "all" || scope === "files"
@@ -4008,7 +4246,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               Record<string, unknown>
             >;
             const moodboardImageLists =
-              scope === "all" || scope === "moodboard"
+              shouldFetchMoodboard
                 ? await Promise.all(
                     moodboardSectionRecords.map((section) => {
                       const sectionId = asNonEmptyString(section.id);
@@ -4084,21 +4322,28 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             }
 
             const includes = (value: string | undefined | null) =>
-              !query || (value ?? "").toLowerCase().includes(query);
+              !query || normalizeSearchText(value ?? "").includes(query);
 
-            const filteredTasks = (tasks as Array<Record<string, unknown>>)
-              .map(summarizeTask)
-              .filter(
-                (task) =>
-                  includes(task.title) ||
-                  includes(task.description) ||
-                  includes(task.assignedTo) ||
-                  includes(task.priority) ||
-                  includes(task.status) ||
-                  includes(task.startDateIso) ||
-                  includes(task.endDateIso),
-              )
-              .slice(0, limit);
+            const taskIncludes = (value: string | undefined | null) =>
+              !taskSearchPlan.query ||
+              normalizeSearchText(value ?? "").includes(taskSearchPlan.query);
+
+            const filteredTasks = sortTasksByRecency(
+              (tasks as Array<Record<string, unknown>>)
+                .map(summarizeTask)
+                .filter(
+                  (task) =>
+                    taskIncludes(task.title) ||
+                    taskIncludes(task.description) ||
+                    taskIncludes(task.assignedTo) ||
+                    taskIncludes(task.priority) ||
+                    taskIncludes(task.status) ||
+                    taskIncludes(task.startDateIso) ||
+                    taskIncludes(task.endDateIso) ||
+                    taskIncludes(task.createdAtIso) ||
+                    taskIncludes(task.updatedAtIso),
+                ),
+            ).slice(0, taskSearchPlan.limit);
 
             const filteredNotes = (notes as Array<Record<string, unknown>>)
               .map(summarizeNote)
@@ -4248,6 +4493,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               ok: true,
               query,
               scope,
+              requestedScope,
               results: {
                 tasks: filteredTasks,
                 notes: filteredNotes,
@@ -4319,6 +4565,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             const taskSummaries = (tasks as Array<Record<string, unknown>>).map(
               summarizeTask,
             );
+            const sortedTaskSummaries = sortTasksByRecency(taskSummaries);
             const noteSummaries = (notes as Array<Record<string, unknown>>).map(
               summarizeNote,
             );
@@ -4377,7 +4624,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               aiKnowledgeFiles as Array<Record<string, unknown>>
             ).map(summarizeProjectFile);
 
-            const openTasks = taskSummaries.filter(
+            const openTasks = sortedTaskSummaries.filter(
               (task) => task.status !== "done",
             );
 
@@ -4418,7 +4665,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 : [],
               tasks: {
                 open: openTasks.slice(0, 8),
-                recent: taskSummaries.slice(0, 8),
+                recent: sortedTaskSummaries.slice(0, 8),
               },
               notes: noteSummaries.slice(0, 6),
               payments: paymentSummaries.slice(0, 8),

@@ -15,6 +15,7 @@ const HOP_BY_HOP_RESPONSE_HEADERS = new Set([
   "transfer-encoding",
   "upgrade",
 ]);
+const CHATKIT_PROXY_TIMEOUT_MS = 45_000;
 
 function buildTargetUrl(request: Request, path: string[]) {
   const baseUrl = process.env.CHATKIT_SELF_HOSTED_SERVER_URL?.trim();
@@ -163,10 +164,15 @@ async function proxyRequest(
       headers: upstreamHeaders,
       body: requestBody,
       cache: "no-store",
+      signal: AbortSignal.timeout(CHATKIT_PROXY_TIMEOUT_MS),
     });
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Failed to reach the self-hosted ChatKit service.";
+      error instanceof Error && error.name === "TimeoutError"
+        ? "The self-hosted ChatKit service timed out."
+        : error instanceof Error
+          ? error.message
+          : "Failed to reach the self-hosted ChatKit service.";
     return NextResponse.json({ error: message }, { status: 502 });
   }
 

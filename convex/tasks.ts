@@ -348,7 +348,11 @@ export const listProjectTasks = query({
           return false;
         if (
           searchQuery &&
-          !task.title.toLowerCase().includes(searchQuery.toLowerCase())
+          !(
+            task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (task.description ?? "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (task.content ?? "").toLowerCase().includes(searchQuery.toLowerCase())
+          )
         )
           return false;
         if (
