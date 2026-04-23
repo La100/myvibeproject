@@ -155,6 +155,8 @@ export default function CustomerPanelPage() {
   const [portalSettings, setPortalSettings] = useState<ClientPanelSettings>(
     DEFAULT_CLIENT_PANEL_SETTINGS
   );
+  const defaultRecipientEmail =
+    project.customerEmail?.trim() || project.paymentCustomerEmail?.trim() || "";
 
   const canManageCustomerPanel = !!teamMember;
 
@@ -202,6 +204,16 @@ export default function CustomerPanelPage() {
       ...panelConfig.settings,
     });
   }, [panelConfig]);
+
+  useEffect(() => {
+    if (!defaultRecipientEmail) {
+      return;
+    }
+
+    setRecipientEmail((currentValue) =>
+      currentValue.trim().length > 0 ? currentValue : defaultRecipientEmail,
+    );
+  }, [defaultRecipientEmail]);
 
   const handleToggleSetting = (key: keyof ClientPanelSettings, checked: boolean) => {
     setPortalSettings((prev) => ({

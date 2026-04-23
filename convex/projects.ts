@@ -22,6 +22,22 @@ const generateSlug = (name: string) => {
 const generateClientPanelAccessToken = () =>
   crypto.randomUUID().replace(/-/g, "");
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const normalizeOptionalEmail = (
+  value?: string | null,
+  fieldName = "Customer email",
+) => {
+  const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
+  if (!normalized) {
+    return undefined;
+  }
+  if (!EMAIL_REGEX.test(normalized)) {
+    throw new Error(`${fieldName} is invalid`);
+  }
+  return normalized;
+};
+
 const resolveClientPortalNotificationSettings = (
   value?: {
     sendToOwner?: boolean;
@@ -652,6 +668,7 @@ export const createProjectInOrg = mutation({
     clerkOrgId: v.string(),
     teamId: v.id("teams"),
     customer: v.optional(v.string()),
+    customerEmail: v.optional(v.string()),
     location: v.optional(v.string()),
     budget: v.optional(v.number()),
     startDate: v.optional(v.number()),
@@ -760,6 +777,7 @@ export const createProjectInOrg = mutation({
     }
 
     const normalizedCoverImageUrl = args.coverImageUrl?.trim();
+    const normalizedCustomerEmail = normalizeOptionalEmail(args.customerEmail);
     const projectId = await ctx.db.insert("projects", {
       name: args.name,
       description: args.description,
@@ -769,6 +787,7 @@ export const createProjectInOrg = mutation({
       projectId: nextProjectId,
       status: "planning",
       customer: args.customer,
+      customerEmail: normalizedCustomerEmail,
       location: args.location,
       budget: args.budget,
       currency: args.currency || team.currency || "PLN",
@@ -1024,6 +1043,7 @@ export const updateProject = mutation({
     endDate: v.optional(v.number()),
     budget: v.optional(v.number()),
     customer: v.optional(v.string()),
+    customerEmail: v.optional(v.string()),
     location: v.optional(v.string()),
     currency: v.optional(
       v.union(
@@ -1077,6 +1097,7 @@ export const updateProject = mutation({
       taxEnabled: _ignoredTaxEnabled,
       taxRate: _ignoredTaxRate,
       responsibleClerkUserId,
+      customerEmail,
       clientPortalNotificationSettings,
       ...rest
     } = args;
@@ -1097,6 +1118,15 @@ export const updateProject = mutation({
       : undefined;
     const coverImagePatch = coverImageProvided
       ? { coverImageUrl: normalizedCoverImageUrl || undefined }
+      : {};
+    const customerEmailProvided = Object.prototype.hasOwnProperty.call(
+      args,
+      "customerEmail",
+    );
+    const customerEmailPatch = customerEmailProvided
+      ? {
+          customerEmail: normalizeOptionalEmail(customerEmail),
+        }
       : {};
     const responsibleProvided = Object.prototype.hasOwnProperty.call(
       args,
@@ -1250,6 +1280,7 @@ export const updateProject = mutation({
         name,
         slug,
         ...coverImagePatch,
+        ...customerEmailPatch,
         ...responsiblePatch,
         ...clientPortalSettingsPatch,
         ...rest,
@@ -1259,6 +1290,7 @@ export const updateProject = mutation({
     } else {
       await ctx.db.patch(projectId, {
         ...coverImagePatch,
+        ...customerEmailPatch,
         ...responsiblePatch,
         ...clientPortalSettingsPatch,
         ...rest,

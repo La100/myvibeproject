@@ -113,7 +113,7 @@ const assistantToolMetadata: Record<AssistantToolName, ToolMetadata> = {
   },
   update_project_settings: {
     readOnly: false,
-    promptSummary: "Update project-level settings and timeline, including name, status, start date, end date, budget, or currency.",
+    promptSummary: "Update project-level settings and timeline, including name, client info, status, start date, end date, budget, or currency.",
     approvalMode: "requires-confirmation",
     defaults: { type: "projectSettings", operation: "edit" },
     shouldPersistPending: () => true,

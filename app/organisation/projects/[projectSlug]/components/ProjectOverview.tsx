@@ -842,7 +842,7 @@ function ProjectOverviewContent() {
               </div>
 
               {hasProjectCover ? (
-                <div className="relative lg:justify-self-end lg:w-full lg:max-w-[480px] xl:max-w-[560px] 2xl:max-w-[610px]">
+                <div className="relative lg:mr-4 lg:justify-self-end lg:w-full lg:max-w-[480px] lg:pb-3 xl:mr-6 xl:max-w-[560px] xl:pb-4 2xl:mr-8 2xl:max-w-[610px] 2xl:pb-5">
                   <div className="group relative min-h-[240px] overflow-hidden rounded-[30px] border border-border/60 bg-muted/20 shadow-[0_28px_80px_-46px_rgba(22,22,22,0.24)] sm:min-h-[290px] lg:min-h-[320px] xl:min-h-[345px]">
                     <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-[10%] bg-[linear-gradient(90deg,rgba(255,255,255,0.22)_0%,rgba(255,255,255,0)_100%)]" />
                     <Image

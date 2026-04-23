@@ -52,6 +52,9 @@ const settingsFormSchema = z
     startDate: z.string().optional().or(z.literal("")),
     endDate: z.string().optional().or(z.literal("")),
     customer: z.string().optional(),
+    customerEmail: z
+      .union([z.string().trim().email("Enter a valid email address"), z.literal("")])
+      .optional(),
     budget: z.coerce.number().positive("Budget must be positive").optional().or(z.literal("")),
     location: z.string().optional(),
     status: z
@@ -324,6 +327,7 @@ function ProjectSettingsContent() {
           startDate: formatDateInputValue(project.startDate),
           endDate: formatDateInputValue(project.endDate),
           customer: project.customer || "",
+          customerEmail: project.customerEmail || "",
           budget: project.budget || "",
           location: project.location || "",
           status: project.status || "planning",
@@ -339,6 +343,7 @@ function ProjectSettingsContent() {
           startDate: "",
           endDate: "",
           customer: "",
+          customerEmail: "",
           budget: "",
           location: "",
           status: "planning",
@@ -428,6 +433,7 @@ function ProjectSettingsContent() {
         description: values.description || undefined,
         coverImageUrl: normalizedCoverUrl ?? values.coverImageUrl?.trim() ?? "",
         customer: values.customer || undefined,
+        customerEmail: values.customerEmail || undefined,
         budget: normalizedBudget,
         location: values.location || undefined,
         status: values.status,
@@ -1149,7 +1155,7 @@ function GeneralTab({
                 </p>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 <FormField
                   control={settingsForm.control}
                   name="customer"
@@ -1160,6 +1166,26 @@ function GeneralTab({
                         <Input
                           placeholder="Client name"
                           {...field}
+                          className="h-10 w-full"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={settingsForm.control}
+                  name="customerEmail"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium">Customer Email</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="email"
+                          placeholder="client@example.com"
+                          {...field}
+                          value={field.value ?? ""}
                           className="h-10 w-full"
                         />
                       </FormControl>

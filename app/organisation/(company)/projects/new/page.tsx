@@ -71,6 +71,7 @@ export default function NewProjectPage() {
     name: "",
     description: "",
     client: "",
+    customerEmail: "",
     location: "",
     streetAddress2: "",
     city: "",
@@ -192,6 +193,7 @@ export default function NewProjectPage() {
         clerkOrgId: organization.id,
         teamId: team._id,
         customer: newProject.client || undefined,
+        customerEmail: newProject.customerEmail || undefined,
         location: fullAddress || undefined,
         budget: newProject.budget ? parseFloat(newProject.budget) : undefined,
         startDate: newProject.startDate ? new Date(newProject.startDate).getTime() : undefined,
@@ -463,6 +465,19 @@ export default function NewProjectPage() {
               </div>
 
               <div className="flex flex-col gap-2">
+                <Label htmlFor="customerEmail">
+                  Customer Email <span className="font-normal text-muted-foreground">(Optional)</span>
+                </Label>
+                <Input
+                  id="customerEmail"
+                  type="email"
+                  placeholder="client@example.com"
+                  value={newProject.customerEmail}
+                  onChange={(e) => setNewProject({ ...newProject, customerEmail: e.target.value })}
+                />
+              </div>
+
+              <div className="flex flex-col gap-2 md:col-span-2">
                 <Label htmlFor="budget">
                   Budget <span className="font-normal text-muted-foreground">(Optional)</span>
                 </Label>

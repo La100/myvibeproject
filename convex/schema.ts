@@ -371,6 +371,7 @@ export default defineSchema({
     endDate: v.optional(v.number()),
     budget: v.optional(v.number()),
     customer: v.optional(v.string()),
+    customerEmail: v.optional(v.string()),
     location: v.optional(v.string()),
     currency: v.optional(
       v.union(

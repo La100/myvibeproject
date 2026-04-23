@@ -3444,6 +3444,14 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               payload.customer = asNonEmptyString(flattened.customer);
             }
 
+            if (hasOwn("customerEmail")) {
+              const customerEmail = asNonEmptyString(flattened.customerEmail);
+              payload.customerEmail =
+                typeof customerEmail === "string"
+                  ? customerEmail.toLowerCase()
+                  : undefined;
+            }
+
             if (hasOwn("location")) {
               payload.location = asNonEmptyString(flattened.location);
             }

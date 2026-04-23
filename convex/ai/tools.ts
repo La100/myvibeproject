@@ -250,6 +250,7 @@ export const updateProjectSettingsSchema = z.object({
   startDate: z.string().optional().describe("Project start date in ISO format (YYYY-MM-DD or full ISO timestamp). Use this for timeline updates, including relative requests such as tomorrow/jutro."),
   endDate: z.string().optional().describe("Project end date in ISO format (YYYY-MM-DD or full ISO timestamp). Use this for timeline updates, including durations such as for a month / przez miesiac."),
   customer: z.string().optional().describe("Client name"),
+  customerEmail: z.string().email().optional().describe("Client email address"),
   location: z.string().optional().describe("Project location"),
   budget: z.number().positive().optional().describe("Project budget"),
   currency: projectCurrencyEnum.optional().describe("Project currency"),
@@ -2300,7 +2301,7 @@ export function createStreamingTools(options?: StreamingToolOptions) {
     }, options),
 
     update_project_settings: createAssistantTool({
-      description: "Update project General Settings and timeline (name, description, cover image URL, status, start date, end date, client, location, budget, currency). Use this when the user asks to change project settings or project dates/timeline.",
+      description: "Update project General Settings and timeline (name, description, cover image URL, status, start date, end date, client, customer email, location, budget, currency). Use this when the user asks to change project settings or project dates/timeline.",
       inputSchema: updateProjectSettingsSchema,
       requiresConfirmation: true,
       confirmationReason: "Project settings affect the whole project and require approval before execution.",
@@ -2370,6 +2371,13 @@ export function createStreamingTools(options?: StreamingToolOptions) {
           updates.customer =
             typeof args.customer === "string" && args.customer.trim().length > 0
               ? args.customer.trim()
+              : undefined;
+        }
+        if (hasOwn("customerEmail")) {
+          updates.customerEmail =
+            typeof args.customerEmail === "string" &&
+            args.customerEmail.trim().length > 0
+              ? args.customerEmail.trim().toLowerCase()
               : undefined;
         }
         if (hasOwn("location")) {
