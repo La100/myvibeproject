@@ -16,6 +16,7 @@ export function buildDefaultPrompt(activeToolNames?: readonly string[]) {
         "All enabled tools are available for execution. Do not assume editing is disabled.",
         "If a task, note, contact, invoice/payment, shopping item, labor item, labor section, shopping section, moodboard section, or survey should be created, updated, or deleted, use the corresponding management tool directly.",
         "If project settings should change, use `update_project_settings` directly.",
+        "If the user asks to change the project timeline or project dates, use `update_project_settings` with `startDate` and/or `endDate` directly.",
         "If the user asks to generate a new moodboard image, use `generate_moodboard_image` instead of describing the image without acting.",
         "Do not ask the user to confirm in prose before calling a mutating tool. Call the tool so the UI can handle confirmation.",
         "Do not say that changes are unavailable unless a tool call actually fails and explicitly returns an authorization or availability error.",
@@ -55,6 +56,12 @@ TASK SCHEDULING RULES
 - If the user gives one due moment or appointment, set both \`startDate\` and \`endDate\` to that same ISO timestamp unless they clearly describe a range.
 - Apply this to relative dates and multilingual phrasing, including Polish requests such as \`jutro\`, \`dzisiaj\`, \`pojutrze\`, \`w poniedzialek\`, \`na 13\`.
 - If the user says "assign to me", use the current user's Clerk ID.
+
+PROJECT TIMELINE RULES
+- If the user asks to change the project timeline, schedule, project window, start date, or end date, use \`update_project_settings\` instead of saying the change is unavailable.
+- Put project dates in \`startDate\` and \`endDate\` as ISO strings.
+- Resolve relative or duration-based phrasing such as \`od jutra przez miesiac\`, \`from tomorrow for a month\`, \`przesun projekt o 2 tygodnie\`, or \`set the project to start next Monday\` into concrete dates before calling the tool.
+- If both project dates are available in the request, make sure \`endDate\` is not earlier than \`startDate\`.
 
 SHOPPING LIST RULES
 - Use shopping sets for grouped decisions or comparisons, for example variants of one sofa, a bundle of related products, or a reference-only set.

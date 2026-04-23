@@ -2,6 +2,7 @@ import { ProjectSidebar } from "@/components/project/ProjectSidebar";
 import { MobileProjectHeader } from "@/components/project/MobileProjectHeader";
 import { ProjectProvider } from "@/components/providers/ProjectProvider";
 import { FloatingChatKitLauncher } from "@/components/ai/chatkit/FloatingChatKitLauncher";
+import { ProjectContentContainer } from "@/components/project/ProjectContentContainer";
 import { 
   SidebarProvider, 
   SidebarInset, 
@@ -39,9 +40,7 @@ function ProjectLayoutContent({ children }: { children: React.ReactNode }) {
                 </div>
               </div>
             }>
-              <div className="mx-auto flex w-full max-w-[1540px] flex-col gap-6 px-5 pb-10 pt-3 md:px-7 xl:px-10 xl:pt-0">
-                {children}
-              </div>
+              <ProjectContentContainer>{children}</ProjectContentContainer>
             </Suspense>
           </main>
           <FloatingChatKitLauncher />

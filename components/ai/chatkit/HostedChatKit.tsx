@@ -52,6 +52,9 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
   const [bootError, setBootError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [canMakeChanges, setCanMakeChanges] = useState(false);
+  const [assistantActivity, setAssistantActivity] = useState<
+    "idle" | "loading_thread" | "responding"
+  >("idle");
   const selfHostedChatKitUrl =
     process.env.NEXT_PUBLIC_CHATKIT_SELF_HOSTED_URL?.trim() || DEFAULT_SELF_HOSTED_CHATKIT_URL;
   const selfHostedDomainKey =
@@ -184,6 +187,18 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
       feedback: false,
       retry: true,
     },
+    onResponseStart: () => {
+      setAssistantActivity("responding");
+    },
+    onResponseEnd: () => {
+      setAssistantActivity("idle");
+    },
+    onThreadLoadStart: () => {
+      setAssistantActivity("loading_thread");
+    },
+    onThreadLoadEnd: () => {
+      setAssistantActivity("idle");
+    },
     disclaimer: {
       text: "AI can make mistakes. Verify important decisions before taking action.",
     },
@@ -207,6 +222,13 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
       toast.error(message);
     },
   });
+
+  const assistantActivityLabel =
+    assistantActivity === "responding"
+      ? "Vibe is thinking..."
+      : assistantActivity === "loading_thread"
+        ? "Loading conversation..."
+        : null;
 
   if (aiAccess !== undefined && !aiAccess.hasAccess && team?._id) {
     const quotaBlocked =
@@ -358,7 +380,8 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
           <div className="min-w-0">
             <p className="text-[15px] font-semibold leading-tight text-slate-900">Vibe Assistant</p>
             <p className="text-[11px] text-slate-500">
-              {canMakeChanges ? "Live changes enabled" : "Read-only mode"}
+              {assistantActivityLabel ??
+                (canMakeChanges ? "Live changes enabled" : "Read-only mode")}
             </p>
           </div>
           <Switch
@@ -407,6 +430,14 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
       <div
         className="relative mx-auto flex h-full w-full max-w-[1220px] overflow-hidden rounded-3xl border border-border/70 bg-gradient-to-b from-background to-muted/20 shadow-lg"
       >
+        {assistantActivityLabel ? (
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center px-4 pt-4">
+            <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/95 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <span>{assistantActivityLabel}</span>
+            </div>
+          </div>
+        ) : null}
         <ChatKit
           key={refreshKey}
           control={chatkit.control}

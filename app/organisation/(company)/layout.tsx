@@ -12,6 +12,7 @@ import { useOrganization } from "@clerk/nextjs";
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { postAuthResolverUrl } from "@/lib/authRedirects";
+import { cn } from "@/lib/utils";
 
 const swappedSurfaceVars = {
   "--workspace-background": "var(--background)",
@@ -122,6 +123,7 @@ export default function CompanyLayout({
     return crumbs;
   }, [pathname]);
   const isFullBleedRoute = pathname === "/organisation/visualizations";
+  const isCompanyOverviewRoute = pathname === "/organisation";
 
   if (
     onboardingStatus === undefined ||
@@ -152,7 +154,7 @@ export default function CompanyLayout({
             {isFullBleedRoute ? (
               <div className="flex w-full flex-col pb-8 pt-4 xl:pt-8">
                 {breadcrumbs.length > 1 && (
-                  <div className="mx-auto w-full max-w-[1540px] px-4 md:px-6 xl:px-8">
+                  <div className="mx-auto w-full max-w-[1540px] px-5 md:px-7 xl:px-10">
                     <nav className="mb-4 flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
                       {breadcrumbs.map((crumb, i) => (
                         <span key={crumb.href} className="flex items-center gap-1">
@@ -174,7 +176,14 @@ export default function CompanyLayout({
                 </div>
               </div>
             ) : (
-              <div className="mx-auto flex w-full max-w-[1540px] flex-col px-4 pb-8 pt-4 md:px-6 xl:px-8 xl:pt-8">
+              <div
+                className={cn(
+                  "mx-auto flex w-full flex-col pb-8 pt-4 xl:pt-8",
+                  isCompanyOverviewRoute
+                    ? "max-w-[1960px] px-5 md:px-7 xl:px-10"
+                    : "max-w-[1540px] px-5 md:px-7 xl:px-10",
+                )}
+              >
                 {breadcrumbs.length > 1 && (
                   <nav className="mb-4 flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
                     {breadcrumbs.map((crumb, i) => (

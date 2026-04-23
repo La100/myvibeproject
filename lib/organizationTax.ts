@@ -56,8 +56,9 @@ export function normalizeOrganizationTaxLabel(value?: string | null): string {
 }
 
 export function normalizeOrganizationPriceDisplay(
-  _value?: string | null,
+  value?: string | null,
 ): OrganizationPriceDisplay {
+  void value;
   return DEFAULT_ORGANIZATION_TAX_SETTINGS.priceDisplay;
 }
 
@@ -192,8 +193,9 @@ export function calculateTaxBreakdown(
 }
 
 export function getTaxAmountKindsForDisplay(
-  _settings?: Partial<OrganizationTaxSettings> | null,
+  settings?: Partial<OrganizationTaxSettings> | null,
 ): TaxAmountKind[] {
+  void settings;
   return ["net"];
 }
 
@@ -211,7 +213,8 @@ export function getTaxAmountKindLabel(
 }
 
 export function getPrimaryAmountKindForDisplay(
-  _settings?: Partial<OrganizationTaxSettings> | null,
+  settings?: Partial<OrganizationTaxSettings> | null,
 ): TaxAmountKind {
+  void settings;
   return "net";
 }

@@ -292,6 +292,9 @@ export const getProjectContextSnapshot = internalQuery({
       summaryLines.push(`Project currency: ${project.currency ?? "not set"}`);
       summaryLines.push(`Project customer: ${project.customer ?? "not set"}`);
       summaryLines.push(`Project location: ${project.location ?? "not set"}`);
+      summaryLines.push(
+        `Project timeline: ${typeof project.startDate === "number" ? new Date(project.startDate).toISOString().slice(0, 10) : "-"} -> ${typeof project.endDate === "number" ? new Date(project.endDate).toISOString().slice(0, 10) : "-"}`,
+      );
     }
 
     return {

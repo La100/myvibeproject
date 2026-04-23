@@ -692,6 +692,14 @@ export const createProjectInOrg = mutation({
       throw new Error("Not authenticated");
     }
 
+    if (
+      typeof args.startDate === "number" &&
+      typeof args.endDate === "number" &&
+      args.endDate < args.startDate
+    ) {
+      throw new Error("Project end date cannot be earlier than the start date");
+    }
+
     const team = await ctx.db
       .query("teams")
       .withIndex("by_clerk_org", (q) => q.eq("clerkOrgId", args.clerkOrgId))
@@ -1200,6 +1208,23 @@ export const updateProject = mutation({
           recipientClerkUserIds: resolvedRecipientIds,
         },
       };
+    }
+
+    const effectiveStartDate =
+      Object.prototype.hasOwnProperty.call(args, "startDate")
+        ? args.startDate
+        : existingProject.startDate;
+    const effectiveEndDate =
+      Object.prototype.hasOwnProperty.call(args, "endDate")
+        ? args.endDate
+        : existingProject.endDate;
+
+    if (
+      typeof effectiveStartDate === "number" &&
+      typeof effectiveEndDate === "number" &&
+      effectiveEndDate < effectiveStartDate
+    ) {
+      throw new Error("Project end date cannot be earlier than the start date");
     }
 
     if (name && name !== existingProject.name) {

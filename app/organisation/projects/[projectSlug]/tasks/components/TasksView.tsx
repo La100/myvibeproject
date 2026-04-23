@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import { toast } from "sonner";
-import { useState, useMemo, useEffect, memo, type CSSProperties } from "react";
+import { useState, useMemo, useEffect, memo } from "react";
 import {
   LayoutGrid,
   List,
@@ -104,7 +104,6 @@ type KanbanTask = {
   assignedTo: string | null | undefined;
   assignedToName: string | undefined;
   assignedToImageUrl: string | undefined;
-  statusColor: string | undefined;
   tags: string[] | undefined;
   commentCount: number;
 };
@@ -228,22 +227,6 @@ const getPriorityDisplay = (priority: TaskPriority) => {
   return priorityStyles[priority];
 };
 
-const getTaskCardSurfaceStyle = (
-  statusColor: string | undefined,
-): CSSProperties | undefined => {
-  if (!statusColor) {
-    return undefined;
-  }
-
-  return {
-    ["--task-status-color" as string]: statusColor,
-    backgroundColor:
-      "color-mix(in srgb, var(--task-status-color) var(--task-card-status-bg-strength), var(--card))",
-    borderColor:
-      "color-mix(in srgb, var(--task-status-color) var(--task-card-status-border-strength), var(--border))",
-  } as CSSProperties;
-};
-
 export function TasksViewSkeleton({
   viewMode = "kanban",
 }: {
@@ -359,11 +342,10 @@ export default function TasksView() {
         assignedTo: task.assignedTo,
         assignedToName: task.assignedToName,
         assignedToImageUrl: task.assignedToImageUrl,
-        statusColor: project.taskStatusSettings?.[task.status]?.color,
         tags: task.tags,
         commentCount: task.commentCount,
       })) || [],
-    [project.taskStatusSettings, tasksToDisplay],
+    [tasksToDisplay],
   );
 
   const [localKanbanTasks, setLocalKanbanTasks] =
@@ -603,41 +585,57 @@ export default function TasksView() {
             }}
           />
         ) : viewMode === "kanban" ? (
-          <KanbanProvider
-            onDragStart={handleDragStart}
-            onDragCancel={handleDragCancel}
-            onDragEnd={handleDragEnd}
-            dragOverlay={
-              activeDragTask ? <TaskDragPreview task={activeDragTask} /> : null
-            }
-          >
-            <div className="grid flex-grow grid-cols-1 gap-4 items-start md:grid-cols-2 lg:grid-cols-4">
-              {statusOptions.map((status) => (
-                <KanbanBoard id={status.value} key={status.value}>
-                  <KanbanHeader name={status.label} color={status.color} />
-                  <KanbanCards>
-                    {localKanbanTasks
-                      .filter((task) => task.column === status.value)
-                      .map((task, index) => (
-                        <KanbanCard
-                          key={task.id}
-                          id={task.id}
-                          name={task.name}
-                          index={index}
-                          parent={status.value}
-                          className="border-0 bg-transparent p-0 shadow-none"
-                        >
-                          <TaskCardContent
-                            task={task}
-                            projectSlug={params.projectSlug}
-                          />
-                        </KanbanCard>
-                      ))}
-                  </KanbanCards>
-                </KanbanBoard>
-              ))}
-            </div>
-          </KanbanProvider>
+          <div className="relative isolate overflow-hidden rounded-[2rem] px-1 py-2">
+            <div className="pointer-events-none absolute left-[-6%] top-8 h-56 w-56 rounded-full bg-sky-200/55 blur-3xl" />
+            <div className="pointer-events-none absolute left-[28%] top-20 h-64 w-64 rounded-full bg-violet-200/45 blur-3xl" />
+            <div className="pointer-events-none absolute right-[18%] top-6 h-60 w-60 rounded-full bg-amber-100/60 blur-3xl" />
+            <div className="pointer-events-none absolute right-[-4%] top-24 h-56 w-56 rounded-full bg-emerald-200/45 blur-3xl" />
+
+            <KanbanProvider
+              onDragStart={handleDragStart}
+              onDragCancel={handleDragCancel}
+              onDragEnd={handleDragEnd}
+              dragOverlay={
+                activeDragTask ? <TaskDragPreview task={activeDragTask} /> : null
+              }
+              className="relative z-10"
+            >
+              <div className="grid flex-grow grid-cols-1 gap-4 items-start md:grid-cols-2 lg:grid-cols-4">
+                {statusOptions.map((status) => (
+                  <KanbanBoard
+                    id={status.value}
+                    key={status.value}
+                    className="relative overflow-hidden rounded-[1.65rem] border border-white/60 bg-white/28 p-3 backdrop-blur-2xl shadow-[0_10px_30px_-18px_rgba(15,23,42,0.24),inset_0_1px_0_rgba(255,255,255,0.78)] before:pointer-events-none before:absolute before:inset-0 before:bg-[linear-gradient(180deg,rgba(255,255,255,0.34)_0%,rgba(255,255,255,0.08)_42%,rgba(255,255,255,0.18)_100%)] before:content-['']"
+                  >
+                    <KanbanHeader
+                      name={status.label}
+                      color={status.color}
+                      className="relative z-10 rounded-full border border-white/60 bg-white/42 px-3 py-2 shadow-[0_8px_18px_-14px_rgba(15,23,42,0.22),inset_0_1px_0_rgba(255,255,255,0.82)] backdrop-blur-xl"
+                    />
+                    <KanbanCards className="relative z-10">
+                      {localKanbanTasks
+                        .filter((task) => task.column === status.value)
+                        .map((task, index) => (
+                          <KanbanCard
+                            key={task.id}
+                            id={task.id}
+                            name={task.name}
+                            index={index}
+                            parent={status.value}
+                            className="border-0 bg-transparent p-0 shadow-none"
+                          >
+                            <TaskCardContent
+                              task={task}
+                              projectSlug={params.projectSlug}
+                            />
+                          </KanbanCard>
+                        ))}
+                    </KanbanCards>
+                  </KanbanBoard>
+                ))}
+              </div>
+            </KanbanProvider>
+          </div>
         ) : (
           <Table>
             <TableHeader>
@@ -744,12 +742,10 @@ const TaskCardContent = memo(function TaskCardContent({
   projectSlug: string;
 }) {
   const priority = getPriorityDisplay(task.priority);
-  const surfaceStyle = getTaskCardSurfaceStyle(task.statusColor);
 
   return (
     <div
-      className="relative block hover-lift rounded-lg border border-border bg-card p-4 shadow-sm transition-all cursor-pointer hover:shadow-md"
-      style={surfaceStyle}
+      className="relative block cursor-pointer rounded-xl border border-border/85 bg-card p-4 shadow-[0_1px_2px_rgba(15,23,42,0.06),0_10px_24px_-20px_rgba(15,23,42,0.28)] transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-foreground/15 hover:shadow-[0_10px_30px_-20px_rgba(15,23,42,0.22)]"
     >
       <div className="flex justify-between items-start mb-2">
         <Link
@@ -809,7 +805,7 @@ const TaskCardContent = memo(function TaskCardContent({
         </div>
       )}
 
-      <div className="flex justify-between items-center mt-auto pt-3 border-t">
+      <div className="mt-auto flex items-center justify-between border-t border-border/70 pt-3">
         <div className="flex items-center gap-3">
           {task.commentCount > 0 && (
             <div className="flex items-center gap-1 text-muted-foreground text-xs">
@@ -844,13 +840,9 @@ const TaskCardContent = memo(function TaskCardContent({
 
 function TaskDragPreview({ task }: { task: KanbanTask }) {
   const priority = getPriorityDisplay(task.priority);
-  const surfaceStyle = getTaskCardSurfaceStyle(task.statusColor);
 
   return (
-    <div
-      className="w-[340px] rounded-lg border bg-card px-4 py-3 shadow-lg"
-      style={surfaceStyle}
-    >
+    <div className="w-[340px] rounded-xl border border-border/85 bg-card px-4 py-3 shadow-[0_16px_40px_-24px_rgba(15,23,42,0.34)]">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="truncate text-sm font-semibold">{task.title}</div>

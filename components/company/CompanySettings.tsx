@@ -919,8 +919,8 @@ export default function CompanySettings({
     <div className="min-h-screen pb-20">
       <div
         className={cn(
-          "flex w-full flex-col gap-6 py-4",
-          isSubscriptionPage ? "mx-auto max-w-5xl" : "",
+          "mx-auto flex w-full flex-col gap-6 py-4",
+          isSubscriptionPage ? "max-w-5xl" : "max-w-6xl",
         )}
       >
         {isSubscriptionPage ? (

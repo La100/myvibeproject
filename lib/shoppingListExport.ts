@@ -58,8 +58,9 @@ export function formatShoppingExportProductLabel(
 
 export function getShoppingExportHeaders(
   options: ShoppingExportColumnOptions,
-  _taxSettings?: Partial<OrganizationTaxSettings> | null,
+  taxSettings?: Partial<OrganizationTaxSettings> | null,
 ): string[] {
+  void taxSettings;
   return [
     ...(options.includeSection ? ["Section"] : []),
     "Product",
@@ -75,8 +76,9 @@ export function getShoppingExportHeaders(
 export function getShoppingExportCsvRow(
   row: ShoppingExportRow,
   options: ShoppingExportColumnOptions,
-  _taxSettings?: Partial<OrganizationTaxSettings> | null,
+  taxSettings?: Partial<OrganizationTaxSettings> | null,
 ): string[] {
+  void taxSettings;
   return [
     ...(options.includeSection ? [row.sectionName] : []),
     row.product,

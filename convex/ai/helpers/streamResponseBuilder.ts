@@ -92,6 +92,34 @@ export const summarizeProjectCounts = (data: any): string | null => {
   if (typeof counts.tasks !== "number") return null;
 
   const parts: string[] = [`You have ${counts.tasks} tasks in this project.`];
+  const project = data.project && typeof data.project === "object" ? data.project : null;
+
+  if (project) {
+    const status =
+      typeof project.status === "string" && project.status.trim().length > 0
+        ? project.status
+        : null;
+    const startDate =
+      typeof project.startDateIso === "string"
+        ? project.startDateIso
+        : typeof project.startDate === "number"
+          ? new Date(project.startDate).toISOString()
+          : null;
+    const endDate =
+      typeof project.endDateIso === "string"
+        ? project.endDateIso
+        : typeof project.endDate === "number"
+          ? new Date(project.endDate).toISOString()
+          : null;
+
+    if (status) {
+      parts.push(`Project status: ${status}.`);
+    }
+
+    if (startDate || endDate) {
+      parts.push(`Project timeline: ${(startDate ?? "-").slice(0, 10)} -> ${(endDate ?? "-").slice(0, 10)}.`);
+    }
+  }
 
   const otherSections: Array<{ label: string; value?: number }> = [
     { label: "notes", value: counts.notes },
@@ -185,7 +213,6 @@ export const buildFallbackResponseFromTools = (
 
   return null;
 };
-
 
 
 

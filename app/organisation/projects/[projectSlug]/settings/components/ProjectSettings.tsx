@@ -9,7 +9,7 @@ import { useOrganization } from "@clerk/nextjs";
 import { z } from "zod";
 import { toast } from "sonner";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
-import { ImagePlus, X } from "lucide-react";
+import { ImagePlus, Settings, X } from "lucide-react";
 
 import { apiAny } from "@/lib/convexApiAny";
 import { optimizeCoverImageForUpload } from "@/lib/coverImageUpload";
@@ -37,51 +37,66 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
+import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 import ProjectMembers from "./ProjectMembers";
 import TaskStatusSettings from "./TaskStatusSettings";
 
-const settingsFormSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
-  description: z.string().optional(),
-  coverImageUrl: z.string().optional().or(z.literal("")),
-  responsibleClerkUserId: z.string().optional(),
-  clientPortalDigestRecipientClerkUserIds: z.array(z.string()).optional(),
-  startDate: z.string().optional().or(z.literal("")),
-  endDate: z.string().optional().or(z.literal("")),
-  customer: z.string().optional(),
-  budget: z.coerce.number().positive("Budget must be positive").optional().or(z.literal("")),
-  location: z.string().optional(),
-  status: z
-    .enum(["planning", "active", "on_hold", "completed", "cancelled"])
-    .optional(),
-  measurements: z
-    .enum(["metric", "imperial"])
-    .optional(),
-  currency: z
-    .enum([
-      "USD",
-      "EUR",
-      "PLN",
-      "GBP",
-      "CAD",
-      "AUD",
-      "JPY",
-      "CHF",
-      "SEK",
-      "NOK",
-      "DKK",
-      "CZK",
-      "HUF",
-      "CNY",
-      "INR",
-      "BRL",
-      "MXN",
-      "KRW",
-      "SGD",
-      "HKD",
-    ])
-    .optional(),
-});
+const settingsFormSchema = z
+  .object({
+    name: z.string().min(2, "Name must be at least 2 characters"),
+    description: z.string().optional(),
+    coverImageUrl: z.string().optional().or(z.literal("")),
+    responsibleClerkUserId: z.string().optional(),
+    clientPortalDigestRecipientClerkUserIds: z.array(z.string()).optional(),
+    startDate: z.string().optional().or(z.literal("")),
+    endDate: z.string().optional().or(z.literal("")),
+    customer: z.string().optional(),
+    budget: z.coerce.number().positive("Budget must be positive").optional().or(z.literal("")),
+    location: z.string().optional(),
+    status: z
+      .enum(["planning", "active", "on_hold", "completed", "cancelled"])
+      .optional(),
+    measurements: z
+      .enum(["metric", "imperial"])
+      .optional(),
+    currency: z
+      .enum([
+        "USD",
+        "EUR",
+        "PLN",
+        "GBP",
+        "CAD",
+        "AUD",
+        "JPY",
+        "CHF",
+        "SEK",
+        "NOK",
+        "DKK",
+        "CZK",
+        "HUF",
+        "CNY",
+        "INR",
+        "BRL",
+        "MXN",
+        "KRW",
+        "SGD",
+        "HKD",
+      ])
+      .optional(),
+  })
+  .refine(
+    (values) => {
+      if (!values.startDate || !values.endDate) {
+        return true;
+      }
+      return new Date(values.endDate).getTime() >= new Date(values.startDate).getTime();
+    },
+    {
+      message: "End date cannot be earlier than start date",
+      path: ["endDate"],
+    },
+  );
 
 const deleteFormSchema = z.object({
   confirmName: z.string().min(1, "Please enter the project name to confirm deletion"),
@@ -113,8 +128,8 @@ const SETTINGS_TABS: SettingsTabConfig[] = [
   },
   {
     value: "advanced",
-    label: "Advanced",
-    description: "Project-level actions and destructive controls.",
+    label: "Delete",
+    description: "Permanent project deletion.",
   },
 ];
 
@@ -490,94 +505,95 @@ function ProjectSettingsContent() {
   }
 
   return (
-    <div className="min-h-screen pb-20">
-      <div className="flex w-full flex-col gap-6 py-4">
-        <div className="flex flex-col gap-1">
-          <h1 className="clean-title text-[1.65rem] font-medium tracking-tight text-foreground md:text-[1.9rem]">
-            Settings
-          </h1>
-          <p className="text-sm text-muted-foreground">{project.name}</p>
-        </div>
+    <ProjectPageLayout>
+      <div className="min-h-screen pb-20">
+        <div className="flex flex-col gap-6 py-4">
+          <ProjectPageHeader
+            title="Settings"
+            icon={<Settings className="h-8 w-8 text-primary" />}
+            subtitle={project.name}
+          />
 
-        <div className="grid gap-8 lg:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[240px_minmax(0,1fr)] xl:gap-12">
-          <aside className="self-start lg:sticky lg:top-8">
-            <div className="space-y-6">
-              <div className="space-y-1">
-                <p className="px-4 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                  Project
-                </p>
-                <nav className="flex flex-col gap-1">
-                  {SETTINGS_TABS.map((tab) => {
-                    const isActive = activeTab === tab.value;
+          <div className="grid gap-8 lg:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[240px_minmax(0,1fr)] xl:gap-12">
+            <aside className="self-start lg:sticky lg:top-8">
+              <div className="space-y-6">
+                <div className="space-y-1">
+                  <p className="px-4 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                    Project
+                  </p>
+                  <nav className="flex flex-col gap-1">
+                    {SETTINGS_TABS.map((tab) => {
+                      const isActive = activeTab === tab.value;
 
-                    return (
-                      <button
-                        key={tab.value}
-                        type="button"
-                        onClick={() => setActiveTab(tab.value)}
-                        className={cn(
-                          "rounded-2xl px-4 py-3 text-left text-[1rem] transition-colors",
-                          isActive
-                            ? "bg-muted text-foreground"
-                            : "text-foreground/80 hover:bg-muted/60 hover:text-foreground",
-                        )}
-                      >
-                        {tab.label}
-                      </button>
-                    );
-                  })}
-                </nav>
+                      return (
+                        <button
+                          key={tab.value}
+                          type="button"
+                          onClick={() => setActiveTab(tab.value)}
+                          className={cn(
+                            "rounded-2xl px-4 py-3 text-left text-[1rem] transition-colors",
+                            isActive
+                              ? "bg-muted text-foreground"
+                              : "text-foreground/80 hover:bg-muted/60 hover:text-foreground",
+                          )}
+                        >
+                          {tab.label}
+                        </button>
+                      );
+                    })}
+                  </nav>
+                </div>
               </div>
+            </aside>
+
+            <div className="grid gap-8">
+              <section className="grid gap-8">
+                <div className="space-y-2 border-b border-border/70 pb-5">
+                  <h2 className="text-[1.2rem] font-semibold tracking-tight text-foreground md:text-[1.3rem]">
+                    {activeTabConfig.label}
+                  </h2>
+                </div>
+
+                {activeTab === "general" ? (
+                  <GeneralTab
+                    projectId={project._id}
+                    projectCoverImageUrl={project.coverImageUrl}
+                    projectCoverImageDisplayUrl={
+                      (project as { coverImageDisplayUrl?: string }).coverImageDisplayUrl
+                    }
+                    responsibleOptions={responsibleOptions}
+                    settingsForm={settingsForm}
+                    onSettingsSubmit={onSettingsSubmit}
+                  />
+                ) : null}
+
+                {activeTab === "members" ? (
+                  <Suspense fallback={<SettingsTabSkeleton />}>
+                    <MembersTab project={project} />
+                  </Suspense>
+                ) : null}
+
+                {activeTab === "taskstatus" ? (
+                  <Suspense fallback={<SettingsTabSkeleton />}>
+                    <TaskStatusTab project={project} />
+                  </Suspense>
+                ) : null}
+
+                {activeTab === "advanced" ? (
+                  <AdvancedTab
+                    project={project}
+                    deleteForm={deleteForm}
+                    deleteDialogOpen={deleteDialogOpen}
+                    setDeleteDialogOpen={setDeleteDialogOpen}
+                    onDeleteSubmit={onDeleteSubmit}
+                  />
+                ) : null}
+              </section>
             </div>
-          </aside>
-
-          <div className="grid gap-8">
-            <section className="grid gap-8">
-              <div className="space-y-2 border-b border-border/70 pb-5">
-                <h2 className="text-[1.2rem] font-semibold tracking-tight text-foreground md:text-[1.3rem]">
-                  {activeTabConfig.label}
-                </h2>
-              </div>
-
-              {activeTab === "general" ? (
-                <GeneralTab
-                  projectId={project._id}
-                  projectCoverImageUrl={project.coverImageUrl}
-                  projectCoverImageDisplayUrl={
-                    (project as { coverImageDisplayUrl?: string }).coverImageDisplayUrl
-                  }
-                  responsibleOptions={responsibleOptions}
-                  settingsForm={settingsForm}
-                  onSettingsSubmit={onSettingsSubmit}
-                />
-              ) : null}
-
-              {activeTab === "members" ? (
-                <Suspense fallback={<SettingsTabSkeleton />}>
-                  <MembersTab project={project} />
-                </Suspense>
-              ) : null}
-
-              {activeTab === "taskstatus" ? (
-                <Suspense fallback={<SettingsTabSkeleton />}>
-                  <TaskStatusTab project={project} />
-                </Suspense>
-              ) : null}
-
-              {activeTab === "advanced" ? (
-                <AdvancedTab
-                  project={project}
-                  deleteForm={deleteForm}
-                  deleteDialogOpen={deleteDialogOpen}
-                  setDeleteDialogOpen={setDeleteDialogOpen}
-                  onDeleteSubmit={onDeleteSubmit}
-                />
-              ) : null}
-            </section>
           </div>
         </div>
       </div>
-    </div>
+    </ProjectPageLayout>
   );
 }
 
@@ -1045,13 +1061,13 @@ function GeneralTab({
               </div>
 
               <div className="grid gap-4">
-                <div className="overflow-hidden rounded-[28px] border border-border/70 bg-muted/20">
+                <div className="max-w-4xl overflow-hidden rounded-[28px] border border-border/70 bg-muted/20">
                   {hasCoverPreview ? (
                     <div className="relative">
                       <img
                         src={coverPreviewUrl ?? undefined}
                         alt="Project cover preview"
-                        className="aspect-[16/7] w-full object-cover"
+                        className="h-48 w-full object-cover sm:h-56 lg:h-64"
                       />
                       <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-3 bg-gradient-to-t from-black/55 via-black/15 to-transparent px-5 py-4">
                         <p className="text-sm font-medium text-white">Project cover</p>
@@ -1082,7 +1098,7 @@ function GeneralTab({
                       </div>
                     </div>
                   ) : (
-                    <div className="flex aspect-[16/7] flex-col items-center justify-center gap-4 px-6 text-center">
+                    <div className="flex min-h-[220px] flex-col items-center justify-center gap-3 px-6 py-10 text-center sm:min-h-[260px]">
                       <div className="flex h-12 w-12 items-center justify-center rounded-full border border-border/70 bg-card">
                         <ImagePlus className="h-5 w-5 text-muted-foreground" />
                       </div>
@@ -1294,88 +1310,75 @@ function AdvancedTab({
 }) {
   return (
     <div className="flex flex-col gap-8">
-      <div className="border-b border-border/70 pb-5">
-        <h3 className="text-lg font-semibold text-foreground">Advanced Settings</h3>
+      <div>
+        <h3 className="text-lg font-semibold text-destructive">Delete</h3>
         <p className="mt-1 text-sm text-muted-foreground">
-            Use advanced actions carefully. Some operations cannot be reversed.
+          Deleting this project removes tasks, files, comments, and related history. This action is irreversible.
         </p>
       </div>
 
-      <div className="text-sm text-muted-foreground">
-        Future project-level controls will be added here.
-      </div>
-
-      <div className="border-t border-destructive/20 pt-8">
-        <div className="pb-5">
-          <h3 className="text-lg font-semibold text-destructive">Danger Zone</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Permanent actions that remove data for the whole team.
-          </p>
-        </div>
-
-        <div className="rounded-2xl bg-destructive/5 p-4">
-          <h4 className="mb-2 text-sm font-medium text-destructive">Delete Project</h4>
-          <p className="mb-4 text-sm text-muted-foreground">
-            Deleting this project removes tasks, files, comments, and related history. This action is irreversible.
-          </p>
-          <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="destructive" className="w-full sm:w-auto">
-                Delete Project
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="mx-4 sm:max-w-[460px]">
-              <DialogHeader>
-                <DialogTitle className="text-lg">Delete Project</DialogTitle>
-                <DialogDescription className="text-sm">
-                  This action cannot be undone. Type the project name exactly to confirm permanent deletion.
-                </DialogDescription>
-              </DialogHeader>
-              <Form {...deleteForm}>
-                <form onSubmit={deleteForm.handleSubmit(onDeleteSubmit)} className="flex flex-col gap-4 lg:gap-6">
-                  <FormField
-                    control={deleteForm.control}
-                    name="confirmName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-sm">
-                          Type <span className="font-mono font-semibold">{project.name}</span> to confirm:
-                        </FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder={project.name}
-                            {...field}
-                            autoComplete="off"
-                            className="w-full"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setDeleteDialogOpen(false)}
-                      className="w-full sm:w-auto"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      type="submit"
-                      variant="destructive"
-                      disabled={deleteForm.formState.isSubmitting}
-                      className="w-full sm:w-auto"
-                    >
-                      {deleteForm.formState.isSubmitting ? "Deleting..." : "Delete Project"}
-                    </Button>
-                  </DialogFooter>
-                </form>
-              </Form>
-            </DialogContent>
-          </Dialog>
-        </div>
+      <div className="rounded-2xl bg-destructive/5 p-4">
+        <h4 className="mb-2 text-sm font-medium text-destructive">Delete Project</h4>
+        <p className="mb-4 text-sm text-muted-foreground">
+          This permanently removes the project for the whole team.
+        </p>
+        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <DialogTrigger asChild>
+            <Button variant="destructive" className="w-full sm:w-auto">
+              Delete Project
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="mx-4 sm:max-w-[460px]">
+            <DialogHeader>
+              <DialogTitle className="text-lg">Delete Project</DialogTitle>
+              <DialogDescription className="text-sm">
+                This action cannot be undone. Type the project name exactly to confirm permanent deletion.
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...deleteForm}>
+              <form onSubmit={deleteForm.handleSubmit(onDeleteSubmit)} className="flex flex-col gap-4 lg:gap-6">
+                <FormField
+                  control={deleteForm.control}
+                  name="confirmName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm">
+                        Type <span className="font-mono font-semibold">{project.name}</span> to confirm:
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder={project.name}
+                          {...field}
+                          autoComplete="off"
+                          className="w-full"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setDeleteDialogOpen(false)}
+                    className="w-full sm:w-auto"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    variant="destructive"
+                    disabled={deleteForm.formState.isSubmitting}
+                    className="w-full sm:w-auto"
+                  >
+                    {deleteForm.formState.isSubmitting ? "Deleting..." : "Delete Project"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

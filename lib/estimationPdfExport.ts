@@ -128,8 +128,9 @@ function buildDocumentTaxSettings(
 }
 
 function getPriceColumns(
-  _taxSettings: OrganizationTaxSettings,
+  taxSettings: OrganizationTaxSettings,
 ): Array<{ key: string; label: string }> {
+  void taxSettings;
   return [
     { key: "unitNet", label: "Unit Net" },
     { key: "totalNet", label: "Net Total" },

@@ -6,6 +6,14 @@
 
 import type { ProjectContextSnapshot, TeamMember } from "../types";
 
+const formatContextDate = (timestamp?: number) => {
+  if (typeof timestamp !== "number" || !Number.isFinite(timestamp)) {
+    return null;
+  }
+
+  return new Date(timestamp).toISOString().slice(0, 10);
+};
+
 export const buildContextFromSnapshot = (snapshot: ProjectContextSnapshot): string => {
   const parts: string[] = [];
 
@@ -17,6 +25,11 @@ export const buildContextFromSnapshot = (snapshot: ProjectContextSnapshot): stri
     if (snapshot.project.location) projectFacts.push(`location: ${snapshot.project.location}`);
     if (snapshot.project.budget !== undefined) projectFacts.push(`budget: ${snapshot.project.budget}`);
     if (snapshot.project.currency) projectFacts.push(`currency: ${snapshot.project.currency}`);
+    const startDate = formatContextDate(snapshot.project.startDate);
+    const endDate = formatContextDate(snapshot.project.endDate);
+    if (startDate || endDate) {
+      projectFacts.push(`timeline: ${startDate ?? "-"} -> ${endDate ?? "-"}`);
+    }
     if (projectFacts.length > 0) {
       parts.push(`PROJECT SETTINGS: ${projectFacts.join(" | ")}`);
     }

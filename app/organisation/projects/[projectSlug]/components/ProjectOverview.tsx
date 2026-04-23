@@ -23,6 +23,7 @@ import {
   Building2,
   CalendarRange,
   ClipboardList,
+  Clock3,
   CreditCard,
   Download,
   ExternalLink,
@@ -229,6 +230,9 @@ function ProjectOverviewContent() {
   const teamMembers = useQuery(apiAny.teams.getTeamMembers, {
     teamId: project.teamId,
   });
+  const projectActivities = useQuery(apiAny.activityLog.getForProject, {
+    projectId: project._id,
+  });
   const moodboardSections = useQuery(apiAny.files.getMoodboardSections, {
     projectId: project._id,
   });
@@ -263,6 +267,7 @@ function ProjectOverviewContent() {
     notes === undefined ||
     team === undefined ||
     teamMembers === undefined ||
+    projectActivities === undefined ||
     moodboardSections === undefined
   ) {
     return <ProjectOverviewSkeleton />;
@@ -595,9 +600,21 @@ function ProjectOverviewContent() {
     project.coverImageUrl?.trim() ||
     null;
   const hasProjectCover = projectCoverUrl !== null;
-  const projectEditedLabel = formatRelativeProjectEdit(
-    (project as { updatedAt?: number }).updatedAt ?? project._creationTime,
+  const projectRecentActivityAt = projectActivities.reduce(
+    (latest, activity) => Math.max(latest, activity._creationTime),
+    0,
   );
+  const projectLastUpdatedAt =
+    projectRecentActivityAt ||
+    (project as { updatedAt?: number }).updatedAt ||
+    project._creationTime;
+  const projectEditedLabel = formatRelativeProjectEdit(projectLastUpdatedAt);
+  const projectEditedDateLabel = formatProjectDate(projectLastUpdatedAt, {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+  const projectEditedAgoLabel = projectEditedLabel?.replace(/^Edited\s+/, "");
   const projectStatusLabel =
     PROJECT_STATUS_LABELS[
       project.status as keyof typeof PROJECT_STATUS_LABELS
@@ -723,263 +740,189 @@ function ProjectOverviewContent() {
     null;
 
   const projectStatusBadgeClass = cn(
-    hasProjectCover
-      ? "border-white/16 bg-white/12 text-white shadow-none backdrop-blur-md"
-      : "border-border/80 bg-background/82 text-foreground shadow-none backdrop-blur-md",
+    "border-border/80 bg-background/86 text-foreground shadow-none backdrop-blur-md",
     project.status === "cancelled" &&
-      (hasProjectCover
-        ? "border-red-300/35 bg-red-500/16 text-white"
-        : "border-red-200/80 bg-red-50/90 text-red-900"),
+      "border-red-200/80 bg-red-50/90 text-red-900",
     project.status === "completed" &&
-      (hasProjectCover
-        ? "border-emerald-300/35 bg-emerald-500/16 text-white"
-        : "border-emerald-200/80 bg-emerald-50/90 text-emerald-900"),
+      "border-emerald-200/80 bg-emerald-50/90 text-emerald-900",
   );
 
   return (
     <ProjectPageLayout>
       <section className="w-full">
         <div className="overflow-hidden rounded-[34px] border border-border/70 bg-card shadow-[0_24px_80px_-52px_rgba(25,25,25,0.42)]">
-          <div className="bg-card">
-            <div
-              className={cn(
-                "group relative overflow-hidden",
-                hasProjectCover
-                  ? "aspect-[16/4] min-h-[150px] bg-[#d8d1c8] sm:min-h-[180px] lg:min-h-[220px]"
-                  : "min-h-[150px] bg-[#f7f7f4] sm:min-h-[170px] lg:min-h-[190px]",
-              )}
-            >
-              {projectCoverUrl ? (
-                <Image
-                  src={projectCoverUrl}
-                  alt={`${project.name} cover`}
-                  fill
-                  priority
-                  quality={90}
-                  className="object-contain object-center transition-transform duration-700 ease-out will-change-transform group-hover:scale-[1.01]"
-                  style={{ objectPosition: "center center" }}
-                  sizes="100vw"
-                />
-              ) : (
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_18%,rgba(255,255,255,0.78),transparent_22%),radial-gradient(circle_at_82%_20%,rgba(49,45,38,0.03),transparent_26%)]" />
-              )}
-              <div
-                className={cn(
-                  "absolute inset-0",
-                  hasProjectCover
-                    ? "bg-[linear-gradient(180deg,rgba(21,20,18,0.12)_0%,rgba(21,20,18,0.12)_24%,rgba(21,20,18,0.54)_74%,rgba(12,11,10,0.78)_100%)]"
-                    : "bg-[linear-gradient(180deg,rgba(255,255,255,0.18)_0%,rgba(255,255,255,0.03)_44%,rgba(49,45,38,0.035)_100%)]",
-                )}
-              />
-              <div
-                className={cn(
-                  "absolute inset-0",
-                  hasProjectCover
-                    ? "bg-[linear-gradient(90deg,rgba(20,18,16,0.52)_0%,rgba(20,18,16,0.28)_34%,rgba(20,18,16,0.08)_64%,rgba(20,18,16,0.44)_100%)]"
-                    : "bg-[linear-gradient(90deg,rgba(49,45,38,0.025)_0%,rgba(255,255,255,0.04)_48%,rgba(49,45,38,0.02)_100%)]",
-                )}
-              />
-              {!hasProjectCover ? (
-                <div className="absolute inset-x-[28%] top-[-36%] h-[150px] rounded-full bg-white/42 blur-3xl sm:h-[180px]" />
-              ) : null}
-
-              <div
-                className={cn(
-                  "absolute inset-x-0 top-0 flex items-start justify-between gap-3",
-                  hasProjectCover ? "p-4 sm:p-5 lg:p-6" : "p-4 sm:p-5 lg:p-6",
-                )}
-              >
-                <div
-                  className={cn(
-                    "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[11px] font-medium tracking-[0.08em] backdrop-blur-md",
-                    hasProjectCover
-                      ? "border border-white/14 bg-black/16 text-white/80"
-                      : "border border-border/70 bg-background/72 text-muted-foreground",
-                  )}
-                >
-                  <Building2 className="h-3.5 w-3.5" />
-                  <span>Projects</span>
-                  <span
-                    className={cn(
-                      hasProjectCover
-                        ? "text-white/45"
-                        : "text-muted-foreground/60",
-                    )}
-                  >
-                    /
-                  </span>
-                  <ClipboardList className="h-3.5 w-3.5" />
-                  <span>Overview</span>
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className={cn(
-                        "h-12 w-12 rounded-2xl backdrop-blur-md transition-colors",
-                        hasProjectCover
-                          ? "border border-white/16 bg-black/18 text-white/90 hover:bg-black/28 hover:text-white"
-                          : "border border-border/70 bg-background/72 text-foreground/75 hover:bg-background hover:text-foreground",
-                      )}
-                    >
-                      <MoreHorizontal className="h-5 w-5" />
-                      <span className="sr-only">Project actions</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="end"
-                    className="w-56 rounded-xl border-border/80 bg-popover"
-                  >
-                    <DropdownMenuItem
-                      onSelect={() =>
-                        router.push(`${projectBasePath}/settings`)
-                      }
-                    >
-                      <Settings2 className="mr-2 h-4 w-4" />
-                      Project settings
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onSelect={() => router.push(`${projectBasePath}/tasks`)}
-                    >
-                      <ClipboardList className="mr-2 h-4 w-4" />
-                      Open tasks board
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onSelect={() =>
-                        router.push(`${projectBasePath}/payments`)
-                      }
-                    >
-                      <CreditCard className="mr-2 h-4 w-4" />
-                      Open payments
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onSelect={() => router.push(`${projectBasePath}/files`)}
-                    >
-                      <Files className="mr-2 h-4 w-4" />
-                      Open files
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onSelect={openProjectBookExport}>
-                      <Download className="mr-2 h-4 w-4" />
-                      Export project book
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+          <div className="border-b border-border/70 bg-card px-5 py-5 sm:px-7 sm:py-7 lg:px-9">
+            <div className="flex items-start justify-between gap-3">
+              <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/78 px-3 py-1.5 text-[11px] font-medium tracking-[0.08em] text-muted-foreground backdrop-blur-md">
+                <Building2 className="h-3.5 w-3.5" />
+                <span>Projects</span>
+                <span className="text-muted-foreground/60">/</span>
+                <ClipboardList className="h-3.5 w-3.5" />
+                <span>Overview</span>
               </div>
 
-              <div
-                className={cn(
-                  "absolute inset-x-0 bottom-0",
-                  hasProjectCover ? "p-4 sm:p-5 lg:p-6" : "p-4 sm:p-5 lg:p-6",
-                )}
-              >
-                <div
-                  className={cn(
-                    "max-w-[760px] space-y-4 sm:space-y-5",
-                    !hasProjectCover && "space-y-2.5 sm:space-y-3",
-                  )}
-                >
-                  <div
-                    className={cn("space-y-3", !hasProjectCover && "space-y-2")}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-12 w-12 rounded-2xl border border-border/70 bg-background/78 text-foreground/75 backdrop-blur-md transition-colors hover:bg-background hover:text-foreground"
                   >
-                    <h1
-                      className={cn(
-                        "max-w-[11ch] font-serif leading-[0.94] tracking-[-0.055em]",
-                        hasProjectCover
-                          ? "text-[3rem] text-white sm:text-[4rem] lg:text-[4.7rem]"
-                          : "text-[2.35rem] text-foreground sm:text-[2.8rem] lg:text-[3.2rem]",
-                      )}
-                    >
-                      {project.name}
-                    </h1>
-                    <div className="flex flex-wrap items-center gap-2.5">
-                      <Badge className={projectStatusBadgeClass}>
-                        {projectStatusLabel}
+                    <MoreHorizontal className="h-5 w-5" />
+                    <span className="sr-only">Project actions</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  className="w-56 rounded-xl border-border/80 bg-popover"
+                >
+                  <DropdownMenuItem
+                    onSelect={() => router.push(`${projectBasePath}/settings`)}
+                  >
+                    <Settings2 className="mr-2 h-4 w-4" />
+                    Project settings
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => router.push(`${projectBasePath}/tasks`)}
+                  >
+                    <ClipboardList className="mr-2 h-4 w-4" />
+                    Open tasks board
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => router.push(`${projectBasePath}/payments`)}
+                  >
+                    <CreditCard className="mr-2 h-4 w-4" />
+                    Open payments
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => router.push(`${projectBasePath}/files`)}
+                  >
+                    <Files className="mr-2 h-4 w-4" />
+                    Open files
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={openProjectBookExport}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Export project book
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+
+            <div
+              className={cn(
+                "mt-6 grid gap-6 xl:gap-8 lg:items-end",
+                hasProjectCover
+                  ? "lg:grid-cols-[minmax(340px,1.08fr)_minmax(420px,1.12fr)]"
+                  : "lg:grid-cols-1",
+              )}
+            >
+              <div className="flex min-w-0 flex-col justify-end gap-5 lg:pb-5">
+                <div className="space-y-4">
+                  <h1 className="max-w-[10ch] font-serif text-[2.1rem] leading-[0.92] tracking-[-0.05em] text-foreground sm:text-[2.8rem] lg:text-[3.4rem] xl:text-[3.9rem]">
+                    {project.name}
+                  </h1>
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <Badge className={projectStatusBadgeClass}>
+                      {projectStatusLabel}
+                    </Badge>
+                    {project.customer ? (
+                      <Badge className="border-border/80 bg-background/86 text-foreground/88 shadow-none backdrop-blur-md">
+                        {project.customer}
                       </Badge>
-                      {project.customer ? (
-                        <Badge
-                          className={cn(
-                            "shadow-none backdrop-blur-md",
-                            hasProjectCover
-                              ? "border-white/16 bg-black/18 text-white/88"
-                              : "border-border/80 bg-background/82 text-foreground/88",
-                          )}
-                        >
-                          {project.customer}
-                        </Badge>
-                      ) : null}
-                      <Badge
-                        className={cn(
-                          "gap-2 px-3 shadow-none backdrop-blur-md",
-                          hasProjectCover
-                            ? "border-white/16 bg-black/18 text-white/88"
-                            : "border-border/80 bg-background/82 text-foreground/88",
-                        )}
-                      >
-                        <CalendarRange
-                          className={cn(
-                            "h-3.5 w-3.5",
-                            hasProjectCover
-                              ? "text-white/70"
-                              : "text-muted-foreground",
-                          )}
-                        />
-                        <span>
-                          {formatDateRange(project.startDate, project.endDate)}
-                        </span>
-                      </Badge>
-                    </div>
+                    ) : null}
+                    <Badge className="gap-2 border-border/80 bg-background/86 px-3 text-foreground/88 shadow-none backdrop-blur-md">
+                      <CalendarRange className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span>
+                        {formatDateRange(project.startDate, project.endDate)}
+                      </span>
+                    </Badge>
                   </div>
                 </div>
               </div>
+
+              {hasProjectCover ? (
+                <div className="relative lg:justify-self-end lg:w-full lg:max-w-[480px] xl:max-w-[560px] 2xl:max-w-[610px]">
+                  <div className="group relative min-h-[240px] overflow-hidden rounded-[30px] border border-border/60 bg-muted/20 shadow-[0_28px_80px_-46px_rgba(22,22,22,0.24)] sm:min-h-[290px] lg:min-h-[320px] xl:min-h-[345px]">
+                    <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-[10%] bg-[linear-gradient(90deg,rgba(255,255,255,0.22)_0%,rgba(255,255,255,0)_100%)]" />
+                    <Image
+                      src={projectCoverUrl}
+                      alt={`${project.name} cover`}
+                      fill
+                      priority
+                      quality={90}
+                      className="object-cover transition-transform duration-700 ease-out will-change-transform group-hover:scale-[1.015]"
+                      style={{ objectPosition: "82% center" }}
+                      sizes="(min-width: 1536px) 610px, (min-width: 1280px) 560px, (min-width: 1024px) 480px, 100vw"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="relative min-h-[240px] overflow-hidden rounded-[30px] border border-border/60 bg-[radial-gradient(circle_at_20%_18%,rgba(255,255,255,0.78),transparent_22%),radial-gradient(circle_at_82%_20%,rgba(49,45,38,0.03),transparent_26%),linear-gradient(180deg,rgba(250,250,250,1)_0%,rgba(245,245,245,1)_100%)] sm:min-h-[290px] lg:min-h-[320px] lg:max-w-[480px] lg:justify-self-end xl:max-w-[560px] 2xl:max-w-[610px]" />
+              )}
             </div>
 
-            <div className="border-b border-border/70 bg-card px-5 py-5 sm:px-7 sm:py-6 lg:px-9">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[13px] text-muted-foreground sm:text-[15px]">
+            <div className="border-t border-border/70 bg-card px-5 py-5 sm:px-7 sm:py-6 lg:px-9">
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-3 text-[13px] text-muted-foreground sm:text-[15px]">
+                  <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+                    <div className="flex -space-x-2.5">
+                      {visibleTeamMembers.map((member) => (
+                        <Avatar
+                          key={member._id}
+                          className="h-10 w-10 border-[3px] border-card shadow-sm"
+                        >
+                          <AvatarImage src={member.imageUrl} alt={member.name} />
+                          <AvatarFallback className="bg-muted text-[11px] font-semibold text-foreground">
+                            {getInitials(member.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                      ))}
+                      {hiddenTeamMembersCount > 0 ? (
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full border-[3px] border-card bg-muted text-[11px] font-semibold text-foreground shadow-sm">
+                          +{hiddenTeamMembersCount}
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <div className="inline-flex items-center gap-2 text-[13px] font-medium text-foreground/82 sm:text-[15px]">
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      <span>
+                        {teamMembers.length} collaborator
+                        {teamMembers.length === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                  </div>
+
                   {project.location ? (
                     <span className="inline-flex items-center gap-2 font-medium text-foreground/82">
                       <MapPin className="h-4 w-4 text-muted-foreground" />
                       {project.location}
                     </span>
                   ) : null}
-                  {project.location && projectEditedLabel ? (
-                    <span className="hidden text-border sm:inline">·</span>
-                  ) : null}
-                  {projectEditedLabel ? (
-                    <span>{projectEditedLabel}</span>
+
+                  {projectEditedDateLabel ? (
+                    <div className="inline-flex flex-wrap items-center gap-2 text-[13px] sm:text-[15px]">
+                      <Clock3 className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-medium text-foreground/82">
+                        Edited
+                      </span>
+                      <time
+                        dateTime={new Date(projectLastUpdatedAt).toISOString()}
+                        className="text-foreground/72"
+                      >
+                        {projectEditedDateLabel}
+                      </time>
+                      {projectEditedAgoLabel ? (
+                        <span className="text-muted-foreground">
+                          ({projectEditedAgoLabel})
+                        </span>
+                      ) : null}
+                    </div>
                   ) : null}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-                  <div className="flex -space-x-2.5">
-                    {visibleTeamMembers.map((member) => (
-                      <Avatar
-                        key={member._id}
-                        className="h-10 w-10 border-[3px] border-card shadow-sm"
-                      >
-                        <AvatarImage src={member.imageUrl} alt={member.name} />
-                        <AvatarFallback className="bg-muted text-[11px] font-semibold text-foreground">
-                          {getInitials(member.name)}
-                        </AvatarFallback>
-                      </Avatar>
-                    ))}
-                    {hiddenTeamMembersCount > 0 ? (
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full border-[3px] border-card bg-muted text-[11px] font-semibold text-foreground shadow-sm">
-                        +{hiddenTeamMembersCount}
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <div className="inline-flex items-center gap-2 text-[13px] font-medium text-foreground/82 sm:text-[15px]">
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                    <span>
-                      {teamMembers.length} collaborator
-                      {teamMembers.length === 1 ? "" : "s"}
-                    </span>
-                  </div>
-
+                <div className="flex flex-wrap items-center gap-3 sm:gap-4 xl:justify-end">
                   {projectLink ? (
                     <Link
                       href={projectLink}

@@ -247,6 +247,8 @@ export const updateProjectSettingsSchema = z.object({
   description: z.string().optional().describe("Project description"),
   coverImageUrl: z.string().optional().describe("Project cover image URL (or empty string to clear)"),
   status: projectStatusEnum.optional().describe("Project status"),
+  startDate: z.string().optional().describe("Project start date in ISO format (YYYY-MM-DD or full ISO timestamp). Use this for timeline updates, including relative requests such as tomorrow/jutro."),
+  endDate: z.string().optional().describe("Project end date in ISO format (YYYY-MM-DD or full ISO timestamp). Use this for timeline updates, including durations such as for a month / przez miesiac."),
   customer: z.string().optional().describe("Client name"),
   location: z.string().optional().describe("Project location"),
   budget: z.number().positive().optional().describe("Project budget"),
@@ -2298,7 +2300,7 @@ export function createStreamingTools(options?: StreamingToolOptions) {
     }, options),
 
     update_project_settings: createAssistantTool({
-      description: "Update project General Settings (name, description, cover image URL, status, client, location, budget, currency). Use this when the user asks to change project settings.",
+      description: "Update project General Settings and timeline (name, description, cover image URL, status, start date, end date, client, location, budget, currency). Use this when the user asks to change project settings or project dates/timeline.",
       inputSchema: updateProjectSettingsSchema,
       requiresConfirmation: true,
       confirmationReason: "Project settings affect the whole project and require approval before execution.",
@@ -2344,6 +2346,26 @@ export function createStreamingTools(options?: StreamingToolOptions) {
         if (hasOwn("status")) {
           updates.status = args.status;
         }
+        if (hasOwn("startDate")) {
+          const rawStartDate =
+            typeof args.startDate === "string" ? args.startDate.trim() : "";
+          if (rawStartDate.length > 0 && !Number.isFinite(Date.parse(rawStartDate))) {
+            return JSON.stringify({
+              error: "Project start date must be a valid ISO date or timestamp",
+            });
+          }
+          updates.startDate = rawStartDate.length > 0 ? rawStartDate : undefined;
+        }
+        if (hasOwn("endDate")) {
+          const rawEndDate =
+            typeof args.endDate === "string" ? args.endDate.trim() : "";
+          if (rawEndDate.length > 0 && !Number.isFinite(Date.parse(rawEndDate))) {
+            return JSON.stringify({
+              error: "Project end date must be a valid ISO date or timestamp",
+            });
+          }
+          updates.endDate = rawEndDate.length > 0 ? rawEndDate : undefined;
+        }
         if (hasOwn("customer")) {
           updates.customer =
             typeof args.customer === "string" && args.customer.trim().length > 0
@@ -2369,6 +2391,24 @@ export function createStreamingTools(options?: StreamingToolOptions) {
         if (!hasMeaningfulUpdate) {
           return JSON.stringify({
             error: "No valid project setting updates were provided",
+          });
+        }
+
+        const startTimestamp =
+          typeof updates.startDate === "string"
+            ? Date.parse(updates.startDate)
+            : undefined;
+        const endTimestamp =
+          typeof updates.endDate === "string" ? Date.parse(updates.endDate) : undefined;
+        if (
+          typeof startTimestamp === "number" &&
+          Number.isFinite(startTimestamp) &&
+          typeof endTimestamp === "number" &&
+          Number.isFinite(endTimestamp) &&
+          endTimestamp < startTimestamp
+        ) {
+          return JSON.stringify({
+            error: "Project end date cannot be earlier than the start date",
           });
         }
 

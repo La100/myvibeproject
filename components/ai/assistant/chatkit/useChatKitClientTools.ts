@@ -791,10 +791,10 @@ function asNonEmptyString(value: unknown): string | undefined {
 }
 
 function normalizeNumericString(value: string): string | undefined {
-  const match = value.trim().match(/-?\d[\d\s.,]*/);
-  if (!match) return undefined;
+  const trimmed = value.trim();
+  if (!/^-?\d[\d\s.,]*$/.test(trimmed)) return undefined;
 
-  let numeric = match[0].replace(/\s+/g, "");
+  let numeric = trimmed.replace(/\s+/g, "");
   const commaCount = (numeric.match(/,/g) ?? []).length;
   const dotCount = (numeric.match(/\./g) ?? []).length;
 
@@ -897,13 +897,15 @@ function asTaskPriority(
 }
 
 function asTimestamp(value: unknown): number | undefined {
-  const direct = asNumber(value);
-  if (direct !== undefined) return direct;
-
   const text = asNonEmptyString(value);
-  if (!text) return undefined;
-  const parsed = Date.parse(text);
-  return Number.isFinite(parsed) ? parsed : undefined;
+  if (text) {
+    const parsed = Date.parse(text);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return asNumber(value);
 }
 
 function asDateInput(value: unknown): string | undefined {
@@ -3389,34 +3391,88 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
           }
 
           case "update_project_settings": {
+            const flattened = flattenManagedToolParams(params);
+            const hasOwn = (key: string) =>
+              Object.prototype.hasOwnProperty.call(flattened, key);
             const payload: Record<string, unknown> = {
               projectId,
             };
 
-            const name = asNonEmptyString(params.name);
-            if (name !== undefined) payload.name = name;
+            if (hasOwn("name")) {
+              payload.name = asNonEmptyString(flattened.name);
+            }
 
-            const description = asNonEmptyString(params.description);
-            if (description !== undefined) payload.description = description;
+            if (hasOwn("description")) {
+              payload.description = asNonEmptyString(flattened.description);
+            }
 
-            const coverImageUrl = asNonEmptyString(params.coverImageUrl);
-            if (coverImageUrl !== undefined)
-              payload.coverImageUrl = coverImageUrl;
+            if (hasOwn("coverImageUrl")) {
+              payload.coverImageUrl = asNonEmptyString(flattened.coverImageUrl);
+            }
 
-            const status = asNonEmptyString(params.status);
-            if (status !== undefined) payload.status = status;
+            if (hasOwn("status")) {
+              payload.status = asNonEmptyString(flattened.status);
+            }
 
-            const customer = asNonEmptyString(params.customer);
-            if (customer !== undefined) payload.customer = customer;
+            if (hasOwn("startDate")) {
+              const rawStartDate = flattened.startDate;
+              const startDate = asTimestamp(rawStartDate);
+              const startDateText = asNonEmptyString(rawStartDate);
+              if (startDate === undefined && startDateText !== undefined) {
+                return {
+                  ok: false,
+                  error: "Project start date must be a valid date.",
+                };
+              }
+              payload.startDate = startDate;
+            }
 
-            const location = asNonEmptyString(params.location);
-            if (location !== undefined) payload.location = location;
+            if (hasOwn("endDate")) {
+              const rawEndDate = flattened.endDate;
+              const endDate = asTimestamp(rawEndDate);
+              const endDateText = asNonEmptyString(rawEndDate);
+              if (endDate === undefined && endDateText !== undefined) {
+                return {
+                  ok: false,
+                  error: "Project end date must be a valid date.",
+                };
+              }
+              payload.endDate = endDate;
+            }
 
-            const budget = asNumber(params.budget);
-            if (budget !== undefined) payload.budget = budget;
+            if (hasOwn("customer")) {
+              payload.customer = asNonEmptyString(flattened.customer);
+            }
 
-            const currency = asNonEmptyString(params.currency);
-            if (currency !== undefined) payload.currency = currency;
+            if (hasOwn("location")) {
+              payload.location = asNonEmptyString(flattened.location);
+            }
+
+            if (hasOwn("budget")) {
+              payload.budget = asNumber(flattened.budget);
+            }
+
+            if (hasOwn("currency")) {
+              payload.currency = asNonEmptyString(flattened.currency);
+            }
+
+            if (
+              typeof payload.startDate === "number" &&
+              typeof payload.endDate === "number" &&
+              payload.endDate < payload.startDate
+            ) {
+              return {
+                ok: false,
+                error: "Project end date cannot be earlier than the start date.",
+              };
+            }
+
+            if (Object.keys(payload).length === 1) {
+              return {
+                ok: false,
+                error: "No valid project setting fields were provided.",
+              };
+            }
 
             const result = await convex.mutation(
               apiAny.projects.updateProject,

@@ -25,8 +25,9 @@ export type LaborExportColumnOptions = {
 
 export function getLaborExportHeaders(
   options: LaborExportColumnOptions,
-  _taxSettings?: Partial<OrganizationTaxSettings> | null,
+  taxSettings?: Partial<OrganizationTaxSettings> | null,
 ): string[] {
+  void taxSettings;
   return [
     ...(options.includeSection ? ["Section"] : []),
     "Work",
@@ -42,8 +43,9 @@ export function getLaborExportHeaders(
 export function getLaborExportCsvRow(
   row: LaborExportRow,
   options: LaborExportColumnOptions,
-  _taxSettings?: Partial<OrganizationTaxSettings> | null,
+  taxSettings?: Partial<OrganizationTaxSettings> | null,
 ): string[] {
+  void taxSettings;
   return [
     ...(options.includeSection ? [row.sectionName] : []),
     row.work,
