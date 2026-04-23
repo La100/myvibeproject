@@ -811,15 +811,25 @@ function ProjectOverviewContent() {
 
             <div
               className={cn(
-                "mt-6 grid gap-6 xl:gap-8 lg:items-end",
+                "grid gap-6 xl:gap-8 lg:items-end",
                 hasProjectCover
-                  ? "lg:grid-cols-[minmax(340px,1.08fr)_minmax(420px,1.12fr)]"
-                  : "lg:grid-cols-1",
+                  ? "mt-6 lg:grid-cols-[minmax(340px,1.08fr)_minmax(420px,1.12fr)]"
+                  : "mt-7 lg:grid-cols-1",
               )}
             >
-              <div className="flex min-w-0 flex-col justify-end gap-5 lg:pb-5">
+              <div
+                className={cn(
+                  "flex min-w-0 flex-col justify-end gap-5",
+                  hasProjectCover ? "lg:pb-5" : "pb-7 sm:pb-9 lg:pb-10",
+                )}
+              >
                 <div className="space-y-4">
-                  <h1 className="max-w-[10ch] font-serif text-[2.1rem] leading-[0.92] tracking-[-0.05em] text-foreground sm:text-[2.8rem] lg:text-[3.4rem] xl:text-[3.9rem]">
+                  <h1
+                    className={cn(
+                      "font-serif text-[2.1rem] leading-[0.92] tracking-[-0.05em] text-foreground sm:text-[2.8rem] lg:text-[3.4rem] xl:text-[3.9rem]",
+                      hasProjectCover ? "max-w-[10ch]" : "max-w-[16ch]",
+                    )}
+                  >
                     {project.name}
                   </h1>
                   <div className="flex flex-wrap items-center gap-2.5">
@@ -857,9 +867,7 @@ function ProjectOverviewContent() {
                     />
                   </div>
                 </div>
-              ) : (
-                <div className="relative min-h-[240px] overflow-hidden rounded-[30px] border border-border/60 bg-[radial-gradient(circle_at_20%_18%,rgba(255,255,255,0.78),transparent_22%),radial-gradient(circle_at_82%_20%,rgba(49,45,38,0.03),transparent_26%),linear-gradient(180deg,rgba(250,250,250,1)_0%,rgba(245,245,245,1)_100%)] sm:min-h-[290px] lg:min-h-[320px] lg:max-w-[480px] lg:justify-self-end xl:max-w-[560px] 2xl:max-w-[610px]" />
-              )}
+              ) : null}
             </div>
 
             <div className="border-t border-border/70 bg-card px-5 py-5 sm:px-7 sm:py-6 lg:px-9">
