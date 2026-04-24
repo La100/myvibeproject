@@ -15,7 +15,7 @@ const HOP_BY_HOP_RESPONSE_HEADERS = new Set([
   "transfer-encoding",
   "upgrade",
 ]);
-const CHATKIT_PROXY_TIMEOUT_MS = 45_000;
+const CHATKIT_PROXY_TIMEOUT_MS = 120_000;
 
 function buildTargetUrl(request: Request, path: string[]) {
   const baseUrl = process.env.CHATKIT_SELF_HOSTED_SERVER_URL?.trim();
