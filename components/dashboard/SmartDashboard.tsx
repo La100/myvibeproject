@@ -4,9 +4,12 @@ import { useOrganization, useOrganizationList } from "@clerk/nextjs";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
+import { toast } from "sonner";
 import { apiAny } from "@/lib/convexApiAny";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import { cn } from "@/lib/utils";
 import { selectOrganizationUrl } from "@/lib/authRedirects";
 
@@ -38,6 +41,30 @@ function LoadingState({
   );
 }
 
+function ErrorState({
+  title,
+  description,
+  onRetry,
+}: {
+  title: string;
+  description: string;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="flex min-h-[220px] items-center justify-center px-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="flex flex-col gap-2 text-center">
+          <CardTitle className="text-lg font-medium">{title}</CardTitle>
+          <CardDescription>{description}</CardDescription>
+        </CardHeader>
+        <CardContent className="flex justify-center pb-8">
+          <Button onClick={onRetry}>Try again</Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export function SmartDashboard() {
   const router = useRouter();
   const onboardingStatus = useQuery(apiAny.onboarding.getStatus);
@@ -50,6 +77,7 @@ export function SmartDashboard() {
   const { organization: activeOrganization } = useOrganization();
   const [isEnsuringMembership, setIsEnsuringMembership] = useState(false);
   const [activationAttempt, setActivationAttempt] = useState(0);
+  const [activationError, setActivationError] = useState<string | null>(null);
   const activatingOrganizationIdRef = useRef<string | null>(null);
   const activationRetryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -80,6 +108,7 @@ export function SmartDashboard() {
 
     ensuredActiveOrgIdRef.current = activeOrganization.id;
     setIsEnsuringMembership(true);
+    setActivationError(null);
 
     ensureCurrentUserTeamMembership({
       clerkOrgId: activeOrganization.id,
@@ -88,6 +117,11 @@ export function SmartDashboard() {
       .catch((error) => {
         ensuredActiveOrgIdRef.current = null;
         console.error("Failed to ensure dashboard membership", error);
+        const message = toUserFacingErrorMessage(error);
+        setActivationError(message);
+        toast.error("Could not verify workspace access.", {
+          description: message,
+        });
       })
       .finally(() => {
         setIsEnsuringMembership(false);
@@ -138,7 +172,11 @@ export function SmartDashboard() {
         sessionStorage.setItem(ACTIVATION_RELOAD_KEY, "1");
         window.location.replace("/dashboard");
       } else {
-        setActivationAttempt(0);
+        const message = "We could not activate your workspace automatically. Please try again.";
+        setActivationError(message);
+        toast.error("Could not activate your workspace.", {
+          description: message,
+        });
       }
       return;
     }
@@ -147,6 +185,7 @@ export function SmartDashboard() {
       return;
     }
 
+    setActivationError(null);
     activatingOrganizationIdRef.current = primaryOrganization.id;
     if (activationRetryTimeoutRef.current) {
       clearTimeout(activationRetryTimeoutRef.current);
@@ -210,6 +249,7 @@ export function SmartDashboard() {
       sessionStorage.removeItem(ACTIVATION_RELOAD_KEY);
       activatingOrganizationIdRef.current = null;
       setActivationAttempt(0);
+      setActivationError(null);
       if (activationRetryTimeoutRef.current) {
         clearTimeout(activationRetryTimeoutRef.current);
         activationRetryTimeoutRef.current = null;
@@ -236,6 +276,21 @@ export function SmartDashboard() {
 
   if (!onboardingStatus.authenticated) {
     return <LoadingState title="Authorizing workspace..." description="One moment while we verify access." />;
+  }
+
+  if (activationError) {
+    return (
+      <ErrorState
+        title="Workspace setup needs attention"
+        description={activationError}
+        onRetry={() => {
+          setActivationError(null);
+          setActivationAttempt(0);
+          hasRedirectedRef.current = false;
+          router.refresh();
+        }}
+      />
+    );
   }
 
   // Always show loading while redirecting

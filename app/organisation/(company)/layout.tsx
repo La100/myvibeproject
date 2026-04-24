@@ -4,6 +4,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import { useEffect, useRef, useMemo } from "react";
+import { toast } from "sonner";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Spinner } from "@/components/ui/spinner";
 import { CompanySidebar } from "@/components/company/CompanySidebar";
@@ -11,6 +12,7 @@ import { useOrganization } from "@clerk/nextjs";
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { postAuthResolverUrl } from "@/lib/authRedirects";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import { cn } from "@/lib/utils";
 
 export default function CompanyLayout({
@@ -63,6 +65,9 @@ export default function CompanyLayout({
     }).catch((error) => {
       ensuredOrgIdRef.current = null;
       console.error("Failed to ensure team membership", error);
+      toast.error("Could not verify workspace access.", {
+        description: toUserFacingErrorMessage(error),
+      });
     });
   }, [isLoaded, organization?.id, organization?.name, ensureCurrentUserTeamMembership]);
 

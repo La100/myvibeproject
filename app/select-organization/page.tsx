@@ -13,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { postAuthResolverUrl } from "@/lib/authRedirects";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
 export default function SelectOrganizationPage() {
   const router = useRouter();
@@ -53,6 +54,9 @@ export default function SelectOrganizationPage() {
         router.replace(postAuthResolverUrl);
       } catch (error) {
         console.error("Failed to activate workspace", error);
+        toast.error("Could not reconnect to your workspace.", {
+          description: toUserFacingErrorMessage(error),
+        });
       }
     })();
   }, [isLoaded, isSubmitting, organization?.id, organizations, router, setActive]);

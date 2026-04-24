@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { SignIn, useSignIn, useUser } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { authClerkAppearance } from "@/lib/authClerkAppearance";
 import {
@@ -12,6 +13,7 @@ import {
   signInUrl,
   signUpUrl,
 } from "@/lib/authRedirects";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
 export default function SignInPage() {
   const { signIn, setActive, isLoaded: isSignInLoaded } = useSignIn();
@@ -61,6 +63,9 @@ export default function SignInPage() {
         });
       } catch (error) {
         console.error("Error signing in with ticket:", error);
+        toast.error("Could not sign you in from this link.", {
+          description: toUserFacingErrorMessage(error),
+        });
       }
     })();
 

@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Spinner } from "@/components/ui/spinner";
 import { TimezonePicker } from "@/components/ui/timezone-picker";
 import { postAuthResolverUrl, resolveLocalRedirectUrl } from "@/lib/authRedirects";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
 const CURRENCY_OPTIONS: Array<{ value: CurrencyCode; label: string }> = [
   { value: "USD", label: "US Dollar ($)" },
@@ -193,6 +194,9 @@ function OnboardingContent() {
       }).catch((error) => {
         ensuredMembershipOrgIdRef.current = null;
         console.error("Failed to ensure onboarding membership", error);
+        toast.error("Could not verify workspace access.", {
+          description: toUserFacingErrorMessage(error),
+        });
       });
       return;
     }
