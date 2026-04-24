@@ -597,7 +597,7 @@ const getProjectManagerMembership = async (
   }
 
   if (teamMember.role === "member") {
-    if (teamMember.projectIds && teamMember.projectIds.length > 0) {
+    if (Array.isArray(teamMember.projectIds)) {
       if (!teamMember.projectIds.includes(projectId)) {
         throw new Error("Insufficient permissions to manage this project");
       }
@@ -634,13 +634,14 @@ export const getProjectsByTeam = query({
       throw new Error("User is not a member of this team");
     }
 
-    // Get all projects for the team
     const projects = await ctx.db
       .query("projects")
       .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
       .collect();
 
-    return projects.sort((a, b) => b._creationTime - a._creationTime);
+    return projects
+      .filter((project) => canAccessProjectWithMembership(membership, project._id))
+      .sort((a, b) => b._creationTime - a._creationTime);
   },
 });
 
@@ -681,9 +682,7 @@ export const listProjectsByClerkOrg = query({
           .withIndex("by_team", (q) => q.eq("teamId", team._id))
           .collect();
       } else if (membership.role === "member") {
-        // Member may have limited access
-        if (membership.projectIds && membership.projectIds.length > 0) {
-          // Member with limited access - only assigned projects
+        if (Array.isArray(membership.projectIds)) {
           const projectPromises = membership.projectIds.map((id) =>
             ctx.db.get(id),
           );
@@ -779,13 +778,14 @@ export const listProjectsByTeam = query({
       return [];
     }
 
-    // Get all projects for this team
     const projects = await ctx.db
       .query("projects")
       .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
       .collect();
 
-    return projects;
+    return projects.filter((project) =>
+      canAccessProjectWithMembership(teamMember, project._id),
+    );
   },
 });
 
@@ -831,6 +831,7 @@ export const createProjectInOrg = mutation({
     ),
     taxEnabled: v.optional(v.boolean()),
     taxRate: v.optional(v.number()),
+    projectMemberClerkUserIds: v.optional(v.array(v.string())),
   },
   async handler(ctx, args) {
     const identity = await ctx.auth.getUserIdentity();
@@ -933,6 +934,53 @@ export const createProjectInOrg = mutation({
       aiAutoConfirmCrud: false,
     });
 
+    if (Array.isArray(args.projectMemberClerkUserIds)) {
+      const selectedMemberIds = new Set(
+        args.projectMemberClerkUserIds
+          .map((clerkUserId) => clerkUserId.trim())
+          .filter((clerkUserId) => clerkUserId.length > 0),
+      );
+
+      const teamMembers = await ctx.db
+        .query("teamMembers")
+        .withIndex("by_team", (q) => q.eq("teamId", team._id))
+        .filter((q) => q.eq(q.field("isActive"), true))
+        .collect();
+
+      const teamProjects = await ctx.db
+        .query("projects")
+        .withIndex("by_team", (q) => q.eq("teamId", team._id))
+        .collect();
+      const existingProjectIds = teamProjects
+        .map((project) => project._id)
+        .filter((id) => id !== projectId);
+
+      for (const member of teamMembers) {
+        if (member.role !== "member") {
+          continue;
+        }
+
+        if (selectedMemberIds.has(member.clerkUserId)) {
+          if (
+            Array.isArray(member.projectIds) &&
+            !member.projectIds.includes(projectId)
+          ) {
+            await ctx.db.patch(member._id, {
+              projectIds: [...member.projectIds, projectId],
+            });
+          }
+          continue;
+        }
+
+        await ctx.db.patch(member._id, {
+          projectIds:
+            Array.isArray(member.projectIds)
+              ? member.projectIds.filter((id) => id !== projectId)
+              : existingProjectIds,
+        });
+      }
+    }
+
     await ctx.runMutation(internalAny.activityLog.logActivity, {
       teamId: team._id,
       actionType: "analytics.project.created",
@@ -1030,6 +1078,10 @@ export const getProjectBySlugInClerkOrg = query({
       .unique();
 
     if (!project) return null;
+
+    if (!canAccessProjectWithMembership(membership, project._id)) {
+      return null;
+    }
 
     const coverImageDisplayUrl = await resolveCoverImageDisplayUrl(
       project.coverImageUrl,
@@ -1458,7 +1510,7 @@ export const listTeamProjects = query({
         .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
         .collect();
     } else if (membership.role === "member") {
-      if (membership.projectIds && membership.projectIds.length > 0) {
+      if (Array.isArray(membership.projectIds)) {
         const memberProjects = await Promise.all(
           membership.projectIds.map((id) => ctx.db.get(id)),
         );
@@ -1526,9 +1578,7 @@ export const getProjectsForTeam = query({
         .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
         .collect();
     } else if (membership.role === "member") {
-      // Member may have limited access
-      if (membership.projectIds && membership.projectIds.length > 0) {
-        // Member with limited access - only assigned projects
+      if (Array.isArray(membership.projectIds)) {
         const memberProjects = await Promise.all(
           membership.projectIds.map((id) => ctx.db.get(id)),
         );
@@ -1575,24 +1625,9 @@ export const checkUserProjectAccess = query({
       return false;
     }
 
-    // Admin has access to all projects in the team
-    if (teamMember.role === "admin") {
-      return teamMember;
-    }
-
-    // Member may have limited access to projects
-    if (teamMember.role === "member") {
-      // If member has assigned projectIds, check if they have access to this project
-      if (teamMember.projectIds && teamMember.projectIds.length > 0) {
-        return teamMember.projectIds.includes(args.projectId)
-          ? teamMember
-          : false;
-      }
-      return false;
-    }
-
-    // In other cases, no access
-    return false;
+    return canAccessProjectWithMembership(teamMember, args.projectId)
+      ? teamMember
+      : false;
   },
 });
 
@@ -2026,8 +2061,7 @@ export const updateProjectTaskStatusSettings = mutation({
         membership.isActive &&
         (membership.role === "admin" ||
           (membership.role === "member" &&
-            (!membership.projectIds ||
-              membership.projectIds.length === 0 ||
+            (!Array.isArray(membership.projectIds) ||
               membership.projectIds.includes(args.projectId)))),
     );
 

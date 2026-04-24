@@ -28,10 +28,9 @@ const hasProjectAccess = async (ctx: any, projectId: Id<"projects">, requireWrit
     }
     
     if (membership.role === 'member') {
-        if (membership.projectIds && membership.projectIds.length > 0) {
-            return membership.projectIds.includes(projectId);
-        }
-        return true;
+        return Array.isArray(membership.projectIds)
+            ? membership.projectIds.includes(projectId)
+            : true;
     }
     
     return false;

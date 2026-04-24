@@ -2,7 +2,7 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
-import { ensureTeamAccess } from "./authz";
+import { canAccessProjectWithMembership, ensureTeamAccess } from "./authz";
 import {
   applyInvoiceFieldVisibilityToBillingProfile,
   applyInvoiceFieldVisibilityToCustomer,
@@ -67,7 +67,7 @@ const getProjectPaymentManager = async (
     throw new Error("Insufficient permissions to manage project payments");
   }
 
-  if (membership.role === "member" && membership.projectIds && membership.projectIds.length > 0) {
+  if (membership.role === "member" && Array.isArray(membership.projectIds)) {
     if (!membership.projectIds.includes(projectId)) {
       throw new Error("Insufficient permissions to manage project payments");
     }
@@ -182,13 +182,8 @@ export const getTeamInvoicesReport = query({
       .withIndex("by_team", (q: any) => q.eq("teamId", args.teamId))
       .collect();
 
-    const allowedProjectIds =
-      membership.role === "admin"
-        ? null
-        : new Set((membership.projectIds || []).map((projectId: Id<"projects">) => String(projectId)));
-
     const accessibleProjects = projects.filter((project: any) =>
-      allowedProjectIds ? allowedProjectIds.has(String(project._id)) : true,
+      canAccessProjectWithMembership(membership, project._id),
     );
 
     const projectMap = new Map(

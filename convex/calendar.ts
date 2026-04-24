@@ -26,8 +26,7 @@ const hasProjectAccess = async (
   if (!membership) return false;
   if (
     membership.role === "member" &&
-    membership.projectIds &&
-    membership.projectIds.length > 0 &&
+    Array.isArray(membership.projectIds) &&
     !membership.projectIds.includes(projectId)
   ) {
     return false;
@@ -116,7 +115,7 @@ const getAccessibleProjectsForClerkOrg = async (ctx: any, clerkOrgId: string) =>
       .collect();
   }
 
-  if (membership.projectIds && membership.projectIds.length > 0) {
+  if (Array.isArray(membership.projectIds)) {
     const projectResults = await Promise.all(
       membership.projectIds.map((projectId: Id<"projects">) => ctx.db.get(projectId)),
     );

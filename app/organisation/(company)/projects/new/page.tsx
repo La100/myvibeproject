@@ -20,6 +20,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
+interface TeamMemberOption {
+  _id: Id<"teamMembers">;
+  clerkUserId: string;
+  role: "admin" | "member";
+  isActive: boolean;
+  name?: string;
+  email?: string;
+}
+
 const currencySymbols: Record<string, string> = {
   PLN: "zł",
   USD: "$",
@@ -68,6 +77,7 @@ export default function NewProjectPage() {
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isOptimizingCoverImage, setIsOptimizingCoverImage] = useState(false);
+  const projectAccessInitializedRef = useRef(false);
 
   const team = useQuery(apiAny.teams.getTeamByClerkOrg,
     organization?.id ? { clerkOrgId: organization.id } : "skip"
@@ -77,6 +87,7 @@ export default function NewProjectPage() {
   const updateProject = useMutation(apiAny.projects.updateProject);
   const generateUploadUrl = useMutation(apiAny.files.generateUploadUrlWithCustomKey);
   const addFile = useMutation(apiAny.files.addFile);
+  const teamMembers = useQuery(apiAny.teams.getTeamMembers, team?._id ? { teamId: team._id } : "skip");
   const checkLimits = useQuery(apiAny.stripe.checkTeamLimits,
     team?._id ? {
       teamId: team._id,
@@ -104,8 +115,23 @@ export default function NewProjectPage() {
     currency: "PLN",
     measurements: "metric",
   });
+  const projectMemberOptions = ((teamMembers ?? []) as TeamMemberOption[]).filter(
+    (member) => member.isActive && member.role === "member",
+  );
+  const [selectedProjectMemberIds, setSelectedProjectMemberIds] = useState<string[]>([]);
   const selectedCurrency = useDefaultCurrency ? (team?.currency || "PLN") : newProject.currency;
   const selectedCurrencySymbol = currencySymbols[selectedCurrency] || selectedCurrency;
+
+  useEffect(() => {
+    if (projectAccessInitializedRef.current || projectMemberOptions.length === 0) {
+      return;
+    }
+
+    projectAccessInitializedRef.current = true;
+    setSelectedProjectMemberIds(
+      projectMemberOptions.map((member) => member.clerkUserId),
+    );
+  }, [projectMemberOptions]);
 
   useEffect(() => {
     if (!coverImageFile) {
@@ -233,6 +259,8 @@ export default function NewProjectPage() {
         endDate: parsedEndDate?.getTime(),
         currency: selectedCurrency,
         measurements: newProject.measurements === "imperial" ? "imperial" : "metric",
+        projectMemberClerkUserIds:
+          projectMemberOptions.length > 0 ? selectedProjectMemberIds : undefined,
       });
 
       if (coverImageFile && createdProject?.id) {
@@ -364,6 +392,47 @@ export default function NewProjectPage() {
             </div>
           </div>
         </section>
+
+        {projectMemberOptions.length > 0 ? (
+          <section className="flex flex-col gap-5">
+            <div>
+              <h2 className="text-lg font-semibold">Project access</h2>
+              <p className="text-sm text-muted-foreground">Choose which organization members can access this project.</p>
+            </div>
+
+            <div className="flex flex-col gap-3 rounded-lg border bg-card p-6">
+              {projectMemberOptions.map((member) => {
+                const isSelected = selectedProjectMemberIds.includes(member.clerkUserId);
+                const label = member.name || member.email || member.clerkUserId;
+
+                return (
+                  <button
+                    key={member._id}
+                    type="button"
+                    onClick={() =>
+                      setSelectedProjectMemberIds((current) =>
+                        isSelected
+                          ? current.filter((id) => id !== member.clerkUserId)
+                          : [...current, member.clerkUserId],
+                      )
+                    }
+                    className="flex items-center justify-between rounded-md border bg-background px-4 py-3 text-left text-sm transition-colors hover:bg-secondary/70"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium">{label}</span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {isSelected ? "Will have project access" : "No access to this project"}
+                      </span>
+                    </span>
+                    <span className={isSelected ? "text-primary" : "text-muted-foreground"}>
+                      {isSelected ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
 
         <section className="flex flex-col gap-5">
           <div>

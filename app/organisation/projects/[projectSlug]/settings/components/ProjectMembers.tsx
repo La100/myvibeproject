@@ -5,7 +5,7 @@ import { apiAny } from "@/lib/convexApiAny";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { UserX, Crown, User } from "lucide-react";
+import { UserPlus, UserX, Crown, User } from "lucide-react";
 import { toast } from "sonner";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import { Id } from "@/convex/_generated/dataModel";
@@ -28,32 +28,49 @@ interface TeamMember {
 }
 
 export default function ProjectMembers({ project }: ProjectMembersProps) {
-  // Get all team members
-  const teamMembers = useQuery(apiAny.teams.getTeamMembers, {
+  const projectMembers = useQuery(apiAny.teams.getProjectMembers, {
     teamId: project.teamId,
+    projectId: project._id,
   });
-  
-  // Get current user's role
+
   const currentUserMember = useQuery(apiAny.teams.getCurrentUserTeamMember, {
     teamId: project.teamId,
   });
+  const availableMembers = useQuery(
+    apiAny.teams.getAvailableOrgMembersForProject,
+    currentUserMember?.role === "admin" ? { projectId: project._id } : "skip",
+  );
+  const addExistingMemberToProject = useMutation(apiAny.teams.addExistingMemberToProject);
 
   const isCurrentUserAdmin = currentUserMember?.role === "admin";
 
-  if (!teamMembers || !currentUserMember) {
+  if (!projectMembers || !currentUserMember) {
     return <div>Loading members...</div>;
   }
 
-  // Filter team members by role (only internal team members)
-  const admins = teamMembers.filter((member: TeamMember) => member.role === "admin");
-  const members = teamMembers.filter((member: TeamMember) => member.role === "member");
+  const admins = projectMembers.filter((member: TeamMember) => member.role === "admin");
+  const members = projectMembers.filter((member: TeamMember) => member.role === "member");
+
+  const handleAddMember = async (member: TeamMember) => {
+    try {
+      await addExistingMemberToProject({
+        clerkUserId: member.clerkUserId,
+        projectId: project._id,
+      });
+      toast.success("Project access added");
+    } catch (error) {
+      toast.error("Failed to add project access", {
+        description: toUserFacingErrorMessage(error),
+      });
+    }
+  };
 
   return (
     <div className="flex flex-col gap-8">
       <div className="border-b border-border/70 pb-5">
         <h3 className="text-lg font-semibold text-foreground">Team Members</h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          All team members have access to this project based on their team role.
+          Administrators have full access. Members listed here can work in this project.
         </p>
       </div>
 
@@ -73,7 +90,7 @@ export default function ProjectMembers({ project }: ProjectMembersProps) {
                     role="Admin"
                     description="Full project access"
                     canManage={false}
-                    teamId={project.teamId}
+                    projectId={project._id}
                   />
                 ))}
               </div>
@@ -95,8 +112,46 @@ export default function ProjectMembers({ project }: ProjectMembersProps) {
                     role="Member"
                     description="Can edit tasks and files"
                     canManage={isCurrentUserAdmin}
-                    teamId={project.teamId}
+                    projectId={project._id}
                   />
+                ))}
+              </div>
+            </div>
+          )}
+          {isCurrentUserAdmin && availableMembers && availableMembers.length > 0 && (
+            <div className="flex flex-col gap-3 border-t pt-4">
+              <div className="flex items-center gap-2">
+                <UserPlus className="h-4 w-4 text-muted-foreground" />
+                <h4 className="text-sm font-semibold">Available members</h4>
+                <Badge variant="secondary">{availableMembers.length}</Badge>
+              </div>
+              <div className="flex flex-col gap-2">
+                {availableMembers.map((member: TeamMember) => (
+                  <div
+                    key={member._id}
+                    className="flex items-center justify-between rounded-2xl bg-secondary/70 px-3 py-3.5"
+                  >
+                    <div className="flex min-w-0 flex-1 items-center gap-2 lg:gap-3">
+                      <Avatar className="h-6 w-6 flex-shrink-0 lg:h-8 lg:w-8">
+                        <AvatarImage src={member.imageUrl} />
+                        <AvatarFallback className="text-xs">
+                          {member.name ? member.name.split(" ").map((n: string) => n[0]).join("").toUpperCase() : "U"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{member.name || "Unknown"}</p>
+                        <p className="hidden text-xs text-muted-foreground sm:block">No access to this project</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleAddMember(member)}
+                    >
+                      <UserPlus className="mr-2 h-4 w-4" />
+                      Add
+                    </Button>
+                  </div>
                 ))}
               </div>
             </div>
@@ -112,15 +167,15 @@ function MemberRow({
   role, 
   description,
   canManage,
-  teamId
+  projectId,
 }: { 
   member: TeamMember; 
   role: string; 
   description: string;
   canManage: boolean;
-  teamId: Id<"teams">;
+  projectId: Id<"projects">;
 }) {
-  const removeTeamMember = useMutation(apiAny.teams.removeTeamMember);
+  const removeMemberFromProject = useMutation(apiAny.teams.removeMemberFromProject);
 
   const getRoleColor = (role: string) => {
     switch (role.toLowerCase()) {
@@ -132,13 +187,13 @@ function MemberRow({
 
   const handleRemoveMember = async () => {
     try {
-      await removeTeamMember({
+      await removeMemberFromProject({
         clerkUserId: member.clerkUserId,
-        teamId: teamId,
+        projectId,
       });
-      toast.success("Team member removed");
+      toast.success("Project access removed");
     } catch (error) {
-      toast.error("Failed to remove team member", {
+      toast.error("Failed to remove project access", {
         description: toUserFacingErrorMessage(error),
       });
     }
@@ -167,7 +222,7 @@ function MemberRow({
               size="sm"
               onClick={handleRemoveMember}
               className="h-6 w-6 p-0 text-destructive hover:text-destructive lg:h-8 lg:w-8"
-              title="Remove from team"
+              title="Remove from project"
             >
               <UserX className="h-3 w-3 lg:h-4 lg:w-4" />
             </Button>

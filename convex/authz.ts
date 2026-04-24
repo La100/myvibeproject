@@ -45,7 +45,11 @@ export const canAccessProjectWithMembership = (
   }
 
   if (membership.role === "member") {
-    return Array.isArray(membership.projectIds) && membership.projectIds.includes(projectId);
+    if (Array.isArray(membership.projectIds)) {
+      return membership.projectIds.includes(projectId);
+    }
+
+    return true;
   }
 
   return false;

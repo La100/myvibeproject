@@ -259,7 +259,7 @@ const ensureProjectPaymentAccess = async (ctx: any, project: any, clerkUserId: s
   if (membership.role !== "admin" && membership.role !== "member") {
     throw new Error("Not authorized to manage project payments");
   }
-  if (membership.role === "member" && membership.projectIds && membership.projectIds.length > 0) {
+  if (membership.role === "member" && Array.isArray(membership.projectIds)) {
     const allowedProjectIds = membership.projectIds.map(String);
     if (!allowedProjectIds.includes(String(project._id))) {
       throw new Error("Not authorized to manage project payments");

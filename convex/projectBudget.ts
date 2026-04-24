@@ -28,7 +28,7 @@ const getProjectMembership = async (
     throw new Error("Insufficient permissions to view project budget");
   }
 
-  if (membership.role === "member" && membership.projectIds?.length > 0) {
+  if (membership.role === "member" && Array.isArray(membership.projectIds)) {
     if (!membership.projectIds.includes(projectId)) {
       throw new Error("Insufficient permissions to view project budget");
     }

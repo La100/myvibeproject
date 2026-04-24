@@ -1037,7 +1037,7 @@ export const setFileCustomerPortalVisibility = mutation({
       throw new Error("No access to this project");
     }
 
-    if (member.role === "member" && member.projectIds && member.projectIds.length > 0) {
+    if (member.role === "member" && Array.isArray(member.projectIds)) {
       if (!member.projectIds.includes(project._id)) {
         throw new Error("No access to this project");
       }
@@ -1094,7 +1094,7 @@ export const setFileAiKnowledgeInclusion = mutation({
       throw new Error("No access to this project");
     }
 
-    if (member.role === "member" && member.projectIds && member.projectIds.length > 0) {
+    if (member.role === "member" && Array.isArray(member.projectIds)) {
       if (!member.projectIds.includes(project._id)) {
         throw new Error("No access to this project");
       }

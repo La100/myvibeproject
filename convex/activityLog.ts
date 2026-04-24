@@ -1,6 +1,6 @@
 import { internalMutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { ensureProjectAccess, ensureTeamAccess } from "./authz";
+import { canAccessProjectWithMembership, ensureProjectAccess, ensureTeamAccess } from "./authz";
 import { isClientNotificationAction } from "../lib/projectClientNotifications";
 
 /**
@@ -130,9 +130,7 @@ export const getForTeam = query({
       .withIndex("by_team", (q) => q.eq("teamId", team._id))
       .collect();
     const accessibleProjects =
-      membership.role === "admin" ||
-      !Array.isArray(membership.projectIds) ||
-      membership.projectIds.length === 0
+      membership.role === "admin" || !Array.isArray(membership.projectIds)
         ? teamProjects
         : teamProjects.filter((project) =>
             membership.projectIds?.some(
@@ -209,9 +207,7 @@ export const getClientNotificationsForTeam = query({
       .withIndex("by_team", (q) => q.eq("teamId", team._id))
       .collect();
     const accessibleProjects =
-      membership.role === "admin" ||
-      !Array.isArray(membership.projectIds) ||
-      membership.projectIds.length === 0
+      membership.role === "admin" || !Array.isArray(membership.projectIds)
         ? teamProjects
         : teamProjects.filter((project) =>
             membership.projectIds?.some(
@@ -336,6 +332,12 @@ export const getTeamProductKpis = query({
 
     for (const event of analyticsEvents) {
       if (event._creationTime < since) {
+        continue;
+      }
+      if (
+        event.projectId &&
+        !canAccessProjectWithMembership(membership, event.projectId)
+      ) {
         continue;
       }
 

@@ -41,8 +41,7 @@ const ensureProjectScopedMembership = async (
 
   if (
     membership.role === "member" &&
-    membership.projectIds &&
-    membership.projectIds.length > 0 &&
+    Array.isArray(membership.projectIds) &&
     !membership.projectIds.includes(projectId)
   ) {
     throw new Error("Forbidden");

@@ -60,8 +60,7 @@ export const sendClientPortalLinkEmail = action({
     }
     if (
       teamMember.role !== "admin" &&
-      teamMember.projectIds &&
-      teamMember.projectIds.length > 0 &&
+      Array.isArray(teamMember.projectIds) &&
       !teamMember.projectIds.includes(args.projectId)
     ) {
       throw new Error("Insufficient permissions to manage this project");

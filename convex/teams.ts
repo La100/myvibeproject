@@ -5,10 +5,11 @@ import {
   internalQuery,
   internalAction,
 } from "./_generated/server";
-import { Doc } from "./_generated/dataModel";
+import { Doc, Id } from "./_generated/dataModel";
 import { r2 } from "./files";
 import { getEffectiveLimits } from "./stripe";
 import {
+  canAccessProjectWithMembership,
   ensureProjectAccess,
   ensureTeamAccess,
   getActiveTeamMembership,
@@ -61,6 +62,46 @@ const sanitizeUserDisplayName = (value?: string | null) => {
     .trim();
 
   return normalized || undefined;
+};
+
+const ensureProjectAccessAdmin = async (
+  ctx: any,
+  projectId: Id<"projects">,
+  clerkUserId: string,
+) => {
+  const project = await ctx.db.get(projectId);
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  const membership = await ctx.db
+    .query("teamMembers")
+    .withIndex("by_team_and_user", (q: any) =>
+      q.eq("teamId", project.teamId).eq("clerkUserId", clerkUserId),
+    )
+    .filter((q: any) => q.eq(q.field("isActive"), true))
+    .unique();
+
+  if (!membership || membership.role !== "admin") {
+    throw new Error("Only admins can manage project access");
+  }
+
+  return { project, membership };
+};
+
+const listTeamProjectIdsExcept = async (
+  ctx: any,
+  teamId: Id<"teams">,
+  excludedProjectId: Id<"projects">,
+) => {
+  const projects = await ctx.db
+    .query("projects")
+    .withIndex("by_team", (q: any) => q.eq("teamId", teamId))
+    .collect();
+
+  return projects
+    .map((project: Doc<"projects">) => project._id)
+    .filter((projectId: Id<"projects">) => projectId !== excludedProjectId);
 };
 
 export const listUserTeams = query({
@@ -502,8 +543,7 @@ export const markOrganizationClientNotificationsRead = mutation({
 
     const restrictedProjectIds =
       teamMember.role === "member" &&
-      Array.isArray(teamMember.projectIds) &&
-      teamMember.projectIds.length > 0
+      Array.isArray(teamMember.projectIds)
         ? new Set(teamMember.projectIds.map((projectId) => String(projectId)))
         : null;
 
@@ -742,6 +782,14 @@ export const getProjectMembers = query({
 
     // Process team members
     for (const member of teamMembers) {
+      if (
+        args.projectId &&
+        member.role !== "admin" &&
+        !canAccessProjectWithMembership(member, args.projectId)
+      ) {
+        continue;
+      }
+
       const user = await ctx.db
         .query("users")
         .withIndex("by_clerk_user_id", (q) =>
@@ -1017,8 +1065,10 @@ export const changeTeamMemberRole = mutation({
       throw new Error("Team member not found");
     }
 
-    // Aktualizuj rolę członka (tylko admin/member)
-    await ctx.db.patch(targetMember._id, { role: args.role });
+    await ctx.db.patch(targetMember._id, {
+      role: args.role,
+      ...(targetMember.role !== args.role ? { projectIds: undefined } : {}),
+    });
 
     return { success: true };
   },
@@ -1035,25 +1085,11 @@ export const addExistingMemberToProject = mutation({
       throw new Error("Not authenticated");
     }
 
-    const project = await ctx.db.get(args.projectId);
-    if (!project) {
-      throw new Error("Project not found");
-    }
-
-    // Sprawdź uprawnienia wywołującego
-    const callerMember = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject),
-      )
-      .unique();
-
-    if (
-      !callerMember ||
-      (callerMember.role !== "admin" && callerMember.role !== "member")
-    ) {
-      throw new Error("Insufficient permissions");
-    }
+    const { project } = await ensureProjectAccessAdmin(
+      ctx,
+      args.projectId,
+      identity.subject,
+    );
 
     // Znajdź członka organizacji do dodania
     const targetMember = await ctx.db
@@ -1067,7 +1103,72 @@ export const addExistingMemberToProject = mutation({
       throw new Error("User is not a member of this organization");
     }
 
-    return { success: true, message: "Project-scoped access is disabled." };
+    if (!targetMember.isActive) {
+      throw new Error("Team member is not active");
+    }
+
+    if (targetMember.role === "admin") {
+      return { success: true };
+    }
+
+    if (canAccessProjectWithMembership(targetMember, args.projectId)) {
+      return { success: true };
+    }
+
+    await ctx.db.patch(targetMember._id, {
+      projectIds: [...(targetMember.projectIds ?? []), args.projectId],
+    });
+
+    return { success: true };
+  },
+});
+
+export const removeMemberFromProject = mutation({
+  args: {
+    clerkUserId: v.string(),
+    projectId: v.id("projects"),
+  },
+  async handler(ctx, args) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const { project } = await ensureProjectAccessAdmin(
+      ctx,
+      args.projectId,
+      identity.subject,
+    );
+
+    const targetMember = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", project.teamId).eq("clerkUserId", args.clerkUserId),
+      )
+      .unique();
+
+    if (!targetMember) {
+      throw new Error("Team member not found");
+    }
+
+    if (targetMember.role === "admin") {
+      throw new Error("Administrators have access to every project");
+    }
+
+    if (targetMember.clerkUserId === identity.subject) {
+      throw new Error("Cannot remove yourself from this project");
+    }
+
+    const nextProjectIds =
+      Array.isArray(targetMember.projectIds)
+        ? targetMember.projectIds.filter((projectId) => projectId !== args.projectId)
+        : await listTeamProjectIdsExcept(ctx, project.teamId, args.projectId);
+
+    await ctx.db.patch(targetMember._id, {
+      projectIds: nextProjectIds,
+    });
+
+    return { success: true };
   },
 });
 
@@ -1075,8 +1176,48 @@ export const getAvailableOrgMembersForProject = query({
   args: {
     projectId: v.id("projects"),
   },
-  async handler() {
-    return [];
+  async handler(ctx, args) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return [];
+    }
+
+    const { project } = await ensureProjectAccessAdmin(
+      ctx,
+      args.projectId,
+      identity.subject,
+    );
+
+    const teamMembers = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_team", (q) => q.eq("teamId", project.teamId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+
+    const availableMembers = teamMembers.filter(
+      (member) =>
+        member.role === "member" &&
+        !canAccessProjectWithMembership(member, args.projectId),
+    );
+
+    return await Promise.all(
+      availableMembers.map(async (member) => {
+        const user = await ctx.db
+          .query("users")
+          .withIndex("by_clerk_user_id", (q) =>
+            q.eq("clerkUserId", member.clerkUserId),
+          )
+          .unique();
+
+        return {
+          ...member,
+          name: user?.name ?? "User without name",
+          email: user?.email ?? "No email",
+          imageUrl: user?.imageUrl,
+          source: "teamMember",
+        };
+      }),
+    );
   },
 });
 

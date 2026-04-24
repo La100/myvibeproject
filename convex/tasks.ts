@@ -8,6 +8,7 @@ import {
   action,
 } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
+import { canAccessProjectWithMembership } from "./authz";
 // Keep runtime-loaded internal refs here to avoid deep TS instantiation.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const internalAny = require("./_generated/api").internal as any;
@@ -66,20 +67,7 @@ const hasProjectAccess = async (
 
   if (!membership) return false;
 
-  if (membership.role === "admin") {
-    // Admin has full access to all projects
-    return true;
-  }
-
-  if (membership.role === "member") {
-    // Member may have limited access to specific projects
-    if (membership.projectIds && membership.projectIds.length > 0) {
-      return membership.projectIds.includes(projectId);
-    }
-    return false;
-  }
-
-  return false;
+  return canAccessProjectWithMembership(membership, projectId);
 };
 
 // Utility function to check task read/write access
