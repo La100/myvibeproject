@@ -983,8 +983,8 @@ export default function CompanyReports() {
 
         <TabsContent value="overview" className="mt-6">
           <div className="flex flex-col gap-6">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              <Card className="bg-card">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <Card className="h-full min-h-[8.75rem] bg-card">
                 <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
                   <CardTitle className="text-sm font-medium">Total Projects</CardTitle>
                   <BarChart3 className="h-4 w-4 text-muted-foreground" />
@@ -995,7 +995,7 @@ export default function CompanyReports() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-card">
+              <Card className="h-full min-h-[8.75rem] bg-card">
                 <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
                   <CardTitle className="text-sm font-medium">Total Budget</CardTitle>
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -1006,7 +1006,7 @@ export default function CompanyReports() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-card">
+              <Card className="h-full min-h-[8.75rem] bg-card">
                 <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
                   <CardTitle className="text-sm font-medium">Task Completion</CardTitle>
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
@@ -1019,7 +1019,7 @@ export default function CompanyReports() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-card">
+              <Card className="h-full min-h-[8.75rem] bg-card">
                 <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
                   <CardTitle className="text-sm font-medium">Overdue Tasks</CardTitle>
                   <Clock className="h-4 w-4 text-muted-foreground" />
@@ -1431,7 +1431,7 @@ function FinancialCard({
   icon: ReactNode;
 }) {
   return (
-    <Card className="bg-card">
+    <Card className="h-full min-h-[8.75rem] bg-card">
       <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
         {icon}

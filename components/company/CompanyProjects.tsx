@@ -95,7 +95,7 @@ export default function CompanyProjects() {
               value={sortBy}
               onValueChange={(value) => setSortBy(value as ProjectSort)}
             >
-              <SelectTrigger className="h-9 min-w-[12rem] rounded-xl border-border/80 bg-secondary/70 shadow-none">
+              <SelectTrigger className="h-9 min-w-[12rem] rounded-xl border-border/80 bg-card shadow-none">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-popover">

@@ -8,7 +8,10 @@ import { apiAny } from "@/lib/convexApiAny";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
-import { selectOrganizationUrl } from "@/lib/authRedirects";
+import { clerkChooseOrganizationTaskUrl, selectOrganizationUrl } from "@/lib/authRedirects";
+
+const ACTIVATION_RETRY_DELAY_MS = 2500;
+const MAX_ACTIVATION_ATTEMPTS = 3;
 
 function LoadingState({
   title,
@@ -45,7 +48,9 @@ export function SmartDashboard() {
   });
   const { organization: activeOrganization } = useOrganization();
   const [isEnsuringMembership, setIsEnsuringMembership] = useState(false);
+  const [activationAttempt, setActivationAttempt] = useState(0);
   const activatingOrganizationIdRef = useRef<string | null>(null);
+  const activationRetryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const organizations = useMemo(
     () =>
@@ -122,20 +127,46 @@ export function SmartDashboard() {
     }
 
     const primaryOrganization = organizations[0];
+
+    if (activationAttempt >= MAX_ACTIVATION_ATTEMPTS) {
+      router.replace(clerkChooseOrganizationTaskUrl);
+      hasRedirectedRef.current = true;
+      return;
+    }
+
     if (!setActive || activatingOrganizationIdRef.current === primaryOrganization.id) {
       return;
     }
 
     activatingOrganizationIdRef.current = primaryOrganization.id;
+    if (activationRetryTimeoutRef.current) {
+      clearTimeout(activationRetryTimeoutRef.current);
+    }
+    activationRetryTimeoutRef.current = setTimeout(() => {
+      if (activatingOrganizationIdRef.current !== primaryOrganization.id) {
+        return;
+      }
+
+      activatingOrganizationIdRef.current = null;
+      setActivationAttempt((attempt) => attempt + 1);
+    }, ACTIVATION_RETRY_DELAY_MS);
+
     void (async () => {
       try {
         await setActive({ organization: primaryOrganization.id });
+        router.refresh();
       } catch (error) {
+        if (activationRetryTimeoutRef.current) {
+          clearTimeout(activationRetryTimeoutRef.current);
+          activationRetryTimeoutRef.current = null;
+        }
         activatingOrganizationIdRef.current = null;
+        setActivationAttempt((attempt) => attempt + 1);
         console.error("Failed to set active organization", error);
       }
     })();
   }, [
+    activationAttempt,
     isEnsuringMembership,
     isLoaded,
     onboardingStatus,
@@ -166,8 +197,21 @@ export function SmartDashboard() {
   useEffect(() => {
     if (activeOrganization?.id) {
       activatingOrganizationIdRef.current = null;
+      setActivationAttempt(0);
+      if (activationRetryTimeoutRef.current) {
+        clearTimeout(activationRetryTimeoutRef.current);
+        activationRetryTimeoutRef.current = null;
+      }
     }
   }, [activeOrganization?.id]);
+
+  useEffect(() => {
+    return () => {
+      if (activationRetryTimeoutRef.current) {
+        clearTimeout(activationRetryTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Show loading while checking organizations
   if (!isLoaded) {

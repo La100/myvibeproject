@@ -428,7 +428,7 @@ export default function LaborListView() {
                   </Badge>
 
                   <Select value={sectionFilter} onValueChange={setSectionFilter}>
-                    <SelectTrigger className="h-11 min-w-[210px] rounded-full border-border/70 bg-secondary/70 px-5 shadow-none">
+                    <SelectTrigger className="h-11 min-w-[210px] rounded-full border-border/70 bg-card px-5 shadow-none">
                       <SelectValue placeholder="Section" />
                     </SelectTrigger>
                     <SelectContent>
@@ -442,7 +442,7 @@ export default function LaborListView() {
                   </Select>
 
                   <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
-                    <SelectTrigger className="h-11 min-w-[210px] rounded-full border-border/70 bg-secondary/70 px-5 shadow-none">
+                    <SelectTrigger className="h-11 min-w-[210px] rounded-full border-border/70 bg-card px-5 shadow-none">
                       <SelectValue placeholder="Assignee" />
                     </SelectTrigger>
                     <SelectContent>
