@@ -140,21 +140,22 @@ export function buildCreateSurveyPayload(params: Record<string, unknown>) {
 
 export function buildUpdateSurveyPayload(params: Record<string, unknown>) {
   const surveyId = asNonEmptyString(params.surveyId);
+  const surveyTitle =
+    asNonEmptyString(params.surveyTitle) ??
+    asNonEmptyString(params.title) ??
+    asNonEmptyString(params.name);
 
   return {
     surveyId,
-    updates: surveyId
-      ? {
-          title:
-            asNonEmptyString(params.title) ??
-            asNonEmptyString(params.name),
-          description: nullableString(params.description),
-          isRequired: asBoolean(params.isRequired),
-          allowMultipleResponses: asBoolean(params.allowMultipleResponses),
-          startDate: nullableString(params.startDate),
-          endDate: nullableString(params.endDate),
-          questions: extractSurveyQuestions(params.questions),
-        }
-      : undefined,
+    surveyTitle,
+    updates: {
+      title: asNonEmptyString(params.newTitle),
+      description: nullableString(params.description),
+      isRequired: asBoolean(params.isRequired),
+      allowMultipleResponses: asBoolean(params.allowMultipleResponses),
+      startDate: nullableString(params.startDate),
+      endDate: nullableString(params.endDate),
+      questions: extractSurveyQuestions(params.questions),
+    },
   };
 }

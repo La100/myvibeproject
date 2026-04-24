@@ -1,7 +1,5 @@
-import { Badge } from "@/components/ui/badge";
 import { Doc } from "@/convex/_generated/dataModel";
 import type { TeamMember } from "@/lib/teamMember";
-import { format } from "date-fns";
 
 type ShoppingListItem = Doc<"shoppingListItems">;
 
@@ -17,22 +15,6 @@ export function ShoppingListItemDetails({ item, teamMembers }: ShoppingListItemD
 
     return (
         <div className="mt-4 grid grid-cols-1 gap-4 text-sm text-muted-foreground sm:grid-cols-2 md:grid-cols-3">
-            {item.priority && (
-                <div className="flex items-center gap-2">
-                    <span className="font-medium text-foreground">Priority:</span>
-                    <Badge variant={
-                        item.priority === 'high' || item.priority === 'urgent' ? 'destructive' : 'secondary'
-                    }>
-                        {item.priority}
-                    </Badge>
-                </div>
-            )}
-            {item.buyBefore && (
-                <div className="flex items-center gap-2">
-                    <span className="font-medium text-foreground">Buy Before:</span>
-                    <span>{format(new Date(item.buyBefore), 'MMM dd, yyyy')}</span>
-                </div>
-            )}
             {item.supplier && (
                 <div className="flex items-center gap-2">
                     <span className="font-medium text-foreground">Supplier:</span>

@@ -81,6 +81,13 @@ const SHOPPING_STATUS_TRIGGER_CLASSNAMES: Record<
     "border-rose-200 bg-rose-50 text-rose-900 hover:border-rose-300 hover:bg-rose-100",
 };
 
+const SHOPPING_PRIORITY_LABELS: Record<NonNullable<Priority>, string> = {
+  low: "low",
+  medium: "medium",
+  high: "high",
+  urgent: "urgent",
+};
+
 const formatItemCountLabel = (count: number) => `${count} ${count === 1 ? "item" : "items"}`;
 
 interface EditFormData {
@@ -170,6 +177,7 @@ export function ShoppingListSection({
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editFormData, setEditFormData] = useState<EditFormData>({});
   const [expandedDetails, setExpandedDetails] = useState<Record<string, boolean>>({});
+  const [expandedAlternativeSets, setExpandedAlternativeSets] = useState<Record<string, boolean>>({});
   const [showAddForm, setShowAddForm] = useState(false);
   const [addingAlternativeSetId, setAddingAlternativeSetId] = useState<string | null>(null);
   const [isEditScraping, setIsEditScraping] = useState(false);
@@ -235,6 +243,9 @@ export function ShoppingListSection({
     const member = teamMembers?.find((entry) => entry.clerkUserId === assignedTo);
     return member?.name || assignedTo;
   };
+
+  const getPriorityBadgeVariant = (priority: Priority) =>
+    priority === "high" || priority === "urgent" ? "destructive" : "secondary";
 
   const toggleDetails = (itemId: string) => {
     setExpandedDetails((current) => ({
@@ -466,15 +477,15 @@ export function ShoppingListSection({
   ) => {
     if (source === "client") {
       return selectionMode === "multiple"
-        ? "Chosen by client"
-        : "Client chose this option";
+        ? "Customer chose"
+        : "Customer chose this option";
     }
     if (source === "team") {
       return selectionMode === "multiple"
-        ? "Selected by team"
-        : "Team selected option";
+        ? "Team choice"
+        : "Team default";
     }
-    return "Selected option";
+    return "Chosen option";
   };
 
   const renderEditForm = (item: ShoppingListItem) => (
@@ -810,6 +821,26 @@ export function ShoppingListSection({
                     {renderPriceSpans(item.totalPrice, "total")}
                     {item.supplier ? <span>{item.supplier}</span> : null}
                   </div>
+                  {item.priority || item.buyBefore ? (
+                    <div className="mt-3 flex flex-wrap items-center gap-x-8 gap-y-2 text-sm text-foreground">
+                      {item.priority ? (
+                        <div className="flex items-center gap-2">
+                          <span>Priority:</span>
+                          <Badge variant={getPriorityBadgeVariant(item.priority)}>
+                            {SHOPPING_PRIORITY_LABELS[item.priority]}
+                          </Badge>
+                        </div>
+                      ) : null}
+                      {item.buyBefore ? (
+                        <div className="flex items-center gap-2">
+                          <span>Buy Before:</span>
+                          <span className="text-muted-foreground">
+                            {format(new Date(item.buyBefore), "MMM dd, yyyy")}
+                          </span>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                   {assignedName ? (
                     <div className="mt-3 flex items-center gap-2">
                       <Avatar className="h-6 w-6 border border-border/70">
@@ -906,16 +937,20 @@ export function ShoppingListSection({
       return null;
     }
 
-    const preferredLeadId = String(set.preferredItemIds?.[0] ?? set.resolvedItemIds?.[0] ?? "");
+    const selectedIds = new Set((set.resolvedItemIds ?? []).map((id) => String(id)));
+    const preferredIds = new Set((set.preferredItemIds ?? []).map((id) => String(id)));
+    const hasClientSelection = set.resolvedBySource === "client" && selectedIds.size > 0;
+    const preferredLeadId = String(
+      hasClientSelection
+        ? set.resolvedItemIds?.[0] ?? ""
+        : set.preferredItemIds?.[0] ?? set.resolvedItemIds?.[0] ?? "",
+    );
     const leadItem =
       setItems.find((item) => String(item._id) === preferredLeadId) ??
       setItems[0];
     const orderedSetItems = leadItem
       ? [leadItem, ...setItems.filter((item) => item._id !== leadItem._id)]
       : setItems;
-    const selectedIds = new Set((set.resolvedItemIds ?? []).map((id) => String(id)));
-    const preferredIds = new Set((set.preferredItemIds ?? []).map((id) => String(id)));
-    const hasClientSelection = set.resolvedBySource === "client" && selectedIds.size > 0;
     const fallbackSelectedId = orderedSetItems[0]?._id ? String(orderedSetItems[0]._id) : null;
     const effectiveSelectedIds =
       selectedIds.size > 0
@@ -925,6 +960,13 @@ export function ShoppingListSection({
           : set.selectionMode === "single" && fallbackSelectedId
           ? new Set([fallbackSelectedId])
           : new Set<string>();
+    const setKey = String(set._id);
+    const shouldCondenseClientChoice =
+      set.selectionMode === "single" && hasClientSelection && !expandedAlternativeSets[setKey];
+    const visibleSetItems = shouldCondenseClientChoice
+      ? orderedSetItems.filter((item) => effectiveSelectedIds.has(String(item._id)))
+      : orderedSetItems;
+    const hiddenAlternativeCount = Math.max(0, orderedSetItems.length - visibleSetItems.length);
 
     const toggleSetSelection = async (itemId: string) => {
       if (set.selectionMode === "none") return;
@@ -972,8 +1014,8 @@ export function ShoppingListSection({
                   className={cn("text-xs", getSelectionSourceTone(set.resolvedBySource))}
                 >
                   {set.resolvedByName
-                    ? `Chosen by client: ${set.resolvedByName}`
-                    : "Chosen by client"}
+                    ? `Customer chose: ${set.resolvedByName}`
+                    : "Customer chose"}
                 </Badge>
               ) : null}
             </div>
@@ -1032,7 +1074,7 @@ export function ShoppingListSection({
         ) : null}
 
         <div className="flex flex-col gap-3">
-          {orderedSetItems.map((item) => {
+          {visibleSetItems.map((item) => {
             const isSelected = effectiveSelectedIds.has(String(item._id));
             const isPreferred = preferredIds.has(String(item._id));
             return (
@@ -1048,10 +1090,17 @@ export function ShoppingListSection({
                             ? "default"
                             : "outline"
                       }
-                      onClick={() => toggleSetSelection(String(item._id))}
+                      onClick={
+                        set.selectionMode === "single" && isSelected
+                          ? undefined
+                          : () => void toggleSetSelection(String(item._id))
+                      }
                       className={
                         set.selectionMode === "single"
-                          ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                          ? cn(
+                              "bg-primary text-primary-foreground hover:bg-primary/90",
+                              isSelected && "cursor-default hover:bg-primary",
+                            )
                           : undefined
                       }
                     >
@@ -1062,7 +1111,9 @@ export function ShoppingListSection({
                               set.resolvedBySource,
                               set.selectionMode,
                             )
-                          : "Set default"
+                          : hasClientSelection
+                            ? "Use instead"
+                            : "Set default"
                         : isSelected
                           ? "Included"
                           : "Include"}
@@ -1095,6 +1146,42 @@ export function ShoppingListSection({
               </div>
             );
           })}
+          {hiddenAlternativeCount > 0 ? (
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground"
+                onClick={() =>
+                  setExpandedAlternativeSets((current) => ({
+                    ...current,
+                    [setKey]: true,
+                  }))
+                }
+              >
+                Show {hiddenAlternativeCount} other{" "}
+                {hiddenAlternativeCount === 1 ? "option" : "options"}
+              </Button>
+            </div>
+          ) : hasClientSelection && expandedAlternativeSets[setKey] ? (
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground"
+                onClick={() =>
+                  setExpandedAlternativeSets((current) => ({
+                    ...current,
+                    [setKey]: false,
+                  }))
+                }
+              >
+                Hide other options
+              </Button>
+            </div>
+          ) : null}
         </div>
       </div>
     );

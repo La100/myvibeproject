@@ -1614,6 +1614,48 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
         return createdSectionId;
       };
 
+      const resolveSurveyId = async (
+        params: Record<string, unknown>,
+      ): Promise<string | undefined> => {
+        const explicitSurveyId =
+          asNonEmptyString(params.surveyId) ??
+          asNonEmptyString(params.itemId) ??
+          asNonEmptyString(params.id);
+        if (explicitSurveyId) {
+          return explicitSurveyId;
+        }
+
+        const requestedTitle =
+          asNonEmptyString(params.surveyTitle) ??
+          asNonEmptyString(params.title) ??
+          asNonEmptyString(params.name);
+        if (!requestedTitle) {
+          return undefined;
+        }
+
+        const surveys = (await convex.query(apiAny.surveys.getSurveysByProject, {
+          projectId,
+        })) as Array<Record<string, unknown>>;
+        const normalizedRequestedTitle = normalizeLookupValue(requestedTitle);
+        const matches = surveys.filter((survey) => {
+          const title = asNonEmptyString(survey.title);
+          return title && normalizeLookupValue(title) === normalizedRequestedTitle;
+        });
+        if (matches.length === 1) {
+          return asNonEmptyString(matches[0]?._id);
+        }
+
+        const looseMatches = surveys.filter((survey) => {
+          const title = asNonEmptyString(survey.title);
+          return title && normalizeLookupValue(title).includes(normalizedRequestedTitle);
+        });
+        if (looseMatches.length === 1) {
+          return asNonEmptyString(looseMatches[0]?._id);
+        }
+
+        return undefined;
+      };
+
       const runBulk = async (
         items: Record<string, unknown>[],
         label: string,
@@ -4238,11 +4280,18 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
           }
 
           case "update_survey": {
-            const { surveyId, updates } = buildUpdateSurveyPayload(params);
+            const resolvedSurveyId = await resolveSurveyId(params);
+            const { updates, surveyTitle } = buildUpdateSurveyPayload({
+              ...params,
+              ...(resolvedSurveyId ? { surveyId: resolvedSurveyId } : {}),
+            });
+            const surveyId = resolvedSurveyId;
             if (!surveyId) {
               return {
                 ok: false,
-                error: "Missing required `surveyId` for update_survey.",
+                error: surveyTitle
+                  ? `Could not find a unique survey titled "${surveyTitle}".`
+                  : "Missing required `surveyId` or `surveyTitle` for update_survey.",
               };
             }
 
@@ -4279,14 +4328,12 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
           }
 
           case "delete_survey": {
-            const surveyId = pickFirstNonEmptyString(params, [
-              "surveyId",
-              "id",
-            ]);
+            const surveyId = await resolveSurveyId(params);
             if (!surveyId) {
               return {
                 ok: false,
-                error: "Missing required `surveyId` for delete_survey.",
+                error:
+                  "Missing required `surveyId` or a unique survey title for delete_survey.",
               };
             }
 
