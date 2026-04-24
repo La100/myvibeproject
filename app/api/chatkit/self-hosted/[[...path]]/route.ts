@@ -61,6 +61,15 @@ function isAllowedProxyPath(method: string, path: string[]) {
   return method === "GET" || method === "OPTIONS";
 }
 
+function hasAttachmentToken(request: Request, path: string[]) {
+  if (!isAttachmentPath(path)) {
+    return false;
+  }
+
+  const incomingUrl = new URL(request.url);
+  return Boolean(incomingUrl.searchParams.get("attachmentToken")?.trim());
+}
+
 async function proxyRequest(
   request: Request,
   path: string[],
@@ -69,16 +78,7 @@ async function proxyRequest(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const { userId, getToken } = await auth();
-
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const convexToken = await getToken({ template: "convex" });
-  if (!convexToken) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const signedAttachmentRequest = hasAttachmentToken(request, path);
 
   const internalSecret = process.env.CHATKIT_SELF_HOSTED_INTERNAL_SECRET?.trim();
   if (!internalSecret) {
@@ -89,31 +89,51 @@ async function proxyRequest(
   }
 
   const incomingUrl = new URL(request.url);
-  const projectId =
-    request.headers.get("x-chatkit-project-id")?.trim() ||
-    incomingUrl.searchParams.get("projectId")?.trim();
-  const teamId =
-    request.headers.get("x-chatkit-team-id")?.trim() ||
-    incomingUrl.searchParams.get("teamId")?.trim();
-  const canMakeChanges = request.headers.get("x-chatkit-can-make-changes")?.trim();
+  let userId: string | null = null;
+  let convexToken: string | null = null;
+  let projectId: string | undefined;
+  let teamId: string | undefined;
+  let canMakeChanges: string | null = null;
 
-  if (!projectId || !teamId) {
-    return NextResponse.json(
-      { error: "Missing ChatKit scope headers. Expected project and team identifiers." },
-      { status: 400 },
-    );
-  }
+  if (!signedAttachmentRequest) {
+    const authContext = await auth();
+    userId = authContext.userId;
 
-  try {
-    await verifyProjectScope(convexToken, projectId, teamId);
-
-    if (path.length === 0) {
-      await verifyAssistantAccess(convexToken, teamId);
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Access denied for this ChatKit request.";
-    return NextResponse.json({ error: message }, { status: 403 });
+
+    convexToken = await authContext.getToken({ template: "convex" });
+    if (!convexToken) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    projectId =
+      request.headers.get("x-chatkit-project-id")?.trim() ||
+      incomingUrl.searchParams.get("projectId")?.trim();
+    teamId =
+      request.headers.get("x-chatkit-team-id")?.trim() ||
+      incomingUrl.searchParams.get("teamId")?.trim();
+    canMakeChanges = request.headers.get("x-chatkit-can-make-changes")?.trim() || null;
+
+    if (!projectId || !teamId) {
+      return NextResponse.json(
+        { error: "Missing ChatKit scope headers. Expected project and team identifiers." },
+        { status: 400 },
+      );
+    }
+
+    try {
+      await verifyProjectScope(convexToken, projectId, teamId);
+
+      if (path.length === 0) {
+        await verifyAssistantAccess(convexToken, teamId);
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Access denied for this ChatKit request.";
+      return NextResponse.json({ error: message }, { status: 403 });
+    }
   }
 
   let targetUrl: URL;
@@ -138,16 +158,28 @@ async function proxyRequest(
   }
 
   upstreamHeaders.set("x-chatkit-internal-secret", internalSecret);
-  upstreamHeaders.set("x-chatkit-user-id", userId);
-  upstreamHeaders.set("x-chatkit-team-id", teamId);
-  upstreamHeaders.set("x-chatkit-project-id", projectId);
-  upstreamHeaders.set("x-chatkit-convex-token", convexToken);
   upstreamHeaders.set(
     "x-chatkit-proxy-base-url",
     `${incomingUrl.origin}/api/chatkit/self-hosted`,
   );
 
-  if (canMakeChanges === "true" || canMakeChanges === "false") {
+  if (userId) {
+    upstreamHeaders.set("x-chatkit-user-id", userId);
+  }
+
+  if (teamId) {
+    upstreamHeaders.set("x-chatkit-team-id", teamId);
+  }
+
+  if (projectId) {
+    upstreamHeaders.set("x-chatkit-project-id", projectId);
+  }
+
+  if (convexToken) {
+    upstreamHeaders.set("x-chatkit-convex-token", convexToken);
+  }
+
+  if (!signedAttachmentRequest && (canMakeChanges === "true" || canMakeChanges === "false")) {
     upstreamHeaders.set("x-chatkit-can-make-changes", canMakeChanges);
   }
 

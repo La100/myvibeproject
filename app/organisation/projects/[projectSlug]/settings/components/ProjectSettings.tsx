@@ -513,7 +513,7 @@ function ProjectSettingsContent() {
   return (
     <ProjectPageLayout>
       <div className="min-h-screen pb-20">
-        <div className="flex flex-col gap-6 py-4">
+        <div className="mx-auto flex w-full max-w-[1080px] flex-col gap-6 py-4">
           <ProjectPageHeader
             title="Settings"
             icon={<Settings className="h-8 w-8 text-primary" />}
@@ -1005,6 +1005,142 @@ function GeneralTab({
 
             <section className="border-t border-border/70 pt-8">
               <div className="mb-4 flex flex-col gap-1">
+                <h3 className="text-lg font-semibold text-foreground">Business Details</h3>
+                <p className="text-sm text-muted-foreground">
+                  Client, location, budget, and defaults for this project.
+                </p>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <FormField
+                  control={settingsForm.control}
+                  name="customer"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium">Client</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Client name"
+                          {...field}
+                          className="h-10 w-full"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={settingsForm.control}
+                  name="customerEmail"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium">Customer Email</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="email"
+                          placeholder="client@example.com"
+                          {...field}
+                          value={field.value ?? ""}
+                          className="h-10 w-full"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={settingsForm.control}
+                  name="location"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium">Location</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Street, city, state, postcode"
+                          {...field}
+                          className="h-10 w-full"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid gap-4 md:col-span-2 xl:col-span-3 xl:grid-cols-3">
+                  <FormField
+                    control={settingsForm.control}
+                    name="budget"
+                    render={({ field }) => (
+                      <FormItem id="project-budget">
+                        <FormLabel className="text-sm font-medium">Budget</FormLabel>
+                        <FormControl>
+                          <Input
+                            id="project-budget-input"
+                            type="number"
+                            placeholder="Project budget"
+                            {...field}
+                            className="h-10 w-full"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={settingsForm.control}
+                    name="currency"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium">Currency</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value ?? undefined}>
+                          <FormControl>
+                            <SelectTrigger className="h-10 w-full">
+                              <SelectValue placeholder="Select project currency" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {CURRENCY_OPTIONS.map((currency) => (
+                              <SelectItem key={currency.value} value={currency.value}>
+                                {currency.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={settingsForm.control}
+                    name="measurements"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium">Measurements</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value ?? undefined}>
+                          <FormControl>
+                            <SelectTrigger className="h-10 w-full">
+                              <SelectValue placeholder="Select measurement system" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="metric">Metric</SelectItem>
+                            <SelectItem value="imperial">Imperial</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+            </section>
+
+            <section className="border-t border-border/70 pt-8">
+              <div className="mb-4 flex flex-col gap-1">
                 <h3 className="text-lg font-semibold text-foreground">Timeline</h3>
                 <p className="text-sm text-muted-foreground">
                   Set the planned project window shown across calendars, reports, and operational views.
@@ -1144,142 +1280,6 @@ function GeneralTab({
                 {coverPreviewErrorMessage ? (
                   <p className="text-sm text-muted-foreground">{coverPreviewErrorMessage}</p>
                 ) : null}
-              </div>
-            </section>
-
-            <section className="border-t border-border/70 pt-8">
-              <div className="mb-4 flex flex-col gap-1">
-                <h3 className="text-lg font-semibold text-foreground">Business Details</h3>
-                <p className="text-sm text-muted-foreground">
-                  Client, location, budget, and defaults for this project.
-                </p>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                <FormField
-                  control={settingsForm.control}
-                  name="customer"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm font-medium">Client</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Client name"
-                          {...field}
-                          className="h-10 w-full"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={settingsForm.control}
-                  name="customerEmail"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm font-medium">Customer Email</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="email"
-                          placeholder="client@example.com"
-                          {...field}
-                          value={field.value ?? ""}
-                          className="h-10 w-full"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={settingsForm.control}
-                  name="location"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm font-medium">Location</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Street, city, state, postcode"
-                          {...field}
-                          className="h-10 w-full"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid gap-4 md:col-span-2 xl:grid-cols-3">
-                  <FormField
-                    control={settingsForm.control}
-                    name="budget"
-                    render={({ field }) => (
-                      <FormItem id="project-budget">
-                        <FormLabel className="text-sm font-medium">Budget</FormLabel>
-                        <FormControl>
-                          <Input
-                            id="project-budget-input"
-                            type="number"
-                            placeholder="Project budget"
-                            {...field}
-                            className="h-10 w-full"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={settingsForm.control}
-                    name="currency"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-sm font-medium">Currency</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value ?? undefined}>
-                          <FormControl>
-                            <SelectTrigger className="h-10 w-full">
-                              <SelectValue placeholder="Select project currency" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {CURRENCY_OPTIONS.map((currency) => (
-                              <SelectItem key={currency.value} value={currency.value}>
-                                {currency.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={settingsForm.control}
-                    name="measurements"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-sm font-medium">Measurements</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value ?? undefined}>
-                          <FormControl>
-                            <SelectTrigger className="h-10 w-full">
-                              <SelectValue placeholder="Select measurement system" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="metric">Metric</SelectItem>
-                            <SelectItem value="imperial">Imperial</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
               </div>
             </section>
 

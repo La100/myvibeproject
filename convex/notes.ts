@@ -1,6 +1,9 @@
 import { v } from "convex/values";
 import { query, mutation, internalQuery } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
+import { makeFunctionReference } from "convex/server";
+
+const logActivityMutationRef = makeFunctionReference<"mutation">("activityLog:logActivity");
 
 // Utility function to check project access
 const hasProjectAccess = async (ctx: any, projectId: Id<"projects">, requireWriteAccess = false): Promise<boolean> => {
@@ -108,6 +111,15 @@ export const createNote = mutation({
             updatedAt: now,
         });
 
+        await ctx.runMutation(logActivityMutationRef, {
+            teamId: project.teamId,
+            projectId: args.projectId,
+            actionType: "note.create",
+            details: { title: args.title },
+            entityId: noteId,
+            entityType: "note",
+        });
+
         return noteId;
     },
 });
@@ -154,6 +166,18 @@ export const updateNote = mutation({
             updatedAt: Date.now(),
         });
 
+        await ctx.runMutation(logActivityMutationRef, {
+            teamId: note.teamId,
+            projectId: note.projectId,
+            actionType: "note.update",
+            details: {
+                title: args.title,
+                updatedFields: ["title", "content", "updatedAt"],
+            },
+            entityId: args.noteId,
+            entityType: "note",
+        });
+
         return args.noteId;
     },
 });
@@ -189,6 +213,15 @@ export const deleteNote = mutation({
         if (!membership || (note.createdBy !== identity.subject && membership.role !== 'admin')) {
             throw new Error("Permission denied");
         }
+
+        await ctx.runMutation(logActivityMutationRef, {
+            teamId: note.teamId,
+            projectId: note.projectId,
+            actionType: "note.delete",
+            details: { title: note.title },
+            entityId: args.noteId,
+            entityType: "note",
+        });
 
         await ctx.db.delete(args.noteId);
 

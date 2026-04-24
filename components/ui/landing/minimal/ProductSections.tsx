@@ -2,10 +2,30 @@
 
 import { useUser } from "@clerk/nextjs";
 import { ArrowRight } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
+
+const conceptVisuals = [
+  {
+    title: "Studio facade",
+    src: "/landing/visualization-1776944094220.webp",
+  },
+  {
+    title: "Site reference",
+    src: "/landing/visualization-1776943891109.webp",
+  },
+  {
+    title: "Courtyard option",
+    src: "/landing/visualization-1776943915361.webp",
+  },
+  {
+    title: "Village massing",
+    src: "/landing/visualization-1776943937854.webp",
+  },
+];
 
 function Chip({ children }: { children: ReactNode }) {
   return (
@@ -43,32 +63,115 @@ function Window({
   );
 }
 
-function IntroBlock({
+function ImagePanel({
+  visual,
+  className,
+  imageClassName = "object-cover",
+  sizes,
+  children,
+}: {
+  visual: (typeof conceptVisuals)[number];
+  className: string;
+  imageClassName?: string;
+  sizes: string;
+  children?: ReactNode;
+}) {
+  return (
+    <div
+      className={`relative overflow-hidden rounded-[28px] border border-black/6 bg-[#e8e4dc] shadow-[0_22px_60px_rgba(24,20,16,0.05)] ${className}`}
+    >
+      <Image
+        src={visual.src}
+        alt={visual.title}
+        fill
+        className={imageClassName}
+        loading="eager"
+        quality={100}
+        unoptimized
+        sizes={sizes}
+      />
+      {children}
+    </div>
+  );
+}
+
+function ShowcaseMock({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="absolute left-[9%] top-[14%] w-[72%] overflow-hidden rounded-[22px] border border-white/55 bg-[rgba(253,251,247,0.9)] shadow-[0_24px_60px_rgba(28,22,16,0.16)] backdrop-blur-md">
+      <div className="flex h-10 items-center border-b border-black/8 px-4">
+        <span className="h-2.5 w-2.5 rounded-full bg-black/14" />
+        <span className="ml-1.5 h-2.5 w-2.5 rounded-full bg-black/10" />
+        <span className="ml-1.5 h-2.5 w-2.5 rounded-full bg-black/10" />
+        <span className="ml-auto text-[12px] font-medium text-foreground/54">{label}</span>
+      </div>
+      <div className="bg-white/76 p-5">{children}</div>
+    </div>
+  );
+}
+
+function ShowcaseSection({
+  id,
+  visual,
   eyebrow,
   title,
   body,
-  path,
+  action,
+  reverse = false,
+  children,
 }: {
+  id: string;
+  visual: (typeof conceptVisuals)[number];
   eyebrow: string;
   title: string;
   body: string;
-  path: string;
+  action: string;
+  reverse?: boolean;
+  children: ReactNode;
 }) {
   return (
-    <div className="max-w-[31rem]">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-foreground/42">
-        {eyebrow}
-      </p>
-      <h3 className="mt-8 max-w-[10ch] text-balance text-[clamp(2.5rem,5vw,4.8rem)] font-medium leading-[0.96] tracking-[-0.06em] text-foreground">
-        {title}
-      </h3>
-      <p className="mt-8 max-w-lg text-pretty text-[1.05rem] leading-[1.7] text-foreground/58">
-        {body}
-      </p>
-      <div className="mt-10">
-        <Chip>{path}</Chip>
+    <section
+      id={id}
+      className={`grid items-center gap-8 border-t border-black/6 py-12 lg:gap-12 lg:py-16 ${
+        reverse
+          ? "lg:grid-cols-[minmax(18rem,0.36fr)_minmax(0,0.64fr)]"
+          : "lg:grid-cols-[minmax(0,0.64fr)_minmax(18rem,0.36fr)]"
+      }`}
+    >
+      <ImagePanel
+        visual={visual}
+        className={`aspect-[1.34/1] min-h-[340px] w-full max-w-[860px] ${
+          reverse ? "lg:order-2 lg:justify-self-end" : ""
+        }`}
+        sizes="(max-width: 1023px) 100vw, 860px"
+      >
+        {children}
+      </ImagePanel>
+
+      <div className={`max-w-[30rem] ${reverse ? "lg:order-1 lg:pl-0" : "lg:pl-2"}`}>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-foreground/42">
+          {eyebrow}
+        </p>
+        <h3 className="mt-5 text-balance text-[clamp(1.75rem,2.4vw,2.35rem)] font-medium leading-[1.08] tracking-[-0.03em] text-foreground">
+          {title}
+        </h3>
+        <p className="mt-3 text-pretty text-[1.05rem] leading-8 text-foreground/58">
+          {body}
+        </p>
+        <Link
+          href={id === "product" ? "/#workflow" : id === "resources" ? "/sign-in" : `/#${id}`}
+          className="mt-5 inline-flex text-[1rem] font-medium text-[#f06422] transition-colors hover:text-foreground"
+        >
+          {action}
+          <ArrowRight className="ml-1.5 h-5 w-5" />
+        </Link>
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -135,90 +238,67 @@ export function ProductSections() {
           <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-foreground/42">
             Product overview
           </p>
-          <h2 className="mt-5 max-w-[13ch] text-balance text-[clamp(2.2rem,4.6vw,4.2rem)] font-medium leading-[0.98] tracking-[-0.06em] text-foreground">
-            One page, a few different rhythms, and clearer proof that Myvibe is a full product.
+          <h2 className="mt-5 max-w-[16ch] text-balance text-[clamp(1.9rem,3.4vw,3.1rem)] font-medium leading-[1] tracking-[-0.04em] text-foreground">
+            Turn visual exploration into project delivery.
           </h2>
           <p className="mt-5 max-w-2xl text-[1.02rem] leading-8 text-foreground/56">
-            The landing should not feel templated. One section can be editorial, another can
-            be a surface grid, another can act like a product proof wall.
+            Myvibe keeps references, options, tasks, approvals, and client notes in the
+            same workspace so concept work does not get lost between tools.
           </p>
         </section>
 
-        <section
+        <ShowcaseSection
           id="product"
-          className="grid items-center gap-12 border-t border-black/6 py-12 lg:grid-cols-[0.88fr_1.12fr] lg:gap-12 lg:py-16"
+          visual={conceptVisuals[0]}
+          eyebrow="Concept workflow"
+          title="Show the direction before it turns into admin."
+          body="Collect references, compare options, and package the concept into a client-ready project flow."
+          action="See workflow"
         >
-          <IntroBlock
-            eyebrow="Project workspace"
-            title="Run the whole project from one calm workspace."
-            body="Show projects, timeline, tasks, notes, and files together so the landing sells an operating layer, not just a chat interface."
-            path="/public/landing/projects-overview.png"
-          />
-
-          <div className="relative min-h-[430px] overflow-hidden rounded-[44px] border border-black/6 bg-[linear-gradient(180deg,#ece7de_0%,#ddd5c8_100%)] shadow-[0_28px_80px_rgba(24,20,16,0.05)] lg:min-h-[560px]">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(255,255,255,0.72),transparent_28%),radial-gradient(circle_at_82%_76%,rgba(228,202,160,0.4),transparent_22%)]" />
-            <div className="absolute left-6 top-6">
-              <Chip>Projects and overview</Chip>
+          <ShowcaseMock label="ConceptPack.tsx">
+            <div className="space-y-4 font-mono text-[13px] leading-7 text-foreground/70">
+              <p>
+                <span className="text-[#c23a54]">const</span>{" "}
+                <span className="text-[#2e6f8f]">direction</span> = studioFacade
+              </p>
+              <p className="rounded-lg bg-black/4 px-3 py-2">
+                render client pack with site, facade, notes
+              </p>
+              <p>
+                export <span className="text-[#c23a54]">review</span> to client portal
+              </p>
             </div>
-            <div className="absolute bottom-6 left-6">
-              <Chip>Swap with /public/landing/projects-overview.png</Chip>
-            </div>
+          </ShowcaseMock>
+        </ShowcaseSection>
 
-            <div className="absolute left-[10%] top-[14%] w-[56%]">
-              <Window title="Projects" className="">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-foreground/34">Project list</p>
-                <div className="mt-5 space-y-3">
-                  <Line className="h-5 w-[54%]" />
-                  {[0, 1, 2].map((item) => (
-                    <div key={item} className="rounded-[18px] bg-white/74 p-4">
-                      <Line className="h-5 w-[72%]" />
-                      <Line className="mt-3 h-4 w-[48%]" />
-                    </div>
-                  ))}
+        <ShowcaseSection
+          id="workflow"
+          visual={conceptVisuals[1]}
+          eyebrow="Everywhere in the workflow"
+          title="Keep the source image beside the work it creates."
+          body="Tasks, sourcing, portal updates, and library decisions stay connected to the visual direction."
+          action="Explore workflow"
+          reverse
+        >
+          <ShowcaseMock label="Project flow">
+            <div className="grid gap-3">
+              {["Tasks synced", "Budget updated", "Client portal ready"].map((item) => (
+                <div key={item} className="rounded-[14px] bg-white/78 p-3">
+                  <Line className="h-4 w-[72%]" />
+                  <p className="mt-2 text-[12px] font-medium text-foreground/54">{item}</p>
                 </div>
-              </Window>
+              ))}
             </div>
+          </ShowcaseMock>
+        </ShowcaseSection>
 
-            <div className="absolute bottom-[10%] right-[7%] w-[62%]">
-              <Window title="Overview" className="">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-foreground/34">Current project</p>
-                <div className="mt-5 space-y-4">
-                  <Line className="h-6 w-[40%]" />
-                  <div className="grid grid-cols-3 gap-4">
-                    {[0, 1, 2].map((item) => (
-                      <div key={item} className="rounded-[18px] bg-white/76 p-4">
-                        <Line className="h-4 w-[74%]" />
-                        <Line className="mt-4 h-10 w-[56%]" />
-                      </div>
-                    ))}
-                  </div>
-                  <div className="h-24 rounded-[20px] bg-white/72" />
-                </div>
-              </Window>
-            </div>
-          </div>
-        </section>
-
-        <section id="workflow" className="border-t border-black/6 py-12 lg:py-16">
-          <div className="max-w-3xl">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-foreground/42">
-              Everywhere in the workflow
-            </p>
-            <h3 className="mt-4 text-balance text-[clamp(2.1rem,4.4vw,4rem)] font-medium leading-[1] tracking-[-0.06em] text-foreground">
-              Four operating layers, four different screens.
-            </h3>
-            <p className="mt-4 max-w-2xl text-[1rem] leading-8 text-foreground/56">
-              This section should scan fast. Less editorial, more like a clean product
-              surface map.
-            </p>
-          </div>
-
-          <div className="mt-10 grid gap-4 xl:grid-cols-4">
+        <section className="border-t border-black/6 py-10">
+          <div className="mt-10 grid grid-cols-2 gap-4 xl:grid-cols-4">
             <SurfaceCard
               title="Tasks & calendar"
               body="Keep team execution visible inside the same project flow."
               accent="Show timeline"
-              path="/public/landing/tasks-calendar.png"
+              path="Timeline view"
             >
               <Window title="Tasks" className="">
                 <Line className="h-9 w-full" />
@@ -234,7 +314,7 @@ export function ProductSections() {
               title="Shopping & budget"
               body="Track sourcing, pricing, and budget movement as scope changes."
               accent="Track sourcing"
-              path="/public/landing/shopping-budget.png"
+              path="Budget view"
             >
               <Window title="Budget" className="">
                 <div className="grid grid-cols-2 gap-3">
@@ -253,7 +333,7 @@ export function ProductSections() {
               title="Client portal"
               body="Publish a cleaner client view instead of forwarding threads."
               accent="Share progress"
-              path="/public/landing/client-portal.png"
+              path="Client review"
             >
               <Window title="Portal" className="">
                 <div className="space-y-3">
@@ -271,7 +351,7 @@ export function ProductSections() {
               title="Product library"
               body="Reuse approved products and reduce repeated sourcing work."
               accent="Reuse decisions"
-              path="/public/landing/product-library.png"
+              path="Product library"
             >
               <Window title="Library" className="">
                 <div className="grid grid-cols-2 gap-3">
@@ -287,22 +367,35 @@ export function ProductSections() {
           </div>
         </section>
 
-        <section id="client-collaboration" className="border-t border-black/6 py-12 lg:py-16">
-          <div className="max-w-4xl">
-            <h3 className="text-balance text-[clamp(2.1rem,4.5vw,4rem)] font-medium leading-[1] tracking-[-0.06em] text-foreground">
-              Built for real project delivery.
-            </h3>
-            <p className="mt-3 max-w-3xl text-[clamp(1.25rem,2.3vw,2.05rem)] leading-[1.18] tracking-[-0.04em] text-foreground/56">
-              Estimates, approvals, reporting, and client review should feel like real
-              product capabilities, not supporting footnotes.
-            </p>
-          </div>
+        <ShowcaseSection
+          id="client-collaboration"
+          visual={conceptVisuals[2]}
+          eyebrow="Client collaboration"
+          title="Approvals stay attached to the direction they saw."
+          body="Collect structured feedback, estimates, and reporting without splitting the conversation from the concept."
+          action="Review delivery"
+        >
+          <ShowcaseMock label="ClientReview">
+            <div className="space-y-3">
+              <Line className="h-5 w-[54%]" />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="h-20 rounded-[14px] bg-white/72" />
+                <div className="h-20 rounded-[14px] bg-white/72" />
+              </div>
+              <div className="rounded-[14px] bg-white/78 p-3">
+                <Line className="h-4 w-[80%]" />
+                <Line className="mt-3 h-4 w-[48%]" />
+              </div>
+            </div>
+          </ShowcaseMock>
+        </ShowcaseSection>
 
+        <section className="border-t border-black/6 py-10">
           <div className="mt-12 grid gap-4 xl:grid-cols-3">
             <ProofCard
               title="Estimates & payments"
               body="Connect commercial decisions directly to the same project context."
-              path="/public/landing/estimations-payments.png"
+              path="Estimates"
             >
               <Window title="Payments" className="">
                 <div className="space-y-3">
@@ -319,7 +412,7 @@ export function ProductSections() {
             <ProofCard
               title="Surveys & approvals"
               body="Collect structured feedback instead of chasing client notes across channels."
-              path="/public/landing/surveys.png"
+              path="Approvals"
             >
               <div className="rounded-[18px] bg-[#d8d6dd] p-5">
                 <div className="mx-auto max-w-[24rem] rounded-[20px] bg-white/92 p-5 shadow-[0_16px_34px_rgba(24,20,16,0.08)]">
@@ -336,7 +429,7 @@ export function ProductSections() {
             <ProofCard
               title="Reports & visibility"
               body="See what is moving across projects and reuse that knowledge in the next one."
-              path="/public/landing/reports.png"
+              path="Reports"
             >
               <Window title="Reports" className="">
                 <div className="space-y-4">
@@ -355,56 +448,26 @@ export function ProductSections() {
           </div>
         </section>
 
-        <section
+        <ShowcaseSection
           id="resources"
-          className="grid items-start gap-10 border-t border-black/6 py-12 lg:grid-cols-[0.84fr_1.16fr] lg:gap-12 lg:py-16"
+          visual={conceptVisuals[3]}
+          eyebrow="Studio memory"
+          title="Reuse approved products instead of rebuilding every choice."
+          body="Save the final direction, reports, and product decisions so the next project starts with context."
+          action="Start with Myvibe"
+          reverse
         >
-          <div className="max-w-[28rem]">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-foreground/42">
-              Studio memory
-            </p>
-            <h3 className="mt-7 max-w-[9ch] text-balance text-[clamp(2.2rem,4.2vw,3.8rem)] font-medium leading-[0.98] tracking-[-0.06em] text-foreground">
-              Reuse approved products instead of rebuilding every choice.
-            </h3>
-            <p className="mt-7 max-w-lg text-[1rem] leading-8 text-foreground/56">
-              End on a quieter operational note. This makes the page feel broader and more
-              credible than an AI-only narrative.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Chip>Product library</Chip>
-              <Chip>Reports</Chip>
-              <Chip>/public/landing/product-library.png</Chip>
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-[1.1fr_0.9fr]">
-            <div className="rounded-[28px] bg-[linear-gradient(180deg,#e8e2d6_0%,#d8cfbf_100%)] p-4">
-              <Window title="Library" className="">
-                <div className="grid grid-cols-3 gap-3">
-                  {[0, 1, 2, 3, 4, 5].map((item) => (
-                    <div key={item} className="rounded-[16px] bg-white/74 p-3">
-                      <div className="h-14 rounded-[12px] bg-stone-200/72" />
-                      <Line className="mt-3 h-4 w-[78%]" />
-                    </div>
-                  ))}
+          <ShowcaseMock label="Library">
+            <div className="grid grid-cols-3 gap-3">
+              {[0, 1, 2, 3, 4, 5].map((item) => (
+                <div key={item} className="rounded-[12px] bg-white/74 p-3">
+                  <div className="h-12 rounded-[10px] bg-stone-200/72" />
+                  <Line className="mt-3 h-3 w-[72%]" />
                 </div>
-              </Window>
+              ))}
             </div>
-
-            <div className="rounded-[28px] bg-[linear-gradient(180deg,#e6dfd4_0%,#d7cebe_100%)] p-4">
-              <Window title="Reports" className="">
-                <div className="space-y-3">
-                  {[0, 1, 2, 3].map((item) => (
-                    <div key={item} className="grid grid-cols-[1.1fr_0.45fr] gap-3 rounded-[16px] bg-white/74 p-3">
-                      <Line className="h-4 w-full" />
-                      <Line className="h-4 w-[72%]" />
-                    </div>
-                  ))}
-                </div>
-              </Window>
-            </div>
-          </div>
-        </section>
+          </ShowcaseMock>
+        </ShowcaseSection>
 
         <section className="flex flex-col items-start justify-between gap-6 border-t border-black/6 pt-10 sm:flex-row sm:items-center">
           <div>
@@ -412,8 +475,8 @@ export function ProductSections() {
               Next step
             </p>
             <p className="mt-3 max-w-xl text-sm leading-7 text-foreground/54">
-              Podmieniamy placeholdery na realne screeny, a potem dopinamy cropy i spacing
-              pod finalny materiał.
+              Start from a real brief, collect the visual options, and keep client decisions
+              attached to the project.
             </p>
           </div>
 

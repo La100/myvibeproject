@@ -20,9 +20,9 @@ export function Navbar() {
     <header className="relative z-30">
       <div className="mx-auto flex h-24 w-full max-w-[1520px] items-center justify-between px-6 lg:px-10">
         <Logo
-          className="size-12 sm:size-[3.5rem]"
+          className="size-11 sm:size-12"
           showWordmark
-          wordmarkClassName="text-[1.4rem] sm:text-[1.72rem] [&>span:last-child]:hidden sm:[&>span:last-child]:inline sm:[&>span:last-child]:font-serif sm:[&>span:last-child]:italic sm:[&>span:last-child]:tracking-[-0.04em]"
+          wordmarkClassName="text-[1.25rem] sm:text-[1.5rem] [&>span:last-child]:hidden sm:[&>span:last-child]:inline sm:[&>span:last-child]:font-serif sm:[&>span:last-child]:italic sm:[&>span:last-child]:tracking-[-0.04em]"
         />
 
         <nav className="hidden items-center gap-10 md:flex">

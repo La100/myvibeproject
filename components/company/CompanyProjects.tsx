@@ -47,28 +47,9 @@ export default function CompanyProjects() {
     apiAny.projects.listProjectsByClerkOrg,
     organization?.id ? { clerkOrgId: organization.id } : "skip",
   );
-  const activities = useQuery(
-    apiAny.activityLog.getForTeam,
-    organization?.id ? { clerkOrgId: organization.id } : "skip",
-  );
 
   const filteredProjects = useMemo(
     () => {
-      const latestActivityByProject = new Map<string, number>();
-
-      for (const activity of activities || []) {
-        if (!activity.projectId) {
-          continue;
-        }
-
-        const projectId = String(activity.projectId);
-        const currentLatestActivity = latestActivityByProject.get(projectId) || 0;
-        latestActivityByProject.set(
-          projectId,
-          Math.max(currentLatestActivity, activity._creationTime),
-        );
-      }
-
       return (
         projects
           ?.filter((project) => {
@@ -79,10 +60,6 @@ export default function CompanyProjects() {
               project.customer?.toLowerCase().includes(query)
             );
           })
-          .map((project) => ({
-            ...project,
-            recentActivityAt: latestActivityByProject.get(String(project._id)),
-          }))
           .sort((left, right) => {
             const leftRecentActivity =
               left.recentActivityAt ||
@@ -98,7 +75,7 @@ export default function CompanyProjects() {
           }) || []
       );
     },
-    [activities, projects, searchQuery, sortBy],
+    [projects, searchQuery, sortBy],
   );
 
   const projectGridClass = "grid grid-cols-1 gap-x-6 gap-y-8 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4";
@@ -305,12 +282,7 @@ function ProjectCard({
       className="group h-full w-full cursor-pointer"
     >
       <article className="flex h-full flex-col gap-4">
-        <div
-          className={cn(
-            "relative overflow-hidden rounded-[1rem] border border-border bg-card shadow-sm transition-transform duration-200 group-hover:-translate-y-0.5",
-            hasCoverImage ? "aspect-[1.92/1]" : "min-h-[9rem] sm:min-h-[10.5rem]",
-          )}
-        >
+        <div className="relative aspect-[1.68/1] overflow-hidden rounded-[1rem] border border-border bg-card shadow-sm transition-transform duration-200 group-hover:-translate-y-0.5">
           {hasCoverImage ? (
             <>
               <Image

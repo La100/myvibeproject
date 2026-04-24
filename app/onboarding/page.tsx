@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { useAuth, useOrganization } from "@clerk/nextjs";
 import { toast } from "sonner";
@@ -62,7 +62,6 @@ function LoadingState({ message }: { message: string }) {
 
 function OnboardingContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { isLoaded: isAuthLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });
   const { organization, isLoaded: isOrganizationLoaded } = useOrganization();
   const onboardingStatus = useQuery(apiAny.onboarding.getStatus);
@@ -75,7 +74,6 @@ function OnboardingContent() {
     apiAny.teamMembership.ensureCurrentUserTeamMembership,
   );
   const updateTeamSettings = useMutation(apiAny.teams.updateTeamSettings);
-  const isForcedOrganizationSetup = searchParams.get("mode") === "organization";
   const safePostAuthResolverUrl = resolveLocalRedirectUrl(postAuthResolverUrl, "/dashboard");
 
   const [isFinishing, setIsFinishing] = useState(false);
@@ -161,7 +159,7 @@ function OnboardingContent() {
   }, []);
 
   useEffect(() => {
-    if (isForcedOrganizationSetup || onboardingStatus === undefined || !isOrganizationLoaded) {
+    if (onboardingStatus === undefined || !isOrganizationLoaded) {
       return;
     }
 
@@ -170,7 +168,6 @@ function OnboardingContent() {
     }
   }, [
     activeOrganization,
-    isForcedOrganizationSetup,
     isOrganizationLoaded,
     onboardingStatus,
     organization?.id,
@@ -309,10 +306,10 @@ function OnboardingContent() {
   };
 
   if (!isAuthLoaded || !isSignedIn || onboardingStatus === undefined || !isOrganizationLoaded) {
-    return <LoadingState message="Preparing onboarding..." />;
+    return <LoadingState message="Loading workspace setup..." />;
   }
 
-  if (!isForcedOrganizationSetup && organizationSetupCompleted && activeOrganization) {
+  if (organizationSetupCompleted && activeOrganization) {
     return <LoadingState message="Redirecting to workspace..." />;
   }
 
@@ -466,7 +463,7 @@ function OnboardingContent() {
 
 export default function OnboardingPage() {
   return (
-    <Suspense fallback={<LoadingState message="Preparing onboarding..." />}>
+    <Suspense fallback={<LoadingState message="Loading workspace setup..." />}>
       <OnboardingContent />
     </Suspense>
   );

@@ -11,7 +11,8 @@ import { makeFunctionReference } from "convex/server";
 import { ensureProjectAccess, parseOptionalDateToMillis } from "./helpers";
 
 const getSurveyQueryRef = makeFunctionReference<"query">("surveys:getSurvey");
-const createSurveyMutationRef = makeFunctionReference<"mutation">("surveys:createSurvey");
+const createSurveyWithQuestionsMutationRef =
+  makeFunctionReference<"mutation">("surveys:createSurveyWithQuestions");
 const createSurveyQuestionMutationRef =
   makeFunctionReference<"mutation">("surveys:createSurveyQuestion");
 const updateSurveyMutationRef = makeFunctionReference<"mutation">("surveys:updateSurvey");
@@ -30,13 +31,19 @@ function hasDefinedSurveyUpdates(
   });
 }
 
+type ExistingSurveyQuestion = {
+  _id: Id<"surveyQuestions">;
+  questionText: string;
+  order: number;
+};
+
 export const createConfirmedSurvey = action({
   args: {
     projectId: v.id("projects"),
     userClerkId: v.optional(v.string()),
     surveyData: v.object({
       title: v.string(),
-      description: v.optional(v.string()),
+      description: v.optional(v.union(v.string(), v.null())),
       isRequired: v.optional(v.boolean()),
       allowMultipleResponses: v.optional(v.boolean()),
       startDate: v.optional(v.string()),
@@ -68,7 +75,7 @@ export const createConfirmedSurvey = action({
         "survey endDate",
       );
 
-      const surveyId: any = await ctx.runMutation(createSurveyMutationRef, {
+      const surveyId = await ctx.runMutation(createSurveyWithQuestionsMutationRef, {
         projectId: args.projectId,
         title: args.surveyData.title,
         description: args.surveyData.description,
@@ -76,21 +83,8 @@ export const createConfirmedSurvey = action({
         allowMultipleResponses: args.surveyData.allowMultipleResponses || false,
         startDate: startDateNumber,
         endDate: endDateNumber,
+        questions: args.surveyData.questions,
       });
-
-      if (args.surveyData.questions && args.surveyData.questions.length > 0) {
-        for (let i = 0; i < args.surveyData.questions.length; i++) {
-          const question = args.surveyData.questions[i];
-          await ctx.runMutation(createSurveyQuestionMutationRef, {
-            surveyId,
-            questionText: question.questionText,
-            questionType: question.questionType as "text_short" | "text_long" | "multiple_choice" | "single_choice" | "rating" | "yes_no" | "number" | "file",
-            options: question.options,
-            isRequired: question.isRequired ?? true,
-            order: question.order ?? i + 1,
-          });
-        }
-      }
 
       const questionCount = args.surveyData.questions?.length || 0;
       const message = questionCount > 0
@@ -121,8 +115,8 @@ export const editConfirmedSurvey = action({
       description: v.optional(v.string()),
       isRequired: v.optional(v.boolean()),
       allowMultipleResponses: v.optional(v.boolean()),
-      startDate: v.optional(v.string()),
-      endDate: v.optional(v.string()),
+      startDate: v.optional(v.union(v.string(), v.null())),
+      endDate: v.optional(v.union(v.string(), v.null())),
       questions: v.optional(v.array(v.object({
         questionId: v.optional(v.id("surveyQuestions")),
         operation: v.optional(v.union(
@@ -168,14 +162,20 @@ export const editConfirmedSurvey = action({
 
       await ensureProjectAccess(ctx, args.projectId ?? survey.projectId, true, args.userClerkId);
 
-      const startDateNumber = parseOptionalDateToMillis(
-        args.updates.startDate,
-        "survey startDate",
-      );
-      const endDateNumber = parseOptionalDateToMillis(
-        args.updates.endDate,
-        "survey endDate",
-      );
+      const startDateNumber =
+        args.updates.startDate === null
+          ? null
+          : parseOptionalDateToMillis(
+              args.updates.startDate,
+              "survey startDate",
+            );
+      const endDateNumber =
+        args.updates.endDate === null
+          ? null
+          : parseOptionalDateToMillis(
+              args.updates.endDate,
+              "survey endDate",
+            );
 
       await ctx.runMutation(updateSurveyMutationRef, {
         surveyId: args.surveyId,
@@ -188,7 +188,11 @@ export const editConfirmedSurvey = action({
       });
 
       if (args.updates.questions && args.updates.questions.length > 0) {
-        const existingQuestions = Array.isArray(survey.questions) ? survey.questions : [];
+        const existingQuestions: ExistingSurveyQuestion[] = Array.isArray(
+          survey.questions,
+        )
+          ? survey.questions
+          : [];
         const existingQuestionsByOrder = new Map<number, Id<"surveyQuestions">>();
         const existingQuestionsByText = new Map<string, Id<"surveyQuestions"> | null>();
 
@@ -284,6 +288,12 @@ export const editConfirmedSurvey = action({
           if (!resolvedQuestionId) {
             throw new Error("Missing questionId for survey question update/delete. Use operation='create' for new questions.");
           }
+          const belongsToSurvey = existingQuestions.some(
+            (question) => question._id === resolvedQuestionId,
+          );
+          if (!belongsToSurvey) {
+            throw new Error("Question does not belong to the survey being updated.");
+          }
 
           if (resolvedOperation === "delete") {
             await ctx.runMutation(deleteQuestionMutationRef, {
@@ -365,8 +375,3 @@ export const deleteConfirmedSurvey = action({
     }
   },
 });
-
-
-
-
-

@@ -192,6 +192,32 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
+function hasOwnValue(record: Record<string, unknown>, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(record, key);
+}
+
+function invalidProvidedDate(
+  record: Record<string, unknown>,
+  key: string,
+  parser: (value: unknown) => unknown,
+): string | null {
+  if (!hasOwnValue(record, key)) return null;
+  const raw = record[key];
+  if (raw === null || raw === undefined || raw === "") return null;
+  return parser(raw) === undefined ? key : null;
+}
+
+function invalidProvidedValue(
+  record: Record<string, unknown>,
+  key: string,
+  parser: (value: unknown) => unknown,
+): string | null {
+  if (!hasOwnValue(record, key)) return null;
+  const raw = record[key];
+  if (raw === null || raw === undefined || raw === "") return null;
+  return parser(raw) === undefined ? key : null;
+}
+
 function asRecordArray(value: unknown): Record<string, unknown>[] {
   if (!Array.isArray(value)) {
     return [];
@@ -221,11 +247,21 @@ function extractBulkEntries(
   const data = asRecord(params.data);
   for (const source of [params, data]) {
     for (const key of ["items", ...keys]) {
+      if (Array.isArray(source[key]) && source[key].length > 0) {
+        return source[key].map((entry, index) => {
+          const record = asRecord(entry);
+          return Object.keys(record).length > 0
+            ? flattenManagedToolParams(record)
+            : {
+                __invalidBulkItem: true,
+                index: index + 1,
+              };
+        });
+      }
+
       const entries = asRecordArray(source[key]);
       if (entries.length > 0) {
-        return entries
-          .map((entry) => flattenManagedToolParams(entry))
-          .filter((entry) => Object.keys(entry).length > 0);
+        return entries.map((entry) => flattenManagedToolParams(entry));
       }
     }
   }
@@ -757,6 +793,16 @@ function normalizeClientToolCall(call: ToolCall): ToolCall | { error: string } {
       if (!action) {
         return { error: "Missing or invalid `action` for manage_moodboard." };
       }
+      if (
+        action === "bulk_create" ||
+        action === "bulk_update" ||
+        action === "bulk_delete"
+      ) {
+        return {
+          error:
+            "Bulk moodboard section operations are not supported. Call manage_moodboard once per section.",
+        };
+      }
 
       const flattened = flattenManagedToolParams(params);
       const sectionId = pickFirstNonEmptyString(flattened, [
@@ -890,6 +936,51 @@ function asTaskPriority(
     value === "medium" ||
     value === "high" ||
     value === "urgent"
+  ) {
+    return value;
+  }
+  return undefined;
+}
+
+function asShoppingSetStatus(
+  value: unknown,
+): "draft" | "active" | "resolved" | "archived" | undefined {
+  if (
+    value === "draft" ||
+    value === "active" ||
+    value === "resolved" ||
+    value === "archived"
+  ) {
+    return value;
+  }
+  return undefined;
+}
+
+function asShoppingSetType(
+  value: unknown,
+): "variant" | "bundle" | "reference" | undefined {
+  if (value === "variant" || value === "bundle" || value === "reference") {
+    return value;
+  }
+  return undefined;
+}
+
+function asShoppingSetSelectionMode(
+  value: unknown,
+): "single" | "multiple" | "none" | undefined {
+  if (value === "single" || value === "multiple" || value === "none") {
+    return value;
+  }
+  return undefined;
+}
+
+function asShoppingSetPricingMode(
+  value: unknown,
+): "selected_only" | "all_selected" | "none" | undefined {
+  if (
+    value === "selected_only" ||
+    value === "all_selected" ||
+    value === "none"
   ) {
     return value;
   }
@@ -1292,6 +1383,64 @@ function summarizeProject(project: Record<string, unknown> | null) {
   };
 }
 
+function validateTaskToolFields(
+  params: Record<string, unknown>,
+  action: string,
+): string | null {
+  const invalidDate =
+    invalidProvidedDate(params, "startDate", asTimestamp) ??
+    invalidProvidedDate(params, "endDate", asTimestamp);
+  if (invalidDate) return `Invalid ${invalidDate} for ${action}.`;
+  if (invalidProvidedValue(params, "status", asTaskStatus)) {
+    return `Invalid status for ${action}.`;
+  }
+  if (invalidProvidedValue(params, "priority", asTaskPriority)) {
+    return `Invalid priority for ${action}.`;
+  }
+  return null;
+}
+
+function validateShoppingItemToolFields(
+  params: Record<string, unknown>,
+  action: string,
+): string | null {
+  if (invalidProvidedDate(params, "buyBefore", asTimestamp)) {
+    return `Invalid buyBefore for ${action}.`;
+  }
+  if (invalidProvidedValue(params, "priority", asTaskPriority)) {
+    return `Invalid priority for ${action}.`;
+  }
+  if (
+    (hasOwnValue(params, "status") || hasOwnValue(params, "realizationStatus")) &&
+    extractShoppingRealizationStatus(params) === undefined
+  ) {
+    return `Invalid realizationStatus/status for ${action}.`;
+  }
+  return null;
+}
+
+function validateLaborItemToolFields(
+  params: Record<string, unknown>,
+  action: string,
+): string | null {
+  const invalidDate =
+    invalidProvidedDate(params, "startDate", asDateInput) ??
+    invalidProvidedDate(params, "endDate", asDateInput);
+  return invalidDate ? `Invalid ${invalidDate} for ${action}.` : null;
+}
+
+function validateShoppingSetToolFields(
+  params: Record<string, unknown>,
+  action: string,
+): string | null {
+  const invalidField =
+    invalidProvidedValue(params, "status", asShoppingSetStatus) ??
+    invalidProvidedValue(params, "setType", asShoppingSetType) ??
+    invalidProvidedValue(params, "selectionMode", asShoppingSetSelectionMode) ??
+    invalidProvidedValue(params, "pricingMode", asShoppingSetPricingMode);
+  return invalidField ? `Invalid ${invalidField} for ${action}.` : null;
+}
+
 export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
   const convex = useConvex();
   const projectId = args?.projectId;
@@ -1482,14 +1631,27 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
 
         const results: Record<string, unknown>[] = [];
         for (let index = 0; index < items.length; index += 1) {
+          if (items[index]?.__invalidBulkItem === true) {
+            return {
+              ok: false,
+              partialSuccess: results.length > 0,
+              succeededCount: results.length,
+              failedIndex: index + 1,
+              error: `${label} failed at item ${index + 1}: item must be an object with editable fields.`,
+              results,
+            };
+          }
+
           const result = await executor(items[index] ?? {}, index);
           if (!result.ok) {
             return {
               ok: false,
+              partialSuccess: results.length > 0,
+              succeededCount: results.length,
+              failedIndex: index + 1,
               error:
                 asNonEmptyString(result.error) ??
                 `${label} failed at item ${index + 1}.`,
-              failedIndex: index + 1,
               results,
             };
           }
@@ -1604,6 +1766,13 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                   error: "Missing required `title` for a bulk-created task.",
                 };
               }
+              const validationError = validateTaskToolFields(
+                item,
+                "bulk_create_tasks",
+              );
+              if (validationError) {
+                return { ok: false, error: validationError };
+              }
 
               const assigneeInput = extractTaskAssigneeIdentifier(item);
               const assignedTo = await resolveTaskAssignee(assigneeInput);
@@ -1644,6 +1813,13 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                   ok: false,
                   error: "Missing required `taskId` for a bulk task update.",
                 };
+              }
+              const validationError = validateTaskToolFields(
+                item,
+                "bulk_update_tasks",
+              );
+              if (validationError) {
+                return { ok: false, error: validationError };
               }
 
               const updates: Record<string, unknown> = { taskId };
@@ -1926,6 +2102,13 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                       "Missing required `name` for a bulk-created shopping item.",
                   };
                 }
+                const validationError = validateShoppingItemToolFields(
+                  item,
+                  "bulk_create_shopping_items",
+                );
+                if (validationError) {
+                  return { ok: false, error: validationError };
+                }
 
                 const sectionId = await resolveSectionId("shopping", item);
 
@@ -1981,6 +2164,13 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                   error:
                     "Missing required `itemId` for a bulk shopping item update.",
                 };
+              }
+              const validationError = validateShoppingItemToolFields(
+                item,
+                "bulk_update_shopping_items",
+              );
+              if (validationError) {
+                return { ok: false, error: validationError };
               }
 
               const updates: Record<string, unknown> = { itemId };
@@ -2217,6 +2407,13 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                       "Missing required `title` for a bulk-created shopping set.",
                   };
                 }
+                const validationError = validateShoppingSetToolFields(
+                  item,
+                  "bulk_create_shopping_sets",
+                );
+                if (validationError) {
+                  return { ok: false, error: validationError };
+                }
 
                 const sectionId = await resolveSectionId("shopping", item);
 
@@ -2229,31 +2426,12 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                       notes: asNonEmptyString(item.notes),
                       sectionId:
                         sectionId === null ? undefined : sectionId,
-                      setType:
-                        item.setType === "variant" ||
-                        item.setType === "bundle" ||
-                        item.setType === "reference"
-                          ? item.setType
-                          : undefined,
-                      selectionMode:
-                        item.selectionMode === "single" ||
-                        item.selectionMode === "multiple" ||
-                        item.selectionMode === "none"
-                          ? item.selectionMode
-                          : undefined,
-                      pricingMode:
-                        item.pricingMode === "selected_only" ||
-                        item.pricingMode === "all_selected" ||
-                        item.pricingMode === "none"
-                          ? item.pricingMode
-                          : undefined,
-                      status:
-                        item.status === "draft" ||
-                        item.status === "active" ||
-                        item.status === "resolved" ||
-                        item.status === "archived"
-                          ? item.status
-                          : undefined,
+                      setType: asShoppingSetType(item.setType),
+                      selectionMode: asShoppingSetSelectionMode(
+                        item.selectionMode,
+                      ),
+                      pricingMode: asShoppingSetPricingMode(item.pricingMode),
+                      status: asShoppingSetStatus(item.status),
                     },
                   },
                 );
@@ -2285,6 +2463,13 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                     "Missing required `setId` for a bulk shopping set update.",
                 };
               }
+              const validationError = validateShoppingSetToolFields(
+                item,
+                "bulk_update_shopping_sets",
+              );
+              if (validationError) {
+                return { ok: false, error: validationError };
+              }
 
               const sectionId = await resolveSectionId("shopping", item);
 
@@ -2293,31 +2478,10 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                   asNonEmptyString(item.title) ?? asNonEmptyString(item.name),
                 notes: asNonEmptyString(item.notes),
                 sectionId,
-                setType:
-                  item.setType === "variant" ||
-                  item.setType === "bundle" ||
-                  item.setType === "reference"
-                    ? item.setType
-                    : undefined,
-                selectionMode:
-                  item.selectionMode === "single" ||
-                  item.selectionMode === "multiple" ||
-                  item.selectionMode === "none"
-                    ? item.selectionMode
-                    : undefined,
-                pricingMode:
-                  item.pricingMode === "selected_only" ||
-                  item.pricingMode === "all_selected" ||
-                  item.pricingMode === "none"
-                    ? item.pricingMode
-                    : undefined,
-                status:
-                  item.status === "draft" ||
-                  item.status === "active" ||
-                  item.status === "resolved" ||
-                  item.status === "archived"
-                    ? item.status
-                    : undefined,
+                setType: asShoppingSetType(item.setType),
+                selectionMode: asShoppingSetSelectionMode(item.selectionMode),
+                pricingMode: asShoppingSetPricingMode(item.pricingMode),
+                status: asShoppingSetStatus(item.status),
               });
               if (!hasManagedUpdateFields(updates, [])) {
                 return {
@@ -2386,6 +2550,13 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                     "Missing required `name` for a bulk-created labor item.",
                 };
               }
+              const validationError = validateLaborItemToolFields(
+                item,
+                "bulk_create_labor_items",
+              );
+              if (validationError) {
+                return { ok: false, error: validationError };
+              }
 
               const result = await convex.action(
                 apiAny.ai.confirmedActions.createConfirmedLaborItem,
@@ -2431,6 +2602,13 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                   error:
                     "Missing required `itemId` for a bulk labor item update.",
                 };
+              }
+              const validationError = validateLaborItemToolFields(
+                item,
+                "bulk_update_labor_items",
+              );
+              if (validationError) {
+                return { ok: false, error: validationError };
               }
 
               const sectionId = await resolveSectionId("labor", item);
@@ -2636,17 +2814,41 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                   surveyData,
                 },
               );
+              const surveyId =
+                typeof result?.surveyId === "string"
+                  ? result.surveyId
+                  : undefined;
+              const createdSurvey = surveyId
+                ? await convex.query(apiAny.surveys.getSurvey, { surveyId })
+                : null;
+              const expectedQuestionCount = surveyData.questions?.length ?? 0;
+              const actualQuestionCount = Array.isArray(
+                asRecord(createdSurvey).questions,
+              )
+                ? asRecordArray(asRecord(createdSurvey).questions).length
+                : 0;
+              if (
+                asRecord(result).success === true &&
+                actualQuestionCount !== expectedQuestionCount
+              ) {
+                return {
+                  ok: false,
+                  error: `Survey was created, but question verification failed: expected ${expectedQuestionCount}, found ${actualQuestionCount}.`,
+                  surveyId,
+                  title,
+                  expectedQuestionCount,
+                  actualQuestionCount,
+                };
+              }
 
               return {
                 ...formatConfirmedActionResult(
                   result,
                   `Created survey: ${title}`,
                 ),
-                surveyId:
-                  typeof result?.surveyId === "string"
-                    ? result.surveyId
-                    : undefined,
+                surveyId,
                 title,
+                questionCount: actualQuestionCount,
               };
             });
           }
@@ -2746,6 +2948,13 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 error: "Missing required `title` for create_task.",
               };
             }
+            const validationError = validateTaskToolFields(
+              params,
+              "create_task",
+            );
+            if (validationError) {
+              return { ok: false, error: validationError };
+            }
 
             const assigneeInput = extractTaskAssigneeIdentifier(params);
             const assignedTo = await resolveTaskAssignee(assigneeInput);
@@ -2787,6 +2996,13 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 ok: false,
                 error: "Missing required `taskId` for update_task.",
               };
+            }
+            const validationError = validateTaskToolFields(
+              params,
+              "update_task",
+            );
+            if (validationError) {
+              return { ok: false, error: validationError };
             }
 
             const updates: Record<string, unknown> = {
@@ -2921,6 +3137,15 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 error: "Missing required `paymentId` for update_payment.",
               };
             }
+            if (
+              hasOwnValue(params, "status") &&
+              asPaymentStatus(params.status) === undefined
+            ) {
+              return {
+                ok: false,
+                error: "Invalid status for update_payment.",
+              };
+            }
 
             const updates = compactDefinedFields({
               title:
@@ -3004,6 +3229,13 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 error: "Missing required `name` for create_shopping_item.",
               };
             }
+            const validationError = validateShoppingItemToolFields(
+              params,
+              "create_shopping_item",
+            );
+            if (validationError) {
+              return { ok: false, error: validationError };
+            }
 
             const quantity = asNumber(params.quantity) ?? 1;
             const unitPrice =
@@ -3065,6 +3297,13 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 ok: false,
                 error: "Missing required `itemId` for update_shopping_item.",
               };
+            }
+            const validationError = validateShoppingItemToolFields(
+              params,
+              "update_shopping_item",
+            );
+            if (validationError) {
+              return { ok: false, error: validationError };
             }
 
             const updates: Record<string, unknown> = {
@@ -3602,6 +3841,13 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 error: "Missing required `title` for create_shopping_set.",
               };
             }
+            const validationError = validateShoppingSetToolFields(
+              params,
+              "create_shopping_set",
+            );
+            if (validationError) {
+              return { ok: false, error: validationError };
+            }
 
             const sectionId = await resolveSectionId("shopping", params);
 
@@ -3613,31 +3859,12 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                   title,
                   notes: asNonEmptyString(params.notes),
                   sectionId: sectionId === null ? undefined : sectionId,
-                  setType:
-                    params.setType === "variant" ||
-                    params.setType === "bundle" ||
-                    params.setType === "reference"
-                      ? params.setType
-                      : undefined,
-                  selectionMode:
-                    params.selectionMode === "single" ||
-                    params.selectionMode === "multiple" ||
-                    params.selectionMode === "none"
-                      ? params.selectionMode
-                      : undefined,
-                  pricingMode:
-                    params.pricingMode === "selected_only" ||
-                    params.pricingMode === "all_selected" ||
-                    params.pricingMode === "none"
-                      ? params.pricingMode
-                      : undefined,
-                  status:
-                    params.status === "draft" ||
-                    params.status === "active" ||
-                    params.status === "resolved" ||
-                    params.status === "archived"
-                      ? params.status
-                      : undefined,
+                  setType: asShoppingSetType(params.setType),
+                  selectionMode: asShoppingSetSelectionMode(
+                    params.selectionMode,
+                  ),
+                  pricingMode: asShoppingSetPricingMode(params.pricingMode),
+                  status: asShoppingSetStatus(params.status),
                 },
               },
             );
@@ -3660,6 +3887,13 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 error: "Missing required `setId` for update_shopping_set.",
               };
             }
+            const validationError = validateShoppingSetToolFields(
+              params,
+              "update_shopping_set",
+            );
+            if (validationError) {
+              return { ok: false, error: validationError };
+            }
 
             const sectionId = await resolveSectionId("shopping", params);
 
@@ -3668,31 +3902,10 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 asNonEmptyString(params.title) ?? asNonEmptyString(params.name),
               notes: asNonEmptyString(params.notes),
               sectionId,
-              setType:
-                params.setType === "variant" ||
-                params.setType === "bundle" ||
-                params.setType === "reference"
-                  ? params.setType
-                  : undefined,
-              selectionMode:
-                params.selectionMode === "single" ||
-                params.selectionMode === "multiple" ||
-                params.selectionMode === "none"
-                  ? params.selectionMode
-                  : undefined,
-              pricingMode:
-                params.pricingMode === "selected_only" ||
-                params.pricingMode === "all_selected" ||
-                params.pricingMode === "none"
-                  ? params.pricingMode
-                  : undefined,
-              status:
-                params.status === "draft" ||
-                params.status === "active" ||
-                params.status === "resolved" ||
-                params.status === "archived"
-                  ? params.status
-                  : undefined,
+              setType: asShoppingSetType(params.setType),
+              selectionMode: asShoppingSetSelectionMode(params.selectionMode),
+              pricingMode: asShoppingSetPricingMode(params.pricingMode),
+              status: asShoppingSetStatus(params.status),
             });
             if (!hasManagedUpdateFields(updates, [])) {
               return {
@@ -3752,6 +3965,13 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 error: "Missing required `name` for create_labor_item.",
               };
             }
+            const validationError = validateLaborItemToolFields(
+              params,
+              "create_labor_item",
+            );
+            if (validationError) {
+              return { ok: false, error: validationError };
+            }
 
             const sectionId = await resolveSectionId("labor", params);
 
@@ -3792,6 +4012,13 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 ok: false,
                 error: "Missing required `itemId` for update_labor_item.",
               };
+            }
+            const validationError = validateLaborItemToolFields(
+              params,
+              "update_labor_item",
+            );
+            if (validationError) {
+              return { ok: false, error: validationError };
             }
 
             const sectionId = await resolveSectionId("labor", params);
@@ -3972,17 +4199,41 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 surveyData: surveyData!,
               },
             );
+            const surveyId =
+              typeof result?.surveyId === "string"
+                ? result.surveyId
+                : undefined;
+            const createdSurvey = surveyId
+              ? await convex.query(apiAny.surveys.getSurvey, { surveyId })
+              : null;
+            const expectedQuestionCount = surveyData?.questions?.length ?? 0;
+            const actualQuestionCount = Array.isArray(
+              asRecord(createdSurvey).questions,
+            )
+              ? asRecordArray(asRecord(createdSurvey).questions).length
+              : 0;
+            if (
+              asRecord(result).success === true &&
+              actualQuestionCount !== expectedQuestionCount
+            ) {
+              return {
+                ok: false,
+                error: `Survey was created, but question verification failed: expected ${expectedQuestionCount}, found ${actualQuestionCount}.`,
+                surveyId,
+                title,
+                expectedQuestionCount,
+                actualQuestionCount,
+              };
+            }
 
             return {
               ...formatConfirmedActionResult(
                 result,
                 `Created survey: ${title}`,
               ),
-              surveyId:
-                typeof result?.surveyId === "string"
-                  ? result.surveyId
-                  : undefined,
+              surveyId,
               title,
+              questionCount: actualQuestionCount,
             };
           }
 

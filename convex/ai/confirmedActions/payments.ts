@@ -138,6 +138,15 @@ export const editConfirmedPayment = action({
         args.updates.dueDate !== undefined ||
         args.updates.invoiceNumber !== undefined;
 
+      if (args.updates.status !== undefined) {
+        if (!isIssuedInvoice) {
+          throw new Error("Issue the invoice before changing its payment status");
+        }
+        if (args.updates.status === "draft") {
+          throw new Error("Issued invoices cannot be moved back to draft status");
+        }
+      }
+
       if (isIssuedInvoice && hasInvoiceFieldUpdates) {
         const nextInvoiceNumber =
           args.updates.invoiceNumber ?? installment.invoiceNumber;
@@ -170,13 +179,6 @@ export const editConfirmedPayment = action({
       }
 
       if (args.updates.status !== undefined) {
-        if (!isIssuedInvoice) {
-          throw new Error("Issue the invoice before changing its payment status");
-        }
-        if (args.updates.status === "draft") {
-          throw new Error("Issued invoices cannot be moved back to draft status");
-        }
-
         await ctx.runMutation(setProjectPaymentManualStatusMutationRef, {
           installmentId: args.paymentId,
           status: args.updates.status,
@@ -215,6 +217,19 @@ export const deleteConfirmedPayment = action({
     try {
       await ensureProjectAccess(ctx, args.projectId, true, args.userClerkId);
       void args.reason;
+
+      const overview = await ctx.runQuery(getProjectPaymentsOverviewQueryRef, {
+        projectId: args.projectId,
+      });
+      const installments = Array.isArray(overview?.installments)
+        ? overview.installments
+        : [];
+      const installment = installments.find(
+        (entry: { _id?: string }) => entry?._id === args.paymentId,
+      );
+      if (!installment) {
+        throw new Error("Invoice not found in the active project");
+      }
 
       await ctx.runMutation(deleteProjectPaymentMutationRef, {
         installmentId: args.paymentId,

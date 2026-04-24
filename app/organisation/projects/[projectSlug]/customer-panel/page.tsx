@@ -455,7 +455,7 @@ export default function CustomerPanelPage() {
             onCommentsChange={(checked) => handleToggleSetting("allowShoppingItemComments", checked)}
           />
 
-          <div className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid items-stretch gap-3 md:grid-cols-2 xl:grid-cols-4">
             {REGULAR_FEATURE_CARDS.map((card) => (
               <FeatureCard
                 key={card.id}
@@ -513,8 +513,8 @@ function FeatureCard({
   onCheckedChange,
 }: FeatureCardProps) {
   return (
-    <Card className="gap-0 rounded-[22px] border-border/70 bg-white/85 shadow-none transition-colors hover:border-foreground/12">
-      <CardContent className="flex flex-col gap-4 p-4">
+    <Card className="h-full min-h-[170px] gap-0 rounded-[22px] border-border/70 bg-white/85 shadow-none transition-colors hover:border-foreground/12">
+      <CardContent className="flex h-full flex-col justify-between gap-4 p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-[15px] border border-border/70 bg-background/70 text-muted-foreground [&>svg]:h-4 [&>svg]:w-4">
             {icon}

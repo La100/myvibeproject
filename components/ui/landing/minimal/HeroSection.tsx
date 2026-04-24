@@ -171,7 +171,7 @@ export function HeroSection() {
     <section className="px-6 pb-10 pt-2 lg:px-10">
       <div className="mx-auto w-full max-w-[1520px]">
         <div className="max-w-[720px] pt-8 sm:max-w-[820px] sm:pt-10 md:max-w-[900px] lg:max-w-[760px] xl:max-w-[860px] 2xl:max-w-[620px]">
-          <h1 className="text-balance text-[2.25rem] font-medium leading-[0.98] tracking-[-0.04em] text-foreground sm:text-[2.85rem] md:text-[3.35rem] lg:text-[2.6rem] xl:text-[3rem] 2xl:text-[clamp(1.15rem,1.55vw,1.95rem)] 2xl:leading-[1.18] 2xl:tracking-tight">
+          <h1 className="text-balance text-[2.25rem] font-medium leading-[0.98] tracking-[-0.04em] text-foreground sm:text-[2.85rem] md:text-[3.35rem] lg:text-[2.6rem] xl:text-[3rem] 2xl:text-[2.35rem] 2xl:leading-[1.05]">
             For architects and interior designers,
             <br />
             Myvibe is the best way to run projects with AI.

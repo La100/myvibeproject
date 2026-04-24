@@ -94,12 +94,6 @@ export function SmartDashboard() {
     onboardingStatus,
   ]);
 
-  const shouldOpenOrganizationSetup = Boolean(
-    onboardingStatus?.activeOrganization &&
-      !onboardingStatus.activeOrganization.onboardingCompleted &&
-      onboardingStatus.activeOrganization.canUpdateTeamSettings,
-  );
-
   useEffect(() => {
     if (
       !isLoaded ||
@@ -116,7 +110,7 @@ export function SmartDashboard() {
     }
 
     if (activeOrganization?.id && onboardingStatus.activeOrganization) {
-      router.replace(shouldOpenOrganizationSetup ? "/onboarding?mode=organization" : "/organisation");
+      router.replace("/organisation");
       hasRedirectedRef.current = true;
       return;
     }
@@ -142,7 +136,6 @@ export function SmartDashboard() {
       }
     })();
   }, [
-    shouldOpenOrganizationSetup,
     isEnsuringMembership,
     isLoaded,
     onboardingStatus,
@@ -156,9 +149,6 @@ export function SmartDashboard() {
     if (isEnsuringMembership) {
       return "Finalizing workspace access...";
     }
-    if (onboardingStatus?.activeOrganization && shouldOpenOrganizationSetup) {
-      return "Opening workspace setup...";
-    }
     if (organizations.length === 0) {
       return "Opening workspace setup...";
     }
@@ -171,7 +161,6 @@ export function SmartDashboard() {
     onboardingStatus?.activeOrganization,
     activeOrganization?.id,
     organizations.length,
-    shouldOpenOrganizationSetup,
   ]);
 
   useEffect(() => {
@@ -186,7 +175,7 @@ export function SmartDashboard() {
   }
 
   if (onboardingStatus === undefined) {
-    return <LoadingState title="Preparing onboarding..." description="We are checking your setup." />;
+    return <LoadingState title="Loading your workspace..." description="We are checking your setup." />;
   }
 
   if (!onboardingStatus.authenticated) {

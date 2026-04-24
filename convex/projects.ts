@@ -147,6 +147,128 @@ const resolveCoverImageDisplayUrl = async (
   }
 };
 
+const getLatestTimestamp = (...values: Array<number | null | undefined>): number =>
+  values.reduce<number>((latest, value) => {
+    if (typeof value !== "number") {
+      return latest;
+    }
+    return Math.max(latest, value);
+  }, 0);
+
+const updateRecentActivity = (
+  recentActivityByProject: Map<string, number>,
+  projectId: unknown,
+  timestamp: number,
+) => {
+  if (!projectId || timestamp <= 0) {
+    return;
+  }
+
+  const projectKey = String(projectId);
+  recentActivityByProject.set(
+    projectKey,
+    Math.max(recentActivityByProject.get(projectKey) || 0, timestamp),
+  );
+};
+
+const collectRecentProjectActivity = async (
+  ctx: any,
+  teamId: Id<"teams">,
+  projects: Array<Doc<"projects">>,
+) => {
+  const accessibleProjectIds = new Set(projects.map((project) => String(project._id)));
+  const recentActivityByProject = new Map<string, number>();
+
+  for (const project of projects) {
+    updateRecentActivity(
+      recentActivityByProject,
+      project._id,
+      getLatestTimestamp((project as { updatedAt?: number }).updatedAt, project._creationTime),
+    );
+  }
+
+  const teamScopedCollections = await Promise.all([
+    ctx.db.query("activityLog").withIndex("by_team", (q: any) => q.eq("teamId", teamId)).collect(),
+    ctx.db.query("tasks").withIndex("by_team", (q: any) => q.eq("teamId", teamId)).collect(),
+    ctx.db.query("files").withIndex("by_team", (q: any) => q.eq("teamId", teamId)).collect(),
+    ctx.db.query("projectPayments").withIndex("by_team", (q: any) => q.eq("teamId", teamId)).collect(),
+    ctx.db.query("costEstimations").withIndex("by_team", (q: any) => q.eq("teamId", teamId)).collect(),
+    ctx.db.query("surveys").withIndex("by_team", (q: any) => q.eq("teamId", teamId)).collect(),
+    ctx.db.query("projectContacts").withIndex("by_team", (q: any) => q.eq("teamId", teamId)).collect(),
+    ctx.db.query("notes").withIndex("by_team", (q: any) => q.eq("teamId", teamId)).collect(),
+    ctx.db.query("aiGeneratedImages").withIndex("by_team", (q: any) => q.eq("teamId", teamId)).collect(),
+  ]);
+
+  for (const collection of teamScopedCollections) {
+    for (const item of collection) {
+      if (!item.projectId || !accessibleProjectIds.has(String(item.projectId))) {
+        continue;
+      }
+
+      updateRecentActivity(
+        recentActivityByProject,
+        item.projectId,
+        getLatestTimestamp(
+          item.updatedAt,
+          item.submittedAt,
+          item.assignedAt,
+          item.paidAt,
+          item.sentAt,
+          item.createdAt,
+          item._creationTime,
+        ),
+      );
+    }
+  }
+
+  const projectScopedCollections = await Promise.all(
+    projects.map(async (project) => {
+      const [
+        shoppingItems,
+        shoppingSets,
+        shoppingSections,
+        laborItems,
+        laborSections,
+        surveyResponses,
+        folders,
+      ] = await Promise.all([
+        ctx.db.query("shoppingListItems").withIndex("by_project", (q: any) => q.eq("projectId", project._id)).collect(),
+        ctx.db.query("shoppingSets").withIndex("by_project", (q: any) => q.eq("projectId", project._id)).collect(),
+        ctx.db.query("shoppingListSections").withIndex("by_project", (q: any) => q.eq("projectId", project._id)).collect(),
+        ctx.db.query("laborItems").withIndex("by_project", (q: any) => q.eq("projectId", project._id)).collect(),
+        ctx.db.query("laborSections").withIndex("by_project", (q: any) => q.eq("projectId", project._id)).collect(),
+        ctx.db.query("surveyResponses").withIndex("by_project", (q: any) => q.eq("projectId", project._id)).collect(),
+        ctx.db.query("folders").withIndex("by_project", (q: any) => q.eq("projectId", project._id)).collect(),
+      ]);
+
+      return {
+        projectId: project._id,
+        items: [
+          ...shoppingItems,
+          ...shoppingSets,
+          ...shoppingSections,
+          ...laborItems,
+          ...laborSections,
+          ...surveyResponses,
+          ...folders,
+        ],
+      };
+    }),
+  );
+
+  for (const { projectId, items } of projectScopedCollections) {
+    for (const item of items) {
+      updateRecentActivity(
+        recentActivityByProject,
+        projectId,
+        getLatestTimestamp(item.updatedAt, item.submittedAt, item.createdAt, item._creationTime),
+      );
+    }
+  }
+
+  return recentActivityByProject;
+};
+
 // Utility function to generate next project ID
 const generateNextProjectId = async (ctx: any) => {
   const lastProject = await ctx.db
@@ -603,6 +725,12 @@ export const listProjectsByClerkOrg = query({
       taskStatsByProject.set(task.projectId, currentStats);
     }
 
+    const recentActivityByProject = await collectRecentProjectActivity(
+      ctx,
+      team._id,
+      projects,
+    );
+
     const projectsWithTasks = await Promise.all(
       projects.map(async (project) => {
         const stats = taskStatsByProject.get(project._id) || {
@@ -618,6 +746,7 @@ export const listProjectsByClerkOrg = query({
           coverImageDisplayUrl,
           taskCount: stats.taskCount,
           completedTasks: stats.completedTasks,
+          recentActivityAt: recentActivityByProject.get(String(project._id)),
         };
       }),
     );

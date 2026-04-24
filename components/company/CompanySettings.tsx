@@ -570,6 +570,26 @@ export default function CompanySettings({
     );
   }
 
+  const isSubscriptionDataLoading =
+    isSubscriptionPage &&
+    (aiAccess === undefined ||
+      subscription === undefined ||
+      usageBreakdown === undefined ||
+      storageUsage === undefined ||
+      resourceUsage === undefined ||
+      teamPayments === undefined);
+
+  if (isSubscriptionDataLoading) {
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <p className="text-sm text-muted-foreground animate-pulse">
+          Loading subscription...
+        </p>
+      </div>
+    );
+  }
+
   const handleSaveTeamSettings = async () => {
     setSavingPreferences(true);
     try {
@@ -917,12 +937,7 @@ export default function CompanySettings({
 
   return (
     <div className="min-h-screen pb-20">
-      <div
-        className={cn(
-          "mx-auto flex w-full flex-col gap-6 py-4",
-          isSubscriptionPage ? "max-w-5xl" : "max-w-6xl",
-        )}
-      >
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 py-4">
         {isSubscriptionPage ? (
           <div className="flex flex-col gap-2">
             <h1 className="clean-title text-4xl font-medium tracking-tight text-foreground md:text-5xl">

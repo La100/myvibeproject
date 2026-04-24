@@ -51,3 +51,6 @@ package-lock.json
 /chrome-extension/dist/
 /chrome-extension/node_modules/
 /chrome-extension/.turbo/
+
+# local chatkit workspace
+/myvibe-chatkit/

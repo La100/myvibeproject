@@ -34,11 +34,24 @@ function asNumber(value: unknown): number | undefined {
 }
 
 function asStringArray(value: unknown): string[] | undefined {
+  if (typeof value === "string") {
+    const normalized = value
+      .split(/\r?\n|[,;|]/)
+      .map((entry) => asNonEmptyString(entry))
+      .filter((entry): entry is string => Boolean(entry));
+    return normalized.length > 0 ? normalized : undefined;
+  }
+
   if (!Array.isArray(value)) return undefined;
   const normalized = value
     .map((entry) => asNonEmptyString(entry))
     .filter((entry): entry is string => Boolean(entry));
   return normalized.length > 0 ? normalized : undefined;
+}
+
+function nullableString(value: unknown): string | null | undefined {
+  if (value === null) return null;
+  return asNonEmptyString(value);
 }
 
 function asSurveyQuestionType(value: unknown): SurveyQuestionType | undefined {
@@ -72,9 +85,22 @@ function extractSurveyQuestions(value: unknown) {
 
   const questions = items
     .map((item) => {
-      const questionText = asNonEmptyString(item.questionText) ?? asNonEmptyString(item.title);
+      const questionText =
+        asNonEmptyString(item.questionText) ??
+        asNonEmptyString(item.text) ??
+        asNonEmptyString(item.content) ??
+        asNonEmptyString(item.label) ??
+        asNonEmptyString(item.prompt) ??
+        asNonEmptyString(item.title) ??
+        asNonEmptyString(item.name);
       const questionType =
-        asSurveyQuestionType(item.questionType) ?? asSurveyQuestionType(item.type);
+        asSurveyQuestionType(item.questionType) ??
+        asSurveyQuestionType(item.type) ??
+        (questionText
+          ? asStringArray(item.options)
+            ? "single_choice"
+            : "text_long"
+          : undefined);
 
       return {
         questionId: asNonEmptyString(item.questionId),
@@ -122,11 +148,11 @@ export function buildUpdateSurveyPayload(params: Record<string, unknown>) {
           title:
             asNonEmptyString(params.title) ??
             asNonEmptyString(params.name),
-          description: asNonEmptyString(params.description),
+          description: nullableString(params.description),
           isRequired: asBoolean(params.isRequired),
           allowMultipleResponses: asBoolean(params.allowMultipleResponses),
-          startDate: asNonEmptyString(params.startDate),
-          endDate: asNonEmptyString(params.endDate),
+          startDate: nullableString(params.startDate),
+          endDate: nullableString(params.endDate),
           questions: extractSurveyQuestions(params.questions),
         }
       : undefined,

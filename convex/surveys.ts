@@ -57,27 +57,27 @@ const getSurveyQuestionWithAccess = async (
 export const createSurvey = mutation({
   args: {
     title: v.string(),
-    description: v.optional(v.string()),
+    description: v.optional(v.union(v.string(), v.null())),
     projectId: v.id("projects"),
     isRequired: v.boolean(),
     allowMultipleResponses: v.boolean(),
-    startDate: v.optional(v.number()),
-    endDate: v.optional(v.number()),
+    startDate: v.optional(v.union(v.number(), v.null())),
+    endDate: v.optional(v.union(v.number(), v.null())),
   },
   async handler(ctx, args) {
     const { project, clerkUserId } = await ensureProjectAccess(ctx, args.projectId);
 
     const surveyId = await ctx.db.insert("surveys", {
       title: args.title,
-      description: args.description,
+      description: args.description === null ? undefined : args.description,
       teamId: project.teamId,
       projectId: args.projectId,
       createdBy: clerkUserId,
       status: "draft",
       isRequired: args.isRequired,
       allowMultipleResponses: args.allowMultipleResponses,
-      startDate: args.startDate,
-      endDate: args.endDate,
+      startDate: args.startDate === null ? undefined : args.startDate,
+      endDate: args.endDate === null ? undefined : args.endDate,
       updatedAt: Date.now(),
     });
 
@@ -89,6 +89,78 @@ export const createSurvey = mutation({
       entityId: surveyId,
       entityType: "survey",
       details: { title: args.title },
+    });
+
+    return surveyId;
+  },
+});
+
+export const createSurveyWithQuestions = mutation({
+  args: {
+    title: v.string(),
+    description: v.optional(v.union(v.string(), v.null())),
+    projectId: v.id("projects"),
+    isRequired: v.boolean(),
+    allowMultipleResponses: v.boolean(),
+    startDate: v.optional(v.union(v.number(), v.null())),
+    endDate: v.optional(v.union(v.number(), v.null())),
+    questions: v.optional(v.array(v.object({
+      questionText: v.string(),
+      questionType: v.union(
+        v.literal("text_short"),
+        v.literal("text_long"),
+        v.literal("multiple_choice"),
+        v.literal("single_choice"),
+        v.literal("rating"),
+        v.literal("yes_no"),
+        v.literal("number"),
+        v.literal("file")
+      ),
+      options: v.optional(v.array(v.string())),
+      isRequired: v.optional(v.boolean()),
+      order: v.optional(v.number()),
+    }))),
+  },
+  async handler(ctx, args) {
+    const { project, clerkUserId } = await ensureProjectAccess(ctx, args.projectId);
+
+    const surveyId = await ctx.db.insert("surveys", {
+      title: args.title,
+      description: args.description === null ? undefined : args.description,
+      teamId: project.teamId,
+      projectId: args.projectId,
+      createdBy: clerkUserId,
+      status: "draft",
+      isRequired: args.isRequired,
+      allowMultipleResponses: args.allowMultipleResponses,
+      startDate: args.startDate === null ? undefined : args.startDate,
+      endDate: args.endDate === null ? undefined : args.endDate,
+      updatedAt: Date.now(),
+    });
+
+    const questions = args.questions ?? [];
+    for (let index = 0; index < questions.length; index += 1) {
+      const question = questions[index];
+      await ctx.db.insert("surveyQuestions", {
+        surveyId,
+        questionText: question.questionText,
+        questionType: question.questionType,
+        options: question.options,
+        isRequired: question.isRequired ?? true,
+        order: question.order ?? index + 1,
+      });
+    }
+
+    await ctx.runMutation(logActivityMutation, {
+      teamId: project.teamId,
+      projectId: args.projectId,
+      actionType: "survey.create",
+      entityId: surveyId,
+      entityType: "survey",
+      details: {
+        title: args.title,
+        questionCount: questions.length,
+      },
     });
 
     return surveyId;
@@ -510,17 +582,37 @@ export const updateSurvey = mutation({
   args: {
     surveyId: v.id("surveys"),
     title: v.optional(v.string()),
-    description: v.optional(v.string()),
+    description: v.optional(v.union(v.string(), v.null())),
     isRequired: v.optional(v.boolean()),
     allowMultipleResponses: v.optional(v.boolean()),
-    startDate: v.optional(v.number()),
-    endDate: v.optional(v.number()),
+    startDate: v.optional(v.union(v.number(), v.null())),
+    endDate: v.optional(v.union(v.number(), v.null())),
   },
   async handler(ctx, args) {
     const { survey } = await getSurveyWithAccess(ctx, args.surveyId);
 
     const { surveyId, ...updates } = args;
-    await ctx.db.patch(surveyId, { ...updates, updatedAt: Date.now() });
+    const patch: Partial<Doc<"surveys">> = { updatedAt: Date.now() };
+    if (Object.prototype.hasOwnProperty.call(updates, "title")) {
+      patch.title = updates.title;
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, "description")) {
+      patch.description =
+        updates.description === null ? undefined : updates.description;
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, "isRequired")) {
+      patch.isRequired = updates.isRequired;
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, "allowMultipleResponses")) {
+      patch.allowMultipleResponses = updates.allowMultipleResponses;
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, "startDate")) {
+      patch.startDate = updates.startDate === null ? undefined : updates.startDate;
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, "endDate")) {
+      patch.endDate = updates.endDate === null ? undefined : updates.endDate;
+    }
+    await ctx.db.patch(surveyId, patch);
 
     await ctx.runMutation(logActivityMutation, {
       teamId: survey.teamId,

@@ -2,14 +2,17 @@ import {
   assistantToolNames,
   buildToolExecutionPolicy,
   buildToolPromptList,
+  getAssistantToolApprovalMode,
 } from "./toolMetadata.ts";
 
 export function buildDefaultPrompt(activeToolNames?: readonly string[]) {
   const toolList = buildToolPromptList(activeToolNames).join("\n");
   const executionPolicy = buildToolExecutionPolicy(activeToolNames).join("\n");
-  const enabledToolNames = activeToolNames ?? assistantToolNames;
-  const hasMutatingTools = enabledToolNames.some(
-    (toolName) => !["web_search", "search_items", "load_full_project_context"].includes(toolName),
+  const knownEnabledToolNames = activeToolNames
+    ? assistantToolNames.filter((toolName) => activeToolNames.includes(toolName))
+    : assistantToolNames;
+  const hasMutatingTools = knownEnabledToolNames.some(
+    (toolName) => getAssistantToolApprovalMode(toolName) === "requires-confirmation",
   );
   const editingPolicy = hasMutatingTools
     ? [

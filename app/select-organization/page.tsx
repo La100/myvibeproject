@@ -79,7 +79,7 @@ export default function SelectOrganizationPage() {
         clerkOrgId: createdOrganization.id,
         orgName: createdOrganization.name || trimmedName,
       });
-      router.replace(postAuthResolverUrl);
+      router.replace("/onboarding");
     } catch (error) {
       console.error(error);
       toast.error("Could not create workspace.");
