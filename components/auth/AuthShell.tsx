@@ -19,10 +19,11 @@ export function AuthShell({
         <div className="p-4 sm:p-6 lg:h-full lg:p-8">
           <Card className="relative min-h-[320px] overflow-hidden p-0 sm:min-h-[420px] lg:min-h-[calc(100vh-4rem)]">
             <Image
-              src="/visualization-1773318760233.png"
-              alt="Myvibe project background"
+              src="/landing/visualization-1776944094220.png"
+              alt="Myvibe workflow background"
               fill
               priority
+              unoptimized
               className="object-cover object-center"
               sizes="(max-width: 1023px) 100vw, 60vw"
             />

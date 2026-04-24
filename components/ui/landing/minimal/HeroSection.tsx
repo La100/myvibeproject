@@ -210,7 +210,6 @@ export function HeroSection() {
               fill
               priority
               className="object-cover object-center"
-              quality={74}
               sizes="(max-width: 1023px) 100vw, 1520px"
             />
 
@@ -340,7 +339,6 @@ export function HeroSection() {
                                 alt={generatedOutputs[0].title}
                                 fill
                                 className="object-cover"
-                                quality={72}
                                 sizes="(max-width: 1023px) 88vw, 620px"
                               />
                             </div>
@@ -386,7 +384,6 @@ export function HeroSection() {
                                     alt={output.title}
                                     fill
                                     className="object-cover"
-                                    quality={72}
                                     sizes="(max-width: 1023px) 44vw, 280px"
                                   />
                                 </div>

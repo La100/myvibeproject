@@ -860,7 +860,6 @@ function ProjectOverviewContent() {
                       alt={`${project.name} cover`}
                       fill
                       priority
-                      quality={90}
                       className="object-cover transition-transform duration-700 ease-out will-change-transform group-hover:scale-[1.015]"
                       style={{ objectPosition: "82% center" }}
                       sizes="(min-width: 1536px) 610px, (min-width: 1280px) 560px, (min-width: 1024px) 480px, 100vw"
