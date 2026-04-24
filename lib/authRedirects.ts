@@ -1,7 +1,6 @@
 export const signInUrl = "/sign-in";
 export const signUpUrl = "/sign-up";
 export const postAuthResolverUrl = "/dashboard";
-export const clerkChooseOrganizationTaskUrl = "/session-tasks/choose-organization";
 export const selectOrganizationUrl = "/select-organization";
 
 const normalizeRedirectTarget = (value: string | undefined, fallback: string) => {

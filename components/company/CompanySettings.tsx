@@ -141,12 +141,6 @@ const COMPANY_SETTINGS_SECTIONS = [
     scope: "workspace",
   },
   {
-    value: "defaults",
-    label: "Defaults",
-    description: "Regional settings, tax behavior, and display defaults.",
-    scope: "workspace",
-  },
-  {
     value: "notifications",
     label: "My Notifications",
     description: "Personal alerts for tasks, comments, and workflow updates.",
@@ -1819,6 +1813,118 @@ export default function CompanySettings({
                         </div>
                       </div>
                     </div>
+
+                    <Card
+                      id="workspace-defaults"
+                      className="overflow-hidden border-border/70 bg-card shadow-none"
+                    >
+                      <CardHeader className="gap-2 border-b border-border/70">
+                        <CardTitle className="flex items-center gap-2 text-base font-medium">
+                          <Globe className="h-4 w-4 text-primary" />
+                          Regional defaults
+                        </CardTitle>
+                        <CardDescription>
+                          Currency, timezone, tax settings, and amount
+                          presentation are saved together.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="grid gap-8 p-6">
+                        <div className="grid gap-4">
+                          <div className="space-y-1">
+                            <h3 className="text-sm font-medium text-foreground">
+                              Currency & timezone
+                            </h3>
+                            <p className="text-sm text-muted-foreground">
+                              These defaults affect estimates, reports, and AI
+                              date handling across new work.
+                            </p>
+                          </div>
+                          <div className="grid gap-4">
+                            <div className="grid gap-2">
+                              <Label htmlFor="currency">Currency</Label>
+                              <Select
+                                value={teamSettings.currency}
+                                onValueChange={(value) =>
+                                  setTeamSettings({
+                                    ...teamSettings,
+                                    currency:
+                                      value as typeof teamSettings.currency,
+                                  })
+                                }
+                              >
+                                <SelectTrigger
+                                  id="currency"
+                                  className="w-full bg-secondary/70"
+                                >
+                                  <SelectValue placeholder="Select currency" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {[
+                                    { value: "USD", label: "US Dollar ($)" },
+                                    { value: "EUR", label: "Euro (€)" },
+                                    {
+                                      value: "PLN",
+                                      label: "Polish Zloty (zł)",
+                                    },
+                                    {
+                                      value: "GBP",
+                                      label: "British Pound (£)",
+                                    },
+                                    {
+                                      value: "CAD",
+                                      label: "Canadian Dollar (C$)",
+                                    },
+                                    {
+                                      value: "AUD",
+                                      label: "Australian Dollar (A$)",
+                                    },
+                                    { value: "JPY", label: "Japanese Yen (¥)" },
+                                  ].map((curr) => (
+                                    <SelectItem
+                                      key={curr.value}
+                                      value={curr.value}
+                                    >
+                                      <span className="font-medium">
+                                        {curr.value}
+                                      </span>
+                                      <span className="ml-2 text-xs text-muted-foreground">
+                                        ({curr.label})
+                                      </span>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="grid gap-2">
+                              <Label>Organization timezone</Label>
+                              <TimezonePicker
+                                value={teamSettings.timezone}
+                                onValueChange={(timezone) =>
+                                  setTeamSettings({ ...teamSettings, timezone })
+                                }
+                                className="w-full"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                      <CardFooter className="flex flex-col gap-3 border-t border-border/70 px-6 py-4">
+                        <Button
+                          onClick={handleSaveTeamSettings}
+                          disabled={savingPreferences}
+                          className="min-w-[140px] self-start"
+                        >
+                          {savingPreferences ? (
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
+                          ) : (
+                            <>
+                              <Check data-icon="inline-start" />
+                              Save
+                            </>
+                          )}
+                        </Button>
+                      </CardFooter>
+                    </Card>
                   </section>
                 ) : null}
 
@@ -2082,7 +2188,7 @@ export default function CompanySettings({
                         ) : (
                           <>
                             <Check data-icon="inline-start" />
-                            Save Profile
+                            Save
                           </>
                         )}
                       </Button>
@@ -2092,114 +2198,6 @@ export default function CompanySettings({
               </section>
 
               <div className="grid gap-8">
-                {activeSettingsSection === "defaults" ? (
-                  <Card
-                    id="workspace-defaults"
-                    className="overflow-hidden border-border/70 bg-card shadow-none"
-                  >
-                    <CardHeader className="gap-2 border-b border-border/70">
-                      <CardTitle className="flex items-center gap-2 text-base font-medium">
-                        <Globe className="h-4 w-4 text-primary" />
-                        Regional defaults
-                      </CardTitle>
-                      <CardDescription>
-                        Currency, timezone, tax settings, and amount
-                        presentation are saved together.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="grid gap-8 p-6">
-                      <div className="grid gap-4">
-                        <div className="space-y-1">
-                          <h3 className="text-sm font-medium text-foreground">
-                            Currency & timezone
-                          </h3>
-                          <p className="text-sm text-muted-foreground">
-                            These defaults affect estimates, reports, and AI
-                            date handling across new work.
-                          </p>
-                        </div>
-                        <div className="grid gap-4">
-                          <div className="grid gap-2">
-                            <Label htmlFor="currency">Currency</Label>
-                            <Select
-                              value={teamSettings.currency}
-                              onValueChange={(value) =>
-                                setTeamSettings({
-                                  ...teamSettings,
-                                  currency:
-                                    value as typeof teamSettings.currency,
-                                })
-                              }
-                            >
-                              <SelectTrigger
-                                id="currency"
-                                className="w-full bg-secondary/70"
-                              >
-                                <SelectValue placeholder="Select currency" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {[
-                                  { value: "USD", label: "US Dollar ($)" },
-                                  { value: "EUR", label: "Euro (€)" },
-                                  { value: "PLN", label: "Polish Zloty (zł)" },
-                                  { value: "GBP", label: "British Pound (£)" },
-                                  {
-                                    value: "CAD",
-                                    label: "Canadian Dollar (C$)",
-                                  },
-                                  {
-                                    value: "AUD",
-                                    label: "Australian Dollar (A$)",
-                                  },
-                                  { value: "JPY", label: "Japanese Yen (¥)" },
-                                ].map((curr) => (
-                                  <SelectItem
-                                    key={curr.value}
-                                    value={curr.value}
-                                  >
-                                    <span className="font-medium">
-                                      {curr.value}
-                                    </span>
-                                    <span className="ml-2 text-xs text-muted-foreground">
-                                      ({curr.label})
-                                    </span>
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="grid gap-2">
-                            <Label>Organization timezone</Label>
-                            <TimezonePicker
-                              value={teamSettings.timezone}
-                              onValueChange={(timezone) =>
-                                setTeamSettings({ ...teamSettings, timezone })
-                              }
-                              className="w-full"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                    <CardFooter className="flex flex-col gap-3 border-t border-border/70 px-6 py-4">
-                      <Button
-                        onClick={handleSaveTeamSettings}
-                        disabled={savingPreferences}
-                        className="min-w-[140px] self-start"
-                      >
-                        {savingPreferences ? (
-                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
-                        ) : (
-                          <>
-                            <Check data-icon="inline-start" />
-                            Save Changes
-                          </>
-                        )}
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                ) : null}
-
                 {activeSettingsSection === "notifications" ? (
                   <Card
                     id="workspace-notifications"
@@ -2330,7 +2328,7 @@ export default function CompanySettings({
                         ) : (
                           <>
                             <Check data-icon="inline-start" />
-                            Save Notifications
+                            Save
                           </>
                         )}
                       </Button>

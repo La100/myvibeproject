@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { clerkChooseOrganizationTaskUrl } from "@/lib/authRedirects";
+import { postAuthResolverUrl } from "@/lib/authRedirects";
 
 export default function SignUpChooseOrganizationTaskPage() {
-  redirect(clerkChooseOrganizationTaskUrl);
+  redirect(postAuthResolverUrl);
 }

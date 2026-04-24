@@ -78,7 +78,7 @@ export default function TaskStatusSettings({ projectId, initialSettings }: TaskS
         projectId,
         settings: values.statuses,
       });
-      toast.success("Task status settings updated successfully!");
+      toast.success("Task status settings saved.");
     } catch (error) {
       console.error("Failed to update task status settings:", error);
       toast.error("Failed to update settings.");
@@ -175,8 +175,8 @@ export default function TaskStatusSettings({ projectId, initialSettings }: TaskS
               <p className="text-xs text-muted-foreground">
                 Updated labels and colors are used across boards and task details.
               </p>
-              <Button type="submit" disabled={form.formState.isSubmitting} className="sm:min-w-[190px]">
-                {form.formState.isSubmitting ? "Saving..." : "Save Status Settings"}
+              <Button type="submit" disabled={form.formState.isSubmitting} className="sm:min-w-[120px]">
+                {form.formState.isSubmitting ? "Saving..." : "Save"}
               </Button>
             </div>
           </form>

@@ -8,10 +8,11 @@ import { apiAny } from "@/lib/convexApiAny";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
-import { clerkChooseOrganizationTaskUrl, selectOrganizationUrl } from "@/lib/authRedirects";
+import { selectOrganizationUrl } from "@/lib/authRedirects";
 
 const ACTIVATION_RETRY_DELAY_MS = 2500;
 const MAX_ACTIVATION_ATTEMPTS = 3;
+const ACTIVATION_RELOAD_KEY = "myvibe-dashboard-activation-reloaded";
 
 function LoadingState({
   title,
@@ -129,8 +130,12 @@ export function SmartDashboard() {
     const primaryOrganization = organizations[0];
 
     if (activationAttempt >= MAX_ACTIVATION_ATTEMPTS) {
-      router.replace(clerkChooseOrganizationTaskUrl);
-      hasRedirectedRef.current = true;
+      if (sessionStorage.getItem(ACTIVATION_RELOAD_KEY) !== "1") {
+        sessionStorage.setItem(ACTIVATION_RELOAD_KEY, "1");
+        window.location.replace("/dashboard");
+      } else {
+        setActivationAttempt(0);
+      }
       return;
     }
 
@@ -196,6 +201,7 @@ export function SmartDashboard() {
 
   useEffect(() => {
     if (activeOrganization?.id) {
+      sessionStorage.removeItem(ACTIVATION_RELOAD_KEY);
       activatingOrganizationIdRef.current = null;
       setActivationAttempt(0);
       if (activationRetryTimeoutRef.current) {

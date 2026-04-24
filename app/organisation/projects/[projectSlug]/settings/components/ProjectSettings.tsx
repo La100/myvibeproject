@@ -3,13 +3,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
-import { useForm, useWatch, type UseFormReturn } from "react-hook-form";
+import { useForm, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useOrganization } from "@clerk/nextjs";
 import { z } from "zod";
 import { toast } from "sonner";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
-import { ImagePlus, Settings, X } from "lucide-react";
+import { Check, ImagePlus, Settings, X } from "lucide-react";
 
 import { apiAny } from "@/lib/convexApiAny";
 import { optimizeCoverImageForUpload } from "@/lib/coverImageUpload";
@@ -450,6 +450,9 @@ function ProjectSettingsContent() {
       if (result?.slug && result.slug !== params.projectSlug) {
         router.push(`/organisation/projects/${result.slug}/settings`);
       }
+      if (!options?.silent) {
+        toast.success("Project settings saved.");
+      }
       return true;
     } catch (error) {
       if (!options?.silent) {
@@ -639,6 +642,7 @@ function GeneralTab({
   const [uploadedCoverPreviewUrl, setUploadedCoverPreviewUrl] = useState<string | null>(null);
   const [coverPreviewCandidateIndex, setCoverPreviewCandidateIndex] = useState(0);
   const [coverPreviewErrorMessage, setCoverPreviewErrorMessage] = useState<string | null>(null);
+  const [showSavedState, setShowSavedState] = useState(false);
   const coverImageValue = settingsForm.watch("coverImageUrl")?.trim() ?? "";
   const normalizedCoverPreviewUrl = normalizeCoverImageUrl(coverImageValue);
   const persistedCoverPreviewUrl =
@@ -657,12 +661,7 @@ function GeneralTab({
   }, [localCoverPreviewUrl, persistedCoverPreviewUrl, uploadedCoverPreviewUrl]);
   const coverPreviewUrl = coverPreviewCandidates[coverPreviewCandidateIndex] ?? null;
   const hasCoverPreview = coverPreviewStatus === "ready";
-  const watchedSettingsValues = useWatch({ control: settingsForm.control });
-  const autosaveSnapshotRef = useRef<string | null>(null);
-  const autosaveInitializedRef = useRef(false);
-  const autosaveStatusTimeoutRef = useRef<number | null>(null);
-  const autosaveRequestIdRef = useRef(0);
-  const autosaveHandledRequestIdRef = useRef(0);
+  const savedStateTimeoutRef = useRef<number | null>(null);
 
   const replaceLocalCoverPreviewUrl = (nextUrl: string | null) => {
     if (localCoverPreviewUrlRef.current) {
@@ -677,8 +676,8 @@ function GeneralTab({
       if (localCoverPreviewUrlRef.current) {
         URL.revokeObjectURL(localCoverPreviewUrlRef.current);
       }
-      if (autosaveStatusTimeoutRef.current) {
-        clearTimeout(autosaveStatusTimeoutRef.current);
+      if (savedStateTimeoutRef.current) {
+        clearTimeout(savedStateTimeoutRef.current);
       }
     };
   }, []);
@@ -731,66 +730,6 @@ function GeneralTab({
       imageProbe.onerror = null;
     };
   }, [coverPreviewCandidateIndex, coverPreviewCandidates.length, coverPreviewUrl]);
-
-  useEffect(() => {
-    const serializedValues = JSON.stringify(watchedSettingsValues ?? {});
-
-    if (!autosaveInitializedRef.current) {
-      autosaveInitializedRef.current = true;
-      autosaveSnapshotRef.current = serializedValues;
-      return;
-    }
-
-    if (!settingsForm.formState.isDirty || settingsForm.formState.isSubmitting) {
-      return;
-    }
-
-    if (serializedValues === autosaveSnapshotRef.current) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      const requestId = autosaveRequestIdRef.current + 1;
-      autosaveRequestIdRef.current = requestId;
-
-      void settingsForm.handleSubmit(
-        async (values) => {
-          const didSave = await onSettingsSubmit(values, { silent: true });
-
-          if (requestId < autosaveHandledRequestIdRef.current) {
-            return;
-          }
-
-          autosaveHandledRequestIdRef.current = requestId;
-
-          if (!didSave) {
-            return;
-          }
-
-          autosaveSnapshotRef.current = serializedValues;
-
-          if (autosaveStatusTimeoutRef.current) {
-            clearTimeout(autosaveStatusTimeoutRef.current);
-          }
-
-          autosaveStatusTimeoutRef.current = window.setTimeout(() => {
-          }, 1800);
-        },
-        () => {
-        },
-      )();
-    }, 700);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [
-    onSettingsSubmit,
-    settingsForm,
-    settingsForm.formState.isDirty,
-    settingsForm.formState.isSubmitting,
-    watchedSettingsValues,
-  ]);
 
   const handleCoverImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -857,11 +796,11 @@ function GeneralTab({
 
       if (optimized.optimized) {
         const savedKb = Math.max(1, Math.round((optimized.originalSize - uploadFile.size) / 1024));
-        toast.success("Cover image uploaded and optimized", {
-          description: `Reduced by about ${savedKb} KB and queued for automatic save.`,
+        toast.success("Cover image uploaded and optimized.", {
+          description: `Reduced by about ${savedKb} KB. Click Save to apply it to the project.`,
         });
       } else {
-        toast.success("Cover image uploaded and queued for automatic save.");
+        toast.success("Cover image uploaded. Click Save to apply it to the project.");
       }
     } catch (error) {
       toast.error("Failed to upload cover image", {
@@ -888,11 +827,29 @@ function GeneralTab({
     }
   };
 
+  const handleManualSave = settingsForm.handleSubmit(async (values) => {
+    const didSave = await onSettingsSubmit(values);
+    if (!didSave) {
+      return;
+    }
+
+    settingsForm.reset(values);
+    setShowSavedState(true);
+
+    if (savedStateTimeoutRef.current) {
+      clearTimeout(savedStateTimeoutRef.current);
+    }
+
+    savedStateTimeoutRef.current = window.setTimeout(() => {
+      setShowSavedState(false);
+    }, 2500);
+  });
+
   return (
     <div className="space-y-8">
       <Form {...settingsForm}>
         <form
-          onSubmit={settingsForm.handleSubmit((values) => onSettingsSubmit(values))}
+          onSubmit={handleManualSave}
           className="flex flex-col gap-8"
         >
           <section className="space-y-4">
@@ -1282,6 +1239,31 @@ function GeneralTab({
                 ) : null}
               </div>
             </section>
+
+            <div className="sticky bottom-4 z-10 flex flex-col gap-3 rounded-2xl border border-border/70 bg-card/95 p-3 shadow-lg backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-muted-foreground">
+                Project settings are saved only when you click Save.
+              </p>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                {showSavedState ? (
+                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-primary">
+                    <Check className="h-4 w-4" />
+                    Saved
+                  </span>
+                ) : null}
+                <Button
+                  type="submit"
+                  disabled={
+                    settingsForm.formState.isSubmitting ||
+                    uploadingCoverImage ||
+                    !settingsForm.formState.isDirty
+                  }
+                  className="min-w-[120px]"
+                >
+                  {settingsForm.formState.isSubmitting ? "Saving..." : "Save"}
+                </Button>
+              </div>
+            </div>
 
           </form>
         </Form>

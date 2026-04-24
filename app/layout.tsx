@@ -7,7 +7,6 @@ import { Toaster } from "@/components/ui/sonner";
 import localFont from "next/font/local";
 import { cn } from "@/lib/utils";
 import {
-  clerkChooseOrganizationTaskUrl,
   signInFallbackRedirectUrl,
   signInUrl,
   signUpFallbackRedirectUrl,
@@ -96,9 +95,6 @@ export default function RootLayout({
           signUpUrl={signUpUrl}
           signInFallbackRedirectUrl={signInFallbackRedirectUrl}
           signUpFallbackRedirectUrl={signUpFallbackRedirectUrl}
-          taskUrls={{
-            "choose-organization": clerkChooseOrganizationTaskUrl,
-          }}
         >
           <ConvexClientProvider>
             {children}
