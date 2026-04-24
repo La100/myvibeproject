@@ -79,10 +79,10 @@ const getStatusLabel = (installment: Installment) => {
 };
 
 const actionButtonClassName =
-  "h-9 rounded-full border-border/70 bg-white px-3.5 text-[13px] font-medium shadow-none transition-[background-color,border-color,color,box-shadow,transform] hover:-translate-y-0.5 hover:border-border hover:bg-white hover:text-foreground hover:shadow-sm";
+  "h-9 rounded-full border-border/70 bg-card px-3.5 text-[13px] font-medium shadow-none transition-[background-color,border-color,color,box-shadow,transform] hover:-translate-y-0.5 hover:border-border hover:bg-card hover:text-foreground hover:shadow-sm";
 
 const metaPillClassName =
-  "inline-flex items-center rounded-full border border-border/60 bg-muted/25 px-3 py-1 text-[12px] font-medium leading-none text-muted-foreground";
+  "inline-flex items-center rounded-full border border-border/60 bg-secondary/70 px-3 py-1 text-[12px] font-medium leading-none text-muted-foreground";
 
 function InvoiceListItem({
   installment,
@@ -107,7 +107,7 @@ function InvoiceListItem({
   const canVoid = installment.status !== "paid" && installment.status !== "void";
 
   return (
-    <div className="rounded-[1.75rem] border border-border/70 bg-white p-5 shadow-none transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-border hover:shadow-[0_14px_34px_-24px_rgba(70,52,37,0.35)]">
+    <div className="vibe-row rounded-[1.75rem] p-5 transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-border hover:shadow-[0_14px_34px_-24px_rgba(70,52,37,0.35)]">
       <div className="flex flex-col gap-5">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
           <div className="min-w-0 flex-1 space-y-4">
@@ -126,7 +126,7 @@ function InvoiceListItem({
                   {installment.invoiceNumber ? (
                     <Badge
                       variant="outline"
-                      className="rounded-full border-border/70 bg-white px-3 py-1 text-[11px] font-semibold"
+                      className="rounded-full border-border/70 bg-card px-3 py-1 text-[11px] font-semibold"
                     >
                       #{installment.invoiceNumber}
                     </Badge>
@@ -138,7 +138,7 @@ function InvoiceListItem({
                   </p>
                 ) : null}
               </div>
-              <div className="min-w-[160px] rounded-2xl border border-border/60 bg-muted/15 px-4 py-3 text-right">
+              <div className="min-w-[160px] rounded-2xl border border-border/60 bg-card px-4 py-3 text-right">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                   Invoice total
                 </p>
@@ -166,7 +166,7 @@ function InvoiceListItem({
             </div>
 
             {installment.paymentReference ? (
-              <div className="rounded-2xl border border-border/60 bg-muted/15 px-4 py-3">
+              <div className="rounded-2xl border border-border/60 bg-card px-4 py-3">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                   Transfer reference
                 </p>
@@ -387,8 +387,8 @@ function InvoiceListSection({
   onCopyReference: (value?: string) => void;
 }) {
   return (
-    <Card className="overflow-hidden rounded-[1.75rem] border-border/70 bg-white shadow-none">
-      <CardHeader className="flex flex-col gap-4 border-b border-border/60 bg-muted/15 pb-5 sm:flex-row sm:items-center sm:justify-between">
+    <Card className="overflow-hidden rounded-[1.75rem] border-border/70 bg-card shadow-sm">
+      <CardHeader className="flex flex-col gap-4 border-b border-border/60 bg-card pb-5 sm:flex-row sm:items-center sm:justify-between">
         <CardTitle className="flex items-center gap-2 text-lg font-semibold tracking-tight">
           {icon}
           {title}
@@ -397,7 +397,7 @@ function InvoiceListSection({
       </CardHeader>
       <CardContent className="flex flex-col gap-4 pt-6">
         {items.length === 0 ? (
-          <div className="rounded-[1.5rem] border border-dashed border-border/70 bg-muted/10 px-5 py-10 text-center">
+          <div className="rounded-[1.5rem] border border-dashed border-border/70 bg-secondary/70 px-5 py-10 text-center">
             <p className="mx-auto max-w-xl text-sm leading-[1.6] text-muted-foreground">{emptyMessage}</p>
           </div>
         ) : (

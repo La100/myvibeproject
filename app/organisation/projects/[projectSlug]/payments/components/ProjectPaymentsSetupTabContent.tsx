@@ -162,7 +162,7 @@ function FieldToggleList<T extends string>({
   if (options.length === 0) return null;
 
   return (
-    <div className="rounded-xl border border-border/70 bg-white p-3">
+    <div className="rounded-xl border border-border/70 bg-secondary/70 p-3">
       <p className="mb-2 text-xs font-medium text-muted-foreground">{title}</p>
       <div className="flex flex-wrap gap-2">
         {options.map((option) => (
@@ -206,12 +206,12 @@ export function ProjectPaymentsSetupTabContent({
       ? "border-destructive/35 bg-destructive/12 text-destructive"
       : paymentRouteStatus === "stripe"
         ? "border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-        : "border-border bg-muted/40 text-foreground";
+        : "border-border bg-secondary/70 text-foreground";
 
   return (
     <TabsContent value="invoice-setup" className="flex flex-col gap-6">
       <div className="grid gap-6 xl:grid-cols-2">
-        <Card className="border-border/70 bg-white shadow-none">
+        <Card className="border-border/70 bg-card shadow-sm">
           <CardHeader className="flex flex-row items-start justify-between gap-3">
             <div className="space-y-1.5">
               <CardTitle className="flex items-center gap-2">
@@ -522,7 +522,7 @@ export function ProjectPaymentsSetupTabContent({
           </CardContent>
         </Card>
 
-        <Card className="border-border/70 bg-white shadow-none">
+        <Card className="border-border/70 bg-card shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Building2 />

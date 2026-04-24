@@ -162,7 +162,7 @@ export default function TaxPage() {
           </div>
 
           {taxEnabled ? (
-            <div className="rounded-2xl border border-border/60 bg-muted/20 px-4 py-4">
+            <div className="rounded-2xl border border-border/60 bg-secondary/70 px-4 py-4">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-medium text-foreground">Current default</span>
                 <Badge>{taxLabel.trim() || DEFAULT_ORGANIZATION_TAX_SETTINGS.taxLabel}</Badge>
@@ -175,14 +175,14 @@ export default function TaxPage() {
               </p>
             </div>
           ) : (
-            <div className="rounded-2xl border border-dashed border-border/70 bg-muted/10 px-4 py-4 text-sm text-muted-foreground">
+            <div className="rounded-2xl border border-dashed border-border/70 bg-secondary/70 px-4 py-4 text-sm text-muted-foreground">
               No default tax is active. Documents can still be created without tax.
             </div>
           )}
 
-          <div className="flex items-center justify-between rounded-2xl border border-border/60 bg-muted/10 px-4 py-4">
+          <div className="flex items-center justify-between rounded-2xl border border-border/60 bg-secondary/70 px-4 py-4">
             <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full border border-border/70 bg-white">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full border border-border/70 bg-card">
                 <Percent className="h-4 w-4 text-muted-foreground" />
               </div>
               <div className="space-y-1">

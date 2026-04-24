@@ -67,8 +67,8 @@ export default function ProductLibraryPage() {
       className="group cursor-pointer"
       onClick={() => setSelectedProduct(product)}
     >
-      <div className="relative overflow-hidden rounded-[1.75rem] border border-border/60 bg-white transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-foreground/15 group-hover:shadow-[0_16px_36px_-24px_rgba(15,15,15,0.28)]">
-        <div className="h-36 bg-background p-3 sm:aspect-square sm:h-auto sm:p-8">
+      <div className="relative overflow-hidden rounded-[1.75rem] border border-border/60 bg-card transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-foreground/15 group-hover:shadow-[0_16px_36px_-24px_rgba(15,15,15,0.28)]">
+        <div className="h-36 bg-secondary/70 p-3 sm:aspect-square sm:h-auto sm:p-8">
           {product.imageUrl ? (
             <img
               src={product.imageUrl}
@@ -76,7 +76,7 @@ export default function ProductLibraryPage() {
               className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-[1.02]"
             />
           ) : (
-            <div className="flex h-full items-center justify-center rounded-[1.25rem] border border-dashed border-border/70 bg-muted/30 text-sm text-muted-foreground">
+            <div className="flex h-full items-center justify-center rounded-[1.25rem] border border-dashed border-border/70 bg-secondary/70 text-sm text-muted-foreground">
               No preview
             </div>
           )}
@@ -87,7 +87,7 @@ export default function ProductLibraryPage() {
             type="button"
             size="icon-sm"
             variant="outline"
-            className="bg-white/90 backdrop-blur-sm"
+            className="bg-card backdrop-blur-sm"
             onClick={(event) => {
               event.stopPropagation();
               setShowAddToProjectModal(product);
@@ -99,7 +99,7 @@ export default function ProductLibraryPage() {
             type="button"
             size="icon-sm"
             variant="outline"
-            className="bg-white/90 backdrop-blur-sm"
+            className="bg-card backdrop-blur-sm"
             onClick={(event) => {
               event.stopPropagation();
               setSelectedProduct(product);
@@ -135,10 +135,10 @@ export default function ProductLibraryPage() {
 
   const ProductRow = ({ product }: { product: { _id: string; name: string; brand?: string; description?: string; category?: string; supplier?: string; unitPrice?: number; imageUrl?: string; tags: string[]; _creationTime: number; } }) => (
     <article
-      className="group flex cursor-pointer items-center gap-4 rounded-[1.5rem] border border-border/60 bg-white px-4 py-3 transition-all duration-200 hover:border-foreground/15 hover:shadow-[0_12px_30px_-24px_rgba(15,15,15,0.25)]"
+      className="group flex cursor-pointer items-center gap-4 rounded-[1.5rem] border border-border/60 bg-card px-4 py-3 transition-all duration-200 hover:border-foreground/15 hover:shadow-[0_12px_30px_-24px_rgba(15,15,15,0.25)]"
       onClick={() => setSelectedProduct(product)}
     >
-      <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[1.25rem] bg-background p-3">
+      <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[1.25rem] bg-secondary/70 p-3">
         {product.imageUrl ? (
           <img
             src={product.imageUrl}
@@ -216,12 +216,12 @@ export default function ProductLibraryPage() {
                 placeholder="Search"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="h-10 rounded-2xl border-border/70 bg-white pl-10 shadow-none"
+                className="h-10 rounded-2xl border-border/70 bg-card pl-10 shadow-none"
               />
             </div>
 
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="h-10 w-full rounded-2xl border-border/70 bg-white md:w-[180px]">
+              <SelectTrigger className="h-10 w-full rounded-2xl border-border/70 bg-card md:w-[180px]">
                 <div className="flex items-center gap-2">
                   <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
                   <SelectValue placeholder="All categories" />
@@ -238,7 +238,7 @@ export default function ProductLibraryPage() {
             </Select>
 
             <Select value={selectedSupplier} onValueChange={setSelectedSupplier}>
-              <SelectTrigger className="h-10 w-full rounded-2xl border-border/70 bg-white md:w-[180px]">
+              <SelectTrigger className="h-10 w-full rounded-2xl border-border/70 bg-card md:w-[180px]">
                 <SelectValue placeholder="All suppliers" />
               </SelectTrigger>
               <SelectContent>
@@ -251,7 +251,7 @@ export default function ProductLibraryPage() {
               </SelectContent>
             </Select>
 
-            <div className="flex items-center rounded-2xl border border-border/70 bg-white p-1">
+            <div className="flex items-center rounded-2xl border border-border/70 bg-card p-1">
               <Button
                 variant="ghost"
                 size="icon-sm"
@@ -296,7 +296,7 @@ export default function ProductLibraryPage() {
               onClick: () => router.push("/organisation/product-library/new"),
               icon: Plus,
             }}
-            className="border-0 bg-white"
+            className="border-0 bg-card"
           />
         ) : (
           <>

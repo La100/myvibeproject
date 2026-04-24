@@ -201,14 +201,14 @@ const priorityStyles: Record<
   low: {
     label: "Low",
     variant: "outline",
-    accentClassName: "bg-muted-foreground/30",
+    accentClassName: "bg-[var(--chart-4)]/55",
   },
   medium: {
     label: "Medium",
     variant: "secondary",
-    accentClassName: "bg-primary/60",
+    accentClassName: "bg-[var(--ui-accent-brand)]/55",
   },
-  high: { label: "High", variant: "default", accentClassName: "bg-primary" },
+  high: { label: "High", variant: "default", accentClassName: "bg-[var(--ui-accent-brand)]" },
   urgent: {
     label: "Urgent",
     variant: "destructive",
@@ -478,7 +478,7 @@ export default function TasksView() {
           actions={
             <div className="flex items-center gap-2">
               <Button onClick={() => setIsTaskFormOpen(true)}>Add Task</Button>
-              <div className="flex items-center rounded-md border bg-background">
+              <div className="flex items-center rounded-md border bg-card">
                 <Button
                   variant={viewMode === "kanban" ? "secondary" : "ghost"}
                   size="sm"
@@ -585,12 +585,7 @@ export default function TasksView() {
             }}
           />
         ) : viewMode === "kanban" ? (
-          <div className="relative isolate overflow-hidden rounded-[2rem] px-1 py-2">
-            <div className="pointer-events-none absolute left-[-6%] top-8 h-56 w-56 rounded-full bg-sky-200/55 blur-3xl" />
-            <div className="pointer-events-none absolute left-[28%] top-20 h-64 w-64 rounded-full bg-violet-200/45 blur-3xl" />
-            <div className="pointer-events-none absolute right-[18%] top-6 h-60 w-60 rounded-full bg-amber-100/60 blur-3xl" />
-            <div className="pointer-events-none absolute right-[-4%] top-24 h-56 w-56 rounded-full bg-emerald-200/45 blur-3xl" />
-
+          <div className="relative isolate overflow-hidden rounded-[2rem] border border-border/70 bg-card p-3 shadow-sm">
             <KanbanProvider
               onDragStart={handleDragStart}
               onDragCancel={handleDragCancel}
@@ -605,12 +600,12 @@ export default function TasksView() {
                   <KanbanBoard
                     id={status.value}
                     key={status.value}
-                    className="relative overflow-hidden rounded-[1.65rem] border border-white/60 bg-white/28 p-3 backdrop-blur-2xl shadow-[0_10px_30px_-18px_rgba(15,23,42,0.24),inset_0_1px_0_rgba(255,255,255,0.78)] before:pointer-events-none before:absolute before:inset-0 before:bg-[linear-gradient(180deg,rgba(255,255,255,0.34)_0%,rgba(255,255,255,0.08)_42%,rgba(255,255,255,0.18)_100%)] before:content-['']"
+                    className="relative overflow-hidden rounded-[1.5rem] border border-border/70 bg-secondary/70 p-3 shadow-sm"
                   >
                     <KanbanHeader
                       name={status.label}
                       color={status.color}
-                      className="relative z-10 rounded-full border border-white/60 bg-white/42 px-3 py-2 shadow-[0_8px_18px_-14px_rgba(15,23,42,0.22),inset_0_1px_0_rgba(255,255,255,0.82)] backdrop-blur-xl"
+                      className="relative z-10 rounded-full border border-border/70 bg-secondary/70 px-3 py-2 shadow-none backdrop-blur-xl"
                     />
                     <KanbanCards className="relative z-10">
                       {localKanbanTasks
@@ -637,97 +632,99 @@ export default function TasksView() {
             </KanbanProvider>
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead onClick={() => handleSortChange("title")}>
-                  <div className="flex items-center cursor-pointer">
-                    Task <ChevronsUpDown data-icon="inline-end" />
-                  </div>
-                </TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Priority</TableHead>
-                <TableHead>Assignee</TableHead>
-                <TableHead onClick={() => handleSortChange("endDate")}>
-                  <div className="flex items-center cursor-pointer">
-                    End Date <ChevronsUpDown data-icon="inline-end" />
-                  </div>
-                </TableHead>
-                <TableHead>Tags</TableHead>
-                <TableHead></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {tasksToDisplay?.map((task) => (
-                <TableRow key={task._id}>
-                  <TableCell className="font-medium">
-                    <Link
-                      href={`/organisation/projects/${params.projectSlug}/tasks/${task._id}`}
-                    >
-                      {task.title}
-                    </Link>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary">
-                      {project.taskStatusSettings?.[task.status]?.name ||
-                        task.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {task.priority && (
-                      <Badge variant="outline">{task.priority}</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {task.assignedToName && (
-                      <div className="flex items-center gap-2">
-                        <Avatar className="size-6">
-                          <AvatarImage src={task.assignedToImageUrl} />
-                          <AvatarFallback>
-                            {task.assignedToName?.charAt(0)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span>{task.assignedToName}</span>
-                      </div>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {task.endDate
-                      ? formatDateTime(task.endDate)
-                      : task.startDate
-                        ? formatDateTime(task.startDate)
-                        : "-"}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      {task.tags?.map((tag) => (
-                        <Badge key={tag} variant="secondary">
-                          {tag}
-                        </Badge>
-                      ))}
+          <div className="overflow-hidden rounded-[1.5rem] border border-border/70 bg-card shadow-sm">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead onClick={() => handleSortChange("title")}>
+                    <div className="flex items-center cursor-pointer">
+                      Task <ChevronsUpDown data-icon="inline-end" />
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <span className="sr-only">Open menu</span>
-                          <ChevronsUpDown />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuGroup>
-                          <DropdownMenuItem>Edit</DropdownMenuItem>
-                          <DropdownMenuItem>Delete</DropdownMenuItem>
-                        </DropdownMenuGroup>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+                  </TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Priority</TableHead>
+                  <TableHead>Assignee</TableHead>
+                  <TableHead onClick={() => handleSortChange("endDate")}>
+                    <div className="flex items-center cursor-pointer">
+                      End Date <ChevronsUpDown data-icon="inline-end" />
+                    </div>
+                  </TableHead>
+                  <TableHead>Tags</TableHead>
+                  <TableHead></TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {tasksToDisplay?.map((task) => (
+                  <TableRow key={task._id} className="bg-secondary/70">
+                    <TableCell className="font-medium">
+                      <Link
+                        href={`/organisation/projects/${params.projectSlug}/tasks/${task._id}`}
+                      >
+                        {task.title}
+                      </Link>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">
+                        {project.taskStatusSettings?.[task.status]?.name ||
+                          task.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {task.priority && (
+                        <Badge variant="outline">{task.priority}</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {task.assignedToName && (
+                        <div className="flex items-center gap-2">
+                          <Avatar className="size-6">
+                            <AvatarImage src={task.assignedToImageUrl} />
+                            <AvatarFallback>
+                              {task.assignedToName?.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span>{task.assignedToName}</span>
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {task.endDate
+                        ? formatDateTime(task.endDate)
+                        : task.startDate
+                          ? formatDateTime(task.startDate)
+                          : "-"}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        {task.tags?.map((tag) => (
+                          <Badge key={tag} variant="secondary">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <ChevronsUpDown />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuGroup>
+                            <DropdownMenuItem>Edit</DropdownMenuItem>
+                            <DropdownMenuItem>Delete</DropdownMenuItem>
+                          </DropdownMenuGroup>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </div>
     </div>
@@ -745,7 +742,7 @@ const TaskCardContent = memo(function TaskCardContent({
 
   return (
     <div
-      className="relative block cursor-pointer rounded-xl border border-border/85 bg-card p-4 shadow-[0_1px_2px_rgba(15,23,42,0.06),0_10px_24px_-20px_rgba(15,23,42,0.28)] transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-foreground/15 hover:shadow-[0_10px_30px_-20px_rgba(15,23,42,0.22)]"
+      className="relative block cursor-pointer rounded-[18px] border border-border/85 bg-card p-4 shadow-sm transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-foreground/15 hover:shadow-md"
     >
       <div className="flex justify-between items-start mb-2">
         <Link
@@ -842,7 +839,7 @@ function TaskDragPreview({ task }: { task: KanbanTask }) {
   const priority = getPriorityDisplay(task.priority);
 
   return (
-    <div className="w-[340px] rounded-xl border border-border/85 bg-card px-4 py-3 shadow-[0_16px_40px_-24px_rgba(15,23,42,0.34)]">
+    <div className="w-[340px] rounded-[18px] border border-border/85 bg-card px-4 py-3 shadow-md">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="truncate text-sm font-semibold">{task.title}</div>

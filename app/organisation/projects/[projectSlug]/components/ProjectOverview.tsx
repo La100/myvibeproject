@@ -53,7 +53,7 @@ import { cn, formatCurrency, getTaskPreview } from "@/lib/utils";
 
 function ProjectOverviewSkeleton() {
   return (
-    <div className="flex min-h-[480px] items-center justify-center rounded-[28px] border border-border/60 bg-background/95 shadow-[0_22px_70px_-48px_rgba(27,27,27,0.45)]">
+    <div className="vibe-panel flex min-h-[480px] items-center justify-center">
       <Spinner />
     </div>
   );
@@ -740,7 +740,7 @@ function ProjectOverviewContent() {
     null;
 
   const projectStatusBadgeClass = cn(
-    "border-border/80 bg-background/86 text-foreground shadow-none backdrop-blur-md",
+    "border-border/80 bg-card text-foreground shadow-none backdrop-blur-md",
     project.status === "cancelled" &&
       "border-red-200/80 bg-red-50/90 text-red-900",
     project.status === "completed" &&
@@ -750,10 +750,10 @@ function ProjectOverviewContent() {
   return (
     <ProjectPageLayout>
       <section className="w-full">
-        <div className="overflow-hidden rounded-[34px] border border-border/70 bg-card shadow-[0_24px_80px_-52px_rgba(25,25,25,0.42)]">
+        <div className="vibe-panel overflow-hidden rounded-[34px]">
           <div className="border-b border-border/70 bg-card px-5 py-5 sm:px-7 sm:py-7 lg:px-9">
             <div className="flex items-start justify-between gap-3">
-              <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/78 px-3 py-1.5 text-[11px] font-medium tracking-[0.08em] text-muted-foreground backdrop-blur-md">
+              <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-secondary/70 px-3 py-1.5 text-[11px] font-medium tracking-[0.08em] text-muted-foreground backdrop-blur-md">
                 <Building2 className="h-3.5 w-3.5" />
                 <span>Projects</span>
                 <span className="text-muted-foreground/60">/</span>
@@ -766,7 +766,7 @@ function ProjectOverviewContent() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-12 w-12 rounded-2xl border border-border/70 bg-background/78 text-foreground/75 backdrop-blur-md transition-colors hover:bg-background hover:text-foreground"
+                    className="h-12 w-12 rounded-2xl border border-border/70 bg-secondary/70 text-foreground/75 backdrop-blur-md transition-colors hover:bg-secondary hover:text-foreground"
                   >
                     <MoreHorizontal className="h-5 w-5" />
                     <span className="sr-only">Project actions</span>
@@ -837,11 +837,11 @@ function ProjectOverviewContent() {
                       {projectStatusLabel}
                     </Badge>
                     {project.customer ? (
-                      <Badge className="border-border/80 bg-background/86 text-foreground/88 shadow-none backdrop-blur-md">
+                      <Badge className="border-border/80 bg-card text-foreground/88 shadow-none backdrop-blur-md">
                         {project.customer}
                       </Badge>
                     ) : null}
-                    <Badge className="gap-2 border-border/80 bg-background/86 px-3 text-foreground/88 shadow-none backdrop-blur-md">
+                    <Badge className="gap-2 border-border/80 bg-card px-3 text-foreground/88 shadow-none backdrop-blur-md">
                       <CalendarRange className="h-3.5 w-3.5 text-muted-foreground" />
                       <span>
                         {formatDateRange(project.startDate, project.endDate)}
@@ -853,7 +853,7 @@ function ProjectOverviewContent() {
 
               {hasProjectCover ? (
                 <div className="relative lg:mr-4 lg:justify-self-end lg:w-full lg:max-w-[480px] lg:pb-3 xl:mr-6 xl:max-w-[560px] xl:pb-4 2xl:mr-8 2xl:max-w-[610px] 2xl:pb-5">
-                  <div className="group relative min-h-[240px] overflow-hidden rounded-[30px] border border-border/60 bg-muted/20 shadow-[0_28px_80px_-46px_rgba(22,22,22,0.24)] sm:min-h-[290px] lg:min-h-[320px] xl:min-h-[345px]">
+                  <div className="group relative min-h-[240px] overflow-hidden rounded-[30px] border border-border/60 bg-secondary/70 shadow-md sm:min-h-[290px] lg:min-h-[320px] xl:min-h-[345px]">
                     <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-[10%] bg-[linear-gradient(90deg,rgba(255,255,255,0.22)_0%,rgba(255,255,255,0)_100%)]" />
                     <Image
                       src={projectCoverUrl}
@@ -880,13 +880,13 @@ function ProjectOverviewContent() {
                           className="h-10 w-10 border-[3px] border-card shadow-sm"
                         >
                           <AvatarImage src={member.imageUrl} alt={member.name} />
-                          <AvatarFallback className="bg-muted text-[11px] font-semibold text-foreground">
+                          <AvatarFallback className="bg-secondary/70 text-[11px] font-semibold text-foreground">
                             {getInitials(member.name)}
                           </AvatarFallback>
                         </Avatar>
                       ))}
                       {hiddenTeamMembersCount > 0 ? (
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full border-[3px] border-card bg-muted text-[11px] font-semibold text-foreground shadow-sm">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full border-[3px] border-card bg-secondary/70 text-[11px] font-semibold text-foreground shadow-sm">
                           +{hiddenTeamMembersCount}
                         </div>
                       ) : null}
@@ -960,7 +960,7 @@ function ProjectOverviewContent() {
                   <div
                     key={metric.label}
                     className={cn(
-                      "rounded-[18px] border border-border/80 bg-card px-5 py-5",
+                      "rounded-[20px] border border-border/80 bg-secondary/70 px-5 py-5 shadow-sm",
                       metric.spanClass,
                       index === overviewMetrics.length - 1 && "md:col-span-2",
                     )}
@@ -1011,14 +1011,14 @@ function ProjectOverviewContent() {
                         key={card.id}
                         href={card.href}
                         className={cn(
-                          "group overflow-hidden rounded-[16px] border border-border/80 bg-card transition-[transform,background-color,border-color] duration-200 hover:-translate-y-0.5 hover:bg-muted/20",
+                          "group overflow-hidden rounded-[18px] border border-border/80 bg-secondary/70 transition-[transform,background-color,border-color] duration-200 hover:-translate-y-0.5 hover:bg-secondary",
                           !hasImage &&
                             "flex min-h-[180px] flex-col bg-[linear-gradient(180deg,rgba(247,247,244,0.88)_0%,rgba(255,255,255,0.98)_100%)]",
                         )}
                       >
                         {hasImage ? (
                           <>
-                            <div className="relative aspect-[1.38/1] border-b border-border/70 bg-muted/30">
+                            <div className="relative aspect-[1.38/1] border-b border-border/70 bg-secondary/70">
                               <Image
                                 src={card.imageUrl}
                                 alt={card.title}
@@ -1036,7 +1036,7 @@ function ProjectOverviewContent() {
                               </p>
                               <Badge
                                 variant="outline"
-                                className="rounded-md border-border/80 bg-muted/25 px-2 py-0.5 text-[9px] font-medium text-muted-foreground"
+                                className="rounded-md border-border/80 bg-card px-2 py-0.5 text-[9px] font-medium text-muted-foreground"
                               >
                                 {card.status}
                               </Badge>
@@ -1045,12 +1045,12 @@ function ProjectOverviewContent() {
                         ) : (
                           <>
                             <div className="flex items-center justify-between border-b border-border/70 px-3.5 py-3.5">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-[12px] border border-border/70 bg-background/85 text-foreground shadow-sm">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-[12px] border border-border/70 bg-card text-foreground shadow-sm">
                                 <Files className="h-3.5 w-3.5" />
                               </div>
                               <Badge
                                 variant="outline"
-                                className="rounded-md border-border/80 bg-background/80 px-2 py-0.5 text-[9px] font-medium text-muted-foreground"
+                                className="rounded-md border-border/80 bg-card px-2 py-0.5 text-[9px] font-medium text-muted-foreground"
                               >
                                 {card.status}
                               </Badge>
@@ -1071,7 +1071,7 @@ function ProjectOverviewContent() {
                     );
                   })
                 ) : (
-                  <div className="col-span-full rounded-[12px] border border-dashed border-border/80 bg-muted/20 px-4 py-6 text-[12px] text-muted-foreground">
+                  <div className="col-span-full rounded-[12px] border border-dashed border-border/80 bg-secondary/70 px-4 py-6 text-[12px] text-muted-foreground">
                     Add moodboard items, files, or notes to populate the recent
                     strip.
                   </div>

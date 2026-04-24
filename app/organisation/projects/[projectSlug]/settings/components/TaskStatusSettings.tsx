@@ -105,7 +105,7 @@ export default function TaskStatusSettings({ projectId, initialSettings }: TaskS
                 return (
                   <div
                     key={key}
-                    className="rounded-2xl bg-muted/25 p-4"
+                    className="rounded-2xl bg-secondary/70 p-4"
                   >
                     <div className="mb-4 flex items-start justify-between gap-3">
                       <div>
@@ -171,7 +171,7 @@ export default function TaskStatusSettings({ projectId, initialSettings }: TaskS
               })}
             </div>
 
-            <div className="flex flex-col-reverse gap-3 rounded-xl bg-muted/60 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col-reverse gap-3 rounded-xl bg-secondary/70 p-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-muted-foreground">
                 Updated labels and colors are used across boards and task details.
               </p>

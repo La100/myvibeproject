@@ -984,7 +984,7 @@ export default function CompanyReports() {
         <TabsContent value="overview" className="mt-6">
           <div className="flex flex-col gap-6">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              <Card>
+              <Card className="bg-card">
                 <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
                   <CardTitle className="text-sm font-medium">Total Projects</CardTitle>
                   <BarChart3 className="h-4 w-4 text-muted-foreground" />
@@ -995,7 +995,7 @@ export default function CompanyReports() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="bg-card">
                 <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
                   <CardTitle className="text-sm font-medium">Total Budget</CardTitle>
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -1006,7 +1006,7 @@ export default function CompanyReports() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="bg-card">
                 <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
                   <CardTitle className="text-sm font-medium">Task Completion</CardTitle>
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
@@ -1019,7 +1019,7 @@ export default function CompanyReports() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="bg-card">
                 <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
                   <CardTitle className="text-sm font-medium">Overdue Tasks</CardTitle>
                   <Clock className="h-4 w-4 text-muted-foreground" />
@@ -1068,7 +1068,7 @@ export default function CompanyReports() {
 
         <TabsContent value="projects" className="mt-6">
           <div className="flex flex-col gap-6">
-            <Card>
+            <Card className="bg-card">
               <CardHeader>
                 <CardTitle>Project Status Distribution</CardTitle>
                 <CardDescription>Breakdown of projects by current status</CardDescription>
@@ -1097,7 +1097,7 @@ export default function CompanyReports() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="bg-card">
               <CardHeader>
                 <CardTitle>All Projects</CardTitle>
                 <CardDescription>Progress, budget, and schedule overview</CardDescription>
@@ -1114,7 +1114,7 @@ export default function CompanyReports() {
                         const progress = projectTasks.length > 0 ? (done / projectTasks.length) * 100 : 0;
 
                         return (
-                          <div key={project._id} className="border rounded-lg p-4">
+                          <div key={project._id} className="rounded-lg border bg-secondary/70 p-4">
                             <div className="flex items-start justify-between mb-2">
                               <div>
                                 <h4 className="font-semibold">{project.name}</h4>
@@ -1156,7 +1156,7 @@ export default function CompanyReports() {
 
         <TabsContent value="tasks" className="mt-6">
           <div className="flex flex-col gap-6">
-            <Card>
+            <Card className="bg-card">
               <CardHeader>
                 <CardTitle>Task Status Breakdown</CardTitle>
                 <CardDescription>Current status of all tasks</CardDescription>
@@ -1182,7 +1182,7 @@ export default function CompanyReports() {
             </Card>
 
             {overdueTasks > 0 ? (
-              <Card>
+              <Card className="bg-card">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <AlertCircle className="h-5 w-5 text-destructive" />
@@ -1193,7 +1193,7 @@ export default function CompanyReports() {
                 <CardContent>
                   <div className="flex flex-col gap-3">
                     {overdueTaskList.map((task) => (
-                      <div key={task._id} className="flex items-center justify-between border-l-2 border-destructive pl-3 py-2">
+                      <div key={task._id} className="flex items-center justify-between rounded-lg border border-border/70 border-l-2 border-l-destructive bg-secondary/70 px-3 py-2">
                         <div className="flex-1">
                           <p className="font-medium">{task.title}</p>
                           <p className="text-xs text-muted-foreground">
@@ -1222,7 +1222,7 @@ export default function CompanyReports() {
               <FinancialCard title="Issued Invoices" value={String(invoiceTotals.invoiceCount)} subtitle={`${invoiceTotals.paidCount} paid • ${invoiceTotals.openCount} open`} icon={<Receipt className="h-4 w-4 text-muted-foreground" />} />
             </div>
 
-            <Card>
+            <Card className="bg-card">
               <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
                   <CardTitle>Invoices Across All Projects</CardTitle>
@@ -1258,7 +1258,7 @@ export default function CompanyReports() {
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                   {invoiceCurrencySummary.length > 0 ? (
                     invoiceCurrencySummary.map((entry) => (
-                      <div key={entry.currency} className="rounded-lg border border-border/70 p-4">
+                      <div key={entry.currency} className="rounded-lg border border-border/70 bg-secondary/70 p-4">
                         <div className="flex items-center justify-between gap-3">
                           <p className="font-medium">{entry.currency}</p>
                           <Badge variant="outline">{entry.invoiceCount} invoices</Badge>
@@ -1284,13 +1284,13 @@ export default function CompanyReports() {
                       </div>
                     ))
                   ) : (
-                    <div className="rounded-lg border border-dashed border-border/70 px-4 py-8 text-sm text-muted-foreground md:col-span-2 xl:col-span-4">
+                    <div className="rounded-lg border border-dashed border-border/70 bg-secondary/70 px-4 py-8 text-sm text-muted-foreground md:col-span-2 xl:col-span-4">
                       No issued invoices yet.
                     </div>
                   )}
                 </div>
 
-                <div className="rounded-lg border border-border/70">
+                <div className="rounded-lg border border-border/70 bg-secondary/70">
                   <div className="grid grid-cols-[1.3fr_1.1fr_1fr_0.8fr_0.9fr_0.9fr] gap-3 border-b border-border/70 px-4 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     <span>Invoice</span>
                     <span>Project / Customer</span>
@@ -1343,7 +1343,7 @@ export default function CompanyReports() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="bg-card">
               <CardHeader>
                 <CardTitle>Shopping List by Status</CardTitle>
                 <CardDescription>Items and cost by realization status</CardDescription>
@@ -1369,7 +1369,7 @@ export default function CompanyReports() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="bg-card">
               <CardHeader>
                 <CardTitle>Budget Overview</CardTitle>
                 <CardDescription>Top projects by budget</CardDescription>
@@ -1431,7 +1431,7 @@ function FinancialCard({
   icon: ReactNode;
 }) {
   return (
-    <Card>
+    <Card className="bg-card">
       <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
         {icon}

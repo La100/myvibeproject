@@ -188,9 +188,9 @@ function ProjectSidebarContent() {
                 <SidebarMenuButton
                   asChild
                   isActive={isActive}
-                  className={`h-8 justify-start gap-2.5 rounded-xl border px-3 text-[13px] font-medium ${isActive
-                      ? "border-sidebar-border/80 bg-sidebar-accent/45 text-sidebar-foreground"
-                      : "border-transparent bg-transparent text-sidebar-foreground hover:bg-transparent hover:text-sidebar-foreground"
+                  className={`h-9 justify-start gap-2.5 rounded-2xl border px-3 text-[13px] font-medium ${isActive
+                      ? "border-sidebar-border/90 bg-sidebar-accent/70 text-sidebar-foreground shadow-sm"
+                      : "border-transparent bg-transparent text-sidebar-foreground/82 hover:bg-sidebar-accent/34 hover:text-sidebar-foreground"
                     }`}
                 >
                   <Link
@@ -199,7 +199,7 @@ function ProjectSidebarContent() {
                     onMouseEnter={() => handleLinkHover(item.href)}
                     className="flex min-w-0 flex-1 items-center gap-3"
                   >
-                    <item.icon className={`h-4 w-4 ${isActive ? "text-sidebar-foreground" : "text-sidebar-foreground/85"}`} />
+                    <item.icon className={`h-4 w-4 ${isActive ? "text-sidebar-primary" : "text-sidebar-foreground/68"}`} />
                     <span className="min-w-0 flex-1 truncate">{item.label}</span>
                     {typeof item.notificationCount === "number" && item.notificationCount > 0 ? (
                       <Badge variant="secondary" className="min-w-5 px-1.5 py-0.5 text-[10px] leading-none">
@@ -224,10 +224,10 @@ function ProjectSidebarContent() {
             href="/organisation"
             onClick={handleLinkClick}
             onMouseEnter={() => handleLinkHover("/organisation")}
-            className="group flex w-full items-center gap-2.5 rounded-xl border border-transparent px-1 py-1 text-sidebar-foreground/85 transition-colors hover:bg-transparent"
+            className="group flex w-full items-center gap-2.5 rounded-2xl border border-transparent px-1 py-1 text-sidebar-foreground/85 transition-colors hover:bg-sidebar-accent/28"
           >
             <ArrowLeft className="h-4 w-4 text-sidebar-foreground/55" />
-            <span className="min-w-0 flex-1 truncate text-[17px] font-semibold tracking-tight text-sidebar-foreground">
+            <span className="min-w-0 flex-1 truncate font-serif text-[18px] font-medium tracking-[-0.035em] text-sidebar-foreground">
               {projectName}
             </span>
           </Link>
@@ -265,9 +265,9 @@ function ProjectSidebarContent() {
                     <SidebarMenuButton
                       asChild
                       isActive={isActive}
-                      className={`h-8 justify-start gap-2.5 rounded-xl border px-3 text-[13px] font-medium ${isActive
-                          ? "border-sidebar-border/80 bg-sidebar-accent/45 text-sidebar-foreground"
-                          : "border-transparent text-sidebar-foreground/82 hover:bg-transparent hover:text-sidebar-foreground"
+                      className={`h-9 justify-start gap-2.5 rounded-2xl border px-3 text-[13px] font-medium ${isActive
+                          ? "border-sidebar-border/90 bg-sidebar-accent/70 text-sidebar-foreground shadow-sm"
+                          : "border-transparent text-sidebar-foreground/78 hover:bg-sidebar-accent/34 hover:text-sidebar-foreground"
                         }`}
                     >
                       <Link
@@ -276,7 +276,7 @@ function ProjectSidebarContent() {
                         onMouseEnter={() => handleLinkHover(item.href)}
                         className="flex flex-1 items-center gap-3"
                       >
-                        <item.icon className={`h-4 w-4 ${isActive ? "text-sidebar-foreground" : "text-sidebar-foreground/85"}`} />
+                        <item.icon className={`h-4 w-4 ${isActive ? "text-sidebar-primary" : "text-sidebar-foreground/68"}`} />
                         <span className="truncate">{item.label}</span>
                       </Link>
                     </SidebarMenuButton>
@@ -290,7 +290,7 @@ function ProjectSidebarContent() {
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="flex w-full items-center gap-2.5 rounded-xl border border-transparent bg-transparent px-2.5 py-1.5 text-left transition hover:bg-sidebar-accent/30"
+                  className="flex w-full items-center gap-2.5 rounded-2xl border border-transparent bg-transparent px-2.5 py-1.5 text-left transition hover:bg-sidebar-accent/40"
                 >
                   {user?.imageUrl ? (
                     <div className="relative h-8 w-8 overflow-hidden rounded-full border border-sidebar-border/70">

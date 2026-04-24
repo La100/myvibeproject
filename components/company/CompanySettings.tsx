@@ -536,7 +536,7 @@ export default function CompanySettings({
   if (teamData === null) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <Card className="max-w-lg w-full border-border/40">
+        <Card className="max-w-lg w-full border-border/40 bg-card">
           <CardHeader>
             <CardTitle>Couldn&apos;t load organization settings</CardTitle>
             <CardDescription>
@@ -959,7 +959,7 @@ export default function CompanySettings({
             animate="visible"
             className="flex flex-col gap-10"
           >
-            <div className="flex flex-col gap-5 rounded-[28px] border border-border/70 bg-background p-5 sm:p-6">
+            <div className="flex flex-col gap-5 rounded-[28px] border border-border/70 bg-card p-5 sm:p-6">
               <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-2">
                   <Badge variant="secondary">Subscription options</Badge>
@@ -993,7 +993,7 @@ export default function CompanySettings({
                       <Card
                         key={plan.key}
                         className={cn(
-                          "h-full border-border/70 bg-background shadow-none",
+                          "h-full border-border/70 bg-card shadow-none",
                           isRecommended &&
                             "border-primary/30 bg-primary/[0.03]",
                           isCurrentPlan && "border-primary/25",
@@ -1028,7 +1028,7 @@ export default function CompanySettings({
                           </div>
                         </CardHeader>
                         <CardContent className="flex h-full flex-col gap-6 pt-6">
-                          <div className="rounded-xl bg-muted/20 p-4">
+                          <div className="rounded-xl bg-secondary/70 p-4">
                             <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
                               Monthly AI credits
                             </p>
@@ -1041,7 +1041,7 @@ export default function CompanySettings({
                             {plan.limits.map((limit) => (
                               <div
                                 key={limit}
-                                className="flex items-center gap-2 rounded-lg border border-transparent bg-muted/20 px-3 py-2"
+                                className="flex items-center gap-2 rounded-lg border border-transparent bg-secondary/70 px-3 py-2"
                               >
                                 <Check className="size-4 text-primary" />
                                 <span>{limit}</span>
@@ -1125,7 +1125,7 @@ export default function CompanySettings({
             </div>
 
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-              <Card className="border-border/70 bg-background shadow-none">
+              <Card className="border-border/70 bg-card shadow-none">
                 <CardHeader className="gap-4 border-b border-border/70">
                   <div className="flex items-start justify-between gap-4">
                     <div>
@@ -1153,7 +1153,7 @@ export default function CompanySettings({
                     </div>
 
                     <div className="grid gap-3 sm:grid-cols-3">
-                      <div className="rounded-xl bg-muted/20 p-4">
+                      <div className="rounded-xl bg-secondary/70 p-4">
                         <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
                           Used this period
                         </p>
@@ -1161,7 +1161,7 @@ export default function CompanySettings({
                           {formatTokens(usedCredits)}
                         </p>
                       </div>
-                      <div className="rounded-xl bg-muted/20 p-4">
+                      <div className="rounded-xl bg-secondary/70 p-4">
                         <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
                           Monthly credits
                         </p>
@@ -1169,7 +1169,7 @@ export default function CompanySettings({
                           {formatTokens(totalCredits)}
                         </p>
                       </div>
-                      <div className="rounded-xl bg-muted/20 p-4">
+                      <div className="rounded-xl bg-secondary/70 p-4">
                         <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
                           Estimated per run
                         </p>
@@ -1187,13 +1187,13 @@ export default function CompanySettings({
                     </div>
                     <Progress
                       value={usagePercent}
-                      className="h-2.5 bg-muted/50"
+                      className="h-2.5 bg-secondary/70"
                     />
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="border-border/50 bg-gradient-to-b from-background to-muted/30 shadow-sm">
+              <Card className="border-border/50 bg-card shadow-sm">
                 <CardHeader className="gap-4 border-b border-border/40">
                   <CardTitle className="text-base font-medium flex items-center gap-2">
                     <CreditCard className="h-4 w-4" />
@@ -1224,7 +1224,7 @@ export default function CompanySettings({
                     </p>
                   </div>
 
-                  <div className="rounded-xl border border-border/50 bg-background/80 p-4">
+                  <div className="rounded-xl border border-border/50 bg-secondary/70 p-4">
                     <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
                       Included monthly credits
                     </p>
@@ -1319,7 +1319,7 @@ export default function CompanySettings({
               </Card>
             </div>
 
-            <Card className="border-border/40 shadow-sm">
+            <Card className="border-border/40 bg-card shadow-sm">
               <CardHeader>
                 <CardTitle className="text-base font-medium">
                   Transaction History
@@ -1346,7 +1346,7 @@ export default function CompanySettings({
                       return (
                         <div
                           key={payment.stripePaymentIntentId}
-                          className="flex flex-col gap-1 rounded-lg border border-border/40 px-4 py-3 text-sm"
+                          className="flex flex-col gap-1 rounded-lg border border-border/40 bg-secondary/70 px-4 py-3 text-sm"
                         >
                           <div className="flex items-center justify-between">
                             <span className="font-medium">{formatted}</span>
@@ -1385,7 +1385,7 @@ export default function CompanySettings({
               </div>
 
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                <Card className="border-border/40 shadow-sm">
+                <Card className="border-border/40 bg-card shadow-sm">
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-base font-medium">
                       <Coins className="h-4 w-4 text-chart-1" />
@@ -1423,7 +1423,7 @@ export default function CompanySettings({
                     <div className="flex flex-col gap-2 pt-2">
                       <Progress
                         value={usagePercent}
-                        className="h-2 bg-muted/30"
+                        className="h-2 bg-secondary/70"
                         indicatorClassName={
                           usagePercent >= 90
                             ? "bg-destructive"
@@ -1439,7 +1439,7 @@ export default function CompanySettings({
                   </CardContent>
                 </Card>
 
-                <Card className="border-border/40 shadow-sm">
+                <Card className="border-border/40 bg-card shadow-sm">
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-base font-medium">
                       <HardDrive className="h-4 w-4 text-chart-2" />
@@ -1465,7 +1465,7 @@ export default function CompanySettings({
                       </div>
                       <Progress
                         value={storageUsage?.percentUsed ?? 0}
-                        className="h-2 bg-muted/30"
+                        className="h-2 bg-secondary/70"
                         indicatorClassName={
                           (storageUsage?.percentUsed ?? 0) >= 90
                             ? "bg-destructive"
@@ -1481,7 +1481,7 @@ export default function CompanySettings({
                   </CardContent>
                 </Card>
 
-                <Card className="border-border/40 shadow-sm">
+                <Card className="border-border/40 bg-card shadow-sm">
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-base font-medium">
                       <FolderOpen className="h-4 w-4 text-chart-3" />
@@ -1505,7 +1505,7 @@ export default function CompanySettings({
                       </div>
                       <Progress
                         value={resourceUsage?.projectsPercentUsed ?? 0}
-                        className="h-2 bg-muted/30"
+                        className="h-2 bg-secondary/70"
                         indicatorClassName={
                           (resourceUsage?.projectsPercentUsed ?? 0) >= 90
                             ? "bg-destructive"
@@ -1521,7 +1521,7 @@ export default function CompanySettings({
                   </CardContent>
                 </Card>
 
-                <Card className="border-border/40 shadow-sm">
+                <Card className="border-border/40 bg-card shadow-sm">
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-base font-medium">
                       <Users className="h-4 w-4 text-chart-4" />
@@ -1545,7 +1545,7 @@ export default function CompanySettings({
                       </div>
                       <Progress
                         value={resourceUsage?.membersPercentUsed ?? 0}
-                        className="h-2 bg-muted/30"
+                        className="h-2 bg-secondary/70"
                         indicatorClassName={
                           (resourceUsage?.membersPercentUsed ?? 0) >= 90
                             ? "bg-destructive"
@@ -1561,7 +1561,7 @@ export default function CompanySettings({
                   </CardContent>
                 </Card>
 
-                <Card className="border-border/40 shadow-sm md:col-span-2 lg:col-span-1">
+                <Card className="border-border/40 bg-card shadow-sm md:col-span-2 lg:col-span-1">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base font-medium flex items-center gap-2">
                       Subscription Plan
@@ -1609,7 +1609,7 @@ export default function CompanySettings({
                 </Card>
               </div>
 
-              <Card className="border-border/70 shadow-none">
+              <Card className="border-border/70 bg-card shadow-none">
                 <CardHeader className="pb-3 border-b border-border/70">
                   <CardTitle className="text-base font-medium">
                     Credit Breakdown
@@ -1623,7 +1623,7 @@ export default function CompanySettings({
                       {formatTokens(totalCredits)} credits
                     </span>
                   </div>
-                  <div className="flex h-2 w-full overflow-hidden rounded-full bg-muted/30">
+                  <div className="flex h-2 w-full overflow-hidden rounded-full bg-secondary/70">
                     {visibleCreditBreakdownItems.map((segment) => {
                       const tokens =
                         usageBreakdown?.byFeature?.[segment.key] || 0;
@@ -1688,8 +1688,8 @@ export default function CompanySettings({
                         className={cn(
                           "rounded-2xl px-4 py-3 text-left text-[1rem] transition-colors",
                           activeSettingsSection === section.value
-                            ? "bg-muted text-foreground"
-                            : "text-foreground/80 hover:bg-muted/60 hover:text-foreground",
+                            ? "bg-secondary/70 text-foreground"
+                            : "text-foreground/80 hover:bg-secondary/70 hover:text-foreground",
                         )}
                       >
                         {section.label}
@@ -1714,8 +1714,8 @@ export default function CompanySettings({
                           className={cn(
                             "rounded-2xl px-4 py-3 text-left text-[1rem] transition-colors",
                             activeSettingsSection === section.value
-                              ? "bg-muted text-foreground"
-                              : "text-foreground/80 hover:bg-muted/60 hover:text-foreground",
+                              ? "bg-secondary/70 text-foreground"
+                              : "text-foreground/80 hover:bg-secondary/70 hover:text-foreground",
                           )}
                         >
                           {section.label}
@@ -1751,7 +1751,7 @@ export default function CompanySettings({
                       className="hidden"
                     />
 
-                    <div className="rounded-[28px] border border-border/60 bg-white p-6 shadow-sm md:p-8">
+                    <div className="rounded-[28px] border border-border/60 bg-card p-6 shadow-sm md:p-8">
                       <div className="grid gap-8">
                         <form
                           className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end"
@@ -1776,7 +1776,7 @@ export default function CompanySettings({
                                 !teamData?.teamId
                               }
                               placeholder="Organization name"
-                              className="h-12 bg-white text-base"
+                              className="h-12 bg-card text-base"
                             />
                           </div>
                           <Button
@@ -1825,7 +1825,7 @@ export default function CompanySettings({
                 {activeSettingsSection === "billing" ? (
                   <Card
                     id="organization-billing-profile"
-                    className="scroll-mt-24 overflow-hidden border-border/70 shadow-none"
+                    className="scroll-mt-24 overflow-hidden border-border/70 bg-card shadow-none"
                   >
                     <CardHeader className="gap-2 border-b border-border/70">
                       <CardTitle className="flex items-center gap-2 text-base font-medium">
@@ -2095,7 +2095,7 @@ export default function CompanySettings({
                 {activeSettingsSection === "defaults" ? (
                   <Card
                     id="workspace-defaults"
-                    className="overflow-hidden border-border/70 shadow-none"
+                    className="overflow-hidden border-border/70 bg-card shadow-none"
                   >
                     <CardHeader className="gap-2 border-b border-border/70">
                       <CardTitle className="flex items-center gap-2 text-base font-medium">
@@ -2133,7 +2133,7 @@ export default function CompanySettings({
                             >
                               <SelectTrigger
                                 id="currency"
-                                className="w-full bg-background/50"
+                                className="w-full bg-secondary/70"
                               >
                                 <SelectValue placeholder="Select currency" />
                               </SelectTrigger>
@@ -2203,7 +2203,7 @@ export default function CompanySettings({
                 {activeSettingsSection === "notifications" ? (
                   <Card
                     id="workspace-notifications"
-                    className="overflow-hidden border-border/70 shadow-none"
+                    className="overflow-hidden border-border/70 bg-card shadow-none"
                   >
                     <CardHeader className="gap-2 border-b border-border/70">
                       <CardTitle className="flex items-center gap-2 text-base font-medium">
@@ -2254,7 +2254,7 @@ export default function CompanySettings({
                         ].map((item) => (
                           <div
                             key={item.key}
-                            className="flex items-start justify-between gap-4 rounded-2xl border border-border/50 bg-muted/35 px-4 py-4"
+                            className="flex items-start justify-between gap-4 rounded-2xl border border-border/50 bg-secondary/70 px-4 py-4"
                           >
                             <div className="space-y-1 pr-4">
                               <div className="text-sm font-medium text-foreground">
@@ -2293,7 +2293,7 @@ export default function CompanySettings({
                             involved in.
                           </p>
                         </div>
-                        <div className="flex items-start justify-between gap-4 rounded-2xl border border-border/50 bg-muted/35 px-4 py-4">
+                        <div className="flex items-start justify-between gap-4 rounded-2xl border border-border/50 bg-secondary/70 px-4 py-4">
                           <div className="space-y-1 pr-4">
                             <div className="text-sm font-medium text-foreground">
                               Task comments

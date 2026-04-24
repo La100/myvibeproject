@@ -392,7 +392,7 @@ export default function LaborListView() {
           />
 
           {showMainAddForm ? (
-            <div className="mb-8 rounded-[30px] border border-border/70 bg-white p-6 shadow-sm">
+            <div className="vibe-panel mb-8 p-6">
               <AddLaborItemForm
                 projectId={project._id}
                 sections={sections}
@@ -419,16 +419,16 @@ export default function LaborListView() {
             />
           </div>
 
-          <div className="sticky top-16 z-10 mb-8 rounded-[30px] border border-border/70 bg-white p-4 shadow-sm xl:top-0">
+          <div className="vibe-panel sticky top-16 z-10 mb-8 p-4 xl:top-0">
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                 <div className="flex flex-1 flex-wrap items-center gap-2.5">
-                  <Badge variant="outline" className="h-11 rounded-full border-border/70 bg-white px-4 text-[12px] font-semibold text-foreground">
+                  <Badge variant="outline" className="h-11 rounded-full border-border/70 bg-secondary/70 px-4 text-[12px] font-semibold text-foreground">
                     {formatItemCountLabel(filteredItems.length)}
                   </Badge>
 
                   <Select value={sectionFilter} onValueChange={setSectionFilter}>
-                    <SelectTrigger className="h-11 min-w-[210px] rounded-full border-border/70 bg-white px-5 shadow-none">
+                    <SelectTrigger className="h-11 min-w-[210px] rounded-full border-border/70 bg-secondary/70 px-5 shadow-none">
                       <SelectValue placeholder="Section" />
                     </SelectTrigger>
                     <SelectContent>
@@ -442,7 +442,7 @@ export default function LaborListView() {
                   </Select>
 
                   <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
-                    <SelectTrigger className="h-11 min-w-[210px] rounded-full border-border/70 bg-white px-5 shadow-none">
+                    <SelectTrigger className="h-11 min-w-[210px] rounded-full border-border/70 bg-secondary/70 px-5 shadow-none">
                       <SelectValue placeholder="Assignee" />
                     </SelectTrigger>
                     <SelectContent>
@@ -469,7 +469,7 @@ export default function LaborListView() {
                     </Button>
                   ) : null}
 
-                  <div className="rounded-[22px] border border-border/60 bg-secondary/25 px-4 py-2.5">
+                  <div className="rounded-[22px] border border-border/60 bg-secondary/70 px-4 py-2.5">
                     <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                       Labor total
                     </div>
@@ -481,7 +481,7 @@ export default function LaborListView() {
               </div>
 
               <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
-                <InputGroup className="h-11 min-w-[280px] flex-1 rounded-full border-border/70 bg-white shadow-none">
+                <InputGroup className="h-11 min-w-[280px] flex-1 rounded-full border-border/70 bg-secondary/70 shadow-none">
                   <InputGroupAddon align="inline-start" className="pointer-events-none pl-4 text-muted-foreground">
                     <SearchIcon className="h-4 w-4" />
                   </InputGroupAddon>
@@ -533,7 +533,7 @@ export default function LaborListView() {
           ))}
 
           {visibleSectionEntries.length === 0 ? (
-            <div className="rounded-[32px] border border-dashed border-border/80 bg-white px-8 py-14 text-center shadow-sm">
+            <div className="vibe-panel border-dashed px-8 py-14 text-center">
               <h3 className="text-lg font-semibold text-foreground">No labor items match the current view</h3>
               <p className="mt-2 text-sm text-muted-foreground">
                 Adjust your filters or clear the current search to bring labor items back into view.
@@ -543,7 +543,7 @@ export default function LaborListView() {
                   variant="outline"
                   size="sm"
                   onClick={resetFilters}
-                  className="mt-4 rounded-full border-border/70 bg-white"
+                  className="mt-4 rounded-full border-border/70 bg-card"
                 >
                   Reset filters
                 </Button>
@@ -552,7 +552,7 @@ export default function LaborListView() {
                   variant="outline"
                   size="sm"
                   onClick={() => setShowMainAddForm(true)}
-                  className="mt-4 rounded-full border-border/70 bg-white"
+                  className="mt-4 rounded-full border-border/70 bg-card"
                 >
                   Add labor item
                 </Button>

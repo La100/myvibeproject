@@ -70,8 +70,10 @@ function MoodboardRowTitle({
   }
 
   return (
-    <div className="mb-6 flex items-center gap-3">
-      <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
+    <div className="mb-6 flex flex-wrap items-center gap-3">
+      <h2 className="font-serif text-2xl font-medium tracking-[-0.035em]">
+        {title}
+      </h2>
       <div className="flex items-center gap-2">
         <Button
           variant="outline"
@@ -266,7 +268,7 @@ function MoodboardRow({
         {(sectionImages || []).map((image) => (
           <Card
             key={image.id}
-            className="group relative overflow-hidden border-border/70 py-0 transition-shadow hover:shadow-md"
+          className="group relative overflow-hidden border-border/70 bg-card py-0 transition-[box-shadow,transform] hover:-translate-y-0.5 hover:shadow-md"
           >
             <CardContent className="p-0">
               <img
@@ -398,14 +400,15 @@ export default function MoodboardPage() {
         <ProjectPageHeader
           title="Moodboard"
           icon={<Images className="h-8 w-8 text-primary" />}
+          subtitle="Curate visual references, material studies, and room direction in one calm studio board."
           tags={
             <>
-              <Badge variant="outline" className="px-4 py-2 text-sm font-medium text-primary">
+              <Badge variant="outline" className="px-4 py-2 text-sm font-medium text-foreground/82">
                 {project.name}
               </Badge>
               <Badge
                 variant="outline"
-                className="border-border bg-background px-4 py-2 text-sm font-medium text-foreground"
+                className="border-border bg-card px-4 py-2 text-sm font-medium text-foreground"
               >
                 {rows.length} sections
               </Badge>
@@ -424,7 +427,7 @@ export default function MoodboardPage() {
           }
         />
 
-        <div className="flex flex-col gap-16">
+        <div className="vibe-panel flex flex-col gap-16 p-5 sm:p-8">
           {rows.map((row) => (
             <MoodboardRow
               key={row.id}

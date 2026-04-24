@@ -22,10 +22,10 @@ export function ShoppingListHeader({
       icon={<ShoppingCart className="h-8 w-8 text-primary" />}
       tags={(
         <>
-          <Badge variant="outline" className="rounded-full border-border/70 bg-white px-3 py-1.5 text-[12px] font-semibold">
+          <Badge variant="outline" className="rounded-full border-border/70 bg-card px-3 py-1.5 text-[12px] font-semibold">
             {projectName}
           </Badge>
-          <Badge variant="outline" className="rounded-full border-border/70 bg-white px-3 py-1.5 text-[12px] font-semibold text-foreground">
+          <Badge variant="outline" className="rounded-full border-border/70 bg-card px-3 py-1.5 text-[12px] font-semibold text-foreground">
             {grandTotalLabel}
           </Badge>
         </>
@@ -39,7 +39,7 @@ export function ShoppingListHeader({
           <Button
             onClick={onExportClick}
             variant="outline"
-            className="rounded-full border-border/70 bg-white"
+            className="rounded-full border-border/70 bg-card"
           >
             <DownloadIcon className="mr-2 h-4 w-4" />
             Export

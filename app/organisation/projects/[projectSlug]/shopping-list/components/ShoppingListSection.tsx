@@ -68,17 +68,17 @@ const SHOPPING_STATUS_TRIGGER_CLASSNAMES: Record<
   string
 > = {
   PLANNED:
-    "border-border/70 bg-background text-foreground/75 hover:border-foreground/15 hover:bg-white",
+    "border-border/70 bg-secondary/70 text-foreground/75 hover:border-foreground/15 hover:bg-secondary",
   ORDERED:
-    "border-amber-200 bg-amber-50 text-amber-900 hover:border-amber-300 hover:bg-amber-100",
+    "border-[#d9a36b]/35 bg-[#f8ead8] text-[#7b4825] hover:border-[#d9a36b]/55 hover:bg-[#f5dfc4]",
   IN_TRANSIT:
-    "border-sky-200 bg-sky-50 text-sky-900 hover:border-sky-300 hover:bg-sky-100",
+    "border-[#b7aa92]/45 bg-[#eee6d7] text-[#5f5548] hover:border-[#b7aa92]/65 hover:bg-[#e8dcc9]",
   DELIVERED:
-    "border-violet-200 bg-violet-50 text-violet-900 hover:border-violet-300 hover:bg-violet-100",
+    "border-[#c7a98f]/45 bg-[#f1e4d8] text-[#694b36] hover:border-[#c7a98f]/65 hover:bg-[#ead7c6]",
   COMPLETED:
-    "border-emerald-200 bg-emerald-50 text-emerald-900 hover:border-emerald-300 hover:bg-emerald-100",
+    "border-[#9ca67a]/40 bg-[#eef0e5] text-[#4f5a38] hover:border-[#9ca67a]/60 hover:bg-[#e3e8d7]",
   CANCELLED:
-    "border-rose-200 bg-rose-50 text-rose-900 hover:border-rose-300 hover:bg-rose-100",
+    "border-destructive/20 bg-destructive/10 text-destructive hover:border-destructive/30 hover:bg-destructive/15",
 };
 
 const SHOPPING_PRIORITY_LABELS: Record<NonNullable<Priority>, string> = {
@@ -465,7 +465,7 @@ export function ShoppingListSection({
       return "border-emerald-500/30 bg-emerald-500/12 text-emerald-700";
     }
     if (source === "team") {
-      return "border-sky-500/25 bg-sky-500/10 text-sky-700";
+      return "border-[#b7aa92]/45 bg-[#eee6d7] text-[#5f5548]";
     }
     return "border-border/60 bg-secondary/30 text-muted-foreground";
   };
@@ -481,7 +481,7 @@ export function ShoppingListSection({
   };
 
   const renderEditForm = (item: ShoppingListItem) => (
-    <div className="flex flex-col gap-4 rounded-2xl border border-border bg-white p-5 shadow-none">
+    <div className="vibe-surface flex flex-col gap-4 p-5 shadow-none">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Field>
           <FieldLabel>Product Name *</FieldLabel>
@@ -682,7 +682,7 @@ export function ShoppingListSection({
         </Field>
       </div>
 
-      <div className="rounded-2xl border border-border bg-white px-4 py-3">
+      <div className="vibe-row px-4 py-3">
         <div className="flex items-start gap-3">
           <Checkbox
             id={`item-${item._id}-has-alternatives`}
@@ -773,8 +773,8 @@ export function ShoppingListSection({
             (item.customerDecision === "accepted"
               ? "border-emerald-500/25 bg-emerald-500/6"
               : "border-destructive/20 bg-destructive/5"),
-          !isCounted && "border-border/70 bg-white",
-          !customerDecisionTone && "bg-white",
+          !isCounted && "border-border/70 bg-secondary/55",
+          !customerDecisionTone && "bg-secondary/70",
         )}
       >
         {isEditing ? (
@@ -784,7 +784,7 @@ export function ShoppingListSection({
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="flex min-w-0 flex-1 items-start gap-4">
                 {item.imageUrl ? (
-                  <div className="h-20 w-20 overflow-hidden rounded-xl border bg-white">
+                  <div className="h-20 w-20 overflow-hidden rounded-2xl border bg-secondary/55">
                     <img src={item.imageUrl} alt={item.name} className="h-full w-full object-cover" />
                   </div>
                 ) : null}
@@ -986,7 +986,7 @@ export function ShoppingListSection({
     };
 
     return (
-      <div key={set._id} className="rounded-[28px] border border-border/60 bg-white p-5">
+      <div key={set._id} className="vibe-surface p-5">
         <div className="mb-4 flex flex-col gap-3 border-b pb-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <div className="flex flex-wrap items-center gap-2">
@@ -1033,7 +1033,7 @@ export function ShoppingListSection({
         </div>
 
         {addingAlternativeSetId === String(set._id) ? (
-          <div className="mb-4 rounded-2xl border bg-white p-4">
+          <div className="vibe-row mb-4 p-4">
             <AddItemForm
               projectId={projectId}
               teamId={teamId}
@@ -1138,25 +1138,25 @@ export function ShoppingListSection({
   };
 
   return (
-    <div className="mb-10 rounded-[32px] border border-border/70 bg-white p-5 shadow-sm sm:p-8">
+    <div className="vibe-panel mb-10 p-5 sm:p-8">
       <div className="mb-7 flex flex-col justify-between gap-4 border-b border-border/60 pb-5 sm:flex-row sm:items-center">
         <div className="flex flex-wrap items-center gap-3">
           <h2 className="text-xl font-semibold text-foreground">{sectionName}</h2>
-          <span className="inline-flex items-center justify-center rounded-full border border-border/60 bg-white px-3 py-1 text-xs font-medium text-muted-foreground">
+          <span className="inline-flex items-center justify-center rounded-full border border-border/60 bg-secondary/70 px-3 py-1 text-xs font-medium text-muted-foreground">
             {formatItemCountLabel(items.length)}
           </span>
-          <span className="inline-flex items-center justify-center rounded-full border border-border/60 bg-secondary/25 px-3 py-1 text-xs font-medium text-foreground">
+          <span className="inline-flex items-center justify-center rounded-full border border-border/60 bg-secondary/70 px-3 py-1 text-xs font-medium text-foreground">
             {getTaxAmountKindLabel(primarySectionAmountKind, organizationTaxSettings)} total:{" "}
             {primarySectionTotal.toFixed(2)} {currencySymbol}
           </span>
         </div>
-        <Button variant="ghost" size="icon-sm" className="self-end rounded-full border border-border/60 bg-white sm:self-auto" onClick={() => setShowAddForm((current) => !current)}>
+        <Button variant="ghost" size="icon-sm" className="self-end rounded-full border border-border/60 bg-secondary/70 sm:self-auto" onClick={() => setShowAddForm((current) => !current)}>
           <PlusIcon className="h-4 w-4" />
         </Button>
       </div>
 
       {showAddForm ? (
-        <div className="mb-8 rounded-[28px] border border-border/70 bg-secondary/15 p-6">
+        <div className="vibe-surface mb-8 p-6">
           <AddItemForm
             projectId={projectId}
             teamId={teamId}

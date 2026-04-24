@@ -19,7 +19,7 @@ function OverviewCard({
   value: string;
 }) {
   return (
-    <Card className="border-border/70 bg-white shadow-none">
+    <Card className="border-border/70 bg-card shadow-sm">
       <CardHeader className="pb-3">
         <CardTitle className="text-base font-medium">{title}</CardTitle>
       </CardHeader>

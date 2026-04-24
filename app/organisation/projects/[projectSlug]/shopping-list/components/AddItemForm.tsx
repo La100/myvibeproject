@@ -224,7 +224,7 @@ export function AddItemForm({
   return (
     <div className="flex flex-col gap-4">
       {defaultSetId ? (
-        <div className="rounded-2xl border border-dashed bg-white px-4 py-3 text-sm text-muted-foreground">
+        <div className="vibe-row border-dashed px-4 py-3 text-sm text-muted-foreground">
           This will be added as another option for the current product.
         </div>
       ) : null}
@@ -400,7 +400,7 @@ export function AddItemForm({
       </div>
 
       {!defaultSetId && !hideAlternativeControls ? (
-        <div className="flex items-start gap-3 rounded-2xl border bg-white px-4 py-3">
+        <div className="vibe-row flex items-start gap-3 px-4 py-3">
           <Checkbox
             id="new-item-has-alternatives"
             checked={newItemHasAlternatives}

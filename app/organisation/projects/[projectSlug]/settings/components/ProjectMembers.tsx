@@ -145,7 +145,7 @@ function MemberRow({
   };
 
   return (
-    <div className="flex items-center justify-between rounded-2xl bg-muted/25 px-3 py-3.5">
+    <div className="flex items-center justify-between rounded-2xl bg-secondary/70 px-3 py-3.5">
       <div className="flex items-center gap-2 lg:gap-3 min-w-0 flex-1">
         <Avatar className="h-6 w-6 lg:h-8 lg:w-8 flex-shrink-0">
           <AvatarImage src={member.imageUrl} />

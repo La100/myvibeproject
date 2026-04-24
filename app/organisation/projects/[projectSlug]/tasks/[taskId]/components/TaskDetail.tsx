@@ -311,7 +311,7 @@ export default function TaskDetail() {
                             href={file.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="bg-muted hover:bg-muted/80 p-3 rounded-md flex items-center gap-3 transition-colors"
+                            className="bg-secondary/70 hover:bg-secondary p-3 rounded-md flex items-center gap-3 transition-colors"
                           >
                             <FileIcon className="h-6 w-6 text-muted-foreground" />
                             <span className="text-sm font-medium truncate flex-1">
@@ -321,7 +321,7 @@ export default function TaskDetail() {
                         ) : (
                           <div
                             key={file._id}
-                            className="bg-muted/60 border border-dashed p-3 rounded-md flex items-center gap-3 text-muted-foreground"
+                            className="bg-secondary/70 border border-dashed p-3 rounded-md flex items-center gap-3 text-muted-foreground"
                           >
                             <FileIcon className="h-6 w-6" />
                             <div className="min-w-0 flex-1">

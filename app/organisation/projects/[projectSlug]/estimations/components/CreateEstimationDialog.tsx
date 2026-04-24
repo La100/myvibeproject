@@ -573,7 +573,7 @@ export function CreateEstimationDialog({
                       <Button
                         variant="outline"
                         className={cn(
-                          "mt-1 w-full justify-start border-border bg-white text-left font-normal hover:bg-white aria-expanded:bg-white",
+                          "mt-1 w-full justify-start border-border bg-secondary/70 text-left font-normal hover:bg-secondary aria-expanded:bg-secondary",
                           !plannedStartDate && "text-muted-foreground"
                         )}
                       >
@@ -598,7 +598,7 @@ export function CreateEstimationDialog({
                       <Button
                         variant="outline"
                         className={cn(
-                          "mt-1 w-full justify-start border-border bg-white text-left font-normal hover:bg-white aria-expanded:bg-white",
+                          "mt-1 w-full justify-start border-border bg-secondary/70 text-left font-normal hover:bg-secondary aria-expanded:bg-secondary",
                           !validUntil && "text-muted-foreground"
                         )}
                       >
@@ -662,7 +662,7 @@ export function CreateEstimationDialog({
                 filteredLaborItems.map((item) => (
                   <div
                   key={item._id}
-                    className="flex items-center gap-3 border-b p-3 last:border-b-0 hover:bg-muted/50"
+                    className="flex items-center gap-3 border-b p-3 last:border-b-0 hover:bg-secondary/70"
                   >
                     <Checkbox
                       checked={selectedLaborIds.includes(item._id)}
@@ -723,7 +723,7 @@ export function CreateEstimationDialog({
                 filteredMaterialItems.map((item) => (
                   <div
                   key={item._id}
-                    className="flex items-center gap-3 border-b p-3 last:border-b-0 hover:bg-muted/50"
+                    className="flex items-center gap-3 border-b p-3 last:border-b-0 hover:bg-secondary/70"
                   >
                     <Checkbox
                       checked={selectedMaterialIds.includes(item._id)}
@@ -816,7 +816,7 @@ export function CreateEstimationDialog({
 
             <div className="border-t pt-4">
               <Label>Tax</Label>
-              <div className="mt-1 rounded-xl border border-border/70 bg-muted/30 p-4">
+              <div className="mt-1 rounded-xl border border-border/70 bg-secondary/70 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-1">
                     <p className="text-sm font-medium">
@@ -850,7 +850,7 @@ export function CreateEstimationDialog({
           <div className="flex flex-col gap-4">
             <h3 className="mb-4 text-lg font-medium">Summary</h3>
 
-            <Card className="rounded-2xl border border-border/70 bg-muted/30 shadow-none">
+            <Card className="rounded-2xl border border-border/70 bg-secondary/70 shadow-none">
               <CardContent className="flex flex-col gap-2 p-4">
                 <div className="flex items-center justify-between">
                   <span className="font-medium">{title || 'Untitled estimation'}</span>

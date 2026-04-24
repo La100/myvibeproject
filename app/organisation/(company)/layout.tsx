@@ -4,7 +4,6 @@ import { useRouter, usePathname } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import { useEffect, useRef, useMemo } from "react";
-import type { CSSProperties } from "react";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Spinner } from "@/components/ui/spinner";
 import { CompanySidebar } from "@/components/company/CompanySidebar";
@@ -13,13 +12,6 @@ import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { postAuthResolverUrl } from "@/lib/authRedirects";
 import { cn } from "@/lib/utils";
-
-const swappedSurfaceVars = {
-  "--workspace-background": "var(--background)",
-  "--workspace-sidebar": "var(--sidebar)",
-  "--background": "var(--workspace-sidebar)",
-  "--sidebar": "var(--workspace-background)",
-} as CSSProperties;
 
 export default function CompanyLayout({
   children,
@@ -142,11 +134,11 @@ export default function CompanyLayout({
   }
 
   return (
-    <div style={swappedSurfaceVars}>
+    <div className="vibe-shell min-h-svh">
       <SidebarProvider>
         <CompanySidebar />
         <SidebarInset className="xl:overflow-hidden">
-          <header className="xl:hidden sticky top-0 z-20 flex h-16 items-center gap-2 border-b border-border/70 bg-background/90 px-4 backdrop-blur-md">
+          <header className="xl:hidden sticky top-0 z-20 flex h-16 items-center gap-2 border-b border-border/70 bg-[rgba(253,251,247,0.92)] px-4 backdrop-blur-md">
             <SidebarTrigger className="-ml-1 [&.hidden]:flex" />
             <span className="text-lg font-medium text-foreground">Workspace</span>
           </header>

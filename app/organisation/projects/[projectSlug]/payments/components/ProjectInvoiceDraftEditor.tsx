@@ -202,7 +202,7 @@ export function ProjectInvoiceDraftEditor({
             </div>
           </div>
 
-          <div className="grid gap-4 rounded-2xl border border-border/70 bg-muted/20 p-4 md:min-w-[280px]">
+          <div className="grid gap-4 rounded-2xl border border-border/70 bg-secondary/70 p-4 md:min-w-[280px]">
             <div className="flex flex-wrap gap-2">
               <Badge variant={invoiceSetupReady ? "outline" : "destructive"}>
                 {invoiceSetupReady ? "Ready to issue" : "Setup incomplete"}
@@ -252,7 +252,7 @@ export function ProjectInvoiceDraftEditor({
               </p>
             </div>
             {isCreateMode ? (
-              <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
+              <div className="rounded-2xl border border-border/70 bg-secondary/70 p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <p className="max-w-md text-sm text-muted-foreground">
                     These details are pulled from the organization billing profile and saved as the
@@ -495,7 +495,7 @@ export function ProjectInvoiceDraftEditor({
 
         <div className="border-t border-border/60 pt-8">
           <div className="overflow-hidden rounded-2xl border border-border/70">
-            <div className="flex items-center justify-between gap-4 border-b border-border/60 bg-muted/25 px-4 py-3">
+            <div className="flex items-center justify-between gap-4 border-b border-border/60 bg-secondary/70 px-4 py-3">
               <div>
                 <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
                   Line items
@@ -517,7 +517,7 @@ export function ProjectInvoiceDraftEditor({
                   Number.isFinite(quantity) && Number.isFinite(unitPrice) ? quantity * unitPrice : 0;
 
                 return (
-                  <div key={`invoice-line-item-${index}`} className="rounded-2xl border border-border/70 p-4">
+                  <div key={`invoice-line-item-${index}`} className="vibe-row rounded-2xl p-4">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
                         Item {index + 1}
@@ -599,7 +599,7 @@ export function ProjectInvoiceDraftEditor({
                 );
               })}
             </div>
-            <div className="flex flex-col gap-4 border-t border-border/60 bg-muted/15 px-4 py-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex flex-col gap-4 border-t border-border/60 bg-secondary/70 px-4 py-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="space-y-3">
                 <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
                   Payment details
@@ -680,7 +680,7 @@ export function ProjectInvoiceDraftEditor({
                 )}
               </div>
 
-              <div className="min-w-[220px] rounded-2xl border border-border/70 bg-background px-5 py-4">
+              <div className="min-w-[220px] rounded-2xl border border-border/70 bg-card px-5 py-4">
                 <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
                   Summary
                 </p>

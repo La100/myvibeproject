@@ -139,7 +139,7 @@ export function LaborListSection({
   };
 
   const renderEditForm = (item: LaborItem) => (
-    <div className="rounded-[28px] border border-border/70 bg-white p-5">
+    <div className="vibe-surface p-5">
       <AddLaborItemForm
         projectId={projectId}
         sections={sections}
@@ -184,7 +184,7 @@ export function LaborListSection({
             (item.customerDecision === 'accepted'
               ? 'border-emerald-500/25 bg-emerald-500/6'
               : 'border-destructive/20 bg-destructive/5'),
-          !customerDecisionTone && 'bg-white',
+          !customerDecisionTone && 'bg-secondary/70',
         )}
       >
         {isEditing ? (
@@ -278,21 +278,21 @@ export function LaborListSection({
   };
 
   return (
-    <div className="mb-10 rounded-[32px] border border-border/70 bg-white p-5 shadow-sm sm:p-8">
+    <div className="vibe-panel mb-10 p-5 sm:p-8">
       <div className="mb-7 flex flex-col justify-between gap-4 border-b border-border/60 pb-5 sm:flex-row sm:items-center">
         <div className="flex flex-wrap items-center gap-3">
           <h2 className="text-xl font-semibold text-foreground">{sectionName}</h2>
-          <span className="inline-flex items-center justify-center rounded-full border border-border/60 bg-white px-3 py-1 text-xs font-medium text-muted-foreground">
+          <span className="inline-flex items-center justify-center rounded-full border border-border/60 bg-secondary/70 px-3 py-1 text-xs font-medium text-muted-foreground">
             {formatItemCountLabel(items.length)}
           </span>
-          <span className="inline-flex items-center justify-center rounded-full border border-border/60 bg-secondary/25 px-3 py-1 text-xs font-medium text-foreground">
+          <span className="inline-flex items-center justify-center rounded-full border border-border/60 bg-secondary/70 px-3 py-1 text-xs font-medium text-foreground">
             Total: {sectionTotal.toFixed(2)} {currencySymbol}
           </span>
         </div>
         <Button
           variant="ghost"
           size="icon-sm"
-          className="self-end rounded-full border border-border/60 bg-white sm:self-auto"
+          className="self-end rounded-full border border-border/60 bg-secondary/70 sm:self-auto"
           onClick={() => setShowAddForm((current) => !current)}
         >
           <PlusIcon className="h-4 w-4" />
@@ -300,7 +300,7 @@ export function LaborListSection({
       </div>
 
       {showAddForm ? (
-        <div className="mb-8 rounded-[28px] border border-border/70 bg-secondary/15 p-6">
+        <div className="vibe-surface mb-8 p-6">
           <AddLaborItemForm
             projectId={projectId}
             sections={sections}
@@ -328,12 +328,12 @@ export function LaborListSection({
       ) : null}
 
       {items.length === 0 && !showAddForm ? (
-        <div className="rounded-[28px] border border-dashed border-border/80 bg-white px-8 py-12 text-center">
+        <div className="vibe-surface border-dashed px-8 py-12 text-center">
           <p className="text-sm font-medium text-foreground">No labor items in this section yet</p>
           <Button
             variant="outline"
             size="sm"
-            className="mt-4 rounded-full border-border/70 bg-white"
+            className="mt-4 rounded-full border-border/70 bg-card"
             onClick={() => setShowAddForm(true)}
           >
             <PlusIcon className="mr-2 h-4 w-4" />

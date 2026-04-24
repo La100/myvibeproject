@@ -311,7 +311,7 @@ export default function NewProjectPage() {
                 ) : null}
               </div>
               {coverImagePreviewUrl ? (
-                <div className="overflow-hidden rounded-md border bg-muted/30">
+                <div className="overflow-hidden rounded-md border bg-secondary/70">
                   <img
                     src={coverImagePreviewUrl}
                     alt="Cover preview"
@@ -525,7 +525,7 @@ export default function NewProjectPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="my-4 rounded-xl border bg-muted/50 p-5">
+          <div className="my-4 rounded-xl border bg-secondary/70 p-5">
             <div className="mb-4 flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary">
                 <Sparkles className="h-5 w-5 text-primary-foreground" />

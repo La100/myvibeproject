@@ -404,7 +404,7 @@ export default function FilesView() {
         </div>
 
         {isUploadingFile && (
-          <div className="mb-6 flex items-center gap-3 rounded-2xl border border-border/70 bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+          <div className="mb-6 flex items-center gap-3 rounded-2xl border border-border/70 bg-secondary/70 px-4 py-3 text-sm text-muted-foreground">
             <Spinner fullHeight={false} className="py-0" iconClassName="size-4" />
             <span>
               Uploading {uploadingFileName ? `"${uploadingFileName}"` : "file"}.
@@ -419,12 +419,12 @@ export default function FilesView() {
           {content.folders.map((folder) => (
             <Card
               key={folder._id}
-              className="hover:shadow-lg transition-shadow cursor-pointer aspect-square"
+              className="aspect-square border-border/70 bg-card shadow-sm transition-shadow hover:shadow-lg cursor-pointer"
               onClick={() => navigateToFolder(folder._id, folder.name)}
             >
               <CardContent className="p-4 h-full flex flex-col justify-center items-center">
                 <div className="flex flex-col items-center gap-3 text-center">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted text-primary">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-secondary/70 text-primary">
                     <FolderOpen className="h-8 w-8" />
                   </div>
                   <h3 className="font-medium text-sm leading-tight truncate w-full" title={folder.name}>
@@ -439,11 +439,11 @@ export default function FilesView() {
           {content.files.map((file) => (
             <Card
               key={file._id}
-              className="group overflow-hidden border-border/70 bg-card/95 py-0 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl"
+              className="group overflow-hidden border-border/70 bg-card py-0 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl"
             >
               <CardContent className="p-3 sm:p-4">
                 <div className="relative mb-3">
-                  <div className="flex aspect-[5/4] items-center justify-center overflow-hidden rounded-2xl border border-border/60 bg-muted/40">
+                  <div className="flex aspect-[5/4] items-center justify-center overflow-hidden rounded-2xl border border-border/60 bg-secondary/70">
                     {isImageFile(file) && file.url ? (
                       <Image
                         src={file.url}
@@ -482,11 +482,11 @@ export default function FilesView() {
                   </div>
 
                   {file.url && (
-                    <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full border border-border/80 bg-background/90 p-1 opacity-100 shadow-sm backdrop-blur-sm sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
+                    <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full border border-border/80 bg-card p-1 opacity-100 shadow-sm backdrop-blur-sm sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
                       <Button
                         size="icon-xs"
                         variant="outline"
-                        className="rounded-full bg-background/90"
+                        className="rounded-full bg-card"
                         onClick={() => window.open(file.url, "_blank")}
                         aria-label={`Preview ${file.name}`}
                       >
@@ -495,7 +495,7 @@ export default function FilesView() {
                       <Button
                         size="icon-xs"
                         variant="outline"
-                        className="rounded-full bg-background/90"
+                        className="rounded-full bg-card"
                         onClick={() => {
                           const a = document.createElement("a");
                           a.href = file.url!;
@@ -543,7 +543,7 @@ export default function FilesView() {
                     )}
                   </div>
 
-                  <div className="space-y-2 rounded-xl border border-border/70 bg-muted/25 p-2.5">
+                  <div className="space-y-2 rounded-xl border border-border/70 bg-secondary/70 p-2.5">
                     <div className="flex items-center justify-between gap-3">
                       <span className="whitespace-nowrap text-xs font-medium text-foreground/80">Customer portal</span>
                       <Switch
@@ -614,7 +614,7 @@ export default function FilesView() {
 
         {/* Empty State */}
         {content.folders.length === 0 && content.files.length === 0 && (
-          <Card className="p-8 text-center">
+          <Card className="border-border/70 bg-card p-8 text-center shadow-sm">
             <div className="mb-4 text-muted-foreground">
               <FolderOpen className="h-12 w-12 mx-auto" />
             </div>
@@ -652,7 +652,7 @@ export default function FilesView() {
                 {fileForPreview?.fileType} - Uploaded {fileForPreview && formatDistanceToNow(new Date(fileForPreview._creationTime), { addSuffix: true })}
               </DialogDescription>
               {fileForPreview?.aiPrompt && (
-                <div className="mt-3 rounded-2xl border border-border/70 bg-muted/40 p-3">
+                <div className="mt-3 rounded-2xl border border-border/70 bg-secondary/70 p-3">
                   <p className="mb-1 text-xs font-medium text-muted-foreground">Prompt:</p>
                   <p className="text-sm text-foreground">{fileForPreview.aiPrompt}</p>
                 </div>

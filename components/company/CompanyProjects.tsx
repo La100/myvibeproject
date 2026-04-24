@@ -95,10 +95,10 @@ export default function CompanyProjects() {
               value={sortBy}
               onValueChange={(value) => setSortBy(value as ProjectSort)}
             >
-              <SelectTrigger className="h-9 min-w-[12rem] rounded-xl border-border/80 bg-white shadow-none">
+              <SelectTrigger className="h-9 min-w-[12rem] rounded-xl border-border/80 bg-secondary/70 shadow-none">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="bg-white">
+              <SelectContent className="bg-popover">
                 <SelectItem value="recent_activity">Last activity</SelectItem>
                 <SelectItem value="date_created">Date created</SelectItem>
               </SelectContent>
@@ -297,8 +297,8 @@ function ProjectCard({
           ) : (
             <>
               <div className="absolute inset-0 bg-background" />
-              <div className="absolute inset-0 bg-gradient-to-br from-white via-white/70 to-background" />
-              <div className="absolute inset-0 bg-gradient-to-tl from-background via-transparent to-white/85" />
+              <div className="absolute inset-0 bg-gradient-to-br from-card via-card/70 to-background" />
+              <div className="absolute inset-0 bg-gradient-to-tl from-card via-transparent to-card/85" />
             </>
           )}
           <div className="relative flex h-full items-start p-4 sm:p-5 md:p-6">

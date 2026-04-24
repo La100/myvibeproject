@@ -451,7 +451,7 @@ export function AddProductForm({
           </div>
 
           {hasImage ? (
-            <div className="overflow-hidden rounded-lg border bg-muted/30">
+            <div className="overflow-hidden rounded-lg border bg-secondary/70">
               <img
                 src={formData.imageUrl}
                 alt="Product preview"
@@ -459,7 +459,7 @@ export function AddProductForm({
               />
             </div>
           ) : (
-            <div className="flex min-h-56 items-center justify-center rounded-lg border border-dashed bg-muted/20 px-6 text-center">
+            <div className="flex min-h-56 items-center justify-center rounded-lg border border-dashed bg-secondary/70 px-6 text-center">
               <div className="max-w-sm space-y-2">
                 <Upload className="mx-auto h-5 w-5 text-muted-foreground" />
                 <p className="text-sm font-medium">No image selected yet</p>

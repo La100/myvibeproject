@@ -319,7 +319,7 @@ export default function CustomerPanelPage() {
             <>
               <Badge
                 variant="outline"
-                className="rounded-full border-border/70 bg-white px-3 py-1.5 text-[12px] font-semibold text-foreground"
+                className="rounded-full border-border/70 bg-card px-3 py-1.5 text-[12px] font-semibold text-foreground"
               >
                 v{panelConfig?.version || 0}
               </Badge>
@@ -337,7 +337,7 @@ export default function CustomerPanelPage() {
           title="Portal access"
           description="Copy the link, open the portal, regenerate access, or send it by email from one compact row."
         >
-          <Card className="gap-0 rounded-[24px] border-border/70 bg-white/85 py-0 shadow-none backdrop-blur-[2px]">
+          <Card className="gap-0 rounded-[24px] border-border/70 bg-card py-0 shadow-none backdrop-blur-[2px]">
             <CardContent className="grid gap-0 lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)]">
               <div className="space-y-4 p-5 lg:border-r lg:border-border/70">
                 <div className="space-y-2">
@@ -348,7 +348,7 @@ export default function CustomerPanelPage() {
                     id="customer-portal-url"
                     value={panelUrlValue || (isPreparingLink ? "Preparing link..." : "")}
                     readOnly
-                    className="h-10 rounded-full bg-background/60 text-sm"
+                    className="h-10 rounded-full bg-secondary/70 text-sm"
                   />
                 </div>
 
@@ -372,7 +372,7 @@ export default function CustomerPanelPage() {
                       window.open(panelPath, "_blank", "noopener,noreferrer");
                     }}
                     disabled={!panelPath || isPreparingLink}
-                    className="rounded-full border-border/70 bg-white"
+                    className="rounded-full border-border/70 bg-card"
                   >
                     <ExternalLink className="h-4 w-4" />
                     Open portal
@@ -383,7 +383,7 @@ export default function CustomerPanelPage() {
                     size="sm"
                     onClick={handleRegenerateLink}
                     disabled={!panelUrlValue || isRegeneratingLink || isPreparingLink}
-                    className="rounded-full border-border/70 bg-white"
+                    className="rounded-full border-border/70 bg-card"
                   >
                     <RefreshCw className="h-4 w-4" />
                     {isRegeneratingLink ? "Regenerating..." : "Regenerate"}
@@ -403,7 +403,7 @@ export default function CustomerPanelPage() {
                     value={recipientEmail}
                     onChange={(event) => setRecipientEmail(event.target.value)}
                     disabled={isSendingEmail || isPreparingLink}
-                    className="h-10 rounded-full bg-background/60 text-sm"
+                    className="h-10 rounded-full bg-secondary/70 text-sm"
                   />
                 </div>
 
@@ -513,10 +513,10 @@ function FeatureCard({
   onCheckedChange,
 }: FeatureCardProps) {
   return (
-    <Card className="h-full min-h-[170px] gap-0 rounded-[22px] border-border/70 bg-white/85 shadow-none transition-colors hover:border-foreground/12">
+    <Card className="h-full min-h-[170px] gap-0 rounded-[22px] border-border/70 bg-card shadow-none transition-colors hover:border-foreground/12">
       <CardContent className="flex h-full flex-col justify-between gap-4 p-4">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-[15px] border border-border/70 bg-background/70 text-muted-foreground [&>svg]:h-4 [&>svg]:w-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-[15px] border border-border/70 bg-secondary/70 text-muted-foreground [&>svg]:h-4 [&>svg]:w-4">
             {icon}
           </div>
           <Switch
@@ -570,11 +570,11 @@ function ShoppingListFeatureCard({
   const detailDisabled = disabled || !checked;
 
   return (
-    <Card className="gap-0 rounded-[24px] border-border/70 bg-white/88 shadow-none transition-colors hover:border-foreground/12">
-      <CardContent className="grid gap-3 p-5 lg:grid-cols-3 lg:items-stretch">
-        <div className="flex h-full min-h-[170px] flex-col justify-between gap-4 rounded-[18px] border border-border/70 bg-background/55 px-4 py-3">
+    <Card className="gap-0 rounded-[24px] border-border/70 bg-card shadow-none transition-colors hover:border-foreground/12">
+      <CardContent className="grid gap-3 p-5 lg:grid-cols-[minmax(280px,0.9fr)_minmax(340px,1.1fr)] lg:items-stretch">
+        <div className="flex h-full min-h-[170px] flex-col justify-between gap-4 rounded-[18px] border border-border/70 bg-secondary/70 px-4 py-3">
           <div className="flex items-start justify-between gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-[15px] border border-border/70 bg-background/70 text-muted-foreground [&>svg]:h-4 [&>svg]:w-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-[15px] border border-border/70 bg-secondary/70 text-muted-foreground [&>svg]:h-4 [&>svg]:w-4">
               {icon}
             </div>
             <Switch
@@ -595,22 +595,24 @@ function ShoppingListFeatureCard({
           </div>
         </div>
 
-        <ShoppingListSettingCard
-          id="allow-shopping-item-decisions"
-          title="Allow decisions"
-          description="Clients can approve or reject items."
-          checked={decisionsChecked}
-          onCheckedChange={onDecisionsChange}
-          disabled={detailDisabled}
-        />
-        <ShoppingListSettingCard
-          id="allow-shopping-item-comments"
-          title="Allow comments"
-          description="Clients can leave item comments."
-          checked={commentsChecked}
-          onCheckedChange={onCommentsChange}
-          disabled={detailDisabled}
-        />
+        <div className="grid gap-3 lg:grid-rows-2">
+          <ShoppingListSettingCard
+            id="allow-shopping-item-decisions"
+            title="Allow decisions"
+            description="Clients can approve or reject items."
+            checked={decisionsChecked}
+            onCheckedChange={onDecisionsChange}
+            disabled={detailDisabled}
+          />
+          <ShoppingListSettingCard
+            id="allow-shopping-item-comments"
+            title="Allow comments"
+            description="Clients can leave item comments."
+            checked={commentsChecked}
+            onCheckedChange={onCommentsChange}
+            disabled={detailDisabled}
+          />
+        </div>
       </CardContent>
     </Card>
   );
@@ -634,8 +636,8 @@ function ShoppingListSettingCard({
   onCheckedChange,
 }: ShoppingListSettingCardProps) {
   return (
-    <div className="h-full min-h-[170px] rounded-[18px] border border-border/70 bg-background/55 px-4 py-3">
-      <div className="flex h-full items-start justify-between gap-3">
+    <div className="rounded-[18px] border border-border/70 bg-secondary/70 px-4 py-3">
+      <div className="flex min-h-[58px] items-start justify-between gap-3">
         <div className="space-y-1 pr-4">
           <Label htmlFor={id} className="text-[13px] font-medium text-foreground">
             {title}

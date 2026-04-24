@@ -99,7 +99,7 @@ export function AddToProjectModal({ product, teamId, onClose }: AddToProjectModa
         </DialogHeader>
 
         {/* Product Preview */}
-        <Card className="gap-0 rounded-2xl bg-muted/30 p-0 shadow-none">
+        <Card className="gap-0 rounded-2xl bg-secondary/70 p-0 shadow-none">
           <CardContent className="flex items-center gap-3 p-3">
           {product.imageUrl && (
             <img 

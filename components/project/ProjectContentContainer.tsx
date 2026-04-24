@@ -11,7 +11,7 @@ export function ProjectContentContainer({
   const pathname = usePathname();
   const isWideProjectRoute =
     /^\/organisation\/projects\/[^/]+(?:\/)?$/.test(pathname) ||
-    /^\/organisation\/projects\/[^/]+\/(?:tasks|shopping-list|labor)(?:\/|$)/.test(pathname);
+    /^\/organisation\/projects\/[^/]+\/(?:tasks|shopping-list|labor|calendar)(?:\/|$)/.test(pathname);
 
   return (
     <div

@@ -187,7 +187,7 @@ export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps
               collapsible
               value={expandedResponseId}
               onValueChange={setExpandedResponseId}
-              className="rounded-xl border border-border bg-muted/30 px-4"
+              className="rounded-xl border border-border bg-secondary/70 px-4"
             >
               {sortedResponses.map((response, responseIndex) => {
                 const responseId = String(response._id);
@@ -221,7 +221,7 @@ export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps
                                   </span>
                                 </div>
                                 <div className="mb-2 font-medium">{question.questionText}</div>
-                                <div className="rounded-lg bg-muted/50 p-3">
+                                <div className="rounded-lg bg-secondary/70 p-3">
                                   {answer ? getAnswerDisplay(answer) : (
                                     <span className="italic text-muted-foreground">No answer</span>
                                   )}

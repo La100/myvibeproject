@@ -172,7 +172,7 @@ function CompanySidebarContent() {
           <div className="min-w-0 flex-1">
             <h2
               title={organizationName}
-              className="line-clamp-2 max-w-full overflow-hidden text-[17px] font-semibold leading-[1.08] tracking-tight text-sidebar-foreground [overflow-wrap:anywhere]"
+              className="line-clamp-2 max-w-full overflow-hidden font-serif text-[18px] font-medium leading-[1.08] tracking-[-0.035em] text-sidebar-foreground [overflow-wrap:anywhere]"
             >
               {organizationName}
             </h2>
@@ -197,10 +197,10 @@ function CompanySidebarContent() {
                     <SidebarMenuButton
                       asChild
                       isActive={isActive}
-                      className={`h-8 justify-start gap-2.5 rounded-xl border px-3 text-[13px] font-medium ${
+                      className={`h-9 justify-start gap-2.5 rounded-2xl border px-3 text-[13px] font-medium ${
                         isActive
-                          ? "border-sidebar-border/80 bg-sidebar-accent/45 text-sidebar-foreground"
-                          : "border-transparent bg-transparent text-sidebar-foreground hover:bg-transparent hover:text-sidebar-foreground"
+                          ? "border-sidebar-border/90 bg-sidebar-accent/70 text-sidebar-foreground shadow-sm"
+                          : "border-transparent bg-transparent text-sidebar-foreground/82 hover:bg-sidebar-accent/34 hover:text-sidebar-foreground"
                       }`}
                     >
                       <Link
@@ -210,7 +210,7 @@ function CompanySidebarContent() {
                         className="flex flex-1 items-center gap-3"
                       >
                         <item.icon
-                          className={`h-4 w-4 ${isActive ? "text-sidebar-foreground/88" : "text-sidebar-foreground/72"}`}
+                          className={`h-4 w-4 ${isActive ? "text-sidebar-primary" : "text-sidebar-foreground/68"}`}
                         />
                         <span className="truncate">{item.label}</span>
                         {typeof item.notificationCount === "number" && item.notificationCount > 0 ? (
@@ -237,10 +237,10 @@ function CompanySidebarContent() {
                     <SidebarMenuButton
                       asChild
                       isActive={isActive}
-                      className={`h-8 justify-start gap-2.5 rounded-xl border px-3 text-[13px] font-medium ${
+                      className={`h-9 justify-start gap-2.5 rounded-2xl border px-3 text-[13px] font-medium ${
                         isActive
-                          ? "border-sidebar-border/80 bg-sidebar-accent/45 text-sidebar-foreground"
-                          : "border-transparent text-sidebar-foreground/82 hover:bg-transparent hover:text-sidebar-foreground"
+                          ? "border-sidebar-border/90 bg-sidebar-accent/70 text-sidebar-foreground shadow-sm"
+                          : "border-transparent text-sidebar-foreground/78 hover:bg-sidebar-accent/34 hover:text-sidebar-foreground"
                       }`}
                     >
                       <Link
@@ -249,7 +249,7 @@ function CompanySidebarContent() {
                         onMouseEnter={() => handleLinkHover(item.href)}
                         className="flex flex-1 items-center gap-3"
                       >
-                        <item.icon className={`h-4 w-4 ${isActive ? "text-sidebar-foreground/88" : "text-sidebar-foreground/72"}`} />
+                        <item.icon className={`h-4 w-4 ${isActive ? "text-sidebar-primary" : "text-sidebar-foreground/68"}`} />
                         <span className="truncate">{item.label}</span>
                       </Link>
                     </SidebarMenuButton>
@@ -263,7 +263,7 @@ function CompanySidebarContent() {
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="flex w-full items-center gap-2.5 rounded-xl border border-transparent bg-transparent px-2.5 py-1.5 text-left transition hover:bg-sidebar-accent/30"
+                  className="flex w-full items-center gap-2.5 rounded-2xl border border-transparent bg-transparent px-2.5 py-1.5 text-left transition hover:bg-sidebar-accent/40"
                 >
                   {user?.imageUrl ? (
                     <div className="relative h-8 w-8 overflow-hidden rounded-full border border-sidebar-border/70">

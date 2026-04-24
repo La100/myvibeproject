@@ -131,28 +131,28 @@ export default function CompanyTeam() {
           <TabsContent value="overview" className="mt-5">
             <div className="flex flex-col gap-4">
               <section className="grid gap-4 xl:grid-cols-[minmax(0,760px)_minmax(320px,1fr)]">
-                <div className="rounded-2xl border bg-white p-4 sm:p-5">
+                <div className="rounded-2xl border bg-card p-4 sm:p-5">
                   <div className="flex flex-col gap-3">
                     <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
                       Workspace access
                     </p>
 
                     <div className="grid w-full gap-2 sm:grid-cols-3 xl:max-w-[620px]">
-                      <div className="rounded-xl border bg-muted px-4 py-4">
+                      <div className="rounded-xl border bg-secondary/70 px-4 py-4">
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-muted-foreground">Members</span>
                           <Users className="h-4 w-4 text-muted-foreground" />
                         </div>
                         <p className="mt-4 text-3xl font-semibold leading-none">{memberCount}</p>
                       </div>
-                      <div className="rounded-xl border bg-muted px-4 py-4">
+                      <div className="rounded-xl border bg-secondary/70 px-4 py-4">
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-muted-foreground">Admins</span>
                           <Crown className="h-4 w-4 text-muted-foreground" />
                         </div>
                         <p className="mt-4 text-3xl font-semibold leading-none">{adminCount}</p>
                       </div>
-                      <div className="rounded-xl border bg-muted px-4 py-4">
+                      <div className="rounded-xl border bg-secondary/70 px-4 py-4">
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-muted-foreground">Invites</span>
                           <Mail className="h-4 w-4 text-muted-foreground" />
@@ -163,7 +163,7 @@ export default function CompanyTeam() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl border bg-white p-4 sm:p-5">
+                <div className="rounded-2xl border bg-card p-4 sm:p-5">
                   <div className="flex items-start justify-between gap-3">
                     <h3 className="text-base font-semibold">Pending invitations</h3>
                     <Badge variant="outline" className="text-xs">
@@ -175,7 +175,7 @@ export default function CompanyTeam() {
                     {visiblePendingInvitations.length > 0 ? (
                       <div className="space-y-2">
                         {visiblePendingInvitations.slice(0, 4).map((inv) => (
-                          <div key={inv._id} className="flex items-center justify-between rounded-xl border bg-muted px-3 py-3">
+                          <div key={inv._id} className="flex items-center justify-between rounded-xl border bg-secondary/70 px-3 py-3">
                             <div className="min-w-0">
                               <p className="truncate text-sm font-medium">{inv.email}</p>
                               <p className="text-xs text-muted-foreground">
@@ -189,7 +189,7 @@ export default function CompanyTeam() {
                         ))}
                       </div>
                     ) : (
-                      <div className="rounded-xl border border-dashed bg-muted px-4 py-8 text-center">
+                      <div className="rounded-xl border border-dashed bg-secondary/70 px-4 py-8 text-center">
                         <Mail className="mx-auto h-8 w-8 text-muted-foreground" />
                         <p className="mt-3 text-sm font-medium">No open invitations</p>
                       </div>
@@ -198,7 +198,7 @@ export default function CompanyTeam() {
                 </div>
               </section>
 
-              <section className="rounded-2xl border bg-white p-4 sm:p-5">
+              <section className="rounded-2xl border bg-card p-4 sm:p-5">
                 <div className="flex items-start justify-between gap-3">
                   <h3 className="text-base font-semibold">Recent members</h3>
                   <Badge variant="outline" className="text-xs">
@@ -216,7 +216,7 @@ export default function CompanyTeam() {
                           <button
                             key={member.clerkUserId}
                             type="button"
-                            className="flex items-center gap-3 rounded-xl border bg-muted px-3 py-3 text-left transition-colors hover:bg-muted/80"
+                            className="flex items-center gap-3 rounded-xl border bg-secondary/70 px-3 py-3 text-left transition-colors hover:bg-secondary"
                             onClick={() => handleMemberClick(member)}
                           >
                             <Avatar className="h-9 w-9">
@@ -253,13 +253,13 @@ export default function CompanyTeam() {
                 <h3 className="text-lg font-semibold">Internal Team Members</h3>
               </div>
                 
-              <Card className="rounded-2xl bg-background">
+              <Card className="rounded-2xl bg-card">
                 <CardContent className="p-0">
                   <div className="flex flex-col gap-0">
                     {teamMembersOnly.map((member: TeamMember) => (
                       <div
                         key={member.clerkUserId}
-                        className="flex items-center justify-between border-b bg-muted px-4 py-3.5 last:border-b-0 hover:bg-muted/80 cursor-pointer transition-colors"
+                        className="flex items-center justify-between border-b bg-secondary/70 px-4 py-3.5 last:border-b-0 hover:bg-secondary cursor-pointer transition-colors"
                         onClick={() => handleMemberClick(member)}
                       >
                         <div className="flex items-center gap-4">
@@ -306,12 +306,12 @@ export default function CompanyTeam() {
                 <h3 className="text-lg font-semibold">Pending Invitations</h3>
               </div>
 
-              <Card className="rounded-2xl bg-background">
+              <Card className="rounded-2xl bg-card">
                 <CardContent className="pt-5">
                   {visiblePendingInvitations.length > 0 ? (
                     <div className="flex flex-col gap-3">
                       {visiblePendingInvitations.map((inv: PendingInvitation) => (
-                        <div key={inv._id} className="flex items-center justify-between rounded-xl border bg-muted px-4 py-3 hover:bg-muted/80 transition-colors">
+                        <div key={inv._id} className="flex items-center justify-between rounded-xl border bg-secondary/70 px-4 py-3 hover:bg-secondary transition-colors">
                           <div className="flex items-center gap-4 flex-1">
                             <Avatar className="h-10 w-10">
                               <AvatarFallback className="bg-primary/10 text-primary">
@@ -357,7 +357,7 @@ export default function CompanyTeam() {
                   ) : (
                     <div className="flex items-center justify-center py-12">
                       <div className="text-center">
-                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted mx-auto mb-4">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-secondary/70 mx-auto mb-4">
                           <Mail className="h-8 w-8 text-muted-foreground" />
                         </div>
                         <h3 className="text-lg font-semibold mb-2">No pending invitations</h3>

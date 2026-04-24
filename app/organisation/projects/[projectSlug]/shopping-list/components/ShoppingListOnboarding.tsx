@@ -46,13 +46,13 @@ function StepCard({
   const Icon = step.icon;
 
   return (
-    <div className="relative flex h-full flex-col gap-5 rounded-[1.75rem] border border-border/70 bg-white p-6 shadow-[0_16px_32px_-30px_rgba(15,23,42,0.16)]">
+    <div className="vibe-surface relative flex h-full flex-col gap-5 p-6">
       {!isLast ? (
         <div className="pointer-events-none absolute -right-4 top-14 hidden h-px w-8 bg-border/70 xl:block" />
       ) : null}
 
       <div className="flex items-start justify-between gap-4">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full border border-border/70 bg-white text-base font-semibold text-foreground/70">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full border border-border/70 bg-secondary/65 text-base font-semibold text-foreground/70">
           {step.done ? <CheckIcon className="h-5 w-5 text-primary" /> : stepNumber}
         </div>
         <Badge variant={step.done ? "secondary" : "outline"}>
@@ -73,7 +73,7 @@ function StepCard({
       <div className="mt-auto">
         <Button
           variant={step.done ? "outline" : "default"}
-          className={cn("w-full justify-between rounded-xl", step.done && "bg-white")}
+          className={cn("w-full justify-between rounded-xl", step.done && "bg-card")}
           onClick={step.onAction}
         >
           <span>{step.actionLabel}</span>
@@ -156,7 +156,7 @@ export function ShoppingListOnboarding({
   const completedSteps = steps.filter((step) => step.done).length;
 
   return (
-    <section className="mb-8 overflow-hidden rounded-[2rem] border border-border/70 bg-white shadow-[0_18px_40px_-34px_rgba(15,23,42,0.16)]">
+    <section className="vibe-panel mb-8 overflow-hidden">
       <div className="grid gap-8 p-6 lg:grid-cols-[0.92fr_1.08fr] lg:p-8">
         <div className="flex flex-col justify-between gap-6">
           <div className="space-y-4">
@@ -176,7 +176,7 @@ export function ShoppingListOnboarding({
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <div className="rounded-2xl border border-border/70 bg-white px-4 py-3">
+            <div className="vibe-row px-4 py-3">
               <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Progress</p>
               <p className="mt-2 text-2xl font-semibold tracking-tight">
                 {completedSteps}/{steps.length}

@@ -19,7 +19,7 @@ export function AuthShell({
         <div className="p-4 sm:p-6 lg:h-full lg:p-8">
           <Card className="relative min-h-[320px] overflow-hidden p-0 sm:min-h-[420px] lg:min-h-[calc(100vh-4rem)]">
             <Image
-              src="/landing/visualization-1776944094220.png"
+              src="/landing/visualization-1776944094220.webp"
               alt="Myvibe workflow background"
               fill
               priority

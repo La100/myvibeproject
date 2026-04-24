@@ -57,13 +57,13 @@ export function SectionManager({
   const sectionLabel = `${sections.length} ${sections.length === 1 ? 'section' : 'sections'}`;
 
   return (
-    <div className="mb-8 rounded-[30px] border border-border/70 bg-white p-5 shadow-sm sm:p-6">
+    <div className="vibe-panel mb-8 p-5 sm:p-6">
       <button
         onClick={() => setExpanded(!isExpanded)}
         className="flex w-full items-center justify-between gap-4 text-left"
       >
         <div className="flex min-w-0 items-center gap-3.5">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border/70 bg-secondary/35">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border/70 bg-secondary/70">
             <FolderIcon className="h-5 w-5 text-primary" />
           </div>
           <div className="min-w-0">
@@ -71,7 +71,7 @@ export function SectionManager({
               <span className="text-base font-semibold text-foreground">
                 Manage Sections
               </span>
-              <span className="rounded-full border border-border/60 bg-white px-2.5 py-1 text-[12px] font-medium text-muted-foreground">
+              <span className="rounded-full border border-border/60 bg-secondary/70 px-2.5 py-1 text-[12px] font-medium text-muted-foreground">
                 {sectionLabel}
               </span>
             </div>
@@ -80,7 +80,7 @@ export function SectionManager({
             </p>
           </div>
         </div>
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border/60 bg-white text-muted-foreground transition-colors hover:bg-secondary/50 hover:text-foreground">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border/60 bg-secondary/70 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
           {isExpanded ? (
             <ChevronUpIcon className="h-5 w-5" />
           ) : (
@@ -118,7 +118,7 @@ export function SectionManager({
                     key={name}
                     onClick={() => onCreateSection(name)}
                     disabled={isPending}
-                    className="rounded-full border border-border/70 bg-white px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary/45 disabled:opacity-50"
+                    className="rounded-full border border-border/70 bg-secondary/70 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary disabled:opacity-50"
                   >
                     + {name}
                   </button>
@@ -134,7 +134,7 @@ export function SectionManager({
                 {sections.map((section) => (
                   <div
                     key={section._id}
-                    className="flex items-center justify-between rounded-2xl border border-border/70 bg-secondary/20 p-3.5"
+                    className="flex items-center justify-between rounded-2xl border border-border/70 bg-secondary/70 p-3.5"
                   >
                     <span className="text-sm font-medium text-foreground">{section.name}</span>
                     <Button

@@ -539,8 +539,8 @@ function ProjectSettingsContent() {
                           className={cn(
                             "rounded-2xl px-4 py-3 text-left text-[1rem] transition-colors",
                             isActive
-                              ? "bg-muted text-foreground"
-                              : "text-foreground/80 hover:bg-muted/60 hover:text-foreground",
+                              ? "bg-secondary text-foreground"
+                              : "text-foreground/80 hover:bg-secondary/70 hover:text-foreground",
                           )}
                         >
                           {tab.label}
@@ -1187,7 +1187,7 @@ function GeneralTab({
                 />
               </div>
 
-              <div className="mt-4 rounded-2xl bg-muted/20 px-4 py-3">
+              <div className="mt-4 rounded-2xl bg-secondary/70 px-4 py-3">
                 <p className="text-xs leading-relaxed text-muted-foreground">
                   Leave dates empty if the project is still open-ended. Once set, they feed project reporting and timeline views.
                 </p>
@@ -1203,7 +1203,7 @@ function GeneralTab({
               </div>
 
               <div className="grid gap-4">
-                <div className="max-w-4xl overflow-hidden rounded-[28px] border border-border/70 bg-muted/20">
+                <div className="max-w-4xl overflow-hidden rounded-[28px] border border-border/70 bg-secondary/70">
                   {hasCoverPreview ? (
                     <div className="relative">
                       <img

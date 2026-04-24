@@ -133,7 +133,7 @@ export default function ContactsPage() {
                 {projectContacts.map((contact) => (
                   <div
                     key={contact._id}
-                    className="rounded-xl border border-border/70 p-4 transition-colors hover:bg-muted/50"
+                    className="rounded-xl border border-border/70 p-4 transition-colors hover:bg-secondary/70"
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">

@@ -10,25 +10,18 @@ import {
 import type { CSSProperties } from "react";
 import { Suspense } from "react";
 
-const swappedSurfaceVars = {
-  "--workspace-background": "var(--background)",
-  "--workspace-sidebar": "var(--sidebar)",
-  "--background": "var(--workspace-sidebar)",
-  "--sidebar": "var(--workspace-background)",
-} as CSSProperties;
-
 function ProjectLayoutContent({ children }: { children: React.ReactNode }) {
   return (
-    <div style={swappedSurfaceVars}>
+    <div className="vibe-shell min-h-svh">
       <SidebarProvider
         style={{
           "--sidebar-width": "16rem",
         } as CSSProperties}
       >
         <ProjectSidebar />
-        <SidebarInset className="bg-background xl:clean-panel xl:overflow-hidden">
+        <SidebarInset className="bg-transparent xl:clean-panel xl:overflow-hidden">
           <MobileProjectHeader />
-          <main className="flex-1 min-h-0 overflow-auto bg-background">
+          <main className="flex-1 min-h-0 overflow-auto bg-transparent">
             <Suspense fallback={
               <div className="flex flex-col gap-4">
                 <div className="h-8 w-1/3 animate-pulse rounded bg-muted" />

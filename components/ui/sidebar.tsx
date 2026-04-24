@@ -248,7 +248,7 @@ function Sidebar({
         <div
           data-sidebar="sidebar"
           data-slot="sidebar-inner"
-          className="bg-sidebar border-sidebar-border/80 flex h-full w-full flex-col rounded-2xl border font-[var(--font-sidebar)] shadow-[0_18px_44px_-34px_rgba(22,22,22,0.55)] group-data-[variant=floating]:rounded-2xl group-data-[variant=floating]:border"
+          className="bg-sidebar/95 border-sidebar-border/80 flex h-full w-full flex-col rounded-[26px] border font-[var(--font-sidebar)] shadow-[0_24px_70px_-50px_rgba(24,20,16,0.38)] backdrop-blur-xl group-data-[variant=floating]:rounded-[26px] group-data-[variant=floating]:border"
           style={{ backgroundImage: "none" }}
         >
           {children}

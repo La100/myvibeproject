@@ -69,7 +69,7 @@ export default function AISettings({ projectId }: AISettingsProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="px-4 lg:px-6">
-          <div className="flex items-start justify-between gap-4 rounded-lg border border-border/70 bg-muted/30 p-4">
+          <div className="flex items-start justify-between gap-4 rounded-lg border border-border/70 bg-secondary/70 p-4">
             <div className="flex flex-col gap-1">
               <p className="font-medium">AI CRUD Action Confirmation</p>
               <p className="text-sm text-muted-foreground">
