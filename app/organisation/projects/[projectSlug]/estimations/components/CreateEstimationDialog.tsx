@@ -6,6 +6,7 @@ import { apiAny } from '@/lib/convexApiAny';
 import { Id } from '@/convex/_generated/dataModel';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -27,10 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, ChevronRightIcon, ChevronLeftIcon } from 'lucide-react';
-import { format } from 'date-fns';
+import { ChevronRightIcon, ChevronLeftIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   calculateTaxBreakdown,
@@ -568,53 +566,21 @@ export function CreateEstimationDialog({
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <Label>Planned Start Date</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "mt-1 w-full justify-start border-border bg-secondary/70 text-left font-normal hover:bg-secondary aria-expanded:bg-secondary",
-                          !plannedStartDate && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {plannedStartDate ? format(plannedStartDate, "PPP") : "Select date"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar
-                        mode="single"
-                        selected={plannedStartDate}
-                        onSelect={setPlannedStartDate}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <DatePicker
+                    date={plannedStartDate}
+                    onDateChange={setPlannedStartDate}
+                    placeholder="Select date"
+                    className="mt-1 w-full border-border bg-secondary/70 hover:bg-secondary aria-expanded:bg-secondary"
+                  />
                 </div>
                 <div>
                   <Label>Valid Until</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "mt-1 w-full justify-start border-border bg-secondary/70 text-left font-normal hover:bg-secondary aria-expanded:bg-secondary",
-                          !validUntil && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {validUntil ? format(validUntil, "PPP") : "Select date"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar
-                        mode="single"
-                        selected={validUntil}
-                        onSelect={setValidUntil}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <DatePicker
+                    date={validUntil}
+                    onDateChange={setValidUntil}
+                    placeholder="Select date"
+                    className="mt-1 w-full border-border bg-secondary/70 hover:bg-secondary aria-expanded:bg-secondary"
+                  />
                 </div>
               </div>
             </div>

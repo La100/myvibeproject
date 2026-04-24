@@ -5,13 +5,12 @@ import type { TeamMember } from "@/lib/teamMember";
 import { buildShoppingSetContext, calculateShoppingTotal, isItemCountedInShoppingTotal } from "@/lib/shoppingSets";
 import { apiAny } from "@/lib/convexApiAny";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
@@ -23,7 +22,6 @@ import {
   ChevronUpIcon,
   EditIcon,
   ExternalLinkIcon,
-  CalendarIcon,
   Layers3Icon,
   Loader2,
   LibraryBig,
@@ -33,8 +31,9 @@ import {
   WandSparkles,
   XIcon,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { formatDateInput, parseDateInput } from "@/lib/dateInput";
+import { cn } from "@/lib/utils";
 import {
   calculateTaxBreakdown,
   getPrimaryAmountKindForDisplay,
@@ -648,37 +647,17 @@ export function ShoppingListSection({
         </Field>
         <Field>
           <FieldLabel>Buy Before</FieldLabel>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "h-12 w-full justify-start text-left font-normal text-sm",
-                  !editFormData.buyBefore && "text-muted-foreground",
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {editFormData.buyBefore ? (
-                  <span>{format(new Date(editFormData.buyBefore), "PPP")}</span>
-                ) : (
-                  <span>Pick a date</span>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
-              <Calendar
-                mode="single"
-                selected={editFormData.buyBefore ? new Date(editFormData.buyBefore) : undefined}
-                onSelect={(date) =>
-                  setEditFormData({
-                    ...editFormData,
-                    buyBefore: date ? format(date, "yyyy-MM-dd") : "",
-                  })
-                }
-                initialFocus
-              />
-            </PopoverContent>
-          </Popover>
+          <DatePicker
+            date={parseDateInput(editFormData.buyBefore)}
+            onDateChange={(date) =>
+              setEditFormData({
+                ...editFormData,
+                buyBefore: formatDateInput(date),
+              })
+            }
+            placeholder="Pick a date"
+            className="h-12 w-full text-sm"
+          />
         </Field>
       </div>
 

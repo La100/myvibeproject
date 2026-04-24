@@ -16,6 +16,7 @@ import { optimizeCoverImageForUpload } from "@/lib/coverImageUpload";
 import { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   Dialog,
   DialogContent,
@@ -37,6 +38,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { formatDateInput, parseDateInput } from "@/lib/dateInput";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 import ProjectMembers from "./ProjectMembers";
@@ -1112,10 +1114,10 @@ function GeneralTab({
                     <FormItem>
                       <FormLabel className="text-sm font-medium">Start Date</FormLabel>
                       <FormControl>
-                        <Input
-                          type="date"
-                          {...field}
-                          value={field.value ?? ""}
+                        <DatePicker
+                          date={parseDateInput(field.value)}
+                          onDateChange={(date) => field.onChange(formatDateInput(date))}
+                          placeholder="Select start date"
                           className="h-10 w-full"
                         />
                       </FormControl>
@@ -1131,10 +1133,10 @@ function GeneralTab({
                     <FormItem>
                       <FormLabel className="text-sm font-medium">End Date</FormLabel>
                       <FormControl>
-                        <Input
-                          type="date"
-                          {...field}
-                          value={field.value ?? ""}
+                        <DatePicker
+                          date={parseDateInput(field.value)}
+                          onDateChange={(date) => field.onChange(formatDateInput(date))}
+                          placeholder="Select end date"
                           className="h-10 w-full"
                         />
                       </FormControl>

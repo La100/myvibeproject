@@ -1,16 +1,13 @@
 import { useState } from 'react';
 import type { CheckedState } from '@radix-ui/react-checkbox';
 import { Button } from '@/components/ui/button';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { CalendarIcon, Loader2, WandSparkles } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
+import { Loader2, WandSparkles } from 'lucide-react';
 import { Doc, Id } from '@/convex/_generated/dataModel';
 import type { TeamMember } from '@/lib/teamMember';
 import { toast } from 'sonner';
@@ -374,28 +371,12 @@ export function AddItemForm({
         </Field>
         <Field>
           <FieldLabel>Buy Before</FieldLabel>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant={"outline"}
-                className={cn(
-                  "h-12 w-full justify-start text-left font-normal text-sm",
-                  !newItemBuyBefore && "text-muted-foreground"
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {newItemBuyBefore ? format(newItemBuyBefore, "PPP") : <span>Pick a date</span>}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
-              <Calendar
-                mode="single"
-                selected={newItemBuyBefore}
-                onSelect={setNewItemBuyBefore}
-                initialFocus
-              />
-            </PopoverContent>
-          </Popover>
+          <DatePicker
+            date={newItemBuyBefore}
+            onDateChange={setNewItemBuyBefore}
+            placeholder="Pick a date"
+            className="h-12 w-full text-sm"
+          />
         </Field>
       </div>
 

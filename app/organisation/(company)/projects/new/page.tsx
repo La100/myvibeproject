@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { AlertTriangle, Check, ImagePlus, Sparkles, X } from "lucide-react";
 import { optimizeCoverImageForUpload } from "@/lib/coverImageUpload";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -40,6 +41,25 @@ const currencySymbols: Record<string, string> = {
   SGD: "S$",
   HKD: "HK$",
 };
+
+function parseDateInput(value: string) {
+  if (!value) return undefined;
+
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return undefined;
+
+  return new Date(year, month - 1, day);
+}
+
+function formatDateInput(date: Date | undefined) {
+  if (!date) return "";
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
 
 export default function NewProjectPage() {
   const router = useRouter();
@@ -196,8 +216,8 @@ export default function NewProjectPage() {
         customerEmail: newProject.customerEmail || undefined,
         location: fullAddress || undefined,
         budget: newProject.budget ? parseFloat(newProject.budget) : undefined,
-        startDate: newProject.startDate ? new Date(newProject.startDate).getTime() : undefined,
-        endDate: newProject.endDate ? new Date(newProject.endDate).getTime() : undefined,
+        startDate: parseDateInput(newProject.startDate)?.getTime(),
+        endDate: parseDateInput(newProject.endDate)?.getTime(),
         currency: selectedCurrency,
         measurements: newProject.measurements === "imperial" ? "imperial" : "metric",
       });
@@ -248,15 +268,19 @@ export default function NewProjectPage() {
                 Timeframe <span className="font-normal text-muted-foreground">(Optional)</span>
               </Label>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <Input
-                  type="date"
-                  value={newProject.startDate}
-                  onChange={(e) => setNewProject({ ...newProject, startDate: e.target.value })}
+                <DatePicker
+                  date={parseDateInput(newProject.startDate)}
+                  onDateChange={(date) =>
+                    setNewProject({ ...newProject, startDate: formatDateInput(date) })
+                  }
+                  placeholder="Select start date"
                 />
-                <Input
-                  type="date"
-                  value={newProject.endDate}
-                  onChange={(e) => setNewProject({ ...newProject, endDate: e.target.value })}
+                <DatePicker
+                  date={parseDateInput(newProject.endDate)}
+                  onDateChange={(date) =>
+                    setNewProject({ ...newProject, endDate: formatDateInput(date) })
+                  }
+                  placeholder="Select end date"
                 />
               </div>
             </div>

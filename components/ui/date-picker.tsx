@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { format } from "date-fns"
-import { CalendarDays } from "lucide-react"
+import { ChevronDownIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -18,27 +18,37 @@ interface DatePickerProps {
   onDateChange?: (date: Date | undefined) => void
   placeholder?: string
   className?: string
+  calendarClassName?: string
+  calendarClassNames?: React.ComponentProps<typeof Calendar>["classNames"]
+  disabled?: React.ComponentProps<typeof Calendar>["disabled"]
+  captionLayout?: React.ComponentProps<typeof Calendar>["captionLayout"]
 }
 
 export function DatePicker({ 
   date, 
   onDateChange, 
   placeholder = "Pick a date",
-  className 
+  className,
+  calendarClassName,
+  calendarClassNames,
+  disabled,
+  captionLayout = "dropdown",
 }: DatePickerProps) {
   return (
     <Popover>
       <PopoverTrigger asChild>
         <Button
-          variant={"outline"}
+          variant="outline"
           className={cn(
-            "w-full justify-start text-left font-normal",
+            "w-full justify-between text-left font-normal",
             !date && "text-muted-foreground",
             className
           )}
         >
-          <CalendarDays className="mr-2 h-4 w-4" />
-          {date ? format(date, "PPP") : <span>{placeholder}</span>}
+          <span className="truncate">
+            {date ? format(date, "PPP") : placeholder}
+          </span>
+          <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0">
@@ -46,6 +56,10 @@ export function DatePicker({
           mode="single"
           selected={date}
           onSelect={onDateChange}
+          disabled={disabled}
+          captionLayout={captionLayout === "dropdown" ? "label" : captionLayout}
+          className={cn("rounded-md border shadow-sm", calendarClassName)}
+          classNames={calendarClassNames}
           initialFocus
         />
       </PopoverContent>

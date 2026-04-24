@@ -4,6 +4,7 @@ import Link from "next/link";
 import { type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { Plus, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import {
   InputGroup,
@@ -20,6 +21,7 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
+import { formatDateInput, parseDateInput } from "@/lib/dateInput";
 import { cn, formatCurrency } from "@/lib/utils";
 
 type BillingProfile = {
@@ -232,12 +234,13 @@ export function ProjectInvoiceDraftEditor({
               </div>
               <div>
                 <InlineLabel>Due date</InlineLabel>
-                <Input
-                  id="installment-due-date"
-                  type="date"
-                  value={form.dueDate}
-                  onChange={(event) => setForm((current) => ({ ...current, dueDate: event.target.value }))}
-                  className="mt-2"
+                <DatePicker
+                  date={parseDateInput(form.dueDate)}
+                  onDateChange={(date) =>
+                    setForm((current) => ({ ...current, dueDate: formatDateInput(date) }))
+                  }
+                  placeholder="Select due date"
+                  className="mt-2 w-full"
                 />
               </div>
             </div>
