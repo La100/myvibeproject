@@ -54,7 +54,7 @@ type ActiveTeamContext = {
 };
 
 const isOrganizationSetupCompleted = (team: ActiveTeamContext["team"]) =>
-  team.onboardingCompletedAt === undefined || team.onboardingCompletedAt > 0;
+  Boolean(team.onboardingCompletedAt && team.onboardingCompletedAt > 0);
 
 const getCurrentUser = async (ctx: QueryCtx, identity: UserIdentity): Promise<OnboardingUserDoc | null> => {
   return (await ctx.db

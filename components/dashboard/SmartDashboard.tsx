@@ -116,7 +116,11 @@ export function SmartDashboard() {
     }
 
     if (activeOrganization?.id && onboardingStatus.activeOrganization) {
-      router.replace("/organisation");
+      router.replace(
+        onboardingStatus.activeOrganization.onboardingCompleted
+          ? "/organisation"
+          : "/onboarding",
+      );
       hasRedirectedRef.current = true;
       return;
     }
@@ -189,7 +193,9 @@ export function SmartDashboard() {
       return "Opening workspace setup...";
     }
     if (activeOrganization?.id && onboardingStatus?.activeOrganization) {
-      return "Redirecting to your organization...";
+      return onboardingStatus.activeOrganization.onboardingCompleted
+        ? "Redirecting to your organization..."
+        : "Opening workspace setup...";
     }
     return "Activating your workspace...";
   }, [

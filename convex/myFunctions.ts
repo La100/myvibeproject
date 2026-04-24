@@ -269,6 +269,7 @@ export const createOrUpdateMembership = internalMutation({
                 name: args.orgName,
                 slug: args.orgSlug,
                 imageUrl: args.orgImageUrl,
+                onboardingCompletedAt: 0,
             });
             team = {
                 _id: teamId,
@@ -277,6 +278,7 @@ export const createOrUpdateMembership = internalMutation({
                 name: args.orgName,
                 slug: args.orgSlug,
                 imageUrl: args.orgImageUrl,
+                onboardingCompletedAt: 0,
             };
         };
 

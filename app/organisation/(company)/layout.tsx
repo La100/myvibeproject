@@ -34,6 +34,15 @@ export default function CompanyLayout({
     }
     if (isLoaded && !organization?.id) {
       router.replace(postAuthResolverUrl);
+      return;
+    }
+    if (
+      isLoaded &&
+      organization?.id &&
+      onboardingStatus.activeOrganization &&
+      !onboardingStatus.activeOrganization.onboardingCompleted
+    ) {
+      router.replace("/onboarding");
     }
   }, [onboardingStatus, isLoaded, organization?.id, router]);
 
@@ -120,6 +129,7 @@ export default function CompanyLayout({
   if (
     onboardingStatus === undefined ||
     !onboardingStatus.authenticated ||
+    onboardingStatus.activeOrganization?.onboardingCompleted === false ||
     !isLoaded ||
     !organization
   ) {

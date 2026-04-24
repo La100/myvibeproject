@@ -610,6 +610,7 @@ export const syncTeamWithClerkOrg = mutation({
         clerkOrgId: args.clerkOrgId,
         name: args.orgName,
         slug: generateSlug(args.orgName),
+        onboardingCompletedAt: 0,
       });
     }
   },
