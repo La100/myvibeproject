@@ -7,6 +7,7 @@ import { Id } from '@/convex/_generated/dataModel';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { DatePicker } from '@/components/ui/date-picker';
+import { toUserFacingErrorMessage } from '@/lib/userFacingErrors';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -437,8 +438,10 @@ export function CreateEstimationDialog({
 
       toast.success(isEditMode ? 'Estimation updated successfully' : 'Estimation created successfully');
       onOpenChange(false);
-    } catch {
-      toast.error(isEditMode ? 'Failed to update estimation' : 'Failed to create estimation');
+    } catch (error) {
+      toast.error(isEditMode ? 'Failed to update estimation' : 'Failed to create estimation', {
+        description: toUserFacingErrorMessage(error),
+      });
     } finally {
       setIsSubmitting(false);
     }

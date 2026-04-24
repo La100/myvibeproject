@@ -19,6 +19,7 @@ import {
 import { Trash2, Tags, User, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -181,7 +182,9 @@ export default function TaskDetailSidebar({
       });
       toast.success("Changes saved");
     } catch (error) {
-      toast.error("Error saving changes");
+      toast.error("Error saving changes", {
+        description: toUserFacingErrorMessage(error),
+      });
       console.error(error);
     } finally {
       setIsUpdating(null);
@@ -191,13 +194,27 @@ export default function TaskDetailSidebar({
   const handleStartDateUpdate = async (date: Date | undefined) => {
     setIsUpdating('startDate');
      try {
+      const nextStartDate = date ? getStartTimestamp(date) : undefined;
+      const nextEndDate = task.endDate;
+
+      if (
+        typeof nextStartDate === "number" &&
+        typeof nextEndDate === "number" &&
+        nextEndDate < nextStartDate
+      ) {
+        toast.error("End date cannot be earlier than start date.");
+        return;
+      }
+
       await updateTask({
         taskId: task._id,
-        startDate: date ? getStartTimestamp(date) : undefined,
+        startDate: nextStartDate,
       });
       toast.success("Start date updated");
     } catch (error) {
-      toast.error("Error updating start date");
+      toast.error("Error updating start date", {
+        description: toUserFacingErrorMessage(error),
+      });
       console.error(error);
     } finally {
       setIsUpdating(null);
@@ -207,13 +224,27 @@ export default function TaskDetailSidebar({
   const handleEndDateUpdate = async (date: Date | undefined) => {
     setIsUpdating('endDate');
      try {
+      const nextEndDate = date ? getEndTimestamp(date) : undefined;
+      const nextStartDate = task.startDate;
+
+      if (
+        typeof nextStartDate === "number" &&
+        typeof nextEndDate === "number" &&
+        nextEndDate < nextStartDate
+      ) {
+        toast.error("End date cannot be earlier than start date.");
+        return;
+      }
+
       await updateTask({
         taskId: task._id,
-        endDate: date ? getEndTimestamp(date) : undefined,
+        endDate: nextEndDate,
       });
       toast.success("End date updated");
     } catch (error) {
-      toast.error("Error updating end date");
+      toast.error("Error updating end date", {
+        description: toUserFacingErrorMessage(error),
+      });
       console.error(error);
     } finally {
       setIsUpdating(null);
@@ -230,8 +261,10 @@ export default function TaskDetailSidebar({
       await deleteTask({ taskId: task._id });
       toast.success("Task deleted");
       onDelete();
-    } catch {
-      toast.error("Error deleting task");
+    } catch (error) {
+      toast.error("Error deleting task", {
+        description: toUserFacingErrorMessage(error),
+      });
     }
   };
 
@@ -256,7 +289,9 @@ export default function TaskDetailSidebar({
       toast.success(checked ? "Time removed" : "Time enabled");
     } catch (error) {
       setIsAllDay(!checked);
-      toast.error("Error updating time settings");
+      toast.error("Error updating time settings", {
+        description: toUserFacingErrorMessage(error),
+      });
       console.error(error);
     } finally {
       setIsUpdating(null);
@@ -284,7 +319,9 @@ export default function TaskDetailSidebar({
       await updateTask(payload);
       toast.success("Start time updated");
     } catch (error) {
-      toast.error("Error updating start time");
+      toast.error("Error updating start time", {
+        description: toUserFacingErrorMessage(error),
+      });
       console.error(error);
     } finally {
       setIsUpdating(null);
@@ -302,7 +339,9 @@ export default function TaskDetailSidebar({
       });
       toast.success("End time updated");
     } catch (error) {
-      toast.error("Error updating end time");
+      toast.error("Error updating end time", {
+        description: toUserFacingErrorMessage(error),
+      });
       console.error(error);
     } finally {
       setIsUpdating(null);

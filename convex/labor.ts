@@ -357,6 +357,14 @@ export const createLaborItem = mutation({
     endDate: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    if (
+      typeof args.startDate === "number" &&
+      typeof args.endDate === "number" &&
+      args.endDate < args.startDate
+    ) {
+      throw new Error("Labor end date cannot be earlier than the start date");
+    }
+
     const { project, clerkUserId } = await ensureProjectAccess(ctx, args.projectId);
     await ensureLaborSectionBelongsToProject(ctx, args.sectionId ?? null, args.projectId);
 
@@ -421,6 +429,21 @@ export const updateLaborItem = mutation({
   handler: async (ctx, args) => {
     const { itemId, ...updates } = args;
     const item = await ensureLaborItemAccess(ctx, itemId);
+
+    const nextStartDate = Object.prototype.hasOwnProperty.call(updates, "startDate")
+      ? updates.startDate
+      : item.startDate;
+    const nextEndDate = Object.prototype.hasOwnProperty.call(updates, "endDate")
+      ? updates.endDate
+      : item.endDate;
+
+    if (
+      typeof nextStartDate === "number" &&
+      typeof nextEndDate === "number" &&
+      nextEndDate < nextStartDate
+    ) {
+      throw new Error("Labor end date cannot be earlier than the start date");
+    }
 
     if (Object.prototype.hasOwnProperty.call(updates, "sectionId")) {
       await ensureLaborSectionBelongsToProject(ctx, updates.sectionId ?? null, item.projectId);

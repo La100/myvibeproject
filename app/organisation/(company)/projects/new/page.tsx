@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
 const currencySymbols: Record<string, string> = {
   PLN: "zł",
@@ -191,6 +192,18 @@ export default function NewProjectPage() {
     e.preventDefault();
     if (!newProject.name || !organization?.id || !team?._id || isSubmitting) return;
 
+    const parsedStartDate = parseDateInput(newProject.startDate);
+    const parsedEndDate = parseDateInput(newProject.endDate);
+
+    if (
+      parsedStartDate &&
+      parsedEndDate &&
+      parsedEndDate.getTime() < parsedStartDate.getTime()
+    ) {
+      toast.error("End date cannot be earlier than start date.");
+      return;
+    }
+
     if (checkLimits && !checkLimits.allowed) {
       setShowUpgradeDialog(true);
       return;
@@ -216,8 +229,8 @@ export default function NewProjectPage() {
         customerEmail: newProject.customerEmail || undefined,
         location: fullAddress || undefined,
         budget: newProject.budget ? parseFloat(newProject.budget) : undefined,
-        startDate: parseDateInput(newProject.startDate)?.getTime(),
-        endDate: parseDateInput(newProject.endDate)?.getTime(),
+        startDate: parsedStartDate?.getTime(),
+        endDate: parsedEndDate?.getTime(),
         currency: selectedCurrency,
         measurements: newProject.measurements === "imperial" ? "imperial" : "metric",
       });
@@ -235,7 +248,9 @@ export default function NewProjectPage() {
         router.push(`/organisation/projects/${createdProject.slug}`);
       }
     } catch (error) {
-      toast.error("Error creating project");
+      toast.error("Error creating project", {
+        description: toUserFacingErrorMessage(error),
+      });
       console.error("Error creating project:", error);
     } finally {
       setIsSubmitting(false);

@@ -13,6 +13,7 @@ import { apiAny } from '@/lib/convexApiAny';
 import type { TeamMember } from '@/lib/teamMember';
 import { LinkIcon, PaperclipIcon, XIcon } from 'lucide-react';
 import { toast } from 'sonner';
+import { toUserFacingErrorMessage } from '@/lib/userFacingErrors';
 import {
   getDefaultLaborUnit,
   getLaborUnitsForMeasurementSystem,
@@ -228,6 +229,15 @@ export function AddLaborItemForm({
         hasEndTime && endTime ? endTime : startTime,
       );
 
+      if (
+        typeof computedStartDate === 'number' &&
+        typeof computedEndDate === 'number' &&
+        computedEndDate < computedStartDate
+      ) {
+        toast.error('End date cannot be earlier than start date.');
+        return;
+      }
+
       await onAddItem({
         name: newItemName.trim(),
         notes: newItemNotes.trim() || undefined,
@@ -265,7 +275,7 @@ export function AddLaborItemForm({
     } catch (error) {
       console.error('Error creating item:', error);
       toast.error('Failed to add labor item', {
-        description: (error as Error).message,
+        description: toUserFacingErrorMessage(error),
       });
     } finally {
       setIsUploadingAttachment(false);

@@ -12,6 +12,7 @@ import { apiAny } from "@/lib/convexApiAny";
 import { Doc, Id } from "@/convex/_generated/dataModel";
 
 import { toast } from "sonner";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -200,6 +201,15 @@ export default function TaskForm({ projectId, teamId, teamMembers, task, onTaskC
             }
         }
 
+        if (
+          typeof startDateTimestamp === "number" &&
+          typeof endDateTimestamp === "number" &&
+          endDateTimestamp < startDateTimestamp
+        ) {
+          toast.error("End date cannot be earlier than start date.");
+          return;
+        }
+
         const submissionData = {
             title: values.title,
             description: values.description,
@@ -229,7 +239,9 @@ export default function TaskForm({ projectId, teamId, teamMembers, task, onTaskC
         onTaskCreated?.();
         setIsOpen(false);
       } catch (error) {
-        toast.error("Something went wrong");
+        toast.error("Could not save task.", {
+          description: toUserFacingErrorMessage(error),
+        });
         console.error(error);
       }
     };

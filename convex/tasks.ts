@@ -155,6 +155,14 @@ const insertTaskRecord = async (
   },
   createdBy: string,
 ) => {
+  if (
+    typeof args.startDate === "number" &&
+    typeof args.endDate === "number" &&
+    args.endDate < args.startDate
+  ) {
+    throw new Error("Task end date cannot be earlier than the start date");
+  }
+
   const taskId = await ctx.db.insert("tasks", {
     projectId: args.projectId,
     teamId: args.teamId,
@@ -211,6 +219,21 @@ const updateTaskRecord = async (
 ) => {
   const task = await ctx.db.get(taskId);
   if (!task) throw new Error("Task not found");
+
+  const nextStartDate = Object.prototype.hasOwnProperty.call(updates, "startDate")
+    ? updates.startDate
+    : task.startDate;
+  const nextEndDate = Object.prototype.hasOwnProperty.call(updates, "endDate")
+    ? updates.endDate
+    : task.endDate;
+
+  if (
+    typeof nextStartDate === "number" &&
+    typeof nextEndDate === "number" &&
+    nextEndDate < nextStartDate
+  ) {
+    throw new Error("Task end date cannot be earlier than the start date");
+  }
 
   const hadAssignedToUpdate = Object.prototype.hasOwnProperty.call(
     updates,
