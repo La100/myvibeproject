@@ -240,12 +240,14 @@ export const getProjectContextSnapshot = internalQuery({
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
 
-    const aiKnowledgeFiles = await ctx.db
+    const aiKnowledgeFiles = (await ctx.db
       .query("files")
       .withIndex("by_project_and_ai_knowledge", (q) =>
         q.eq("projectId", args.projectId).eq("aiKnowledgeEnabled", true)
       )
-      .collect();
+      .collect()).filter(
+        (file) => file.mimeType === "application/pdf" || file.name.toLowerCase().endsWith(".pdf"),
+      );
 
     const surveyDetails: SurveySnapshot[] = [];
     for (const survey of surveys) {

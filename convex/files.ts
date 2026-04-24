@@ -22,6 +22,9 @@ const checkStorageLimitQueryRef =
 const FILE_KNOWLEDGE_INDEX_ACTION = "fileKnowledgeActions:indexProjectFileKnowledge";
 const FILE_KNOWLEDGE_REMOVE_ACTION = "fileKnowledgeActions:removeProjectFileKnowledgeEntry";
 
+const isPdfFile = (file: { name?: string; mimeType?: string }) =>
+  file.mimeType === "application/pdf" || file.name?.toLowerCase().endsWith(".pdf") === true;
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const DEFAULT_MOODBOARD_SECTIONS = [
   { id: "1", title: "CONCEPT", order: 0 },
@@ -1099,6 +1102,10 @@ export const setFileAiKnowledgeInclusion = mutation({
       throw new Error("No permission to manage AI knowledge files");
     }
 
+    if (args.enabled && !isPdfFile(file)) {
+      throw new Error("AI knowledge is only available for PDF files");
+    }
+
     const nextStatus: "pending" | "excluded" = args.enabled ? "pending" : "excluded";
     await ctx.db.patch(args.fileId, {
       aiKnowledgeEnabled: args.enabled,
@@ -1192,7 +1199,7 @@ export const getProjectAiKnowledgeFiles = query({
       )
       .collect();
 
-    const visibleFiles = files.filter((file) => file.origin !== "ai");
+    const visibleFiles = files.filter((file) => file.origin !== "ai" && isPdfFile(file));
 
     return Promise.all(
       visibleFiles.map(async (file) => {

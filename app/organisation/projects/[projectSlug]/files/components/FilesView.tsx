@@ -279,6 +279,11 @@ export default function FilesView() {
     return (file.fileType === "image" || file.mimeType?.startsWith("image/")) && !isVideoFile(file);
   };
 
+  const isPdfFile = (file: { name?: string; mimeType?: string } | null) => {
+    if (!file) return false;
+    return file.mimeType === "application/pdf" || file.name?.toLowerCase().endsWith(".pdf") === true;
+  };
+
   const getAiKnowledgeBadgeVariant = (status?: string) => {
     if (status === "failed") return "destructive" as const;
     if (status === "pending") return "outline" as const;
@@ -409,7 +414,7 @@ export default function FilesView() {
         )}
 
         {/* Content Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,18rem),1fr))] gap-5">
           {/* Folders */}
           {content.folders.map((folder) => (
             <Card
@@ -524,7 +529,7 @@ export default function FilesView() {
                         AI
                       </Badge>
                     )}
-                    {file.aiKnowledgeEnabled === true && (
+                    {isPdfFile(file) && file.aiKnowledgeEnabled === true && (
                       <Badge
                         variant={getAiKnowledgeBadgeVariant(file.aiKnowledgeStatus)}
                         className="text-[11px]"
@@ -539,8 +544,8 @@ export default function FilesView() {
                   </div>
 
                   <div className="space-y-2 rounded-xl border border-border/70 bg-muted/25 p-2.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-medium text-foreground/80">Customer portal</span>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="whitespace-nowrap text-xs font-medium text-foreground/80">Customer portal</span>
                       <Switch
                         checked={file.showInClientPortal === true}
                         onCheckedChange={(checked) =>
@@ -548,24 +553,28 @@ export default function FilesView() {
                         }
                       />
                     </div>
-                    <div className="h-px bg-border/70" />
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-medium text-foreground/80">
-                        {aiKnowledgeBusyFileId === file._id
-                          ? "AI knowledge updating..."
-                          : "AI knowledge"}
-                      </span>
-                      <Switch
-                        checked={file.aiKnowledgeEnabled === true}
-                        disabled={aiKnowledgeBusyFileId === file._id}
-                        onCheckedChange={(checked) =>
-                          void handleSetAiKnowledgeInclusion(file._id, checked)
-                        }
-                      />
-                    </div>
+                    {isPdfFile(file) && (
+                      <>
+                        <div className="h-px bg-border/70" />
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-medium text-foreground/80">
+                            {aiKnowledgeBusyFileId === file._id
+                              ? "AI knowledge updating..."
+                              : "AI knowledge"}
+                          </span>
+                          <Switch
+                            checked={file.aiKnowledgeEnabled === true}
+                            disabled={aiKnowledgeBusyFileId === file._id}
+                            onCheckedChange={(checked) =>
+                              void handleSetAiKnowledgeInclusion(file._id, checked)
+                            }
+                          />
+                        </div>
+                      </>
+                    )}
                   </div>
 
-                  {getAiKnowledgeStatusText(file) && (
+                  {isPdfFile(file) && getAiKnowledgeStatusText(file) && (
                     <p
                       className={`text-xs ${
                         file.aiKnowledgeStatus === "failed"
@@ -577,7 +586,7 @@ export default function FilesView() {
                     </p>
                   )}
 
-                  {file.aiKnowledgeError && (
+                  {isPdfFile(file) && file.aiKnowledgeError && (
                     <p className="text-xs text-destructive">
                       {file.aiKnowledgeError}
                     </p>

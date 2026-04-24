@@ -312,6 +312,21 @@ export const indexProjectFileKnowledge = internalAction({
       return { ok: true, status: "skipped" as const };
     }
 
+    const normalizedName = file.name.toLowerCase();
+    const normalizedMimeType = file.mimeType.toLowerCase();
+    if (!isPdf(normalizedMimeType, normalizedName)) {
+      await ctx.runMutation(setFileAiKnowledgeStateMutationRef, {
+        fileId: args.fileId,
+        status: "failed",
+        error: "AI knowledge is only available for PDF files",
+      });
+      return {
+        ok: false,
+        status: "failed" as const,
+        error: "AI knowledge is only available for PDF files",
+      };
+    }
+
     try {
       await ctx.runMutation(setFileAiKnowledgeStateMutationRef, {
         fileId: args.fileId,

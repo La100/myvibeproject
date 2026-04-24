@@ -86,7 +86,6 @@ function ImagePanel({
         fill
         className={imageClassName}
         loading="eager"
-        quality={100}
         unoptimized
         sizes={sizes}
       />
