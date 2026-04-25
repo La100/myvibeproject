@@ -254,9 +254,9 @@ function ProductThumb({
 
 function ConceptWorkspaceMock() {
   return (
-    <div className="absolute inset-x-[4%] top-[7%] overflow-hidden rounded-[24px] border border-white/58 bg-[rgba(253,251,247,0.94)] shadow-[0_30px_70px_rgba(28,22,16,0.18)] backdrop-blur-md lg:inset-x-[6%]">
+    <div className="absolute inset-x-[4%] top-[8%] overflow-hidden rounded-[22px] border border-white/58 bg-[rgba(253,251,247,0.94)] shadow-[0_30px_70px_rgba(28,22,16,0.18)] backdrop-blur-md sm:top-[7%] sm:rounded-[24px] lg:inset-x-[6%]">
       <BrowserChrome label="projects/lounge-refresh" />
-      <div className="grid min-h-[25rem] grid-cols-[0.9fr_1.35fr] bg-white/58 text-foreground">
+      <div className="grid min-h-[18.25rem] bg-white/58 text-foreground md:min-h-[25rem] md:grid-cols-[0.9fr_1.35fr]">
         <aside className="hidden border-r border-black/7 bg-[#f8f6f1]/86 p-4 md:block">
           <div className="flex items-center gap-2 text-[12px] font-medium text-foreground/72">
             <Sparkles className="h-3.5 w-3.5 text-[#f06422]" />
@@ -283,21 +283,23 @@ function ConceptWorkspaceMock() {
           </div>
         </aside>
 
-        <div className="min-w-0 p-4 sm:p-5">
+        <div className="min-w-0 p-3 sm:p-5">
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-foreground/34">
                 Concept pack
               </p>
-              <h4 className="mt-2 text-[20px] font-medium tracking-[-0.04em] text-foreground">
+              <h4 className="mt-2 max-w-[12rem] text-[18px] font-medium leading-[1.12] tracking-[-0.04em] text-foreground sm:max-w-none sm:text-[20px]">
                 Layered lounge direction
               </h4>
             </div>
-            <StatusPill>Shared with client</StatusPill>
+            <span className="hidden sm:inline-flex">
+              <StatusPill>Shared with client</StatusPill>
+            </span>
           </div>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-[1.2fr_0.8fr]">
-            <div className="relative min-h-[13.5rem] overflow-hidden rounded-[20px] bg-[#e8e1d5]">
+          <div className="mt-4 grid gap-3 sm:mt-5 sm:grid-cols-[1.2fr_0.8fr]">
+            <div className="relative min-h-[9rem] overflow-hidden rounded-[18px] bg-[#e8e1d5] sm:min-h-[13.5rem] sm:rounded-[20px]">
               <Image
                 src="/landing/generated/barcelona-chair-room.png"
                 alt="Layered lounge interior direction"
@@ -310,14 +312,14 @@ function ConceptWorkspaceMock() {
                 Room visual
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-1">
+            <div className="hidden grid-cols-2 gap-3 sm:grid sm:grid-cols-1">
               {conceptProducts.map((product) => (
                 <ProductThumb key={product.name} product={product} />
               ))}
             </div>
           </div>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div className="mt-4 hidden gap-3 sm:grid sm:grid-cols-3">
             {["3 visuals", "4 products", "2 approvals"].map((item) => (
               <div key={item} className="rounded-[16px] border border-black/6 bg-white/72 px-3 py-3">
                 <Line className="h-3 w-[52%]" />
@@ -717,7 +719,7 @@ function ShowcaseSection({
     >
       <ImagePanel
         visual={visual}
-        className={`aspect-[1.34/1] min-h-[340px] w-full max-w-[860px] ${
+        className={`aspect-[1.34/1] min-h-[300px] w-full max-w-[860px] sm:min-h-[340px] ${
           reverse ? "lg:order-2 lg:justify-self-end" : ""
         }`}
         sizes="(max-width: 1023px) 100vw, 860px"

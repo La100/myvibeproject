@@ -1,170 +1,165 @@
 ---
 id: kitchen-renovation
-name: Remont Kuchni
-description: Kompletny przewodnik po remoncie kuchni - od planowania układu po listę zakupów.
-icon: kitchen
+name: Kitchen Renovation
+description: A complete kitchen renovation guide, from layout planning to the shopping list.
+icon: chef-hat
 category: renovation
 requiredFileTypes:
   - image
   - pdf
 fileRequired: false
-estimatedMinutes: 20
+estimatedMinutes: 30
 steps:
   - id: current-state
-    name: Stan Obecny
+    name: Current State
     prompt: |
-      Pomóżmy zaplanować remont kuchni. Na początek zbierzmy informacje o obecnym stanie:
-      
-      Zapytaj użytkownika o:
-      1. Wymiary kuchni (długość × szerokość)
-      2. Obecny układ (aneks, oddzielna kuchnia, z wyspą)
-      3. Co najbardziej przeszkadza w obecnej kuchni?
-      4. Czy są jakieś elementy do zachowania (np. okno, drzwi, instalacje)?
-      
-      Jeśli użytkownik wgrał zdjęcie/rzut, przeanalizuj go i zadaj doprecyzowujące pytania.
-    description: Opowiedz o obecnej kuchni i jej problemach.
-    requiresUpload: false
+      Help plan the kitchen renovation. Start by collecting information about the current state:
+
+      Ask the user about:
+      1. Kitchen dimensions (length x width)
+      2. Current layout (open-plan, separate kitchen, with island)
+      3. Current installations (water, sewage, gas, electrical)
+      4. Any elements to keep (for example window, doors, installations)
+      5. Main problems with the current kitchen
+
+      If the user uploaded a photo or floor plan, analyze it and ask follow-up questions.
+    description: Analyze the current kitchen state.
+    enabledTools:
+      - analyze_image
   - id: layout-planning
-    name: Planowanie Układu
+    name: Layout Planning
     prompt: |
-      Na podstawie zebranych informacji, zaproponuj optymalny układ kuchni:
-      
-      1. **Trójkąt roboczy**: Zaproponuj rozmieszczenie lodówki, zlewu i kuchenki
-      2. **Strefa przechowywania**: Gdzie umieścić szafki górne i dolne
-      3. **Blat roboczy**: Ile powierzchni roboczej będzie dostępne
-      4. **AGD**: Gdzie zmieszczą się duże sprzęty (zmywarka, piekarnik, mikrofalówka)
-      
-      Stwórz notatkę z proponowanym układem.
-    description: Zaplanuj nowy układ kuchni.
+      Based on the collected information, propose an optimal kitchen layout:
+
+      1. **Work triangle**: Propose fridge, sink, and stove placement
+      2. **Storage zone**: Place upper and lower cabinets
+      3. **Worktop space**: Estimate available work surface
+      4. **Appliances**: Place large appliances (dishwasher, oven, microwave)
+      5. **Ergonomics**: Check passage widths and cabinet heights
+
+      Create a note with the proposed layout.
+    description: Plan the new kitchen layout.
     enabledTools:
       - create_item
   - id: style-selection
-    name: Wybór Stylu
+    name: Style Selection
     prompt: |
-      Pomóż użytkownikowi wybrać styl wykończenia kuchni:
-      
-      1. **Fronty szafek**: 
-         - Nowoczesne (gładkie, matowe/połysk)
-         - Klasyczne (ramkowe, frezowane)
-         - Skandynawskie (drewno, biel)
-      
-      2. **Blat**:
-         - Laminat (ekonomiczny)
-         - Konglomerat kwarcowy (trwały)
-         - Drewno (naturalne, wymaga pielęgnacji)
-         - Kamień naturalny (premium)
-      
-      3. **Płytki/ściana nad blatem**:
-         - Klasyczne kafelki
-         - Szkło hartowane
-         - Panel ścienny
-      
-      Zapisz wybory użytkownika jako notatkę ze specyfikacją.
-    description: Wybierz styl i materiały wykończeniowe.
+      Help the user choose the kitchen finish style:
+
+      1. **Cabinet fronts**:
+         - Modern (smooth, matte/gloss)
+         - Classic (framed)
+         - Scandinavian (wood, white)
+
+      2. **Worktop**:
+         - Laminate (economy)
+         - Quartz composite (durable)
+         - Wood (natural, requires care)
+         - Natural stone (premium)
+
+      3. **Tiles/wall above worktop**:
+         - Ceramic tiles
+         - Tempered glass
+         - Wall panel
+
+      Save the user's choices as a specification note.
+    description: Choose style and finish materials.
     enabledTools:
       - create_item
   - id: appliances
-    name: Sprzęt AGD
+    name: Appliances
     prompt: |
-      Przygotuj listę sprzętów AGD do kuchni:
-      
-      1. **Niezbędne**:
-         - Płyta grzewcza (indukcja/gaz/elektryczna)
-         - Piekarnik (do zabudowy/wolnostojący)
-         - Okap (teleskopowy/wyspowy/do zabudowy)
-         - Lodówka (do zabudowy/wolnostojąca)
-         - Zmywarka
-      
-      2. **Opcjonalne**:
-         - Mikrofalówka
-         - Ekspres do kawy
-         - Robot kuchenny
-      
-      Dodaj wybrane sprzęty do listy zakupów z orientacyjnymi cenami.
-    description: Zaplanuj sprzęty AGD.
+      Prepare a kitchen appliance list:
+
+      1. **Essential**:
+         - Hob (induction/gas/electric)
+         - Oven (built-in/freestanding)
+         - Dishwasher
+         - Fridge (built-in/freestanding)
+         - Range hood
+
+      2. **Optional**:
+         - Microwave
+         - Coffee machine
+         - Wine cooler
+
+      Add selected appliances to the shopping list with estimated prices.
+    description: Plan kitchen appliances.
     enabledTools:
-      - create_item
       - create_multiple_items
-      - create_shopping_section
   - id: materials-budget
-    name: Materiały i Budżet
+    name: Materials and Budget
     prompt: |
-      Przygotuj kompletną listę materiałów i oszacuj budżet:
-      
-      1. **Meble kuchenne** (szafki, fronty, uchwyty)
-      2. **Blaty**
-      3. **Zlew i bateria**
-      4. **Oświetlenie** (główne + podszafkowe)
-      5. **Płytki/panele ścienne**
-      6. **Farba/tapeta** (jeśli dotyczy)
-      7. **Materiały instalacyjne** (elektryka, hydraulika)
-      
-      Dla każdej kategorii podaj szacunkowy koszt i dodaj do listy zakupów.
-      Na koniec podsumuj całkowity budżet.
-    description: Stwórz kompletną listę zakupów z budżetem.
+      Prepare a complete materials list and estimate the budget:
+
+      1. Kitchen furniture (cabinets, fronts, hardware)
+      2. Worktop and backsplash
+      3. Sink and faucet
+      4. Lighting (main + under-cabinet)
+      5. Tiles/wall panels
+      6. Paint/wallpaper, if applicable
+      7. Installation materials (electrical, plumbing)
+
+      Provide estimated costs for each category and add them to the shopping list.
+      Finish with the total budget summary.
+    description: Create a complete shopping list with budget.
     enabledTools:
-      - create_item
-      - create_multiple_items
       - create_shopping_section
-  - id: tasks-schedule
-    name: Zadania i Harmonogram
+      - create_multiple_items
+  - id: renovation-tasks
+    name: Renovation Tasks
     prompt: |
-      Stwórz listę zadań remontowych dla kuchni w odpowiedniej kolejności:
-      
-      1. **Przygotowanie** (1-2 dni):
-         - Demontaż starych mebli
-         - Zabezpieczenie podłóg i innych pomieszczeń
-      
-      2. **Instalacje** (3-5 dni):
-         - Prace elektryczne (nowe punkty, oświetlenie)
-         - Prace hydrauliczne (przesunięcia, nowe przyłącza)
-      
-      3. **Wykończenie ścian** (2-3 dni):
-         - Gładzie/tynki
-         - Malowanie/kafelkowanie
-      
-      4. **Montaż mebli** (1-2 dni):
-         - Szafki dolne i górne
-         - Blaty
-      
-      5. **AGD i wykończenie** (1-2 dni):
-         - Podłączenie sprzętów
-         - Montaż oświetlenia
-         - Sprzątanie
-      
-      Utwórz zadania z przypisanymi datami.
-    description: Zaplanuj prace i harmonogram.
+      Create a kitchen renovation task list in the right order:
+
+      1. **Demolition** (1-2 days):
+         - Remove old furniture
+         - Protect floors and other rooms
+
+      2. **Installations** (3-5 days):
+         - Electrical work (new points, lighting)
+         - Plumbing work (relocations, new connections)
+
+      3. **Wall finishes** (2-3 days):
+         - Skim coat/plaster
+         - Painting
+         - Tiles/panel above worktop
+
+      4. **Furniture installation** (1-2 days):
+         - Lower and upper cabinets
+         - Worktop
+
+      5. **Appliances and finishing** (1-2 days):
+         - Connect appliances
+         - Install lighting
+         - Cleaning
+
+      Create tasks with assigned dates.
+    description: Generate a renovation work schedule.
     enabledTools:
-      - create_item
       - create_multiple_items
 ---
 
-# Remont Kuchni
+# Kitchen Renovation
 
-Kompleksowy przewodnik który przeprowadzi Cię przez cały proces planowania remontu kuchni.
+A complete guide that walks you through the whole kitchen renovation planning process.
 
-## Etapy workflow'u
+## What you will get
 
-1. **Stan obecny** - Analiza tego co masz i co chcesz zmienić
-2. **Planowanie układu** - Optymalne rozmieszczenie elementów
-3. **Wybór stylu** - Materiały i wykończenia
-4. **Sprzęt AGD** - Lista potrzebnych urządzeń
-5. **Materiały i budżet** - Kompletna lista zakupów z kosztami
-6. **Harmonogram** - Plan prac krok po kroku
+1. **Current state** - Analysis of what you have and what you want to change
+2. **Layout planning** - Optimal element placement
+3. **Style selection** - Materials and finishes
+4. **Appliances** - List of required equipment
+5. **Materials and budget** - Complete shopping list with costs
+6. **Work schedule** - Tasks in the right order
 
-## Wskazówki
+## Tips
 
-- **Zdjęcia pomagają**: Wgraj zdjęcie obecnej kuchni lub rzut - AI lepiej doradzi
-- **Wymiary są kluczowe**: Im dokładniejsze wymiary podasz, tym precyzyjniejsze oszacowania
-- **Budżet**: Miej orientacyjny budżet w głowie - pomoże to w doborze materiałów
+- **Photos help**: Upload a photo of the current kitchen or a floor plan so AI can advise better
+- **Dimensions matter**: The more accurate the dimensions, the more precise the estimates
+- **Budget**: Keep an approximate budget in mind to help select materials
 
-## Typowe koszty remontu kuchni
+## Estimated costs
 
-- **Ekonomiczny**: 15,000 - 25,000 PLN
-- **Średni standard**: 30,000 - 50,000 PLN  
-- **Premium**: 60,000+ PLN
-
-*Ceny orientacyjne dla kuchni 8-12m², bez AGD*
-
-
-
+- **Budget renovation**: 15,000 - 30,000 PLN
+- **Mid-range standard**: 30,000 - 50,000 PLN
+- **Premium renovation**: 50,000+ PLN

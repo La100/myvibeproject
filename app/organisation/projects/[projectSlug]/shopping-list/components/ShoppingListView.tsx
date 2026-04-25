@@ -289,10 +289,6 @@ export default function ShoppingListView() {
     setIsSectionManagerOpen(true);
   };
 
-  const handleConnectClipper = () => {
-    window.open('/auth/extension', '_blank', 'noopener,noreferrer');
-  };
-
   const handleOpenAddProduct = () => {
     setShowMainAddForm(true);
   };
@@ -626,7 +622,6 @@ export default function ShoppingListView() {
               extensionReady={extensionReady}
               itemsCount={items.length}
               onCreateSectionClick={handleOpenSectionSetup}
-              onConnectClipperClick={handleConnectClipper}
               onAddProductClick={handleOpenAddProduct}
             />
           ) : null}

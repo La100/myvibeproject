@@ -1,152 +1,141 @@
 ---
 id: visualization-review
-name: Przegląd Wizualizacji
-description: Przeanalizuj wizualizację wnętrza, zbierz feedback i stwórz listę zakupów na podstawie projektu.
-icon: visualization
-category: design
+name: Visualization Review
+description: Analyze an interior visualization, collect feedback, and create a shopping list from the design.
+icon: image
+category: analysis
 requiredFileTypes:
   - image
   - pdf
 fileRequired: true
-estimatedMinutes: 15
+estimatedMinutes: 20
 steps:
-  - id: upload
-    name: Wgraj Wizualizację
-    prompt: null
-    requiresUpload: true
-    description: Wgraj wizualizację 3D lub projekt wnętrza (obraz lub PDF).
-  - id: analysis
-    name: Analiza Wizualizacji
-    prompt: |
-      Przeanalizuj wgraną wizualizację wnętrza:
-      
-      1. **Pomieszczenie**: Jakiego typu jest to wnętrze? (salon, sypialnia, kuchnia, etc.)
-      
-      2. **Styl**: Określ styl wnętrza:
-         - Nowoczesny / Minimalistyczny
-         - Skandynawski
-         - Industrialny
-         - Klasyczny / Hampton
-         - Boho / Eklektyczny
-         - Inny
-      
-      3. **Kolorystyka**: Opisz paletę kolorów:
-         - Kolory dominujące
-         - Akcenty kolorystyczne
-         - Materiały i tekstury
-      
-      4. **Główne elementy**: Wymień widoczne elementy wyposażenia:
-         - Meble
-         - Oświetlenie
-         - Dodatki dekoracyjne
-         - Rośliny
-      
-      Przedstaw analizę w czytelnej formie.
-    description: AI przeanalizuje wizualizację i zidentyfikuje elementy.
+  - id: upload-visualization
+    name: Upload Visualization
+    description: Upload a 3D visualization or interior design file (image or PDF).
     enabledTools:
-      - create_item
-  - id: feedback
-    name: Feedback i Uwagi
+      - file_upload
+  - id: analyze-visualization
+    name: Visualization Analysis
     prompt: |
-      Pomóż zebrać feedback do wizualizacji:
-      
-      1. **Co się podoba?** - Zapytaj użytkownika jakie elementy projektu są trafione
-      
-      2. **Co zmienić?** - Jakie elementy wymagają poprawy lub zmiany:
-         - Układ mebli
-         - Kolorystyka
-         - Oświetlenie
-         - Konkretne meble/dodatki
-      
-      3. **Pytania do projektanta**: Sformułuj pytania/uwagi do przekazania projektantowi
-      
-      Stwórz notatkę z feedbackiem do projektu.
-    description: Zbierz uwagi i sugestie zmian.
+      Analyze the uploaded interior visualization:
+
+      1. **Room**: What type of interior is it? (living room, bedroom, kitchen, etc.)
+
+      2. **Style**: Identify the interior style:
+         - Modern/minimalist
+         - Scandinavian
+         - Industrial
+         - Classic
+         - Other
+
+      3. **Color palette**: Describe the colors:
+         - Dominant colors
+         - Accent colors
+         - Materials and textures
+
+      4. **Main elements**: List visible furnishings:
+         - Furniture
+         - Lighting
+         - Textiles
+         - Plants
+         - Decorations
+
+      Present the analysis clearly.
+    description: AI will analyze the visualization and identify elements.
+    enabledTools:
+      - analyze_image
+  - id: feedback
+    name: Collect Feedback
+    prompt: |
+      Help collect feedback on the visualization:
+
+      1. **What works?** Ask which design elements the user likes
+
+      2. **What should change?** Which elements need improvement:
+         - Furniture layout
+         - Colors
+         - Lighting
+         - Materials
+         - Functionality
+
+      3. **Questions for the designer**: Formulate questions/comments to pass to the designer
+
+      Create a note with project feedback.
+    description: Collect and structure design feedback.
     enabledTools:
       - create_item
   - id: shopping-list
-    name: Lista Zakupów
+    name: Shopping List
     prompt: |
-      Na podstawie analizy wizualizacji, stwórz listę elementów do zakupu:
-      
-      **Dla każdego widocznego elementu podaj:**
-      - Nazwa / opis produktu
-      - Kategoria (meble, oświetlenie, tekstylia, dekoracje)
-      - Przybliżony zakres cenowy
-      - Gdzie szukać (typ sklepu: IKEA, premium, vintage, etc.)
-      
-      **Kategoryzuj elementy:**
-      1. Meble główne (sofa, stół, łóżko)
-      2. Meble pomocnicze (stoliki, regały, komody)
-      3. Oświetlenie
-      4. Tekstylia (dywany, zasłony, poduszki)
-      5. Dekoracje i dodatki
-      6. Rośliny
-      
-      Dodaj wszystkie elementy do listy zakupów z odpowiednimi sekcjami.
-    description: Stwórz listę elementów wyposażenia do zakupu.
+      Based on the visualization analysis, create a list of items to purchase:
+
+      **For each visible element provide:**
+      - Name/description
+      - Category (furniture, lighting, textiles, decorations)
+      - Approximate price range
+      - Where to search (store type: IKEA, premium, vintage, etc.)
+
+      Split into sections:
+      1. Main furniture (sofa, table, bed)
+      2. Auxiliary furniture (side tables, shelves, chests)
+      3. Lighting
+      4. Textiles (rugs, curtains, cushions)
+      5. Decorations
+      6. Plants
+
+      Add all items to the shopping list with the right sections.
+    description: Create a list of furnishings to purchase.
     enabledTools:
-      - create_item
-      - create_multiple_items
       - create_shopping_section
-  - id: tasks
-    name: Zadania Realizacyjne
+      - create_multiple_items
+  - id: implementation-plan
+    name: Implementation Plan
     prompt: |
-      Stwórz listę zadań potrzebnych do zrealizowania wizualizacji:
-      
-      1. **Przygotowanie**:
-         - Wymiarowanie pomieszczenia
-         - Zamówienie próbek materiałów
-         - Wizyta w showroomach
-      
-      2. **Zamówienia**:
-         - Meble z długim czasem realizacji (pierwsze!)
-         - Oświetlenie
-         - Tekstylia
-         - Dekoracje
-      
-      3. **Realizacja**:
-         - Ewentualne prace remontowe
-         - Malowanie
-         - Dostawa i montaż mebli
-         - Aranżacja dodatków
-      
-      Utwórz zadania z proponowanymi terminami i kolejnością.
-    description: Zaplanuj realizację projektu.
+      Create a task list needed to implement the visualization:
+
+      1. **Preparation**:
+         - Verify dimensions
+         - Check technical feasibility
+         - Order material samples
+
+      2. **Orders**:
+         - Long-lead furniture first
+         - Lighting
+         - Textiles and accessories
+
+      3. **Work**:
+         - Painting/wallpaper
+         - Lighting installation
+         - Furniture delivery and assembly
+         - Styling accessories
+
+      Create tasks with proposed dates and order.
+    description: Plan project implementation.
     enabledTools:
-      - create_item
       - create_multiple_items
 ---
 
-# Przegląd Wizualizacji
+# Visualization Review
 
-Workflow do analizy wizualizacji wnętrza i przekształcenia projektu w konkretną listę zakupów i zadań.
+A workflow for analyzing an interior visualization and turning the design into a concrete shopping list and task list.
 
-## Idealne do:
+## When to use
 
-- Projektów od projektanta wnętrz
-- Wizualizacji 3D z programów typu SketchUp, Blender
-- Inspiracji z Pinterest/Instagram które chcesz odtworzyć
-- Moodboardów i kolaży projektowych
+- Interior designer projects
+- 3D visualizations from tools such as SketchUp or Blender
+- Pinterest/Instagram inspiration you want to recreate
+- Moodboards and design collages
 
-## Co otrzymasz?
+## What you will get
 
-1. **Szczegółowa analiza** - Identyfikacja stylu, kolorystyki i elementów
-2. **Zebrany feedback** - Notatki z uwagami do projektu
-3. **Lista zakupów** - Wszystkie elementy wyposażenia z kategoriami
-4. **Plan działania** - Zadania do realizacji projektu
+1. **Detailed analysis** - Style, color palette, and element identification
+2. **Collected feedback** - Notes with project comments
+3. **Shopping list** - All furnishing elements with categories
+4. **Action plan** - Tasks needed to implement the project
 
-## Wskazówki
+## Tips
 
-- **Jakość obrazu**: Im lepsza jakość wizualizacji, tym dokładniejsza analiza
-- **Wiele ujęć**: Jeśli masz kilka widoków tego samego pomieszczenia, wgraj je wszystkie
-- **Kontekst**: Po wgraniu możesz dodać informacje o budżecie i preferencjach
-
-## Formaty
-
-Akceptujemy:
-- Obrazy: JPG, PNG, WEBP
-- Dokumenty: PDF (wiele stron = wiele wizualizacji)
-
-
-
+- **Image quality**: The better the visualization quality, the more accurate the analysis
+- **Multiple views**: If you have several views of the same room, upload all of them
+- **Context**: After uploading, you can add budget and preference information

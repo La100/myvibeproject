@@ -1,6 +1,6 @@
 # Myvibe project
 
-**Architektoniczny Project Manager**
+**Architectural Project Manager**
 
 Myvibe project is a comprehensive project management tool tailored for architectural projects. It manages teams, projects, tasks, finances (shopping lists, labor, estimations), and interactions with clients through surveys. It features robust AI integration for chat assistance and visualizations.
 

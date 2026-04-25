@@ -1,8 +1,8 @@
 ---
 id: floor-plan-analysis
-name: Analiza Rzutu Mieszkania
-description: Kompleksowa analiza rzutu z identyfikacją pomieszczeń, wymiarów i generowaniem listy zadań remontowych.
-icon: floor-plan
+name: Floor Plan Analysis
+description: Comprehensive floor plan analysis with room identification, dimensions, and renovation task generation.
+icon: home
 category: analysis
 requiredFileTypes:
   - image
@@ -10,101 +10,98 @@ requiredFileTypes:
 fileRequired: true
 estimatedMinutes: 15
 steps:
-  - id: upload
-    name: Wgraj Rzut
-    prompt: null
-    requiresUpload: true
-    description: Wgraj plik z rzutem mieszkania (zdjęcie, skan lub PDF).
-  - id: room-analysis
-    name: Analiza Pomieszczeń
-    prompt: |
-      Przeanalizuj wgrany rzut mieszkania i zidentyfikuj:
-      
-      1. **Pomieszczenia**: Wymień wszystkie widoczne pomieszczenia z ich przybliżonymi wymiarami (jeśli skala jest widoczna).
-      
-      2. **Układ funkcjonalny**: Oceń rozkład pomieszczeń pod kątem:
-         - Komunikacji między pomieszczeniami
-         - Dostępu do światła naturalnego
-         - Funkcjonalności dla rodziny
-      
-      3. **Potencjalne problemy**: Zidentyfikuj ewentualne problemy jak:
-         - Ciasne przejścia
-         - Brak wentylacji
-         - Niewygodne połączenia funkcjonalne
-      
-      Przedstaw analizę w przejrzystej formie punktowej.
-    description: AI przeanalizuje rzut i zidentyfikuje pomieszczenia.
+  - id: upload-plan
+    name: Upload Floor Plan
+    description: Upload an apartment floor plan file (photo, scan, or PDF).
     enabledTools:
+      - file_upload
+  - id: room-analysis
+    name: Room Analysis
+    prompt: |
+      Analyze the uploaded floor plan in detail.
+
+      1. **Rooms**: List all visible rooms with approximate dimensions if the scale is visible.
+
+      2. **Functional layout**: Evaluate the room layout for:
+         - Circulation between rooms
+         - Access to natural light
+         - Functionality for a family
+         - Storage potential
+
+      3. **Potential issues**: Identify:
+         - Narrow passages
+         - Missing ventilation
+         - Awkward functional connections
+
+      Present the analysis as a clear bullet list.
+    description: Analyze rooms, layout, and potential issues.
+    enabledTools:
+      - analyze_image
       - create_item
   - id: renovation-scope
-    name: Zakres Remontu
+    name: Renovation Scope
     prompt: |
-      Na podstawie poprzedniej analizy rzutu, pomóż użytkownikowi określić zakres remontu:
-      
-      1. Zapytaj które pomieszczenia mają być remontowane
-      2. Zaproponuj typowe prace dla każdego wybranego pomieszczenia:
-         - Ściany (malowanie, tapetowanie, panele)
-         - Podłogi (wymiana, cyklinowanie)
-         - Instalacje (elektryka, hydraulika)
-         - Stolarka (drzwi, okna)
-      
-      Stwórz wstępną listę zadań jako tasks w projekcie.
-    description: Określ zakres prac remontowych dla wybranych pomieszczeń.
+      Based on the previous floor plan analysis, help the user define the renovation scope:
+
+      1. Ask which rooms should be renovated
+      2. Propose typical work for each selected room:
+         - Walls (painting, wallpaper, panels)
+         - Floors (replacement, sanding)
+         - Installations (electrical, plumbing)
+         - Doors/windows
+         - Built-in furniture
+
+      Create an initial task list in the project.
+    description: Define the work scope for selected rooms.
     enabledTools:
-      - create_item
       - create_multiple_items
-  - id: material-list
-    name: Lista Materiałów
+  - id: materials-list
+    name: Materials List
     prompt: |
-      Na podstawie zdefiniowanego zakresu remontu, przygotuj wstępną listę materiałów:
-      
-      1. Dla każdego pomieszczenia i rodzaju prac wypisz potrzebne materiały
-      2. Oszacuj ilości na podstawie przybliżonych wymiarów z rzutu
-      3. Podziel materiały na kategorie (budowlane, wykończeniowe, elektryczne, hydrauliczne)
-      
-      Dodaj materiały do listy zakupów projektu z odpowiednimi sekcjami.
-    description: Wygeneruj listę materiałów budowlanych i wykończeniowych.
+      Based on the defined renovation scope, prepare an initial material list:
+
+      1. List required materials for each room and work type
+      2. Estimate quantities based on approximate dimensions from the floor plan
+      3. Split materials into categories (construction, finishes, electrical, plumbing)
+
+      Add materials to the project shopping list with the right sections.
+    description: Generate a list of construction and finish materials.
     enabledTools:
-      - create_item
-      - create_multiple_items
       - create_shopping_section
+      - create_multiple_items
   - id: schedule
-    name: Harmonogram
+    name: Work Schedule
     prompt: |
-      Stwórz proponowany harmonogram prac remontowych:
-      
-      1. Uporządkuj zadania w logicznej kolejności (np. najpierw instalacje, potem wykończenia)
-      2. Oszacuj czas trwania każdego etapu
-      3. Uwzględnij czas schnięcia, wietrzenia itp.
-      4. Zaproponuj podział na etapy tygodniowe
-      
-      Zaktualizuj daty w utworzonych wcześniej zadaniach aby odzwierciedlały harmonogram.
-    description: Zaplanuj kolejność i terminy prac.
+      Create a proposed renovation schedule:
+
+      1. Arrange tasks in a logical order (for example, installations first, finishes later)
+      2. Estimate the duration of each phase
+      3. Include drying, ventilation, and other waiting times
+      4. Propose a weekly phase breakdown
+
+      Update dates in previously created tasks to reflect the schedule.
+    description: Plan the order and timing of work.
     enabledTools:
-      - update_item
       - update_multiple_items
 ---
 
-# Analiza Rzutu Mieszkania
+# Floor Plan Analysis
 
-Ten workflow pomoże Ci kompleksowo przeanalizować rzut mieszkania i zaplanować remont.
+This workflow helps you analyze an apartment floor plan and plan a renovation.
 
-## Co otrzymasz?
+## What you will get
 
-- Szczegółową analizę pomieszczeń i ich funkcjonalności
-- Listę zadań remontowych dopasowaną do Twojego rzutu
-- Listę materiałów z oszacowanymi ilościami
-- Proponowany harmonogram prac
+- A detailed analysis of rooms and functionality
+- A renovation task list matched to your floor plan
+- A materials list with estimated quantities
+- A proposed work schedule
 
-## Wskazówki
+## Tips
 
-- **Jakość rzutu**: Upewnij się, że rzut jest czytelny i w miarę możliwości zawiera wymiary lub skalę
-- **Format**: Akceptujemy zdjęcia (JPG, PNG), skany oraz pliki PDF
-- **Orientacja**: Jeśli rzut jest obrócony, AI sobie z tym poradzi, ale lepiej wgrać poprawnie zorientowany plik
+- **Floor plan quality**: Make sure the plan is readable and, where possible, includes dimensions or a scale
+- **Format**: Photos (JPG, PNG), scans, and PDF files are supported
+- **Orientation**: If the plan is rotated, AI can handle it, but uploading a correctly oriented file works better
 
-## Typowy czas
+## Estimated time
 
-Cały workflow zajmuje około 15-20 minut, w zależności od złożoności mieszkania i Twoich odpowiedzi.
-
-
-
+The full workflow takes about 15-20 minutes, depending on apartment complexity and your answers.

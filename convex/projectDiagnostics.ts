@@ -184,25 +184,25 @@ export const analyzeProjectData = query({
     score = Math.min(100, Math.max(0, score));
 
     const insights: string[] = [];
-    if (tasks.length === 0) insights.push("Brak tasków w projekcie.");
-    if (shoppingItems.length === 0) insights.push("Brak pozycji shopping.");
-    if (laborItems.length === 0) insights.push("Brak pozycji labor.");
-    if (projectContacts.length === 0) insights.push("Brak przypisanych kontaktów do projektu.");
-    if (surveys.length === 0) insights.push("Brak ankiet.");
+    if (tasks.length === 0) insights.push("No tasks in the project.");
+    if (shoppingItems.length === 0) insights.push("No shopping items.");
+    if (laborItems.length === 0) insights.push("No labor items.");
+    if (projectContacts.length === 0) insights.push("No contacts assigned to the project.");
+    if (surveys.length === 0) insights.push("No surveys.");
     if (shoppingWithoutPrice.length > 0) {
-      insights.push(`Brakuje cen w ${shoppingWithoutPrice.length} pozycjach shopping.`);
+      insights.push(`Missing prices for ${shoppingWithoutPrice.length} shopping items.`);
     }
     if (laborWithoutPrice.length > 0) {
-      insights.push(`Brakuje cen w ${laborWithoutPrice.length} pozycjach labor.`);
+      insights.push(`Missing prices for ${laborWithoutPrice.length} labor items.`);
     }
     if (overdueTasks.length > 0) {
-      insights.push(`Masz ${overdueTasks.length} przeterminowanych tasków.`);
+      insights.push(`You have ${overdueTasks.length} overdue tasks.`);
     }
     if (notes.length > 0 && notesAverageLength < 120) {
-      insights.push("Notatki są bardzo krótkie - warto dopisać więcej kontekstu wykonawczego.");
+      insights.push("Notes are very short - add more execution context.");
     }
     if (insights.length === 0) {
-      insights.push("Brak krytycznych luk danych.");
+      insights.push("No critical data gaps.");
     }
 
     return {
@@ -392,12 +392,12 @@ export const seedAndAnalyzeProject = action({
         await ctx.runMutation(createShoppingListItemRef, {
           projectId: args.projectId,
           name: `${seedTag} Material ${i + 1}`,
-          notes: `Pozycja testowa shopping (${seedTag})`,
+          notes: `Test shopping item (${seedTag})`,
           quantity,
           unitPrice,
           priority: priorities[i % priorities.length],
-          category: i % 2 === 0 ? "Wykończenie" : "Instalacje",
-          supplier: `Dostawca ${i + 1}`,
+          category: i % 2 === 0 ? "Finishes" : "Installations",
+          supplier: `Supplier ${i + 1}`,
           realizationStatus: shoppingStatuses[i % shoppingStatuses.length],
         });
         created.shoppingItems += 1;
@@ -412,8 +412,8 @@ export const seedAndAnalyzeProject = action({
         const unitPrice = i % 4 === 0 ? undefined : 40 + i * 12;
         await ctx.runMutation(createLaborItemRef, {
           projectId: args.projectId,
-          name: `${seedTag} Robocizna ${i + 1}`,
-          notes: `Pozycja testowa labor (${seedTag})`,
+          name: `${seedTag} Labor ${i + 1}`,
+          notes: `Test labor item (${seedTag})`,
           quantity,
           unit: laborUnits[i % laborUnits.length],
           unitPrice,
@@ -429,8 +429,8 @@ export const seedAndAnalyzeProject = action({
     for (let i = 0; i < config.surveys; i += 1) {
       try {
         const surveyId = await ctx.runMutation(createSurveyRef, {
-          title: `${seedTag} Ankieta ${i + 1}`,
-          description: `Ankieta jakościowa wygenerowana automatycznie (${seedTag})`,
+          title: `${seedTag} Survey ${i + 1}`,
+          description: `Quality survey generated automatically (${seedTag})`,
           projectId: args.projectId,
           isRequired: i % 2 === 0,
           allowMultipleResponses: false,
@@ -441,22 +441,22 @@ export const seedAndAnalyzeProject = action({
 
         await ctx.runMutation(createSurveyQuestionRef, {
           surveyId,
-          questionText: "Jak oceniasz postęp prac?",
+          questionText: "How do you rate the work progress?",
           questionType: "rating",
           isRequired: true,
           order: 0,
           ratingScale: {
             min: 1,
             max: 5,
-            minLabel: "Słabo",
-            maxLabel: "Bardzo dobrze",
+            minLabel: "Poor",
+            maxLabel: "Very good",
           },
         });
         created.surveyQuestions += 1;
 
         await ctx.runMutation(createSurveyQuestionRef, {
           surveyId,
-          questionText: "Co należy poprawić w kolejnym etapie?",
+          questionText: "What should be improved in the next stage?",
           questionType: "text_long",
           isRequired: false,
           order: 1,

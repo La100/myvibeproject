@@ -1,213 +1,201 @@
 ---
 id: bathroom-renovation
-name: Remont Łazienki
-description: Od demontażu do wykończenia - zaplanuj remont łazienki krok po kroku.
-icon: bathroom
+name: Bathroom Renovation
+description: Plan a bathroom renovation step by step, from demolition to finishing.
+icon: bath
 category: renovation
 requiredFileTypes:
   - image
   - pdf
 fileRequired: false
-estimatedMinutes: 20
+estimatedMinutes: 30
 steps:
-  - id: assessment
-    name: Ocena Stanu
+  - id: current-bathroom
+    name: Current Bathroom
     prompt: |
-      Rozpocznijmy planowanie remontu łazienki. Zbierzmy informacje:
-      
-      1. **Wymiary**: Podaj wymiary łazienki (długość × szerokość × wysokość)
-      2. **Obecne wyposażenie**: Co jest teraz? (wanna/prysznic, WC, umywalka, pralka?)
-      3. **Instalacje**: Czy wiesz gdzie są piony kanalizacyjne i wodne?
-      4. **Stan techniczny**: Czy są jakieś problemy (wilgoć, pleśń, przecieki)?
-      5. **Co zostaje?**: Czy cokolwiek z obecnego wyposażenia zostaje?
-      
-      Jeśli wgrałeś zdjęcie lub rzut, przeanalizuję je i zadam dodatkowe pytania.
-    description: Opowiedz o obecnej łazience.
-    requiresUpload: false
-  - id: layout
-    name: Nowy Układ
+      Start planning the bathroom renovation. Collect the following information:
+
+      1. **Dimensions**: Bathroom dimensions (length x width x height)
+      2. **Current fixtures**: What is there now? (bathtub/shower, toilet, sink, washing machine?)
+      3. **Installations**: Do you know where the sewage and water risers are?
+      4. **Technical condition**: Any problems (moisture, mold, leaks)?
+      5. **What stays?**: Will any current fixtures remain?
+
+      If the user uploaded a photo or floor plan, analyze it and ask additional questions.
+    description: Describe the current bathroom.
+    enabledTools:
+      - analyze_image
+  - id: new-layout
+    name: New Layout
     prompt: |
-      Na podstawie informacji zaproponuję układ łazienki:
-      
-      1. **Strefa kąpielowa**: 
-         - Wanna (klasyczna, narożna, wolnostojąca)
-         - Kabina prysznicowa (walk-in, z brodzikiem, bez brodzika)
-         - Kombinacja wanna + prysznic
-      
-      2. **Strefa WC**:
-         - WC kompakt czy podwieszane?
-         - Czy potrzebny bidet lub deska myjąca?
-      
-      3. **Strefa umywalkowa**:
-         - Jedna czy dwie umywalki?
-         - Szafka pod umywalkę
-         - Lustro (zwykłe czy z oświetleniem?)
-      
-      4. **Dodatkowe**:
-         - Pralka (w łazience czy osobno?)
-         - Grzejnik (drabinkowy?)
-         - Przechowywanie
-      
-      Stworzę notatkę z proponowanym układem.
-    description: Zaplanuj nowy układ łazienki.
+      Based on the information, propose a bathroom layout:
+
+      1. **Bathing zone**:
+         - Bathtub (standard, corner, freestanding)
+         - Shower (walk-in, cabin, shower tray)
+
+      2. **Toilet zone**:
+         - Wall-hung or standing toilet
+         - Is a bidet or washlet needed?
+
+      3. **Sink zone**:
+         - Sink size
+         - Vanity cabinet
+         - Mirror (standard or with lighting)
+
+      4. **Storage and washing machine**:
+         - Cabinets
+         - Washing machine in the bathroom or elsewhere?
+
+      Create a note with the proposed layout.
+    description: Plan the new bathroom layout.
     enabledTools:
       - create_item
   - id: finishes
-    name: Wykończenia
+    name: Finishes
     prompt: |
-      Wybierzmy materiały wykończeniowe:
-      
-      1. **Płytki podłogowe**:
-         - Rozmiar (30x30, 60x60, inne)
-         - Typ (gres, terakota)
-         - Styl (imitacja drewna, kamienia, jednolite)
-      
-      2. **Płytki ścienne**:
-         - Do jakiej wysokości kafelki? (do sufitu, 2m, półścianka)
-         - Mozaika jako akcent?
-      
-      3. **Sufit**:
-         - Malowanie
-         - Panele PCV
-         - Sufit podwieszany
-      
-      4. **Kolorystyka**:
-         - Jasna/minimalistyczna
-         - Ciemna/dramatyczna  
-         - Ciepła/naturalna
-      
-      Zapiszę specyfikację wykończeń.
-    description: Wybierz płytki i wykończenia.
+      Choose finish materials:
+
+      1. **Floor tiles**:
+         - Size and format
+         - Anti-slip class
+         - Color/style
+
+      2. **Wall tiles**:
+         - Tile height (to ceiling, 2 m, half wall)
+         - Feature wall
+         - Grout color
+
+      3. **Paint**:
+         - Bathroom paint for ceiling/walls
+
+      4. **Lighting**:
+         - Main lighting
+         - Mirror lighting
+         - Warm/natural light
+
+      Save the finish specification.
+    description: Choose tiles and finishes.
     enabledTools:
       - create_item
   - id: fixtures
-    name: Armatura i Ceramika
+    name: Fixtures and Sanitaryware
     prompt: |
-      Przygotujmy listę armatury i ceramiki:
-      
-      **Ceramika**:
-      - WC (marka, model, cena orientacyjna)
-      - Umywalka/umywalki
-      - Wanna lub brodzik
-      
-      **Armatura**:
-      - Bateria umywalkowa
-      - Bateria wannowa/prysznicowa
-      - Deszczownica / słuchawka
-      - Odpływy
-      
-      **Dodatki**:
-      - Lustro
-      - Szafka łazienkowa
-      - Akcesoria (wieszaki, mydelniczki, uchwyt na papier)
-      
-      Dodam wszystko do listy zakupów z podziałem na kategorie.
-    description: Wybierz armaturę i ceramikę sanitarną.
+      Prepare a fixtures and sanitaryware list:
+
+      - Bathtub or shower
+      - Toilet and flush frame
+      - Sink
+      - Faucet
+      - Shower set
+      - Rain shower / hand shower
+      - Drains
+      - Mirror
+      - Bathroom cabinet
+      - Accessories (towel rails, toilet paper holder)
+
+      Add everything to the shopping list by category.
+    description: Choose fixtures and sanitaryware.
     enabledTools:
-      - create_item
-      - create_multiple_items
       - create_shopping_section
-  - id: materials
-    name: Materiały Budowlane
-    prompt: |
-      Lista materiałów budowlanych potrzebnych do remontu:
-      
-      **Przygotowanie podłoża**:
-      - Klej do płytek (ile kg na m²)
-      - Fuga (kolor, ilość)
-      - Hydroizolacja (pod prysznic/wannę)
-      - Zaprawa wyrównująca (jeśli potrzebna)
-      
-      **Instalacje**:
-      - Rury (PEX/PP do wody)
-      - Kanalizacja (rury, kolanka, redukcje)
-      - Stelaż WC (jeśli podwieszany)
-      - Przewody elektryczne (przekrój)
-      
-      **Wykończenie**:
-      - Silikon sanitarny
-      - Listwy/profile
-      - Farba (jeśli sufit malowany)
-      
-      Obliczę ilości na podstawie wymiarów i dodam do listy zakupów.
-    description: Lista materiałów budowlanych.
-    enabledTools:
-      - create_item
       - create_multiple_items
-  - id: execution-plan
-    name: Plan Wykonania
+  - id: building-materials
+    name: Building Materials
     prompt: |
-      Stwórzmy szczegółowy harmonogram prac:
-      
-      **Etap 1: Demontaż** (1-2 dni)
-      - Demontaż starej ceramiki
-      - Skucie płytek
-      - Wywóz gruzu
-      
-      **Etap 2: Instalacje** (2-4 dni)
-      - Hydraulika (nowe punkty wodne i kanalizacyjne)
-      - Elektryka (oświetlenie, wentylator, gniazdka)
-      - Montaż stelaża WC
-      
-      **Etap 3: Hydroizolacja i tynki** (2-3 dni)
-      - Wyrównanie ścian
-      - Hydroizolacja strefy mokrej
-      - Schnięcie
-      
-      **Etap 4: Płytki** (3-5 dni)
-      - Układanie płytek ściennych
-      - Układanie płytek podłogowych
-      - Fugowanie
-      
-      **Etap 5: Montaż i wykończenie** (2-3 dni)
-      - Biały montaż (ceramika, armatura)
-      - Montaż mebli i akcesoriów
-      - Sprzątanie i odbiór
-      
-      Stworzę zadania z terminami.
-    description: Harmonogram prac remontowych.
+      List construction materials needed for the renovation:
+
+      **Substrate preparation**:
+      - Tile adhesive (kg per m2)
+      - Grout (color, quantity)
+      - Waterproofing (for shower/bathtub)
+      - Leveling mortar if needed
+
+      **Installations**:
+      - Pipes and fittings
+      - WC frame if wall-hung
+      - Electrical wires (cross-section)
+
+      **Finishing**:
+      - Silicone
+      - Paint if the ceiling is painted
+      - Profiles and trims
+
+      Calculate quantities based on dimensions and add them to the shopping list.
+    description: Building materials list.
     enabledTools:
-      - create_item
+      - create_multiple_items
+  - id: schedule
+    name: Work Schedule
+    prompt: |
+      Create a detailed work schedule:
+
+      **Stage 1: Demolition** (1-2 days)
+      - Remove old sanitaryware
+      - Remove tiles
+      - Dispose of rubble
+
+      **Stage 2: Installations** (2-4 days)
+      - Plumbing changes
+      - Electrical work (lighting, fan, outlets)
+      - WC frame installation
+
+      **Stage 3: Substrate preparation** (1-2 days)
+      - Level walls
+      - Waterproofing
+      - Drying
+
+      **Stage 4: Tiles** (3-5 days)
+      - Install wall tiles
+      - Install floor tiles
+      - Grouting
+
+      **Stage 5: Installation and finishing** (2-3 days)
+      - Final sanitaryware installation
+      - Furniture and accessories installation
+      - Cleaning and handover
+
+      Create tasks with deadlines.
+    description: Plan bathroom renovation work.
+    enabledTools:
       - create_multiple_items
 ---
 
-# Remont Łazienki
+# Bathroom Renovation
 
-Kompleksowy kreator który pomoże Ci zaplanować remont łazienki od A do Z.
+A complete wizard that helps you plan a bathroom renovation from start to finish.
 
-## Co obejmuje ten workflow?
+## Process stages
 
-1. **Ocena stanu** - Analiza obecnej łazienki i Twoich potrzeb
-2. **Nowy układ** - Optymalne rozmieszczenie elementów
-3. **Wykończenia** - Wybór płytek i materiałów
-4. **Armatura** - Ceramika sanitarna i baterie
-5. **Materiały** - Lista materiałów budowlanych
-6. **Harmonogram** - Plan prac krok po kroku
+1. **Condition assessment** - Analysis of the current bathroom and your needs
+2. **New layout** - Optimal placement of elements
+3. **Finishes** - Selection of tiles and materials
+4. **Fixtures** - Sanitaryware and fittings
+5. **Materials** - Construction materials list
+6. **Schedule** - Work order and timeline
 
-## Ważne informacje
+## Important information
 
-### Instalacje
-Łazienka to pomieszczenie z wieloma instalacjami. Upewnij się, że:
-- Masz dostęp do pionów wod-kan (lub wiesz gdzie są)
-- Wentylacja działa prawidłowo
-- Instalacja elektryczna jest dostosowana do strefy mokrej
+### Installations
 
-### Hydroizolacja
-**KRYTYCZNE**: Strefa prysznica i wanny MUSI mieć wykonaną hydroizolację. To nie jest miejsce na oszczędności!
+A bathroom contains many installations. Make sure that:
+- You have access to water/sewage risers or know where they are
+- Ventilation works properly
+- Electrical work complies with bathroom safety zones
 
-### Typowe koszty
+### Waterproofing
 
-- **Mała łazienka (3-4m²)**: 12,000 - 20,000 PLN
-- **Średnia (5-7m²)**: 18,000 - 35,000 PLN
-- **Duża (8m²+)**: 30,000 - 60,000 PLN
+**CRITICAL**: Shower and bathtub zones MUST be waterproofed. This is not a place to save money.
 
-*Ceny robocizny + materiały, bez armatury i ceramiki premium*
+### Estimated costs
 
-## Wskazówki
+- **Small bathroom (3-4 m2)**: 12,000 - 20,000 PLN
+- **Medium bathroom (5-7 m2)**: 18,000 - 35,000 PLN
+- **Large bathroom (8 m2+)**: 30,000 - 60,000 PLN
 
-- **Zdjęcia**: Wgraj zdjęcia obecnej łazienki - pomoże to w planowaniu
-- **Wymiary**: Dokładne wymiary są kluczowe dla obliczeń materiałów
-- **Budżet**: Zostaw 15-20% rezerwy na nieprzewidziane wydatki
+*Labor + materials, excluding premium fixtures and sanitaryware*
 
+## Tips
 
-
+- **Photos**: Upload photos of the current bathroom to support planning
+- **Dimensions**: Accurate dimensions are critical for material calculations
+- **Budget**: Leave a 15-20% reserve for unexpected expenses

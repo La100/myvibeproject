@@ -32,7 +32,7 @@ const brandFontVariables = {
 
 export const metadata: Metadata = {
   title: "Myvibe project",
-  description: "Architektoniczny Project Manager",
+  description: "Architectural Project Manager",
   icons: {
     icon: [{ url: "/logo.svg", type: "image/svg+xml" }],
     shortcut: "/logo.svg",
