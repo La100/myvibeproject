@@ -632,21 +632,22 @@ function ProjectOverviewContent() {
   const outstandingAmount = paymentsData?.totals.outstanding || 0;
   const totalCost = shoppingListCost + laborCost;
   const budgetAmount = budgetSummary.budget || 0;
-  const budgetUsedPercent = budgetSummary.utilizationPercent;
-  const budgetRemaining = budgetAmount - budgetSummary.actualCost;
+  const budgetUsedPercent =
+    budgetAmount > 0 ? Math.round((totalCost / budgetAmount) * 100) : null;
+  const budgetRemaining = budgetAmount - totalCost;
   const hasProjectBudget = budgetAmount > 0;
   const budgetBreakdown = hasProjectBudget
     ? [
         {
-          label: "Used",
-          value: formatCurrency(budgetSummary.actualCost, budgetSummary.currency, {
+          label: "Shopping",
+          value: formatCurrency(shoppingListCost, budgetSummary.currency, {
             minimumFractionDigits: 0,
             maximumFractionDigits: 0,
           }),
         },
         {
-          label: "Planned",
-          value: formatCurrency(budgetSummary.plannedCost, budgetSummary.currency, {
+          label: "Labor",
+          value: formatCurrency(laborCost, budgetSummary.currency, {
             minimumFractionDigits: 0,
             maximumFractionDigits: 0,
           }),
@@ -717,7 +718,7 @@ function ProjectOverviewContent() {
         : "Not set",
       label: "Budget",
       meta: hasProjectBudget
-        ? `${formatCurrency(budgetSummary.actualCost, budgetSummary.currency)} used${
+        ? `${formatCurrency(totalCost, budgetSummary.currency)} used${
             budgetUsedPercent !== null ? ` (${budgetUsedPercent}%)` : ""
           }`
         : "Add a project budget in settings",
@@ -728,10 +729,6 @@ function ProjectOverviewContent() {
       value: formatCurrency(
         paidAmount + outstandingAmount,
         paymentsData?.currency || project.currency,
-        {
-          minimumFractionDigits: 0,
-          maximumFractionDigits: 0,
-        },
       ),
       label: "Total invoices",
       meta: `${formatCurrency(

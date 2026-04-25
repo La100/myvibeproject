@@ -22,6 +22,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { formatDateInput, parseDateInput } from "@/lib/dateInput";
+import { parseDecimalInput } from "@/lib/numberInput";
 import { cn, formatCurrency } from "@/lib/utils";
 
 type BillingProfile = {
@@ -514,8 +515,8 @@ export function ProjectInvoiceDraftEditor({
             </div>
             <div className="space-y-4 px-4 py-4">
               {editorLineItems.map((item, index) => {
-                const quantity = Number.parseFloat(item.quantity);
-                const unitPrice = Number.parseFloat(item.unitPrice);
+                const quantity = parseDecimalInput(item.quantity);
+                const unitPrice = parseDecimalInput(item.unitPrice);
                 const lineTotal =
                   Number.isFinite(quantity) && Number.isFinite(unitPrice) ? quantity * unitPrice : 0;
 
@@ -550,9 +551,8 @@ export function ProjectInvoiceDraftEditor({
                         <InvoiceField label="Qty" htmlFor={`installment-quantity-${index}`}>
                           <Input
                             id={`installment-quantity-${index}`}
-                            type="number"
-                            min="0.01"
-                            step="0.01"
+                            type="text"
+                            inputMode="decimal"
                             value={item.quantity}
                             onChange={(event) =>
                               updateEditorLineItem(index, "quantity", event.target.value)
@@ -567,9 +567,8 @@ export function ProjectInvoiceDraftEditor({
                           <InputGroup>
                             <InputGroupInput
                               id={`installment-unit-price-${index}`}
-                              type="number"
-                              min="0"
-                              step="0.01"
+                              type="text"
+                              inputMode="decimal"
                               value={item.unitPrice}
                               onChange={(event) =>
                                 updateEditorLineItem(index, "unitPrice", event.target.value)

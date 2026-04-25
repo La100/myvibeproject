@@ -24,6 +24,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Id } from "@/convex/_generated/dataModel";
 import { apiAny } from "@/lib/convexApiAny";
+import { parseDecimalInput } from "@/lib/numberInput";
 import { calculateTaxBreakdown, resolveOrganizationTaxSettings } from "@/lib/organizationTax";
 import { formatCurrency } from "@/lib/utils";
 import { ProjectPaymentsOverviewCards } from "./ProjectPaymentsOverviewCards";
@@ -601,8 +602,8 @@ export default function ProjectPaymentsView() {
       editorLineItems
         .map((item) => {
           const title = item.title.trim();
-          const quantity = Number.parseFloat(item.quantity);
-          const unitPrice = Number.parseFloat(item.unitPrice);
+          const quantity = parseDecimalInput(item.quantity);
+          const unitPrice = parseDecimalInput(item.unitPrice);
           return {
             title,
             description: item.description.trim() || undefined,
