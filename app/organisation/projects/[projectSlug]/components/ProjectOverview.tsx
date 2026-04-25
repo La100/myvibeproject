@@ -631,6 +631,35 @@ function ProjectOverviewContent() {
   const paidAmount = paymentsData?.totals.paid || 0;
   const outstandingAmount = paymentsData?.totals.outstanding || 0;
   const totalCost = shoppingListCost + laborCost;
+  const budgetAmount = budgetSummary.budget || 0;
+  const budgetUsedPercent = budgetSummary.utilizationPercent;
+  const budgetRemaining = budgetAmount - budgetSummary.actualCost;
+  const hasProjectBudget = budgetAmount > 0;
+  const budgetBreakdown = hasProjectBudget
+    ? [
+        {
+          label: "Used",
+          value: formatCurrency(budgetSummary.actualCost, budgetSummary.currency, {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+          }),
+        },
+        {
+          label: "Planned",
+          value: formatCurrency(budgetSummary.plannedCost, budgetSummary.currency, {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+          }),
+        },
+        {
+          label: budgetRemaining >= 0 ? "Remaining" : "Over",
+          value: formatCurrency(Math.abs(budgetRemaining), budgetSummary.currency, {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+          }),
+        },
+      ]
+    : [];
   const totalCostBreakdown = [
     ...(shoppingListCost > 0
       ? [
@@ -677,6 +706,22 @@ function ProjectOverviewContent() {
           ? "Shopping and labor scope"
           : "No scoped costs yet",
       breakdown: totalCostBreakdown,
+      spanClass: "xl:col-span-2",
+    },
+    {
+      value: hasProjectBudget
+        ? formatCurrency(budgetAmount, budgetSummary.currency, {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+          })
+        : "Not set",
+      label: "Budget",
+      meta: hasProjectBudget
+        ? `${formatCurrency(budgetSummary.actualCost, budgetSummary.currency)} used${
+            budgetUsedPercent !== null ? ` (${budgetUsedPercent}%)` : ""
+          }`
+        : "Add a project budget in settings",
+      breakdown: budgetBreakdown,
       spanClass: "xl:col-span-2",
     },
     {
@@ -811,7 +856,7 @@ function ProjectOverviewContent() {
 
             <div
               className={cn(
-                "grid gap-6 xl:gap-8 lg:items-end",
+                "grid gap-6 xl:gap-8 lg:items-center",
                 hasProjectCover
                   ? "mt-6 lg:grid-cols-[minmax(340px,1.08fr)_minmax(420px,1.12fr)]"
                   : "mt-7 lg:grid-cols-1",
@@ -819,11 +864,11 @@ function ProjectOverviewContent() {
             >
               <div
                 className={cn(
-                  "flex min-w-0 flex-col justify-end gap-5",
-                  hasProjectCover ? "lg:pb-5" : "pb-7 sm:pb-9 lg:pb-10",
+                  "flex min-w-0 flex-col justify-center gap-5",
+                  hasProjectCover ? "lg:py-8" : "pb-7 sm:pb-9 lg:pb-10",
                 )}
               >
-                <div className="space-y-4">
+                <div className="flex flex-col gap-4">
                   <h1
                     className={cn(
                       "font-serif text-[2.1rem] leading-[0.92] tracking-[-0.05em] text-foreground sm:text-[2.8rem] lg:text-[3.4rem] xl:text-[3.9rem]",
@@ -848,6 +893,17 @@ function ProjectOverviewContent() {
                       </span>
                     </Badge>
                   </div>
+                  {project.location ? (
+                    <div className="inline-flex max-w-[680px] items-center gap-2 text-[14px] font-medium text-foreground/78 sm:text-[15px]">
+                      <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <span>{project.location}</span>
+                    </div>
+                  ) : null}
+                  {project.description ? (
+                    <p className="max-w-[680px] text-[15px] leading-7 text-foreground/72">
+                      {project.description}
+                    </p>
+                  ) : null}
                 </div>
               </div>
 
@@ -901,13 +957,6 @@ function ProjectOverviewContent() {
                     </div>
                   </div>
 
-                  {project.location ? (
-                    <span className="inline-flex items-center gap-2 font-medium text-foreground/82">
-                      <MapPin className="h-4 w-4 text-muted-foreground" />
-                      {project.location}
-                    </span>
-                  ) : null}
-
                   {projectEditedDateLabel ? (
                     <div className="inline-flex flex-wrap items-center gap-2 text-[13px] sm:text-[15px]">
                       <Clock3 className="h-4 w-4 text-muted-foreground" />
@@ -946,16 +995,8 @@ function ProjectOverviewContent() {
               </div>
             </div>
 
-            {project.description ? (
-              <div className="border-b border-border/70 px-5 py-5 sm:px-7 lg:px-9">
-                <p className="max-w-[860px] text-[15px] leading-7 text-foreground/78">
-                  {project.description}
-                </p>
-              </div>
-            ) : null}
-
             <div className="border-b border-border/70 px-5 py-6 sm:px-7 sm:py-7 lg:px-9">
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-8">
                 {overviewMetrics.map((metric, index) => (
                   <div
                     key={metric.label}
