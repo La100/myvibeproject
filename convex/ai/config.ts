@@ -1,7 +1,7 @@
 
 import { calculateTextCostUsd } from "./billing";
 
-export const AI_MODEL = "gpt-5.2";
+export const AI_MODEL = "gpt-5.5";
 
 
 export const AI_CONFIG = {

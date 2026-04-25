@@ -8,6 +8,7 @@ import {
   action,
 } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
+import { AI_MODEL } from "./ai/config";
 import { canAccessProjectWithMembership } from "./authz";
 // Keep runtime-loaded internal refs here to avoid deep TS instantiation.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -1139,7 +1140,7 @@ Prompt: "${args.prompt}"
 `;
     try {
       const response = await openai.chat.completions.create({
-        model: "gpt-5",
+        model: AI_MODEL,
         messages: [{ role: "system", content: systemPrompt }],
         response_format: { type: "json_object" },
       });
