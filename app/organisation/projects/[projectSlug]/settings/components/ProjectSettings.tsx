@@ -9,7 +9,7 @@ import { useOrganization } from "@clerk/nextjs";
 import { z } from "zod";
 import { toast } from "sonner";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
-import { Check, ImagePlus, Settings, X } from "lucide-react";
+import { AlertCircle, Check, ImagePlus, Save, Settings, X } from "lucide-react";
 
 import { apiAny } from "@/lib/convexApiAny";
 import { optimizeCoverImageForUpload } from "@/lib/coverImageUpload";
@@ -663,6 +663,9 @@ function GeneralTab({
   }, [localCoverPreviewUrl, persistedCoverPreviewUrl, uploadedCoverPreviewUrl]);
   const coverPreviewUrl = coverPreviewCandidates[coverPreviewCandidateIndex] ?? null;
   const hasCoverPreview = coverPreviewStatus === "ready";
+  const hasUnsavedChanges = settingsForm.formState.isDirty;
+  const isSavingSettings = settingsForm.formState.isSubmitting;
+  const isSaveDisabled = isSavingSettings || uploadingCoverImage || !hasUnsavedChanges;
   const savedStateTimeoutRef = useRef<number | null>(null);
 
   const replaceLocalCoverPreviewUrl = (nextUrl: string | null) => {
@@ -851,9 +854,35 @@ function GeneralTab({
     <div className="space-y-8">
       <Form {...settingsForm}>
         <form
+          id="project-settings-form"
           onSubmit={handleManualSave}
-          className="flex flex-col gap-8"
+          className={cn("flex flex-col gap-8", hasUnsavedChanges && "pb-24 sm:pb-20")}
         >
+          {hasUnsavedChanges ? (
+            <div className="fixed inset-x-3 bottom-3 z-30 mx-auto flex max-w-3xl flex-col gap-3 rounded-2xl border border-border bg-card/95 p-3 shadow-xl backdrop-blur sm:inset-x-6 sm:bottom-5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary text-foreground">
+                  <AlertCircle className="size-4" aria-hidden="true" />
+                </span>
+                <div className="flex flex-col gap-0.5">
+                  <p className="text-sm font-medium text-foreground">Unsaved project settings</p>
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    Click Save to keep these changes.
+                  </p>
+                </div>
+              </div>
+              <Button
+                type="submit"
+                form="project-settings-form"
+                disabled={isSaveDisabled}
+                className="w-full sm:w-auto sm:min-w-[140px]"
+              >
+                <Save data-icon="inline-start" />
+                {isSavingSettings ? "Saving..." : "Save changes"}
+              </Button>
+            </div>
+          ) : null}
+
           <section className="space-y-4">
               <div className="mb-4 flex flex-col gap-1">
                 <h3 className="text-lg font-semibold text-foreground">Identity</h3>
@@ -1255,14 +1284,10 @@ function GeneralTab({
                 ) : null}
                 <Button
                   type="submit"
-                  disabled={
-                    settingsForm.formState.isSubmitting ||
-                    uploadingCoverImage ||
-                    !settingsForm.formState.isDirty
-                  }
+                  disabled={isSaveDisabled}
                   className="min-w-[120px]"
                 >
-                  {settingsForm.formState.isSubmitting ? "Saving..." : "Save"}
+                  {isSavingSettings ? "Saving..." : "Save"}
                 </Button>
               </div>
             </div>

@@ -641,12 +641,12 @@ export default function ShoppingListView() {
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                 <div className="flex flex-1 flex-wrap items-center gap-2.5">
-                  <Badge variant="outline" className="h-11 rounded-full border-border/70 bg-secondary/70 px-4 text-[12px] font-semibold text-foreground">
+                  <Badge variant="outline" className="h-11 rounded-full border-border/70 bg-white px-4 text-[12px] font-semibold text-foreground">
                     {formatItemCountLabel(filteredItems.length)}
                   </Badge>
 
                   <Select value={sectionFilter} onValueChange={setSectionFilter}>
-                    <SelectTrigger className="h-11 min-w-[210px] rounded-full border-border/70 bg-card px-5 shadow-none">
+                    <SelectTrigger className="h-11 min-w-[210px] rounded-full border-border/70 bg-white px-5 shadow-none">
                       <SelectValue placeholder="Section" />
                     </SelectTrigger>
                     <SelectContent>
@@ -660,7 +660,7 @@ export default function ShoppingListView() {
                   </Select>
 
                   <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                    <SelectTrigger className="h-11 min-w-[210px] rounded-full border-border/70 bg-card px-5 shadow-none">
+                    <SelectTrigger className="h-11 min-w-[210px] rounded-full border-border/70 bg-white px-5 shadow-none">
                       <SelectValue placeholder="Category" />
                     </SelectTrigger>
                     <SelectContent>
@@ -674,7 +674,7 @@ export default function ShoppingListView() {
                   </Select>
 
                   <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}>
-                    <SelectTrigger className="h-11 min-w-[210px] rounded-full border-border/70 bg-card px-5 shadow-none">
+                    <SelectTrigger className="h-11 min-w-[210px] rounded-full border-border/70 bg-white px-5 shadow-none">
                       <SelectValue placeholder="Status" />
                     </SelectTrigger>
                     <SelectContent>
@@ -701,7 +701,7 @@ export default function ShoppingListView() {
                     </Button>
                   ) : null}
 
-                  <div className="rounded-[22px] border border-border/60 bg-secondary/70 px-4 py-2.5">
+                  <div className="rounded-[22px] border border-border/60 bg-white px-4 py-2.5">
                     <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                       {getTaxAmountKindLabel(primaryAmountKind, effectiveTaxSettings)} total
                     </div>
@@ -713,7 +713,7 @@ export default function ShoppingListView() {
               </div>
 
               <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
-                <InputGroup className="h-11 min-w-[280px] flex-1 rounded-full border-border/70 bg-secondary/70 shadow-none">
+                <InputGroup className="h-11 min-w-[280px] flex-1 rounded-full border-border/70 bg-white shadow-none">
                   <InputGroupAddon align="inline-start" className="pointer-events-none pl-4 text-muted-foreground">
                     <SearchIcon className="h-4 w-4" />
                   </InputGroupAddon>
@@ -727,7 +727,7 @@ export default function ShoppingListView() {
 
                 <div className="flex flex-wrap items-center gap-2">
                   <Select value={priorityFilter} onValueChange={(value) => setPriorityFilter(value as typeof priorityFilter)}>
-                    <SelectTrigger className="h-10 min-w-[190px] rounded-full border-border/70 bg-card px-4 shadow-none">
+                    <SelectTrigger className="h-10 min-w-[190px] rounded-full border-border/70 bg-white px-4 shadow-none">
                       <SelectValue placeholder="Priority" />
                     </SelectTrigger>
                     <SelectContent>
@@ -781,7 +781,7 @@ export default function ShoppingListView() {
               </p>
               {hasActiveFilters ? (
                 <div className="mt-5">
-                  <Button variant="outline" onClick={resetFilters} className="rounded-full border-border/70 bg-card">
+                  <Button variant="outline" onClick={resetFilters} className="rounded-full border-border/70 bg-white">
                     <XIcon className="mr-2 h-4 w-4" />
                     Reset filters
                   </Button>
