@@ -254,7 +254,7 @@ export const createOrUpdateMembership = internalMutation({
         orgName: v.string(),
         orgSlug: v.string(),
         orgImageUrl: v.optional(v.string()),
-        userEmail: v.optional(v.string()), // Email użytkownika do sprawdzenia zaproszeń
+        userEmail: v.optional(v.string()), // User email used to check invitations
     },
     async handler(ctx, args) {
         let team = await ctx.db
@@ -291,11 +291,11 @@ export const createOrUpdateMembership = internalMutation({
             console.warn(`User not found for webhook processing: clerkUserId=${args.clerkUserId}. Creating user from membership webhook.`);
             const normalizedEmail = args.userEmail.trim().toLowerCase();
             
-            // Stwórz użytkownika tylko jeśli mamy poprawny email
+            // Create the user only if we have a valid email
             await ctx.db.insert("users", {
                 clerkUserId: args.clerkUserId,
                 email: normalizedEmail,
-                name: undefined, // Będzie zaktualizowane przy webhook user.created/updated
+                name: undefined, // Will be updated by the user.created/updated webhook
                 imageUrl: undefined,
             });
         } else if (!user) {
@@ -323,24 +323,24 @@ export const createOrUpdateMembership = internalMutation({
             return;
         }
         
-        // Określ rolę użytkownika w zespole
-        let role: "admin" | "member" = "member"; // domyślna rola
+        // Determine the user's role in the team
+        let role: "admin" | "member" = "member"; // default role
 
-        // 1. Sprawdź rolę z Clerk
+        // 1. Check the Clerk role
         if (args.role === "admin" || args.role === "org:admin") {
             role = "admin";
         } else {
             role = "member"; // org:member, basic_member, itp.
         }
 
-        // 1.5. Sprawdź czy to pierwszy członek organizacji (powinien być adminem)
+        // 1.5. Check whether this is the first organization member (should be an admin)
         if (!membership) {
             const existingMembers = await ctx.db
                 .query("teamMembers")
                 .withIndex("by_team", q => q.eq("teamId", team._id))
                 .collect();
             
-            // Jeśli to pierwszy członek organizacji, zrób go adminem
+            // If this is the first organization member, make them an admin
             if (existingMembers.length === 0) {
                 role = "admin";
             }
@@ -349,7 +349,7 @@ export const createOrUpdateMembership = internalMutation({
         if(membership){
             await ctx.db.patch(membership._id, { role });
         } else {
-            // Stwórz nowego członka
+            // Create a new member
             await ctx.db.insert("teamMembers", {
                 teamId: team._id,
                 clerkUserId: args.clerkUserId,
@@ -416,7 +416,7 @@ export const createInvitation = internalMutation({
       email: args.email,
       role: args.role,
       status: "pending",
-      invitedBy: args.invitedBy ?? "system", // Domyślna wartość
+      invitedBy: args.invitedBy ?? "system", // Default value
     });
   },
 });

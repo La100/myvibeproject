@@ -357,21 +357,21 @@ export const checkStorageLimit = internalQuery({
   },
 });
 
-// Konfiguracja klienta R2 z walidacją dla projektów architektonicznych
+// R2 client configuration with validation for architectural projects
 export const { generateUploadUrl, syncMetadata } = r2.clientApi({
   checkUpload: async (ctx, bucket) => {
-    // Sprawdź czy użytkownik jest zalogowany
+    // Check whether the user is signed in
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new Error("You must be logged in to upload files");
     }
     
-    // Można dodać dodatkowe sprawdzenia uprawnień
+    // Additional permission checks can be added here
     aiDebugLog(`User ${identity.subject} is uploading to bucket ${bucket}`);
   },
   
   onUpload: async (_ctx, key) => {
-    // Logika wykonywana po upload - możemy utworzyć rekord w bazie
+    // Logic executed after upload - we can create a database record
     aiDebugLog(`File uploaded with key: ${key}`);
   },
 });
@@ -756,7 +756,7 @@ export const addFile = mutation({
     const hasMoodboardSection =
       typeof args.moodboardSection === "string" && args.moodboardSection.trim().length > 0;
 
-    // Sprawdź czy folder istnieje i należy do projektu
+    // Check whether the folder exists and belongs to the project
     if (args.folderId) {
       const folder = await ctx.db.get(args.folderId);
       if (!folder || folder.projectId !== args.projectId) {
@@ -771,7 +771,7 @@ export const addFile = mutation({
       }
     }
 
-    // Określ typ pliku na podstawie MIME type
+    // Determine the file type from the MIME type
     const getFileType = (mimeType: string) => {
       if (mimeType.startsWith("image/")) return "image";
       if (mimeType.startsWith("video/")) return "video";
@@ -844,7 +844,7 @@ export const getProjectFolders = query({
   },
 });
 
-// Pobierz pliki projektu (w określonym folderze lub root)
+// Get project files (in a specific folder or root)
 export const getProjectFiles = query({
   args: { 
     projectId: v.id("projects"),
@@ -865,7 +865,7 @@ export const getProjectFiles = query({
 
     const visibleFiles = files.filter((file) => file.origin !== "ai");
 
-    // Generuj URLs dla plików
+    // Generate URLs for files
     const filesWithUrls = await Promise.all(
       visibleFiles.map(async (file) => {
         try {
@@ -913,7 +913,7 @@ export const getProjectContent = query({
 
     const visibleFiles = files.filter((file) => file.origin !== "ai");
 
-    // Generuj URLs dla plików
+    // Generate URLs for files
     const filesWithUrls = await Promise.all(
       visibleFiles.map(async (file) => {
         try {
@@ -932,7 +932,7 @@ export const getProjectContent = query({
   },
 });
 
-// Usuń folder
+// Delete folder
 export const deleteFolder = mutation({
   args: { folderId: v.id("folders") },
   handler: async (ctx, args) => {
@@ -942,7 +942,7 @@ export const deleteFolder = mutation({
 
     await requireCurrentProjectAccess(ctx, folder.projectId);
 
-    // Sprawdź czy folder jest pusty (brak plików i podfolderów)
+    // Check whether the folder is empty (no files or subfolders)
     const filesInFolder = await ctx.db
       .query("files")
       .withIndex("by_folder", q => q.eq("folderId", args.folderId))
@@ -957,14 +957,14 @@ export const deleteFolder = mutation({
       throw new Error("Cannot delete folder that contains files or subfolders");
     }
 
-    // Usuń folder
+    // Delete folder
     await ctx.db.delete(args.folderId);
     
     return { success: true };
   },
 });
 
-// Usuń plik
+// Delete file
 export const deleteFile = mutation({
   args: { fileId: v.id("files") },
   handler: async (ctx, args) => {
@@ -977,12 +977,12 @@ export const deleteFile = mutation({
 
     const { membership } = await requireCurrentProjectAccess(ctx, file.projectId);
 
-    // Sprawdź czy użytkownik może usunąć plik
+    // Check whether the user can delete the file
     if (file.uploadedBy !== identity.subject && membership.role !== "admin" && membership.role !== "member") {
       throw new Error("No permission to delete this file");
     }
 
-    // Usuń z R2 używając komponentu
+    // Delete from R2 using the component
     try {
       await ctx.runMutation(components.r2.lib.deleteObject, {
         accessKeyId: process.env.R2_ACCESS_KEY_ID!,
@@ -999,7 +999,7 @@ export const deleteFile = mutation({
 
     await scheduleKnowledgeRemoval(ctx, file.aiKnowledgeEntryId);
     
-    // Usuń z bazy danych
+    // Delete from the database
     await ctx.db.delete(args.fileId);
     
     return { success: true };

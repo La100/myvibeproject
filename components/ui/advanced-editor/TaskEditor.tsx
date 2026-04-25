@@ -23,7 +23,7 @@ export default function TaskEditor({
     try {
       await updateTask({
         taskId: taskId as Id<"tasks">,
-        content: content, // Używamy pola 'content' dla rich text
+        content: content, // Use the 'content' field for rich text
       });
     } catch (error) {
       console.error('Error saving task:', error);
@@ -38,7 +38,7 @@ export default function TaskEditor({
         onSave={handleSave}
         placeholder={placeholder}
         autoSave={true}
-        autoSaveDelay={3000} // 3 sekundy dla zadań
+        autoSaveDelay={3000} // 3 seconds for tasks
         className="min-h-[400px]"
       />
     </div>

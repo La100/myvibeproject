@@ -331,7 +331,7 @@ export const getTeamSettings = query({
 
     if (!team) return null;
 
-    // Sprawdź czy użytkownik ma dostęp do zespołu
+    // Check whether the user has access to the team
     const teamMember = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
@@ -819,7 +819,7 @@ export const removeTeamMember = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
-    // Sprawdź uprawnienia wywołującego (musi być admin)
+    // Check caller permissions (must be an admin)
     const callerMember = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
@@ -1041,7 +1041,7 @@ export const changeTeamMemberRole = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
-    // Sprawdź uprawnienia wywołującego (musi być admin)
+    // Check caller permissions (must be an admin)
     const callerMember = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
@@ -1053,7 +1053,7 @@ export const changeTeamMemberRole = mutation({
       throw new Error("Only admins can change member roles");
     }
 
-    // Znajdź członka do zmiany
+    // Find the member to update
     const targetMember = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
@@ -1091,7 +1091,7 @@ export const addExistingMemberToProject = mutation({
       identity.subject,
     );
 
-    // Znajdź członka organizacji do dodania
+    // Find the organization member to add
     const targetMember = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
@@ -1240,18 +1240,18 @@ export const debugTeamMembers = query({
       return { error: "Permission denied" };
     }
 
-    // Pobierz wszystkich członków tej organizacji
+    // Get all members of this organization
     const allMembers = await ctx.db
       .query("teamMembers")
       .withIndex("by_team", (q) => q.eq("teamId", access.project.teamId))
       .collect();
 
-    // Pobierz zespół
+    // Get the team
     const team = (await ctx.db.get(
       access.project.teamId,
     )) as Doc<"teams"> | null;
 
-    // Dodaj dane użytkowników
+    // Add user data
     const membersWithUserData = await Promise.all(
       allMembers.map(async (member) => {
         const user = await ctx.db
@@ -1413,7 +1413,7 @@ export const updateTeamSettings = mutation({
       throw new Error("Team not found");
     }
 
-    // Sprawdź uprawnienia - tylko admin może zmieniać ustawienia zespołu
+    // Check permissions - only an admin can change team settings
     const teamMember = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>

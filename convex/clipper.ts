@@ -237,8 +237,8 @@ export const saveProduct = mutation({
 });
 
 /**
- * Zapytanie do pobierania sekcji listy zakupów dla projektu.
- * Dostępne tylko dla zalogowanych użytkowników.
+ * Query for fetching shopping list sections for a project.
+ * Available only to signed-in users.
  */
 export const getShoppingListSections = query({
   args: {
@@ -331,7 +331,7 @@ export const getShoppingSetsForProjectForExtensionSession = query({
 });
 
 /**
- * Mutacja do dodawania nowego przedmiotu do listy zakupów z rozszerzenia.
+ * Mutation for adding a new item to the shopping list from the extension.
  */
 export const addShoppingListItem = mutation({
   args: {
@@ -379,7 +379,7 @@ export const addShoppingListItem = mutation({
       }
     }
 
-    // Jeśli nie podano sectionId, pozostaw jako undefined
+    // If sectionId was not provided, leave it as undefined
     // Aplikacja automatycznie zgrupuje takie itemy jako "No Category"
     const finalSectionId = args.sectionId || undefined;
 

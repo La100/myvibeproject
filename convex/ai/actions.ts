@@ -1,10 +1,10 @@
 "use node";
 
 /**
- * DEPRECATED: Większość confirmed actions przeniesiono do confirmedActions.ts
+ * DEPRECATED: Most confirmed actions were moved to confirmedActions.ts
  * 
- * Ten plik zachowuje tylko bulkEditConfirmedTasks używany przez frontend.
- * Wszystkie inne create/edit/delete actions są teraz w confirmedActions.ts
+ * This file keeps only bulkEditConfirmedTasks used by the frontend.
+ * All other create/edit/delete actions are now in confirmedActions.ts
  */
 
 import { internal, api } from "../_generated/api";

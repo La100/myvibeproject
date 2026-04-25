@@ -1175,7 +1175,7 @@ export default defineSchema({
     projectId: v.id("projects"),
     contactId: v.id("contacts"),
     teamId: v.id("teams"),
-    role: v.optional(v.string()), // rola w projekcie np. "główny wykonawca"
+    role: v.optional(v.string()), // project role, for example "main contractor"
     assignedBy: v.string(), // Clerk user ID
     assignedAt: v.number(),
     isActive: v.boolean(),
