@@ -1,21 +1,29 @@
 import { v } from "convex/values";
 import { mutation, query, internalQuery } from "./_generated/server";
 import { makeFunctionReference } from "convex/server";
-import { ensureProjectAccess } from "./authz";
+import {
+  canAccessProjectWithMembership,
+  ensureProjectAccess,
+  ensureTeamAccess,
+} from "./authz";
 
-const logActivityMutation = makeFunctionReference<"mutation">("activityLog:logActivity");
+const logActivityMutation = makeFunctionReference<"mutation">(
+  "activityLog:logActivity",
+);
 
 // Get all contacts for a team
 export const getContacts = query({
   args: {
     teamSlug: v.string(),
     search: v.optional(v.string()),
-    type: v.optional(v.union(
-      v.literal("contractor"),
-      v.literal("supplier"),
-      v.literal("subcontractor"),
-      v.literal("other")
-    )),
+    type: v.optional(
+      v.union(
+        v.literal("contractor"),
+        v.literal("supplier"),
+        v.literal("subcontractor"),
+        v.literal("other"),
+      ),
+    ),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -40,10 +48,10 @@ export const getContacts = query({
     // Verify user is member of this team
     const teamMember = await ctx.db
       .query("teamMembers")
-      .withIndex("by_team_and_user", q =>
-        q.eq("teamId", team._id).eq("clerkUserId", identity.subject)
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", team._id).eq("clerkUserId", identity.subject),
       )
-      .filter(q => q.eq(q.field("isActive"), true))
+      .filter((q) => q.eq(q.field("isActive"), true))
       .unique();
 
     if (!teamMember) {
@@ -58,7 +66,7 @@ export const getContacts = query({
     // Apply type filter
     if (args.type) {
       contactsQuery = contactsQuery.filter((q) =>
-        q.eq(q.field("type"), args.type)
+        q.eq(q.field("type"), args.type),
       );
     }
 
@@ -67,13 +75,14 @@ export const getContacts = query({
     // Apply search filter
     if (args.search) {
       const searchTerm = args.search.toLowerCase();
-      return contacts.filter(contact =>
-        contact.name.toLowerCase().includes(searchTerm) ||
-        contact.companyName?.toLowerCase().includes(searchTerm) ||
-        contact.email?.toLowerCase().includes(searchTerm) ||
-        contact.phone?.toLowerCase().includes(searchTerm) ||
-        contact.city?.toLowerCase().includes(searchTerm) ||
-        false
+      return contacts.filter(
+        (contact) =>
+          contact.name.toLowerCase().includes(searchTerm) ||
+          contact.companyName?.toLowerCase().includes(searchTerm) ||
+          contact.email?.toLowerCase().includes(searchTerm) ||
+          contact.phone?.toLowerCase().includes(searchTerm) ||
+          contact.city?.toLowerCase().includes(searchTerm) ||
+          false,
       );
     }
 
@@ -104,10 +113,10 @@ export const getContact = query({
     // Verify user is member of this team
     const teamMember = await ctx.db
       .query("teamMembers")
-      .withIndex("by_team_and_user", q =>
-        q.eq("teamId", team._id).eq("clerkUserId", identity.subject)
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", team._id).eq("clerkUserId", identity.subject),
       )
-      .filter(q => q.eq(q.field("isActive"), true))
+      .filter((q) => q.eq(q.field("isActive"), true))
       .unique();
 
     if (!teamMember) {
@@ -135,7 +144,7 @@ export const createContact = mutation({
       v.literal("contractor"),
       v.literal("supplier"),
       v.literal("subcontractor"),
-      v.literal("other")
+      v.literal("other"),
     ),
     notes: v.optional(v.string()),
   },
@@ -158,16 +167,15 @@ export const createContact = mutation({
     // Verify user is member of this team
     const teamMember = await ctx.db
       .query("teamMembers")
-      .withIndex("by_team_and_user", q =>
-        q.eq("teamId", team._id).eq("clerkUserId", identity.subject)
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", team._id).eq("clerkUserId", identity.subject),
       )
-      .filter(q => q.eq(q.field("isActive"), true))
+      .filter((q) => q.eq(q.field("isActive"), true))
       .unique();
 
     if (!teamMember) {
       throw new Error("Access denied");
     }
-
 
     const contactId = await ctx.db.insert("contacts", {
       name: args.name,
@@ -216,7 +224,7 @@ export const updateContact = mutation({
       v.literal("contractor"),
       v.literal("supplier"),
       v.literal("subcontractor"),
-      v.literal("other")
+      v.literal("other"),
     ),
     notes: v.optional(v.string()),
   },
@@ -240,16 +248,15 @@ export const updateContact = mutation({
     // Verify user is member of this team
     const teamMember = await ctx.db
       .query("teamMembers")
-      .withIndex("by_team_and_user", q =>
-        q.eq("teamId", team._id).eq("clerkUserId", identity.subject)
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", team._id).eq("clerkUserId", identity.subject),
       )
-      .filter(q => q.eq(q.field("isActive"), true))
+      .filter((q) => q.eq(q.field("isActive"), true))
       .unique();
 
     if (!teamMember) {
       throw new Error("Access denied");
     }
-
 
     await ctx.db.patch(args.contactId, {
       name: args.name,
@@ -301,10 +308,10 @@ export const deleteContact = mutation({
     // Verify user is member of this team
     const teamMember = await ctx.db
       .query("teamMembers")
-      .withIndex("by_team_and_user", q =>
-        q.eq("teamId", team._id).eq("clerkUserId", identity.subject)
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", team._id).eq("clerkUserId", identity.subject),
       )
-      .filter(q => q.eq(q.field("isActive"), true))
+      .filter((q) => q.eq(q.field("isActive"), true))
       .unique();
 
     if (!teamMember) {
@@ -351,7 +358,7 @@ export const getProjectContacts = query({
           assignedAt: pc.assignedAt,
           projectNotes: pc.notes,
         };
-      })
+      }),
     );
 
     return contacts.filter(Boolean);
@@ -362,6 +369,47 @@ export const getContactById = internalQuery({
   args: { contactId: v.id("contacts") },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.contactId);
+  },
+});
+
+export const getContactProjects = query({
+  args: { contactId: v.id("contacts") },
+  handler: async (ctx, args) => {
+    const contact = await ctx.db.get(args.contactId);
+    if (!contact || !contact.isActive) {
+      throw new Error("Contact not found");
+    }
+
+    const { membership } = await ensureTeamAccess(ctx, contact.teamId);
+
+    const assignments = await ctx.db
+      .query("projectContacts")
+      .withIndex("by_contact", (q) => q.eq("contactId", args.contactId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+
+    const projects = await Promise.all(
+      assignments.map(async (assignment) => {
+        const project = await ctx.db.get(assignment.projectId);
+        if (!project) {
+          return null;
+        }
+        if (!canAccessProjectWithMembership(membership, project._id)) {
+          return null;
+        }
+
+        return {
+          ...project,
+          projectRole: assignment.role,
+          projectNotes: assignment.notes,
+          assignedAt: assignment.assignedAt,
+        };
+      }),
+    );
+
+    return projects
+      .filter(Boolean)
+      .sort((a, b) => a!.name.localeCompare(b!.name));
   },
 });
 
@@ -379,32 +427,18 @@ export const assignContactToProject = mutation({
       throw new Error("Not authenticated");
     }
 
-    // Verify user has access to both project and contact
-    const [project, contact] = await Promise.all([
-      ctx.db.get(args.projectId),
+    const [{ project }, contact] = await Promise.all([
+      ensureProjectAccess(ctx, args.projectId, identity.subject),
       ctx.db.get(args.contactId),
     ]);
 
-    if (!project || !contact) {
-      throw new Error("Project or contact not found");
+    if (!contact || !contact.isActive) {
+      throw new Error("Contact not found");
     }
 
     const team = await ctx.db.get(project.teamId);
     if (!team) {
       throw new Error("Team not found");
-    }
-
-    // Verify user is member of this team
-    const teamMember = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", q =>
-        q.eq("teamId", team._id).eq("clerkUserId", identity.subject)
-      )
-      .filter(q => q.eq(q.field("isActive"), true))
-      .unique();
-
-    if (!teamMember) {
-      throw new Error("Access denied");
     }
 
     if (contact.teamId !== team._id) {
@@ -415,7 +449,8 @@ export const assignContactToProject = mutation({
     const existing = await ctx.db
       .query("projectContacts")
       .withIndex("by_project_and_contact", (q) =>
-        q.eq("projectId", args.projectId).eq("contactId", args.contactId))
+        q.eq("projectId", args.projectId).eq("contactId", args.contactId),
+      )
       .filter((q) => q.eq(q.field("isActive"), true))
       .first();
 
@@ -451,34 +486,23 @@ export const removeContactFromProject = mutation({
     }
 
     // Verify user has access to project
-    const project = await ctx.db.get(args.projectId);
-    if (!project) {
-      throw new Error("Project not found");
-    }
+    const { project } = await ensureProjectAccess(
+      ctx,
+      args.projectId,
+      identity.subject,
+    );
 
     const team = await ctx.db.get(project.teamId);
     if (!team) {
       throw new Error("Team not found");
     }
 
-    // Verify user is member of this team
-    const teamMember = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", q =>
-        q.eq("teamId", team._id).eq("clerkUserId", identity.subject)
-      )
-      .filter(q => q.eq(q.field("isActive"), true))
-      .unique();
-
-    if (!teamMember) {
-      throw new Error("Access denied");
-    }
-
     // Find and deactivate assignment
     const assignment = await ctx.db
       .query("projectContacts")
       .withIndex("by_project_and_contact", (q) =>
-        q.eq("projectId", args.projectId).eq("contactId", args.contactId))
+        q.eq("projectId", args.projectId).eq("contactId", args.contactId),
+      )
       .filter((q) => q.eq(q.field("isActive"), true))
       .first();
 
@@ -514,12 +538,14 @@ export const getContactsForIndexing = internalQuery({
     const contacts = await Promise.all(
       projectContacts.map(async (projectContact) => {
         const contact = await ctx.db.get(projectContact.contactId);
-        return contact ? {
-          ...contact,
-          projectRole: projectContact.role,
-          projectNotes: projectContact.notes,
-        } : null;
-      })
+        return contact
+          ? {
+              ...contact,
+              projectRole: projectContact.role,
+              projectNotes: projectContact.notes,
+            }
+          : null;
+      }),
     );
 
     return contacts.filter(Boolean);

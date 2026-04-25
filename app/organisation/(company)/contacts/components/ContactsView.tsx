@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { useOrganization } from "@clerk/nextjs";
 import { apiAny } from "@/lib/convexApiAny";
 import { Button } from "@/components/ui/button";
@@ -33,17 +33,25 @@ import { Plus, Search, Mail, Phone, MapPin } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ContactForm } from "./ContactForm";
 import { Doc, Id } from "@/convex/_generated/dataModel";
+import { toast } from "sonner";
 
 export function ContactsView() {
   const { organization } = useOrganization();
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [editingContact, setEditingContact] = useState<Id<"contacts"> | null>(null);
+  const [editingContact, setEditingContact] = useState<Id<"contacts"> | null>(
+    null,
+  );
+  const [assigningContact, setAssigningContact] =
+    useState<Doc<"contacts"> | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<
+    Id<"projects"> | ""
+  >("");
 
   const team = useQuery(
     apiAny.teams.getTeamByClerkOrg,
-    organization?.id ? { clerkOrgId: organization.id } : "skip"
+    organization?.id ? { clerkOrgId: organization.id } : "skip",
   );
 
   const contacts = useQuery(
@@ -52,19 +60,74 @@ export function ContactsView() {
       ? {
           teamSlug: team.slug,
           search: searchTerm || undefined,
-          type: typeFilter === "all" ? undefined : typeFilter as "contractor" | "supplier" | "subcontractor" | "other",
+          type:
+            typeFilter === "all"
+              ? undefined
+              : (typeFilter as
+                  | "contractor"
+                  | "supplier"
+                  | "subcontractor"
+                  | "other"),
         }
-      : "skip"
+      : "skip",
   ) as Doc<"contacts">[] | undefined;
 
+  const projects = useQuery(
+    apiAny.projects.listProjectsByClerkOrg,
+    organization?.id ? { clerkOrgId: organization.id } : "skip",
+  ) as Doc<"projects">[] | undefined;
 
+  const contactProjects = useQuery(
+    apiAny.contacts.getContactProjects,
+    assigningContact ? { contactId: assigningContact._id } : "skip",
+  ) as (Doc<"projects"> & { assignedAt?: number })[] | undefined;
+
+  const assignContactToProject = useMutation(
+    apiAny.contacts.assignContactToProject,
+  );
+
+  const assignedProjectIds = new Set(
+    (contactProjects || []).map((project) => project._id),
+  );
+  const availableProjects = (projects || [])
+    .filter((project) => !assignedProjectIds.has(project._id))
+    .sort((left, right) => left.name.localeCompare(right.name));
+
+  const openAssignDialog = (contact: Doc<"contacts">) => {
+    setAssigningContact(contact);
+    setSelectedProjectId("");
+  };
+
+  const closeAssignDialog = () => {
+    setAssigningContact(null);
+    setSelectedProjectId("");
+  };
+
+  const handleAssignToProject = async () => {
+    if (!assigningContact || !selectedProjectId) {
+      toast.error("Select a project first");
+      return;
+    }
+
+    try {
+      await assignContactToProject({
+        projectId: selectedProjectId,
+        contactId: assigningContact._id,
+      });
+      toast.success("Contact added to project");
+      closeAssignDialog();
+    } catch (error) {
+      toast.error("Error adding contact to project");
+      console.error(error);
+    }
+  };
 
   const getTypeLabel = (type: string) => {
     const labels = {
       contractor: "Contractor",
-      supplier: "Supplier", 
+      supplier: "Supplier",
       subcontractor: "Subcontractor",
-      other: "Other"
+      other: "Other",
     };
     return labels[type as keyof typeof labels] || type;
   };
@@ -81,9 +144,19 @@ export function ContactsView() {
 
   const getInitials = (name: string, companyName?: string) => {
     if (companyName) {
-      return companyName.split(' ').map(word => word[0]).join('').toUpperCase().slice(0, 2);
+      return companyName
+        .split(" ")
+        .map((word) => word[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2);
     }
-    return name.split(' ').map(word => word[0]).join('').toUpperCase().slice(0, 2);
+    return name
+      .split(" ")
+      .map((word) => word[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
   };
 
   return (
@@ -174,14 +247,14 @@ export function ContactsView() {
                   <span className="truncate">{contact.email}</span>
                 </div>
               )}
-              
+
               {contact.phone && (
                 <div className="flex items-center gap-2 text-sm">
                   <Phone className="h-4 w-4 text-muted-foreground" />
                   <span>{contact.phone}</span>
                 </div>
               )}
-              
+
               {(contact.city || contact.address) && (
                 <div className="flex items-center gap-2 text-sm">
                   <MapPin className="h-4 w-4 text-muted-foreground" />
@@ -193,7 +266,19 @@ export function ContactsView() {
                 </div>
               )}
 
-
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-1 w-fit"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  openAssignDialog(contact);
+                }}
+              >
+                <Plus data-icon="inline-start" />
+                Add to Project
+              </Button>
             </CardContent>
           </Card>
         ))}
@@ -204,20 +289,20 @@ export function ContactsView() {
           <p className="text-muted-foreground">
             {searchTerm || typeFilter !== "all"
               ? "No contacts match your filters."
-              : "You don't have any contacts yet. Add your first contact to get started."
-            }
+              : "You don't have any contacts yet. Add your first contact to get started."}
           </p>
         </div>
       )}
 
       {/* Edit contact dialog */}
-      <Dialog open={!!editingContact} onOpenChange={() => setEditingContact(null)}>
+      <Dialog
+        open={!!editingContact}
+        onOpenChange={() => setEditingContact(null)}
+      >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Edit Contact</DialogTitle>
-            <DialogDescription>
-              Update contact information
-            </DialogDescription>
+            <DialogDescription>Update contact information</DialogDescription>
           </DialogHeader>
           {editingContact && (
             <ContactForm
@@ -226,6 +311,63 @@ export function ContactsView() {
               onCancel={() => setEditingContact(null)}
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!assigningContact}
+        onOpenChange={(open) => !open && closeAssignDialog()}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Contact to Project</DialogTitle>
+            <DialogDescription>
+              Select a project for {assigningContact?.name}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-4">
+            <Select
+              value={selectedProjectId}
+              onValueChange={(value) =>
+                setSelectedProjectId(value as Id<"projects">)
+              }
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select project" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableProjects.map((project) => (
+                  <SelectItem key={project._id} value={project._id}>
+                    {project.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {projects && availableProjects.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                This contact is already assigned to every available project.
+              </p>
+            ) : null}
+
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeAssignDialog}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleAssignToProject}
+                disabled={!selectedProjectId}
+              >
+                Add to Project
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

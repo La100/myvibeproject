@@ -31,6 +31,10 @@ type UseChatKitClientToolsArgs = {
   userClerkId?: string;
   canMakeChanges: boolean;
 };
+type BulkFailure = {
+  index: number;
+  error: string;
+};
 
 const READ_ONLY_TOOL_NAMES = new Set([
   "get_runtime_capabilities",
@@ -170,6 +174,7 @@ const TASK_UPDATE_MUTATION_FIELDS = new Set([
   "endDate",
   "tags",
 ]);
+const BULK_TOOL_CONCURRENCY = 4;
 
 function asCrudAction(value: unknown): CrudAction | undefined {
   if (
@@ -1671,40 +1676,77 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
           };
         }
 
-        const results: Record<string, unknown>[] = [];
-        for (let index = 0; index < items.length; index += 1) {
-          if (items[index]?.__invalidBulkItem === true) {
-            return {
-              ok: false,
-              partialSuccess: results.length > 0,
-              succeededCount: results.length,
-              failedIndex: index + 1,
-              error: `${label} failed at item ${index + 1}: item must be an object with editable fields.`,
-              results,
-            };
-          }
+        const results: Array<Record<string, unknown> | undefined> = new Array(
+          items.length,
+        );
+        let nextIndex = 0;
+        let firstFailure: BulkFailure | null = null;
+        const getFirstFailure = () => firstFailure;
+        const startedAt = performance.now();
 
-          const result = await executor(items[index] ?? {}, index);
-          if (!result.ok) {
-            return {
-              ok: false,
-              partialSuccess: results.length > 0,
-              succeededCount: results.length,
-              failedIndex: index + 1,
-              error:
-                asNonEmptyString(result.error) ??
-                `${label} failed at item ${index + 1}.`,
-              results,
-            };
+        const runNext = async (): Promise<void> => {
+          while (!firstFailure) {
+            const index = nextIndex;
+            nextIndex += 1;
+
+            if (index >= items.length) {
+              return;
+            }
+
+            if (items[index]?.__invalidBulkItem === true) {
+              firstFailure = {
+                index,
+                error: `${label} failed at item ${index + 1}: item must be an object with editable fields.`,
+              };
+              return;
+            }
+
+            const result = await executor(items[index] ?? {}, index);
+            if (!result.ok) {
+              firstFailure = {
+                index,
+                error:
+                  asNonEmptyString(result.error) ??
+                  `${label} failed at item ${index + 1}.`,
+              };
+              return;
+            }
+
+            results[index] = result;
           }
-          results.push(result);
+        };
+
+        await Promise.all(
+          Array.from(
+            { length: Math.min(BULK_TOOL_CONCURRENCY, items.length) },
+            () => runNext(),
+          ),
+        );
+
+        const failure = getFirstFailure();
+        const completedResults = results.filter(
+          (result): result is Record<string, unknown> => Boolean(result),
+        );
+
+        if (failure) {
+          return {
+            ok: false,
+            partialSuccess: completedResults.length > 0,
+            succeededCount: completedResults.length,
+            failedIndex: failure.index + 1,
+            error: failure.error,
+            results: completedResults,
+          };
         }
+
+        const durationMs = Math.round(performance.now() - startedAt);
 
         return {
           ok: true,
-          count: results.length,
-          results,
-          message: `${label} completed for ${results.length} item${results.length === 1 ? "" : "s"}.`,
+          count: completedResults.length,
+          durationMs,
+          results: completedResults,
+          message: `${label} completed for ${completedResults.length} item${completedResults.length === 1 ? "" : "s"}.`,
         };
       };
 

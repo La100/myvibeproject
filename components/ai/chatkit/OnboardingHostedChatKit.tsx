@@ -36,7 +36,7 @@ const ONBOARDING_PROMPTS: StartScreenPrompt[] = [
 ];
 
 export default function OnboardingHostedChatKit() {
-  const { userId, isLoaded: isAuthLoaded } = useAuth();
+  const { userId, getToken, isLoaded: isAuthLoaded } = useAuth();
   const { organization, isLoaded: isOrganizationLoaded } = useOrganization();
   const onboardingStatus = useQuery(apiAny.onboarding.getStatus);
   const createProjectInOrg = useMutation(apiAny.projects.createProjectInOrg);
@@ -54,6 +54,7 @@ export default function OnboardingHostedChatKit() {
 
   const selfHostedChatKitUrl =
     process.env.NEXT_PUBLIC_CHATKIT_SELF_HOSTED_URL?.trim() || DEFAULT_SELF_HOSTED_CHATKIT_URL;
+  const usesDirectChatKitBackend = /^https?:\/\//i.test(selfHostedChatKitUrl);
   const selfHostedDomainKey =
     process.env.NEXT_PUBLIC_CHATKIT_SELF_HOSTED_DOMAIN_KEY?.trim() || null;
   const configurationError = selfHostedDomainKey
@@ -114,6 +115,18 @@ export default function OnboardingHostedChatKit() {
     () => async (input: RequestInfo | URL, init?: RequestInit) => {
       const headers = new Headers(init?.headers);
 
+      if (usesDirectChatKitBackend) {
+        const convexToken = await getToken({ template: "convex" });
+        if (convexToken) {
+          headers.set("authorization", `Bearer ${convexToken}`);
+          headers.set("x-chatkit-convex-token", convexToken);
+        }
+      }
+
+      if (userId) {
+        headers.set("x-chatkit-user-id", userId);
+      }
+
       if (scopedProject?._id) {
         headers.set("x-chatkit-project-id", String(scopedProject._id));
       }
@@ -129,7 +142,7 @@ export default function OnboardingHostedChatKit() {
         credentials: "same-origin",
       });
     },
-    [scopedProject?._id, teamId],
+    [getToken, scopedProject?._id, teamId, userId, usesDirectChatKitBackend],
   );
 
   const chatkit = useChatKit({

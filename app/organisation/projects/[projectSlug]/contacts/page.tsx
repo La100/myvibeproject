@@ -5,12 +5,7 @@ import { useQuery, useMutation } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import { useProject } from "@/components/providers/ProjectProvider";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -21,32 +16,61 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Plus,
   Trash2,
   Mail,
   Phone,
   MapPin,
   Building2,
-  User
+  User,
+  UserPlus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ContactForm } from "@/app/organisation/(company)/contacts/components/ContactForm";
-import { Id } from "@/convex/_generated/dataModel";
+import { Doc, Id } from "@/convex/_generated/dataModel";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 
 export default function ContactsPage() {
-  const { project } = useProject();
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-
+  const { project, team } = useProject();
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+  const [selectedContactId, setSelectedContactId] = useState<
+    Id<"contacts"> | ""
+  >("");
 
   // Get project contacts
   const projectContacts = useQuery(apiAny.contacts.getProjectContacts, {
     projectId: project._id,
-  });
+  }) as
+    | (Doc<"contacts"> & {
+        projectRole?: string;
+        projectNotes?: string;
+      })[]
+    | undefined;
+
+  const organizationContacts = useQuery(
+    apiAny.contacts.getContacts,
+    team?.slug ? { teamSlug: team.slug } : "skip",
+  ) as Doc<"contacts">[] | undefined;
 
   // Mutations
   const removeContact = useMutation(apiAny.contacts.removeContactFromProject);
+  const assignContact = useMutation(apiAny.contacts.assignContactToProject);
+
+  const assignedContactIds = new Set(
+    (projectContacts || []).map((contact) => contact._id),
+  );
+  const availableContacts = (organizationContacts || [])
+    .filter((contact) => !assignedContactIds.has(contact._id))
+    .sort((left, right) => left.name.localeCompare(right.name));
 
   const handleRemoveContact = async (contactId: Id<"contacts">) => {
     try {
@@ -63,8 +87,27 @@ export default function ContactsPage() {
   };
 
   const handleContactCreated = () => {
-    setIsAddDialogOpen(false);
-    toast.success("Contact created successfully");
+    setIsCreateDialogOpen(false);
+  };
+
+  const handleAssignContact = async () => {
+    if (!selectedContactId) {
+      toast.error("Select a contact first");
+      return;
+    }
+
+    try {
+      await assignContact({
+        projectId: project._id,
+        contactId: selectedContactId,
+      });
+      setSelectedContactId("");
+      setIsAssignDialogOpen(false);
+      toast.success("Contact added to project");
+    } catch (error) {
+      toast.error("Error adding contact to project");
+      console.error(error);
+    }
   };
 
   const getTypeLabel = (type: string) => {
@@ -72,7 +115,7 @@ export default function ContactsPage() {
       contractor: "Contractor",
       supplier: "Supplier",
       subcontractor: "Subcontractor",
-      other: "Other"
+      other: "Other",
     };
     return labels[type as keyof typeof labels] || type;
   };
@@ -87,7 +130,6 @@ export default function ContactsPage() {
     return variants[type as keyof typeof variants] || "outline";
   };
 
-
   return (
     <ProjectPageLayout>
       <div>
@@ -100,30 +142,106 @@ export default function ContactsPage() {
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-lg lg:text-xl">Project Contacts</CardTitle>
+                <CardTitle className="text-lg lg:text-xl">
+                  Project Contacts
+                </CardTitle>
               </div>
 
-              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Contact
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>Create New Contact</DialogTitle>
-                    <DialogDescription>
-                      Create a new contact for this project
-                    </DialogDescription>
-                  </DialogHeader>
+              <div className="flex flex-wrap items-center gap-2">
+                <Dialog
+                  open={isAssignDialogOpen}
+                  onOpenChange={setIsAssignDialogOpen}
+                >
+                  <DialogTrigger asChild>
+                    <Button variant="outline">
+                      <UserPlus data-icon="inline-start" />
+                      Add Existing
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Add Existing Contact</DialogTitle>
+                      <DialogDescription>
+                        Select a contact from the company address book.
+                      </DialogDescription>
+                    </DialogHeader>
 
-                  <ContactForm
-                    onSuccess={handleContactCreated}
-                    onCancel={() => setIsAddDialogOpen(false)}
-                  />
-                </DialogContent>
-              </Dialog>
+                    <div className="flex flex-col gap-4">
+                      <Select
+                        value={selectedContactId}
+                        onValueChange={(value) =>
+                          setSelectedContactId(value as Id<"contacts">)
+                        }
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select contact" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableContacts.map((contact) => (
+                            <SelectItem key={contact._id} value={contact._id}>
+                              {contact.name}
+                              {contact.companyName
+                                ? `, ${contact.companyName}`
+                                : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      {organizationContacts &&
+                      availableContacts.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          All company contacts are already assigned to this
+                          project.
+                        </p>
+                      ) : null}
+
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setIsAssignDialogOpen(false)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="button"
+                          onClick={handleAssignContact}
+                          disabled={!selectedContactId}
+                        >
+                          Add to Project
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+
+                <Dialog
+                  open={isCreateDialogOpen}
+                  onOpenChange={setIsCreateDialogOpen}
+                >
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Plus data-icon="inline-start" />
+                      Create Contact
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>Create New Contact</DialogTitle>
+                      <DialogDescription>
+                        Create a company contact and assign it to this project.
+                      </DialogDescription>
+                    </DialogHeader>
+
+                    <ContactForm
+                      projectId={project._id}
+                      onSuccess={handleContactCreated}
+                      onCancel={() => setIsCreateDialogOpen(false)}
+                    />
+                  </DialogContent>
+                </Dialog>
+              </div>
             </div>
           </CardHeader>
 
@@ -156,7 +274,9 @@ export default function ContactsPage() {
                         {contact.projectRole && (
                           <div className="mb-1 flex items-center gap-2 text-sm text-muted-foreground">
                             <User className="h-4 w-4" />
-                            <span className="font-medium">{contact.projectRole}</span>
+                            <span className="font-medium">
+                              {contact.projectRole}
+                            </span>
                           </div>
                         )}
 
@@ -193,7 +313,9 @@ export default function ContactsPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => contact._id && handleRemoveContact(contact._id)}
+                        onClick={() =>
+                          contact._id && handleRemoveContact(contact._id)
+                        }
                         className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -208,7 +330,8 @@ export default function ContactsPage() {
                   No contacts assigned to this project yet
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Click "Add Contact" to create new contacts for this project
+                  Add an existing company contact or create a new one for this
+                  project.
                 </p>
               </div>
             )}

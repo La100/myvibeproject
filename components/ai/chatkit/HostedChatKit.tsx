@@ -32,7 +32,7 @@ type HostedChatKitProps = {
 };
 
 export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
-  const { userId, isLoaded: isAuthLoaded } = useAuth();
+  const { userId, getToken, isLoaded: isAuthLoaded } = useAuth();
   const { project, team, isLoading: isProjectLoading } = useProject();
   const router = useRouter();
   const pathname = usePathname();
@@ -57,6 +57,7 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
   >("idle");
   const selfHostedChatKitUrl =
     process.env.NEXT_PUBLIC_CHATKIT_SELF_HOSTED_URL?.trim() || DEFAULT_SELF_HOSTED_CHATKIT_URL;
+  const usesDirectChatKitBackend = /^https?:\/\//i.test(selfHostedChatKitUrl);
   const selfHostedDomainKey =
     process.env.NEXT_PUBLIC_CHATKIT_SELF_HOSTED_DOMAIN_KEY?.trim() || null;
   const configurationError = selfHostedDomainKey
@@ -124,12 +125,28 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
     () => async (input: RequestInfo | URL, init?: RequestInit) => {
       const headers = new Headers(init?.headers);
 
+      if (usesDirectChatKitBackend) {
+        const convexToken = await getToken({ template: "convex" });
+        if (convexToken) {
+          headers.set("authorization", `Bearer ${convexToken}`);
+          headers.set("x-chatkit-convex-token", convexToken);
+        }
+      }
+
+      if (userId) {
+        headers.set("x-chatkit-user-id", userId);
+      }
+
       if (project?._id) {
         headers.set("x-chatkit-project-id", String(project._id));
       }
 
       if (team?._id) {
         headers.set("x-chatkit-team-id", String(team._id));
+      }
+
+      if (team?.timezone) {
+        headers.set("x-chatkit-timezone", team.timezone);
       }
 
       headers.set("x-chatkit-can-make-changes", canMakeChanges ? "true" : "false");
@@ -141,7 +158,7 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
         credentials: "same-origin",
       });
     },
-    [canMakeChanges, project?._id, team?._id],
+    [canMakeChanges, getToken, project?._id, team?._id, team?.timezone, userId, usesDirectChatKitBackend],
   );
 
   const handleCanMakeChangesChange = (checked: boolean) => {

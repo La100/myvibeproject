@@ -20,11 +20,17 @@ import { toast } from "sonner";
 
 interface ContactFormProps {
   contactId?: Id<"contacts">;
+  projectId?: Id<"projects">;
   onSuccess: () => void;
   onCancel: () => void;
 }
 
-export function ContactForm({ contactId, onSuccess, onCancel }: ContactFormProps) {
+export function ContactForm({
+  contactId,
+  projectId,
+  onSuccess,
+  onCancel,
+}: ContactFormProps) {
   const { organization } = useOrganization();
   const [formData, setFormData] = useState({
     name: "",
@@ -40,17 +46,19 @@ export function ContactForm({ contactId, onSuccess, onCancel }: ContactFormProps
     notes: "",
   });
 
-
   const contact = useQuery(
     apiAny.contacts.getContact,
-    contactId ? { contactId } : "skip"
+    contactId ? { contactId } : "skip",
   );
 
   const createContact = useMutation(apiAny.contacts.createContact);
   const updateContact = useMutation(apiAny.contacts.updateContact);
+  const assignContactToProject = useMutation(
+    apiAny.contacts.assignContactToProject,
+  );
   const team = useQuery(
     apiAny.teams.getTeamByClerkOrg,
-    organization?.id ? { clerkOrgId: organization.id } : "skip"
+    organization?.id ? { clerkOrgId: organization.id } : "skip",
   );
 
   useEffect(() => {
@@ -71,12 +79,9 @@ export function ContactForm({ contactId, onSuccess, onCancel }: ContactFormProps
     }
   }, [contact]);
 
-
-
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.name.trim()) {
       toast.error("Contact name is required");
       return;
@@ -107,13 +112,22 @@ export function ContactForm({ contactId, onSuccess, onCancel }: ContactFormProps
           toast.error("Organization is not ready yet");
           return;
         }
-        await createContact({
+        const createdContactId = (await createContact({
           teamSlug: team.slug,
           ...contactData,
-        });
-        toast.success("Contact added successfully");
+        })) as Id<"contacts">;
+
+        if (projectId) {
+          await assignContactToProject({
+            projectId,
+            contactId: createdContactId,
+          });
+          toast.success("Contact added to project");
+        } else {
+          toast.success("Contact added successfully");
+        }
       }
-      
+
       onSuccess();
     } catch (error) {
       toast.error("Error saving contact");
@@ -129,17 +143,21 @@ export function ContactForm({ contactId, onSuccess, onCancel }: ContactFormProps
           <Input
             id="name"
             value={formData.name}
-            onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+            onChange={(e) =>
+              setFormData((prev) => ({ ...prev, name: e.target.value }))
+            }
             required
           />
         </div>
-        
+
         <div className="flex flex-col gap-3">
           <Label htmlFor="companyName">Company Name</Label>
           <Input
             id="companyName"
             value={formData.companyName}
-            onChange={(e) => setFormData(prev => ({ ...prev, companyName: e.target.value }))}
+            onChange={(e) =>
+              setFormData((prev) => ({ ...prev, companyName: e.target.value }))
+            }
           />
         </div>
       </div>
@@ -151,16 +169,20 @@ export function ContactForm({ contactId, onSuccess, onCancel }: ContactFormProps
             id="email"
             type="email"
             value={formData.email}
-            onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+            onChange={(e) =>
+              setFormData((prev) => ({ ...prev, email: e.target.value }))
+            }
           />
         </div>
-        
+
         <div className="flex flex-col gap-3">
           <Label htmlFor="phone">Phone</Label>
           <Input
             id="phone"
             value={formData.phone}
-            onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+            onChange={(e) =>
+              setFormData((prev) => ({ ...prev, phone: e.target.value }))
+            }
           />
         </div>
       </div>
@@ -170,7 +192,9 @@ export function ContactForm({ contactId, onSuccess, onCancel }: ContactFormProps
         <Input
           id="address"
           value={formData.address}
-          onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, address: e.target.value }))
+          }
         />
       </div>
 
@@ -180,19 +204,22 @@ export function ContactForm({ contactId, onSuccess, onCancel }: ContactFormProps
           <Input
             id="city"
             value={formData.city}
-            onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
+            onChange={(e) =>
+              setFormData((prev) => ({ ...prev, city: e.target.value }))
+            }
           />
         </div>
-        
+
         <div className="flex flex-col gap-3">
           <Label htmlFor="postalCode">Postal Code</Label>
           <Input
             id="postalCode"
             value={formData.postalCode}
-            onChange={(e) => setFormData(prev => ({ ...prev, postalCode: e.target.value }))}
+            onChange={(e) =>
+              setFormData((prev) => ({ ...prev, postalCode: e.target.value }))
+            }
           />
         </div>
-        
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -201,16 +228,20 @@ export function ContactForm({ contactId, onSuccess, onCancel }: ContactFormProps
           <Input
             id="website"
             value={formData.website}
-            onChange={(e) => setFormData(prev => ({ ...prev, website: e.target.value }))}
+            onChange={(e) =>
+              setFormData((prev) => ({ ...prev, website: e.target.value }))
+            }
           />
         </div>
-        
+
         <div className="flex flex-col gap-3">
           <Label htmlFor="taxId">Tax ID</Label>
           <Input
             id="taxId"
             value={formData.taxId}
-            onChange={(e) => setFormData(prev => ({ ...prev, taxId: e.target.value }))}
+            onChange={(e) =>
+              setFormData((prev) => ({ ...prev, taxId: e.target.value }))
+            }
           />
         </div>
       </div>
@@ -218,7 +249,12 @@ export function ContactForm({ contactId, onSuccess, onCancel }: ContactFormProps
       <div className="grid gap-4 md:grid-cols-2">
         <div className="flex flex-col gap-3">
           <Label htmlFor="type">Contact Type</Label>
-          <Select value={formData.type} onValueChange={(value: "contractor" | "supplier" | "subcontractor" | "other") => setFormData(prev => ({ ...prev, type: value }))}>
+          <Select
+            value={formData.type}
+            onValueChange={(
+              value: "contractor" | "supplier" | "subcontractor" | "other",
+            ) => setFormData((prev) => ({ ...prev, type: value }))}
+          >
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
@@ -230,16 +266,16 @@ export function ContactForm({ contactId, onSuccess, onCancel }: ContactFormProps
             </SelectContent>
           </Select>
         </div>
-
       </div>
-
 
       <div className="flex flex-col gap-3">
         <Label htmlFor="notes">Notes</Label>
         <Textarea
           id="notes"
           value={formData.notes}
-          onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, notes: e.target.value }))
+          }
           rows={3}
         />
       </div>

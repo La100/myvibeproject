@@ -15,7 +15,8 @@ const HOP_BY_HOP_RESPONSE_HEADERS = new Set([
   "transfer-encoding",
   "upgrade",
 ]);
-const CHATKIT_PROXY_TIMEOUT_MS = 120_000;
+const CHATKIT_PROXY_TIMEOUT_MS = 55_000;
+const SLOW_CHATKIT_PROXY_MS = 5_000;
 
 function buildTargetUrl(request: Request, path: string[]) {
   const baseUrl = process.env.CHATKIT_SELF_HOSTED_SERVER_URL?.trim();
@@ -74,6 +75,10 @@ async function proxyRequest(
   request: Request,
   path: string[],
 ) {
+  const startedAt = Date.now();
+  let authDurationMs = 0;
+  let upstreamDurationMs = 0;
+
   if (!isAllowedProxyPath(request.method, path)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
@@ -93,9 +98,11 @@ async function proxyRequest(
   let convexToken: string | null = null;
   let projectId: string | undefined;
   let teamId: string | undefined;
+  let timezone: string | null = null;
   let canMakeChanges: string | null = null;
 
   if (!signedAttachmentRequest) {
+    const authStartedAt = Date.now();
     const authContext = await auth();
     userId = authContext.userId;
 
@@ -114,6 +121,7 @@ async function proxyRequest(
     teamId =
       request.headers.get("x-chatkit-team-id")?.trim() ||
       incomingUrl.searchParams.get("teamId")?.trim();
+    timezone = request.headers.get("x-chatkit-timezone")?.trim() || null;
     canMakeChanges = request.headers.get("x-chatkit-can-make-changes")?.trim() || null;
 
     if (!projectId || !teamId) {
@@ -133,6 +141,8 @@ async function proxyRequest(
       const message =
         error instanceof Error ? error.message : "Access denied for this ChatKit request.";
       return NextResponse.json({ error: message }, { status: 403 });
+    } finally {
+      authDurationMs = Date.now() - authStartedAt;
     }
   }
 
@@ -175,6 +185,10 @@ async function proxyRequest(
     upstreamHeaders.set("x-chatkit-project-id", projectId);
   }
 
+  if (timezone) {
+    upstreamHeaders.set("x-chatkit-timezone", timezone);
+  }
+
   if (convexToken) {
     upstreamHeaders.set("x-chatkit-convex-token", convexToken);
   }
@@ -191,6 +205,7 @@ async function proxyRequest(
   let upstreamResponse: Response;
 
   try {
+    const upstreamStartedAt = Date.now();
     upstreamResponse = await fetch(targetUrl, {
       method: request.method,
       headers: upstreamHeaders,
@@ -198,10 +213,11 @@ async function proxyRequest(
       cache: "no-store",
       signal: AbortSignal.timeout(CHATKIT_PROXY_TIMEOUT_MS),
     });
+    upstreamDurationMs = Date.now() - upstreamStartedAt;
   } catch (error) {
     const message =
       error instanceof Error && error.name === "TimeoutError"
-        ? "The self-hosted ChatKit service timed out."
+        ? "The self-hosted ChatKit service timed out after 55 seconds."
         : error instanceof Error
           ? error.message
           : "Failed to reach the self-hosted ChatKit service.";
@@ -211,6 +227,27 @@ async function proxyRequest(
   const responseHeaders = new Headers(upstreamResponse.headers);
   for (const headerName of HOP_BY_HOP_RESPONSE_HEADERS) {
     responseHeaders.delete(headerName);
+  }
+
+  const totalDurationMs = Date.now() - startedAt;
+  responseHeaders.append(
+    "Server-Timing",
+    [
+      `chatkit_auth;dur=${authDurationMs}`,
+      `chatkit_upstream;dur=${upstreamDurationMs}`,
+      `chatkit_total;dur=${totalDurationMs}`,
+    ].join(", "),
+  );
+
+  if (totalDurationMs >= SLOW_CHATKIT_PROXY_MS) {
+    console.warn("[chatkit-proxy] slow request", {
+      method: request.method,
+      path: path.join("/") || "/",
+      status: upstreamResponse.status,
+      authDurationMs,
+      upstreamDurationMs,
+      totalDurationMs,
+    });
   }
 
   return new Response(upstreamResponse.body, {
