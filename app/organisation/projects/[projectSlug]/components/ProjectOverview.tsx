@@ -636,31 +636,33 @@ function ProjectOverviewContent() {
     budgetAmount > 0 ? Math.round((totalCost / budgetAmount) * 100) : null;
   const budgetRemaining = budgetAmount - totalCost;
   const hasProjectBudget = budgetAmount > 0;
-  const budgetBreakdown = hasProjectBudget
-    ? [
-        {
-          label: "Shopping",
-          value: formatCurrency(shoppingListCost, budgetSummary.currency, {
+  const budgetUsageChart = hasProjectBudget
+    ? {
+        usedPercent: Math.min(
+          Math.max((totalCost / budgetAmount) * 100, 0),
+          100,
+        ),
+        percentLabel: `${budgetUsedPercent}%`,
+        capLabel: formatCurrency(budgetAmount, budgetSummary.currency, {
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 0,
+        }),
+        floorLabel: formatCurrency(0, budgetSummary.currency, {
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 0,
+        }),
+        statusLabel: budgetRemaining >= 0 ? "Remaining" : "Over budget",
+        statusValue: formatCurrency(
+          Math.abs(budgetRemaining),
+          budgetSummary.currency,
+          {
             minimumFractionDigits: 0,
             maximumFractionDigits: 0,
-          }),
-        },
-        {
-          label: "Labor",
-          value: formatCurrency(laborCost, budgetSummary.currency, {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0,
-          }),
-        },
-        {
-          label: budgetRemaining >= 0 ? "Remaining" : "Over",
-          value: formatCurrency(Math.abs(budgetRemaining), budgetSummary.currency, {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0,
-          }),
-        },
-      ]
-    : [];
+          },
+        ),
+        isOverBudget: budgetRemaining < 0,
+      }
+    : null;
   const totalCostBreakdown = [
     ...(shoppingListCost > 0
       ? [
@@ -722,7 +724,7 @@ function ProjectOverviewContent() {
             budgetUsedPercent !== null ? ` (${budgetUsedPercent}%)` : ""
           }`
         : "Add a project budget in settings",
-      breakdown: budgetBreakdown,
+      budgetUsageChart,
       spanClass: "xl:col-span-2",
     },
     {
@@ -1012,10 +1014,53 @@ function ProjectOverviewContent() {
                     <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
                       {metric.meta}
                     </p>
-                    {"breakdown" in metric && metric.breakdown?.length ? (
+                    {"budgetUsageChart" in metric && metric.budgetUsageChart ? (
+                      <div className="mt-3 border-t border-border/70 pt-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                            Budget use
+                          </p>
+                          <p
+                            className={cn(
+                              "text-[12px] font-semibold tabular-nums",
+                              metric.budgetUsageChart.isOverBudget
+                                ? "text-destructive"
+                                : "text-foreground",
+                            )}
+                          >
+                            {metric.budgetUsageChart.percentLabel}
+                          </p>
+                        </div>
+                        <div className="mt-2 h-3 overflow-hidden rounded-full bg-background/80 ring-1 ring-border/70">
+                          <div
+                            className={cn(
+                              "h-full rounded-full",
+                              metric.budgetUsageChart.isOverBudget
+                                ? "bg-destructive"
+                                : "bg-foreground",
+                            )}
+                            style={{
+                              width: `${metric.budgetUsageChart.usedPercent}%`,
+                            }}
+                          />
+                        </div>
+                        <div className="mt-2 flex items-center justify-between gap-3 text-[10px] font-medium tabular-nums text-muted-foreground">
+                          <span>{metric.budgetUsageChart.floorLabel}</span>
+                          <span>{metric.budgetUsageChart.capLabel}</span>
+                        </div>
+                        <div className="mt-3 flex items-center justify-between gap-3">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                            {metric.budgetUsageChart.statusLabel}
+                          </p>
+                          <p className="text-[12px] font-medium tabular-nums text-foreground">
+                            {metric.budgetUsageChart.statusValue}
+                          </p>
+                        </div>
+                      </div>
+                    ) : "breakdown" in metric && metric.breakdown?.length ? (
                       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border/70 pt-3">
                         {metric.breakdown.map((item) => (
-                          <div key={item.label} className="space-y-0.5">
+                          <div key={item.label} className="flex flex-col gap-0.5">
                             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                               {item.label}
                             </p>
