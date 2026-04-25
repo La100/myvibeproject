@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useMemo, useRef, useState } from "react";
 import { useQueries, useQuery } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import { useProject } from "@/components/providers/ProjectProvider";
@@ -254,6 +254,7 @@ function ProjectOverviewContent() {
     [moodboardSections, project._id],
   );
   const moodboardImageResults = useQueries(moodboardImageQueries);
+  const previousMoodboardImageResultsRef = useRef<Record<string, unknown>>({});
 
   if (
     tasks === undefined ||
@@ -273,18 +274,16 @@ function ProjectOverviewContent() {
     return <ProjectOverviewSkeleton />;
   }
 
-  const isMoodboardLoading = moodboardSections.some(
-    (section) => moodboardImageResults[section.id] === undefined,
-  );
-  if (isMoodboardLoading) {
-    return <ProjectOverviewSkeleton />;
-  }
-
-  for (const result of Object.values(moodboardImageResults)) {
+  for (const [sectionId, result] of Object.entries(moodboardImageResults)) {
     if (result instanceof Error) {
       throw result;
     }
+
+    if (result !== undefined) {
+      previousMoodboardImageResultsRef.current[sectionId] = result;
+    }
   }
+  const stableMoodboardImageResults = previousMoodboardImageResultsRef.current;
 
   const projectBasePath = `/organisation/projects/${project.slug}`;
   const shoppingListCost = calculateShoppingTotal(
@@ -415,7 +414,7 @@ function ProjectOverviewContent() {
     .map((section) => ({
       title: section.title,
       items: (
-        (moodboardImageResults[section.id] as
+        (stableMoodboardImageResults[section.id] as
           | Array<{
               name: string;
               url: string;
@@ -750,7 +749,7 @@ function ProjectOverviewContent() {
   const recentCards = [
     ...moodboardSections.flatMap((section) => {
       const files = (
-        (moodboardImageResults[section.id] as
+        (stableMoodboardImageResults[section.id] as
           | Array<{ name: string; url: string; _creationTime: number }>
           | undefined) ?? []
       );
