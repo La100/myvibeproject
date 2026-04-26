@@ -125,7 +125,7 @@ export const createCheckoutSession = action({
     // Get or create Stripe customer using component
     const customer = await stripeClient.getOrCreateCustomer(ctx, {
       userId: identity.subject,
-      email: identity.email || "admin@company.com",
+      email: identity.email,
       name: team.name,
     });
 
@@ -225,6 +225,55 @@ type EnsureSubscriptionSyncedResult =
   | { synced: true; plan: string; status: string }
   | { synced: false };
 
+const getSubscriptionCustomerId = (subscription: Stripe.Subscription) => {
+  const customer = subscription.customer;
+  return typeof customer === "string" ? customer : customer.id;
+};
+
+const findActiveSubscriptionForTeam = async (
+  teamId: string,
+  stripeCustomerId?: string | null,
+) => {
+  if (stripeCustomerId) {
+    const activeSubscriptions = await getStripe().subscriptions.list({
+      customer: stripeCustomerId,
+      status: "active",
+      limit: 1,
+    });
+
+    if (activeSubscriptions.data[0]) {
+      return activeSubscriptions.data[0];
+    }
+
+    const trialingSubscriptions = await getStripe().subscriptions.list({
+      customer: stripeCustomerId,
+      status: "trialing",
+      limit: 1,
+    });
+
+    if (trialingSubscriptions.data[0]) {
+      return trialingSubscriptions.data[0];
+    }
+  }
+
+  const metadataQuery = `metadata['teamId']:'${teamId}'`;
+  const activeSearch = await getStripe().subscriptions.search({
+    query: `${metadataQuery} AND status:'active'`,
+    limit: 1,
+  });
+
+  if (activeSearch.data[0]) {
+    return activeSearch.data[0];
+  }
+
+  const trialingSearch = await getStripe().subscriptions.search({
+    query: `${metadataQuery} AND status:'trialing'`,
+    limit: 1,
+  });
+
+  return trialingSearch.data[0] ?? null;
+};
+
 // Auto-sync subscription from Stripe if out of sync (called automatically)
 export const ensureSubscriptionSynced = action({
   args: {
@@ -249,6 +298,10 @@ export const ensureSubscriptionSynced = action({
       query: unknown,
       args: unknown,
     ) => Promise<unknown>;
+    const runMutation = ctx.runMutation as (
+      mutation: unknown,
+      args: unknown,
+    ) => Promise<unknown>;
 
     // Get team info
     const team = (await runQuery(internalApi.stripe.getTeamForStripe, {
@@ -256,6 +309,22 @@ export const ensureSubscriptionSynced = action({
     })) as StripeTeamRecord | null;
 
     if (!team || !team.stripeCustomerId) {
+      return { synced: false };
+    }
+
+    const membership = (await runQuery(
+      internalApi.teams.getTeamMemberByClerkId,
+      {
+        teamId: args.teamId,
+        clerkUserId: identity.subject,
+      },
+    )) as TeamMembershipRecord | null;
+
+    if (
+      !membership ||
+      membership.isActive === false ||
+      (membership.role !== "admin" && membership.role !== "member")
+    ) {
       return { synced: false };
     }
 
@@ -267,28 +336,15 @@ export const ensureSubscriptionSynced = action({
       return { synced: false };
     }
 
-    // Check Stripe for active subscription
-    const subscriptions = await getStripe().subscriptions.list({
-      customer: team.stripeCustomerId,
-      status: "active",
-      limit: 1,
-    });
+    const subscription = await findActiveSubscriptionForTeam(
+      String(args.teamId),
+      team.stripeCustomerId,
+    );
 
-    if (subscriptions.data.length === 0) {
-      const trialingSubscriptions = await getStripe().subscriptions.list({
-        customer: team.stripeCustomerId,
-        status: "trialing",
-        limit: 1,
-      });
-
-      if (trialingSubscriptions.data.length === 0) {
-        return { synced: false };
-      }
-
-      subscriptions.data = trialingSubscriptions.data;
+    if (!subscription) {
+      return { synced: false };
     }
 
-    const subscription = subscriptions.data[0];
     const subscriptionItem = subscription.items.data[0];
     const priceId = subscriptionItem?.price.id || "";
     const currentPeriodEnd = subscriptionItem?.current_period_end
@@ -300,11 +356,12 @@ export const ensureSubscriptionSynced = action({
         ? "ai_scale"
         : "ai";
 
-    // Sync the subscription to the team
-    const runMutation = ctx.runMutation as (
-      mutation: unknown,
-      args: unknown,
-    ) => Promise<unknown>;
+    if (!team.stripeCustomerId) {
+      await runMutation(internalApi.stripe.updateTeamStripeCustomer, {
+        teamId: args.teamId,
+        stripeCustomerId: getSubscriptionCustomerId(subscription),
+      });
+    }
 
     await runMutation(internalApi.stripe.syncSubscriptionDirectly, {
       teamId: args.teamId,

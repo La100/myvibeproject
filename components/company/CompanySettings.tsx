@@ -179,6 +179,7 @@ export default function CompanySettings({
   const teamId = teamData?.teamId;
   const isSubscriptionPage = mode === "subscription";
   const requestedTab = searchParams.get("tab");
+  const checkoutState = searchParams.get("checkout");
   const shouldRedirectToSubscription =
     !isSubscriptionPage &&
     (requestedTab === "billing" || requestedTab === "subscription");
@@ -285,7 +286,10 @@ export default function CompanySettings({
   const [billingActionError, setBillingActionError] = useState<string | null>(
     null,
   );
+  const [syncingSubscription, setSyncingSubscription] = useState(false);
   const billingWindowEnsuredRef = useRef(false);
+  const subscriptionAutoSyncAttemptedRef = useRef<string | null>(null);
+  const checkoutSyncAttemptedRef = useRef<string | null>(null);
   const organizationImageInputRef = useRef<HTMLInputElement | null>(null);
   const organizationImageObjectUrlRef = useRef<string | null>(null);
   const organizationHasImage = organization?.hasImage ?? false;
@@ -342,6 +346,37 @@ export default function CompanySettings({
       setRepairingTeamState(false);
     }
   }, [organization?.id, organization?.name, ensureCurrentUserTeamMembership]);
+
+  const syncSubscriptionFromStripe = useCallback(
+    async ({ showResult = false }: { showResult?: boolean } = {}) => {
+      if (!teamData?.teamId) return;
+
+      setSyncingSubscription(true);
+      try {
+        const result = await ensureSubscriptionSynced({
+          teamId: teamData.teamId,
+        });
+
+        if (result.synced) {
+          toast.success("Subscription synced from Stripe.");
+          router.refresh();
+        } else if (showResult) {
+          toast.message("No active Stripe subscription found yet.", {
+            description:
+              "If payment just completed, wait a few seconds and sync again.",
+          });
+        }
+      } catch (error) {
+        console.error("Failed to sync subscription from Stripe", error);
+        toast.error("Could not sync subscription from Stripe", {
+          description: toUserFacingErrorMessage(error),
+        });
+      } finally {
+        setSyncingSubscription(false);
+      }
+    },
+    [ensureSubscriptionSynced, router, teamData?.teamId],
+  );
 
   useEffect(() => {
     if (!isLoaded || !organization?.id || teamData !== null) {
@@ -444,16 +479,35 @@ export default function CompanySettings({
 
   useEffect(() => {
     if (!isSubscriptionPage) return;
+    if (!subscription || subscription.subscriptionPlan !== "free") return;
+    if (subscriptionAutoSyncAttemptedRef.current === subscription.teamId)
+      return;
+
+    subscriptionAutoSyncAttemptedRef.current = subscription.teamId;
+    void syncSubscriptionFromStripe();
+  }, [isSubscriptionPage, subscription, syncSubscriptionFromStripe]);
+
+  useEffect(() => {
     if (
-      subscription &&
-      subscription.stripeCustomerId &&
-      subscription.subscriptionPlan === "free"
+      !isSubscriptionPage ||
+      checkoutState !== "success" ||
+      !teamData?.teamId
     ) {
-      ensureSubscriptionSynced({ teamId: subscription.teamId }).catch(
-        console.error,
-      );
+      return;
     }
-  }, [isSubscriptionPage, subscription, ensureSubscriptionSynced]);
+
+    if (checkoutSyncAttemptedRef.current === teamData.teamId) {
+      return;
+    }
+
+    checkoutSyncAttemptedRef.current = teamData.teamId;
+    void syncSubscriptionFromStripe({ showResult: true });
+  }, [
+    checkoutState,
+    isSubscriptionPage,
+    syncSubscriptionFromStripe,
+    teamData?.teamId,
+  ]);
 
   useEffect(() => {
     if (!isSubscriptionPage) return;
@@ -933,7 +987,7 @@ export default function CompanySettings({
     ) ||
     availableBillingPlans[0] ||
     null;
-  const isBillingActionPending = billingAction !== null;
+  const isBillingActionPending = billingAction !== null || syncingSubscription;
   const activeSettingsSectionConfig =
     COMPANY_SETTINGS_SECTIONS.find(
       (section) => section.value === activeSettingsSection,
@@ -1249,7 +1303,7 @@ export default function CompanySettings({
                     </p>
                   </div>
 
-                  <div className="mt-auto">
+                  <div className="mt-auto flex flex-col gap-2">
                     {currentPlanKey === "free" && recommendedPlan ? (
                       <Button
                         onClick={() =>
@@ -1328,6 +1382,30 @@ export default function CompanySettings({
                         Billing unavailable
                       </Button>
                     )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() =>
+                        void syncSubscriptionFromStripe({ showResult: true })
+                      }
+                      disabled={isBillingActionPending || !teamData?.teamId}
+                    >
+                      {syncingSubscription ? (
+                        <>
+                          <Loader2
+                            data-icon="inline-start"
+                            className="animate-spin"
+                          />
+                          Syncing with Stripe...
+                        </>
+                      ) : (
+                        <>
+                          <CreditCard data-icon="inline-start" />
+                          Sync with Stripe
+                        </>
+                      )}
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
