@@ -17,8 +17,16 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,6 +54,7 @@ import {
   Settings2,
   ChevronDown,
   BellRing,
+  ClipboardList,
 } from "lucide-react";
 
 function OrganizationAvatar({
@@ -126,12 +135,15 @@ function CompanySidebarContent() {
     },
     { href: "/organisation/calendar", label: "Calendar", icon: Calendar, allowedRoles: ["admin", "member"] },
     { href: "/organisation/visualizations", label: "Visualizations", icon: Sparkles, allowedRoles: ["admin", "member"] },
-    { href: "/organisation/libraries", label: "Libraries", icon: Library, allowedRoles: ["admin", "member"] },
-    { href: "/organisation/product-library", label: "Product Library", icon: Package, allowedRoles: ["admin", "member"] },
+    { href: "/organisation/libraries", label: "Libraries", icon: Library, allowedRoles: ["admin", "member"], isLibraryGroup: true },
     { href: "/organisation/team", label: "Team", icon: Users, allowedRoles: ["admin", "member"] },
-    { href: "/organisation/contacts", label: "Contacts", icon: Contact, allowedRoles: ["admin", "member"] },
     { href: "/organisation/tax", label: "Tax", icon: Percent, allowedRoles: ["admin", "member"] },
     { href: "/organisation/reports", label: "Reports", icon: BarChart3, allowedRoles: ["admin", "member"] },
+  ];
+  const libraryItems = [
+    { href: "/organisation/contacts", label: "Team Contacts", icon: Contact },
+    { href: "/organisation/product-library", label: "Product Library", icon: Package },
+    { href: "/organisation/survey-library", label: "Survey Library", icon: ClipboardList },
   ];
   const footerItems = [
     { href: "/organisation/settings", label: "Settings", icon: Settings, isActive: pathname === "/organisation/settings" },
@@ -191,9 +203,69 @@ function CompanySidebarContent() {
             <SidebarMenu className="gap-0.5">
               {navItems.map((item) => {
                 const isProjectsRoot = item.href === "/organisation";
-                const isActive = isProjectsRoot
+                const isLibraryGroup = "isLibraryGroup" in item && item.isLibraryGroup === true;
+                const isLibraryActive = isLibraryGroup && (
+                  pathname === "/organisation/libraries" ||
+                  libraryItems.some((libraryItem) => pathname.startsWith(libraryItem.href))
+                );
+                const isActive = isLibraryActive || (isProjectsRoot
                   ? pathname === "/organisation" || pathname.startsWith("/organisation/projects")
-                  : pathname.startsWith(item.href);
+                  : pathname.startsWith(item.href));
+
+                if (isLibraryGroup) {
+                  return (
+                    <Collapsible key={item.href} defaultOpen={isActive} className="group/collapsible">
+                      <SidebarMenuItem>
+                        <CollapsibleTrigger asChild>
+                          <SidebarMenuButton
+                            isActive={isActive}
+                            className={`h-9 justify-start gap-2.5 rounded-2xl border px-3 text-[13px] font-medium ${
+                              isActive
+                                ? "border-sidebar-border/90 bg-sidebar-accent/70 text-sidebar-foreground shadow-sm"
+                                : "border-transparent bg-transparent text-sidebar-foreground/82 hover:bg-sidebar-accent/34 hover:text-sidebar-foreground"
+                            }`}
+                          >
+                            <item.icon
+                              className={`h-4 w-4 ${isActive ? "text-sidebar-primary" : "text-sidebar-foreground/68"}`}
+                            />
+                            <span className="truncate">{item.label}</span>
+                            <ChevronDown className="ml-auto h-4 w-4 text-sidebar-foreground/52 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" />
+                          </SidebarMenuButton>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="group/collapsible data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0">
+                          <SidebarMenuSub className="mt-1.5 gap-0.5 border-sidebar-border/60 py-1">
+                            {libraryItems.map((libraryItem) => {
+                              const isChildActive = pathname.startsWith(libraryItem.href);
+                              return (
+                                <SidebarMenuSubItem key={libraryItem.href}>
+                                  <SidebarMenuSubButton
+                                    asChild
+                                    isActive={isChildActive}
+                                    className={`h-8 rounded-xl text-[13px] ${
+                                      isChildActive
+                                        ? "bg-sidebar-accent/62 text-sidebar-foreground"
+                                        : "text-sidebar-foreground/76 hover:bg-sidebar-accent/34 hover:text-sidebar-foreground"
+                                    }`}
+                                  >
+                                    <Link
+                                      href={libraryItem.href}
+                                      onClick={handleLinkClick}
+                                      onMouseEnter={() => handleLinkHover(libraryItem.href)}
+                                    >
+                                      <libraryItem.icon className={isChildActive ? "text-sidebar-primary" : "text-sidebar-foreground/58"} />
+                                      <span>{libraryItem.label}</span>
+                                    </Link>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              );
+                            })}
+                          </SidebarMenuSub>
+                        </CollapsibleContent>
+                      </SidebarMenuItem>
+                    </Collapsible>
+                  );
+                }
+
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
