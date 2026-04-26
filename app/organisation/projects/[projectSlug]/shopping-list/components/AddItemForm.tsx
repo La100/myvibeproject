@@ -1,17 +1,23 @@
-import { useState } from 'react';
-import type { CheckedState } from '@radix-ui/react-checkbox';
-import { Button } from '@/components/ui/button';
-import { DatePicker } from '@/components/ui/date-picker';
-import { Field, FieldLabel } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Loader2, WandSparkles } from 'lucide-react';
-import { Doc, Id } from '@/convex/_generated/dataModel';
-import type { TeamMember } from '@/lib/teamMember';
-import { toast } from 'sonner';
-import { toUserFacingErrorMessage } from '@/lib/userFacingErrors';
+import { useState } from "react";
+import type { CheckedState } from "@radix-ui/react-checkbox";
+import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Loader2, WandSparkles } from "lucide-react";
+import { Doc, Id } from "@/convex/_generated/dataModel";
+import type { TeamMember } from "@/lib/teamMember";
+import { toast } from "sonner";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
 interface AddItemFormProps {
   projectId: Id<"projects">;
@@ -32,7 +38,13 @@ interface AddItemFormProps {
     productLink?: string;
     imageUrl?: string;
     priority: "low" | "medium" | "high" | "urgent";
-    realizationStatus: "PLANNED" | "ORDERED" | "IN_TRANSIT" | "DELIVERED" | "COMPLETED" | "CANCELLED";
+    realizationStatus:
+      | "PLANNED"
+      | "ORDERED"
+      | "IN_TRANSIT"
+      | "DELIVERED"
+      | "COMPLETED"
+      | "CANCELLED";
     assignedTo?: string;
     buyBefore?: number;
   }) => Promise<Id<"shoppingListItems"> | void>;
@@ -62,31 +74,37 @@ export function AddItemForm({
   defaultSetId,
   hideSectionField = false,
   hideAlternativeControls = false,
-  submitLabel = 'Add Product',
+  submitLabel = "Add Product",
 }: AddItemFormProps) {
-  const [newItemName, setNewItemName] = useState('');
-  const [newItemSupplier, setNewItemSupplier] = useState('');
-  const [newItemCategory, setNewItemCategory] = useState('');
-  const [newItemSectionId, setNewItemSectionId] = useState<Id<"shoppingListSections"> | "none" | "">(defaultSectionId || "");
-  const [newItemCatalogNumber, setNewItemCatalogNumber] = useState('');
-  const [newItemDimensions, setNewItemDimensions] = useState('');
+  const [newItemName, setNewItemName] = useState("");
+  const [newItemSupplier, setNewItemSupplier] = useState("");
+  const [newItemCategory, setNewItemCategory] = useState("");
+  const [newItemSectionId, setNewItemSectionId] = useState<
+    Id<"shoppingListSections"> | "none" | ""
+  >(defaultSectionId || "");
+  const [newItemCatalogNumber, setNewItemCatalogNumber] = useState("");
+  const [newItemDimensions, setNewItemDimensions] = useState("");
   const [newItemQuantity, setNewItemQuantity] = useState(1);
-  const [newItemUnitPrice, setNewItemUnitPrice] = useState('');
-  const [newItemProductLink, setNewItemProductLink] = useState('');
-  const [newItemImageUrl, setNewItemImageUrl] = useState('');
-  const [newItemAssignedTo, setNewItemAssignedTo] = useState<string>('none');
-  const [newItemBuyBefore, setNewItemBuyBefore] = useState<Date | undefined>(undefined);
+  const [newItemUnitPrice, setNewItemUnitPrice] = useState("");
+  const [newItemProductLink, setNewItemProductLink] = useState("");
+  const [newItemImageUrl, setNewItemImageUrl] = useState("");
+  const [newItemAssignedTo, setNewItemAssignedTo] = useState<string>("none");
+  const [newItemBuyBefore, setNewItemBuyBefore] = useState<Date | undefined>(
+    undefined,
+  );
   const [isScraping, setIsScraping] = useState(false);
   const [newItemHasAlternatives, setNewItemHasAlternatives] = useState(false);
 
   const normalizeProductUrl = (value: string) => {
     const trimmed = value.trim();
-    if (!trimmed) return '';
+    if (!trimmed) return "";
 
-    const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    const candidate = /^https?:\/\//i.test(trimmed)
+      ? trimmed
+      : `https://${trimmed}`;
     const parsed = new URL(candidate);
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-      throw new Error('Invalid URL protocol');
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      throw new Error("Invalid URL protocol");
     }
     return parsed.toString();
   };
@@ -97,11 +115,11 @@ export function AddItemForm({
       return;
     }
 
-    let normalizedUrl = '';
+    let normalizedUrl = "";
     try {
       normalizedUrl = normalizeProductUrl(rawUrl);
     } catch {
-      toast.error('Invalid product URL');
+      toast.error("Invalid product URL");
       return;
     }
 
@@ -125,7 +143,7 @@ export function AddItemForm({
       };
 
       if (!response.ok) {
-        throw new Error(payload.message || 'Failed to scrape product details');
+        throw new Error(payload.message || "Failed to scrape product details");
       }
 
       if (payload.name) setNewItemName(payload.name);
@@ -133,15 +151,18 @@ export function AddItemForm({
       if (payload.category) setNewItemCategory(payload.category);
       if (payload.catalogNumber) setNewItemCatalogNumber(payload.catalogNumber);
       if (payload.dimensions) setNewItemDimensions(payload.dimensions);
-      if (typeof payload.unitPrice === 'number' && Number.isFinite(payload.unitPrice)) {
+      if (
+        typeof payload.unitPrice === "number" &&
+        Number.isFinite(payload.unitPrice)
+      ) {
         setNewItemUnitPrice(String(payload.unitPrice));
       }
       if (payload.imageUrl) setNewItemImageUrl(payload.imageUrl);
       if (payload.productLink) setNewItemProductLink(payload.productLink);
 
-      toast.success('Product details imported from URL');
+      toast.success("Product details imported from URL");
     } catch (error) {
-      toast.error('Could not import product details', {
+      toast.error("Could not import product details", {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -157,7 +178,7 @@ export function AddItemForm({
       try {
         normalizedProductLink = normalizeProductUrl(newItemProductLink);
       } catch {
-        toast.error('Invalid product URL');
+        toast.error("Invalid product URL");
         return;
       }
     }
@@ -173,7 +194,10 @@ export function AddItemForm({
         name: newItemName.trim(),
         supplier: newItemSupplier.trim() || undefined,
         category: newItemCategory.trim() || undefined,
-        sectionId: newItemSectionId === "none" ? undefined : (newItemSectionId || undefined),
+        sectionId:
+          newItemSectionId === "none"
+            ? undefined
+            : newItemSectionId || undefined,
         setId: defaultSetId,
         catalogNumber: newItemCatalogNumber.trim() || undefined,
         dimensions: newItemDimensions.trim() || undefined,
@@ -183,7 +207,8 @@ export function AddItemForm({
         imageUrl: newItemImageUrl.trim() || undefined,
         priority: "medium",
         realizationStatus: "PLANNED",
-        assignedTo: newItemAssignedTo === 'none' ? undefined : newItemAssignedTo,
+        assignedTo:
+          newItemAssignedTo === "none" ? undefined : newItemAssignedTo,
         buyBefore: newItemBuyBefore?.getTime(),
       });
 
@@ -197,29 +222,36 @@ export function AddItemForm({
         await onEnableAlternatives(
           itemId,
           newItemName.trim(),
-          newItemSectionId === "none" ? undefined : (newItemSectionId || undefined),
+          newItemSectionId === "none"
+            ? undefined
+            : newItemSectionId || undefined,
         );
       }
 
-      setNewItemName('');
-      setNewItemSupplier('');
-      setNewItemCategory('');
-      setNewItemSectionId(defaultSectionId || '');
-      setNewItemCatalogNumber('');
-      setNewItemDimensions('');
+      setNewItemName("");
+      setNewItemSupplier("");
+      setNewItemCategory("");
+      setNewItemSectionId(defaultSectionId || "");
+      setNewItemCatalogNumber("");
+      setNewItemDimensions("");
       setNewItemQuantity(1);
-      setNewItemUnitPrice('');
-      setNewItemProductLink('');
-      setNewItemImageUrl('');
-      setNewItemAssignedTo('none');
+      setNewItemUnitPrice("");
+      setNewItemProductLink("");
+      setNewItemImageUrl("");
+      setNewItemAssignedTo("none");
       setNewItemBuyBefore(undefined);
       setNewItemHasAlternatives(false);
     } catch (error) {
-      console.error('Error creating item:', error);
+      console.error("Error creating item:", error);
+      toast.error("Failed to add shopping list item", {
+        description: toUserFacingErrorMessage(error),
+      });
     }
   };
 
-  const totalPrice = newItemUnitPrice ? newItemQuantity * (parseFloat(newItemUnitPrice) || 0) : 0;
+  const totalPrice = newItemUnitPrice
+    ? newItemQuantity * (parseFloat(newItemUnitPrice) || 0)
+    : 0;
 
   return (
     <div className="flex flex-col gap-4">
@@ -244,7 +276,11 @@ export function AddItemForm({
             <FieldLabel>Section</FieldLabel>
             <Select
               value={newItemSectionId}
-              onValueChange={(value) => setNewItemSectionId(value as Id<"shoppingListSections"> | "none")}
+              onValueChange={(value) =>
+                setNewItemSectionId(
+                  value as Id<"shoppingListSections"> | "none",
+                )
+              }
             >
               <SelectTrigger className="h-12 text-sm">
                 <SelectValue placeholder="Select section" />
@@ -302,7 +338,9 @@ export function AddItemForm({
             type="number"
             min="1"
             value={newItemQuantity}
-            onChange={(e) => setNewItemQuantity(parseInt(e.target.value, 10) || 1)}
+            onChange={(e) =>
+              setNewItemQuantity(parseInt(e.target.value, 10) || 1)
+            }
             className="h-12 text-sm"
           />
         </Field>
@@ -333,8 +371,14 @@ export function AddItemForm({
               onClick={handleScrapeByUrl}
               className="h-12 shrink-0 px-4"
             >
-              {isScraping ? <Loader2 className="h-4 w-4 animate-spin" /> : <WandSparkles className="h-4 w-4" />}
-              <span className="ml-2 hidden xl:inline">{isScraping ? 'Scraping...' : 'Auto-fill'}</span>
+              {isScraping ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <WandSparkles className="h-4 w-4" />
+              )}
+              <span className="ml-2 hidden xl:inline">
+                {isScraping ? "Scraping..." : "Auto-fill"}
+              </span>
             </Button>
           </div>
         </Field>
@@ -388,13 +432,21 @@ export function AddItemForm({
           <Checkbox
             id="new-item-has-alternatives"
             checked={newItemHasAlternatives}
-            onCheckedChange={(checked: CheckedState) => setNewItemHasAlternatives(checked === true)}
+            onCheckedChange={(checked: CheckedState) =>
+              setNewItemHasAlternatives(checked === true)
+            }
             className="mt-0.5"
           />
-          <label htmlFor="new-item-has-alternatives" className="cursor-pointer text-sm leading-6">
-            <span className="font-medium text-foreground">Offer alternatives?</span>
+          <label
+            htmlFor="new-item-has-alternatives"
+            className="cursor-pointer text-sm leading-6"
+          >
+            <span className="font-medium text-foreground">
+              Offer alternatives?
+            </span>
             <span className="block text-muted-foreground">
-              Create an alternative group if the client should choose one option from a few versions of this product.
+              Create an alternative group if the client should choose one option
+              from a few versions of this product.
             </span>
           </label>
         </div>
@@ -415,7 +467,7 @@ export function AddItemForm({
           disabled={isPending || isScraping || !newItemName.trim()}
           className="h-11 px-6"
         >
-          {isPending ? 'Adding...' : submitLabel}
+          {isPending ? "Adding..." : submitLabel}
         </Button>
       </div>
     </div>

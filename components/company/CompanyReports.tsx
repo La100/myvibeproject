@@ -55,7 +55,11 @@ import {
 } from "@/lib/pdfExport";
 import { calculateShoppingTotal } from "@/lib/shoppingSets";
 import { formatCurrency } from "@/lib/utils";
-import { exportWorkbookTables, getSectionAccentColor, type XlsxTable } from "@/lib/xlsxExport";
+import {
+  exportWorkbookTables,
+  getSectionAccentColor,
+  type XlsxTable,
+} from "@/lib/xlsxExport";
 
 const SHOPPING_STATUSES = [
   "PLANNED",
@@ -87,7 +91,12 @@ const REPORT_SECTION_LABELS: Record<ReportSectionKey, string> = {
   financial: "Financial",
 };
 
-const REPORT_SECTION_ORDER: ReportSectionKey[] = ["overview", "projects", "tasks", "financial"];
+const REPORT_SECTION_ORDER: ReportSectionKey[] = [
+  "overview",
+  "projects",
+  "tasks",
+  "financial",
+];
 
 function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -123,13 +132,16 @@ export default function CompanyReports() {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isExportingInvoicesCsv, setIsExportingInvoicesCsv] = useState(false);
-  const [isDownloadingInvoicePdfs, setIsDownloadingInvoicePdfs] = useState(false);
+  const [isDownloadingInvoicePdfs, setIsDownloadingInvoicePdfs] =
+    useState(false);
   const [exportOptions, setExportOptions] = useState<ReportExportOptions>({
     format: "pdf",
     includeDetails: true,
     sections: ALL_REPORT_SECTIONS,
   });
-  const timeRangeConfig = TIME_RANGE_CONFIG[timeRange as keyof typeof TIME_RANGE_CONFIG] ?? TIME_RANGE_CONFIG["30d"];
+  const timeRangeConfig =
+    TIME_RANGE_CONFIG[timeRange as keyof typeof TIME_RANGE_CONFIG] ??
+    TIME_RANGE_CONFIG["30d"];
 
   const team = useQuery(
     apiAny.teams.getTeamByClerkOrg,
@@ -161,7 +173,9 @@ export default function CompanyReports() {
 
   const activityMetrics = useQuery(
     apiAny.activityLog.getTeamProductKpis,
-    team && team._id ? { teamId: team._id, days: timeRangeConfig.days } : "skip",
+    team && team._id
+      ? { teamId: team._id, days: timeRangeConfig.days }
+      : "skip",
   );
   const invoicesReport = useQuery(
     apiAny.projectPayments.getTeamInvoicesReport,
@@ -172,7 +186,11 @@ export default function CompanyReports() {
   );
 
   if (!isLoaded || !organization) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        Loading...
+      </div>
+    );
   }
 
   const projectList = projects || [];
@@ -208,26 +226,42 @@ export default function CompanyReports() {
   }, new Map<string, typeof tasksList>());
 
   const totalProjects = projectList.length;
-  const activeProjects = projectList.filter((project) => project.status === "active").length;
-  const totalBudget = projectList.reduce((sum, project) => sum + (project.budget || 0), 0);
+  const activeProjects = projectList.filter(
+    (project) => project.status === "active",
+  ).length;
+  const totalBudget = projectList.reduce(
+    (sum, project) => sum + (project.budget || 0),
+    0,
+  );
 
   const totalTasks = tasksList.length;
-  const completedTasks = tasksList.filter((task) => task.status === "done").length;
-  const inProgressTasks = tasksList.filter((task) => task.status === "in_progress").length;
-  const completionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
-  const timeRangeStart = Date.now() - timeRangeConfig.days * 24 * 60 * 60 * 1000;
-  const recentProjectsCount = projectList.filter((project) => project._creationTime >= timeRangeStart).length;
+  const completedTasks = tasksList.filter(
+    (task) => task.status === "done",
+  ).length;
+  const inProgressTasks = tasksList.filter(
+    (task) => task.status === "in_progress",
+  ).length;
+  const completionRate =
+    totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+  const timeRangeStart =
+    Date.now() - timeRangeConfig.days * 24 * 60 * 60 * 1000;
+  const recentProjectsCount = projectList.filter(
+    (project) => project._creationTime >= timeRangeStart,
+  ).length;
   const teamMembersCount = teamMembersList.length;
 
-  const totalShoppingCost = calculateShoppingTotal(shoppingListWithStatus, shoppingSetList as Array<{
-    _id: string;
-    setType: "variant" | "bundle" | "reference";
-    selectionMode: "single" | "multiple" | "none";
-    pricingMode: "selected_only" | "all_selected" | "none";
-    status: "draft" | "active" | "resolved" | "archived";
-    resolvedItemIds?: string[] | null;
-    preferredItemIds?: string[] | null;
-  }>);
+  const totalShoppingCost = calculateShoppingTotal(
+    shoppingListWithStatus,
+    shoppingSetList as Array<{
+      _id: string;
+      setType: "variant" | "bundle" | "reference";
+      selectionMode: "single" | "multiple" | "none";
+      pricingMode: "selected_only" | "all_selected" | "none";
+      status: "draft" | "active" | "resolved" | "archived";
+      resolvedItemIds?: string[] | null;
+      preferredItemIds?: string[] | null;
+    }>,
+  );
   const orderedShoppingCost = calculateShoppingTotal(
     shoppingListWithStatus,
     shoppingSetList as Array<{
@@ -239,7 +273,10 @@ export default function CompanyReports() {
       resolvedItemIds?: string[] | null;
       preferredItemIds?: string[] | null;
     }>,
-    (item) => ["ORDERED", "IN_TRANSIT", "DELIVERED", "COMPLETED"].includes(item.realizationStatus),
+    (item) =>
+      ["ORDERED", "IN_TRANSIT", "DELIVERED", "COMPLETED"].includes(
+        item.realizationStatus,
+      ),
   );
 
   const now = Date.now();
@@ -248,25 +285,42 @@ export default function CompanyReports() {
       const taskEndDate = task.endDate || task.startDate;
       return taskEndDate && taskEndDate < now && task.status !== "done";
     })
-    .sort((a, b) => (a.endDate || a.startDate || 0) - (b.endDate || b.startDate || 0))
+    .sort(
+      (a, b) =>
+        (a.endDate || a.startDate || 0) - (b.endDate || b.startDate || 0),
+    )
     .slice(0, 10);
   const overdueTasks = overdueTaskList.length;
 
-  const projectsByStatus = projectList.reduce((acc, project) => {
-    const status = project.status || "unknown";
-    acc[status] = (acc[status] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
+  const projectsByStatus = projectList.reduce(
+    (acc, project) => {
+      const status = project.status || "unknown";
+      acc[status] = (acc[status] || 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
 
-  const tasksByStatus = tasksList.reduce((acc, task) => {
-    acc[task.status] = (acc[task.status] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
+  const tasksByStatus = tasksList.reduce(
+    (acc, task) => {
+      acc[task.status] = (acc[task.status] || 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
 
   const shoppingByStatus = SHOPPING_STATUSES.map((status) => {
-    const items = shoppingListWithStatus.filter((item) => item.realizationStatus === status);
-    const scopedSetIds = new Set(items.map((item) => item.setId).filter((value): value is string => !!value));
-    const scopedSets = shoppingSetList.filter((set) => scopedSetIds.has(String(set._id)));
+    const items = shoppingListWithStatus.filter(
+      (item) => item.realizationStatus === status,
+    );
+    const scopedSetIds = new Set(
+      items
+        .map((item) => item.setId)
+        .filter((value): value is string => !!value),
+    );
+    const scopedSets = shoppingSetList.filter((set) =>
+      scopedSetIds.has(String(set._id)),
+    );
     return {
       status,
       count: items.length,
@@ -322,7 +376,10 @@ export default function CompanyReports() {
     }
 
     return rows
-      .map((row) => `${row.currency} ${formatInvoiceMoney(row[key], row.currency)}`)
+      .map(
+        (row) =>
+          `${row.currency} ${formatInvoiceMoney(row[key], row.currency)}`,
+      )
       .join(" • ");
   };
 
@@ -337,15 +394,23 @@ export default function CompanyReports() {
     ["Completion Rate", `${completionRate.toFixed(1)}%`],
     ["Overdue Tasks", overdueTasks],
     [`New Projects (${timeRangeConfig.label})`, recentProjectsCount],
-    [`Recorded Activity (${timeRangeConfig.label})`, activityMetrics?.activityEvents ?? 0],
-    [`Active Collaborators (${timeRangeConfig.label})`, activityMetrics?.activeCollaborators ?? 0],
+    [
+      `Recorded Activity (${timeRangeConfig.label})`,
+      activityMetrics?.activityEvents ?? 0,
+    ],
+    [
+      `Active Collaborators (${timeRangeConfig.label})`,
+      activityMetrics?.activeCollaborators ?? 0,
+    ],
   ] as Array<[string, string | number]>;
 
-  const projectStatusExportRows = Object.entries(projectsByStatus).map(([status, count]) => [
-    status.toUpperCase(),
-    String(Number(count)),
-    `${totalProjects > 0 ? ((Number(count) / totalProjects) * 100).toFixed(1) : "0.0"}%`,
-  ]);
+  const projectStatusExportRows = Object.entries(projectsByStatus).map(
+    ([status, count]) => [
+      status.toUpperCase(),
+      String(Number(count)),
+      `${totalProjects > 0 ? ((Number(count) / totalProjects) * 100).toFixed(1) : "0.0"}%`,
+    ],
+  );
 
   const projectDetailExportRows = projectList
     .slice()
@@ -353,7 +418,8 @@ export default function CompanyReports() {
     .map((project) => {
       const projectTasks = tasksByProject.get(String(project._id)) || [];
       const done = projectTasks.filter((task) => task.status === "done").length;
-      const progress = projectTasks.length > 0 ? (done / projectTasks.length) * 100 : 0;
+      const progress =
+        projectTasks.length > 0 ? (done / projectTasks.length) * 100 : 0;
 
       return [
         project.name,
@@ -364,20 +430,27 @@ export default function CompanyReports() {
         typeof project.budget === "number"
           ? formatMoney(project.budget, project.currency || activeCurrency)
           : "-",
-        project.startDate ? new Date(project.startDate).toLocaleDateString() : "-",
+        project.startDate
+          ? new Date(project.startDate).toLocaleDateString()
+          : "-",
         new Date(project._creationTime).toLocaleDateString(),
       ];
     });
 
-  const taskStatusExportRows = Object.entries(tasksByStatus).map(([status, count]) => [
-    status.replaceAll("_", " ").toUpperCase(),
-    String(Number(count)),
-    `${totalTasks > 0 ? ((Number(count) / totalTasks) * 100).toFixed(1) : "0.0"}%`,
-  ]);
+  const taskStatusExportRows = Object.entries(tasksByStatus).map(
+    ([status, count]) => [
+      status.replaceAll("_", " ").toUpperCase(),
+      String(Number(count)),
+      `${totalTasks > 0 ? ((Number(count) / totalTasks) * 100).toFixed(1) : "0.0"}%`,
+    ],
+  );
 
   const taskDetailExportRows = tasksList
     .slice()
-    .sort((a, b) => (a.endDate || a.startDate || 0) - (b.endDate || b.startDate || 0))
+    .sort(
+      (a, b) =>
+        (a.endDate || a.startDate || 0) - (b.endDate || b.startDate || 0),
+    )
     .map((task) => {
       const dueDate = task.endDate || task.startDate;
       const isOverdue = !!dueDate && dueDate < now && task.status !== "done";
@@ -407,8 +480,14 @@ export default function CompanyReports() {
     ["Open Invoices", String(invoiceTotals.openCount)],
     ["Overdue Invoices", String(invoiceTotals.overdueCount)],
     ["Issued Volume", summarizeCurrencyValues(invoiceCurrencySummary, "total")],
-    ["Paid Volume", summarizeCurrencyValues(invoiceCurrencySummary, "paidTotal")],
-    ["Outstanding Volume", summarizeCurrencyValues(invoiceCurrencySummary, "openTotal")],
+    [
+      "Paid Volume",
+      summarizeCurrencyValues(invoiceCurrencySummary, "paidTotal"),
+    ],
+    [
+      "Outstanding Volume",
+      summarizeCurrencyValues(invoiceCurrencySummary, "openTotal"),
+    ],
   ] as Array<[string, string]>;
 
   const invoiceCurrencyExportRows = invoiceCurrencySummary.map((entry) => [
@@ -427,7 +506,9 @@ export default function CompanyReports() {
     invoice.status.toUpperCase(),
     invoice.currency,
     formatInvoiceMoney(invoice.total, invoice.currency),
-    invoice.invoiceIssuedAt ? new Date(invoice.invoiceIssuedAt).toLocaleDateString() : "-",
+    invoice.invoiceIssuedAt
+      ? new Date(invoice.invoiceIssuedAt).toLocaleDateString()
+      : "-",
     invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : "-",
     invoice.paidAt ? new Date(invoice.paidAt).toLocaleDateString() : "-",
     invoice.hasInvoicePdf ? "Yes" : "No",
@@ -450,7 +531,9 @@ export default function CompanyReports() {
       formatMoney(project.budget || 0, project.currency || activeCurrency),
     ]);
 
-  const buildReportTablesForSection = (section: ReportSectionKey): XlsxTable[] => {
+  const buildReportTablesForSection = (
+    section: ReportSectionKey,
+  ): XlsxTable[] => {
     if (section === "overview") {
       return [
         {
@@ -471,7 +554,16 @@ export default function CompanyReports() {
         ...(exportOptions.includeDetails
           ? [
               {
-                headers: ["Project", "Customer", "Status", "Progress", "Tasks", "Budget", "Start", "Created"],
+                headers: [
+                  "Project",
+                  "Customer",
+                  "Status",
+                  "Progress",
+                  "Tasks",
+                  "Budget",
+                  "Start",
+                  "Created",
+                ],
                 rows: projectDetailExportRows,
                 title: "Project Details",
               },
@@ -495,7 +587,14 @@ export default function CompanyReports() {
                 title: "Overdue Tasks",
               },
               {
-                headers: ["Task", "Project", "Status", "Priority", "Due", "Overdue"],
+                headers: [
+                  "Task",
+                  "Project",
+                  "Status",
+                  "Priority",
+                  "Due",
+                  "Overdue",
+                ],
                 rows: taskDetailExportRows,
                 title: "Task Details",
               },
@@ -511,7 +610,14 @@ export default function CompanyReports() {
         title: "Financial Summary",
       },
       {
-        headers: ["Currency", "Invoices", "Issued", "Paid", "Outstanding", "Overdue"],
+        headers: [
+          "Currency",
+          "Invoices",
+          "Issued",
+          "Paid",
+          "Outstanding",
+          "Overdue",
+        ],
         rows: invoiceCurrencyExportRows,
         title: "Invoices by Currency",
       },
@@ -523,7 +629,18 @@ export default function CompanyReports() {
       ...(exportOptions.includeDetails
         ? [
             {
-              headers: ["Invoice", "Project", "Customer", "Status", "Currency", "Total", "Issued", "Due", "Paid", "PDF"],
+              headers: [
+                "Invoice",
+                "Project",
+                "Customer",
+                "Status",
+                "Currency",
+                "Total",
+                "Issued",
+                "Due",
+                "Paid",
+                "PDF",
+              ],
               rows: invoiceDetailExportRows,
               title: "Issued Invoices",
             },
@@ -555,14 +672,20 @@ export default function CompanyReports() {
   };
 
   const exportCsv = () => {
-    const selectedSections = REPORT_SECTION_ORDER.filter((section) => exportOptions.sections[section]);
+    const selectedSections = REPORT_SECTION_ORDER.filter(
+      (section) => exportOptions.sections[section],
+    );
     if (selectedSections.length === 0) {
       toast.error("Select at least one section to export.");
       return;
     }
 
     const rows: string[][] = [];
-    const addTable = (title: string, headers: string[], body: Array<Array<string | number>>) => {
+    const addTable = (
+      title: string,
+      headers: string[],
+      body: Array<Array<string | number>>,
+    ) => {
       rows.push([title]);
       rows.push(headers);
       if (body.length === 0) {
@@ -578,20 +701,41 @@ export default function CompanyReports() {
     }
 
     if (exportOptions.sections.projects) {
-      addTable("Project Status Distribution", ["Status", "Projects", "Share"], projectStatusExportRows);
+      addTable(
+        "Project Status Distribution",
+        ["Status", "Projects", "Share"],
+        projectStatusExportRows,
+      );
       if (exportOptions.includeDetails) {
         addTable(
           "Project Details",
-          ["Project", "Customer", "Status", "Progress", "Tasks", "Budget", "Start", "Created"],
+          [
+            "Project",
+            "Customer",
+            "Status",
+            "Progress",
+            "Tasks",
+            "Budget",
+            "Start",
+            "Created",
+          ],
           projectDetailExportRows,
         );
       }
     }
 
     if (exportOptions.sections.tasks) {
-      addTable("Task Status Breakdown", ["Status", "Tasks", "Share"], taskStatusExportRows);
+      addTable(
+        "Task Status Breakdown",
+        ["Status", "Tasks", "Share"],
+        taskStatusExportRows,
+      );
       if (exportOptions.includeDetails) {
-        addTable("Overdue Tasks", ["Task", "Project", "Priority", "Due"], overdueTaskExportRows);
+        addTable(
+          "Overdue Tasks",
+          ["Task", "Project", "Priority", "Due"],
+          overdueTaskExportRows,
+        );
         addTable(
           "Task Details",
           ["Task", "Project", "Status", "Priority", "Due", "Overdue"],
@@ -607,14 +751,33 @@ export default function CompanyReports() {
         ["Currency", "Invoices", "Issued", "Paid", "Outstanding", "Overdue"],
         invoiceCurrencyExportRows,
       );
-      addTable("Shopping List by Status", ["Status", "Items", "Total"], shoppingStatusExportRows);
+      addTable(
+        "Shopping List by Status",
+        ["Status", "Items", "Total"],
+        shoppingStatusExportRows,
+      );
       if (exportOptions.includeDetails) {
         addTable(
           "Issued Invoices",
-          ["Invoice", "Project", "Customer", "Status", "Currency", "Total", "Issued", "Due", "Paid", "PDF"],
+          [
+            "Invoice",
+            "Project",
+            "Customer",
+            "Status",
+            "Currency",
+            "Total",
+            "Issued",
+            "Due",
+            "Paid",
+            "PDF",
+          ],
           invoiceDetailExportRows,
         );
-        addTable("Top Projects by Budget", ["Project", "Status", "Currency", "Budget"], topBudgetExportRows);
+        addTable(
+          "Top Projects by Budget",
+          ["Project", "Status", "Currency", "Budget"],
+          topBudgetExportRows,
+        );
       }
     }
 
@@ -627,11 +790,15 @@ export default function CompanyReports() {
       `reports-${sanitizeFileName(organization.name || "organization")}-${fileDate}.csv`,
     );
     setIsExportModalOpen(false);
-    toast.success(`Exported ${selectedSections.map((section) => REPORT_SECTION_LABELS[section]).join(", ")} as CSV.`);
+    toast.success(
+      `Exported ${selectedSections.map((section) => REPORT_SECTION_LABELS[section]).join(", ")} as CSV.`,
+    );
   };
 
   const exportXlsx = async () => {
-    const selectedSections = REPORT_SECTION_ORDER.filter((section) => exportOptions.sections[section]);
+    const selectedSections = REPORT_SECTION_ORDER.filter(
+      (section) => exportOptions.sections[section],
+    );
     if (selectedSections.length === 0) {
       toast.error("Select at least one section to export.");
       return;
@@ -651,11 +818,15 @@ export default function CompanyReports() {
       })),
     });
     setIsExportModalOpen(false);
-    toast.success(`Exported ${selectedSections.map((section) => REPORT_SECTION_LABELS[section]).join(", ")} as Excel.`);
+    toast.success(
+      `Exported ${selectedSections.map((section) => REPORT_SECTION_LABELS[section]).join(", ")} as Excel.`,
+    );
   };
 
   const exportPdf = async () => {
-    const selectedSections = REPORT_SECTION_ORDER.filter((section) => exportOptions.sections[section]);
+    const selectedSections = REPORT_SECTION_ORDER.filter(
+      (section) => exportOptions.sections[section],
+    );
     if (selectedSections.length === 0) {
       toast.error("Select at least one section to export.");
       return;
@@ -711,10 +882,20 @@ export default function CompanyReports() {
       head: string[][],
       body: Array<Array<string | number>>,
       options?: {
-        columnStyles?: Record<number, { cellWidth?: number | "auto"; halign?: "left" | "center" | "right" }>;
+        columnStyles?: Record<
+          number,
+          { cellWidth?: number | "auto"; halign?: "left" | "center" | "right" }
+        >;
       },
     ) => {
-      const safeBody = body.length > 0 ? body : [Array.from({ length: head[0]?.length || 1 }, (_, index) => (index === 0 ? "No data" : ""))];
+      const safeBody =
+        body.length > 0
+          ? body
+          : [
+              Array.from({ length: head[0]?.length || 1 }, (_, index) =>
+                index === 0 ? "No data" : "",
+              ),
+            ];
       await renderPdfTable(doc, {
         ...pdfTableTheme,
         startY: yPosition,
@@ -731,7 +912,8 @@ export default function CompanyReports() {
         columnStyles: options?.columnStyles,
       });
       yPosition =
-        ((doc as typeof doc & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY || yPosition) + 8;
+        ((doc as typeof doc & { lastAutoTable?: { finalY: number } })
+          .lastAutoTable?.finalY || yPosition) + 8;
     };
 
     if (exportOptions.sections.overview) {
@@ -746,17 +928,32 @@ export default function CompanyReports() {
 
     if (exportOptions.sections.projects) {
       renderSectionTitle("Projects", "Status distribution");
-      await renderTable([["Status", "Projects", "Share"]], projectStatusExportRows, {
-        columnStyles: {
-          1: { halign: "right" },
-          2: { halign: "right" },
+      await renderTable(
+        [["Status", "Projects", "Share"]],
+        projectStatusExportRows,
+        {
+          columnStyles: {
+            1: { halign: "right" },
+            2: { halign: "right" },
+          },
         },
-      });
+      );
 
       if (exportOptions.includeDetails) {
         renderSectionTitle("Project Details");
         await renderTable(
-          [["Project", "Customer", "Status", "Progress", "Tasks", "Budget", "Start", "Created"]],
+          [
+            [
+              "Project",
+              "Customer",
+              "Status",
+              "Progress",
+              "Tasks",
+              "Budget",
+              "Start",
+              "Created",
+            ],
+          ],
           projectDetailExportRows,
           {
             columnStyles: {
@@ -785,26 +982,34 @@ export default function CompanyReports() {
 
       if (exportOptions.includeDetails) {
         renderSectionTitle("Overdue Tasks");
-        await renderTable([["Task", "Project", "Priority", "Due"]], overdueTaskExportRows, {
-          columnStyles: {
-            0: { cellWidth: 72 },
-            1: { cellWidth: 48 },
-            2: { cellWidth: 24 },
-            3: { cellWidth: 24 },
+        await renderTable(
+          [["Task", "Project", "Priority", "Due"]],
+          overdueTaskExportRows,
+          {
+            columnStyles: {
+              0: { cellWidth: 72 },
+              1: { cellWidth: 48 },
+              2: { cellWidth: 24 },
+              3: { cellWidth: 24 },
+            },
           },
-        });
+        );
 
         renderSectionTitle("Task Details");
-        await renderTable([["Task", "Project", "Status", "Priority", "Due", "Overdue"]], taskDetailExportRows, {
-          columnStyles: {
-            0: { cellWidth: 58 },
-            1: { cellWidth: 40 },
-            2: { cellWidth: 28 },
-            3: { cellWidth: 24 },
-            4: { cellWidth: 22 },
-            5: { cellWidth: 18, halign: "center" },
+        await renderTable(
+          [["Task", "Project", "Status", "Priority", "Due", "Overdue"]],
+          taskDetailExportRows,
+          {
+            columnStyles: {
+              0: { cellWidth: 58 },
+              1: { cellWidth: 40 },
+              2: { cellWidth: 28 },
+              3: { cellWidth: 24 },
+              4: { cellWidth: 22 },
+              5: { cellWidth: 18, halign: "center" },
+            },
           },
-        });
+        );
       }
     }
 
@@ -829,17 +1034,34 @@ export default function CompanyReports() {
           },
         },
       );
-      await renderTable([["Status", "Items", "Total"]], shoppingStatusExportRows, {
-        columnStyles: {
-          1: { halign: "right" },
-          2: { halign: "right" },
+      await renderTable(
+        [["Status", "Items", "Total"]],
+        shoppingStatusExportRows,
+        {
+          columnStyles: {
+            1: { halign: "right" },
+            2: { halign: "right" },
+          },
         },
-      });
+      );
 
       if (exportOptions.includeDetails) {
         renderSectionTitle("Issued Invoices");
         await renderTable(
-          [["Invoice", "Project", "Customer", "Status", "Currency", "Total", "Issued", "Due", "Paid", "PDF"]],
+          [
+            [
+              "Invoice",
+              "Project",
+              "Customer",
+              "Status",
+              "Currency",
+              "Total",
+              "Issued",
+              "Due",
+              "Paid",
+              "PDF",
+            ],
+          ],
           invoiceDetailExportRows,
           {
             columnStyles: {
@@ -858,21 +1080,29 @@ export default function CompanyReports() {
         );
 
         renderSectionTitle("Top Projects by Budget");
-        await renderTable([["Project", "Status", "Currency", "Budget"]], topBudgetExportRows, {
-          columnStyles: {
-            0: { cellWidth: 74 },
-            1: { cellWidth: 32 },
-            2: { cellWidth: 24 },
-            3: { cellWidth: 34, halign: "right" },
+        await renderTable(
+          [["Project", "Status", "Currency", "Budget"]],
+          topBudgetExportRows,
+          {
+            columnStyles: {
+              0: { cellWidth: 74 },
+              1: { cellWidth: 32 },
+              2: { cellWidth: 24 },
+              3: { cellWidth: 34, halign: "right" },
+            },
           },
-        });
+        );
       }
     }
 
     addPageNumbers(doc, pdfFontFamily);
-    doc.save(`reports-${sanitizeFileName(organization.name || "organization")}-${fileDate}.pdf`);
+    doc.save(
+      `reports-${sanitizeFileName(organization.name || "organization")}-${fileDate}.pdf`,
+    );
     setIsExportModalOpen(false);
-    toast.success(`Exported ${selectedSections.map((section) => REPORT_SECTION_LABELS[section]).join(", ")} as PDF.`);
+    toast.success(
+      `Exported ${selectedSections.map((section) => REPORT_SECTION_LABELS[section]).join(", ")} as PDF.`,
+    );
   };
 
   const handleExport = async () => {
@@ -905,7 +1135,18 @@ export default function CompanyReports() {
     try {
       downloadCsvFile({
         fileName: `invoice-register-${sanitizeFileName(organization.name || "organization")}-${fileDate}.csv`,
-        headers: ["Invoice", "Project", "Customer", "Status", "Currency", "Total", "Issued", "Due", "Paid", "PDF"],
+        headers: [
+          "Invoice",
+          "Project",
+          "Customer",
+          "Status",
+          "Currency",
+          "Total",
+          "Issued",
+          "Due",
+          "Paid",
+          "PDF",
+        ],
         rows: invoiceDetailExportRows,
       });
       toast.success(`Exported ${issuedInvoices.length} invoices as CSV.`);
@@ -930,7 +1171,9 @@ export default function CompanyReports() {
 
     try {
       for (const invoice of issuedInvoices) {
-        const result = await getInvoiceDownloadUrl({ installmentId: invoice._id });
+        const result = await getInvoiceDownloadUrl({
+          installmentId: invoice._id,
+        });
         downloadUrl(
           result.url,
           `invoice-${sanitizeFileName(invoice.invoiceNumber || invoice.title || String(invoice._id))}.pdf`,
@@ -946,7 +1189,7 @@ export default function CompanyReports() {
         description:
           successCount > 0
             ? `${successCount} files were already started before the error.`
-            : (error as Error).message,
+            : toUserFacingErrorMessage(error),
       });
     } finally {
       setIsDownloadingInvoicePdfs(false);
@@ -978,7 +1221,11 @@ export default function CompanyReports() {
         </div>
       </div>
 
-      <Tabs className="w-full" value={activeTab} onValueChange={(value) => setActiveTab(value as ReportSectionKey)}>
+      <Tabs
+        className="w-full"
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as ReportSectionKey)}
+      >
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="projects">Projects</TabsTrigger>
@@ -991,33 +1238,47 @@ export default function CompanyReports() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <Card className="h-full min-h-[8.75rem] bg-card">
                 <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Projects</CardTitle>
+                  <CardTitle className="text-sm font-medium">
+                    Total Projects
+                  </CardTitle>
                   <BarChart3 className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{totalProjects}</div>
-                  <p className="text-xs text-muted-foreground">{activeProjects} currently active</p>
+                  <p className="text-xs text-muted-foreground">
+                    {activeProjects} currently active
+                  </p>
                 </CardContent>
               </Card>
 
               <Card className="h-full min-h-[8.75rem] bg-card">
                 <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Budget</CardTitle>
+                  <CardTitle className="text-sm font-medium">
+                    Total Budget
+                  </CardTitle>
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{formatMoney(totalBudget)}</div>
-                  <p className="text-xs text-muted-foreground">Across the full project portfolio</p>
+                  <div className="text-2xl font-bold">
+                    {formatMoney(totalBudget)}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Across the full project portfolio
+                  </p>
                 </CardContent>
               </Card>
 
               <Card className="h-full min-h-[8.75rem] bg-card">
                 <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-                  <CardTitle className="text-sm font-medium">Task Completion</CardTitle>
+                  <CardTitle className="text-sm font-medium">
+                    Task Completion
+                  </CardTitle>
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{completionRate.toFixed(1)}%</div>
+                  <div className="text-2xl font-bold">
+                    {completionRate.toFixed(1)}%
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     {completedTasks} completed, {inProgressTasks} in progress
                   </p>
@@ -1026,7 +1287,9 @@ export default function CompanyReports() {
 
               <Card className="h-full min-h-[8.75rem] bg-card">
                 <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-                  <CardTitle className="text-sm font-medium">Overdue Tasks</CardTitle>
+                  <CardTitle className="text-sm font-medium">
+                    Overdue Tasks
+                  </CardTitle>
                   <Clock className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -1035,7 +1298,9 @@ export default function CompanyReports() {
                     {overdueTasks > 0 ? (
                       <span className="text-destructive">Action required</span>
                     ) : (
-                      <span className="text-foreground">No delays detected</span>
+                      <span className="text-foreground">
+                        No delays detected
+                      </span>
                     )}
                   </p>
                 </CardContent>
@@ -1076,14 +1341,29 @@ export default function CompanyReports() {
             <Card className="bg-card">
               <CardHeader>
                 <CardTitle>Project Status Distribution</CardTitle>
-                <CardDescription>Breakdown of projects by current status</CardDescription>
+                <CardDescription>
+                  Breakdown of projects by current status
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-col gap-4">
-                  {Object.entries(projectsByStatus as Record<string, number>).map(([status, count]) => (
-                    <div key={status} className="flex items-center justify-between">
+                  {Object.entries(
+                    projectsByStatus as Record<string, number>,
+                  ).map(([status, count]) => (
+                    <div
+                      key={status}
+                      className="flex items-center justify-between"
+                    >
                       <div className="flex items-center gap-2">
-                        <Badge variant={status === "completed" ? "default" : status === "active" ? "secondary" : "outline"}>
+                        <Badge
+                          variant={
+                            status === "completed"
+                              ? "default"
+                              : status === "active"
+                                ? "secondary"
+                                : "outline"
+                          }
+                        >
                           {status.toUpperCase()}
                         </Badge>
                       </div>
@@ -1091,10 +1371,14 @@ export default function CompanyReports() {
                         <div className="w-32 bg-secondary rounded-full h-2">
                           <div
                             className="bg-primary h-2 rounded-full"
-                            style={{ width: `${totalProjects > 0 ? (Number(count) / totalProjects) * 100 : 0}%` }}
+                            style={{
+                              width: `${totalProjects > 0 ? (Number(count) / totalProjects) * 100 : 0}%`,
+                            }}
                           />
                         </div>
-                        <span className="text-sm font-medium w-8">{Number(count)}</span>
+                        <span className="text-sm font-medium w-8">
+                          {Number(count)}
+                        </span>
                       </div>
                     </div>
                   ))}
@@ -1105,7 +1389,9 @@ export default function CompanyReports() {
             <Card className="bg-card">
               <CardHeader>
                 <CardTitle>All Projects</CardTitle>
-                <CardDescription>Progress, budget, and schedule overview</CardDescription>
+                <CardDescription>
+                  Progress, budget, and schedule overview
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-col gap-4">
@@ -1114,36 +1400,67 @@ export default function CompanyReports() {
                       .slice()
                       .sort((a, b) => b._creationTime - a._creationTime)
                       .map((project) => {
-                        const projectTasks = tasksByProject.get(String(project._id)) || [];
-                        const done = projectTasks.filter((task) => task.status === "done").length;
-                        const progress = projectTasks.length > 0 ? (done / projectTasks.length) * 100 : 0;
+                        const projectTasks =
+                          tasksByProject.get(String(project._id)) || [];
+                        const done = projectTasks.filter(
+                          (task) => task.status === "done",
+                        ).length;
+                        const progress =
+                          projectTasks.length > 0
+                            ? (done / projectTasks.length) * 100
+                            : 0;
 
                         return (
-                          <div key={project._id} className="rounded-lg border bg-secondary/70 p-4">
+                          <div
+                            key={project._id}
+                            className="rounded-lg border bg-secondary/70 p-4"
+                          >
                             <div className="flex items-start justify-between mb-2">
                               <div>
-                                <h4 className="font-semibold">{project.name}</h4>
+                                <h4 className="font-semibold">
+                                  {project.name}
+                                </h4>
                                 {project.customer ? (
-                                  <p className="text-sm text-muted-foreground">{project.customer}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {project.customer}
+                                  </p>
                                 ) : null}
                               </div>
                               <Badge variant="outline">{project.status}</Badge>
                             </div>
                             <div className="flex flex-col gap-2">
                               <div className="flex items-center justify-between text-sm">
-                                <span className="text-muted-foreground">Progress</span>
-                                <span className="font-medium">{Math.round(progress)}%</span>
+                                <span className="text-muted-foreground">
+                                  Progress
+                                </span>
+                                <span className="font-medium">
+                                  {Math.round(progress)}%
+                                </span>
                               </div>
                               <div className="w-full bg-secondary rounded-full h-2">
-                                <div className="bg-primary h-2 rounded-full" style={{ width: `${progress}%` }} />
+                                <div
+                                  className="bg-primary h-2 rounded-full"
+                                  style={{ width: `${progress}%` }}
+                                />
                               </div>
                               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                                 <span>{projectTasks.length} tasks</span>
                                 {typeof project.budget === "number" ? (
-                                  <span>Budget: {formatMoney(project.budget, project.currency || activeCurrency)}</span>
+                                  <span>
+                                    Budget:{" "}
+                                    {formatMoney(
+                                      project.budget,
+                                      project.currency || activeCurrency,
+                                    )}
+                                  </span>
                                 ) : null}
                                 {project.startDate ? (
-                                  <span>Start: {new Date(project.startDate).toLocaleDateString()}</span>
+                                  <span>
+                                    Start:{" "}
+                                    {new Date(
+                                      project.startDate,
+                                    ).toLocaleDateString()}
+                                  </span>
                                 ) : null}
                               </div>
                             </div>
@@ -1151,7 +1468,9 @@ export default function CompanyReports() {
                         );
                       })
                   ) : (
-                    <div className="text-center py-8 text-muted-foreground">No projects yet</div>
+                    <div className="text-center py-8 text-muted-foreground">
+                      No projects yet
+                    </div>
                   )}
                 </div>
               </CardContent>
@@ -1168,20 +1487,33 @@ export default function CompanyReports() {
               </CardHeader>
               <CardContent>
                 <div className="flex flex-col gap-4">
-                  {Object.entries(tasksByStatus as Record<string, number>).map(([status, count]) => (
-                    <div key={status} className="flex items-center justify-between">
-                      <Badge variant={status === "done" ? "default" : "outline"}>{status.replace("_", " ").toUpperCase()}</Badge>
-                      <div className="flex items-center gap-2">
-                        <div className="w-32 bg-secondary rounded-full h-2">
-                          <div
-                            className="bg-primary h-2 rounded-full"
-                            style={{ width: `${totalTasks > 0 ? (Number(count) / totalTasks) * 100 : 0}%` }}
-                          />
+                  {Object.entries(tasksByStatus as Record<string, number>).map(
+                    ([status, count]) => (
+                      <div
+                        key={status}
+                        className="flex items-center justify-between"
+                      >
+                        <Badge
+                          variant={status === "done" ? "default" : "outline"}
+                        >
+                          {status.replace("_", " ").toUpperCase()}
+                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <div className="w-32 bg-secondary rounded-full h-2">
+                            <div
+                              className="bg-primary h-2 rounded-full"
+                              style={{
+                                width: `${totalTasks > 0 ? (Number(count) / totalTasks) * 100 : 0}%`,
+                              }}
+                            />
+                          </div>
+                          <span className="text-sm font-medium w-8">
+                            {Number(count)}
+                          </span>
                         </div>
-                        <span className="text-sm font-medium w-8">{Number(count)}</span>
                       </div>
-                    </div>
-                  ))}
+                    ),
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -1193,20 +1525,34 @@ export default function CompanyReports() {
                     <AlertCircle className="h-5 w-5 text-destructive" />
                     Overdue Tasks
                   </CardTitle>
-                  <CardDescription>Tasks that need immediate attention</CardDescription>
+                  <CardDescription>
+                    Tasks that need immediate attention
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="flex flex-col gap-3">
                     {overdueTaskList.map((task) => (
-                      <div key={task._id} className="flex items-center justify-between rounded-lg border border-border/70 border-l-2 border-l-destructive bg-secondary/70 px-3 py-2">
+                      <div
+                        key={task._id}
+                        className="flex items-center justify-between rounded-lg border border-border/70 border-l-2 border-l-destructive bg-secondary/70 px-3 py-2"
+                      >
                         <div className="flex-1">
                           <p className="font-medium">{task.title}</p>
                           <p className="text-xs text-muted-foreground">
-                            {projectById.get(String(task.projectId))?.name} • Due{" "}
-                            {new Date((task.endDate || task.startDate)!).toLocaleDateString()}
+                            {projectById.get(String(task.projectId))?.name} •
+                            Due{" "}
+                            {new Date(
+                              (task.endDate || task.startDate)!,
+                            ).toLocaleDateString()}
                           </p>
                         </div>
-                        <Badge variant={task.priority === "urgent" ? "destructive" : "secondary"}>
+                        <Badge
+                          variant={
+                            task.priority === "urgent"
+                              ? "destructive"
+                              : "secondary"
+                          }
+                        >
                           {task.priority || "medium"}
                         </Badge>
                       </div>
@@ -1221,69 +1567,164 @@ export default function CompanyReports() {
         <TabsContent value="financial" className="mt-6">
           <div className="flex flex-col gap-6">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <FinancialCard title="Total Budget" value={formatMoney(totalBudget)} subtitle={`Across ${totalProjects} projects`} icon={<DollarSign className="h-4 w-4 text-muted-foreground" />} />
-              <FinancialCard title="Shopping List" value={formatMoney(totalShoppingCost)} subtitle={`${shoppingList.length} items planned`} icon={<BarChart3 className="h-4 w-4 text-muted-foreground" />} />
-              <FinancialCard title="Ordered Items" value={formatMoney(orderedShoppingCost)} subtitle="Already ordered/delivered" icon={<TrendingUp className="h-4 w-4 text-muted-foreground" />} />
-              <FinancialCard title="Issued Invoices" value={String(invoiceTotals.invoiceCount)} subtitle={`${invoiceTotals.paidCount} paid • ${invoiceTotals.openCount} open`} icon={<Receipt className="h-4 w-4 text-muted-foreground" />} />
+              <FinancialCard
+                title="Total Budget"
+                value={formatMoney(totalBudget)}
+                subtitle={`Across ${totalProjects} projects`}
+                icon={<DollarSign className="h-4 w-4 text-muted-foreground" />}
+              />
+              <FinancialCard
+                title="Shopping List"
+                value={formatMoney(totalShoppingCost)}
+                subtitle={`${shoppingList.length} items planned`}
+                icon={<BarChart3 className="h-4 w-4 text-muted-foreground" />}
+              />
+              <FinancialCard
+                title="Ordered Items"
+                value={formatMoney(orderedShoppingCost)}
+                subtitle="Already ordered/delivered"
+                icon={<TrendingUp className="h-4 w-4 text-muted-foreground" />}
+              />
+              <FinancialCard
+                title="Issued Invoices"
+                value={String(invoiceTotals.invoiceCount)}
+                subtitle={`${invoiceTotals.paidCount} paid • ${invoiceTotals.openCount} open`}
+                icon={<Receipt className="h-4 w-4 text-muted-foreground" />}
+              />
             </div>
 
             <Card className="bg-card">
               <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
                   <CardTitle>Invoices Across All Projects</CardTitle>
-                  <CardDescription>Issued invoices register with totals grouped by currency</CardDescription>
+                  <CardDescription>
+                    Issued invoices register with totals grouped by currency
+                  </CardDescription>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button
                     onClick={() => void handleInvoiceCsvExport()}
                     variant="outline"
-                    disabled={isExportingInvoicesCsv || issuedInvoices.length === 0}
+                    disabled={
+                      isExportingInvoicesCsv || issuedInvoices.length === 0
+                    }
                   >
                     <FileText className="mr-2 h-4 w-4" />
-                    {isExportingInvoicesCsv ? "Exporting CSV..." : "Export invoices CSV"}
+                    {isExportingInvoicesCsv
+                      ? "Exporting CSV..."
+                      : "Export invoices CSV"}
                   </Button>
                   <Button
                     onClick={() => void handleInvoicePdfBatchDownload()}
                     variant="outline"
-                    disabled={isDownloadingInvoicePdfs || issuedInvoices.length === 0}
+                    disabled={
+                      isDownloadingInvoicePdfs || issuedInvoices.length === 0
+                    }
                   >
                     <Download className="mr-2 h-4 w-4" />
-                    {isDownloadingInvoicePdfs ? "Preparing PDFs..." : "Download all PDFs"}
+                    {isDownloadingInvoicePdfs
+                      ? "Preparing PDFs..."
+                      : "Download all PDFs"}
                   </Button>
                 </div>
               </CardHeader>
               <CardContent className="flex flex-col gap-6">
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                  <FinancialCard title="Paid" value={String(invoiceTotals.paidCount)} subtitle={summarizeCurrencyValues(invoiceCurrencySummary, "paidTotal")} icon={<Receipt className="h-4 w-4 text-muted-foreground" />} />
-                  <FinancialCard title="Open" value={String(invoiceTotals.openCount)} subtitle={summarizeCurrencyValues(invoiceCurrencySummary, "openTotal")} icon={<Clock className="h-4 w-4 text-muted-foreground" />} />
-                  <FinancialCard title="Overdue" value={String(invoiceTotals.overdueCount)} subtitle={summarizeCurrencyValues(invoiceCurrencySummary, "overdueTotal")} icon={<AlertCircle className="h-4 w-4 text-muted-foreground" />} />
-                  <FinancialCard title="Currencies" value={String(invoiceCurrencySummary.length)} subtitle={invoiceCurrencySummary.map((entry) => entry.currency).join(" • ") || "No data"} icon={<DollarSign className="h-4 w-4 text-muted-foreground" />} />
+                  <FinancialCard
+                    title="Paid"
+                    value={String(invoiceTotals.paidCount)}
+                    subtitle={summarizeCurrencyValues(
+                      invoiceCurrencySummary,
+                      "paidTotal",
+                    )}
+                    icon={<Receipt className="h-4 w-4 text-muted-foreground" />}
+                  />
+                  <FinancialCard
+                    title="Open"
+                    value={String(invoiceTotals.openCount)}
+                    subtitle={summarizeCurrencyValues(
+                      invoiceCurrencySummary,
+                      "openTotal",
+                    )}
+                    icon={<Clock className="h-4 w-4 text-muted-foreground" />}
+                  />
+                  <FinancialCard
+                    title="Overdue"
+                    value={String(invoiceTotals.overdueCount)}
+                    subtitle={summarizeCurrencyValues(
+                      invoiceCurrencySummary,
+                      "overdueTotal",
+                    )}
+                    icon={
+                      <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                    }
+                  />
+                  <FinancialCard
+                    title="Currencies"
+                    value={String(invoiceCurrencySummary.length)}
+                    subtitle={
+                      invoiceCurrencySummary
+                        .map((entry) => entry.currency)
+                        .join(" • ") || "No data"
+                    }
+                    icon={
+                      <DollarSign className="h-4 w-4 text-muted-foreground" />
+                    }
+                  />
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                   {invoiceCurrencySummary.length > 0 ? (
                     invoiceCurrencySummary.map((entry) => (
-                      <div key={entry.currency} className="rounded-lg border border-border/70 bg-secondary/70 p-4">
+                      <div
+                        key={entry.currency}
+                        className="rounded-lg border border-border/70 bg-secondary/70 p-4"
+                      >
                         <div className="flex items-center justify-between gap-3">
                           <p className="font-medium">{entry.currency}</p>
-                          <Badge variant="outline">{entry.invoiceCount} invoices</Badge>
+                          <Badge variant="outline">
+                            {entry.invoiceCount} invoices
+                          </Badge>
                         </div>
                         <div className="mt-3 space-y-1 text-sm">
                           <div className="flex items-center justify-between gap-3">
-                            <span className="text-muted-foreground">Issued</span>
-                            <span className="font-medium">{formatInvoiceMoney(entry.total, entry.currency)}</span>
+                            <span className="text-muted-foreground">
+                              Issued
+                            </span>
+                            <span className="font-medium">
+                              {formatInvoiceMoney(entry.total, entry.currency)}
+                            </span>
                           </div>
                           <div className="flex items-center justify-between gap-3">
                             <span className="text-muted-foreground">Paid</span>
-                            <span className="font-medium">{formatInvoiceMoney(entry.paidTotal, entry.currency)}</span>
+                            <span className="font-medium">
+                              {formatInvoiceMoney(
+                                entry.paidTotal,
+                                entry.currency,
+                              )}
+                            </span>
                           </div>
                           <div className="flex items-center justify-between gap-3">
-                            <span className="text-muted-foreground">Outstanding</span>
-                            <span className="font-medium">{formatInvoiceMoney(entry.openTotal, entry.currency)}</span>
+                            <span className="text-muted-foreground">
+                              Outstanding
+                            </span>
+                            <span className="font-medium">
+                              {formatInvoiceMoney(
+                                entry.openTotal,
+                                entry.currency,
+                              )}
+                            </span>
                           </div>
                           <div className="flex items-center justify-between gap-3">
-                            <span className="text-muted-foreground">Overdue</span>
-                            <span className="font-medium">{formatInvoiceMoney(entry.overdueTotal, entry.currency)}</span>
+                            <span className="text-muted-foreground">
+                              Overdue
+                            </span>
+                            <span className="font-medium">
+                              {formatInvoiceMoney(
+                                entry.overdueTotal,
+                                entry.currency,
+                              )}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -1312,12 +1753,18 @@ export default function CompanyReports() {
                           className="grid grid-cols-[1.3fr_1.1fr_1fr_0.8fr_0.9fr_0.9fr] gap-3 px-4 py-3 text-sm"
                         >
                           <div className="min-w-0">
-                            <p className="truncate font-medium">{invoice.invoiceNumber}</p>
-                            <p className="truncate text-xs text-muted-foreground">{invoice.title}</p>
+                            <p className="truncate font-medium">
+                              {invoice.invoiceNumber}
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {invoice.title}
+                            </p>
                           </div>
                           <div className="min-w-0">
                             <p className="truncate">{invoice.projectName}</p>
-                            <p className="truncate text-xs text-muted-foreground">{invoice.customerName || "No customer"}</p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {invoice.customerName || "No customer"}
+                            </p>
                           </div>
                           <div className="flex min-w-0 items-center gap-2">
                             <Badge
@@ -1335,13 +1782,30 @@ export default function CompanyReports() {
                               <Badge variant="outline">PDF</Badge>
                             ) : null}
                           </div>
-                          <p className="font-medium">{formatInvoiceMoney(invoice.total, invoice.currency)}</p>
-                          <p>{invoice.invoiceIssuedAt ? new Date(invoice.invoiceIssuedAt).toLocaleDateString() : "-"}</p>
-                          <p>{invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : "-"}</p>
+                          <p className="font-medium">
+                            {formatInvoiceMoney(
+                              invoice.total,
+                              invoice.currency,
+                            )}
+                          </p>
+                          <p>
+                            {invoice.invoiceIssuedAt
+                              ? new Date(
+                                  invoice.invoiceIssuedAt,
+                                ).toLocaleDateString()
+                              : "-"}
+                          </p>
+                          <p>
+                            {invoice.dueDate
+                              ? new Date(invoice.dueDate).toLocaleDateString()
+                              : "-"}
+                          </p>
                         </div>
                       ))
                     ) : (
-                      <div className="px-4 py-8 text-sm text-muted-foreground">No issued invoices yet.</div>
+                      <div className="px-4 py-8 text-sm text-muted-foreground">
+                        No issued invoices yet.
+                      </div>
                     )}
                   </div>
                 </div>
@@ -1351,15 +1815,26 @@ export default function CompanyReports() {
             <Card className="bg-card">
               <CardHeader>
                 <CardTitle>Shopping List by Status</CardTitle>
-                <CardDescription>Items and cost by realization status</CardDescription>
+                <CardDescription>
+                  Items and cost by realization status
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-col gap-4">
                   {shoppingByStatus.length > 0 ? (
                     shoppingByStatus.map((entry) => (
-                      <div key={entry.status} className="flex items-center justify-between">
+                      <div
+                        key={entry.status}
+                        className="flex items-center justify-between"
+                      >
                         <div className="flex items-center gap-2">
-                          <Badge variant={entry.status === "COMPLETED" ? "default" : "secondary"}>
+                          <Badge
+                            variant={
+                              entry.status === "COMPLETED"
+                                ? "default"
+                                : "secondary"
+                            }
+                          >
                             {entry.status}
                           </Badge>
                           <span className="text-sm">{entry.count} items</span>
@@ -1368,7 +1843,9 @@ export default function CompanyReports() {
                       </div>
                     ))
                   ) : (
-                    <div className="text-center py-8 text-muted-foreground">No shopping list items yet</div>
+                    <div className="text-center py-8 text-muted-foreground">
+                      No shopping list items yet
+                    </div>
                   )}
                 </div>
               </CardContent>
@@ -1386,14 +1863,23 @@ export default function CompanyReports() {
                     .sort((a, b) => (b.budget || 0) - (a.budget || 0))
                     .slice(0, 5)
                     .map((project) => (
-                      <div key={project._id} className="flex items-center justify-between">
+                      <div
+                        key={project._id}
+                        className="flex items-center justify-between"
+                      >
                         <div>
                           <p className="font-medium">{project.name}</p>
                           <p className="text-xs text-muted-foreground">
-                            {project.currency || activeCurrency} • {project.status}
+                            {project.currency || activeCurrency} •{" "}
+                            {project.status}
                           </p>
                         </div>
-                        <p className="font-bold">{formatMoney(project.budget || 0, project.currency || activeCurrency)}</p>
+                        <p className="font-bold">
+                          {formatMoney(
+                            project.budget || 0,
+                            project.currency || activeCurrency,
+                          )}
+                        </p>
                       </div>
                     ))}
                 </div>

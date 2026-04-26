@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Suspense, useMemo, useRef, useState } from "react";
 import { useQueries, useQuery } from "convex/react";
+import { toast } from "sonner";
 import { apiAny } from "@/lib/convexApiAny";
 import { useProject } from "@/components/providers/ProjectProvider";
 import { Badge } from "@/components/ui/badge";
@@ -44,6 +45,7 @@ import {
   calculateShoppingTotal,
   isItemCountedInShoppingTotal,
 } from "@/lib/shoppingSets";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import { formatShoppingExportProductLabel } from "@/lib/shoppingListExport";
 import {
   ProjectBookExportDialog,
@@ -589,13 +591,18 @@ function ProjectOverviewContent() {
       setIsProjectBookExportOpen(false);
     } catch (error) {
       console.error("Project book export failed:", error);
+      toast.error("Failed to export project book", {
+        description: toUserFacingErrorMessage(error),
+      });
     } finally {
       setIsExportingProjectBook(false);
     }
   };
 
   const projectCoverUrl =
-    (project as { coverImageDisplayUrl?: string }).coverImageDisplayUrl?.trim() ||
+    (
+      project as { coverImageDisplayUrl?: string }
+    ).coverImageDisplayUrl?.trim() ||
     project.coverImageUrl?.trim() ||
     null;
   const hasProjectCover = projectCoverUrl !== null;
@@ -748,11 +755,10 @@ function ProjectOverviewContent() {
 
   const recentCards = [
     ...moodboardSections.flatMap((section) => {
-      const files = (
+      const files =
         (stableMoodboardImageResults[section.id] as
           | Array<{ name: string; url: string; _creationTime: number }>
-          | undefined) ?? []
-      );
+          | undefined) ?? [];
 
       return files.map((file, index) => ({
         id: `${section.id}-${file.url}-${index}`,
@@ -933,7 +939,10 @@ function ProjectOverviewContent() {
                           key={member._id}
                           className="h-10 w-10 border-[3px] border-card shadow-sm"
                         >
-                          <AvatarImage src={member.imageUrl} alt={member.name} />
+                          <AvatarImage
+                            src={member.imageUrl}
+                            alt={member.name}
+                          />
                           <AvatarFallback className="bg-secondary/70 text-[11px] font-semibold text-foreground">
                             {getInitials(member.name)}
                           </AvatarFallback>
@@ -1059,7 +1068,10 @@ function ProjectOverviewContent() {
                     ) : "breakdown" in metric && metric.breakdown?.length ? (
                       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border/70 pt-3">
                         {metric.breakdown.map((item) => (
-                          <div key={item.label} className="flex flex-col gap-0.5">
+                          <div
+                            key={item.label}
+                            className="flex flex-col gap-0.5"
+                          >
                             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                               {item.label}
                             </p>

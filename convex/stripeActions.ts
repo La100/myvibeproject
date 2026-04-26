@@ -30,10 +30,20 @@ const getStripe = () => {
 };
 
 const normalizeBaseUrl = (value?: string | null) =>
-  (value || process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3001").replace(/\/+$/, "");
+  (
+    value ||
+    process.env.NEXT_PUBLIC_BASE_URL ||
+    "http://localhost:3001"
+  ).replace(/\/+$/, "");
 
-const getBillingSettingsUrl = (baseUrl?: string, checkoutState?: "success" | "canceled") => {
-  const billingUrl = new URL("/organisation/subscription", normalizeBaseUrl(baseUrl));
+const getBillingSettingsUrl = (
+  baseUrl?: string,
+  checkoutState?: "success" | "canceled",
+) => {
+  const billingUrl = new URL(
+    "/organisation/subscription",
+    normalizeBaseUrl(baseUrl),
+  );
   if (checkoutState) {
     billingUrl.searchParams.set("checkout", checkoutState);
   }
@@ -48,6 +58,7 @@ type StripeTeamRecord = {
 
 type TeamMembershipRecord = {
   role?: string | null;
+  isActive?: boolean | null;
 };
 
 // Public action to create checkout session with promotion codes support
@@ -65,26 +76,35 @@ export const createCheckoutSession = action({
     if (!identity) {
       throw new Error("Not authenticated");
     }
-    const runQuery = ctx.runQuery as (query: unknown, args: unknown) => Promise<unknown>;
+    const runQuery = ctx.runQuery as (
+      query: unknown,
+      args: unknown,
+    ) => Promise<unknown>;
 
-    // Convex query reference types can exceed TS instantiation depth inside actions.
-    // @ts-ignore
-    const team = await runQuery(internal.stripe.getTeamForStripe as unknown, {
+    // @ts-expect-error Convex query reference types exceed TS instantiation depth inside actions.
+    const team = (await runQuery(internal.stripe.getTeamForStripe as unknown, {
       teamId: args.teamId,
-    }) as StripeTeamRecord | null;
+    })) as StripeTeamRecord | null;
 
     if (!team) {
       throw new Error("Team not found");
     }
 
-    // Check if user is admin of this team
-    const membership = await runQuery(internal.teams.getTeamMemberByClerkId as unknown, {
-      teamId: args.teamId,
-      clerkUserId: identity.subject,
-    }) as TeamMembershipRecord | null;
+    // Any active team member can start or change the workspace subscription.
+    const membership = (await runQuery(
+      internal.teams.getTeamMemberByClerkId as unknown,
+      {
+        teamId: args.teamId,
+        clerkUserId: identity.subject,
+      },
+    )) as TeamMembershipRecord | null;
 
-    if (!membership || membership.role !== "admin") {
-      throw new Error("Only admins can manage subscriptions");
+    if (
+      !membership ||
+      membership.isActive === false ||
+      (membership.role !== "admin" && membership.role !== "member")
+    ) {
+      throw new Error("Only team members can manage subscriptions");
     }
 
     // Get or create Stripe customer using component
@@ -141,12 +161,15 @@ export const createBillingPortalSession = action({
     if (!identity) {
       throw new Error("Not authenticated");
     }
-    const runQuery = ctx.runQuery as (query: unknown, args: unknown) => Promise<unknown>;
+    const runQuery = ctx.runQuery as (
+      query: unknown,
+      args: unknown,
+    ) => Promise<unknown>;
 
     // Get team info
-    const team = await runQuery(internal.stripe.getTeamForStripe as unknown, {
+    const team = (await runQuery(internal.stripe.getTeamForStripe as unknown, {
       teamId: args.teamId,
-    }) as StripeTeamRecord | null;
+    })) as StripeTeamRecord | null;
 
     if (!team) {
       throw new Error("Team not found");
@@ -156,14 +179,21 @@ export const createBillingPortalSession = action({
       throw new Error("No Stripe customer found. Please subscribe first.");
     }
 
-    // Check if user is admin of this team
-    const membership = await runQuery(internal.teams.getTeamMemberByClerkId as unknown, {
-      teamId: args.teamId,
-      clerkUserId: identity.subject,
-    }) as TeamMembershipRecord | null;
+    // Any active team member can open the workspace billing portal.
+    const membership = (await runQuery(
+      internal.teams.getTeamMemberByClerkId as unknown,
+      {
+        teamId: args.teamId,
+        clerkUserId: identity.subject,
+      },
+    )) as TeamMembershipRecord | null;
 
-    if (!membership || membership.role !== "admin") {
-      throw new Error("Only admins can manage subscriptions");
+    if (
+      !membership ||
+      membership.isActive === false ||
+      (membership.role !== "admin" && membership.role !== "member")
+    ) {
+      throw new Error("Only team members can manage subscriptions");
     }
 
     // Create portal session using component
@@ -193,26 +223,32 @@ export const ensureSubscriptionSynced = action({
     }),
     v.object({
       synced: v.literal(false),
-    })
+    }),
   ),
   async handler(ctx, args): Promise<EnsureSubscriptionSyncedResult> {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       return { synced: false };
     }
-    const runQuery = ctx.runQuery as (query: unknown, args: unknown) => Promise<unknown>;
+    const runQuery = ctx.runQuery as (
+      query: unknown,
+      args: unknown,
+    ) => Promise<unknown>;
 
     // Get team info
-    const team = await runQuery(internal.stripe.getTeamForStripe as unknown, {
+    const team = (await runQuery(internal.stripe.getTeamForStripe as unknown, {
       teamId: args.teamId,
-    }) as StripeTeamRecord | null;
+    })) as StripeTeamRecord | null;
 
     if (!team || !team.stripeCustomerId) {
       return { synced: false };
     }
 
     // If team already has active subscription in DB, no need to sync
-    if (team.subscriptionStatus === "active" || team.subscriptionStatus === "trialing") {
+    if (
+      team.subscriptionStatus === "active" ||
+      team.subscriptionStatus === "trialing"
+    ) {
       return { synced: false };
     }
 
@@ -243,9 +279,11 @@ export const ensureSubscriptionSynced = action({
     const currentPeriodEnd = subscriptionItem?.current_period_end
       ? subscriptionItem.current_period_end * 1000
       : Date.now() + 30 * 24 * 60 * 60 * 1000;
-    const plan = (subscriptionItem?.price.id && process.env.STRIPE_AI_SCALE_PRICE_ID === subscriptionItem.price.id)
-      ? "ai_scale"
-      : "ai";
+    const plan =
+      subscriptionItem?.price.id &&
+      process.env.STRIPE_AI_SCALE_PRICE_ID === subscriptionItem.price.id
+        ? "ai_scale"
+        : "ai";
 
     // Sync the subscription to the team
     await ctx.runMutation(internal.stripe.syncSubscriptionDirectly, {

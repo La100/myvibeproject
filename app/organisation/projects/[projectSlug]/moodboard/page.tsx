@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
 interface MoodboardImage {
   id: string;
@@ -118,7 +119,9 @@ function MoodboardRow({
   onDeleteSection: (row: MoodboardRow) => Promise<void>;
 }) {
   const { project } = useProject();
-  const [selectedImage, setSelectedImage] = useState<MoodboardImage | null>(null);
+  const [selectedImage, setSelectedImage] = useState<MoodboardImage | null>(
+    null,
+  );
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isDeletingSection, setIsDeletingSection] = useState(false);
@@ -128,7 +131,9 @@ function MoodboardRow({
     section: row.id,
   });
 
-  const generateUploadUrl = useMutation(apiAny.files.generateUploadUrlWithCustomKey);
+  const generateUploadUrl = useMutation(
+    apiAny.files.generateUploadUrlWithCustomKey,
+  );
   const ensureMoodboardFolder = useMutation(apiAny.files.ensureMoodboardFolder);
   const addFile = useMutation(apiAny.files.addFile);
   const deleteFileByStorageId = useMutation(apiAny.files.deleteFileByStorageId);
@@ -186,7 +191,9 @@ function MoodboardRow({
         });
 
         if (!response.ok) {
-          throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
+          throw new Error(
+            `Upload failed: ${response.status} ${response.statusText}`,
+          );
         }
 
         await addFile({
@@ -203,7 +210,7 @@ function MoodboardRow({
       toast.success("Images uploaded successfully");
     } catch (error) {
       toast.error("Failed to upload images", {
-        description: (error as Error).message,
+        description: toUserFacingErrorMessage(error),
       });
     } finally {
       setIsUploading(false);
@@ -223,7 +230,7 @@ function MoodboardRow({
       toast.success("Image deleted successfully");
     } catch (error) {
       toast.error("Failed to delete image", {
-        description: (error as Error).message,
+        description: toUserFacingErrorMessage(error),
       });
     }
   };
@@ -268,7 +275,7 @@ function MoodboardRow({
         {(sectionImages || []).map((image) => (
           <Card
             key={image.id}
-          className="group relative overflow-hidden border-border/70 bg-card py-0 transition-[box-shadow,transform] hover:-translate-y-0.5 hover:shadow-md"
+            className="group relative overflow-hidden border-border/70 bg-card py-0 transition-[box-shadow,transform] hover:-translate-y-0.5 hover:shadow-md"
           >
             <CardContent className="p-0">
               <img
@@ -320,16 +327,24 @@ export default function MoodboardPage() {
     apiAny.files.getMoodboardSections,
     project?._id ? { projectId: project._id } : "skip",
   );
-  const createMoodboardSection = useMutation(apiAny.files.createMoodboardSection);
-  const renameMoodboardSection = useMutation(apiAny.files.renameMoodboardSection);
-  const deleteMoodboardSection = useMutation(apiAny.files.deleteMoodboardSection);
+  const createMoodboardSection = useMutation(
+    apiAny.files.createMoodboardSection,
+  );
+  const renameMoodboardSection = useMutation(
+    apiAny.files.renameMoodboardSection,
+  );
+  const deleteMoodboardSection = useMutation(
+    apiAny.files.deleteMoodboardSection,
+  );
 
   const rows = useMemo(() => {
-    return ((savedSections as MoodboardRow[] | undefined) || []).map((section) => ({
-      id: section.id,
-      title: section.title,
-      order: section.order,
-    }));
+    return ((savedSections as MoodboardRow[] | undefined) || []).map(
+      (section) => ({
+        id: section.id,
+        title: section.title,
+        order: section.order,
+      }),
+    );
   }, [savedSections]);
 
   const handleUpdateTitle = async (rowId: string, newTitle: string) => {
@@ -345,14 +360,16 @@ export default function MoodboardPage() {
       toast.success("Section updated");
     } catch (error) {
       toast.error("Failed to update section", {
-        description: (error as Error).message,
+        description: toUserFacingErrorMessage(error),
       });
       throw error;
     }
   };
 
   const handleAddRow = async () => {
-    const existingTitles = new Set(rows.map((row) => row.title.trim().toUpperCase()));
+    const existingTitles = new Set(
+      rows.map((row) => row.title.trim().toUpperCase()),
+    );
     let nextIndex = rows.length + 1;
     let sectionLabel = `SECTION ${nextIndex}`;
 
@@ -369,7 +386,7 @@ export default function MoodboardPage() {
       toast.success("Section created");
     } catch (error) {
       toast.error("Failed to create section", {
-        description: (error as Error).message,
+        description: toUserFacingErrorMessage(error),
       });
     }
   };
@@ -388,7 +405,7 @@ export default function MoodboardPage() {
       );
     } catch (error) {
       toast.error("Failed to delete section", {
-        description: (error as Error).message,
+        description: toUserFacingErrorMessage(error),
       });
       throw error;
     }
@@ -403,7 +420,10 @@ export default function MoodboardPage() {
           subtitle="Curate visual references, material studies, and room direction in one calm studio board."
           tags={
             <>
-              <Badge variant="outline" className="px-4 py-2 text-sm font-medium text-foreground/82">
+              <Badge
+                variant="outline"
+                className="px-4 py-2 text-sm font-medium text-foreground/82"
+              >
                 {project.name}
               </Badge>
               <Badge

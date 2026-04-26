@@ -12,6 +12,7 @@ import {
   Copy,
   Download,
   ExternalLink,
+  FileText,
   Mail,
   Plus,
   Trash2,
@@ -198,6 +199,17 @@ function InvoiceListItem({
                 disabled={busy}
               >
                 View
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className={actionButtonClassName}
+                onClick={() => onRunAction(installment._id, "issue")}
+                disabled={busy}
+              >
+                <FileText data-icon="inline-start" />
+                Issue
               </Button>
               <Button
                 type="button"

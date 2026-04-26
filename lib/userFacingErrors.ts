@@ -68,10 +68,19 @@ export const toUserFacingErrorMessage = (error: unknown) => {
     message === "Only admins can change member roles" ||
     message === "Only admins can update team settings" ||
     message === "Only admins can add AI tokens" ||
+    message === "Only admins can manage subscriptions" ||
     message === "Not authorized - admin access required" ||
     /^Only admins can /i.test(message)
   ) {
+    if (message === "Only admins can manage subscriptions") {
+      return "Only organization admins can manage subscriptions.";
+    }
+
     return "Only organization admins can perform this action.";
+  }
+
+  if (message === "Only team members can manage subscriptions") {
+    return "Only workspace members can manage subscriptions.";
   }
 
   if (

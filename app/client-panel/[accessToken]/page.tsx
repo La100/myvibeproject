@@ -1212,7 +1212,7 @@ export default function PublicClientPanelPage() {
       window.open(result.url, "_blank", "noopener,noreferrer");
     } catch (error) {
       toast.error("Could not download invoice PDF", {
-        description: (error as Error).message,
+        description: toUserFacingErrorMessage(error),
       });
     } finally {
       setDownloadingPaymentId(null);
@@ -1229,7 +1229,7 @@ export default function PublicClientPanelPage() {
       window.open(result.url, "_blank", "noopener,noreferrer");
     } catch (error) {
       toast.error("Could not open payment link", {
-        description: (error as Error).message,
+        description: toUserFacingErrorMessage(error),
       });
     } finally {
       setOpeningPaymentId(null);
@@ -1268,7 +1268,7 @@ export default function PublicClientPanelPage() {
       toast.success(`Feedback saved for "${item.name}"`);
     } catch (error) {
       toast.error("Failed to save shopping item feedback", {
-        description: (error as Error).message,
+        description: toUserFacingErrorMessage(error),
       });
     } finally {
       setRespondingShoppingItemId(null);
@@ -1321,7 +1321,7 @@ export default function PublicClientPanelPage() {
         [itemId]: false,
       }));
       toast.error("Failed to save comment", {
-        description: (error as Error).message,
+        description: toUserFacingErrorMessage(error),
       });
     }
   };
@@ -1379,7 +1379,7 @@ export default function PublicClientPanelPage() {
       toast.success(`Feedback saved for "${item.name}"`);
     } catch (error) {
       toast.error("Failed to save labor feedback", {
-        description: (error as Error).message,
+        description: toUserFacingErrorMessage(error),
       });
     } finally {
       setRespondingLaborItemId(null);
@@ -1424,7 +1424,7 @@ export default function PublicClientPanelPage() {
     } catch (error) {
       setSavingLaborCommentIds((current) => ({ ...current, [itemId]: false }));
       toast.error("Failed to save labor comment", {
-        description: (error as Error).message,
+        description: toUserFacingErrorMessage(error),
       });
     }
   };
@@ -1655,8 +1655,7 @@ export default function PublicClientPanelPage() {
         : item.customerDecision === "rejected"
           ? "border-destructive/20 bg-destructive/10 text-destructive"
           : "";
-    const hasDraftComment =
-      (laborItemComments[itemId] || "").trim().length > 0;
+    const hasDraftComment = (laborItemComments[itemId] || "").trim().length > 0;
     const hasSavedComment = Boolean(item.customerDecisionComment);
     const isCommentExpanded =
       expandedLaborItemComments[itemId] ?? hasDraftComment;
@@ -2013,7 +2012,7 @@ export default function PublicClientPanelPage() {
         });
       }
       toast.error("Failed to save choice", {
-        description: (error as Error).message,
+        description: toUserFacingErrorMessage(error),
       });
     } finally {
       setSavingItemId(null);
@@ -2112,7 +2111,7 @@ export default function PublicClientPanelPage() {
       });
     } catch (error) {
       toast.error("Could not submit survey", {
-        description: (error as Error).message,
+        description: toUserFacingErrorMessage(error),
       });
     } finally {
       setSubmittingSurveyId(null);
@@ -2138,7 +2137,9 @@ export default function PublicClientPanelPage() {
           },
           {
             key: "shopping-pdf",
-            label: isExportingMaterialsPdf ? "Exporting PDF..." : "Download PDF",
+            label: isExportingMaterialsPdf
+              ? "Exporting PDF..."
+              : "Download PDF",
             icon: Download,
             action: () => void handleExportMaterialsPdf(),
             disabled: isExportingMaterialsPdf,

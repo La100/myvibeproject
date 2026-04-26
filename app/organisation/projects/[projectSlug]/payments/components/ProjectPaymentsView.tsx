@@ -1264,7 +1264,7 @@ export default function ProjectPaymentsView() {
                 <span className="min-w-0 flex-1">
                   <span className="block text-base font-semibold leading-tight">Issued invoices</span>
                   <span className="mt-1 block text-[13px] leading-[1.45] text-muted-foreground">
-                    Sent invoices and payment history
+                    Issued invoices and payment history
                   </span>
                 </span>
                 <Badge variant="outline" className="shrink-0 border-border/70 bg-secondary/70 px-3 py-1 text-xs font-semibold">

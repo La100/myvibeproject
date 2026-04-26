@@ -5,7 +5,12 @@ import { useAction, useQuery } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardDescription,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
@@ -22,6 +27,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
+import { BillingActionErrorDialog } from "@/components/billing/BillingActionErrorDialog";
 
 interface AISubscriptionWallProps {
   teamId: Id<"teams">;
@@ -32,30 +38,36 @@ const AI_FEATURES = [
   {
     icon: MessageSquare,
     title: "AI Assistant",
-    description: "Intelligent project management assistant that understands your context"
+    description:
+      "Intelligent project management assistant that understands your context",
   },
   {
     icon: Wand2,
     title: "Smart Task Creation",
-    description: "Generate tasks, notes, and content with natural language"
+    description: "Generate tasks, notes, and content with natural language",
   },
   {
     icon: ImageIcon,
     title: "AI Image Generation",
-    description: "Create moodboards and visualizations with Gemini AI"
+    description: "Create moodboards and visualizations with Gemini AI",
   },
   {
     icon: Brain,
     title: "Context-Aware",
-    description: "AI that understands your entire project, team, and history"
+    description: "AI that understands your entire project, team, and history",
   },
 ];
 
 export function AISubscriptionWall({ teamId }: AISubscriptionWallProps) {
   const [loading, setLoading] = useState(false);
+  const [billingActionError, setBillingActionError] = useState<string | null>(
+    null,
+  );
 
   const subscription = useQuery(apiAny.stripe.getTeamSubscription, { teamId });
-  const createCheckoutSession = useAction(apiAny.stripeActions.createCheckoutSession);
+  const createCheckoutSession = useAction(
+    apiAny.stripeActions.createCheckoutSession,
+  );
 
   const handleSubscribe = async () => {
     const priceId = subscription?.checkoutPlans?.ai ?? null;
@@ -87,9 +99,7 @@ export function AISubscriptionWall({ teamId }: AISubscriptionWallProps) {
       }
     } catch (error) {
       console.error("Error creating checkout session:", error);
-      toast.error("Error redirecting to payment", {
-        description: toUserFacingErrorMessage(error),
-      });
+      setBillingActionError(toUserFacingErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -97,6 +107,10 @@ export function AISubscriptionWall({ teamId }: AISubscriptionWallProps) {
 
   return (
     <div className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden bg-background p-4 text-foreground sm:p-6 lg:p-8">
+      <BillingActionErrorDialog
+        message={billingActionError}
+        onClose={() => setBillingActionError(null)}
+      />
       {/* Background Elements */}
       <div className="absolute inset-0 -z-10 h-full w-full bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px] [mask-image:radial-gradient(ellipse_50%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-50 dark:bg-[radial-gradient(#1f2937_1px,transparent_1px)]"></div>
       <div className="absolute top-[-10%] left-[-10%] h-[500px] w-[500px] animate-pulse rounded-full bg-primary/10 blur-[100px] opacity-30"></div>
@@ -126,7 +140,9 @@ export function AISubscriptionWall({ teamId }: AISubscriptionWallProps) {
 
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight font-display">
               Power up with <br />
-              <span className="italic text-muted-foreground font-serif">AI Intelligence</span>
+              <span className="italic text-muted-foreground font-serif">
+                AI Intelligence
+              </span>
             </h1>
 
             <p className="mx-auto max-w-lg text-xl leading-relaxed text-muted-foreground lg:mx-0">
@@ -168,13 +184,18 @@ export function AISubscriptionWall({ teamId }: AISubscriptionWallProps) {
             <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-primary/5 blur-3xl" />
 
             <CardHeader className="relative text-center pb-8 pt-8">
-              <Badge variant="secondary" className="mx-auto mb-6 w-fit px-4 py-1.5 font-medium">
+              <Badge
+                variant="secondary"
+                className="mx-auto mb-6 w-fit px-4 py-1.5 font-medium"
+              >
                 Pro Plan
               </Badge>
 
               <div className="flex items-baseline justify-center gap-1">
                 <span className="text-5xl font-bold tracking-tight">$39</span>
-                <span className="text-lg font-normal text-muted-foreground">/month</span>
+                <span className="text-lg font-normal text-muted-foreground">
+                  /month
+                </span>
               </div>
 
               <CardDescription className="text-base mt-4 max-w-xs mx-auto">
@@ -199,7 +220,9 @@ export function AISubscriptionWall({ teamId }: AISubscriptionWallProps) {
                     <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-foreground text-background">
                       <Check className="w-3 h-3" />
                     </div>
-                    <span className="text-sm text-muted-foreground">{benefit}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {benefit}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -212,7 +235,7 @@ export function AISubscriptionWall({ teamId }: AISubscriptionWallProps) {
                   size="lg"
                   className={cn(
                     "h-14 w-full rounded-lg text-base font-semibold shadow-lg transition-all duration-300 hover:shadow-xl",
-                    "bg-foreground text-background hover:bg-foreground/90"
+                    "bg-foreground text-background hover:bg-foreground/90",
                   )}
                 >
                   {loading ? (
@@ -245,9 +268,14 @@ export function AISubscriptionWall({ teamId }: AISubscriptionWallProps) {
             >
               <p className="inline-flex items-center rounded-lg bg-muted/50 px-3 py-1 text-sm text-muted-foreground">
                 <Lock className="w-3 h-3 mr-2" />
-                Current plan: <span className="font-medium ml-1">{subscription.planDetails.name}</span>
+                Current plan:{" "}
+                <span className="font-medium ml-1">
+                  {subscription.planDetails.name}
+                </span>
                 {subscription.subscriptionStatus === "trialing" && (
-                  <Badge variant="secondary" className="ml-2 h-5">Trial</Badge>
+                  <Badge variant="secondary" className="ml-2 h-5">
+                    Trial
+                  </Badge>
                 )}
               </p>
             </motion.div>

@@ -70,6 +70,7 @@ import {
 } from "@/lib/teamMemberNotificationSettings";
 import { cn } from "@/lib/utils";
 import { OrganizationImagePicker } from "@/components/company/OrganizationImagePicker";
+import { BillingActionErrorDialog } from "@/components/billing/BillingActionErrorDialog";
 
 type BillingProfileForm = {
   sellerName: string;
@@ -281,6 +282,9 @@ export default function CompanySettings({
   const [billingAction, setBillingAction] = useState<
     "portal" | BillingPlanKey | null
   >(null);
+  const [billingActionError, setBillingActionError] = useState<string | null>(
+    null,
+  );
   const billingWindowEnsuredRef = useRef(false);
   const organizationImageInputRef = useRef<HTMLInputElement | null>(null);
   const organizationImageObjectUrlRef = useRef<string | null>(null);
@@ -775,9 +779,7 @@ export default function CompanySettings({
       }
     } catch (error) {
       console.error("Error creating billing portal session:", error);
-      toast.error("Error opening billing portal", {
-        description: toUserFacingErrorMessage(error),
-      });
+      setBillingActionError(toUserFacingErrorMessage(error));
     } finally {
       setBillingAction(null);
     }
@@ -809,9 +811,7 @@ export default function CompanySettings({
       }
     } catch (error) {
       console.error("Error creating checkout session:", error);
-      toast.error("Error opening checkout", {
-        description: toUserFacingErrorMessage(error),
-      });
+      setBillingActionError(toUserFacingErrorMessage(error));
     } finally {
       setBillingAction(null);
     }
@@ -947,6 +947,10 @@ export default function CompanySettings({
 
   return (
     <div className="min-h-screen pb-20">
+      <BillingActionErrorDialog
+        message={billingActionError}
+        onClose={() => setBillingActionError(null)}
+      />
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 py-4">
         {isSubscriptionPage ? (
           <div className="flex flex-col gap-2">
