@@ -2,7 +2,8 @@
 
 import { v } from "convex/values";
 import { action } from "./_generated/server";
-import { internal, components } from "./_generated/api";
+import { components } from "./_generated/api";
+import { anyApi } from "convex/server";
 import { StripeSubscriptions } from "@convex-dev/stripe";
 import Stripe from "stripe";
 
@@ -61,6 +62,17 @@ type TeamMembershipRecord = {
   isActive?: boolean | null;
 };
 
+const internalApi = anyApi as unknown as {
+  stripe: {
+    getTeamForStripe: unknown;
+    updateTeamStripeCustomer: unknown;
+    syncSubscriptionDirectly: unknown;
+  };
+  teams: {
+    getTeamMemberByClerkId: unknown;
+  };
+};
+
 // Public action to create checkout session with promotion codes support
 export const createCheckoutSession = action({
   args: {
@@ -80,9 +92,12 @@ export const createCheckoutSession = action({
       query: unknown,
       args: unknown,
     ) => Promise<unknown>;
+    const runMutation = ctx.runMutation as (
+      mutation: unknown,
+      args: unknown,
+    ) => Promise<unknown>;
 
-    // @ts-expect-error Convex query reference types exceed TS instantiation depth inside actions.
-    const team = (await runQuery(internal.stripe.getTeamForStripe as unknown, {
+    const team = (await runQuery(internalApi.stripe.getTeamForStripe, {
       teamId: args.teamId,
     })) as StripeTeamRecord | null;
 
@@ -92,7 +107,7 @@ export const createCheckoutSession = action({
 
     // Any active team member can start or change the workspace subscription.
     const membership = (await runQuery(
-      internal.teams.getTeamMemberByClerkId as unknown,
+      internalApi.teams.getTeamMemberByClerkId,
       {
         teamId: args.teamId,
         clerkUserId: identity.subject,
@@ -116,7 +131,7 @@ export const createCheckoutSession = action({
 
     // Update team with customer ID if new
     if (!team.stripeCustomerId) {
-      await ctx.runMutation(internal.stripe.updateTeamStripeCustomer, {
+      await runMutation(internalApi.stripe.updateTeamStripeCustomer, {
         teamId: args.teamId,
         stripeCustomerId: customer.customerId,
       });
@@ -167,7 +182,7 @@ export const createBillingPortalSession = action({
     ) => Promise<unknown>;
 
     // Get team info
-    const team = (await runQuery(internal.stripe.getTeamForStripe as unknown, {
+    const team = (await runQuery(internalApi.stripe.getTeamForStripe, {
       teamId: args.teamId,
     })) as StripeTeamRecord | null;
 
@@ -181,7 +196,7 @@ export const createBillingPortalSession = action({
 
     // Any active team member can open the workspace billing portal.
     const membership = (await runQuery(
-      internal.teams.getTeamMemberByClerkId as unknown,
+      internalApi.teams.getTeamMemberByClerkId,
       {
         teamId: args.teamId,
         clerkUserId: identity.subject,
@@ -236,7 +251,7 @@ export const ensureSubscriptionSynced = action({
     ) => Promise<unknown>;
 
     // Get team info
-    const team = (await runQuery(internal.stripe.getTeamForStripe as unknown, {
+    const team = (await runQuery(internalApi.stripe.getTeamForStripe, {
       teamId: args.teamId,
     })) as StripeTeamRecord | null;
 
@@ -286,7 +301,12 @@ export const ensureSubscriptionSynced = action({
         : "ai";
 
     // Sync the subscription to the team
-    await ctx.runMutation(internal.stripe.syncSubscriptionDirectly, {
+    const runMutation = ctx.runMutation as (
+      mutation: unknown,
+      args: unknown,
+    ) => Promise<unknown>;
+
+    await runMutation(internalApi.stripe.syncSubscriptionDirectly, {
       teamId: args.teamId,
       subscriptionId: subscription.id,
       status: subscription.status,
