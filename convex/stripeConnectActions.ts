@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import Stripe from "stripe";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { action } from "./_generated/server";
 
 // Keep generated refs runtime-loaded here to avoid deep TS instantiation.
@@ -63,6 +63,30 @@ const mapStripeConnectErrorToUserMessage = (error: unknown) => {
   }
 
   return "Could not start Stripe Connect onboarding. Check Stripe configuration and try again.";
+};
+
+const toStripeDiagnostic = (error: unknown) => {
+  if (!error || typeof error !== "object") {
+    return { message: toSafeErrorMessage(error) };
+  }
+
+  const stripeError = error as {
+    code?: unknown;
+    decline_code?: unknown;
+    type?: unknown;
+    message?: unknown;
+    requestId?: unknown;
+    statusCode?: unknown;
+  };
+
+  return {
+    code: typeof stripeError.code === "string" ? stripeError.code : undefined,
+    declineCode: typeof stripeError.decline_code === "string" ? stripeError.decline_code : undefined,
+    type: typeof stripeError.type === "string" ? stripeError.type : undefined,
+    message: typeof stripeError.message === "string" ? stripeError.message : undefined,
+    requestId: typeof stripeError.requestId === "string" ? stripeError.requestId : undefined,
+    statusCode: typeof stripeError.statusCode === "number" ? stripeError.statusCode : undefined,
+  };
 };
 
 const ensureAdminForTeam = async (ctx: any, teamId: any, clerkUserId: string) => {
@@ -171,7 +195,13 @@ export const createOrResumeStripeConnectOnboarding = action({
         accountId,
       };
     } catch (error) {
-      throw new Error(mapStripeConnectErrorToUserMessage(error));
+      const message = mapStripeConnectErrorToUserMessage(error);
+      console.error("Stripe Connect onboarding failed", {
+        teamId: String(args.teamId),
+        message,
+        stripe: toStripeDiagnostic(error),
+      });
+      throw new ConvexError({ message });
     }
   },
 });
