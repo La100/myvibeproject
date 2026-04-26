@@ -977,10 +977,21 @@ export default function CompanySettings({
   const currentPlanDetails = BILLING_PLANS.find(
     (plan) => plan.key === currentPlanKey,
   );
+  const currentPlanCredits = currentPlanDetails?.monthlyCredits ?? totalCredits;
+  const hasActiveSubscription =
+    planStatus === "active" || planStatus === "trialing";
+  const hasPaidSubscription = hasActiveSubscription && currentPlanKey !== "free";
   const availableBillingPlans = BILLING_PLANS.map((plan) => ({
     ...plan,
     priceId: checkoutPriceIds[plan.key] ?? undefined,
   })).filter((plan) => Boolean(plan.priceId));
+  const upgradeBillingPlans = availableBillingPlans.filter(
+    (plan) =>
+      plan.key !== currentPlanKey && plan.monthlyCredits > currentPlanCredits,
+  );
+  const visibleBillingPlans = hasPaidSubscription
+    ? upgradeBillingPlans
+    : availableBillingPlans;
   const recommendedPlan =
     availableBillingPlans.find(
       (plan) => plan.key === (currentPlanKey === "ai" ? "ai_scale" : "ai"),
@@ -1025,23 +1036,46 @@ export default function CompanySettings({
             variants={containerVariants}
             initial="hidden"
             animate="visible"
-            className="flex flex-col gap-10"
+            className="flex flex-col gap-6"
           >
-            <div className="flex flex-col gap-5 rounded-[28px] border border-border/70 bg-card p-5 sm:p-6">
+            <div
+              className={cn(
+                "flex flex-col gap-5 rounded-3xl border border-border/70 bg-card p-5 sm:p-6",
+                hasPaidSubscription ? "order-2" : "order-1",
+              )}
+            >
               <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-2">
-                  <Badge variant="secondary">Subscription options</Badge>
+                  <Badge variant="secondary">
+                    {hasPaidSubscription
+                      ? "Upgrade options"
+                      : "Subscription options"}
+                  </Badge>
                   <div className="flex flex-col gap-1">
                     <h2 className="text-xl font-semibold tracking-tight">
-                      Choose the plan for your team
+                      {hasPaidSubscription
+                        ? "Need more capacity?"
+                        : "Choose the plan for your team"}
                     </h2>
+                    {hasPaidSubscription ? (
+                      <p className="max-w-2xl text-sm text-muted-foreground">
+                        Your current plan is active. Upgrade only if this
+                        workspace needs a higher monthly credit pool or larger
+                        team limits.
+                      </p>
+                    ) : null}
                   </div>
                 </div>
               </div>
 
-              {availableBillingPlans.length > 0 ? (
-                <div className="grid gap-6 xl:grid-cols-2">
-                  {availableBillingPlans.map((plan) => {
+              {visibleBillingPlans.length > 0 ? (
+                <div
+                  className={cn(
+                    "grid gap-6",
+                    visibleBillingPlans.length > 1 && "xl:grid-cols-2",
+                  )}
+                >
+                  {visibleBillingPlans.map((plan) => {
                     const isCurrentPlan = currentPlanKey === plan.key;
                     const canUpgradeToPlan = !isCurrentPlan && plan.priceId;
                     const isRecommended =
@@ -1179,6 +1213,15 @@ export default function CompanySettings({
                     );
                   })}
                 </div>
+              ) : hasPaidSubscription ? (
+                <Alert>
+                  <Check />
+                  <AlertTitle>You are on the highest available plan</AlertTitle>
+                  <AlertDescription>
+                    Manage billing, seats, and renewal details from the current
+                    plan section above.
+                  </AlertDescription>
+                </Alert>
               ) : (
                 <Alert>
                   <AlertCircle />
@@ -1192,7 +1235,12 @@ export default function CompanySettings({
               )}
             </div>
 
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+            <div
+              className={cn(
+                "grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]",
+                hasPaidSubscription ? "order-1" : "order-2",
+              )}
+            >
               <Card className="border-border/70 bg-card shadow-none">
                 <CardHeader className="gap-4 border-b border-border/70">
                   <div className="flex items-start justify-between gap-4">
@@ -1297,9 +1345,7 @@ export default function CompanySettings({
                       Included monthly credits
                     </p>
                     <p className="mt-2 text-xl font-semibold tabular-nums">
-                      {formatTokens(
-                        currentPlanDetails?.monthlyCredits ?? totalCredits,
-                      )}
+                      {formatTokens(currentPlanCredits)}
                     </p>
                   </div>
 

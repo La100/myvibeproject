@@ -328,14 +328,6 @@ export const ensureSubscriptionSynced = action({
       return { synced: false };
     }
 
-    // If team already has active subscription in DB, no need to sync
-    if (
-      team.subscriptionStatus === "active" ||
-      team.subscriptionStatus === "trialing"
-    ) {
-      return { synced: false };
-    }
-
     const subscription = await findActiveSubscriptionForTeam(
       String(args.teamId),
       team.stripeCustomerId,
