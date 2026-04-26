@@ -7,6 +7,7 @@ import { z } from "zod";
 import { toast } from "sonner";
 
 import { apiAny } from "@/lib/convexApiAny";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -81,7 +82,9 @@ export default function TaskStatusSettings({ projectId, initialSettings }: TaskS
       toast.success("Task status settings saved.");
     } catch (error) {
       console.error("Failed to update task status settings:", error);
-      toast.error("Failed to update settings.");
+      toast.error("Failed to update settings.", {
+        description: toUserFacingErrorMessage(error),
+      });
     }
   };
 

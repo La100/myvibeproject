@@ -21,6 +21,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
 interface AISubscriptionWallProps {
   teamId: Id<"teams">;
@@ -86,7 +87,9 @@ export function AISubscriptionWall({ teamId }: AISubscriptionWallProps) {
       }
     } catch (error) {
       console.error("Error creating checkout session:", error);
-      toast.error("Error redirecting to payment");
+      toast.error("Error redirecting to payment", {
+        description: toUserFacingErrorMessage(error),
+      });
     } finally {
       setLoading(false);
     }

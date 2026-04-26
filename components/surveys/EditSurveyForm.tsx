@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Save, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
 interface Question {
   _id?: Id<"surveyQuestions">;
@@ -53,8 +54,9 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
   const updateSurvey = useMutation(apiAny.surveys.updateSurvey);
   const addQuestion = useMutation(apiAny.surveys.addQuestion);
   const updateQuestion = useMutation(apiAny.surveys.updateQuestion);
-  
+  const deleteQuestion = useMutation(apiAny.surveys.deleteQuestion);
   const deleteSurvey = useMutation(apiAny.surveys.deleteSurvey);
+  const saveSurveyAsTemplate = useMutation(apiAny.surveyTemplates.saveSurveyAsTemplate);
 
   const surveyQuestions = useQuery(apiAny.surveys.getSurvey, { surveyId: survey._id });
 
@@ -62,6 +64,7 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
   const [description, setDescription] = useState(survey.description || "");
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(false);
+  const [savingAsTemplate, setSavingAsTemplate] = useState(false);
 
   useEffect(() => {
     if (surveyQuestions?.questions) {
@@ -111,8 +114,27 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
         description: description || undefined,
       });
 
+      const retainedQuestionIds = new Set(
+        questions
+          .map((question) => question._id)
+          .filter(Boolean)
+          .map(String),
+      );
+      const originalQuestionIds = (surveyQuestions?.questions ?? []).map((question) =>
+        String(question._id),
+      );
+
+      for (const originalQuestionId of originalQuestionIds) {
+        if (!retainedQuestionIds.has(originalQuestionId)) {
+          await deleteQuestion({
+            questionId: originalQuestionId as Id<"surveyQuestions">,
+          });
+        }
+      }
+
       // Handle questions
-      for (const question of questions) {
+      for (let index = 0; index < questions.length; index += 1) {
+        const question = questions[index];
         if (question.questionText.trim()) {
           if (question._id) {
             // Update existing question
@@ -121,6 +143,9 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
               questionText: question.questionText.trim(),
               questionType: question.questionType,
               isRequired: question.isRequired,
+              options: question.options,
+              order: index + 1,
+              ratingScale: question.ratingScale,
             });
           } else {
             // Add new question
@@ -129,6 +154,8 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
               questionText: question.questionText.trim(),
               questionType: question.questionType,
               isRequired: question.isRequired,
+              options: question.options,
+              ratingScale: question.ratingScale,
             });
           }
         }
@@ -137,7 +164,9 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
       toast.success("Survey has been updated");
       router.push(`/organisation/projects/${project.slug}/surveys`);
     } catch (error) {
-      toast.error("Error updating survey");
+      toast.error("Error updating survey", {
+        description: toUserFacingErrorMessage(error),
+      });
       console.error(error);
     } finally {
       setLoading(false);
@@ -152,11 +181,32 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
         toast.success("Survey has been deleted");
         router.push(`/organisation/projects/${project.slug}/surveys`);
       } catch (error) {
-        toast.error("Error deleting survey");
+        toast.error("Error deleting survey", {
+          description: toUserFacingErrorMessage(error),
+        });
         console.error(error);
       } finally {
         setLoading(false);
       }
+    }
+  };
+
+  const handleSaveAsTemplate = async () => {
+    setSavingAsTemplate(true);
+    try {
+      await saveSurveyAsTemplate({
+        surveyId: survey._id,
+        title: title.trim() || survey.title,
+        description: description.trim() || undefined,
+      });
+      toast.success("Survey saved to library");
+    } catch (error) {
+      toast.error("Could not save survey to library", {
+        description: toUserFacingErrorMessage(error),
+      });
+      console.error(error);
+    } finally {
+      setSavingAsTemplate(false);
     }
   };
 
@@ -352,6 +402,15 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
             >
               <Save data-icon="inline-start" />
               {loading ? "Saving..." : "Save Changes"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleSaveAsTemplate}
+              disabled={loading || savingAsTemplate}
+            >
+              <Plus data-icon="inline-start" />
+              {savingAsTemplate ? "Saving..." : "Save as Template"}
             </Button>
             <Button
               type="button"

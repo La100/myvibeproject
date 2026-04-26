@@ -11,6 +11,7 @@ import {
   DEFAULT_ORGANIZATION_TAX_SETTINGS,
   resolveOrganizationTaxSettings,
 } from "@/lib/organizationTax";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -86,7 +87,9 @@ export default function TaxPage() {
       });
       toast.success("Tax settings updated");
     } catch (error) {
-      toast.error((error as Error).message || "Failed to update tax settings");
+      toast.error("Failed to update tax settings", {
+        description: toUserFacingErrorMessage(error),
+      });
     } finally {
       setSubmitting(false);
     }

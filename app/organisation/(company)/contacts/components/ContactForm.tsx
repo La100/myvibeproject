@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
 interface ContactFormProps {
   contactId?: Id<"contacts">;
@@ -130,7 +131,9 @@ export function ContactForm({
 
       onSuccess();
     } catch (error) {
-      toast.error("Error saving contact");
+      toast.error("Error saving contact", {
+        description: toUserFacingErrorMessage(error),
+      });
       console.error(error);
     }
   };

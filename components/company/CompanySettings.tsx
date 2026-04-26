@@ -63,6 +63,7 @@ import {
   formatTokens,
 } from "@/lib/aiPricing";
 import { DEFAULT_ORGANIZATION_TAX_SETTINGS } from "@/lib/organizationTax";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import {
   DEFAULT_TEAM_MEMBER_NOTIFICATION_SETTINGS,
   type TeamMemberNotificationSettings,
@@ -606,7 +607,9 @@ export default function CompanySettings({
       });
       toast.success("Preferences updated successfully");
     } catch (error) {
-      toast.error("Failed to update preferences");
+      toast.error("Failed to update preferences", {
+        description: toUserFacingErrorMessage(error),
+      });
       console.error(error);
     } finally {
       setSavingPreferences(false);
@@ -657,7 +660,9 @@ export default function CompanySettings({
       });
       toast.success("Notification preferences updated");
     } catch (error) {
-      toast.error("Failed to update notification preferences");
+      toast.error("Failed to update notification preferences", {
+        description: toUserFacingErrorMessage(error),
+      });
       console.error(error);
     } finally {
       setSavingNotifications(false);
@@ -685,6 +690,7 @@ export default function CompanySettings({
         });
       } catch (error) {
         console.error("Failed to sync team image with Clerk logo", error);
+        throw error;
       }
 
       if (organizationImageObjectUrlRef.current) {
@@ -695,7 +701,9 @@ export default function CompanySettings({
       setOrganizationImageFile(null);
       toast.success("Organization image updated");
     } catch (error) {
-      toast.error("Failed to update organization image");
+      toast.error("Failed to update organization image", {
+        description: toUserFacingErrorMessage(error),
+      });
       console.error(error);
       if (organizationImageObjectUrlRef.current) {
         URL.revokeObjectURL(organizationImageObjectUrlRef.current);
@@ -741,7 +749,9 @@ export default function CompanySettings({
       router.refresh();
     } catch (error) {
       console.error("Failed to update organization name", error);
-      toast.error("Failed to update organization name");
+      toast.error("Failed to update organization name", {
+        description: toUserFacingErrorMessage(error),
+      });
       setOrganizationNameDraft(organization.name || teamData.name || "");
     } finally {
       setSavingOrganizationName(false);
@@ -765,7 +775,9 @@ export default function CompanySettings({
       }
     } catch (error) {
       console.error("Error creating billing portal session:", error);
-      toast.error("Error opening billing portal");
+      toast.error("Error opening billing portal", {
+        description: toUserFacingErrorMessage(error),
+      });
     } finally {
       setBillingAction(null);
     }
@@ -797,7 +809,9 @@ export default function CompanySettings({
       }
     } catch (error) {
       console.error("Error creating checkout session:", error);
-      toast.error("Error opening checkout");
+      toast.error("Error opening checkout", {
+        description: toUserFacingErrorMessage(error),
+      });
     } finally {
       setBillingAction(null);
     }
@@ -819,7 +833,9 @@ export default function CompanySettings({
       });
       toast.success("Organization billing profile updated");
     } catch (error) {
-      toast.error("Failed to update billing profile");
+      toast.error("Failed to update billing profile", {
+        description: toUserFacingErrorMessage(error),
+      });
       console.error(error);
     } finally {
       setSavingBillingProfile(false);

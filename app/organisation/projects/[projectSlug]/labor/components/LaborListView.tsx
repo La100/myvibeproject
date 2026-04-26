@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { SearchIcon, XIcon } from 'lucide-react';
 import { apiAny } from '@/lib/convexApiAny';
+import { toUserFacingErrorMessage } from '@/lib/userFacingErrors';
 import { downloadCsvFile } from '@/lib/csvExport';
 import {
   getLaborExportCsvRow,
@@ -258,7 +259,9 @@ export default function LaborListView() {
       await updateItem({ itemId: id, ...updates });
     } catch (error) {
       console.error('Error updating item:', error);
-      toast.error('Error updating item');
+      toast.error('Error updating item', {
+        description: toUserFacingErrorMessage(error),
+      });
     }
   };
 
@@ -268,7 +271,9 @@ export default function LaborListView() {
       toast.success('Item deleted');
     } catch (error) {
       console.error('Error deleting item:', error);
-      toast.error('Error deleting item');
+      toast.error('Error deleting item', {
+        description: toUserFacingErrorMessage(error),
+      });
     }
   };
 
@@ -322,7 +327,9 @@ export default function LaborListView() {
       toast.success('PDF exported successfully!');
     } catch (error) {
       console.error('Labor PDF export error:', error);
-      toast.error('Failed to export labor PDF');
+      toast.error('Failed to export labor PDF', {
+        description: toUserFacingErrorMessage(error),
+      });
     }
   };
 

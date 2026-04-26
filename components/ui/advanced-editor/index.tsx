@@ -41,6 +41,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { toUserFacingErrorMessage } from '@/lib/userFacingErrors';
 
 interface AdvancedEditorProps {
   content?: string;
@@ -125,7 +126,9 @@ export default function AdvancedEditor({
       setLastSaved(new Date());
       // Removed toast popup - silent auto-save
     } catch (error) {
-      toast.error("❌ Error while saving");
+      toast.error("Error while saving", {
+        description: toUserFacingErrorMessage(error),
+      });
       console.error(error);
     } finally {
       setIsSaving(false);

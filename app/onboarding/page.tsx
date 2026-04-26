@@ -238,7 +238,9 @@ function OnboardingContent() {
       router.replace("/organisation");
     } catch (error) {
       console.error(error);
-      toast.error("Could not complete onboarding.");
+      toast.error("Could not complete onboarding.", {
+        description: toUserFacingErrorMessage(error),
+      });
     } finally {
       setIsFinishing(false);
     }
@@ -269,7 +271,9 @@ function OnboardingContent() {
       toast.success("Organization image updated.");
     } catch (error) {
       console.error(error);
-      toast.error("Failed to update organization image.");
+      toast.error("Failed to update organization image.", {
+        description: toUserFacingErrorMessage(error),
+      });
       if (organizationImageObjectUrlRef.current) {
         URL.revokeObjectURL(organizationImageObjectUrlRef.current);
         organizationImageObjectUrlRef.current = null;

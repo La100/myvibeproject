@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { X, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Id } from "@/convex/_generated/dataModel";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
 interface EditProductModalProps {
   product: { _id: string; name: string; brand?: string; description?: string; category?: string; model?: string; sku?: string; imageUrl?: string; productLink?: string; supplier?: string; supplierSku?: string; dimensions?: string; weight?: number; material?: string; color?: string; unitPrice?: number; notes?: string; tags?: string[]; };
@@ -118,7 +119,9 @@ export function EditProductModal({ product, onClose }: EditProductModalProps) {
       onClose();
     } catch (error) {
       console.error("Error updating product:", error);
-      toast.error("Failed to update product");
+      toast.error("Failed to update product", {
+        description: toUserFacingErrorMessage(error),
+      });
     } finally {
       setIsSubmitting(false);
     }

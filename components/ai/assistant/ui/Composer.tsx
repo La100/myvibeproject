@@ -2,6 +2,7 @@
 
 import type { ChatStatus, FileUIPart } from "ai";
 import { toast } from "sonner";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
 import {
   PromptInput,
@@ -59,7 +60,11 @@ export function Composer({
         multiple={multiple}
         maxFiles={maxFiles}
         maxFileSize={maxFileSize}
-        onError={(err) => toast.error(err.message)}
+        onError={(err) =>
+          toast.error("Could not attach file", {
+            description: toUserFacingErrorMessage(err),
+          })
+        }
         onSubmit={onSubmit}
       >
         <PromptInputBody>

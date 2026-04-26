@@ -26,6 +26,7 @@ import { Spinner } from "@/components/ui/spinner";
 import ActivityLog from "@/components/dashboard/ActivityLog";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
 type TaskPriority = "low" | "medium" | "high" | "urgent" | null;
 
@@ -163,7 +164,9 @@ export default function TaskDetail() {
 
       toast.success("File uploaded successfully");
     } catch (error) {
-      toast.error("Error uploading file");
+      toast.error("Error uploading file", {
+        description: toUserFacingErrorMessage(error),
+      });
       console.error(error);
     } finally {
       input.value = "";

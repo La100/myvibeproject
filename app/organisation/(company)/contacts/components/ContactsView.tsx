@@ -34,6 +34,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ContactForm } from "./ContactForm";
 import { Doc, Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
 export function ContactsView() {
   const { organization } = useOrganization();
@@ -117,7 +118,9 @@ export function ContactsView() {
       toast.success("Contact added to project");
       closeAssignDialog();
     } catch (error) {
-      toast.error("Error adding contact to project");
+      toast.error("Error adding contact to project", {
+        description: toUserFacingErrorMessage(error),
+      });
       console.error(error);
     }
   };

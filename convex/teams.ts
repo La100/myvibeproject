@@ -238,6 +238,7 @@ export const getTeamMemberByClerkId = internalQuery({
       role: v.union(v.literal("admin"), v.literal("member")),
       permissions: v.array(v.string()),
       projectIds: v.optional(v.array(v.id("projects"))),
+      organizationClientNotificationsLastReadAt: v.optional(v.number()),
       notificationSettings: v.optional(
         v.object({
           taskAssigned: v.optional(v.boolean()),

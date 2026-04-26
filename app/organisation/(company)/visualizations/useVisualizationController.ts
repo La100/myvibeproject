@@ -8,6 +8,7 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 
 import { apiAny } from "@/lib/convexApiAny";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { ThreadListItem } from "@/components/ai/assistant/ui/Sidebar";
 
@@ -162,7 +163,9 @@ const uploadReferenceImages = async ({
       continue;
     }
 
-    toast.error(result.reason instanceof Error ? result.reason.message : "Failed to upload file");
+    toast.error("Failed to upload file", {
+      description: toUserFacingErrorMessage(result.reason),
+    });
   }
 
   return uploadedRefs;
@@ -296,7 +299,9 @@ export function useVisualizationController() {
         toast.error(result.error || "Generation failed");
       }
     } catch (error) {
-      toast.error("Generation failed");
+      toast.error("Generation failed", {
+        description: toUserFacingErrorMessage(error),
+      });
       console.error(error);
     } finally {
       setGeneratingSessionId(null);
@@ -333,7 +338,9 @@ export function useVisualizationController() {
       toast.success("Downloaded");
     } catch (error) {
       console.error("Download failed:", error);
-      toast.error("Download failed");
+      toast.error("Download failed", {
+        description: toUserFacingErrorMessage(error),
+      });
     }
   };
 

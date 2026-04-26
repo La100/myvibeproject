@@ -84,6 +84,7 @@ import type * as shopping from "../shopping.js";
 import type * as stripe from "../stripe.js";
 import type * as stripeActions from "../stripeActions.js";
 import type * as stripeConnectActions from "../stripeConnectActions.js";
+import type * as surveyTemplates from "../surveyTemplates.js";
 import type * as surveys from "../surveys.js";
 import type * as tasks from "../tasks.js";
 import type * as taxRates from "../taxRates.js";
@@ -174,6 +175,7 @@ declare const fullApi: ApiFromModules<{
   stripe: typeof stripe;
   stripeActions: typeof stripeActions;
   stripeConnectActions: typeof stripeConnectActions;
+  surveyTemplates: typeof surveyTemplates;
   surveys: typeof surveys;
   tasks: typeof tasks;
   taxRates: typeof taxRates;

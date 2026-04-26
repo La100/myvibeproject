@@ -325,7 +325,7 @@ export const getProjectPaymentsOverview = query({
       return null;
     }
 
-    const { project } = await getProjectPaymentManager(ctx as any, args.projectId, identity.subject);
+    const { project, membership } = await getProjectPaymentManager(ctx as any, args.projectId, identity.subject);
     const team: any = await ctx.db.get(project.teamId);
     const installments = await listInstallmentsForProject(ctx, args.projectId);
     const billingProfile = resolveOrganizationBillingProfile(team?.billingProfile, team) || undefined;
@@ -385,6 +385,7 @@ export const getProjectPaymentsOverview = query({
         detailsSubmitted: team?.stripeConnectDetailsSubmitted === true,
         onboardingComplete: stripeConnectOnboardingComplete,
       },
+      currentUserRole: membership.role,
       currency: project.currency || "PLN",
       totals: {
         scheduled: visibleInstallments.reduce((sum: number, installment: any) => sum + installment.amount, 0),

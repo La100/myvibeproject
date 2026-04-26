@@ -19,6 +19,7 @@ import { Separator } from "@/components/ui/separator";
 import { Plus, Trash2, ArrowLeft, Save, FileText, HelpCircle, GripVertical } from "lucide-react";
 import { toast } from "sonner";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
 interface Question {
   id: string;
@@ -92,7 +93,9 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
       toast.success("Survey has been created!");
       router.push(`/organisation/projects/${projectSlug}/surveys`);
     } catch (error) {
-      toast.error("Error creating survey");
+      toast.error("Error creating survey", {
+        description: toUserFacingErrorMessage(error),
+      });
       console.error(error);
     } finally {
       setIsSubmitting(false);

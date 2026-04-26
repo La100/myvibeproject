@@ -5,6 +5,7 @@ import { useOrganization } from "@clerk/nextjs";
 import { useAction, useQuery } from "convex/react";
 import { toast } from "sonner";
 import { apiAny } from "@/lib/convexApiAny";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import {
   Download,
   Calendar,
@@ -886,7 +887,9 @@ export default function CompanyReports() {
       }
     } catch (error) {
       console.error("Reports export failed:", error);
-      toast.error("Failed to export reports.");
+      toast.error("Failed to export reports.", {
+        description: toUserFacingErrorMessage(error),
+      });
     } finally {
       setIsExporting(false);
     }
@@ -908,7 +911,9 @@ export default function CompanyReports() {
       toast.success(`Exported ${issuedInvoices.length} invoices as CSV.`);
     } catch (error) {
       console.error("Invoice CSV export failed:", error);
-      toast.error("Failed to export invoices CSV.");
+      toast.error("Failed to export invoices CSV.", {
+        description: toUserFacingErrorMessage(error),
+      });
     } finally {
       setIsExportingInvoicesCsv(false);
     }

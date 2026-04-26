@@ -83,8 +83,11 @@ export default function CompanyLayout({
       "/organisation/subscription": "Subscription",
       "/organisation/team": "Team",
       "/organisation/reports": "Reports",
+      "/organisation/libraries": "Libraries",
       "/organisation/product-library": "Product Library",
       "/organisation/product-library/new": "Add Product",
+      "/organisation/survey-library": "Survey Library",
+      "/organisation/survey-library/new": "New Survey Template",
       "/organisation/visualizations": "Visualizations",
     };
 
@@ -94,8 +97,15 @@ export default function CompanyLayout({
       ],
       "/organisation/product-library/new": [
         { label: "Projects", href: "/organisation" },
+        { label: "Libraries", href: "/organisation/libraries" },
         { label: "Product Library", href: "/organisation/product-library" },
         { label: "Add Product", href: "/organisation/product-library/new" },
+      ],
+      "/organisation/survey-library/new": [
+        { label: "Projects", href: "/organisation" },
+        { label: "Libraries", href: "/organisation/libraries" },
+        { label: "Survey Library", href: "/organisation/survey-library" },
+        { label: "New Survey Template", href: "/organisation/survey-library/new" },
       ],
     };
 

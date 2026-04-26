@@ -11,6 +11,7 @@ import {
   Sparkles,
   Loader2,
 } from "lucide-react";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
 interface AISettingsProps {
   projectId: Id<"projects">;
@@ -50,7 +51,9 @@ export default function AISettings({ projectId }: AISettingsProps) {
     } catch (error) {
       setAiAutoConfirmCrud(previousValue);
       console.error("Failed to update AI confirmation mode:", error);
-      toast.error("Failed to save AI confirmation mode");
+      toast.error("Failed to save AI confirmation mode", {
+        description: toUserFacingErrorMessage(error),
+      });
     } finally {
       setIsSavingAiConfirmMode(false);
     }

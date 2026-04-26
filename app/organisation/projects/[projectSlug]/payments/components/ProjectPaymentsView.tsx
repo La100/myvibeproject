@@ -555,6 +555,7 @@ export default function ProjectPaymentsView() {
   const stripeConnect = paymentsData?.stripeConnect;
   const stripeConnectOnboardingComplete = Boolean(stripeConnect?.onboardingComplete);
   const stripeConnectNeedsSetup = !stripeConnectOnboardingComplete;
+  const canManageStripeConnect = paymentsData?.currentUserRole === "admin";
   const paymentRouteMissingLabel = "bank account number or Stripe payments";
   const paymentRouteReady = !missingSellerFields.includes(paymentRouteMissingLabel);
   const paymentRouteStatus: "stripe" | "bank" | "missing" = stripeConnectOnboardingComplete
@@ -717,6 +718,13 @@ export default function ProjectPaymentsView() {
   };
 
   const openStripeConnectOnboarding = async () => {
+    if (!canManageStripeConnect) {
+      toast.error("Only organization admins can connect Stripe", {
+        description: "Ask an organization admin to finish Stripe Connect setup.",
+      });
+      return;
+    }
+
     setIsStripeConnectBusy(true);
     try {
       const returnPath = project?.slug
@@ -738,6 +746,13 @@ export default function ProjectPaymentsView() {
   };
 
   const syncStripeConnectStatus = async () => {
+    if (!canManageStripeConnect) {
+      toast.error("Only organization admins can refresh Stripe Connect", {
+        description: "Ask an organization admin to manage Stripe Connect setup.",
+      });
+      return;
+    }
+
     setIsStripeConnectRefreshBusy(true);
     try {
       const result = await refreshStripeConnectAccount({ teamId: project.teamId });
@@ -1191,12 +1206,15 @@ export default function ProjectPaymentsView() {
             <Wallet className="h-4 w-4" />
             <AlertTitle>Connect Stripe once for this organization</AlertTitle>
             <AlertDescription className="flex flex-col gap-3">
+              {!canManageStripeConnect ? (
+                <span>Only organization admins can connect Stripe payments.</span>
+              ) : null}
               <div className="flex flex-wrap gap-2">
                 <Button
                   type="button"
                   size="sm"
                   onClick={() => void openStripeConnectOnboarding()}
-                  disabled={isStripeConnectBusy}
+                  disabled={isStripeConnectBusy || !canManageStripeConnect}
                 >
                   <ExternalLink data-icon="inline-start" />
                   {stripeConnect?.accountId ? "Resume Stripe setup" : "Connect Stripe"}
@@ -1206,7 +1224,7 @@ export default function ProjectPaymentsView() {
                   size="sm"
                   variant="outline"
                   onClick={() => void syncStripeConnectStatus()}
-                  disabled={isStripeConnectRefreshBusy}
+                  disabled={isStripeConnectRefreshBusy || !canManageStripeConnect}
                 >
                   <RefreshCw data-icon="inline-start" />
                   Refresh status

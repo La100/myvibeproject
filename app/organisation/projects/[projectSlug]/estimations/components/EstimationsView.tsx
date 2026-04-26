@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useConvex } from 'convex/react';
 import { apiAny } from '@/lib/convexApiAny';
+import { toUserFacingErrorMessage } from '@/lib/userFacingErrors';
 import { Doc, Id } from '@/convex/_generated/dataModel';
 import { useProject } from '@/components/providers/ProjectProvider';
 import { toast } from 'sonner';
@@ -220,7 +221,9 @@ export default function EstimationsView() {
     } catch (error) {
       previewWindow.close();
       console.error('Open PDF error:', error);
-      toast.error('Failed to open PDF in a new tab');
+      toast.error('Failed to open PDF in a new tab', {
+        description: toUserFacingErrorMessage(error),
+      });
     } finally {
       setOpeningPdfEstimationId(null);
     }
@@ -250,7 +253,9 @@ export default function EstimationsView() {
       });
     } catch (error) {
       console.error('Download PDF error:', error);
-      toast.error('Failed to export PDF');
+      toast.error('Failed to export PDF', {
+        description: toUserFacingErrorMessage(error),
+      });
     } finally {
       setDownloadingPdfEstimationId(null);
     }

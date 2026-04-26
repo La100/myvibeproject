@@ -11,6 +11,7 @@ import { Loader2, WandSparkles } from 'lucide-react';
 import { Doc, Id } from '@/convex/_generated/dataModel';
 import type { TeamMember } from '@/lib/teamMember';
 import { toast } from 'sonner';
+import { toUserFacingErrorMessage } from '@/lib/userFacingErrors';
 
 interface AddItemFormProps {
   projectId: Id<"projects">;
@@ -140,7 +141,9 @@ export function AddItemForm({
 
       toast.success('Product details imported from URL');
     } catch (error) {
-      toast.error((error as Error).message || 'Could not import product details');
+      toast.error('Could not import product details', {
+        description: toUserFacingErrorMessage(error),
+      });
     } finally {
       setIsScraping(false);
     }

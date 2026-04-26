@@ -86,7 +86,9 @@ export default function SelectOrganizationPage() {
       router.replace("/onboarding");
     } catch (error) {
       console.error(error);
-      toast.error("Could not create workspace.");
+      toast.error("Could not create workspace.", {
+        description: toUserFacingErrorMessage(error),
+      });
       setIsSubmitting(false);
     }
   };

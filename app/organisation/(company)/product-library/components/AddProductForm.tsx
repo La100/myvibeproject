@@ -168,7 +168,9 @@ export function AddProductForm({
 
       toast.success("Product details imported from URL");
     } catch (error) {
-      toast.error((error as Error).message || "Could not import product details");
+      toast.error("Could not import product details", {
+        description: toUserFacingErrorMessage(error),
+      });
     } finally {
       setIsScraping(false);
     }
@@ -323,7 +325,9 @@ export function AddProductForm({
       router.push("/organisation/product-library");
     } catch (error) {
       console.error("Error creating product:", error);
-      toast.error("Failed to add product");
+      toast.error("Failed to add product", {
+        description: toUserFacingErrorMessage(error),
+      });
     } finally {
       setIsSubmitting(false);
     }

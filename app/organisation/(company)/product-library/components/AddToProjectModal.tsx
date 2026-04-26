@@ -20,6 +20,7 @@ import { ShoppingCart, Package } from "lucide-react";
 import { toast } from "sonner";
 import { Id } from "@/convex/_generated/dataModel";
 import { Card, CardContent } from "@/components/ui/card";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
 interface AddToProjectModalProps {
   product: { _id: string; name: string; brand?: string; imageUrl?: string; };
@@ -82,7 +83,9 @@ export function AddToProjectModal({ product, teamId, onClose }: AddToProjectModa
       onClose();
     } catch (error) {
       console.error("Error adding to shopping list:", error);
-      toast.error("Failed to add product to project");
+      toast.error("Failed to add product to project", {
+        description: toUserFacingErrorMessage(error),
+      });
     } finally {
       setIsSubmitting(false);
     }

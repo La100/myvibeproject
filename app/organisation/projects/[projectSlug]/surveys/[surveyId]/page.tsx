@@ -16,6 +16,7 @@ import { ArrowLeft, Send, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
 interface SurveyResponsePageProps {
   params: Promise<{
@@ -104,7 +105,9 @@ export default function SurveyResponsePage({ params }: SurveyResponsePageProps) 
         toast.success("Survey started");
       }
     } catch (error) {
-      toast.error("Could not start survey");
+      toast.error("Could not start survey", {
+        description: toUserFacingErrorMessage(error),
+      });
       console.error(error);
     }
   };
@@ -158,7 +161,9 @@ export default function SurveyResponsePage({ params }: SurveyResponsePageProps) 
       toast.success("File uploaded");
     } catch (error) {
       console.error("Error uploading file:", error);
-      toast.error("Error uploading file");
+      toast.error("Error uploading file", {
+        description: toUserFacingErrorMessage(error),
+      });
     }
   };
 
@@ -260,7 +265,9 @@ export default function SurveyResponsePage({ params }: SurveyResponsePageProps) 
       toast.success("Survey submitted!");
       router.push(`/organisation/projects/${routeParams.projectSlug}/surveys`);
     } catch (error) {
-      toast.error("Error submitting survey");
+      toast.error("Error submitting survey", {
+        description: toUserFacingErrorMessage(error),
+      });
       console.error(error);
     } finally {
       setIsSubmitting(false);

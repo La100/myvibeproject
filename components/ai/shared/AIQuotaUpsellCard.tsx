@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ArrowRight, Coins, CreditCard, Loader2 } from "lucide-react";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
 type AIQuotaUpsellCardProps = {
   teamId: Id<"teams">;
@@ -69,7 +70,9 @@ export function AIQuotaUpsellCard({
       window.location.href = result.url;
     } catch (error) {
       console.error("Checkout failed:", error);
-      toast.error("Could not open checkout.");
+      toast.error("Could not open checkout.", {
+        description: toUserFacingErrorMessage(error),
+      });
     } finally {
       setPendingAction(null);
     }
@@ -89,7 +92,9 @@ export function AIQuotaUpsellCard({
       window.location.href = result.url;
     } catch (error) {
       console.error("Billing portal failed:", error);
-      toast.error("Could not open billing portal.");
+      toast.error("Could not open billing portal.", {
+        description: toUserFacingErrorMessage(error),
+      });
     } finally {
       setPendingAction(null);
     }

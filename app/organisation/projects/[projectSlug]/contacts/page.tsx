@@ -33,6 +33,7 @@ import {
   UserPlus,
 } from "lucide-react";
 import { toast } from "sonner";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import { ContactForm } from "@/app/organisation/(company)/contacts/components/ContactForm";
 import { Doc, Id } from "@/convex/_generated/dataModel";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
@@ -81,7 +82,9 @@ export default function ContactsPage() {
 
       toast.success("Contact removed from project");
     } catch (error) {
-      toast.error("Error removing contact");
+      toast.error("Error removing contact", {
+        description: toUserFacingErrorMessage(error),
+      });
       console.error(error);
     }
   };
@@ -105,7 +108,9 @@ export default function ContactsPage() {
       setIsAssignDialogOpen(false);
       toast.success("Contact added to project");
     } catch (error) {
-      toast.error("Error adding contact to project");
+      toast.error("Error adding contact to project", {
+        description: toUserFacingErrorMessage(error),
+      });
       console.error(error);
     }
   };

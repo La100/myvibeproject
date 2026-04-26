@@ -1060,6 +1060,50 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_created_by", ["createdBy"]),
 
+  // Organization reusable survey templates
+  surveyTemplates: defineTable({
+    title: v.string(),
+    description: v.optional(v.string()),
+    teamId: v.id("teams"),
+    createdBy: v.string(),
+    isRequired: v.boolean(),
+    allowMultipleResponses: v.boolean(),
+    isActive: v.boolean(),
+    updatedAt: v.number(),
+  })
+    .index("by_team", ["teamId"])
+    .index("by_created_by", ["createdBy"])
+    .index("by_team_and_active", ["teamId", "isActive"]),
+
+  // Questions for organization reusable survey templates
+  surveyTemplateQuestions: defineTable({
+    templateId: v.id("surveyTemplates"),
+    questionText: v.string(),
+    questionType: v.union(
+      v.literal("text_short"),
+      v.literal("text_long"),
+      v.literal("multiple_choice"),
+      v.literal("single_choice"),
+      v.literal("rating"),
+      v.literal("yes_no"),
+      v.literal("number"),
+      v.literal("file"),
+    ),
+    options: v.optional(v.array(v.string())),
+    isRequired: v.boolean(),
+    order: v.number(),
+    ratingScale: v.optional(
+      v.object({
+        min: v.number(),
+        max: v.number(),
+        minLabel: v.optional(v.string()),
+        maxLabel: v.optional(v.string()),
+      }),
+    ),
+  })
+    .index("by_template", ["templateId"])
+    .index("by_order", ["templateId", "order"]),
+
   // Survey questions
   surveyQuestions: defineTable({
     surveyId: v.id("surveys"),

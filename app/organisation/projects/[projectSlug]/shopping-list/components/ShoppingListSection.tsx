@@ -4,6 +4,7 @@ import { Doc, Id } from "@/convex/_generated/dataModel";
 import type { TeamMember } from "@/lib/teamMember";
 import { buildShoppingSetContext, calculateShoppingTotal, isItemCountedInShoppingTotal } from "@/lib/shoppingSets";
 import { apiAny } from "@/lib/convexApiAny";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -404,7 +405,9 @@ export function ShoppingListSection({
 
       toast.success("Product details imported from URL");
     } catch (error) {
-      toast.error((error as Error).message || "Could not import product details");
+      toast.error("Could not import product details", {
+        description: toUserFacingErrorMessage(error),
+      });
     } finally {
       setIsEditScraping(false);
     }
@@ -421,7 +424,9 @@ export function ShoppingListSection({
       await createProductFromShoppingListItem({ itemId: item._id });
       toast.success("Added to product library");
     } catch (error) {
-      toast.error((error as Error).message || "Could not add product to library");
+      toast.error("Could not add product to library", {
+        description: toUserFacingErrorMessage(error),
+      });
     } finally {
       setSavingToLibraryItemId((current) => (current === itemId ? null : current));
     }
@@ -737,7 +742,9 @@ export function ShoppingListSection({
         await onUpdateItem(item._id, { realizationStatus: nextStatus });
         toast.success(`Status changed to ${getStatusLabel(nextStatus)}`);
       } catch (error) {
-        toast.error((error as Error).message || "Could not update status");
+        toast.error("Could not update status", {
+          description: toUserFacingErrorMessage(error),
+        });
       } finally {
         setUpdatingStatusItemId((current) => (current === itemId ? null : current));
       }

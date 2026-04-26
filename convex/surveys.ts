@@ -12,7 +12,7 @@ const getPortalActorName = (name?: string) => {
 };
 const logActivityMutation = makeFunctionReference<"mutation">("activityLog:logActivity");
 // Keep internal scheduler refs runtime-loaded here to avoid deep TS instantiation.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
 const internalAny = require("./_generated/api").internal as any;
 
 const isSurveyVisibleInPublicPortal = (survey: Doc<"surveys">, now: number) => {
@@ -119,6 +119,12 @@ export const createSurveyWithQuestions = mutation({
       options: v.optional(v.array(v.string())),
       isRequired: v.optional(v.boolean()),
       order: v.optional(v.number()),
+      ratingScale: v.optional(v.object({
+        min: v.number(),
+        max: v.number(),
+        minLabel: v.optional(v.string()),
+        maxLabel: v.optional(v.string()),
+      })),
     }))),
   },
   async handler(ctx, args) {
@@ -148,6 +154,7 @@ export const createSurveyWithQuestions = mutation({
         options: question.options,
         isRequired: question.isRequired ?? true,
         order: question.order ?? index + 1,
+        ratingScale: question.ratingScale,
       });
     }
 
@@ -689,6 +696,13 @@ export const addQuestion = mutation({
       v.literal("file")
     ),
     isRequired: v.boolean(),
+    options: v.optional(v.array(v.string())),
+    ratingScale: v.optional(v.object({
+      min: v.number(),
+      max: v.number(),
+      minLabel: v.optional(v.string()),
+      maxLabel: v.optional(v.string()),
+    })),
   },
   async handler(ctx, args) {
     const { survey } = await getSurveyWithAccess(ctx, args.surveyId);
@@ -705,8 +719,10 @@ export const addQuestion = mutation({
       surveyId: args.surveyId,
       questionText: args.questionText,
       questionType: args.questionType,
+      options: args.options,
       isRequired: args.isRequired,
       order: maxOrder + 1,
+      ratingScale: args.ratingScale,
     });
 
     await ctx.runMutation(logActivityMutation, {

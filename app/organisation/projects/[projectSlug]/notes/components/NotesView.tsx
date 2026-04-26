@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { useState, useEffect } from "react";
 import { Plus, MoreHorizontal, Edit, Trash2, StickyNote, Eye } from "lucide-react";
 import { format } from "date-fns";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
 type Note = {
   _id: Id<"notes">;
@@ -217,7 +218,9 @@ export default function NotesView() {
       toast.success("Note created successfully");
       setIsFormOpen(false);
     } catch (error) {
-      toast.error("Failed to create note");
+      toast.error("Failed to create note", {
+        description: toUserFacingErrorMessage(error),
+      });
       console.error(error);
     } finally {
       setIsSubmitting(false);
@@ -237,7 +240,9 @@ export default function NotesView() {
       toast.success("Note updated successfully");
       setEditingNote(null);
     } catch (error) {
-      toast.error("Failed to update note");
+      toast.error("Failed to update note", {
+        description: toUserFacingErrorMessage(error),
+      });
       console.error(error);
     } finally {
       setIsSubmitting(false);
@@ -249,7 +254,9 @@ export default function NotesView() {
       await deleteNote({ noteId });
       toast.success("Note deleted successfully");
     } catch (error) {
-      toast.error("Failed to delete note");
+      toast.error("Failed to delete note", {
+        description: toUserFacingErrorMessage(error),
+      });
       console.error(error);
     }
   };

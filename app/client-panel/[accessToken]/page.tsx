@@ -25,6 +25,7 @@ import {
 import { toast } from "sonner";
 import { Doc, Id } from "@/convex/_generated/dataModel";
 import { apiAny } from "@/lib/convexApiAny";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import { downloadCsvFile } from "@/lib/csvExport";
 import {
   getLaborExportCsvRow,
@@ -1856,7 +1857,9 @@ export default function PublicClientPanelPage() {
       toast.success("Shopping list PDF exported.");
     } catch (error) {
       console.error("Shopping list PDF export error:", error);
-      toast.error("Failed to export shopping list PDF.");
+      toast.error("Failed to export shopping list PDF.", {
+        description: toUserFacingErrorMessage(error),
+      });
     } finally {
       setIsExportingMaterialsPdf(false);
     }
@@ -1939,7 +1942,9 @@ export default function PublicClientPanelPage() {
       toast.success("Labor PDF exported.");
     } catch (error) {
       console.error("Labor PDF export error:", error);
-      toast.error("Failed to export labor PDF.");
+      toast.error("Failed to export labor PDF.", {
+        description: toUserFacingErrorMessage(error),
+      });
     } finally {
       setIsExportingLaborPdf(false);
     }
