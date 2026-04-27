@@ -5,32 +5,10 @@ import { useQuery } from "convex/react";
 import { Package } from "lucide-react";
 
 import { apiAny } from "@/lib/convexApiAny";
+import { getCurrencySymbol } from "@/lib/utils";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { AddProductForm } from "../components/AddProductForm";
-
-const currencySymbols: Record<string, string> = {
-  PLN: "zł",
-  USD: "$",
-  EUR: "€",
-  GBP: "£",
-  CAD: "C$",
-  AUD: "A$",
-  JPY: "¥",
-  CHF: "CHF",
-  SEK: "kr",
-  NOK: "kr",
-  DKK: "kr",
-  CZK: "Kč",
-  HUF: "Ft",
-  CNY: "¥",
-  INR: "₹",
-  BRL: "R$",
-  MXN: "$",
-  KRW: "₩",
-  SGD: "S$",
-  HKD: "HK$",
-};
 
 export default function NewProductPage() {
   const { organization, isLoaded } = useOrganization();
@@ -76,7 +54,7 @@ export default function NewProductPage() {
 
       <AddProductForm
         teamId={team._id}
-        currencySymbol={currencySymbols[team.currency || "PLN"] || team.currency || "PLN"}
+        currencySymbol={getCurrencySymbol(team.currency || "PLN")}
       />
     </div>
   );

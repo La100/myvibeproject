@@ -54,6 +54,7 @@ import {
   getTaxAmountKindLabel,
   resolveOrganizationTaxSettings,
 } from '@/lib/organizationTax';
+import { getCurrencySymbol } from '@/lib/utils';
 import { exportEstimationPdf, openEstimationPdfInNewTab } from '@/lib/estimationPdfExport';
 import { sanitizeFileName } from '@/lib/pdfExport';
 
@@ -87,7 +88,7 @@ export default function EstimationsView() {
     return <div>Project not found</div>;
   }
 
-  const currencySymbol = project.currency === "EUR" ? "€" : project.currency === "PLN" ? "zł" : "$";
+  const currencySymbol = getCurrencySymbol(project.currency);
   const fallbackTaxSettings = resolveOrganizationTaxSettings(team?.organizationTaxSettings);
   const estimationPdfBrand = team
     ? {

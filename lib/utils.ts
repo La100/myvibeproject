@@ -71,35 +71,45 @@ type FormatCurrencyOptions = {
   maximumFractionDigits?: number;
 };
 
+const currencyMap: Record<string, { symbol: string; locale: string }> = {
+  USD: { symbol: "$", locale: "en-US" },
+  EUR: { symbol: "€", locale: "de-DE" },
+  PLN: { symbol: "zł", locale: "pl-PL" },
+  GBP: { symbol: "£", locale: "en-GB" },
+  CAD: { symbol: "C$", locale: "en-CA" },
+  AUD: { symbol: "A$", locale: "en-AU" },
+  JPY: { symbol: "¥", locale: "ja-JP" },
+  CHF: { symbol: "CHF", locale: "de-CH" },
+  SEK: { symbol: "kr", locale: "sv-SE" },
+  NOK: { symbol: "kr", locale: "nb-NO" },
+  DKK: { symbol: "kr", locale: "da-DK" },
+  CZK: { symbol: "Kč", locale: "cs-CZ" },
+  HUF: { symbol: "Ft", locale: "hu-HU" },
+  CNY: { symbol: "¥", locale: "zh-CN" },
+  INR: { symbol: "₹", locale: "en-IN" },
+  BRL: { symbol: "R$", locale: "pt-BR" },
+  MXN: { symbol: "MX$", locale: "es-MX" },
+  KRW: { symbol: "₩", locale: "ko-KR" },
+  SGD: { symbol: "S$", locale: "en-SG" },
+  HKD: { symbol: "HK$", locale: "en-HK" },
+}
+
+export function getCurrencySymbol(currencyCode?: string | null): string {
+  if (!currencyCode) {
+    return currencyMap.PLN.symbol
+  }
+
+  const normalizedCurrencyCode = currencyCode.toUpperCase()
+  return currencyMap[normalizedCurrencyCode]?.symbol || normalizedCurrencyCode
+}
+
 export function formatCurrency(
   amount: number,
   currencyCode: string = "USD",
   options: FormatCurrencyOptions = {},
 ): string {
-  const currencyMap: Record<string, { symbol: string; locale: string }> = {
-    USD: { symbol: "$", locale: "en-US" },
-    EUR: { symbol: "€", locale: "de-DE" },
-    PLN: { symbol: "zł", locale: "pl-PL" },
-    GBP: { symbol: "£", locale: "en-GB" },
-    CAD: { symbol: "C$", locale: "en-CA" },
-    AUD: { symbol: "A$", locale: "en-AU" },
-    JPY: { symbol: "¥", locale: "ja-JP" },
-    CHF: { symbol: "CHF", locale: "de-CH" },
-    SEK: { symbol: "kr", locale: "sv-SE" },
-    NOK: { symbol: "kr", locale: "nb-NO" },
-    DKK: { symbol: "kr", locale: "da-DK" },
-    CZK: { symbol: "Kč", locale: "cs-CZ" },
-    HUF: { symbol: "Ft", locale: "hu-HU" },
-    CNY: { symbol: "¥", locale: "zh-CN" },
-    INR: { symbol: "₹", locale: "en-IN" },
-    BRL: { symbol: "R$", locale: "pt-BR" },
-    MXN: { symbol: "$", locale: "es-MX" },
-    KRW: { symbol: "₩", locale: "ko-KR" },
-    SGD: { symbol: "S$", locale: "en-SG" },
-    HKD: { symbol: "HK$", locale: "en-HK" },
-  }
-
-  const currency = currencyMap[currencyCode] || currencyMap.USD
+  const normalizedCurrencyCode = currencyCode.toUpperCase()
+  const currency = currencyMap[normalizedCurrencyCode] || currencyMap.USD
   const minimumFractionDigits = options.minimumFractionDigits ?? 2
   const maximumFractionDigits =
     options.maximumFractionDigits ?? minimumFractionDigits
@@ -107,7 +117,7 @@ export function formatCurrency(
   try {
     return new Intl.NumberFormat(currency.locale, {
       style: "currency",
-      currency: currencyCode,
+      currency: normalizedCurrencyCode,
       minimumFractionDigits,
       maximumFractionDigits,
     }).format(amount)

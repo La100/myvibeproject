@@ -26,7 +26,7 @@ import {
   type ShoppingExportRow,
 } from '@/lib/shoppingListExport';
 import type { TeamMember } from '@/lib/teamMember';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, getCurrencySymbol } from '@/lib/utils';
 import {
   calculateTaxBreakdown,
   getPrimaryAmountKindForDisplay,
@@ -132,7 +132,7 @@ export default function ShoppingListView() {
     return null;
   }
 
-  const currencySymbol = project.currency === "EUR" ? "€" : project.currency === "PLN" ? "zł" : "$";
+  const currencySymbol = getCurrencySymbol(project.currency);
   const effectiveTaxSettings = resolveOrganizationTaxSettings(
     team.organizationTaxSettings,
   );

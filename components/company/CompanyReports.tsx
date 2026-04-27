@@ -204,7 +204,7 @@ export default function CompanyReports() {
     realizationStatus: string;
     setId?: string | null;
   }>;
-  const activeCurrency = team?.currency || projectList[0]?.currency || "USD";
+  const activeCurrency = team?.currency || projectList[0]?.currency || "PLN";
 
   const formatMoney = (amount: number, currency?: string) =>
     new Intl.NumberFormat("en-US", {
@@ -353,6 +353,11 @@ export default function CompanyReports() {
     paidCount: 0,
   };
   const invoiceCurrencySummary = invoicesReport?.currencySummary || [];
+  const hasMultipleInvoiceCurrencies = invoiceCurrencySummary.length > 1;
+  const primaryInvoiceCurrencySummary =
+    invoiceCurrencySummary.find((entry) => entry.currency === activeCurrency) ||
+    invoiceCurrencySummary[0] ||
+    null;
 
   const formatInvoiceMoney = (amount: number, currency: string) =>
     formatCurrency(amount, currency || activeCurrency, {
@@ -373,6 +378,10 @@ export default function CompanyReports() {
   ) => {
     if (rows.length === 0) {
       return "-";
+    }
+
+    if (rows.length === 1) {
+      return formatInvoiceMoney(rows[0][key], rows[0].currency);
     }
 
     return rows
@@ -1598,7 +1607,7 @@ export default function CompanyReports() {
                 <div>
                   <CardTitle>Invoices Across All Projects</CardTitle>
                   <CardDescription>
-                    Issued invoices register with totals grouped by currency
+                    Issued invoices register with organization totals
                   </CardDescription>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -1660,12 +1669,25 @@ export default function CompanyReports() {
                     }
                   />
                   <FinancialCard
-                    title="Currencies"
-                    value={String(invoiceCurrencySummary.length)}
+                    title={
+                      hasMultipleInvoiceCurrencies ? "Currencies" : "Issued"
+                    }
+                    value={
+                      hasMultipleInvoiceCurrencies
+                        ? String(invoiceCurrencySummary.length)
+                        : String(invoiceTotals.invoiceCount)
+                    }
                     subtitle={
-                      invoiceCurrencySummary
-                        .map((entry) => entry.currency)
-                        .join(" • ") || "No data"
+                      hasMultipleInvoiceCurrencies
+                        ? invoiceCurrencySummary
+                            .map((entry) => entry.currency)
+                            .join(" • ")
+                        : primaryInvoiceCurrencySummary
+                          ? formatInvoiceMoney(
+                              primaryInvoiceCurrencySummary.total,
+                              primaryInvoiceCurrencySummary.currency,
+                            )
+                          : "No data"
                     }
                     icon={
                       <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -1673,9 +1695,9 @@ export default function CompanyReports() {
                   />
                 </div>
 
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                  {invoiceCurrencySummary.length > 0 ? (
-                    invoiceCurrencySummary.map((entry) => (
+                {hasMultipleInvoiceCurrencies ? (
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                    {invoiceCurrencySummary.map((entry) => (
                       <div
                         key={entry.currency}
                         className="rounded-lg border border-border/70 bg-secondary/70 p-4"
@@ -1728,13 +1750,9 @@ export default function CompanyReports() {
                           </div>
                         </div>
                       </div>
-                    ))
-                  ) : (
-                    <div className="rounded-lg border border-dashed border-border/70 bg-secondary/70 px-4 py-8 text-sm text-muted-foreground md:col-span-2 xl:col-span-4">
-                      No issued invoices yet.
-                    </div>
-                  )}
-                </div>
+                    ))}
+                  </div>
+                ) : null}
 
                 <div className="rounded-lg border border-border/70 bg-secondary/70">
                   <div className="grid grid-cols-[1.3fr_1.1fr_1fr_0.8fr_0.9fr_0.9fr] gap-3 border-b border-border/70 px-4 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">

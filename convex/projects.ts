@@ -1438,6 +1438,10 @@ export const updateProject = mutation({
       throw new Error("Project end date cannot be earlier than the start date");
     }
 
+    const currencyChanged =
+      typeof rest.currency === "string" &&
+      rest.currency !== existingProject.currency;
+
     if (name && name !== existingProject.name) {
       const baseSlug = generateSlug(name);
       let slug = baseSlug;
@@ -1467,6 +1471,21 @@ export const updateProject = mutation({
         ...rest,
       });
 
+      if (currencyChanged) {
+        const draftPayments = await ctx.db
+          .query("projectPayments")
+          .withIndex("by_project", (q) => q.eq("projectId", projectId))
+          .filter((q) => q.eq(q.field("status"), "draft"))
+          .collect();
+
+        for (const payment of draftPayments) {
+          await ctx.db.patch(payment._id, {
+            currency: rest.currency,
+            updatedAt: Date.now(),
+          });
+        }
+      }
+
       return { slug };
     } else {
       await ctx.db.patch(projectId, {
@@ -1476,6 +1495,21 @@ export const updateProject = mutation({
         ...clientPortalSettingsPatch,
         ...rest,
       });
+
+      if (currencyChanged) {
+        const draftPayments = await ctx.db
+          .query("projectPayments")
+          .withIndex("by_project", (q) => q.eq("projectId", projectId))
+          .filter((q) => q.eq(q.field("status"), "draft"))
+          .collect();
+
+        for (const payment of draftPayments) {
+          await ctx.db.patch(payment._id, {
+            currency: rest.currency,
+            updatedAt: Date.now(),
+          });
+        }
+      }
 
       return { slug: existingProject.slug };
     }

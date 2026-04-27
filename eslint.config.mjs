@@ -10,11 +10,28 @@ const compat = new FlatCompat({
 });
 
 const eslintConfig = [
+  {
+    linterOptions: {
+      reportUnusedDisableDirectives: "off",
+    },
+  },
+  {
+    ignores: ["convex/_generated/**"],
+  },
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
     rules: {
       "react/no-unescaped-entities": "off",
       "@next/next/no-img-element": "off",
+    },
+  },
+  {
+    files: ["convex/**/*.ts"],
+    rules: {
+      "@typescript-eslint/ban-ts-comment": "off",
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-require-imports": "off",
+      "@typescript-eslint/no-unused-vars": "off",
     },
   },
 ];

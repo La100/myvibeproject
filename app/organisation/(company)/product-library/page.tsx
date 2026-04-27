@@ -123,7 +123,7 @@ export default function ProductLibraryPage() {
         </div>
         {product.unitPrice ? (
           <span className="shrink-0 pt-0.5 text-sm font-medium text-foreground/80">
-            {formatCurrency(product.unitPrice, team?.currency || 'USD', {
+            {formatCurrency(product.unitPrice, team?.currency || 'PLN', {
               minimumFractionDigits: 0,
               maximumFractionDigits: 2,
             })}
@@ -160,7 +160,7 @@ export default function ProductLibraryPage() {
           </div>
           {product.unitPrice ? (
             <span className="shrink-0 text-sm font-medium text-foreground/80">
-              {formatCurrency(product.unitPrice, team?.currency || 'USD', {
+              {formatCurrency(product.unitPrice, team?.currency || 'PLN', {
                 minimumFractionDigits: 0,
                 maximumFractionDigits: 2,
               })}
@@ -330,7 +330,7 @@ export default function ProductLibraryPage() {
         <ProductModal
           product={selectedProduct}
           onClose={() => setSelectedProduct(null)}
-          teamCurrency={team?.currency || 'USD'}
+          teamCurrency={team?.currency || 'PLN'}
           teamId={team._id}
         />
       )}

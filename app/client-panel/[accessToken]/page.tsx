@@ -61,7 +61,7 @@ import {
   getTaxAmountKindsForDisplay,
   resolveOrganizationTaxSettings,
 } from "@/lib/organizationTax";
-import { cn } from "@/lib/utils";
+import { cn, getCurrencySymbol } from "@/lib/utils";
 
 type ClientPanelItem = Doc<"clientPanelItems">;
 type ClientPanelSection = Doc<"clientPanelSections">;
@@ -250,32 +250,6 @@ const DEFAULT_CLIENT_PANEL_SETTINGS = {
   showSupplier: true,
   showPrice: true,
 };
-
-const CURRENCY_SYMBOL_BY_CODE: Record<string, string> = {
-  USD: "$",
-  EUR: "€",
-  PLN: "zł",
-  GBP: "£",
-  CAD: "C$",
-  AUD: "A$",
-  JPY: "¥",
-  CHF: "CHF",
-  SEK: "kr",
-  NOK: "kr",
-  DKK: "kr",
-  CZK: "Kč",
-  HUF: "Ft",
-  CNY: "¥",
-  INR: "₹",
-  BRL: "R$",
-  MXN: "MX$",
-  KRW: "₩",
-  SGD: "S$",
-  HKD: "HK$",
-};
-
-const getCurrencySymbol = (currency?: string) =>
-  currency ? CURRENCY_SYMBOL_BY_CODE[currency] || currency : "zł";
 
 const formatAmount = (value: number | undefined, currencySymbol: string) => {
   if (value === undefined) {

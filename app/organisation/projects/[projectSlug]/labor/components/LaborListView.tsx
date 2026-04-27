@@ -25,7 +25,7 @@ import {
 } from '@/lib/laborExport';
 import type { TeamMember } from '@/lib/teamMember';
 import { exportSectionedTablePdf } from '@/lib/sectionedTablePdfExport';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, getCurrencySymbol } from '@/lib/utils';
 import {
   formatMoney,
   sanitizeFileName,
@@ -85,7 +85,7 @@ export default function LaborListView() {
     return <div>Project not found</div>;
   }
 
-  const currencySymbol = project.currency === 'EUR' ? '€' : project.currency === 'PLN' ? 'zł' : '$';
+  const currencySymbol = getCurrencySymbol(project.currency);
   const measurementSystem = resolveMeasurementSystem((project as Doc<"projects"> & { measurements?: string }).measurements);
   const sectionMap = new Map(sections.map((section) => [String(section._id), section]));
 

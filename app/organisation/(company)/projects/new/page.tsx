@@ -19,6 +19,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
+import { getCurrencySymbol } from "@/lib/utils";
 
 interface TeamMemberOption {
   _id: Id<"teamMembers">;
@@ -28,29 +29,6 @@ interface TeamMemberOption {
   name?: string;
   email?: string;
 }
-
-const currencySymbols: Record<string, string> = {
-  PLN: "zł",
-  USD: "$",
-  EUR: "€",
-  GBP: "£",
-  CAD: "C$",
-  AUD: "A$",
-  JPY: "¥",
-  CHF: "CHF",
-  SEK: "kr",
-  NOK: "kr",
-  DKK: "kr",
-  CZK: "Kč",
-  HUF: "Ft",
-  CNY: "¥",
-  INR: "₹",
-  BRL: "R$",
-  MXN: "$",
-  KRW: "₩",
-  SGD: "S$",
-  HKD: "HK$",
-};
 
 function parseDateInput(value: string) {
   if (!value) return undefined;
@@ -120,7 +98,7 @@ export default function NewProjectPage() {
   );
   const [selectedProjectMemberIds, setSelectedProjectMemberIds] = useState<string[]>([]);
   const selectedCurrency = useDefaultCurrency ? (team?.currency || "PLN") : newProject.currency;
-  const selectedCurrencySymbol = currencySymbols[selectedCurrency] || selectedCurrency;
+  const selectedCurrencySymbol = getCurrencySymbol(selectedCurrency);
 
   useEffect(() => {
     if (projectAccessInitializedRef.current || projectMemberOptions.length === 0) {
