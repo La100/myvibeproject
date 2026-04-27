@@ -53,6 +53,7 @@ type ShoppingSet = Doc<"shoppingSets"> & {
   resolvedAt?: number | null;
 };
 type Priority = ShoppingListItem["priority"];
+type PrioritySelectValue = NonNullable<Priority> | "none";
 
 const SHOPPING_STATUS_OPTIONS: Array<{
   value: ShoppingListItem["realizationStatus"];
@@ -90,6 +91,17 @@ const SHOPPING_PRIORITY_LABELS: Record<NonNullable<Priority>, string> = {
   high: "high",
   urgent: "urgent",
 };
+
+const SHOPPING_PRIORITY_OPTIONS: Array<{
+  value: PrioritySelectValue;
+  label: string;
+}> = [
+  { value: "none", label: "No priority" },
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+  { value: "urgent", label: "Urgent" },
+];
 
 const formatItemCountLabel = (count: number) => `${count} ${count === 1 ? "item" : "items"}`;
 
@@ -518,7 +530,7 @@ export function ShoppingListSection({
   };
 
   const renderEditForm = (item: ShoppingListItem) => (
-    <div className="vibe-surface flex flex-col gap-4 p-5 shadow-none">
+    <div className="vibe-surface flex flex-col gap-5 p-5 shadow-none">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Field>
           <FieldLabel>Product Name *</FieldLabel>
@@ -584,6 +596,9 @@ export function ShoppingListSection({
             className="h-12 text-sm"
           />
         </Field>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Field>
           <FieldLabel>Quantity</FieldLabel>
           <Input
@@ -604,6 +619,52 @@ export function ShoppingListSection({
             placeholder="0.00"
             className="h-12 text-sm"
           />
+        </Field>
+        <Field>
+          <FieldLabel>Status</FieldLabel>
+          <Select
+            value={editFormData.realizationStatus || "PLANNED"}
+            onValueChange={(value) =>
+              setEditFormData({
+                ...editFormData,
+                realizationStatus: value as ShoppingListItem["realizationStatus"],
+              })
+            }
+          >
+            <SelectTrigger className="h-12 text-sm">
+              <SelectValue placeholder="Select status" />
+            </SelectTrigger>
+            <SelectContent>
+              {SHOPPING_STATUS_OPTIONS.map((status) => (
+                <SelectItem key={status.value} value={status.value}>
+                  {status.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field>
+          <FieldLabel>Priority</FieldLabel>
+          <Select
+            value={editFormData.priority ?? "none"}
+            onValueChange={(value) =>
+              setEditFormData({
+                ...editFormData,
+                priority: value === "none" ? undefined : (value as NonNullable<Priority>),
+              })
+            }
+          >
+            <SelectTrigger className="h-12 text-sm">
+              <SelectValue placeholder="Select priority" />
+            </SelectTrigger>
+            <SelectContent>
+              {SHOPPING_PRIORITY_OPTIONS.map((priority) => (
+                <SelectItem key={priority.value} value={priority.value}>
+                  {priority.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
         <Field>
           <FieldLabel>Tax treatment</FieldLabel>
@@ -656,29 +717,9 @@ export function ShoppingListSection({
             </Select>
           </Field>
         ) : null}
-        <Field>
-          <FieldLabel>Status</FieldLabel>
-          <Select
-            value={editFormData.realizationStatus || "PLANNED"}
-            onValueChange={(value) =>
-              setEditFormData({
-                ...editFormData,
-                realizationStatus: value as ShoppingListItem["realizationStatus"],
-              })
-            }
-          >
-            <SelectTrigger className="h-12 text-sm">
-              <SelectValue placeholder="Select status" />
-            </SelectTrigger>
-            <SelectContent>
-              {SHOPPING_STATUS_OPTIONS.map((status) => (
-                <SelectItem key={status.value} value={status.value}>
-                  {status.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Field>
           <FieldLabel>Product Link</FieldLabel>
           <div className="flex items-center gap-2">
@@ -700,7 +741,7 @@ export function ShoppingListSection({
             </Button>
           </div>
         </Field>
-        <Field className="md:col-span-2 lg:col-span-3">
+        <Field className="lg:col-span-2">
           <FieldLabel>Image URL</FieldLabel>
           <Input
             value={editFormData.imageUrl || ""}
@@ -709,6 +750,9 @@ export function ShoppingListSection({
             className="h-12 text-sm"
           />
         </Field>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Field>
           <FieldLabel>Assign To</FieldLabel>
           <Select
