@@ -136,7 +136,7 @@ const UPDATE_PORTAL_BUTTON_CLASSNAME =
   "h-10 rounded-full bg-primary/92 px-5 text-sm font-medium text-primary-foreground shadow-none hover:bg-primary/92 focus-visible:ring-0 active:translate-y-0";
 
 const PORTAL_SWITCH_CLASSNAME =
-  "h-6 w-10 border-0 bg-muted/90 p-1 shadow-none data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted/90";
+  "h-6 w-11 border-0 bg-muted/90 shadow-none data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted/90";
 
 export default function CustomerPanelPage() {
   const { project, teamMember, isLoading } = useProject();

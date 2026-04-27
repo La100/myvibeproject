@@ -49,7 +49,7 @@ function StepCard({
   return (
     <div
       className={cn(
-        "vibe-surface relative flex min-h-[260px] flex-col gap-5 p-6 md:min-h-[300px]",
+        "vibe-surface relative flex min-h-[260px] min-w-0 flex-col gap-5 p-6 md:min-h-[300px]",
         isExternalAction &&
           "border-primary/12 bg-[color-mix(in_oklab,var(--ui-surface-inner)_84%,#f4eee5_16%)] shadow-sm",
       )}
@@ -82,19 +82,22 @@ function StepCard({
 
       <div className="mt-auto">
         {step.externalHref ? (
-          <Button asChild className="h-10 w-full justify-between rounded-full px-4 text-sm">
+          <Button asChild className="h-10 w-full min-w-0 max-w-full justify-between overflow-hidden rounded-full px-4 text-sm">
             <Link href={step.externalHref} target="_blank" rel="noreferrer">
-              <span>{step.actionLabel}</span>
+              <span className="min-w-0 truncate">{step.actionLabel}</span>
               <ExternalLinkIcon className="h-4 w-4" aria-hidden="true" />
             </Link>
           </Button>
         ) : (
           <Button
             variant={step.done ? "outline" : "default"}
-            className={cn("h-10 w-full justify-between rounded-full px-4 text-sm", step.done && "bg-card")}
+            className={cn(
+              "h-10 w-full min-w-0 max-w-full justify-between overflow-hidden rounded-full px-4 text-sm",
+              step.done && "bg-card",
+            )}
             onClick={step.onAction}
           >
-            <span>{step.actionLabel}</span>
+            <span className="min-w-0 truncate">{step.actionLabel}</span>
             <ArrowRightIcon className="h-4 w-4" aria-hidden="true" />
           </Button>
         )}
@@ -158,8 +161,8 @@ export function ShoppingListOnboarding({
 
   return (
     <section className="vibe-panel mb-8 overflow-hidden">
-      <div className="grid items-start gap-8 p-6 lg:grid-cols-[0.82fr_1.18fr] lg:p-8">
-        <div className="flex min-h-[300px] flex-col justify-between gap-6 py-1">
+      <div className="grid items-start gap-8 p-6 lg:p-8 2xl:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)]">
+        <div className="flex min-w-0 flex-col justify-between gap-6 py-1 2xl:min-h-[300px]">
           <div className="flex flex-col gap-4">
             <Badge variant="secondary" className="w-fit">
               Shopping list setup
@@ -168,7 +171,7 @@ export function ShoppingListOnboarding({
               <h2 className="clean-title max-w-lg text-3xl font-medium leading-tight tracking-tight md:text-4xl">
                 Set up shopping in three quick steps.
               </h2>
-              <p className="max-w-md text-sm leading-6 text-muted-foreground md:text-base">
+              <p className="max-w-md break-words text-sm leading-6 text-muted-foreground md:text-base">
                 {projectName} is empty. Add sections, install the Chrome extension, then save the first product.
               </p>
             </div>
@@ -184,7 +187,12 @@ export function ShoppingListOnboarding({
           </div>
         </div>
 
-        <div className={cn("grid items-stretch gap-4", steps.length === 2 ? "xl:grid-cols-2" : "xl:grid-cols-3")}>
+        <div
+          className={cn(
+            "grid min-w-0 items-stretch gap-4",
+            steps.length === 2 ? "md:grid-cols-2" : "lg:grid-cols-3",
+          )}
+        >
           {steps.map((step, index) => (
             <StepCard
               key={step.title}
