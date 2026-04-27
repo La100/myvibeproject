@@ -5,7 +5,11 @@ import Script from "next/script";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
-import { ChatKit, useChatKit, type StartScreenPrompt } from "@openai/chatkit-react";
+import {
+  ChatKit,
+  useChatKit,
+  type StartScreenPrompt,
+} from "@openai/chatkit-react";
 import { Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
@@ -13,13 +17,23 @@ import { useProject } from "@/components/providers/ProjectProvider";
 import { apiAny } from "@/lib/convexApiAny";
 import { AISubscriptionWall, AIQuotaUpsellCard } from "@/components/ai/shared";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { QUICK_PROMPTS, MAX_FILE_SIZE_BYTES } from "@/components/ai/assistant/config";
+import {
+  QUICK_PROMPTS,
+  MAX_FILE_SIZE_BYTES,
+} from "@/components/ai/assistant/config";
 import { useChatKitClientTools } from "@/components/ai/assistant/chatkit/useChatKitClientTools";
 
 const CHANGE_MODE_STORAGE_KEY = "myvibeproject-chatkit-can-make-changes";
 const DEFAULT_SELF_HOSTED_CHATKIT_URL = "/api/chatkit/self-hosted";
+const CLIENT_TOOL_TIMEOUT_MS = 45_000;
 
 const START_PROMPT_ICONS: Record<string, StartScreenPrompt["icon"]> = {
   "Project Status": "chart",
@@ -56,7 +70,8 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
     "idle" | "loading_thread" | "responding"
   >("idle");
   const selfHostedChatKitUrl =
-    process.env.NEXT_PUBLIC_CHATKIT_SELF_HOSTED_URL?.trim() || DEFAULT_SELF_HOSTED_CHATKIT_URL;
+    process.env.NEXT_PUBLIC_CHATKIT_SELF_HOSTED_URL?.trim() ||
+    DEFAULT_SELF_HOSTED_CHATKIT_URL;
   const usesDirectChatKitBackend = /^https?:\/\//i.test(selfHostedChatKitUrl);
   const selfHostedDomainKey =
     process.env.NEXT_PUBLIC_CHATKIT_SELF_HOSTED_DOMAIN_KEY?.trim() || null;
@@ -109,7 +124,7 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
     [isPanel],
   );
 
-  const onClientTool = useChatKitClientTools(
+  const rawOnClientTool = useChatKitClientTools(
     project?._id && team?._id && team?.slug
       ? {
           projectId: project._id,
@@ -119,6 +134,64 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
           canMakeChanges,
         }
       : null,
+  );
+  const onClientTool = useMemo(
+    () =>
+      async (...toolArgs: Parameters<typeof rawOnClientTool>) => {
+        const [call] = toolArgs;
+        const startedAt = performance.now();
+        const toolName =
+          call && typeof call === "object" && "name" in call
+            ? String(call.name)
+            : "unknown";
+
+        console.info("[chatkit-client-tool] start", {
+          tool: toolName,
+          projectId: project?._id,
+          teamId: team?._id,
+        });
+
+        let timeoutId: ReturnType<typeof setTimeout> | undefined;
+        const timeout = new Promise<Record<string, unknown>>((resolve) => {
+          timeoutId = setTimeout(() => {
+            resolve({
+              ok: false,
+              tool: toolName,
+              error: `Client tool timed out after ${Math.round(CLIENT_TOOL_TIMEOUT_MS / 1000)} seconds.`,
+              timedOut: true,
+            });
+          }, CLIENT_TOOL_TIMEOUT_MS);
+        });
+
+        const result = await Promise.race([
+          rawOnClientTool(...toolArgs),
+          timeout,
+        ]);
+
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+
+        const durationMs = Math.round(performance.now() - startedAt);
+        const ok = (result as Record<string, unknown>).ok !== false;
+        const logPayload = {
+          tool: toolName,
+          ok,
+          durationMs,
+          resultKeys: Object.keys(result as Record<string, unknown>),
+          projectId: project?._id,
+          teamId: team?._id,
+        };
+
+        if ((result as Record<string, unknown>).timedOut === true) {
+          console.warn("[chatkit-client-tool] timeout", logPayload);
+        } else {
+          console.info("[chatkit-client-tool] result", logPayload);
+        }
+
+        return result;
+      },
+    [project?._id, rawOnClientTool, team?._id],
   );
 
   const selfHostedFetch = useMemo(
@@ -149,7 +222,10 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
         headers.set("x-chatkit-timezone", team.timezone);
       }
 
-      headers.set("x-chatkit-can-make-changes", canMakeChanges ? "true" : "false");
+      headers.set(
+        "x-chatkit-can-make-changes",
+        canMakeChanges ? "true" : "false",
+      );
 
       return fetch(input, {
         ...init,
@@ -158,7 +234,15 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
         credentials: "same-origin",
       });
     },
-    [canMakeChanges, getToken, project?._id, team?._id, team?.timezone, userId, usesDirectChatKitBackend],
+    [
+      canMakeChanges,
+      getToken,
+      project?._id,
+      team?._id,
+      team?.timezone,
+      userId,
+      usesDirectChatKitBackend,
+    ],
   );
 
   const handleCanMakeChangesChange = (checked: boolean) => {
@@ -296,7 +380,8 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
             <CardHeader>
               <CardTitle>AI assistant unavailable</CardTitle>
               <CardDescription>
-                Your workspace does not currently have access to the self-hosted assistant.
+                Your workspace does not currently have access to the self-hosted
+                assistant.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
@@ -305,7 +390,9 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
               </Button>
               <Button
                 variant="outline"
-                onClick={() => router.push(`/organisation/projects/${project.slug}/ai`)}
+                onClick={() =>
+                  router.push(`/organisation/projects/${project.slug}/ai`)
+                }
               >
                 Open full AI page
               </Button>
@@ -334,9 +421,16 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
   if (showUnifiedLoading) {
     return (
       <div
-        className={isPanel ? "flex h-full items-center justify-center p-6" : "flex min-h-screen items-center justify-center"}
+        className={
+          isPanel
+            ? "flex h-full items-center justify-center p-6"
+            : "flex min-h-screen items-center justify-center"
+        }
       >
-        <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="Loading" />
+        <Loader2
+          className="h-8 w-8 animate-spin text-primary"
+          aria-label="Loading"
+        />
       </div>
     );
   }
@@ -360,8 +454,8 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
           <CardHeader>
             <CardTitle>Self-hosted ChatKit error</CardTitle>
             <CardDescription>
-              The AI assistant is wired to your self-hosted ChatKit backend, but the integration
-              could not be initialized.
+              The AI assistant is wired to your self-hosted ChatKit backend, but
+              the integration could not be initialized.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
@@ -395,7 +489,9 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
 
         <div className="flex items-center justify-between gap-3 border-b border-border/70 bg-white px-4 py-2.5">
           <div className="min-w-0">
-            <p className="text-[15px] font-semibold leading-tight text-foreground">Vibe Assistant</p>
+            <p className="text-[15px] font-semibold leading-tight text-foreground">
+              Vibe Assistant
+            </p>
             <p className="text-[11px] text-muted-foreground">
               {assistantActivityLabel ??
                 (canMakeChanges ? "Live changes enabled" : "Read-only mode")}
@@ -444,9 +540,7 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
         </div>
       </div>
 
-      <div
-        className="relative mx-auto flex h-full w-full max-w-[1220px] overflow-hidden rounded-3xl border border-border/70 bg-gradient-to-b from-background to-muted/20 shadow-lg"
-      >
+      <div className="relative mx-auto flex h-full w-full max-w-[1220px] overflow-hidden rounded-3xl border border-border/70 bg-gradient-to-b from-background to-muted/20 shadow-lg">
         {assistantActivityLabel ? (
           <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center px-4 pt-4">
             <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/95 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur">

@@ -49,12 +49,17 @@ export const createConfirmedShoppingItem = action({
       notes: v.optional(v.string()),
       priority: v.optional(v.union(v.literal("low"), v.literal("medium"), v.literal("high"), v.literal("urgent"))),
       buyBefore: v.optional(v.string()),
+      imageUrl: v.optional(v.string()),
+      productLink: v.optional(v.string()),
       supplier: v.optional(v.string()),
+      catalogNumber: v.optional(v.string()),
       category: v.optional(v.string()),
+      dimensions: v.optional(v.string()),
       unitPrice: v.optional(v.number()),
       totalPrice: v.optional(v.number()),
       sectionId: v.optional(v.id("shoppingListSections")),
       setId: v.optional(v.id("shoppingSets")),
+      assignedTo: v.optional(v.string()),
     }),
   },
   returns: v.object({
@@ -78,12 +83,17 @@ export const createConfirmedShoppingItem = action({
         notes: args.itemData.notes,
         priority: args.itemData.priority || "medium",
         buyBefore: buyBeforeNumber,
+        imageUrl: args.itemData.imageUrl,
+        productLink: args.itemData.productLink,
         supplier: args.itemData.supplier,
+        catalogNumber: args.itemData.catalogNumber,
         category: args.itemData.category,
+        dimensions: args.itemData.dimensions,
         unitPrice: args.itemData.unitPrice,
         realizationStatus: "PLANNED",
         sectionId: args.itemData.sectionId,
         setId: args.itemData.setId,
+        assignedTo: args.itemData.assignedTo,
       });
 
       return {
@@ -485,5 +495,4 @@ export const deleteConfirmedShoppingSet = action({
     }
   },
 });
-
 

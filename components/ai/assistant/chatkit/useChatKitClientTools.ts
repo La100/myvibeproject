@@ -366,7 +366,9 @@ function normalizeSearchText(value: string): string {
 }
 
 function tokenizeSearchText(value: string): string[] {
-  const normalized = normalizeSearchText(value).replace(/[^a-z0-9]+/g, " ").trim();
+  const normalized = normalizeSearchText(value)
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
   return normalized ? normalized.split(/\s+/) : [];
 }
 
@@ -400,13 +402,16 @@ function buildTaskSearchPlan(
   fallbackLimit: number,
 ): TaskSearchPlan {
   const tokens = tokenizeSearchText(rawQueryInput);
-  const hasTaskWord = tokens.some((token) => TASK_DOMAIN_QUERY_WORDS.has(token));
+  const hasTaskWord = tokens.some((token) =>
+    TASK_DOMAIN_QUERY_WORDS.has(token),
+  );
   const hasNonTaskDomainWord = tokens.some((token) =>
     NON_TASK_DOMAIN_QUERY_WORDS.has(token),
   );
   const effectiveScope =
     scope === "all" && hasTaskWord && !hasNonTaskDomainWord ? "tasks" : scope;
-  const shouldInspectTasks = effectiveScope === "all" || effectiveScope === "tasks";
+  const shouldInspectTasks =
+    effectiveScope === "all" || effectiveScope === "tasks";
 
   if (!shouldInspectTasks) {
     return {
@@ -416,7 +421,9 @@ function buildTaskSearchPlan(
     };
   }
 
-  const hasOpenQualifier = tokens.some((token) => TASK_OPEN_QUERY_WORDS.has(token));
+  const hasOpenQualifier = tokens.some((token) =>
+    TASK_OPEN_QUERY_WORDS.has(token),
+  );
   const hasClosedQualifier = tokens.some((token) =>
     TASK_CLOSED_QUERY_WORDS.has(token),
   );
@@ -445,9 +452,9 @@ function buildTaskSearchPlan(
   };
 }
 
-function sortTasksByRecency<T extends { updatedAt?: number; createdAt?: number }>(
-  tasks: T[],
-): T[] {
+function sortTasksByRecency<
+  T extends { updatedAt?: number; createdAt?: number },
+>(tasks: T[]): T[] {
   return [...tasks].sort(
     (left, right) =>
       (right.updatedAt ?? right.createdAt ?? 0) -
@@ -1016,7 +1023,9 @@ function asDateInput(value: unknown): string | undefined {
   return new Date(timestamp).toISOString();
 }
 
-function formatTimestampAsIso(timestamp: number | undefined): string | undefined {
+function formatTimestampAsIso(
+  timestamp: number | undefined,
+): string | undefined {
   if (timestamp === undefined || !Number.isFinite(timestamp)) {
     return undefined;
   }
@@ -1032,9 +1041,7 @@ function extractTaskTitle(params: Record<string, unknown>): string | undefined {
   );
 }
 
-function extractNoteTitle(
-  params: Record<string, unknown>,
-): string | undefined {
+function extractNoteTitle(params: Record<string, unknown>): string | undefined {
   return (
     asNonEmptyString(params.title) ??
     asNonEmptyString(params.name) ??
@@ -1084,9 +1091,7 @@ function extractShoppingName(
   );
 }
 
-function extractLaborName(
-  params: Record<string, unknown>,
-): string | undefined {
+function extractLaborName(params: Record<string, unknown>): string | undefined {
   return (
     asNonEmptyString(params.name) ??
     asNonEmptyString(params.itemName) ??
@@ -1344,6 +1349,7 @@ function summarizeMoodboardImage(
       asNonEmptyString(image.sectionTitle) ??
       (sectionId ? options?.sectionTitleById?.get(sectionId) : undefined),
     createdAt: asNumber(image._creationTime) ?? asNumber(image.createdAt),
+    imageUrl: asNonEmptyString(image.imageUrl) ?? asNonEmptyString(image.url),
     url: asNonEmptyString(image.url),
   };
 }
@@ -1416,7 +1422,8 @@ function validateShoppingItemToolFields(
     return `Invalid priority for ${action}.`;
   }
   if (
-    (hasOwnValue(params, "status") || hasOwnValue(params, "realizationStatus")) &&
+    (hasOwnValue(params, "status") ||
+      hasOwnValue(params, "realizationStatus")) &&
     extractShoppingRealizationStatus(params) === undefined
   ) {
     return `Invalid realizationStatus/status for ${action}.`;
@@ -1515,12 +1522,11 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
         return resolved;
       };
 
-      let shoppingSectionsPromise:
-        | Promise<Array<Record<string, unknown>>>
-        | null = null;
-      let laborSectionsPromise:
-        | Promise<Array<Record<string, unknown>>>
-        | null = null;
+      let shoppingSectionsPromise: Promise<
+        Array<Record<string, unknown>>
+      > | null = null;
+      let laborSectionsPromise: Promise<Array<Record<string, unknown>>> | null =
+        null;
 
       const getShoppingSections = async (): Promise<
         Array<Record<string, unknown>>
@@ -1638,13 +1644,18 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
           return undefined;
         }
 
-        const surveys = (await convex.query(apiAny.surveys.getSurveysByProject, {
-          projectId,
-        })) as Array<Record<string, unknown>>;
+        const surveys = (await convex.query(
+          apiAny.surveys.getSurveysByProject,
+          {
+            projectId,
+          },
+        )) as Array<Record<string, unknown>>;
         const normalizedRequestedTitle = normalizeLookupValue(requestedTitle);
         const matches = surveys.filter((survey) => {
           const title = asNonEmptyString(survey.title);
-          return title && normalizeLookupValue(title) === normalizedRequestedTitle;
+          return (
+            title && normalizeLookupValue(title) === normalizedRequestedTitle
+          );
         });
         if (matches.length === 1) {
           return asNonEmptyString(matches[0]?._id);
@@ -1652,7 +1663,10 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
 
         const looseMatches = surveys.filter((survey) => {
           const title = asNonEmptyString(survey.title);
-          return title && normalizeLookupValue(title).includes(normalizedRequestedTitle);
+          return (
+            title &&
+            normalizeLookupValue(title).includes(normalizedRequestedTitle)
+          );
         });
         if (looseMatches.length === 1) {
           return asNonEmptyString(looseMatches[0]?._id);
@@ -2018,7 +2032,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 return { ok: false, error: "Note not found." };
               }
 
-              const title = extractNoteTitle(item) ??
+              const title =
+                extractNoteTitle(item) ??
                 asNonEmptyString(existingNote.title) ??
                 "Untitled note";
               const content =
@@ -2112,7 +2127,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
 
               await convex.mutation(apiAny.contacts.updateContact, {
                 contactId,
-                name: extractContactName(item) ??
+                name:
+                  extractContactName(item) ??
                   asNonEmptyString(existingContact.name) ??
                   "Unnamed contact",
                 companyName:
@@ -2195,6 +2211,16 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 }
 
                 const sectionId = await resolveSectionId("shopping", item);
+                const imageUrl =
+                  asNonEmptyString(item.imageUrl) ??
+                  asNonEmptyString(item.moodboardImageUrl) ??
+                  (asNonEmptyString(item.sourceType) === "moodboard"
+                    ? asNonEmptyString(item.url)
+                    : undefined);
+                const productLink =
+                  asNonEmptyString(item.productLink) ??
+                  asNonEmptyString(item.link) ??
+                  (imageUrl ? undefined : asNonEmptyString(item.url));
 
                 const itemId = await convex.mutation(
                   apiAny.shopping.createShoppingListItem,
@@ -2211,11 +2237,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                     ),
                     buyBefore: asTimestamp(item.buyBefore),
                     priority: asTaskPriority(item.priority) ?? "medium",
-                    imageUrl: asNonEmptyString(item.imageUrl),
-                    productLink:
-                      asNonEmptyString(item.productLink) ??
-                      asNonEmptyString(item.url) ??
-                      asNonEmptyString(item.link),
+                    imageUrl,
+                    productLink,
                     supplier:
                       asNonEmptyString(item.supplier) ??
                       asNonEmptyString(item.store) ??
@@ -2508,8 +2531,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                     setData: {
                       title,
                       notes: asNonEmptyString(item.notes),
-                      sectionId:
-                        sectionId === null ? undefined : sectionId,
+                      sectionId: sectionId === null ? undefined : sectionId,
                       setType: asShoppingSetType(item.setType),
                       selectionMode: asShoppingSetSelectionMode(
                         item.selectionMode,
@@ -3328,10 +3350,16 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               asNonEmptyString(params.supplier) ??
               asNonEmptyString(params.store) ??
               asNonEmptyString(params.vendor);
+            const imageUrl =
+              asNonEmptyString(params.imageUrl) ??
+              asNonEmptyString(params.moodboardImageUrl) ??
+              (asNonEmptyString(params.sourceType) === "moodboard"
+                ? asNonEmptyString(params.url)
+                : undefined);
             const productLink =
               asNonEmptyString(params.productLink) ??
-              asNonEmptyString(params.url) ??
-              asNonEmptyString(params.link);
+              asNonEmptyString(params.link) ??
+              (imageUrl ? undefined : asNonEmptyString(params.url));
             const notes = joinNotes(
               asNonEmptyString(params.notes),
               asNonEmptyString(params.storeAddress),
@@ -3350,7 +3378,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 notes,
                 buyBefore: asTimestamp(params.buyBefore),
                 priority: asTaskPriority(params.priority) ?? "medium",
-                imageUrl: asNonEmptyString(params.imageUrl),
+                imageUrl,
                 productLink,
                 supplier,
                 catalogNumber: asNonEmptyString(params.catalogNumber),
@@ -3553,7 +3581,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               };
             }
 
-            const title = extractNoteTitle(params) ??
+            const title =
+              extractNoteTitle(params) ??
               asNonEmptyString(existingNote.title) ??
               "Untitled note";
             const content =
@@ -3652,7 +3681,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
 
             await convex.mutation(apiAny.contacts.updateContact, {
               contactId,
-              name: extractContactName(params) ??
+              name:
+                extractContactName(params) ??
                 asNonEmptyString(existingContact.name) ??
                 "Unnamed contact",
               companyName:
@@ -3794,7 +3824,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             ) {
               return {
                 ok: false,
-                error: "Project end date cannot be earlier than the start date.",
+                error:
+                  "Project end date cannot be earlier than the start date.",
               };
             }
 
@@ -4649,23 +4680,19 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             const moodboardSectionRecords = moodboardSections as Array<
               Record<string, unknown>
             >;
-            const moodboardImageLists =
-              shouldFetchMoodboard
-                ? await Promise.all(
-                    moodboardSectionRecords.map((section) => {
-                      const sectionId = asNonEmptyString(section.id);
-                      return sectionId
-                        ? convex.query(
-                            apiAny.files.getMoodboardImagesBySection,
-                            {
-                              projectId,
-                              section: sectionId,
-                            },
-                          )
-                        : Promise.resolve([]);
-                    }),
-                  )
-                : [];
+            const moodboardImageLists = shouldFetchMoodboard
+              ? await Promise.all(
+                  moodboardSectionRecords.map((section) => {
+                    const sectionId = asNonEmptyString(section.id);
+                    return sectionId
+                      ? convex.query(apiAny.files.getMoodboardImagesBySection, {
+                          projectId,
+                          section: sectionId,
+                        })
+                      : Promise.resolve([]);
+                  }),
+                )
+              : [];
             const moodboardImageRecords = moodboardImageLists.flatMap(
               (images, sectionIndex) => {
                 const section = moodboardSectionRecords[sectionIndex];
@@ -5093,10 +5120,11 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
         const message = extractErrorMessage(error);
         console.error("[chatkit-client-tool] tool failed", {
           requestedName: call.name,
-          requestedParams: call.params,
           name,
-          params,
-          error,
+          paramKeys: Object.keys(params),
+          projectId,
+          teamId,
+          errorMessage: message,
         });
 
         return {

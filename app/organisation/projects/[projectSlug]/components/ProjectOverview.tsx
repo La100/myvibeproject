@@ -757,11 +757,16 @@ function ProjectOverviewContent() {
     ...moodboardSections.flatMap((section) => {
       const files =
         (stableMoodboardImageResults[section.id] as
-          | Array<{ name: string; url: string; _creationTime: number }>
+          | Array<{
+              id?: string;
+              name: string;
+              url: string;
+              _creationTime: number;
+            }>
           | undefined) ?? [];
 
       return files.map((file, index) => ({
-        id: `${section.id}-${file.url}-${index}`,
+        id: `${section.id}-${file.id || file.name || index}`,
         title: file.name || section.title,
         subtitle: section.title,
         href: `${projectBasePath}/moodboard`,

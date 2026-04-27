@@ -4,18 +4,30 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Script from "next/script";
 import { useAuth, useOrganization } from "@clerk/nextjs";
 import { useMutation, useQuery } from "convex/react";
-import { ChatKit, useChatKit, type StartScreenPrompt } from "@openai/chatkit-react";
+import {
+  ChatKit,
+  useChatKit,
+  type StartScreenPrompt,
+} from "@openai/chatkit-react";
 import { Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 import { apiAny } from "@/lib/convexApiAny";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { useChatKitClientTools } from "@/components/ai/assistant/chatkit/useChatKitClientTools";
 
 const DEFAULT_SELF_HOSTED_CHATKIT_URL = "/api/chatkit/self-hosted";
+const CLIENT_TOOL_TIMEOUT_MS = 45_000;
 const ONBOARDING_PROJECT_NAME = "Onboarding Workspace";
-const GENERIC_SETUP_ERROR = "We couldn't start your guided setup. Please try again.";
+const GENERIC_SETUP_ERROR =
+  "We couldn't start your guided setup. Please try again.";
 
 const ONBOARDING_PROMPTS: StartScreenPrompt[] = [
   {
@@ -45,7 +57,10 @@ export default function OnboardingHostedChatKit() {
   const teamId = activeOrganization?.teamId;
 
   const team = useQuery(apiAny.teams.getTeam, teamId ? { teamId } : "skip");
-  const projects = useQuery(apiAny.projects.listProjectsByTeam, teamId ? { teamId } : "skip");
+  const projects = useQuery(
+    apiAny.projects.listProjectsByTeam,
+    teamId ? { teamId } : "skip",
+  );
 
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [bootError, setBootError] = useState<string | null>(null);
@@ -53,13 +68,12 @@ export default function OnboardingHostedChatKit() {
   const createAttemptedForTeamRef = useRef<string | null>(null);
 
   const selfHostedChatKitUrl =
-    process.env.NEXT_PUBLIC_CHATKIT_SELF_HOSTED_URL?.trim() || DEFAULT_SELF_HOSTED_CHATKIT_URL;
+    process.env.NEXT_PUBLIC_CHATKIT_SELF_HOSTED_URL?.trim() ||
+    DEFAULT_SELF_HOSTED_CHATKIT_URL;
   const usesDirectChatKitBackend = /^https?:\/\//i.test(selfHostedChatKitUrl);
   const selfHostedDomainKey =
     process.env.NEXT_PUBLIC_CHATKIT_SELF_HOSTED_DOMAIN_KEY?.trim() || null;
-  const configurationError = selfHostedDomainKey
-    ? null
-    : GENERIC_SETUP_ERROR;
+  const configurationError = selfHostedDomainKey ? null : GENERIC_SETUP_ERROR;
 
   const scopedProject = useMemo(() => {
     if (!projects || projects.length === 0) {
@@ -97,9 +111,15 @@ export default function OnboardingHostedChatKit() {
         setIsCreatingProject(false);
       }
     })();
-  }, [createProjectInOrg, isCreatingProject, organization?.id, projects, teamId]);
+  }, [
+    createProjectInOrg,
+    isCreatingProject,
+    organization?.id,
+    projects,
+    teamId,
+  ]);
 
-  const onClientTool = useChatKitClientTools(
+  const rawOnClientTool = useChatKitClientTools(
     scopedProject?._id && teamId && team?.slug
       ? {
           projectId: scopedProject._id,
@@ -109,6 +129,64 @@ export default function OnboardingHostedChatKit() {
           canMakeChanges: true,
         }
       : null,
+  );
+  const onClientTool = useMemo(
+    () =>
+      async (...toolArgs: Parameters<typeof rawOnClientTool>) => {
+        const [call] = toolArgs;
+        const startedAt = performance.now();
+        const toolName =
+          call && typeof call === "object" && "name" in call
+            ? String(call.name)
+            : "unknown";
+
+        console.info("[chatkit-client-tool] start", {
+          tool: toolName,
+          projectId: scopedProject?._id,
+          teamId,
+        });
+
+        let timeoutId: ReturnType<typeof setTimeout> | undefined;
+        const timeout = new Promise<Record<string, unknown>>((resolve) => {
+          timeoutId = setTimeout(() => {
+            resolve({
+              ok: false,
+              tool: toolName,
+              error: `Client tool timed out after ${Math.round(CLIENT_TOOL_TIMEOUT_MS / 1000)} seconds.`,
+              timedOut: true,
+            });
+          }, CLIENT_TOOL_TIMEOUT_MS);
+        });
+
+        const result = await Promise.race([
+          rawOnClientTool(...toolArgs),
+          timeout,
+        ]);
+
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+
+        const durationMs = Math.round(performance.now() - startedAt);
+        const ok = (result as Record<string, unknown>).ok !== false;
+        const logPayload = {
+          tool: toolName,
+          ok,
+          durationMs,
+          resultKeys: Object.keys(result as Record<string, unknown>),
+          projectId: scopedProject?._id,
+          teamId,
+        };
+
+        if ((result as Record<string, unknown>).timedOut === true) {
+          console.warn("[chatkit-client-tool] timeout", logPayload);
+        } else {
+          console.info("[chatkit-client-tool] result", logPayload);
+        }
+
+        return result;
+      },
+    [rawOnClientTool, scopedProject?._id, teamId],
   );
 
   const selfHostedFetch = useMemo(
@@ -211,7 +289,10 @@ export default function OnboardingHostedChatKit() {
           src="https://cdn.platform.openai.com/deployments/chatkit/chatkit.js"
           strategy="afterInteractive"
         />
-        <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="Loading guided setup" />
+        <Loader2
+          className="h-8 w-8 animate-spin text-primary"
+          aria-label="Loading guided setup"
+        />
       </div>
     );
   }
