@@ -20,7 +20,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Id } from "@/convex/_generated/dataModel";
 import { apiAny } from "@/lib/convexApiAny";
@@ -1164,9 +1163,19 @@ export default function ProjectPaymentsView() {
     );
   }
 
+  const invoiceSetupIncomplete = !paymentsData.billingSetup?.sellerReady || !paymentsData.billingSetup?.customerReady;
+  const sellerMissingText = paymentsData.billingSetup?.missingSellerFields?.length
+    ? `Seller profile is missing: ${paymentsData.billingSetup.missingSellerFields.join(", ")}.`
+    : "";
+  const customerMissingText = paymentsData.billingSetup?.missingCustomerFields?.length
+    ? `Customer details are missing: ${paymentsData.billingSetup.missingCustomerFields.join(", ")}.`
+    : "";
+  const showPaymentSetupPanel = invoiceSetupIncomplete || stripeConnectNeedsSetup;
+  const stripeSetupActionLabel = stripeConnect?.accountId ? "Resume Stripe setup" : "Connect Stripe";
+
   return (
     <ProjectPageLayout>
-      <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-6">
         <ProjectPageHeader
           title="Payments"
           icon={<Wallet />}
@@ -1186,70 +1195,83 @@ export default function ProjectPaymentsView() {
           overdueCount={paymentsData.totals.overdueCount || 0}
         />
 
-        {(!paymentsData.billingSetup?.sellerReady || !paymentsData.billingSetup?.customerReady) && (
-          <Alert className="border-border/70 bg-card">
-            <Building2 className="h-4 w-4" />
-            <AlertTitle>Invoice setup incomplete</AlertTitle>
-            <AlertDescription>
-              {paymentsData.billingSetup?.missingSellerFields?.length
-                ? `Seller profile is missing: ${paymentsData.billingSetup.missingSellerFields.join(", ")}. `
-                : ""}
-              {paymentsData.billingSetup?.missingCustomerFields?.length
-                ? `Customer details are missing: ${paymentsData.billingSetup.missingCustomerFields.join(", ")}.`
-                : ""}
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {stripeConnectNeedsSetup ? (
-          <Alert className="border-border/70 bg-card">
-            <Wallet className="h-4 w-4" />
-            <AlertTitle>Connect Stripe once for this organization</AlertTitle>
-            <AlertDescription className="flex flex-col gap-3">
-              {!canManageStripeConnect ? (
-                <span>Only organization admins can connect Stripe payments.</span>
-              ) : null}
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => void openStripeConnectOnboarding()}
-                  disabled={isStripeConnectBusy || !canManageStripeConnect}
-                >
-                  <ExternalLink data-icon="inline-start" />
-                  {stripeConnect?.accountId ? "Resume Stripe setup" : "Connect Stripe"}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void syncStripeConnectStatus()}
-                  disabled={isStripeConnectRefreshBusy || !canManageStripeConnect}
-                >
-                  <RefreshCw data-icon="inline-start" />
-                  Refresh status
-                </Button>
+        {showPaymentSetupPanel ? (
+          <section className="vibe-panel grid gap-4 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-center">
+            <div className="flex min-w-0 gap-3">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-secondary/70 text-foreground">
+                <Building2 className="h-4 w-4" />
               </div>
-            </AlertDescription>
-          </Alert>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Payment setup</p>
+                <h2 className="mt-1 text-base font-semibold tracking-tight">
+                  {invoiceSetupIncomplete ? "Invoice setup incomplete" : "Stripe payments need setup"}
+                </h2>
+                {invoiceSetupIncomplete ? (
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                    {[sellerMissingText, customerMissingText].filter(Boolean).join(" ")}
+                  </p>
+                ) : (
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                    Connect Stripe once for this organization to collect card payments from issued invoices.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {stripeConnectNeedsSetup ? (
+              <div className="rounded-2xl border border-border/70 bg-secondary/70 p-3.5">
+                <div className="mb-3 flex items-start gap-3">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-card text-foreground shadow-sm">
+                    <Wallet className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-medium leading-tight">Stripe setup</p>
+                    <p className="mt-1 text-sm leading-5 text-muted-foreground">
+                      {canManageStripeConnect
+                        ? "Finish the organization payment route."
+                        : "Only organization admins can connect Stripe payments."}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
+                  <Button
+                    type="button"
+                    className="h-10 w-full px-4 text-sm"
+                    onClick={() => void openStripeConnectOnboarding()}
+                    disabled={isStripeConnectBusy || !canManageStripeConnect}
+                  >
+                    <ExternalLink data-icon="inline-start" />
+                    {stripeSetupActionLabel}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="w-full text-muted-foreground"
+                    onClick={() => void syncStripeConnectStatus()}
+                    disabled={isStripeConnectRefreshBusy || !canManageStripeConnect}
+                  >
+                    <RefreshCw data-icon="inline-start" />
+                    Refresh status
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </section>
         ) : null}
 
         <Tabs
           value={activeTab}
           onValueChange={(value) => setActiveTab(value as "schedule" | "invoices" | "invoice-setup")}
-          className="w-full gap-6"
+          className="w-full gap-4"
         >
-          <TabsList className="grid h-auto w-full grid-cols-1 gap-3 border-0 bg-transparent p-0 shadow-none md:grid-cols-3">
+          <TabsList className="grid h-auto w-full grid-cols-1 gap-1 rounded-2xl border border-border/70 bg-secondary/70 p-1 shadow-sm md:grid-cols-3">
             <TabsTrigger
               value="schedule"
-              className="h-auto w-full flex-none justify-start rounded-3xl border border-border/70 bg-card px-5 py-4 text-left text-muted-foreground shadow-none transition-[background-color,border-color,color,box-shadow,transform] hover:-translate-y-0.5 hover:border-border hover:bg-card hover:text-foreground hover:shadow-sm data-[state=active]:border-border data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+              className="h-auto min-h-11 w-full flex-none justify-start rounded-xl border-0 px-3 py-2 text-left text-muted-foreground shadow-none data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm"
             >
-              <span className="flex w-full flex-wrap items-start gap-3">
+              <span className="flex w-full items-center gap-3">
                 <span className="min-w-0 flex-1">
-                  <span className="block text-base font-semibold leading-tight">Draft invoices</span>
-                  <span className="mt-1 block text-[13px] leading-[1.45] text-muted-foreground">
-                    Create and prepare invoices before issuing
-                  </span>
+                  <span className="block text-sm font-semibold leading-tight">Draft invoices</span>
                 </span>
                 <Badge variant="outline" className="shrink-0 border-border/70 bg-secondary/70 px-3 py-1 text-xs font-semibold">
                   {draftInstallments.length}
@@ -1258,14 +1280,11 @@ export default function ProjectPaymentsView() {
             </TabsTrigger>
             <TabsTrigger
               value="invoices"
-              className="h-auto w-full flex-none justify-start rounded-3xl border border-border/70 bg-card px-5 py-4 text-left text-muted-foreground shadow-none transition-[background-color,border-color,color,box-shadow,transform] hover:-translate-y-0.5 hover:border-border hover:bg-card hover:text-foreground hover:shadow-sm data-[state=active]:border-border data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+              className="h-auto min-h-11 w-full flex-none justify-start rounded-xl border-0 px-3 py-2 text-left text-muted-foreground shadow-none data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm"
             >
-              <span className="flex w-full flex-wrap items-start gap-3">
+              <span className="flex w-full items-center gap-3">
                 <span className="min-w-0 flex-1">
-                  <span className="block text-base font-semibold leading-tight">Issued invoices</span>
-                  <span className="mt-1 block text-[13px] leading-[1.45] text-muted-foreground">
-                    Issued invoices and payment history
-                  </span>
+                  <span className="block text-sm font-semibold leading-tight">Issued invoices</span>
                 </span>
                 <Badge variant="outline" className="shrink-0 border-border/70 bg-secondary/70 px-3 py-1 text-xs font-semibold">
                   {issuedInstallments.length}
@@ -1274,14 +1293,11 @@ export default function ProjectPaymentsView() {
             </TabsTrigger>
             <TabsTrigger
               value="invoice-setup"
-              className="h-auto w-full flex-none justify-start rounded-3xl border border-border/70 bg-card px-5 py-4 text-left text-muted-foreground shadow-none transition-[background-color,border-color,color,box-shadow,transform] hover:-translate-y-0.5 hover:border-border hover:bg-card hover:text-foreground hover:shadow-sm data-[state=active]:border-border data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+              className="h-auto min-h-11 w-full flex-none justify-start rounded-xl border-0 px-3 py-2 text-left text-muted-foreground shadow-none data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm"
             >
-              <span className="flex w-full flex-wrap items-start gap-3">
+              <span className="flex w-full items-center gap-3">
                 <span className="min-w-0 flex-1">
-                  <span className="block text-base font-semibold leading-tight">Invoice setup</span>
-                  <span className="mt-1 block text-[13px] leading-[1.45] text-muted-foreground">
-                    Seller profile, bill-to details and payment route
-                  </span>
+                  <span className="block text-sm font-semibold leading-tight">Invoice setup</span>
                 </span>
                 <Badge
                   variant={invoiceSetupReady ? "default" : "outline"}

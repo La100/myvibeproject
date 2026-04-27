@@ -132,8 +132,11 @@ const REGULAR_FEATURE_CARDS = [...PRIMARY_FEATURE_CARDS, ...SECONDARY_FEATURE_CA
 const FLAT_PRIMARY_BUTTON_CLASSNAME =
   "rounded-full bg-primary/92 text-primary-foreground shadow-none hover:bg-primary/92 focus-visible:ring-0 active:translate-y-0";
 
+const UPDATE_PORTAL_BUTTON_CLASSNAME =
+  "h-10 rounded-full bg-primary/92 px-5 text-sm font-medium text-primary-foreground shadow-none hover:bg-primary/92 focus-visible:ring-0 active:translate-y-0";
+
 const PORTAL_SWITCH_CLASSNAME =
-  "h-7 w-12 border-0 bg-muted/90 p-1 shadow-none data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted/90";
+  "h-6 w-10 border-0 bg-muted/90 p-1 shadow-none data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted/90";
 
 export default function CustomerPanelPage() {
   const { project, teamMember, isLoading } = useProject();
@@ -228,6 +231,8 @@ export default function CustomerPanelPage() {
     typeof window !== "undefined" && panelPath
       ? `${window.location.origin}${panelPath}`
       : panelPath;
+  const publishedVersion = panelConfig?.version || 0;
+  const hasPublishedPortal = publishedVersion > 0;
 
   const handleCopyLink = async () => {
     if (!panelUrlValue) return;
@@ -310,10 +315,10 @@ export default function CustomerPanelPage() {
 
   return (
     <ProjectPageLayout>
-      <div className="mx-auto flex w-full max-w-[1080px] flex-col gap-7">
+      <div className="mx-auto flex w-full max-w-[1080px] flex-col gap-5">
         <ProjectPageHeader
           title="Client Portal"
-          icon={<ExternalLink className="h-8 w-8 text-primary" />}
+          icon={<ExternalLink className="h-8 w-8 text-[var(--chart-2)]" />}
           subtitle="Control what your client sees in the portal. Toggle sections, copy the link, and publish when ready."
           tags={
             <>
@@ -321,15 +326,29 @@ export default function CustomerPanelPage() {
                 variant="outline"
                 className="rounded-full border-border/70 bg-card px-3 py-1.5 text-[12px] font-semibold text-foreground"
               >
-                v{panelConfig?.version || 0}
+                v{publishedVersion}
               </Badge>
               <Badge
                 variant="outline"
-                className="rounded-full border-primary bg-primary px-3 py-1.5 text-[12px] font-semibold text-primary"
+                className={
+                  hasPublishedPortal
+                    ? "rounded-full border-[color-mix(in_oklab,var(--chart-2)_28%,var(--background)_72%)] bg-[color-mix(in_oklab,var(--chart-2)_12%,var(--card)_88%)] px-3 py-1.5 text-[12px] font-semibold text-[var(--chart-2)]"
+                    : "rounded-full border-border/70 bg-card px-3 py-1.5 text-[12px] font-semibold text-muted-foreground"
+                }
               >
-                Live
+                {hasPublishedPortal ? "Live" : "Draft"}
               </Badge>
             </>
+          }
+          actions={
+            <Button
+              type="button"
+              onClick={handlePublishPortal}
+              disabled={isPublishingPortal}
+              className={UPDATE_PORTAL_BUTTON_CLASSNAME}
+            >
+              {isPublishingPortal ? "Updating..." : "Update portal"}
+            </Button>
           }
         />
 
@@ -337,9 +356,9 @@ export default function CustomerPanelPage() {
           title="Portal access"
           description="Copy the link, open the portal, regenerate access, or send it by email from one compact row."
         >
-          <Card className="gap-0 rounded-3xl border-border/70 bg-card py-0 shadow-none backdrop-blur-[2px]">
+          <Card className="gap-0 rounded-2xl border-border/70 bg-card py-0 shadow-none backdrop-blur-[2px]">
             <CardContent className="grid gap-0 lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)]">
-              <div className="flex flex-col gap-4 p-5 lg:border-r lg:border-border/70">
+              <div className="flex flex-col gap-3 p-4 lg:border-r lg:border-border/70">
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="customer-portal-url" className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
                     Portal link
@@ -348,7 +367,7 @@ export default function CustomerPanelPage() {
                     id="customer-portal-url"
                     value={panelUrlValue || (isPreparingLink ? "Preparing link..." : "")}
                     readOnly
-                    className="h-10 rounded-full bg-secondary/70 text-sm"
+                    className="h-9 rounded-full bg-secondary/70 text-sm"
                   />
                 </div>
 
@@ -391,7 +410,7 @@ export default function CustomerPanelPage() {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-4 p-5">
+              <div className="flex flex-col gap-3 p-4">
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="customer-portal-email" className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
                     Customer email
@@ -403,7 +422,7 @@ export default function CustomerPanelPage() {
                     value={recipientEmail}
                     onChange={(event) => setRecipientEmail(event.target.value)}
                     disabled={isSendingEmail || isPreparingLink}
-                    className="h-10 rounded-full bg-secondary/70 text-sm"
+                    className="h-9 rounded-full bg-secondary/70 text-sm"
                   />
                 </div>
 
@@ -422,23 +441,12 @@ export default function CustomerPanelPage() {
           </Card>
         </SectionBlock>
 
-        <section className="flex flex-col gap-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div className="flex flex-col gap-1">
-              <h2 className="text-lg font-semibold text-foreground">Visible sections</h2>
-              <p className="text-sm text-muted-foreground">
-                Choose what the client sees, then publish those changes to the live portal.
-              </p>
-            </div>
-            <Button
-              type="button"
-              size="sm"
-              onClick={handlePublishPortal}
-              disabled={isPublishingPortal}
-              className={FLAT_PRIMARY_BUTTON_CLASSNAME}
-            >
-              {isPublishingPortal ? "Updating..." : "Update portal"}
-            </Button>
+        <section className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-lg font-semibold text-foreground">Visible sections</h2>
+            <p className="text-sm text-muted-foreground">
+              Choose what the client sees, then publish those changes to the live portal.
+            </p>
           </div>
 
           <ShoppingListFeatureCard
@@ -483,7 +491,7 @@ type SectionBlockProps = {
 
 function SectionBlock({ title, description, children }: SectionBlockProps) {
   return (
-    <section className="flex flex-col gap-2.5">
+    <section className="flex flex-col gap-2">
       <div className="flex flex-col gap-1">
         <h2 className="text-lg font-semibold text-foreground">{title}</h2>
         <p className="text-sm text-muted-foreground">{description}</p>
@@ -513,10 +521,10 @@ function FeatureCard({
   onCheckedChange,
 }: FeatureCardProps) {
   return (
-    <Card className="h-full min-h-[170px] gap-0 rounded-2xl border-border/70 bg-card shadow-none transition-colors hover:border-foreground/12">
-      <CardContent className="flex h-full flex-col justify-between gap-4 p-4">
+    <Card className="h-full min-h-[136px] gap-0 rounded-2xl border-border/70 bg-card shadow-none transition-colors hover:border-foreground/12">
+      <CardContent className="flex h-full flex-col justify-between gap-3 p-3.5">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-border/70 bg-secondary/70 text-muted-foreground [&>svg]:h-4 [&>svg]:w-4">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-border/70 bg-secondary/70 text-muted-foreground [&>svg]:h-4 [&>svg]:w-4">
             {icon}
           </div>
           <Switch
@@ -570,11 +578,11 @@ function ShoppingListFeatureCard({
   const detailDisabled = disabled || !checked;
 
   return (
-    <Card className="gap-0 rounded-3xl border-border/70 bg-card shadow-none transition-colors hover:border-foreground/12">
-      <CardContent className="grid gap-3 p-5 lg:grid-cols-[minmax(280px,0.9fr)_minmax(340px,1.1fr)] lg:items-stretch">
-        <div className="flex h-full min-h-[170px] flex-col justify-between gap-4 rounded-2xl border border-border/70 bg-secondary/70 px-4 py-3">
+    <Card className="gap-0 rounded-2xl border-border/70 bg-card shadow-none transition-colors hover:border-foreground/12">
+      <CardContent className="grid gap-3 p-4 lg:grid-cols-[minmax(280px,0.9fr)_minmax(340px,1.1fr)] lg:items-stretch">
+        <div className="flex h-full min-h-[136px] flex-col justify-between gap-3 rounded-2xl border border-border/70 bg-secondary/70 px-3.5 py-3">
           <div className="flex items-start justify-between gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-border/70 bg-secondary/70 text-muted-foreground [&>svg]:h-4 [&>svg]:w-4">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-border/70 bg-secondary/70 text-muted-foreground [&>svg]:h-4 [&>svg]:w-4">
               {icon}
             </div>
             <Switch
@@ -636,8 +644,8 @@ function ShoppingListSettingCard({
   onCheckedChange,
 }: ShoppingListSettingCardProps) {
   return (
-    <div className="rounded-2xl border border-border/70 bg-secondary/70 px-4 py-3">
-      <div className="flex min-h-[58px] items-start justify-between gap-3">
+    <div className="rounded-2xl border border-border/70 bg-secondary/70 px-3.5 py-3">
+      <div className="flex min-h-[50px] items-start justify-between gap-3">
         <div className="flex flex-col gap-1 pr-4">
           <Label htmlFor={id} className="text-[13px] font-medium text-foreground">
             {title}

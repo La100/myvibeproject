@@ -19,11 +19,13 @@ function OverviewCard({
   value: string;
 }) {
   return (
-    <Card className="border-border/70 bg-card shadow-sm">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base font-medium">{title}</CardTitle>
+    <Card className="gap-3 rounded-2xl border-border/70 bg-card py-4 shadow-sm">
+      <CardHeader className="px-4 pb-0">
+        <CardTitle className="text-[13px] font-medium text-muted-foreground">{title}</CardTitle>
       </CardHeader>
-      <CardContent className="pt-0 text-[2rem] font-semibold tracking-tight">{value}</CardContent>
+      <CardContent className="px-4 pt-0 text-[1.35rem] font-semibold leading-none tracking-tight sm:text-[1.45rem]">
+        {value}
+      </CardContent>
     </Card>
   );
 }
@@ -36,7 +38,7 @@ export function ProjectPaymentsOverviewCards({
   overdueCount,
 }: ProjectPaymentsOverviewCardsProps) {
   return (
-    <div className="grid gap-4 md:grid-cols-4">
+    <div className="grid gap-2.5 md:grid-cols-4">
       <OverviewCard title="Scheduled" value={formatCurrency(scheduledTotal || 0, currency)} />
       <OverviewCard title="Collected" value={formatCurrency(collectedTotal || 0, currency)} />
       <OverviewCard title="Outstanding" value={formatCurrency(outstandingTotal || 0, currency)} />

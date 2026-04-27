@@ -399,17 +399,17 @@ function InvoiceListSection({
   onCopyReference: (value?: string) => void;
 }) {
   return (
-    <Card className="overflow-hidden rounded-3xl border-border/70 bg-card shadow-sm">
-      <CardHeader className="flex flex-col gap-4 border-b border-border/60 bg-card pb-5 sm:flex-row sm:items-center sm:justify-between">
-        <CardTitle className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+    <Card className="overflow-hidden rounded-2xl border-border/70 bg-card py-0 shadow-sm">
+      <CardHeader className="flex flex-col gap-3 border-b border-border/60 bg-card px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <CardTitle className="flex items-center gap-2 text-base font-semibold tracking-tight [&>svg]:h-5 [&>svg]:w-5">
           {icon}
           {title}
         </CardTitle>
         {action}
       </CardHeader>
-      <CardContent className="flex flex-col gap-4 pt-6">
+      <CardContent className="flex flex-col gap-4 px-5 py-5">
         {items.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-border/70 bg-secondary/70 px-5 py-10 text-center">
+          <div className="rounded-2xl border border-dashed border-border/70 bg-secondary/70 px-5 py-7 text-center">
             <p className="mx-auto max-w-xl text-sm leading-[1.6] text-muted-foreground">{emptyMessage}</p>
           </div>
         ) : (
@@ -446,7 +446,7 @@ export function ProjectPaymentsInvoiceListSections({
 }: ProjectPaymentsInvoiceListSectionsProps) {
   return (
     <>
-      <TabsContent value="schedule" className="flex flex-col gap-6">
+      <TabsContent value="schedule" className="flex flex-col gap-4">
         <InvoiceListSection
           title="Draft invoices"
           icon={<Wallet />}
@@ -468,7 +468,7 @@ export function ProjectPaymentsInvoiceListSections({
         />
       </TabsContent>
 
-      <TabsContent value="invoices" className="flex flex-col gap-6">
+      <TabsContent value="invoices" className="flex flex-col gap-4">
         <InvoiceListSection
           title="Issued invoices"
           icon={<Banknote />}
