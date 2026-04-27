@@ -33,8 +33,8 @@ export function getLaborExportHeaders(
     "Work",
     "Qty",
     "Unit",
-    "Unit Net",
-    "Net Total",
+    "Unit Price",
+    "Total",
     ...(options.includeNotes ? ["Notes"] : []),
     ...(options.includeReferenceLink ? ["Reference Link"] : []),
   ];

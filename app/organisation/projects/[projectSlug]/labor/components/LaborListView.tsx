@@ -30,6 +30,7 @@ import {
   formatMoney,
   sanitizeFileName,
 } from '@/lib/pdfExport';
+import { getActivePriceTaxRates } from '@/lib/priceTax';
 import { exportWorkbookTables, getSectionAccentColor } from '@/lib/xlsxExport';
 import { resolveMeasurementSystem } from './laborUnits';
 
@@ -75,6 +76,7 @@ export default function LaborListView() {
   const updateItem = useMutation(apiAny.labor.updateLaborItem);
   const deleteItem = useMutation(apiAny.labor.deleteLaborItem);
   const createSection = useMutation(apiAny.labor.createLaborSection);
+  const updateSection = useMutation(apiAny.labor.updateLaborSection);
   const deleteSection = useMutation(apiAny.labor.deleteLaborSection);
 
   if (items === undefined || sections === undefined || team === undefined) {
@@ -86,6 +88,10 @@ export default function LaborListView() {
   }
 
   const currencySymbol = getCurrencySymbol(project.currency);
+  const activeTaxRates = getActivePriceTaxRates(
+    team.taxRates,
+    team.organizationTaxSettings,
+  );
   const measurementSystem = resolveMeasurementSystem((project as Doc<"projects"> & { measurements?: string }).measurements);
   const sectionMap = new Map(sections.map((section) => [String(section._id), section]));
 
@@ -214,6 +220,10 @@ export default function LaborListView() {
     await createSection({ name, projectId: project._id });
   };
 
+  const handleUpdateSection = async (sectionId: Id<"laborSections">, name: string) => {
+    await updateSection({ sectionId, name });
+  };
+
   const handleDeleteSection = async (sectionId: Id<"laborSections">) => {
     const section = sections.find((entry) => entry._id === sectionId);
     if (!section) return;
@@ -241,6 +251,9 @@ export default function LaborListView() {
     quantity: number;
     unit: string;
     unitPrice?: number;
+    priceTaxMode?: LaborItem["priceTaxMode"];
+    taxRateId?: string | null;
+    taxRateSnapshot?: LaborItem["taxRateSnapshot"];
     assignedTo?: string;
     referenceLink?: string | null;
     attachmentFileId?: Id<"files"> | null;
@@ -282,8 +295,8 @@ export default function LaborListView() {
     { key: 'work', label: 'Work' },
     { key: 'qty', label: 'Qty' },
     { key: 'unit', label: 'Unit' },
-    { key: 'unitNet', label: 'Unit Net' },
-    { key: 'totalNet', label: 'Net Total' },
+    { key: 'unitNet', label: 'Unit Price' },
+    { key: 'totalNet', label: 'Total' },
     ...(exportOptions.includeNotes ? [{ key: 'notes', label: 'Notes' }] : []),
     ...(exportOptions.includeReferenceLink ? [{ key: 'referenceLink', label: 'Reference Link' }] : []),
   ];
@@ -404,6 +417,7 @@ export default function LaborListView() {
                 projectId={project._id}
                 sections={sections}
                 teamMembers={teamMembers}
+                taxRates={activeTaxRates}
                 currencySymbol={currencySymbol}
                 onAddItem={async (itemData) => {
                   await handleAddItem(itemData);
@@ -419,6 +433,7 @@ export default function LaborListView() {
             <LaborSectionManager
               sections={sections}
               onCreateSection={handleCreateSection}
+              onUpdateSection={handleUpdateSection}
               onDeleteSection={handleDeleteSection}
               isPending={isPending}
               expanded={isSectionManagerOpen}
@@ -530,6 +545,7 @@ export default function LaborListView() {
               items={entry.items}
               currencySymbol={currencySymbol}
               teamMembers={teamMembers}
+              taxRates={activeTaxRates}
               sections={sections}
               onUpdateItem={handleUpdateItem}
               onDeleteItem={handleDeleteItem}

@@ -18,12 +18,23 @@ import { Doc, Id } from "@/convex/_generated/dataModel";
 import type { TeamMember } from "@/lib/teamMember";
 import { toast } from "sonner";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
+import type { TeamTaxRate } from "@/lib/organizationTax";
+import {
+  calculatePriceTaxBreakdown,
+  formatPriceTaxBreakdown,
+  getDefaultPriceTaxRateId,
+  normalizePriceTaxMode,
+  resolvePriceTaxSnapshot,
+  type PriceTaxMode,
+  type PriceTaxRateSnapshot,
+} from "@/lib/priceTax";
 
 interface AddItemFormProps {
   projectId: Id<"projects">;
   teamId: Id<"teams">;
   sections: Doc<"shoppingListSections">[];
   teamMembers?: TeamMember[];
+  taxRates?: TeamTaxRate[];
   currencySymbol: string;
   onAddItem: (itemData: {
     name: string;
@@ -35,6 +46,9 @@ interface AddItemFormProps {
     dimensions?: string;
     quantity: number;
     unitPrice?: number;
+    priceTaxMode?: PriceTaxMode;
+    taxRateId?: string | null;
+    taxRateSnapshot?: PriceTaxRateSnapshot | null;
     productLink?: string;
     imageUrl?: string;
     priority: "low" | "medium" | "high" | "urgent";
@@ -66,6 +80,7 @@ export function AddItemForm({
   teamId,
   sections,
   teamMembers,
+  taxRates = [],
   currencySymbol,
   onAddItem,
   onEnableAlternatives,
@@ -86,6 +101,11 @@ export function AddItemForm({
   const [newItemDimensions, setNewItemDimensions] = useState("");
   const [newItemQuantity, setNewItemQuantity] = useState(1);
   const [newItemUnitPrice, setNewItemUnitPrice] = useState("");
+  const [newItemPriceTaxMode, setNewItemPriceTaxMode] =
+    useState<PriceTaxMode>("unspecified");
+  const [newItemTaxRateId, setNewItemTaxRateId] = useState<string>(
+    getDefaultPriceTaxRateId(taxRates) ?? "",
+  );
   const [newItemProductLink, setNewItemProductLink] = useState("");
   const [newItemImageUrl, setNewItemImageUrl] = useState("");
   const [newItemAssignedTo, setNewItemAssignedTo] = useState<string>("none");
@@ -94,6 +114,14 @@ export function AddItemForm({
   );
   const [isScraping, setIsScraping] = useState(false);
   const [newItemHasAlternatives, setNewItemHasAlternatives] = useState(false);
+  const activeTaxRates = taxRates.filter((entry) => !entry.isArchived);
+  const selectedTaxRateId =
+    newItemTaxRateId || getDefaultPriceTaxRateId(activeTaxRates) || "";
+  const selectedTaxSnapshot = resolvePriceTaxSnapshot(
+    newItemPriceTaxMode,
+    selectedTaxRateId,
+    activeTaxRates,
+  );
 
   const normalizeProductUrl = (value: string) => {
     const trimmed = value.trim();
@@ -188,6 +216,20 @@ export function AddItemForm({
       normalizedUnitPrice === ""
         ? undefined
         : Number.parseFloat(normalizedUnitPrice);
+    const normalizedPriceTaxMode = normalizePriceTaxMode(newItemPriceTaxMode);
+    const taxRateSnapshot = resolvePriceTaxSnapshot(
+      normalizedPriceTaxMode,
+      selectedTaxRateId,
+      activeTaxRates,
+    );
+
+    if (
+      (normalizedPriceTaxMode === "net" || normalizedPriceTaxMode === "gross") &&
+      !taxRateSnapshot
+    ) {
+      toast.error("Select a tax rate or leave tax as not specified");
+      return;
+    }
 
     try {
       const itemId = await onAddItem({
@@ -203,6 +245,12 @@ export function AddItemForm({
         dimensions: newItemDimensions.trim() || undefined,
         quantity: newItemQuantity,
         unitPrice: Number.isFinite(unitPrice) ? unitPrice : undefined,
+        priceTaxMode: normalizedPriceTaxMode,
+        taxRateId:
+          normalizedPriceTaxMode === "net" || normalizedPriceTaxMode === "gross"
+            ? taxRateSnapshot?.id ?? selectedTaxRateId
+            : null,
+        taxRateSnapshot: taxRateSnapshot ?? null,
         productLink: normalizedProductLink,
         imageUrl: newItemImageUrl.trim() || undefined,
         priority: "medium",
@@ -236,6 +284,8 @@ export function AddItemForm({
       setNewItemDimensions("");
       setNewItemQuantity(1);
       setNewItemUnitPrice("");
+      setNewItemPriceTaxMode("unspecified");
+      setNewItemTaxRateId(getDefaultPriceTaxRateId(activeTaxRates) ?? "");
       setNewItemProductLink("");
       setNewItemImageUrl("");
       setNewItemAssignedTo("none");
@@ -252,6 +302,18 @@ export function AddItemForm({
   const totalPrice = newItemUnitPrice
     ? newItemQuantity * (parseFloat(newItemUnitPrice) || 0)
     : 0;
+  const unitPriceNumber = Number.parseFloat(newItemUnitPrice);
+  const priceTaxMetadata = {
+    priceTaxMode: newItemPriceTaxMode,
+    taxRateId: selectedTaxRateId,
+    taxRateSnapshot: selectedTaxSnapshot ?? null,
+  };
+  const unitBreakdownLabel = formatPriceTaxBreakdown(
+    Number.isFinite(unitPriceNumber) ? unitPriceNumber : undefined,
+    priceTaxMetadata,
+    currencySymbol,
+  );
+  const totalBreakdown = calculatePriceTaxBreakdown(totalPrice, priceTaxMetadata);
 
   return (
     <div className="flex flex-col gap-4">
@@ -345,7 +407,7 @@ export function AddItemForm({
           />
         </Field>
         <Field>
-          <FieldLabel>Unit Net Price ({currencySymbol})</FieldLabel>
+          <FieldLabel>Unit Price ({currencySymbol})</FieldLabel>
           <Input
             type="number"
             step="0.01"
@@ -355,6 +417,50 @@ export function AddItemForm({
             className="h-12 text-sm"
           />
         </Field>
+        <Field>
+          <FieldLabel>Tax treatment</FieldLabel>
+          <Select
+            value={newItemPriceTaxMode}
+            onValueChange={(value) => {
+              const mode = normalizePriceTaxMode(value);
+              setNewItemPriceTaxMode(mode);
+              if ((mode === "net" || mode === "gross") && !newItemTaxRateId) {
+                setNewItemTaxRateId(getDefaultPriceTaxRateId(activeTaxRates) ?? "");
+              }
+            }}
+          >
+            <SelectTrigger className="h-12 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="unspecified">Not specified</SelectItem>
+              <SelectItem value="net" disabled={activeTaxRates.length === 0}>
+                Net + tax
+              </SelectItem>
+              <SelectItem value="gross" disabled={activeTaxRates.length === 0}>
+                Gross incl. tax
+              </SelectItem>
+              <SelectItem value="exempt">Tax exempt</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
+        {newItemPriceTaxMode === "net" || newItemPriceTaxMode === "gross" ? (
+          <Field>
+            <FieldLabel>Tax rate</FieldLabel>
+            <Select value={selectedTaxRateId} onValueChange={setNewItemTaxRateId}>
+              <SelectTrigger className="h-12 text-sm">
+                <SelectValue placeholder="Select tax rate" />
+              </SelectTrigger>
+              <SelectContent>
+                {activeTaxRates.map((rate) => (
+                  <SelectItem key={rate.id} value={rate.id}>
+                    {rate.name} ({rate.rate}%)
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        ) : null}
         <Field>
           <FieldLabel>Product Link</FieldLabel>
           <div className="flex items-center gap-2">
@@ -453,11 +559,23 @@ export function AddItemForm({
       ) : null}
 
       {totalPrice > 0 && (
-        <div className="flex items-center justify-end gap-2 text-sm">
-          <span className="text-muted-foreground">Net total:</span>
-          <span className="font-medium text-foreground">
-            {totalPrice.toFixed(2)} {currencySymbol}
-          </span>
+        <div className="flex flex-col items-end gap-1 text-sm">
+          <div className="flex items-center justify-end gap-2">
+            <span className="text-muted-foreground">Total:</span>
+            <span className="font-medium text-foreground">
+              {totalPrice.toFixed(2)} {currencySymbol}
+            </span>
+          </div>
+          {unitBreakdownLabel ? (
+            <span className="text-xs text-muted-foreground">
+              Unit: {unitBreakdownLabel}
+            </span>
+          ) : null}
+          {totalBreakdown.hasBreakdown ? (
+            <span className="text-xs text-muted-foreground">
+              Gross total: {totalBreakdown.gross.toFixed(2)} {currencySymbol}
+            </span>
+          ) : null}
         </div>
       )}
 

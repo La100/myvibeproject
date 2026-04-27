@@ -5,6 +5,19 @@ import type { Id } from "./_generated/dataModel";
 import { ensureProjectAccess } from "./authz";
 const internalAny = require("./_generated/api").internal as any;
 
+const priceTaxModeValidator = v.union(
+  v.literal("unspecified"),
+  v.literal("net"),
+  v.literal("gross"),
+  v.literal("exempt"),
+);
+
+const priceTaxRateSnapshotValidator = v.object({
+  id: v.optional(v.string()),
+  name: v.string(),
+  rate: v.number(),
+});
+
 // Common unit types for labor
 export const LABOR_UNITS = [
   "m²",      // square meters
@@ -351,6 +364,9 @@ export const createLaborItem = mutation({
     quantity: v.number(),
     unit: v.string(),
     unitPrice: v.optional(v.number()),
+    priceTaxMode: v.optional(priceTaxModeValidator),
+    taxRateId: v.optional(v.union(v.string(), v.null())),
+    taxRateSnapshot: v.optional(v.union(priceTaxRateSnapshotValidator, v.null())),
     sectionId: v.optional(v.union(v.id("laborSections"), v.null())),
     assignedTo: v.optional(v.string()),
     startDate: v.optional(v.number()),
@@ -382,6 +398,9 @@ export const createLaborItem = mutation({
       unit: args.unit,
       unitPrice: args.unitPrice || undefined,
       totalPrice: totalPrice,
+      priceTaxMode: args.priceTaxMode ?? "unspecified",
+      taxRateId: args.taxRateId ?? null,
+      taxRateSnapshot: args.taxRateSnapshot ?? null,
       sectionId: args.sectionId || null,
       projectId: args.projectId,
       teamId: project.teamId,
@@ -421,6 +440,9 @@ export const updateLaborItem = mutation({
     quantity: v.optional(v.number()),
     unit: v.optional(v.string()),
     unitPrice: v.optional(v.number()),
+    priceTaxMode: v.optional(priceTaxModeValidator),
+    taxRateId: v.optional(v.union(v.string(), v.null())),
+    taxRateSnapshot: v.optional(v.union(priceTaxRateSnapshotValidator, v.null())),
     sectionId: v.optional(v.union(v.id("laborSections"), v.null())),
     assignedTo: v.optional(v.string()),
     startDate: v.optional(v.number()),

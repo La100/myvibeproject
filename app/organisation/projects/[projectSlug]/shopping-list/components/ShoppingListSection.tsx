@@ -36,12 +36,15 @@ import { format } from "date-fns";
 import { formatDateInput, parseDateInput } from "@/lib/dateInput";
 import { cn } from "@/lib/utils";
 import {
-  calculateTaxBreakdown,
-  getPrimaryAmountKindForDisplay,
-  getTaxAmountKindLabel,
-  getTaxAmountKindsForDisplay,
-  type OrganizationTaxSettings,
+  type TeamTaxRate,
 } from "@/lib/organizationTax";
+import {
+  formatPriceTaxBreakdown,
+  normalizePriceTaxMode,
+  resolvePriceTaxSnapshot,
+  type PriceTaxMode,
+  type PriceTaxRateSnapshot,
+} from "@/lib/priceTax";
 
 type ShoppingListItem = Doc<"shoppingListItems">;
 type ShoppingSet = Doc<"shoppingSets"> & {
@@ -100,6 +103,8 @@ interface EditFormData {
   dimensions?: string;
   quantity?: number;
   unitPrice?: string;
+  priceTaxMode?: PriceTaxMode;
+  taxRateId?: string | null;
   productLink?: string;
   imageUrl?: string;
   priority?: Priority;
@@ -120,7 +125,7 @@ interface ShoppingListSectionProps {
   currencySymbol: string;
   teamMembers?: TeamMember[];
   sections: Doc<"shoppingListSections">[];
-  organizationTaxSettings: OrganizationTaxSettings;
+  taxRates?: TeamTaxRate[];
   onUpdateItem: (id: Id<"shoppingListItems">, updates: Partial<ShoppingListItem>) => Promise<void>;
   onDeleteItem: (id: Id<"shoppingListItems">) => Promise<void>;
   onAddItem: (itemData: {
@@ -134,6 +139,9 @@ interface ShoppingListSectionProps {
     dimensions?: string;
     quantity: number;
     unitPrice?: number;
+    priceTaxMode?: PriceTaxMode;
+    taxRateId?: string | null;
+    taxRateSnapshot?: PriceTaxRateSnapshot | null;
     productLink?: string;
     imageUrl?: string;
     priority?: Priority;
@@ -165,7 +173,7 @@ export function ShoppingListSection({
   currencySymbol,
   teamMembers,
   sections,
-  organizationTaxSettings,
+  taxRates = [],
   onUpdateItem,
   onDeleteItem,
   onAddItem,
@@ -182,6 +190,7 @@ export function ShoppingListSection({
   const [isEditScraping, setIsEditScraping] = useState(false);
   const [savingToLibraryItemId, setSavingToLibraryItemId] = useState<string | null>(null);
   const [updatingStatusItemId, setUpdatingStatusItemId] = useState<string | null>(null);
+  const activeTaxRates = taxRates.filter((entry) => !entry.isArchived);
   const createProductFromShoppingListItem = useMutation(
     apiAny.productLibrary.createProductFromShoppingListItem,
   );
@@ -206,35 +215,37 @@ export function ShoppingListSection({
 
   const setContext = buildShoppingSetContext(items, sets);
   const sectionTotal = calculateShoppingTotal(items, sets);
-  const sectionTotalBreakdown = calculateTaxBreakdown(
-    sectionTotal,
-    organizationTaxSettings,
-  );
-  const primarySectionAmountKind = getPrimaryAmountKindForDisplay(
-    organizationTaxSettings,
-  );
-  const primarySectionTotal =
-    sectionTotalBreakdown[primarySectionAmountKind];
   const renderPriceSpans = (
-    netAmount: number | undefined,
+    amount: number | undefined,
     scope: "unit" | "total",
+    item: ShoppingListItem,
   ) => {
-    if (netAmount === undefined) {
+    if (amount === undefined) {
       return null;
     }
 
-    const breakdown = calculateTaxBreakdown(netAmount, organizationTaxSettings);
+    const taxSummary = formatPriceTaxBreakdown(
+      amount,
+      {
+        priceTaxMode: item.priceTaxMode,
+        taxRateId: item.taxRateId,
+        taxRateSnapshot: item.taxRateSnapshot,
+      },
+      currencySymbol,
+    );
 
-    return getTaxAmountKindsForDisplay(organizationTaxSettings).map((kind) => (
-      <span
-        key={`${scope}-${kind}`}
-        className={kind === "gross" ? "font-medium text-foreground" : undefined}
-      >
+    return (
+      <span>
         {scope === "unit"
-          ? `${getTaxAmountKindLabel(kind, organizationTaxSettings)}/unit: ${breakdown[kind].toFixed(2)} ${currencySymbol}`
-          : `${getTaxAmountKindLabel(kind, organizationTaxSettings)}: ${breakdown[kind].toFixed(2)} ${currencySymbol}`}
+          ? `Unit: ${amount.toFixed(2)} ${currencySymbol}`
+          : `Total: ${amount.toFixed(2)} ${currencySymbol}`}
+        {taxSummary ? (
+          <span className="ml-2 text-xs text-muted-foreground">
+            ({taxSummary})
+          </span>
+        ) : null}
       </span>
-    ));
+    );
   };
 
   const getAssignedMemberName = (assignedTo?: string) => {
@@ -278,6 +289,8 @@ export function ShoppingListSection({
       quantity: item.quantity,
       unitPrice:
         item.unitPrice !== undefined ? item.unitPrice.toString() : "",
+      priceTaxMode: normalizePriceTaxMode(item.priceTaxMode),
+      taxRateId: item.taxRateId ?? item.taxRateSnapshot?.id ?? null,
       productLink: item.productLink || "",
       imageUrl: item.imageUrl || "",
       priority: item.priority,
@@ -305,6 +318,20 @@ export function ShoppingListSection({
       normalizedUnitPrice === ""
         ? undefined
         : Number.parseFloat(normalizedUnitPrice);
+    const normalizedPriceTaxMode = normalizePriceTaxMode(editFormData.priceTaxMode);
+    const taxRateId = editFormData.taxRateId || undefined;
+    const taxRateSnapshot = resolvePriceTaxSnapshot(
+      normalizedPriceTaxMode,
+      taxRateId,
+      activeTaxRates,
+    );
+    if (
+      (normalizedPriceTaxMode === "net" || normalizedPriceTaxMode === "gross") &&
+      !taxRateSnapshot
+    ) {
+      toast.error("Select a tax rate or leave tax as not specified");
+      return;
+    }
     const buyBefore = editFormData.buyBefore ? new Date(editFormData.buyBefore).getTime() : undefined;
     const nextSectionId =
       editFormData.sectionId === "none"
@@ -340,6 +367,12 @@ export function ShoppingListSection({
       dimensions: editFormData.dimensions?.trim() || undefined,
       quantity: editFormData.quantity || 1,
       unitPrice: Number.isFinite(unitPrice) ? unitPrice : undefined,
+      priceTaxMode: normalizedPriceTaxMode,
+      taxRateId:
+        normalizedPriceTaxMode === "net" || normalizedPriceTaxMode === "gross"
+          ? taxRateSnapshot?.id ?? taxRateId ?? null
+          : null,
+      taxRateSnapshot: taxRateSnapshot ?? null,
       productLink: editFormData.productLink?.trim() || undefined,
       imageUrl: editFormData.imageUrl?.trim() || undefined,
       priority: editFormData.priority,
@@ -562,7 +595,7 @@ export function ShoppingListSection({
           />
         </Field>
         <Field>
-          <FieldLabel>Unit Net Price ({currencySymbol})</FieldLabel>
+          <FieldLabel>Unit Price ({currencySymbol})</FieldLabel>
           <Input
             type="number"
             step="0.01"
@@ -572,6 +605,57 @@ export function ShoppingListSection({
             className="h-12 text-sm"
           />
         </Field>
+        <Field>
+          <FieldLabel>Tax treatment</FieldLabel>
+          <Select
+            value={editFormData.priceTaxMode || "unspecified"}
+            onValueChange={(value) => {
+              const mode = normalizePriceTaxMode(value);
+              setEditFormData({
+                ...editFormData,
+                priceTaxMode: mode,
+                taxRateId:
+                  mode === "net" || mode === "gross"
+                    ? editFormData.taxRateId || activeTaxRates.find((rate) => rate.isDefault)?.id || activeTaxRates[0]?.id || null
+                    : null,
+              });
+            }}
+          >
+            <SelectTrigger className="h-12 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="unspecified">Not specified</SelectItem>
+              <SelectItem value="net" disabled={activeTaxRates.length === 0}>
+                Net + tax
+              </SelectItem>
+              <SelectItem value="gross" disabled={activeTaxRates.length === 0}>
+                Gross incl. tax
+              </SelectItem>
+              <SelectItem value="exempt">Tax exempt</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
+        {editFormData.priceTaxMode === "net" || editFormData.priceTaxMode === "gross" ? (
+          <Field>
+            <FieldLabel>Tax rate</FieldLabel>
+            <Select
+              value={editFormData.taxRateId || ""}
+              onValueChange={(value) => setEditFormData({ ...editFormData, taxRateId: value })}
+            >
+              <SelectTrigger className="h-12 text-sm">
+                <SelectValue placeholder="Select tax rate" />
+              </SelectTrigger>
+              <SelectContent>
+                {activeTaxRates.map((rate) => (
+                  <SelectItem key={rate.id} value={rate.id}>
+                    {rate.name} ({rate.rate}%)
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        ) : null}
         <Field>
           <FieldLabel>Status</FieldLabel>
           <Select
@@ -795,8 +879,8 @@ export function ShoppingListSection({
                   </div>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
                     <span className="font-medium text-foreground/75">Qty {item.quantity}</span>
-                    {renderPriceSpans(item.unitPrice, "unit")}
-                    {renderPriceSpans(item.totalPrice, "total")}
+                    {renderPriceSpans(item.unitPrice, "unit", item)}
+                    {renderPriceSpans(item.totalPrice, "total", item)}
                     {item.supplier ? <span>{item.supplier}</span> : null}
                   </div>
                   {item.priority || item.buyBefore ? (
@@ -1025,6 +1109,7 @@ export function ShoppingListSection({
               teamId={teamId}
               sections={sections}
               teamMembers={teamMembers}
+              taxRates={activeTaxRates}
               currencySymbol={currencySymbol}
               onAddItem={async (itemData) => {
                 const itemId = await onAddItem({
@@ -1132,8 +1217,7 @@ export function ShoppingListSection({
             {formatItemCountLabel(items.length)}
           </span>
           <span className="inline-flex items-center justify-center rounded-full border border-border/60 bg-secondary/70 px-3 py-1 text-xs font-medium text-foreground">
-            {getTaxAmountKindLabel(primarySectionAmountKind, organizationTaxSettings)} total:{" "}
-            {primarySectionTotal.toFixed(2)} {currencySymbol}
+            Total: {sectionTotal.toFixed(2)} {currencySymbol}
           </span>
         </div>
         <Button variant="ghost" size="icon-sm" className="self-end rounded-full border border-border/60 bg-secondary/70 sm:self-auto" onClick={() => setShowAddForm((current) => !current)}>
@@ -1148,6 +1232,7 @@ export function ShoppingListSection({
             teamId={teamId}
             sections={sections}
             teamMembers={teamMembers}
+            taxRates={activeTaxRates}
             currencySymbol={currencySymbol}
             onAddItem={async (itemData) => {
               const itemId = await onAddItem({

@@ -1,12 +1,24 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { PlusIcon, TrashIcon, FolderIcon, ChevronDownIcon, ChevronUpIcon } from 'lucide-react';
+import {
+  CheckIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  FolderIcon,
+  PencilIcon,
+  PlusIcon,
+  TrashIcon,
+  XIcon,
+} from 'lucide-react';
 import { Doc, Id } from '@/convex/_generated/dataModel';
+import { toast } from 'sonner';
+import { toUserFacingErrorMessage } from '@/lib/userFacingErrors';
 
 interface LaborSectionManagerProps {
   sections: Doc<"laborSections">[];
   onCreateSection: (name: string) => Promise<void>;
+  onUpdateSection: (sectionId: Id<"laborSections">, name: string) => Promise<void>;
   onDeleteSection: (sectionId: Id<"laborSections">) => Promise<void>;
   isPending: boolean;
   expanded?: boolean;
@@ -16,6 +28,7 @@ interface LaborSectionManagerProps {
 export function LaborSectionManager({
   sections,
   onCreateSection,
+  onUpdateSection,
   onDeleteSection,
   isPending,
   expanded,
@@ -23,6 +36,9 @@ export function LaborSectionManager({
 }: LaborSectionManagerProps) {
   const [internalExpanded, setInternalExpanded] = useState(false);
   const [newSectionName, setNewSectionName] = useState('');
+  const [editingSectionId, setEditingSectionId] = useState<Id<"laborSections"> | null>(null);
+  const [editingSectionName, setEditingSectionName] = useState('');
+  const [savingSectionId, setSavingSectionId] = useState<Id<"laborSections"> | null>(null);
   const isExpanded = expanded ?? internalExpanded;
 
   const setExpanded = (nextExpanded: boolean) => {
@@ -36,6 +52,39 @@ export function LaborSectionManager({
     if (!newSectionName.trim()) return;
     await onCreateSection(newSectionName.trim());
     setNewSectionName('');
+  };
+
+  const startEditingSection = (section: Doc<"laborSections">) => {
+    setEditingSectionId(section._id);
+    setEditingSectionName(section.name);
+  };
+
+  const cancelEditingSection = () => {
+    setEditingSectionId(null);
+    setEditingSectionName('');
+  };
+
+  const handleUpdateSection = async (section: Doc<"laborSections">) => {
+    const normalizedName = editingSectionName.trim();
+    if (!normalizedName) return;
+
+    if (normalizedName === section.name) {
+      cancelEditingSection();
+      return;
+    }
+
+    setSavingSectionId(section._id);
+    try {
+      await onUpdateSection(section._id, normalizedName);
+      cancelEditingSection();
+      toast.success('Section name updated');
+    } catch (error) {
+      toast.error('Could not update section name', {
+        description: toUserFacingErrorMessage(error),
+      });
+    } finally {
+      setSavingSectionId(null);
+    }
   };
 
   const defaultSections = [
@@ -133,18 +182,65 @@ export function LaborSectionManager({
                 {sections.map((section) => (
                   <div
                     key={section._id}
-                    className="flex items-center justify-between rounded-2xl border border-border/70 bg-secondary/70 p-3.5"
+                    className="flex items-center justify-between gap-3 rounded-2xl border border-border/70 bg-secondary/70 p-3.5"
                   >
-                    <span className="text-sm font-medium text-foreground">{section.name}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => onDeleteSection(section._id)}
-                      disabled={isPending}
-                      className="rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                    >
-                      <TrashIcon className="h-4 w-4" />
-                    </Button>
+                    {editingSectionId === section._id ? (
+                      <Input
+                        value={editingSectionName}
+                        onChange={(e) => setEditingSectionName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') void handleUpdateSection(section);
+                          if (e.key === 'Escape') cancelEditingSection();
+                        }}
+                        className="h-9 min-w-0 rounded-full border-border/70 bg-white px-3 text-sm shadow-none"
+                        autoFocus
+                      />
+                    ) : (
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{section.name}</span>
+                    )}
+                    <div className="flex shrink-0 items-center gap-1">
+                      {editingSectionId === section._id ? (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => handleUpdateSection(section)}
+                            disabled={isPending || savingSectionId === section._id || !editingSectionName.trim()}
+                            className="rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                          >
+                            <CheckIcon className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={cancelEditingSection}
+                            disabled={savingSectionId === section._id}
+                            className="rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
+                          >
+                            <XIcon className="h-4 w-4" />
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => startEditingSection(section)}
+                          disabled={isPending}
+                          className="rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
+                        >
+                          <PencilIcon className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => onDeleteSection(section._id)}
+                        disabled={isPending || editingSectionId === section._id}
+                        className="rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        <TrashIcon className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>

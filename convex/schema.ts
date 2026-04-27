@@ -162,6 +162,19 @@ const teamTaxRateValidator = v.object({
   updatedAt: v.number(),
 });
 
+const priceTaxModeValidator = v.union(
+  v.literal("unspecified"),
+  v.literal("net"),
+  v.literal("gross"),
+  v.literal("exempt"),
+);
+
+const priceTaxRateSnapshotValidator = v.object({
+  id: v.optional(v.string()),
+  name: v.string(),
+  rate: v.number(),
+});
+
 const costEstimationTaxSnapshotValidator = v.object({
   taxEnabled: v.boolean(),
   taxRate: v.number(),
@@ -730,6 +743,9 @@ export default defineSchema({
     unit: v.optional(v.string()), // Unit type (pcs, m², m, kg, etc.)
     unitPrice: v.optional(v.number()),
     totalPrice: v.optional(v.number()),
+    priceTaxMode: v.optional(priceTaxModeValidator),
+    taxRateId: v.optional(v.union(v.string(), v.null())),
+    taxRateSnapshot: v.optional(v.union(priceTaxRateSnapshotValidator, v.null())),
     setId: v.optional(v.union(v.id("shoppingSets"), v.null())),
     selectedAlternativeItemId: v.optional(
       v.union(v.id("shoppingListItems"), v.null()),
@@ -928,6 +944,9 @@ export default defineSchema({
     unit: v.string(), // Unit type (m², hours, pcs, lm, etc.)
     unitPrice: v.optional(v.number()),
     totalPrice: v.optional(v.number()),
+    priceTaxMode: v.optional(priceTaxModeValidator),
+    taxRateId: v.optional(v.union(v.string(), v.null())),
+    taxRateSnapshot: v.optional(v.union(priceTaxRateSnapshotValidator, v.null())),
     sectionId: v.optional(v.union(v.id("laborSections"), v.null())),
     projectId: v.id("projects"),
     teamId: v.id("teams"),

@@ -14,6 +14,8 @@ import { Doc, Id } from '@/convex/_generated/dataModel';
 import { AddLaborItemForm } from './AddLaborItemForm';
 import { type MeasurementSystem } from './laborUnits';
 import { cn } from '@/lib/utils';
+import type { TeamTaxRate } from '@/lib/organizationTax';
+import { formatPriceTaxBreakdown } from '@/lib/priceTax';
 
 type LaborItem = Doc<'laborItems'>;
 
@@ -40,6 +42,7 @@ interface LaborListSectionProps {
   items: LaborItem[];
   currencySymbol: string;
   teamMembers?: TeamMember[];
+  taxRates?: TeamTaxRate[];
   sections: Doc<'laborSections'>[];
   onUpdateItem: (id: Id<'laborItems'>, updates: Partial<LaborItem>) => Promise<void>;
   onDeleteItem: (id: Id<'laborItems'>) => Promise<void>;
@@ -50,6 +53,9 @@ interface LaborListSectionProps {
     quantity: number;
     unit: string;
     unitPrice?: number;
+    priceTaxMode?: LaborItem['priceTaxMode'];
+    taxRateId?: string | null;
+    taxRateSnapshot?: LaborItem['taxRateSnapshot'];
     assignedTo?: string;
     referenceLink?: string | null;
     attachmentFileId?: Id<'files'> | null;
@@ -69,6 +75,7 @@ export function LaborListSection({
   items,
   currencySymbol,
   teamMembers,
+  taxRates = [],
   sections,
   onUpdateItem,
   onDeleteItem,
@@ -157,12 +164,16 @@ export function LaborListSection({
           quantity: item.quantity,
           unit: item.unit,
           unitPrice: item.unitPrice,
+          priceTaxMode: item.priceTaxMode,
+          taxRateId: item.taxRateId,
+          taxRateSnapshot: item.taxRateSnapshot,
           assignedTo: item.assignedTo,
           referenceLink: item.referenceLink,
           startDate: item.startDate,
           endDate: item.endDate,
         }}
         submitLabel="Save"
+        taxRates={taxRates}
         onSubmitted={handleCancelEdit}
       />
     </div>
@@ -174,6 +185,16 @@ export function LaborListSection({
     const customerDecisionTone = getCustomerDecisionTone(item.customerDecision);
     const customerDecisionLabel = getCustomerDecisionLabel(item.customerDecision);
     const assignedName = getAssignedMemberName(item.assignedTo);
+    const unitTaxSummary = formatPriceTaxBreakdown(
+      item.unitPrice,
+      item,
+      currencySymbol,
+    );
+    const totalTaxSummary = formatPriceTaxBreakdown(
+      item.totalPrice,
+      item,
+      currencySymbol,
+    );
 
     return (
       <div
@@ -220,6 +241,12 @@ export function LaborListSection({
                 <span className="font-medium text-foreground">
                   Total: {item.totalPrice ? `${item.totalPrice.toFixed(2)} ${currencySymbol}` : '-'}
                 </span>
+                {unitTaxSummary ? (
+                  <span className="text-xs">Unit tax: {unitTaxSummary}</span>
+                ) : null}
+                {totalTaxSummary ? (
+                  <span className="text-xs">Total tax: {totalTaxSummary}</span>
+                ) : null}
                 {formatSchedule(item.startDate, item.endDate) ? (
                   <span>Schedule: {formatSchedule(item.startDate, item.endDate)}</span>
                 ) : null}
@@ -305,6 +332,7 @@ export function LaborListSection({
             projectId={projectId}
             sections={sections}
             teamMembers={teamMembers}
+            taxRates={taxRates}
             currencySymbol={currencySymbol}
             onAddItem={async (itemData) => {
               await onAddItem({

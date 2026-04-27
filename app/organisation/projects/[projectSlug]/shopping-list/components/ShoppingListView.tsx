@@ -27,13 +27,7 @@ import {
 } from '@/lib/shoppingListExport';
 import type { TeamMember } from '@/lib/teamMember';
 import { formatCurrency, getCurrencySymbol } from '@/lib/utils';
-import {
-  calculateTaxBreakdown,
-  getPrimaryAmountKindForDisplay,
-  getTaxAmountKindLabel,
-  getTaxAmountKindsForDisplay,
-  resolveOrganizationTaxSettings,
-} from '@/lib/organizationTax';
+import { getActivePriceTaxRates } from '@/lib/priceTax';
 import {
   formatMoney,
   sanitizeFileName,
@@ -123,6 +117,7 @@ export default function ShoppingListView() {
   const updateItem = useMutation(apiAny.shopping.updateShoppingListItem);
   const deleteItem = useMutation(apiAny.shopping.deleteShoppingListItem);
   const createSection = useMutation(apiAny.shopping.createShoppingListSection);
+  const updateSection = useMutation(apiAny.shopping.updateShoppingListSection);
   const deleteSection = useMutation(apiAny.shopping.deleteShoppingListSection);
   const createSet = useMutation(apiAny.shopping.createShoppingSet);
   const updateSet = useMutation(apiAny.shopping.updateShoppingSet);
@@ -133,7 +128,8 @@ export default function ShoppingListView() {
   }
 
   const currencySymbol = getCurrencySymbol(project.currency);
-  const effectiveTaxSettings = resolveOrganizationTaxSettings(
+  const activeTaxRates = getActivePriceTaxRates(
+    team.taxRates,
     team.organizationTaxSettings,
   );
   const sectionMap = new Map(sections.map((section) => [String(section._id), section]));
@@ -237,30 +233,9 @@ export default function ShoppingListView() {
 
   const grandTotal = calculateShoppingTotal(items, sets);
   const visibleGrandTotal = calculateShoppingTotal(filteredItems, sets);
-  const primaryAmountKind = getPrimaryAmountKindForDisplay(
-    effectiveTaxSettings,
-  );
-  const grandTotalBreakdown = calculateTaxBreakdown(
-    grandTotal,
-    effectiveTaxSettings,
-  );
-  const formatDisplayAmount = (value: number) => {
-    const breakdown = calculateTaxBreakdown(value, effectiveTaxSettings);
-    return formatCurrency(breakdown[primaryAmountKind], project.currency);
-  };
-  const formatBreakdownSummary = (value: number) => {
-    const breakdown = calculateTaxBreakdown(value, effectiveTaxSettings);
-    return getTaxAmountKindsForDisplay(effectiveTaxSettings)
-      .map(
-        (kind) =>
-          `${getTaxAmountKindLabel(kind, effectiveTaxSettings)}: ${formatMoney(
-            breakdown[kind],
-            currencySymbol,
-          )}`,
-      )
-      .join(' | ');
-  };
-  const shoppingPdfPriceColumns = [{ key: 'totalNet', label: 'Net' }];
+  const formatTotalSummary = (value: number) =>
+    `Total: ${formatMoney(value, currencySymbol)}`;
+  const shoppingPdfPriceColumns = [{ key: 'totalNet', label: 'Total' }];
   const showFirstRunOnboarding = items.length === 0;
   const hasActiveFilters =
     normalizedSearchQuery.length > 0 ||
@@ -279,6 +254,10 @@ export default function ShoppingListView() {
 
   const handleCreateSection = async (name: string) => {
     await createSection({ name, projectId: project._id });
+  };
+
+  const handleUpdateSection = async (sectionId: Id<"shoppingListSections">, name: string) => {
+    await updateSection({ sectionId, name });
   };
 
   const handleDeleteSection = async (sectionId: Id<"shoppingListSections">) => {
@@ -340,6 +319,9 @@ export default function ShoppingListView() {
     dimensions?: string;
     quantity: number;
     unitPrice?: number;
+    priceTaxMode?: ShoppingListItem["priceTaxMode"];
+    taxRateId?: string | null;
+    taxRateSnapshot?: ShoppingListItem["taxRateSnapshot"];
     productLink?: string;
     imageUrl?: string;
     priority?: "low" | "medium" | "high" | "urgent";
@@ -424,34 +406,23 @@ export default function ShoppingListView() {
 
   const shoppingExportSections = groupedFilteredItems.map(({ sectionName, sectionItems }) => ({
     sectionName,
-    rows: sectionItems.map((item): ShoppingExportRow => {
-      const unitBreakdown = calculateTaxBreakdown(
-        item.unitPrice,
-        effectiveTaxSettings,
-      );
-      const totalBreakdown = calculateTaxBreakdown(
-        item.totalPrice,
-        effectiveTaxSettings,
-      );
-
-      return {
+    rows: sectionItems.map((item): ShoppingExportRow => ({
         sectionName,
         product: formatShoppingExportProductLabel(
           item.name,
           item.setId ? exportSetTitleById.get(String(item.setId)) : undefined,
         ),
         qty: String(item.quantity),
-        unitNet: formatMoney(unitBreakdown.net, currencySymbol),
-        unitTax: formatMoney(unitBreakdown.tax, currencySymbol),
-        unitGross: formatMoney(unitBreakdown.gross, currencySymbol),
-        totalNet: formatMoney(totalBreakdown.net, currencySymbol),
-        totalTax: formatMoney(totalBreakdown.tax, currencySymbol),
-        totalGross: formatMoney(totalBreakdown.gross, currencySymbol),
+        unitNet: formatMoney(item.unitPrice, currencySymbol),
+        unitTax: formatMoney(0, currencySymbol),
+        unitGross: formatMoney(item.unitPrice, currencySymbol),
+        totalNet: formatMoney(item.totalPrice, currencySymbol),
+        totalTax: formatMoney(0, currencySymbol),
+        totalGross: formatMoney(item.totalPrice, currencySymbol),
         status: getStatusLabel(item.realizationStatus),
         supplier: item.supplier || '-',
         notes: item.notes || '-',
-      };
-    }),
+      })),
   }));
   const flatShoppingExportRows = shoppingExportSections.flatMap((section) => section.rows);
   const groupedShoppingColumnOptions: ShoppingExportColumnOptions = {
@@ -482,12 +453,9 @@ export default function ShoppingListView() {
 
     downloadCsvFile({
       fileName: `shopping-list-${sanitizeFileName(project.name)}-${format(new Date(), 'yyyy-MM-dd')}.csv`,
-      headers: getShoppingExportHeaders(
-        flatShoppingColumnOptions,
-        effectiveTaxSettings,
-      ),
+      headers: getShoppingExportHeaders(flatShoppingColumnOptions),
       rows: flatShoppingExportRows.map((row) =>
-        getShoppingExportCsvRow(row, flatShoppingColumnOptions, effectiveTaxSettings),
+        getShoppingExportCsvRow(row, flatShoppingColumnOptions),
       ),
     });
     setIsExportModalOpen(false);
@@ -523,7 +491,7 @@ export default function ShoppingListView() {
           ...(exportOptions.includeNotes ? { notes: row.notes } : {}),
         })),
       })),
-      subtitle: `Items: ${filteredItemsForExport.length} | ${formatBreakdownSummary(
+      subtitle: `Items: ${filteredItemsForExport.length} | ${formatTotalSummary(
         calculateShoppingTotal(filteredItemsForExport, exportSets),
       )}`,
       title: `Shopping List - ${project.name}`,
@@ -540,7 +508,7 @@ export default function ShoppingListView() {
 
     const fileDate = format(new Date(), 'yyyy-MM-dd');
     const generatedOn = format(new Date(), 'yyyy-MM-dd HH:mm');
-    const subtitle = `Items: ${filteredItemsForExport.length} | ${formatBreakdownSummary(
+    const subtitle = `Items: ${filteredItemsForExport.length} | ${formatTotalSummary(
       calculateShoppingTotal(filteredItemsForExport, exportSets),
     )}`;
 
@@ -554,23 +522,17 @@ export default function ShoppingListView() {
           tables: exportOptions.groupBySections
             ? shoppingExportSections.map((section, index) => ({
                 accentColor: getSectionAccentColor(index),
-                headers: getShoppingExportHeaders(
-                  groupedShoppingColumnOptions,
-                  effectiveTaxSettings,
-                ),
+                headers: getShoppingExportHeaders(groupedShoppingColumnOptions),
                 rows: section.rows.map((row) =>
-                  getShoppingExportCsvRow(row, groupedShoppingColumnOptions, effectiveTaxSettings),
+                  getShoppingExportCsvRow(row, groupedShoppingColumnOptions),
                 ),
                 title: section.sectionName,
               }))
             : [
                 {
-                  headers: getShoppingExportHeaders(
-                    flatShoppingColumnOptions,
-                    effectiveTaxSettings,
-                  ),
+                  headers: getShoppingExportHeaders(flatShoppingColumnOptions),
                   rows: flatShoppingExportRows.map((row) =>
-                    getShoppingExportCsvRow(row, flatShoppingColumnOptions, effectiveTaxSettings),
+                    getShoppingExportCsvRow(row, flatShoppingColumnOptions),
                   ),
                   title: 'Items',
                 },
@@ -589,13 +551,7 @@ export default function ShoppingListView() {
         <div className="text-sm">
           <ShoppingListHeader
             projectName={project.name}
-            grandTotalLabel={`${getTaxAmountKindLabel(
-              primaryAmountKind,
-              effectiveTaxSettings,
-            )} total: ${formatCurrency(
-              grandTotalBreakdown[primaryAmountKind],
-              project.currency,
-            )}`}
+            grandTotalLabel={`Total: ${formatCurrency(grandTotal, project.currency)}`}
             onExportClick={() => setIsExportModalOpen(true)}
             onAddProductClick={() => setShowMainAddForm((current) => !current)}
           />
@@ -607,6 +563,7 @@ export default function ShoppingListView() {
                 teamId={project.teamId}
                 sections={sections}
                 teamMembers={teamMembers}
+                taxRates={activeTaxRates}
                 currencySymbol={currencySymbol}
                 onAddItem={handleAddItem}
                 onEnableAlternatives={handleEnableAlternativesForItem}
@@ -630,6 +587,7 @@ export default function ShoppingListView() {
             <SectionManager
               sections={sections}
               onCreateSection={handleCreateSection}
+              onUpdateSection={handleUpdateSection}
               onDeleteSection={handleDeleteSection}
               isPending={isPending}
               expanded={isSectionManagerOpen}
@@ -703,10 +661,10 @@ export default function ShoppingListView() {
 
                   <div className="rounded-2xl border border-border/60 bg-white px-4 py-2.5">
                     <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                      {getTaxAmountKindLabel(primaryAmountKind, effectiveTaxSettings)} total
+                      Total
                     </div>
                     <div className="mt-1 text-[1.6rem] font-semibold leading-none tracking-[-0.03em] text-foreground">
-                      {formatDisplayAmount(visibleGrandTotal)}
+                      {formatCurrency(visibleGrandTotal, project.currency)}
                     </div>
                   </div>
                 </div>
@@ -803,7 +761,7 @@ export default function ShoppingListView() {
               currencySymbol={currencySymbol}
               teamMembers={teamMembers}
               sections={sections}
-              organizationTaxSettings={effectiveTaxSettings}
+              taxRates={activeTaxRates}
               onUpdateItem={handleUpdateItem}
               onDeleteItem={handleDeleteItem}
               onAddItem={handleAddItem}

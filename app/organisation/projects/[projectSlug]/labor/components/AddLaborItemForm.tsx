@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation } from 'convex/react';
 import { Button } from '@/components/ui/button';
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
@@ -14,6 +14,16 @@ import type { TeamMember } from '@/lib/teamMember';
 import { LinkIcon, PaperclipIcon, XIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { toUserFacingErrorMessage } from '@/lib/userFacingErrors';
+import type { TeamTaxRate } from '@/lib/organizationTax';
+import {
+  calculatePriceTaxBreakdown,
+  formatPriceTaxBreakdown,
+  getDefaultPriceTaxRateId,
+  normalizePriceTaxMode,
+  resolvePriceTaxSnapshot,
+  type PriceTaxMode,
+  type PriceTaxRateSnapshot,
+} from '@/lib/priceTax';
 import {
   getDefaultLaborUnit,
   getLaborUnitsForMeasurementSystem,
@@ -25,6 +35,7 @@ interface AddLaborItemFormProps {
   projectId: Id<"projects">;
   sections: Doc<"laborSections">[];
   teamMembers?: TeamMember[];
+  taxRates?: TeamTaxRate[];
   currencySymbol: string;
   onAddItem: (itemData: {
     name: string;
@@ -33,6 +44,9 @@ interface AddLaborItemFormProps {
     quantity: number;
     unit: string;
     unitPrice?: number;
+    priceTaxMode?: PriceTaxMode;
+    taxRateId?: string | null;
+    taxRateSnapshot?: PriceTaxRateSnapshot | null;
     assignedTo?: string;
     referenceLink?: string | null;
     attachmentFileId?: Id<"files"> | null;
@@ -50,6 +64,9 @@ interface AddLaborItemFormProps {
     quantity?: number;
     unit?: string;
     unitPrice?: number;
+    priceTaxMode?: PriceTaxMode;
+    taxRateId?: string | null;
+    taxRateSnapshot?: PriceTaxRateSnapshot | null;
     assignedTo?: string;
     referenceLink?: string | null;
     startDate?: number;
@@ -63,6 +80,7 @@ export function AddLaborItemForm({
   projectId,
   sections,
   teamMembers,
+  taxRates = [],
   currencySymbol,
   onAddItem,
   isPending,
@@ -88,6 +106,15 @@ export function AddLaborItemForm({
   const [newItemUnitPrice, setNewItemUnitPrice] = useState(
     initialValues?.unitPrice !== undefined ? initialValues.unitPrice.toString() : '',
   );
+  const [newItemPriceTaxMode, setNewItemPriceTaxMode] = useState<PriceTaxMode>(
+    normalizePriceTaxMode(initialValues?.priceTaxMode),
+  );
+  const [newItemTaxRateId, setNewItemTaxRateId] = useState<string>(
+    initialValues?.taxRateId ??
+      initialValues?.taxRateSnapshot?.id ??
+      getDefaultPriceTaxRateId(taxRates) ??
+      '',
+  );
   const [newItemAssignedTo, setNewItemAssignedTo] = useState<string>(initialValues?.assignedTo ?? 'none');
   const [newItemReferenceLink, setNewItemReferenceLink] = useState(initialValues?.referenceLink ?? '');
   const [newItemAttachment, setNewItemAttachment] = useState<File | null>(null);
@@ -99,6 +126,17 @@ export function AddLaborItemForm({
   const [hasEndTime, setHasEndTime] = useState(false);
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
+  const activeTaxRates = useMemo(
+    () => taxRates.filter((entry) => !entry.isArchived),
+    [taxRates],
+  );
+  const selectedTaxRateId =
+    newItemTaxRateId || getDefaultPriceTaxRateId(activeTaxRates) || '';
+  const selectedTaxSnapshot = resolvePriceTaxSnapshot(
+    newItemPriceTaxMode,
+    selectedTaxRateId,
+    activeTaxRates,
+  );
 
   useEffect(() => {
     const initialStartDate = initialValues?.startDate ? new Date(initialValues.startDate) : undefined;
@@ -110,6 +148,13 @@ export function AddLaborItemForm({
     setNewItemQuantity(initialValues?.quantity ?? 1);
     setNewItemUnit(initialValues?.unit ?? defaultLaborUnit);
     setNewItemUnitPrice(initialValues?.unitPrice !== undefined ? initialValues.unitPrice.toString() : '');
+    setNewItemPriceTaxMode(normalizePriceTaxMode(initialValues?.priceTaxMode));
+    setNewItemTaxRateId(
+      initialValues?.taxRateId ??
+        initialValues?.taxRateSnapshot?.id ??
+        getDefaultPriceTaxRateId(activeTaxRates) ??
+        '',
+    );
     setNewItemAssignedTo(initialValues?.assignedTo ?? 'none');
     setNewItemReferenceLink(initialValues?.referenceLink ?? '');
     setNewItemAttachment(null);
@@ -153,7 +198,7 @@ export function AddLaborItemForm({
       setEndTime('');
       setHasEndTime(false);
     }
-  }, [defaultSectionId, defaultLaborUnit, initialValues]);
+  }, [activeTaxRates, defaultSectionId, defaultLaborUnit, initialValues]);
 
   const normalizeReferenceLink = (value: string) => {
     const trimmed = value.trim();
@@ -214,6 +259,20 @@ export function AddLaborItemForm({
     if (!newItemName.trim() || isUploadingAttachment) return;
 
     const unitPrice = parseFloat(newItemUnitPrice) || undefined;
+    const normalizedPriceTaxMode = normalizePriceTaxMode(newItemPriceTaxMode);
+    const taxRateSnapshot = resolvePriceTaxSnapshot(
+      normalizedPriceTaxMode,
+      selectedTaxRateId,
+      activeTaxRates,
+    );
+
+    if (
+      (normalizedPriceTaxMode === 'net' || normalizedPriceTaxMode === 'gross') &&
+      !taxRateSnapshot
+    ) {
+      toast.error('Select a tax rate or leave tax as not specified');
+      return;
+    }
 
     try {
       const normalizedReferenceLink = normalizeReferenceLink(newItemReferenceLink);
@@ -245,6 +304,12 @@ export function AddLaborItemForm({
         quantity: newItemQuantity,
         unit: newItemUnit,
         unitPrice: unitPrice,
+        priceTaxMode: normalizedPriceTaxMode,
+        taxRateId:
+          normalizedPriceTaxMode === 'net' || normalizedPriceTaxMode === 'gross'
+            ? taxRateSnapshot?.id ?? selectedTaxRateId
+            : null,
+        taxRateSnapshot: taxRateSnapshot ?? null,
         assignedTo: newItemAssignedTo === 'none' ? undefined : newItemAssignedTo,
         referenceLink: normalizedReferenceLink,
         attachmentFileId,
@@ -260,6 +325,8 @@ export function AddLaborItemForm({
         setNewItemQuantity(1);
         setNewItemUnit(defaultLaborUnit);
         setNewItemUnitPrice('');
+        setNewItemPriceTaxMode('unspecified');
+        setNewItemTaxRateId(getDefaultPriceTaxRateId(activeTaxRates) ?? '');
         setNewItemAssignedTo('none');
         setNewItemReferenceLink('');
         setNewItemAttachment(null);
@@ -283,6 +350,18 @@ export function AddLaborItemForm({
   };
 
   const totalPrice = newItemUnitPrice ? newItemQuantity * parseFloat(newItemUnitPrice) : 0;
+  const unitPriceNumber = Number.parseFloat(newItemUnitPrice);
+  const priceTaxMetadata = {
+    priceTaxMode: newItemPriceTaxMode,
+    taxRateId: selectedTaxRateId,
+    taxRateSnapshot: selectedTaxSnapshot ?? null,
+  };
+  const unitBreakdownLabel = formatPriceTaxBreakdown(
+    Number.isFinite(unitPriceNumber) ? unitPriceNumber : undefined,
+    priceTaxMetadata,
+    currencySymbol,
+  );
+  const totalBreakdown = calculatePriceTaxBreakdown(totalPrice, priceTaxMetadata);
 
   return (
     <div className="flex flex-col gap-4">
@@ -352,6 +431,50 @@ export function AddLaborItemForm({
             className="h-12 text-sm"
           />
         </Field>
+        <Field className="gap-2">
+          <FieldLabel>Tax treatment</FieldLabel>
+          <Select
+            value={newItemPriceTaxMode}
+            onValueChange={(value) => {
+              const mode = normalizePriceTaxMode(value);
+              setNewItemPriceTaxMode(mode);
+              if ((mode === 'net' || mode === 'gross') && !newItemTaxRateId) {
+                setNewItemTaxRateId(getDefaultPriceTaxRateId(activeTaxRates) ?? '');
+              }
+            }}
+          >
+            <SelectTrigger className="h-12 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="unspecified">Not specified</SelectItem>
+              <SelectItem value="net" disabled={activeTaxRates.length === 0}>
+                Net + tax
+              </SelectItem>
+              <SelectItem value="gross" disabled={activeTaxRates.length === 0}>
+                Gross incl. tax
+              </SelectItem>
+              <SelectItem value="exempt">Tax exempt</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
+        {newItemPriceTaxMode === 'net' || newItemPriceTaxMode === 'gross' ? (
+          <Field className="gap-2">
+            <FieldLabel>Tax rate</FieldLabel>
+            <Select value={selectedTaxRateId} onValueChange={setNewItemTaxRateId}>
+              <SelectTrigger className="h-12 text-sm">
+                <SelectValue placeholder="Select tax rate" />
+              </SelectTrigger>
+              <SelectContent>
+                {activeTaxRates.map((rate) => (
+                  <SelectItem key={rate.id} value={rate.id}>
+                    {rate.name} ({rate.rate}%)
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        ) : null}
         <Field className="gap-2">
           <FieldLabel>Assign To</FieldLabel>
           <Select
@@ -527,11 +650,23 @@ export function AddLaborItemForm({
       </FieldGroup>
 
       {totalPrice > 0 && (
-        <div className="flex items-center justify-end gap-2 text-sm">
-          <span className="text-muted-foreground">Total:</span>
-          <span className="font-medium text-foreground">
-            {totalPrice.toFixed(2)} {currencySymbol}
-          </span>
+        <div className="flex flex-col items-end gap-1 text-sm">
+          <div className="flex items-center justify-end gap-2">
+            <span className="text-muted-foreground">Total:</span>
+            <span className="font-medium text-foreground">
+              {totalPrice.toFixed(2)} {currencySymbol}
+            </span>
+          </div>
+          {unitBreakdownLabel ? (
+            <span className="text-xs text-muted-foreground">
+              Unit: {unitBreakdownLabel}
+            </span>
+          ) : null}
+          {totalBreakdown.hasBreakdown ? (
+            <span className="text-xs text-muted-foreground">
+              Gross total: {totalBreakdown.gross.toFixed(2)} {currencySymbol}
+            </span>
+          ) : null}
         </div>
       )}
 

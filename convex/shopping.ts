@@ -9,6 +9,19 @@ const internalAny = require("./_generated/api").internal as any;
 const r2 = new R2(components.r2);
 const normalizeSectionKey = (name: string) => name.trim().toLocaleLowerCase();
 
+const priceTaxModeValidator = v.union(
+  v.literal("unspecified"),
+  v.literal("net"),
+  v.literal("gross"),
+  v.literal("exempt"),
+);
+
+const priceTaxRateSnapshotValidator = v.object({
+  id: v.optional(v.string()),
+  name: v.string(),
+  rate: v.number(),
+});
+
 const getClientPortalActorName = (rawName?: string | null) => {
   const trimmed = typeof rawName === "string" ? rawName.trim() : "";
   return trimmed.length > 0 ? trimmed : "Client (portal)";
@@ -914,6 +927,9 @@ export const createShoppingListItem = mutation({
     dimensions: v.optional(v.string()),
     quantity: v.number(),
     unitPrice: v.optional(v.number()),
+    priceTaxMode: v.optional(priceTaxModeValidator),
+    taxRateId: v.optional(v.union(v.string(), v.null())),
+    taxRateSnapshot: v.optional(v.union(priceTaxRateSnapshotValidator, v.null())),
     setId: v.optional(v.union(v.id("shoppingSets"), v.null())),
     realizationStatus: v.union(v.literal("PLANNED"), v.literal("ORDERED"), v.literal("IN_TRANSIT"), v.literal("DELIVERED"), v.literal("COMPLETED"), v.literal("CANCELLED")),
     sectionId: v.optional(v.union(v.id("shoppingListSections"), v.null())),
@@ -945,6 +961,9 @@ export const createShoppingListItem = mutation({
       setId: args.setId || null,
       unitPrice: hasUnitPrice ? unitPrice : undefined,
       totalPrice: totalPrice,
+      priceTaxMode: args.priceTaxMode ?? "unspecified",
+      taxRateId: args.taxRateId ?? null,
+      taxRateSnapshot: args.taxRateSnapshot ?? null,
       catalogNumber: args.catalogNumber || undefined,
       productLink: args.productLink || undefined,
       imageUrl: args.imageUrl || undefined,
@@ -988,6 +1007,9 @@ export const updateShoppingListItem = mutation({
     dimensions: v.optional(v.string()),
     quantity: v.optional(v.number()),
     unitPrice: v.optional(v.number()),
+    priceTaxMode: v.optional(priceTaxModeValidator),
+    taxRateId: v.optional(v.union(v.string(), v.null())),
+    taxRateSnapshot: v.optional(v.union(priceTaxRateSnapshotValidator, v.null())),
     setId: v.optional(v.union(v.id("shoppingSets"), v.null())),
     realizationStatus: v.optional(v.union(v.literal("PLANNED"), v.literal("ORDERED"), v.literal("IN_TRANSIT"), v.literal("DELIVERED"), v.literal("COMPLETED"), v.literal("CANCELLED"))),
     sectionId: v.optional(v.union(v.id("shoppingListSections"), v.null())),
