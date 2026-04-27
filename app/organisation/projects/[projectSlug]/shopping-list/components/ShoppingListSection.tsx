@@ -227,9 +227,9 @@ export function ShoppingListSection({
 
   const setContext = buildShoppingSetContext(items, sets);
   const sectionTotal = calculateShoppingTotal(items, sets);
-  const renderPriceSpans = (
+  const renderPriceMetric = (
     amount: number | undefined,
-    scope: "unit" | "total",
+    label: string,
     item: ShoppingListItem,
   ) => {
     if (amount === undefined) {
@@ -247,16 +247,19 @@ export function ShoppingListSection({
     );
 
     return (
-      <span>
-        {scope === "unit"
-          ? `Unit: ${amount.toFixed(2)} ${currencySymbol}`
-          : `Total: ${amount.toFixed(2)} ${currencySymbol}`}
+      <div className="min-w-[8.25rem] rounded-2xl border border-border/60 bg-background/50 px-3 py-2">
+        <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+          {label}
+        </div>
+        <div className="mt-1 text-sm font-semibold text-foreground">
+          {amount.toFixed(2)} {currencySymbol}
+        </div>
         {taxSummary ? (
-          <span className="ml-2 text-xs text-muted-foreground">
-            ({taxSummary})
-          </span>
+          <div className="mt-0.5 text-[11px] leading-tight text-muted-foreground">
+            {taxSummary}
+          </div>
         ) : null}
-      </span>
+      </div>
     );
   };
 
@@ -895,8 +898,8 @@ export function ShoppingListSection({
           renderEditForm(item)
         ) : (
           <div>
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div className="flex min-w-0 flex-1 items-start gap-4">
+            <div className="grid gap-4 lg:grid-cols-[minmax(17rem,1.05fr)_minmax(24rem,1fr)_auto] lg:items-start">
+              <div className="flex min-w-0 items-start gap-4">
                 {item.imageUrl ? (
                   <div className="h-20 w-20 overflow-hidden rounded-2xl border bg-secondary/55">
                     <img src={item.imageUrl} alt={item.name} className="h-full w-full object-cover" />
@@ -921,28 +924,14 @@ export function ShoppingListSection({
                       </Badge>
                     ) : null}
                   </div>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-                    <span className="font-medium text-foreground/75">Qty {item.quantity}</span>
-                    {renderPriceSpans(item.unitPrice, "unit", item)}
-                    {renderPriceSpans(item.totalPrice, "total", item)}
-                    {item.supplier ? <span>{item.supplier}</span> : null}
-                  </div>
                   {item.priority || item.buyBefore ? (
-                    <div className="mt-3 flex flex-wrap items-center gap-x-8 gap-y-2 text-sm text-foreground">
+                    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-foreground">
                       {item.priority ? (
                         <div className="flex items-center gap-2">
                           <span>Priority:</span>
                           <Badge variant={getPriorityBadgeVariant(item.priority)}>
                             {SHOPPING_PRIORITY_LABELS[item.priority]}
                           </Badge>
-                        </div>
-                      ) : null}
-                      {item.buyBefore ? (
-                        <div className="flex items-center gap-2">
-                          <span>Buy Before:</span>
-                          <span className="text-muted-foreground">
-                            {format(new Date(item.buyBefore), "MMM dd, yyyy")}
-                          </span>
                         </div>
                       ) : null}
                     </div>
@@ -957,6 +946,53 @@ export function ShoppingListSection({
                     </div>
                   ) : null}
                 </div>
+              </div>
+
+              <div className="flex min-w-0 flex-col gap-3">
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <div className="rounded-2xl border border-border/60 bg-background/50 px-3 py-2">
+                    <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                      Qty
+                    </div>
+                    <div className="mt-1 text-sm font-semibold text-foreground">
+                      {item.quantity}
+                    </div>
+                  </div>
+                  {renderPriceMetric(item.unitPrice, "Unit", item)}
+                  {renderPriceMetric(item.totalPrice, "Total", item)}
+                </div>
+                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                  {item.supplier ? (
+                    <span className="rounded-full bg-background/55 px-2.5 py-1">
+                      Supplier: {item.supplier}
+                    </span>
+                  ) : null}
+                  {item.category ? (
+                    <span className="rounded-full bg-background/55 px-2.5 py-1">
+                      Category: {item.category}
+                    </span>
+                  ) : null}
+                  {item.catalogNumber ? (
+                    <span className="rounded-full bg-background/55 px-2.5 py-1">
+                      Ref: {item.catalogNumber}
+                    </span>
+                  ) : null}
+                  {item.dimensions ? (
+                    <span className="rounded-full bg-background/55 px-2.5 py-1">
+                      Size: {item.dimensions}
+                    </span>
+                  ) : null}
+                  {item.buyBefore ? (
+                    <span className="rounded-full bg-background/55 px-2.5 py-1">
+                      Buy before: {format(new Date(item.buyBefore), "MMM dd, yyyy")}
+                    </span>
+                  ) : null}
+                </div>
+                {item.notes ? (
+                  <p className="line-clamp-2 text-sm leading-5 text-muted-foreground">
+                    {item.notes}
+                  </p>
+                ) : null}
               </div>
 
               <div className="flex flex-wrap items-center gap-1 lg:justify-end">
