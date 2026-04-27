@@ -9,6 +9,19 @@ const internalAny = require("./_generated/api").internal as any;
 const r2 = new R2(components.r2);
 const normalizeSectionKey = (name: string) => name.trim().toLocaleLowerCase();
 
+const sortPortalMoodboardFiles = <
+  T extends { moodboardOrder?: number; uploadedAt: number; name?: string },
+>(
+  files: T[],
+) =>
+  [...files].sort(
+    (a, b) =>
+      (a.moodboardOrder ?? Number.MAX_SAFE_INTEGER) -
+        (b.moodboardOrder ?? Number.MAX_SAFE_INTEGER) ||
+      a.uploadedAt - b.uploadedAt ||
+      (a.name ?? "").localeCompare(b.name ?? ""),
+  );
+
 const priceTaxModeValidator = v.union(
   v.literal("unspecified"),
   v.literal("net"),
@@ -549,7 +562,9 @@ export const getPublicShoppingListByAccessToken = query({
     );
 
     const visibleFiles = filesWithUrls.filter((file) => !!file.url);
-    const moodboardFiles = visibleFiles.filter((file) => !!file.moodboardSection);
+    const moodboardFiles = sortPortalMoodboardFiles(
+      visibleFiles.filter((file) => !!file.moodboardSection),
+    );
     const standardFiles = visibleFiles.filter((file) => !file.moodboardSection);
     const publishedSnapshot = project.clientPanelPublishedSnapshot;
     const tasksForPortal =
@@ -580,6 +595,10 @@ export const getPublicShoppingListByAccessToken = query({
       items,
       files: settings.showFiles ? standardFiles : [],
       moodboardFiles: settings.showMoodboard ? moodboardFiles : [],
+      moodboardSections:
+        settings.showMoodboard && publishedSnapshot
+          ? publishedSnapshot.moodboardSections ?? []
+          : [],
       tasks: tasksForPortal,
       labor: laborForPortal,
       laborSections,

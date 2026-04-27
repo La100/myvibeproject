@@ -73,6 +73,7 @@ type ClientPanelFile = {
   size: number;
   folderName?: string;
   moodboardSection?: string;
+  moodboardOrder?: number;
   uploadedAt: number;
   url: string;
 };
@@ -171,6 +172,11 @@ type PublicBudgetSummary = {
     label: string;
   }>;
 };
+type PublicMoodboardSection = {
+  id: string;
+  title: string;
+  order: number;
+};
 type PublicSurveyQuestion = {
   _id: Id<"surveyQuestions">;
   questionText: string;
@@ -228,6 +234,7 @@ type ShoppingGroup = {
 const EMPTY_SECTIONS: ClientPanelSection[] = [];
 const EMPTY_ITEMS: ClientPanelItem[] = [];
 const EMPTY_FILES: ClientPanelFile[] = [];
+const EMPTY_MOODBOARD_SECTIONS: PublicMoodboardSection[] = [];
 const EMPTY_SURVEYS: PublicSurvey[] = [];
 const EMPTY_TASKS: PublicTask[] = [];
 const EMPTY_LABOR_ITEMS: PublicLaborItem[] = [];
@@ -682,6 +689,9 @@ export default function PublicClientPanelPage() {
     (panelData?.files as ClientPanelFile[] | undefined) ?? EMPTY_FILES;
   const moodboardFiles =
     (panelData?.moodboardFiles as ClientPanelFile[] | undefined) ?? EMPTY_FILES;
+  const publishedMoodboardSections =
+    (panelData?.moodboardSections as PublicMoodboardSection[] | undefined) ??
+    EMPTY_MOODBOARD_SECTIONS;
   const surveys =
     (publicSurveysData?.surveys as PublicSurvey[] | undefined) ?? EMPTY_SURVEYS;
   const tasks = (panelData?.tasks as PublicTask[] | undefined) ?? EMPTY_TASKS;
@@ -753,9 +763,20 @@ export default function PublicClientPanelPage() {
       {
         sectionId: string;
         sectionLabel: string;
+        sectionOrder: number;
         files: ClientPanelFile[];
       }
-    >();
+    >(
+      publishedMoodboardSections.map((section, index) => [
+        section.id,
+        {
+          sectionId: section.id,
+          sectionLabel: section.title,
+          sectionOrder: section.order ?? index,
+          files: [],
+        },
+      ]),
+    );
 
     for (const file of moodboardFiles) {
       const sectionId = file.moodboardSection?.trim() || "__default";
@@ -768,12 +789,29 @@ export default function PublicClientPanelPage() {
       grouped.set(sectionId, {
         sectionId,
         sectionLabel: formatMoodboardSectionLabel(file.moodboardSection),
+        sectionOrder: Number.MAX_SAFE_INTEGER,
         files: [file],
       });
     }
 
-    return Array.from(grouped.values());
-  }, [moodboardFiles]);
+    return Array.from(grouped.values())
+      .map((section) => ({
+        ...section,
+        files: [...section.files].sort(
+          (a, b) =>
+            (a.moodboardOrder ?? Number.MAX_SAFE_INTEGER) -
+              (b.moodboardOrder ?? Number.MAX_SAFE_INTEGER) ||
+            a.uploadedAt - b.uploadedAt ||
+            a.name.localeCompare(b.name),
+        ),
+      }))
+      .filter((section) => section.files.length > 0)
+      .sort(
+        (a, b) =>
+          a.sectionOrder - b.sectionOrder ||
+          a.sectionLabel.localeCompare(b.sectionLabel),
+      );
+  }, [moodboardFiles, publishedMoodboardSections]);
 
   useEffect(() => {
     if (!accessToken || typeof window === "undefined") return;

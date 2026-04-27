@@ -106,6 +106,12 @@ const clientPanelPublishedPaymentValidator = v.object({
   isOverdue: v.boolean(),
 });
 
+const clientPanelPublishedMoodboardSectionValidator = v.object({
+  id: v.string(),
+  title: v.string(),
+  order: v.number(),
+});
+
 const clientPanelPublishedBudgetSummaryValidator = v.object({
   currency: v.string(),
   budget: v.number(),
@@ -251,6 +257,9 @@ const clientPanelPublishedSnapshotValidator = v.object({
   laborSections: v.array(clientPanelPublishedLaborSectionValidator),
   contacts: v.array(clientPanelPublishedContactValidator),
   payments: v.array(clientPanelPublishedPaymentValidator),
+  moodboardSections: v.optional(
+    v.array(clientPanelPublishedMoodboardSectionValidator),
+  ),
   budgetSummary: v.optional(clientPanelPublishedBudgetSummaryValidator),
 });
 
@@ -571,6 +580,8 @@ export default defineSchema({
     ),
     // For moodboard images - which section they belong to
     moodboardSection: v.optional(v.string()),
+    // Persistent order inside a moodboard section
+    moodboardOrder: v.optional(v.number()),
     // AI generation prompt (for AI-generated files)
     aiPrompt: v.optional(v.string()),
     // If true, file is included in the next published customer portal snapshot
@@ -878,6 +889,7 @@ export default defineSchema({
     size: v.number(),
     folderName: v.optional(v.string()),
     moodboardSection: v.optional(v.string()),
+    moodboardOrder: v.optional(v.number()),
     uploadedAt: v.number(),
   })
     .index("by_project", ["projectId"])

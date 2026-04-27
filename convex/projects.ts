@@ -321,6 +321,17 @@ type ClientPanelPublishedSnapshot = NonNullable<
   Doc<"projects">["clientPanelPublishedSnapshot"]
 >;
 
+const getStoredMoodboardSectionsForPortal = (project: Doc<"projects">) =>
+  Array.isArray(project.moodboardSections)
+    ? project.moodboardSections
+        .map((section) => ({
+          id: section.id,
+          title: section.title,
+          order: section.order,
+        }))
+        .sort((a, b) => a.order - b.order || a.title.localeCompare(b.title))
+    : [];
+
 const projectTaskStatusSettingsValidator = v.object({
   todo: v.object({ name: v.string(), color: v.string() }),
   in_progress: v.object({ name: v.string(), color: v.string() }),
@@ -421,6 +432,9 @@ const buildClientPanelPublishedSnapshot = async (
         )
         .order("asc")
         .collect()
+    : [];
+  const moodboardSections = settings.showMoodboard
+    ? getStoredMoodboardSectionsForPortal(project)
     : [];
   const estimations = settings.showBudget
     ? await ctx.db
@@ -567,6 +581,7 @@ const buildClientPanelPublishedSnapshot = async (
     laborSections: laborSectionsForPortal,
     contacts: contactsForPortal,
     payments: paymentsForPortal,
+    moodboardSections,
     ...(budgetSummary ? { budgetSummary } : {}),
   };
 };
@@ -1926,6 +1941,7 @@ export const publishClientPanelData = mutation({
           ? folderNameById.get(String(file.folderId))
           : undefined,
         moodboardSection: file.moodboardSection,
+        moodboardOrder: file.moodboardOrder,
         uploadedAt: file._creationTime,
       });
     }

@@ -43,6 +43,41 @@ const formatMoodboardSectionLabel = (section: string) => {
 const sortMoodboardSections = <T extends { order: number; title: string }>(sections: T[]) =>
   [...sections].sort((a, b) => a.order - b.order || a.title.localeCompare(b.title));
 
+const sortMoodboardFiles = <
+  T extends { moodboardOrder?: number; _creationTime: number; name?: string },
+>(
+  files: T[],
+) =>
+  [...files].sort(
+    (a, b) =>
+      (a.moodboardOrder ?? Number.MAX_SAFE_INTEGER) -
+        (b.moodboardOrder ?? Number.MAX_SAFE_INTEGER) ||
+      a._creationTime - b._creationTime ||
+      (a.name ?? "").localeCompare(b.name ?? ""),
+  );
+
+const getNextMoodboardFileOrder = async (
+  ctx: any,
+  projectId: Id<"projects">,
+  sectionId: string,
+) => {
+  const files = await ctx.db
+    .query("files")
+    .withIndex("by_moodboard_section", (q: any) =>
+      q.eq("projectId", projectId).eq("moodboardSection", sectionId),
+    )
+    .collect();
+
+  if (files.length === 0) return 0;
+  return (
+    Math.max(
+      ...files.map((file: { moodboardOrder?: number; _creationTime: number }) =>
+        file.moodboardOrder ?? file._creationTime,
+      ),
+    ) + 1
+  );
+};
+
 const resolveMoodboardSections = (
   storedSections: { id: string; title: string; order: number }[] | undefined,
   fileSectionIds: string[],
@@ -755,6 +790,10 @@ export const addFile = mutation({
     const origin = args.origin ?? "general";
     const hasMoodboardSection =
       typeof args.moodboardSection === "string" && args.moodboardSection.trim().length > 0;
+    const moodboardSection = hasMoodboardSection ? args.moodboardSection?.trim() : undefined;
+    const moodboardOrder = moodboardSection
+      ? await getNextMoodboardFileOrder(ctx, args.projectId, moodboardSection)
+      : undefined;
 
     // Check whether the folder exists and belongs to the project
     if (args.folderId) {
@@ -795,7 +834,8 @@ export const addFile = mutation({
       version: 1,
       isLatest: true,
       origin,
-      moodboardSection: args.moodboardSection,
+      moodboardSection,
+      moodboardOrder,
       aiKnowledgeEnabled: false,
       aiKnowledgeStatus: "excluded",
       aiKnowledgeEntryId: undefined,
@@ -1244,7 +1284,7 @@ export const getMoodboardImagesBySection = query({
 
     // Generate URLs for files
     const filesWithUrls = await Promise.all(
-      files.map(async (file) => {
+      sortMoodboardFiles(files).map(async (file, index) => {
         try {
           const url = await r2.getUrl(file.storageId as string, {
             expiresIn: 60 * 60 * 24, // 24 hours
@@ -1253,6 +1293,7 @@ export const getMoodboardImagesBySection = query({
             id: file.storageId as string,
             url,
             name: file.name,
+            order: file.moodboardOrder ?? index,
             _creationTime: file._creationTime
           };
         } catch (error) {
@@ -1261,6 +1302,7 @@ export const getMoodboardImagesBySection = query({
             id: file.storageId as string,
             url: "",
             name: file.name,
+            order: file.moodboardOrder ?? index,
             _creationTime: file._creationTime
           };
         }
@@ -1461,6 +1503,109 @@ export const deleteMoodboardSection = mutation({
   },
 });
 
+export const reorderMoodboardSections = mutation({
+  args: {
+    projectId: v.id("projects"),
+    orderedSectionIds: v.array(v.string()),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const { project } = await getProjectAccess(ctx, args.projectId, identity.subject);
+    const fileSectionIds = await listMoodboardFileSectionIds(ctx, args.projectId);
+    const sections = resolveMoodboardSections(getStoredMoodboardSections(project), fileSectionIds);
+    const byId = new Map(sections.map((section) => [section.id, section]));
+    const seen = new Set<string>();
+    const orderedSections: { id: string; title: string; order: number }[] = [];
+
+    for (const sectionId of args.orderedSectionIds) {
+      const section = byId.get(sectionId);
+      if (!section || seen.has(sectionId)) continue;
+      orderedSections.push(section);
+      seen.add(sectionId);
+    }
+
+    for (const section of sections) {
+      if (!seen.has(section.id)) {
+        orderedSections.push(section);
+      }
+    }
+
+    await patchProjectMoodboardSections(ctx, args.projectId, orderedSections);
+    return true;
+  },
+});
+
+export const moveMoodboardImage = mutation({
+  args: {
+    projectId: v.id("projects"),
+    storageId: v.string(),
+    targetSectionId: v.string(),
+    targetIndex: v.number(),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const { project } = await getProjectAccess(ctx, args.projectId, identity.subject);
+    const fileSectionIds = await listMoodboardFileSectionIds(ctx, args.projectId);
+    const sections = resolveMoodboardSections(getStoredMoodboardSections(project), fileSectionIds);
+    if (!sections.some((section) => section.id === args.targetSectionId)) {
+      throw new Error("Target section not found");
+    }
+
+    const movingFile = await ctx.db
+      .query("files")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .filter((q) => q.eq(q.field("storageId"), args.storageId))
+      .unique();
+
+    if (!movingFile || !movingFile.moodboardSection) {
+      throw new Error("Moodboard image not found");
+    }
+
+    const sourceSectionId = movingFile.moodboardSection;
+    const affectedSectionIds = new Set([sourceSectionId, args.targetSectionId]);
+
+    for (const sectionId of affectedSectionIds) {
+      const sectionFiles = await ctx.db
+        .query("files")
+        .withIndex("by_moodboard_section", (q) =>
+          q.eq("projectId", args.projectId).eq("moodboardSection", sectionId),
+        )
+        .filter((q) => q.eq(q.field("fileType"), "image"))
+        .collect();
+      const orderedFiles = sortMoodboardFiles(sectionFiles).filter(
+        (file) => file._id !== movingFile._id,
+      );
+
+      if (sectionId === args.targetSectionId) {
+        const insertIndex = Math.max(
+          0,
+          Math.min(args.targetIndex, orderedFiles.length),
+        );
+        orderedFiles.splice(insertIndex, 0, movingFile);
+      }
+
+      for (const [index, file] of orderedFiles.entries()) {
+        await ctx.db.patch(file._id, {
+          moodboardSection: sectionId,
+          moodboardOrder: index,
+        });
+      }
+    }
+
+    return true;
+  },
+});
+
 export const saveGeneratedMoodboardImageInternal = internalMutation({
   args: {
     projectId: v.id("projects"),
@@ -1511,6 +1656,12 @@ export const saveGeneratedMoodboardImageInternal = internalMutation({
         projectId: args.projectId,
         createdBy: args.uploadedBy,
       }));
+    const moodboardSection = args.moodboardSection.trim();
+    const moodboardOrder = await getNextMoodboardFileOrder(
+      ctx,
+      args.projectId,
+      moodboardSection,
+    );
 
     const fileId = await ctx.db.insert("files", {
       name: args.fileName,
@@ -1525,7 +1676,8 @@ export const saveGeneratedMoodboardImageInternal = internalMutation({
       version: 1,
       isLatest: true,
       origin: "ai",
-      moodboardSection: args.moodboardSection.trim(),
+      moodboardSection,
+      moodboardOrder,
       aiPrompt: args.aiPrompt,
       showInClientPortal: true,
     });
