@@ -165,33 +165,33 @@ const FILTERS: Array<{
 
 const taskStatusClassNames: Record<CalendarTask["status"], string> = {
   todo: "border-border bg-muted text-foreground",
-  in_progress: "border-primary bg-primary text-primary",
+  in_progress: "border-primary bg-primary text-primary-foreground",
   review: "border-accent bg-accent text-accent-foreground",
-  done: "border-primary bg-primary text-primary",
+  done: "border-primary bg-primary text-primary-foreground",
 };
 
 const shoppingStatusClassNames: Record<CalendarShoppingItem["realizationStatus"], string> = {
   PLANNED: "border-border bg-muted text-foreground",
-  ORDERED: "border-primary bg-primary text-primary",
-  IN_TRANSIT: "border-primary bg-primary text-primary",
-  DELIVERED: "border-primary bg-primary text-primary",
-  COMPLETED: "border-primary bg-primary text-primary",
-  CANCELLED: "border-primary bg-primary text-primary",
+  ORDERED: "border-primary bg-primary text-primary-foreground",
+  IN_TRANSIT: "border-primary bg-primary text-primary-foreground",
+  DELIVERED: "border-primary bg-primary text-primary-foreground",
+  COMPLETED: "border-primary bg-primary text-primary-foreground",
+  CANCELLED: "border-primary bg-primary text-primary-foreground",
 };
 
 const invoiceStatusClassNames: Record<CalendarProjectPayment["status"], string> = {
   draft: "border-border bg-muted text-foreground",
   open: "border-accent bg-accent text-accent-foreground",
-  paid: "border-primary bg-primary text-primary",
+  paid: "border-primary bg-primary text-primary-foreground",
   void: "border-border bg-muted text-foreground",
-  uncollectible: "border-primary bg-primary text-primary",
+  uncollectible: "border-primary bg-primary text-primary-foreground",
 };
 
 const taskCalendarBarClassNames: Record<CalendarTask["status"], string> = {
   todo: "border-border/90 bg-muted/98 text-foreground",
-  in_progress: "border-primary/90 bg-primary/98 text-primary",
+  in_progress: "border-primary/90 bg-primary/98 text-primary-foreground",
   review: "border-accent/90 bg-accent/98 text-accent-foreground",
-  done: "border-primary/90 bg-primary/98 text-primary",
+  done: "border-primary/90 bg-primary/98 text-primary-foreground",
 };
 
 const taskCalendarDotClassNames: Record<CalendarTask["status"], string> = {
@@ -649,7 +649,8 @@ export function OperationsCalendar({
           </CardHeader>
 
           <CardContent className="flex flex-col gap-6 p-6">
-            <div className="overflow-hidden rounded-3xl border border-border/70">
+            <div className="overflow-x-auto rounded-3xl border border-border/70">
+              <div className="min-w-[760px]">
               <div className="grid grid-cols-7 border-b border-border/60 bg-muted/20">
                 {WEEKDAY_HEADERS.map((day) => (
                   <div
@@ -666,7 +667,8 @@ export function OperationsCalendar({
                   const taskBars = weekTaskBars[weekIndex];
                   const visibleTaskBars = visibleTypes.has("task") ? taskBars.bars : [];
                   const taskLaneCount = visibleTypes.has("task") ? taskBars.laneCount : 0;
-                  const rowMinHeight = 170;
+                  const reservedTaskBarHeight = visibleTaskBars.length > 0 ? Math.max(taskLaneCount, 1) * 22 + 24 : 0;
+                  const rowMinHeight = 154 + reservedTaskBarHeight;
 
                   return (
                     <div key={week[0]?.toISOString()} className="relative grid grid-cols-7">
@@ -693,7 +695,10 @@ export function OperationsCalendar({
                               isSelected && "bg-muted shadow-sm",
                               !isSelected && "hover:bg-muted/60",
                             )}
-                            style={{ minHeight: `${rowMinHeight}px` }}
+                            style={{
+                              minHeight: `${rowMinHeight}px`,
+                              paddingBottom: reservedTaskBarHeight ? `${reservedTaskBarHeight}px` : undefined,
+                            }}
                             >
                               <div className="flex items-start justify-between gap-2">
                                 <span
@@ -752,7 +757,7 @@ export function OperationsCalendar({
                                   {data?.invoices.slice(0, 1).map((invoice) => (
                                     <div
                                       key={invoice._id}
-                                      className="truncate rounded-full bg-primary px-2.5 py-1 text-[11px] font-medium text-primary"
+                                      className="truncate rounded-full bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground"
                                     >
                                       {getInvoiceDateLabel(invoice.dateType)}: {invoice.title}
                                     </div>
@@ -767,7 +772,7 @@ export function OperationsCalendar({
                       {visibleTaskBars.length > 0 ? (
                         <div
                           className="pointer-events-none absolute inset-x-0 z-10"
-                          style={{ bottom: "16px", height: `${Math.max(taskLaneCount, 1) * 18}px` }}
+                          style={{ bottom: "14px", height: `${Math.max(taskLaneCount, 1) * 22}px` }}
                         >
                           {visibleTaskBars.map((bar) => {
                             const width = ((bar.endColumn - bar.startColumn + 1) / 7) * 100;
@@ -785,7 +790,7 @@ export function OperationsCalendar({
                                 style={{
                                   left: `calc(${left}% + 10px)`,
                                   width: `calc(${width}% - 20px)`,
-                                  top: `${bar.lane * 18}px`,
+                                  top: `${bar.lane * 22}px`,
                                 }}
                               >
                                 <span className="truncate">
@@ -799,6 +804,7 @@ export function OperationsCalendar({
                     </div>
                   );
                 })}
+              </div>
               </div>
             </div>
 
