@@ -67,7 +67,7 @@ export default function ProductLibraryPage() {
       className="group cursor-pointer"
       onClick={() => setSelectedProduct(product)}
     >
-      <div className="relative overflow-hidden rounded-[1.75rem] border border-border/60 bg-card transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-foreground/15 group-hover:shadow-[0_16px_36px_-24px_rgba(15,15,15,0.28)]">
+      <div className="relative overflow-hidden rounded-3xl border border-border/60 bg-card transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-foreground/15 group-hover:shadow-sm">
         <div className="h-36 bg-secondary/70 p-3 sm:aspect-square sm:h-auto sm:p-8">
           {product.imageUrl ? (
             <img
@@ -76,7 +76,7 @@ export default function ProductLibraryPage() {
               className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-[1.02]"
             />
           ) : (
-            <div className="flex h-full items-center justify-center rounded-[1.25rem] border border-dashed border-border/70 bg-secondary/70 text-sm text-muted-foreground">
+            <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-border/70 bg-secondary/70 text-sm text-muted-foreground">
               No preview
             </div>
           )}
@@ -135,10 +135,10 @@ export default function ProductLibraryPage() {
 
   const ProductRow = ({ product }: { product: { _id: string; name: string; brand?: string; description?: string; category?: string; supplier?: string; unitPrice?: number; imageUrl?: string; tags: string[]; _creationTime: number; } }) => (
     <article
-      className="group flex cursor-pointer items-center gap-4 rounded-[1.5rem] border border-border/60 bg-card px-4 py-3 transition-all duration-200 hover:border-foreground/15 hover:shadow-[0_12px_30px_-24px_rgba(15,15,15,0.25)]"
+      className="group flex cursor-pointer items-center gap-4 rounded-3xl border border-border/60 bg-card px-4 py-3 transition-all duration-200 hover:border-foreground/15 hover:shadow-sm"
       onClick={() => setSelectedProduct(product)}
     >
-      <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[1.25rem] bg-secondary/70 p-3">
+      <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-secondary/70 p-3">
         {product.imageUrl ? (
           <img
             src={product.imageUrl}

@@ -701,7 +701,7 @@ export default function ShoppingListView() {
                     </Button>
                   ) : null}
 
-                  <div className="rounded-[22px] border border-border/60 bg-white px-4 py-2.5">
+                  <div className="rounded-2xl border border-border/60 bg-white px-4 py-2.5">
                     <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                       {getTaxAmountKindLabel(primaryAmountKind, effectiveTaxSettings)} total
                     </div>

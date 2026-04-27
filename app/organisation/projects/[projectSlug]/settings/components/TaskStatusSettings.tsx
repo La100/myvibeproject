@@ -89,7 +89,7 @@ export default function TaskStatusSettings({ projectId, initialSettings }: TaskS
   };
 
   return (
-    <div className="space-y-8">
+    <div className="flex flex-col gap-8">
       <div className="border-b border-border/70 pb-5">
         <h3 className="text-lg font-semibold text-foreground">Task Status Settings</h3>
         <p className="mt-1 text-sm text-muted-foreground">

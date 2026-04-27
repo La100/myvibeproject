@@ -464,7 +464,7 @@ export function AddProductForm({
             </div>
           ) : (
             <div className="flex min-h-56 items-center justify-center rounded-lg border border-dashed bg-secondary/70 px-6 text-center">
-              <div className="max-w-sm space-y-2">
+              <div className="max-w-sm flex flex-col gap-2">
                 <Upload className="mx-auto h-5 w-5 text-muted-foreground" />
                 <p className="text-sm font-medium">No image selected yet</p>
                 <p className="text-sm text-muted-foreground">

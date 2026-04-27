@@ -510,7 +510,7 @@ export default function FilesView() {
                   )}
                 </div>
 
-                <div className="space-y-3">
+                <div className="flex flex-col gap-3">
                   <h3 className="line-clamp-2 text-sm font-semibold leading-snug" title={file.name}>
                     {file.name}
                   </h3>
@@ -543,7 +543,7 @@ export default function FilesView() {
                     )}
                   </div>
 
-                  <div className="space-y-2 rounded-xl border border-border/70 bg-secondary/70 p-2.5">
+                  <div className="flex flex-col gap-2 rounded-xl border border-border/70 bg-secondary/70 p-2.5">
                     <div className="flex items-center justify-between gap-3">
                       <span className="whitespace-nowrap text-xs font-medium text-foreground/80">Customer portal</span>
                       <Switch

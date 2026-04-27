@@ -70,7 +70,7 @@ export function OrganizationImagePicker({
           layout === "stacked" ? "items-center" : "",
         )}
       >
-        <div className="space-y-1">
+        <div className="flex flex-col gap-1">
           <Label htmlFor={inputId}>Organization image</Label>
           {statusLabel ? (
             <p className="text-xs font-medium text-foreground">{statusLabel}</p>

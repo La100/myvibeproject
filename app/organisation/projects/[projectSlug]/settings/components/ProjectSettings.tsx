@@ -553,8 +553,8 @@ function ProjectSettingsContent() {
 
           <div className="grid gap-8 lg:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[240px_minmax(0,1fr)] xl:gap-12">
             <aside className="self-start lg:sticky lg:top-8">
-              <div className="space-y-6">
-                <div className="space-y-1">
+              <div className="flex flex-col gap-6">
+                <div className="flex flex-col gap-1">
                   <p className="px-4 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
                     Project
                   </p>
@@ -585,7 +585,7 @@ function ProjectSettingsContent() {
 
             <div className="grid gap-8">
               <section className="grid gap-8">
-                <div className="space-y-2 border-b border-border/70 pb-5">
+                <div className="flex flex-col gap-2 border-b border-border/70 pb-5">
                   <h2 className="text-[1.2rem] font-semibold tracking-tight text-foreground md:text-[1.3rem]">
                     {activeTabConfig.label}
                   </h2>
@@ -908,7 +908,7 @@ function GeneralTab({
   });
 
   return (
-    <div className="space-y-8">
+    <div className="flex flex-col gap-8">
       <Form {...settingsForm}>
         <form
           id="project-settings-form"
@@ -945,7 +945,7 @@ function GeneralTab({
             </div>
           ) : null}
 
-          <section className="space-y-4">
+          <section className="flex flex-col gap-4">
             <div className="mb-4 flex flex-col gap-1">
               <h3 className="text-lg font-semibold text-foreground">
                 Identity
@@ -1306,7 +1306,7 @@ function GeneralTab({
             </div>
 
             <div className="grid gap-4">
-              <div className="max-w-4xl overflow-hidden rounded-[28px] border border-border/70 bg-secondary/70">
+              <div className="max-w-4xl overflow-hidden rounded-3xl border border-border/70 bg-secondary/70">
                 {hasCoverPreview ? (
                   <div className="relative">
                     <img
@@ -1349,7 +1349,7 @@ function GeneralTab({
                     <div className="flex h-12 w-12 items-center justify-center rounded-full border border-border/70 bg-card">
                       <ImagePlus className="h-5 w-5 text-muted-foreground" />
                     </div>
-                    <div className="space-y-1">
+                    <div className="flex flex-col gap-1">
                       <p className="text-sm font-medium text-foreground">
                         {coverPreviewStatus === "loading"
                           ? "Loading preview..."

@@ -206,9 +206,9 @@ const priorityStyles: Record<
   medium: {
     label: "Medium",
     variant: "secondary",
-    accentClassName: "bg-[var(--ui-accent-brand)]/55",
+    accentClassName: "bg-primary/55",
   },
-  high: { label: "High", variant: "default", accentClassName: "bg-[var(--ui-accent-brand)]" },
+  high: { label: "High", variant: "default", accentClassName: "bg-primary" },
   urgent: {
     label: "Urgent",
     variant: "destructive",
@@ -585,7 +585,7 @@ export default function TasksView() {
             }}
           />
         ) : viewMode === "kanban" ? (
-          <div className="relative isolate overflow-hidden rounded-[2rem] border border-border/70 bg-card p-3 shadow-sm">
+          <div className="relative isolate overflow-hidden rounded-3xl border border-border/70 bg-card p-3 shadow-sm">
             <KanbanProvider
               onDragStart={handleDragStart}
               onDragCancel={handleDragCancel}
@@ -600,7 +600,7 @@ export default function TasksView() {
                   <KanbanBoard
                     id={status.value}
                     key={status.value}
-                    className="relative overflow-hidden rounded-[1.5rem] border border-border/70 bg-secondary/70 p-3 shadow-sm"
+                    className="relative overflow-hidden rounded-3xl border border-border/70 bg-secondary/70 p-3 shadow-sm"
                   >
                     <KanbanHeader
                       name={status.label}
@@ -632,7 +632,7 @@ export default function TasksView() {
             </KanbanProvider>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-[1.5rem] border border-border/70 bg-card shadow-sm">
+          <div className="overflow-hidden rounded-3xl border border-border/70 bg-card shadow-sm">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -742,7 +742,7 @@ const TaskCardContent = memo(function TaskCardContent({
 
   return (
     <div
-      className="relative block cursor-pointer rounded-[18px] border border-border/85 bg-card p-4 shadow-sm transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-foreground/15 hover:shadow-md"
+      className="relative block cursor-pointer rounded-2xl border border-border/85 bg-card p-4 shadow-sm transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-foreground/15 hover:shadow-md"
     >
       <div className="flex justify-between items-start mb-2">
         <Link
@@ -839,7 +839,7 @@ function TaskDragPreview({ task }: { task: KanbanTask }) {
   const priority = getPriorityDisplay(task.priority);
 
   return (
-    <div className="w-[340px] rounded-[18px] border border-border/85 bg-card px-4 py-3 shadow-md">
+    <div className="w-[340px] rounded-2xl border border-border/85 bg-card px-4 py-3 shadow-md">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="truncate text-sm font-semibold">{task.title}</div>

@@ -1041,7 +1041,7 @@ export default function CompanySettings({
             <div
               className={cn(
                 "flex flex-col gap-5 rounded-3xl border border-border/70 bg-card p-5 sm:p-6",
-                hasPaidSubscription ? "order-2" : "order-1",
+                hasPaidSubscription ? "order-3" : "order-1",
               )}
             >
               <div className="flex flex-col gap-3">
@@ -1457,7 +1457,12 @@ export default function CompanySettings({
               </Card>
             </div>
 
-            <Card className="border-border/40 bg-card shadow-sm">
+            <Card
+              className={cn(
+                "border-border/40 bg-card shadow-sm",
+                hasPaidSubscription ? "order-2" : "order-3",
+              )}
+            >
               <CardHeader>
                 <CardTitle className="text-base font-medium">
                   Transaction History
@@ -1511,9 +1516,9 @@ export default function CompanySettings({
               </CardContent>
             </Card>
 
-            <Separator />
+            <Separator className="order-4" />
 
-            <div className="flex flex-col gap-6">
+            <div className="order-5 flex flex-col gap-6">
               <div className="flex flex-col gap-1">
                 <h2 className="text-lg font-medium">Usage</h2>
                 <p className="text-sm text-muted-foreground">
@@ -1812,8 +1817,8 @@ export default function CompanySettings({
         ) : (
           <div className="grid gap-8 lg:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[240px_minmax(0,1fr)] xl:gap-12">
             <aside className="self-start lg:sticky lg:top-8">
-              <div className="space-y-6">
-                <div className="space-y-1">
+              <div className="flex flex-col gap-6">
+                <div className="flex flex-col gap-1">
                   <p className="px-4 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
                     Workspace
                   </p>
@@ -1837,7 +1842,7 @@ export default function CompanySettings({
                 </div>
 
                 {personalSections.length > 0 ? (
-                  <div className="space-y-1">
+                  <div className="flex flex-col gap-1">
                     <p className="px-4 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
                       Personal
                     </p>
@@ -1872,7 +1877,7 @@ export default function CompanySettings({
               className="grid gap-8"
             >
               <section className="grid gap-8">
-                <div className="space-y-1 border-b border-border/70 pb-5">
+                <div className="flex flex-col gap-1 border-b border-border/70 pb-5">
                   <h2 className="text-[1.2rem] font-semibold tracking-tight text-foreground md:text-[1.3rem]">
                     {activeSettingsSectionConfig.label}
                   </h2>
@@ -1889,7 +1894,7 @@ export default function CompanySettings({
                       className="hidden"
                     />
 
-                    <div className="rounded-[28px] border border-border/60 bg-card p-6 shadow-sm md:p-8">
+                    <div className="rounded-3xl border border-border/60 bg-card p-6 shadow-sm md:p-8">
                       <div className="grid gap-8">
                         <form
                           className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end"
@@ -1898,7 +1903,7 @@ export default function CompanySettings({
                             void handleSaveOrganizationName();
                           }}
                         >
-                          <div className="space-y-2">
+                          <div className="flex flex-col gap-2">
                             <Label htmlFor="organization-name">
                               Organization name
                             </Label>
@@ -1974,7 +1979,7 @@ export default function CompanySettings({
                       </CardHeader>
                       <CardContent className="grid gap-8 p-6">
                         <div className="grid gap-4">
-                          <div className="space-y-1">
+                          <div className="flex flex-col gap-1">
                             <h3 className="text-sm font-medium text-foreground">
                               Currency & timezone
                             </h3>
@@ -2089,7 +2094,7 @@ export default function CompanySettings({
                     </CardHeader>
                     <CardContent className="grid gap-8 p-6">
                       <div className="grid gap-4">
-                        <div className="space-y-1">
+                        <div className="flex flex-col gap-1">
                           <h3 className="text-sm font-medium text-foreground">
                             Seller identity
                           </h3>
@@ -2154,7 +2159,7 @@ export default function CompanySettings({
                       <Separator />
 
                       <div className="grid gap-4">
-                        <div className="space-y-1">
+                        <div className="flex flex-col gap-1">
                           <h3 className="text-sm font-medium text-foreground">
                             Registered address
                           </h3>
@@ -2229,7 +2234,7 @@ export default function CompanySettings({
                       <Separator />
 
                       <div className="grid gap-4">
-                        <div className="space-y-1">
+                        <div className="flex flex-col gap-1">
                           <h3 className="text-sm font-medium text-foreground">
                             Payment details
                           </h3>
@@ -2359,7 +2364,7 @@ export default function CompanySettings({
                     </CardHeader>
                     <CardContent className="grid gap-8 p-6">
                       <div className="grid gap-3">
-                        <div className="space-y-1">
+                        <div className="flex flex-col gap-1">
                           <h3 className="text-sm font-medium text-foreground">
                             Tasks
                           </h3>
@@ -2398,7 +2403,7 @@ export default function CompanySettings({
                             key={item.key}
                             className="flex items-start justify-between gap-4 rounded-2xl border border-border/50 bg-secondary/70 px-4 py-4"
                           >
-                            <div className="space-y-1 pr-4">
+                            <div className="flex flex-col gap-1 pr-4">
                               <div className="text-sm font-medium text-foreground">
                                 {item.title}
                               </div>
@@ -2426,7 +2431,7 @@ export default function CompanySettings({
                       <Separator />
 
                       <div className="grid gap-3">
-                        <div className="space-y-1">
+                        <div className="flex flex-col gap-1">
                           <h3 className="text-sm font-medium text-foreground">
                             Comments
                           </h3>
@@ -2436,7 +2441,7 @@ export default function CompanySettings({
                           </p>
                         </div>
                         <div className="flex items-start justify-between gap-4 rounded-2xl border border-border/50 bg-secondary/70 px-4 py-4">
-                          <div className="space-y-1 pr-4">
+                          <div className="flex flex-col gap-1 pr-4">
                             <div className="text-sm font-medium text-foreground">
                               Task comments
                             </div>

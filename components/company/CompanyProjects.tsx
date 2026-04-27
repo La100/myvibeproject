@@ -233,24 +233,24 @@ function ProjectCard({
     { dotClassName: string; textClassName: string }
   > = {
     active: {
-      dotClassName: "bg-emerald-500",
-      textClassName: "text-emerald-700",
+      dotClassName: "bg-primary",
+      textClassName: "text-primary",
     },
     planning: {
-      dotClassName: "bg-amber-500",
-      textClassName: "text-amber-700",
+      dotClassName: "bg-accent",
+      textClassName: "text-accent-foreground",
     },
     on_hold: {
-      dotClassName: "bg-orange-500",
-      textClassName: "text-orange-700",
+      dotClassName: "bg-accent",
+      textClassName: "text-accent-foreground",
     },
     completed: {
-      dotClassName: "bg-sky-500",
-      textClassName: "text-sky-700",
+      dotClassName: "bg-primary",
+      textClassName: "text-primary",
     },
     cancelled: {
-      dotClassName: "bg-rose-500",
-      textClassName: "text-rose-700",
+      dotClassName: "bg-primary",
+      textClassName: "text-primary",
     },
   };
 
@@ -282,7 +282,7 @@ function ProjectCard({
       className="group h-full w-full cursor-pointer"
     >
       <article className="flex h-full flex-col gap-4">
-        <div className="relative aspect-[1.68/1] overflow-hidden rounded-[1rem] border border-border bg-card shadow-sm transition-transform duration-200 group-hover:-translate-y-0.5">
+        <div className="relative aspect-[1.68/1] overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-transform duration-200 group-hover:-translate-y-0.5">
           {hasCoverImage ? (
             <>
               <Image
@@ -313,7 +313,7 @@ function ProjectCard({
           </div>
         </div>
         <div className="flex flex-1 items-start justify-between gap-4 px-1">
-          <div className="min-w-0 space-y-1.5">
+          <div className="min-w-0 flex flex-col gap-1.5">
             <p className="line-clamp-2 text-sm font-normal leading-tight tracking-tight text-foreground sm:text-base">
               {project.name}
             </p>
@@ -327,7 +327,7 @@ function ProjectCard({
                 >
                   <span
                     className={cn(
-                      "inline-block h-2.5 w-2.5 shrink-0 rounded-[2px]",
+                      "inline-block h-2.5 w-2.5 shrink-0 rounded-sm",
                       statusMeta[project.status].dotClassName,
                     )}
                   />

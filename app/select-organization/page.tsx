@@ -124,7 +124,7 @@ export default function SelectOrganizationPage() {
           </section>
 
           <section>
-            <div className="mx-auto w-full max-w-[520px] rounded-[32px] border border-border/70 bg-card/95 p-6 shadow-[0_24px_80px_rgba(25,20,14,0.08)] backdrop-blur xl:p-8">
+            <div className="mx-auto w-full max-w-[520px] rounded-3xl border border-border/70 bg-card/95 p-6 shadow-sm backdrop-blur xl:p-8">
               <div className="mb-6 lg:hidden">
                 <Link href="/" className="inline-flex items-center gap-3">
                   <Image

@@ -1686,7 +1686,7 @@ export default function CompanyReports() {
                             {entry.invoiceCount} invoices
                           </Badge>
                         </div>
-                        <div className="mt-3 space-y-1 text-sm">
+                        <div className="mt-3 flex flex-col gap-1 text-sm">
                           <div className="flex items-center justify-between gap-3">
                             <span className="text-muted-foreground">
                               Issued

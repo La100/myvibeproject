@@ -446,7 +446,7 @@ export function ShoppingListSection({
     decision: ShoppingListItem["customerDecision"] | undefined,
   ) => {
     if (decision === "accepted") {
-      return "border-emerald-500/30 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300";
+      return "border-primary/30 bg-primary/12 text-primary dark:text-primary";
     }
     if (decision === "rejected") {
       return "border-destructive/20 bg-destructive/10 text-destructive";
@@ -466,7 +466,7 @@ export function ShoppingListSection({
     source: ShoppingSet["resolvedBySource"],
   ) => {
     if (source === "client") {
-      return "border-emerald-500/30 bg-emerald-500/12 text-emerald-700";
+      return "border-primary/30 bg-primary/12 text-primary";
     }
     if (source === "team") {
       return "border-[#b7aa92]/45 bg-[#eee6d7] text-[#5f5548]";
@@ -754,10 +754,10 @@ export function ShoppingListSection({
       <div
         key={item._id}
         className={cn(
-          "rounded-[28px] border border-border/70 px-5 py-4",
+          "rounded-3xl border border-border/70 px-5 py-4",
           customerDecisionTone &&
             (item.customerDecision === "accepted"
-              ? "border-emerald-500/25 bg-emerald-500/6"
+              ? "border-primary/25 bg-primary/6"
               : "border-destructive/20 bg-destructive/5"),
           !isCounted && "border-border/70 bg-secondary/55",
           !customerDecisionTone && "bg-secondary/70",

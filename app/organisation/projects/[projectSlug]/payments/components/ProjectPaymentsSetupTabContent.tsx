@@ -205,7 +205,7 @@ export function ProjectPaymentsSetupTabContent({
     paymentRouteStatus === "missing"
       ? "border-destructive/35 bg-destructive/12 text-destructive"
       : paymentRouteStatus === "stripe"
-        ? "border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+        ? "border-primary/35 bg-primary/10 text-primary dark:text-primary"
         : "border-border bg-secondary/70 text-foreground";
 
   return (
@@ -213,7 +213,7 @@ export function ProjectPaymentsSetupTabContent({
       <div className="grid gap-6 xl:grid-cols-2">
         <Card className="border-border/70 bg-card shadow-sm">
           <CardHeader className="flex flex-row items-start justify-between gap-3">
-            <div className="space-y-1.5">
+            <div className="flex flex-col gap-1.5">
               <CardTitle className="flex items-center gap-2">
                 <Banknote />
                 Organization Billing Profile

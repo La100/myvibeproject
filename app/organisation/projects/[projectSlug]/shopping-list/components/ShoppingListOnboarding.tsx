@@ -51,7 +51,7 @@ function StepCard({
       className={cn(
         "vibe-surface relative flex min-h-[260px] flex-col gap-5 p-6 md:min-h-[300px]",
         isExternalAction &&
-          "border-primary/12 bg-[color-mix(in_oklab,var(--ui-surface-inner)_84%,#f4eee5_16%)] shadow-[0_22px_48px_-34px_rgba(70,52,37,0.34)]",
+          "border-primary/12 bg-[color-mix(in_oklab,var(--ui-surface-inner)_84%,#f4eee5_16%)] shadow-sm",
       )}
     >
       {!isLast ? (
@@ -67,7 +67,7 @@ function StepCard({
         </Badge>
       </div>
 
-      <div className="space-y-4">
+      <div className="flex flex-col gap-4">
         <div className="flex items-center gap-2 text-[0.68rem] font-medium uppercase tracking-[0.16em] text-muted-foreground">
           <Icon className="h-4 w-4 text-primary" aria-hidden="true" />
           <span>{step.meta}</span>
@@ -160,11 +160,11 @@ export function ShoppingListOnboarding({
     <section className="vibe-panel mb-8 overflow-hidden">
       <div className="grid items-start gap-8 p-6 lg:grid-cols-[0.82fr_1.18fr] lg:p-8">
         <div className="flex min-h-[300px] flex-col justify-between gap-6 py-1">
-          <div className="space-y-4">
+          <div className="flex flex-col gap-4">
             <Badge variant="secondary" className="w-fit">
               Shopping list setup
             </Badge>
-            <div className="space-y-3">
+            <div className="flex flex-col gap-3">
               <h2 className="clean-title max-w-lg text-3xl font-medium leading-tight tracking-tight md:text-4xl">
                 Set up shopping in three quick steps.
               </h2>

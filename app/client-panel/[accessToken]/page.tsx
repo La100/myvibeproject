@@ -1469,7 +1469,7 @@ export default function PublicClientPanelPage() {
       item.customerDecision === "rejected";
     const decisionTone =
       item.customerDecision === "accepted"
-        ? "border-emerald-500/30 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
+        ? "border-primary/30 bg-primary/12 text-primary dark:text-primary"
         : item.customerDecision === "rejected"
           ? "border-destructive/20 bg-destructive/10 text-destructive"
           : "";
@@ -1557,7 +1557,7 @@ export default function PublicClientPanelPage() {
                   <Button
                     type="button"
                     size="sm"
-                    className="bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:border-emerald-700 focus-visible:ring-emerald-200"
+                    className="bg-primary text-white hover:bg-primary focus-visible:border-primary focus-visible:ring-emerald-200"
                     onClick={() =>
                       void handleRespondToShoppingItem(item, "accepted")
                     }
@@ -1569,7 +1569,7 @@ export default function PublicClientPanelPage() {
                   <Button
                     type="button"
                     size="sm"
-                    className="bg-red-600 text-white hover:bg-red-700 focus-visible:border-red-700 focus-visible:ring-red-200"
+                    className="bg-destructive text-white hover:bg-destructive focus-visible:border-destructive focus-visible:ring-red-200"
                     onClick={() =>
                       void handleRespondToShoppingItem(item, "rejected")
                     }
@@ -1651,7 +1651,7 @@ export default function PublicClientPanelPage() {
       item.customerDecision === "rejected";
     const decisionTone =
       item.customerDecision === "accepted"
-        ? "border-emerald-500/30 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
+        ? "border-primary/30 bg-primary/12 text-primary dark:text-primary"
         : item.customerDecision === "rejected"
           ? "border-destructive/20 bg-destructive/10 text-destructive"
           : "";
@@ -1729,7 +1729,7 @@ export default function PublicClientPanelPage() {
                 <Button
                   type="button"
                   size="sm"
-                  className="bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:border-emerald-700 focus-visible:ring-emerald-200"
+                  className="bg-primary text-white hover:bg-primary focus-visible:border-primary focus-visible:ring-emerald-200"
                   onClick={() =>
                     void handleRespondToLaborItem(item, "accepted")
                   }
@@ -1741,7 +1741,7 @@ export default function PublicClientPanelPage() {
                 <Button
                   type="button"
                   size="sm"
-                  className="bg-red-600 text-white hover:bg-red-700 focus-visible:border-red-700 focus-visible:ring-red-200"
+                  className="bg-destructive text-white hover:bg-destructive focus-visible:border-destructive focus-visible:ring-red-200"
                   onClick={() =>
                     void handleRespondToLaborItem(item, "rejected")
                   }
@@ -2241,8 +2241,8 @@ export default function PublicClientPanelPage() {
                       className={cn(
                         "h-auto min-h-0 items-center gap-3 rounded-full border px-3 py-3 text-left transition-all duration-150 sm:px-4",
                         isActive
-                          ? "border-foreground/15 bg-background text-foreground shadow-[0_10px_30px_-22px_rgba(0,0,0,0.18)] hover:border-foreground/25 hover:bg-background"
-                          : "border-border bg-white text-foreground hover:-translate-y-0.5 hover:border-foreground/20 hover:bg-background hover:shadow-[0_10px_24px_-20px_rgba(0,0,0,0.14)]",
+                          ? "border-foreground/15 bg-background text-foreground shadow-sm hover:border-foreground/25 hover:bg-background"
+                          : "border-border bg-white text-foreground hover:-translate-y-0.5 hover:border-foreground/20 hover:bg-background hover:shadow-sm",
                       )}
                     >
                       <div
@@ -3016,7 +3016,7 @@ export default function PublicClientPanelPage() {
                           className={cn(
                             "border-border/70",
                             item.customerDecision === "accepted" &&
-                              "border-emerald-500/25 bg-emerald-500/6",
+                              "border-primary/25 bg-primary/6",
                             item.customerDecision === "rejected" &&
                               "border-destructive/20 bg-destructive/5",
                           )}
@@ -3027,7 +3027,7 @@ export default function PublicClientPanelPage() {
                                 className={cn(
                                   "text-xs",
                                   item.customerDecision === "accepted"
-                                    ? "border-emerald-500/30 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
+                                    ? "border-primary/30 bg-primary/12 text-primary dark:text-primary"
                                     : "border-destructive/20 bg-destructive/10 text-destructive",
                                 )}
                               >
@@ -3761,7 +3761,7 @@ export default function PublicClientPanelPage() {
                                   className={cn(
                                     "flex flex-col gap-3 rounded-2xl transition-colors",
                                     isSelected &&
-                                      "bg-emerald-500/5 ring-1 ring-emerald-500/20",
+                                      "bg-primary/5 ring-1 ring-emerald-500/20",
                                   )}
                                 >
                                   {group.selectionMode !== "none" ? (
@@ -3814,7 +3814,7 @@ export default function PublicClientPanelPage() {
                                     name={option.name}
                                     className={cn(
                                       isSelected &&
-                                        "border-emerald-500/40 bg-emerald-500/5 shadow-sm",
+                                        "border-primary/40 bg-primary/5 shadow-sm",
                                       !countedItems.some(
                                         (entry) =>
                                           entry.sourceItemId ===
@@ -3826,7 +3826,7 @@ export default function PublicClientPanelPage() {
                                         {isSelected ? (
                                           <Badge
                                             variant="secondary"
-                                            className="border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
+                                            className="border-primary/30 bg-primary/10 text-primary"
                                           >
                                             {group.selectionMode === "multiple"
                                               ? "Included"
@@ -3895,7 +3895,7 @@ export default function PublicClientPanelPage() {
                                     sideContent={
                                       <>
                                         {isSelected ? (
-                                          <Badge className="bg-emerald-600 text-white hover:bg-emerald-600">
+                                          <Badge className="bg-primary text-white hover:bg-primary">
                                             {group.selectionMode === "multiple"
                                               ? "Included"
                                               : "Selected"}

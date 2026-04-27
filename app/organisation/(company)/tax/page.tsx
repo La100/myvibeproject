@@ -105,7 +105,7 @@ export default function TaxPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="space-y-2">
+      <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-semibold tracking-tight text-foreground">Tax</h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
           Configure the default tax behavior used by commercial documents across the workspace.
@@ -114,7 +114,7 @@ export default function TaxPage() {
 
       <Card className="clean-surface">
         <CardContent className="flex flex-col gap-6 p-6">
-          <div className="space-y-1">
+          <div className="flex flex-col gap-1">
             <h2 className="text-2xl font-medium text-foreground">Workspace default</h2>
             <p className="text-sm text-muted-foreground">
               This default is used for estimations and invoice flows. Documents keep their own tax snapshot after creation.
@@ -188,7 +188,7 @@ export default function TaxPage() {
               <div className="flex h-10 w-10 items-center justify-center rounded-full border border-border/70 bg-card">
                 <Percent className="h-4 w-4 text-muted-foreground" />
               </div>
-              <div className="space-y-1">
+              <div className="flex flex-col gap-1">
                 <p className="text-sm font-medium text-foreground">Tax stays lightweight</p>
                 <p className="text-sm text-muted-foreground">
                   Shopping and labor stay internal planning tools. Estimations and invoice drafts reuse this tax rate when needed.

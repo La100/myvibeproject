@@ -329,8 +329,8 @@ function OnboardingContent() {
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/35 px-4 py-4">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
         <Card className="rounded-3xl border-border/70 bg-background/95 shadow-sm">
-          <CardContent className="space-y-5 p-5 sm:p-6">
-            <div className="space-y-1.5">
+          <CardContent className="flex flex-col gap-5 p-5 sm:p-6">
+            <div className="flex flex-col gap-1.5">
               <p className="text-[11px] font-medium uppercase tracking-[0.28em] text-muted-foreground">
                 Onboarding
               </p>
@@ -407,8 +407,8 @@ function OnboardingContent() {
         </Card>
 
         <Card className="overflow-hidden rounded-3xl border-border/70 bg-background/95 shadow-sm">
-          <CardContent className="space-y-6 p-6">
-            <div className="space-y-2">
+          <CardContent className="flex flex-col gap-6 p-6">
+            <div className="flex flex-col gap-2">
               <h2 className="text-xl font-semibold">How should this workspace behave?</h2>
               <p className="text-sm text-muted-foreground">
                 Answer these questions once and we will use them as your starting defaults.

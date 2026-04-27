@@ -24,6 +24,6 @@ export const authClerkAppearance = {
     footerActionText: "text-sm text-muted-foreground",
     footerActionLink: "font-semibold text-foreground hover:underline",
     badge:
-      "mx-auto mb-5 inline-flex rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700 shadow-none",
+      "mx-auto mb-5 inline-flex rounded-full border border-accent bg-accent px-3 py-1 text-xs font-medium text-accent-foreground shadow-none",
   },
 } as const;

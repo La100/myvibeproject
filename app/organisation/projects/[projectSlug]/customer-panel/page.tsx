@@ -133,7 +133,7 @@ const FLAT_PRIMARY_BUTTON_CLASSNAME =
   "rounded-full bg-primary/92 text-primary-foreground shadow-none hover:bg-primary/92 focus-visible:ring-0 active:translate-y-0";
 
 const PORTAL_SWITCH_CLASSNAME =
-  "h-7 w-12 border-0 bg-slate-300/90 p-1 shadow-none data-[state=checked]:bg-primary data-[state=unchecked]:bg-slate-300/90";
+  "h-7 w-12 border-0 bg-muted/90 p-1 shadow-none data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted/90";
 
 export default function CustomerPanelPage() {
   const { project, teamMember, isLoading } = useProject();
@@ -325,7 +325,7 @@ export default function CustomerPanelPage() {
               </Badge>
               <Badge
                 variant="outline"
-                className="rounded-full border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[12px] font-semibold text-emerald-700"
+                className="rounded-full border-primary bg-primary px-3 py-1.5 text-[12px] font-semibold text-primary"
               >
                 Live
               </Badge>
@@ -337,10 +337,10 @@ export default function CustomerPanelPage() {
           title="Portal access"
           description="Copy the link, open the portal, regenerate access, or send it by email from one compact row."
         >
-          <Card className="gap-0 rounded-[24px] border-border/70 bg-card py-0 shadow-none backdrop-blur-[2px]">
+          <Card className="gap-0 rounded-3xl border-border/70 bg-card py-0 shadow-none backdrop-blur-[2px]">
             <CardContent className="grid gap-0 lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)]">
-              <div className="space-y-4 p-5 lg:border-r lg:border-border/70">
-                <div className="space-y-2">
+              <div className="flex flex-col gap-4 p-5 lg:border-r lg:border-border/70">
+                <div className="flex flex-col gap-2">
                   <Label htmlFor="customer-portal-url" className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
                     Portal link
                   </Label>
@@ -391,8 +391,8 @@ export default function CustomerPanelPage() {
                 </div>
               </div>
 
-              <div className="space-y-4 p-5">
-                <div className="space-y-2">
+              <div className="flex flex-col gap-4 p-5">
+                <div className="flex flex-col gap-2">
                   <Label htmlFor="customer-portal-email" className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
                     Customer email
                   </Label>
@@ -422,9 +422,9 @@ export default function CustomerPanelPage() {
           </Card>
         </SectionBlock>
 
-        <section className="space-y-4">
+        <section className="flex flex-col gap-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div className="space-y-1">
+            <div className="flex flex-col gap-1">
               <h2 className="text-lg font-semibold text-foreground">Visible sections</h2>
               <p className="text-sm text-muted-foreground">
                 Choose what the client sees, then publish those changes to the live portal.
@@ -483,8 +483,8 @@ type SectionBlockProps = {
 
 function SectionBlock({ title, description, children }: SectionBlockProps) {
   return (
-    <section className="space-y-2.5">
-      <div className="space-y-1">
+    <section className="flex flex-col gap-2.5">
+      <div className="flex flex-col gap-1">
         <h2 className="text-lg font-semibold text-foreground">{title}</h2>
         <p className="text-sm text-muted-foreground">{description}</p>
       </div>
@@ -513,10 +513,10 @@ function FeatureCard({
   onCheckedChange,
 }: FeatureCardProps) {
   return (
-    <Card className="h-full min-h-[170px] gap-0 rounded-[22px] border-border/70 bg-card shadow-none transition-colors hover:border-foreground/12">
+    <Card className="h-full min-h-[170px] gap-0 rounded-2xl border-border/70 bg-card shadow-none transition-colors hover:border-foreground/12">
       <CardContent className="flex h-full flex-col justify-between gap-4 p-4">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-[15px] border border-border/70 bg-secondary/70 text-muted-foreground [&>svg]:h-4 [&>svg]:w-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-border/70 bg-secondary/70 text-muted-foreground [&>svg]:h-4 [&>svg]:w-4">
             {icon}
           </div>
           <Switch
@@ -529,7 +529,7 @@ function FeatureCard({
           />
         </div>
 
-        <div className="space-y-1">
+        <div className="flex flex-col gap-1">
           <CardTitle className="text-[15px] leading-5">{title}</CardTitle>
           <CardDescription className="max-w-[24ch] text-[13px] leading-5">
             {description}
@@ -570,11 +570,11 @@ function ShoppingListFeatureCard({
   const detailDisabled = disabled || !checked;
 
   return (
-    <Card className="gap-0 rounded-[24px] border-border/70 bg-card shadow-none transition-colors hover:border-foreground/12">
+    <Card className="gap-0 rounded-3xl border-border/70 bg-card shadow-none transition-colors hover:border-foreground/12">
       <CardContent className="grid gap-3 p-5 lg:grid-cols-[minmax(280px,0.9fr)_minmax(340px,1.1fr)] lg:items-stretch">
-        <div className="flex h-full min-h-[170px] flex-col justify-between gap-4 rounded-[18px] border border-border/70 bg-secondary/70 px-4 py-3">
+        <div className="flex h-full min-h-[170px] flex-col justify-between gap-4 rounded-2xl border border-border/70 bg-secondary/70 px-4 py-3">
           <div className="flex items-start justify-between gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-[15px] border border-border/70 bg-secondary/70 text-muted-foreground [&>svg]:h-4 [&>svg]:w-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-border/70 bg-secondary/70 text-muted-foreground [&>svg]:h-4 [&>svg]:w-4">
               {icon}
             </div>
             <Switch
@@ -587,7 +587,7 @@ function ShoppingListFeatureCard({
             />
           </div>
 
-          <div className="space-y-1">
+          <div className="flex flex-col gap-1">
             <CardTitle className="text-[15px] leading-5">{title}</CardTitle>
             <CardDescription className="max-w-[30ch] text-[13px] leading-5">
               {description}
@@ -636,9 +636,9 @@ function ShoppingListSettingCard({
   onCheckedChange,
 }: ShoppingListSettingCardProps) {
   return (
-    <div className="rounded-[18px] border border-border/70 bg-secondary/70 px-4 py-3">
+    <div className="rounded-2xl border border-border/70 bg-secondary/70 px-4 py-3">
       <div className="flex min-h-[58px] items-start justify-between gap-3">
-        <div className="space-y-1 pr-4">
+        <div className="flex flex-col gap-1 pr-4">
           <Label htmlFor={id} className="text-[13px] font-medium text-foreground">
             {title}
           </Label>

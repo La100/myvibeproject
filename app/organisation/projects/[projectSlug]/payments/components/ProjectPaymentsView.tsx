@@ -1242,7 +1242,7 @@ export default function ProjectPaymentsView() {
           <TabsList className="grid h-auto w-full grid-cols-1 gap-3 border-0 bg-transparent p-0 shadow-none md:grid-cols-3">
             <TabsTrigger
               value="schedule"
-              className="h-auto w-full flex-none justify-start rounded-[1.75rem] border border-border/70 bg-card px-5 py-4 text-left text-muted-foreground shadow-none transition-[background-color,border-color,color,box-shadow,transform] hover:-translate-y-0.5 hover:border-border hover:bg-card hover:text-foreground hover:shadow-sm data-[state=active]:border-border data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-[0_10px_30px_-18px_rgba(70,52,37,0.28)]"
+              className="h-auto w-full flex-none justify-start rounded-3xl border border-border/70 bg-card px-5 py-4 text-left text-muted-foreground shadow-none transition-[background-color,border-color,color,box-shadow,transform] hover:-translate-y-0.5 hover:border-border hover:bg-card hover:text-foreground hover:shadow-sm data-[state=active]:border-border data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm"
             >
               <span className="flex w-full flex-wrap items-start gap-3">
                 <span className="min-w-0 flex-1">
@@ -1258,7 +1258,7 @@ export default function ProjectPaymentsView() {
             </TabsTrigger>
             <TabsTrigger
               value="invoices"
-              className="h-auto w-full flex-none justify-start rounded-[1.75rem] border border-border/70 bg-card px-5 py-4 text-left text-muted-foreground shadow-none transition-[background-color,border-color,color,box-shadow,transform] hover:-translate-y-0.5 hover:border-border hover:bg-card hover:text-foreground hover:shadow-sm data-[state=active]:border-border data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-[0_10px_30px_-18px_rgba(70,52,37,0.28)]"
+              className="h-auto w-full flex-none justify-start rounded-3xl border border-border/70 bg-card px-5 py-4 text-left text-muted-foreground shadow-none transition-[background-color,border-color,color,box-shadow,transform] hover:-translate-y-0.5 hover:border-border hover:bg-card hover:text-foreground hover:shadow-sm data-[state=active]:border-border data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm"
             >
               <span className="flex w-full flex-wrap items-start gap-3">
                 <span className="min-w-0 flex-1">
@@ -1274,7 +1274,7 @@ export default function ProjectPaymentsView() {
             </TabsTrigger>
             <TabsTrigger
               value="invoice-setup"
-              className="h-auto w-full flex-none justify-start rounded-[1.75rem] border border-border/70 bg-card px-5 py-4 text-left text-muted-foreground shadow-none transition-[background-color,border-color,color,box-shadow,transform] hover:-translate-y-0.5 hover:border-border hover:bg-card hover:text-foreground hover:shadow-sm data-[state=active]:border-border data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-[0_10px_30px_-18px_rgba(70,52,37,0.28)]"
+              className="h-auto w-full flex-none justify-start rounded-3xl border border-border/70 bg-card px-5 py-4 text-left text-muted-foreground shadow-none transition-[background-color,border-color,color,box-shadow,transform] hover:-translate-y-0.5 hover:border-border hover:bg-card hover:text-foreground hover:shadow-sm data-[state=active]:border-border data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm"
             >
               <span className="flex w-full flex-wrap items-start gap-3">
                 <span className="min-w-0 flex-1">
@@ -1390,7 +1390,7 @@ export default function ProjectPaymentsView() {
           </DialogHeader>
 
           {invoiceGuardReason === "setup" ? (
-            <div className="space-y-3 text-sm">
+            <div className="flex flex-col gap-3 text-sm">
               {missingSellerFields.length ? (
                 <div>
                   <p className="font-medium">Missing seller profile fields:</p>

@@ -787,7 +787,7 @@ export function CreateEstimationDialog({
               <Label>Tax</Label>
               <div className="mt-1 rounded-xl border border-border/70 bg-secondary/70 p-4">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-1">
+                  <div className="flex flex-col gap-1">
                     <p className="text-sm font-medium">
                       {hasTaxApplied ? `${estimationTaxLabel} (${vatPercent}%)` : 'No tax'}
                     </p>

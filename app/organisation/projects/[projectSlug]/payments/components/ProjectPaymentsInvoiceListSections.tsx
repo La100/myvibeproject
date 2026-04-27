@@ -108,10 +108,10 @@ function InvoiceListItem({
   const canVoid = installment.status !== "paid" && installment.status !== "void";
 
   return (
-    <div className="vibe-row rounded-[1.75rem] p-5 transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-border hover:shadow-[0_14px_34px_-24px_rgba(70,52,37,0.35)]">
+    <div className="vibe-row rounded-3xl p-5 transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-border hover:shadow-sm">
       <div className="flex flex-col gap-5">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-          <div className="min-w-0 flex-1 space-y-4">
+          <div className="min-w-0 flex-1 flex flex-col gap-4">
             <div className="flex flex-wrap items-start gap-3">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
@@ -332,7 +332,7 @@ function InvoiceListItem({
                   type="button"
                   size="sm"
                   variant="outline"
-                  className={cn(actionButtonClassName, "border-emerald-500/35 bg-emerald-500/10 text-emerald-700 hover:border-emerald-500/45 hover:bg-emerald-500/15 hover:text-emerald-800")}
+                  className={cn(actionButtonClassName, "border-primary/35 bg-primary/10 text-primary hover:border-primary/45 hover:bg-primary/15 hover:text-primary")}
                   onClick={() => onRunAction(installment._id, "paid")}
                   disabled={busy}
                 >
@@ -399,7 +399,7 @@ function InvoiceListSection({
   onCopyReference: (value?: string) => void;
 }) {
   return (
-    <Card className="overflow-hidden rounded-[1.75rem] border-border/70 bg-card shadow-sm">
+    <Card className="overflow-hidden rounded-3xl border-border/70 bg-card shadow-sm">
       <CardHeader className="flex flex-col gap-4 border-b border-border/60 bg-card pb-5 sm:flex-row sm:items-center sm:justify-between">
         <CardTitle className="flex items-center gap-2 text-lg font-semibold tracking-tight">
           {icon}
@@ -409,7 +409,7 @@ function InvoiceListSection({
       </CardHeader>
       <CardContent className="flex flex-col gap-4 pt-6">
         {items.length === 0 ? (
-          <div className="rounded-[1.5rem] border border-dashed border-border/70 bg-secondary/70 px-5 py-10 text-center">
+          <div className="rounded-3xl border border-dashed border-border/70 bg-secondary/70 px-5 py-10 text-center">
             <p className="mx-auto max-w-xl text-sm leading-[1.6] text-muted-foreground">{emptyMessage}</p>
           </div>
         ) : (

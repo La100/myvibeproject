@@ -157,52 +157,52 @@ const FILTERS: Array<{
   label: string;
   dotClassName: string;
 }> = [
-  { key: "task", label: "Tasks", dotClassName: "bg-stone-700" },
-  { key: "shopping", label: "Shopping", dotClassName: "bg-amber-500" },
-  { key: "labor", label: "Labor", dotClassName: "bg-sky-600" },
-  { key: "invoice", label: "Invoices", dotClassName: "bg-emerald-600" },
+  { key: "task", label: "Tasks", dotClassName: "bg-foreground" },
+  { key: "shopping", label: "Shopping", dotClassName: "bg-accent" },
+  { key: "labor", label: "Labor", dotClassName: "bg-primary" },
+  { key: "invoice", label: "Invoices", dotClassName: "bg-primary" },
 ];
 
 const taskStatusClassNames: Record<CalendarTask["status"], string> = {
-  todo: "border-stone-200 bg-stone-50 text-stone-700",
-  in_progress: "border-sky-200 bg-sky-50 text-sky-700",
-  review: "border-amber-200 bg-amber-50 text-amber-700",
-  done: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  todo: "border-border bg-muted text-foreground",
+  in_progress: "border-primary bg-primary text-primary",
+  review: "border-accent bg-accent text-accent-foreground",
+  done: "border-primary bg-primary text-primary",
 };
 
 const shoppingStatusClassNames: Record<CalendarShoppingItem["realizationStatus"], string> = {
-  PLANNED: "border-stone-200 bg-stone-50 text-stone-700",
-  ORDERED: "border-sky-200 bg-sky-50 text-sky-700",
-  IN_TRANSIT: "border-indigo-200 bg-indigo-50 text-indigo-700",
-  DELIVERED: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  COMPLETED: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  CANCELLED: "border-rose-200 bg-rose-50 text-rose-700",
+  PLANNED: "border-border bg-muted text-foreground",
+  ORDERED: "border-primary bg-primary text-primary",
+  IN_TRANSIT: "border-primary bg-primary text-primary",
+  DELIVERED: "border-primary bg-primary text-primary",
+  COMPLETED: "border-primary bg-primary text-primary",
+  CANCELLED: "border-primary bg-primary text-primary",
 };
 
 const invoiceStatusClassNames: Record<CalendarProjectPayment["status"], string> = {
-  draft: "border-stone-200 bg-stone-50 text-stone-700",
-  open: "border-amber-200 bg-amber-50 text-amber-700",
-  paid: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  void: "border-stone-300 bg-stone-100 text-stone-700",
-  uncollectible: "border-rose-200 bg-rose-50 text-rose-700",
+  draft: "border-border bg-muted text-foreground",
+  open: "border-accent bg-accent text-accent-foreground",
+  paid: "border-primary bg-primary text-primary",
+  void: "border-border bg-muted text-foreground",
+  uncollectible: "border-primary bg-primary text-primary",
 };
 
 const taskCalendarBarClassNames: Record<CalendarTask["status"], string> = {
-  todo: "border-stone-300/90 bg-stone-200/98 text-stone-700",
-  in_progress: "border-sky-300/90 bg-sky-200/98 text-sky-800",
-  review: "border-amber-300/90 bg-amber-200/98 text-amber-800",
-  done: "border-emerald-300/90 bg-emerald-200/98 text-emerald-800",
+  todo: "border-border/90 bg-muted/98 text-foreground",
+  in_progress: "border-primary/90 bg-primary/98 text-primary",
+  review: "border-accent/90 bg-accent/98 text-accent-foreground",
+  done: "border-primary/90 bg-primary/98 text-primary",
 };
 
 const taskCalendarDotClassNames: Record<CalendarTask["status"], string> = {
-  todo: "bg-stone-500",
-  in_progress: "bg-sky-500",
-  review: "bg-amber-500",
-  done: "bg-emerald-500",
+  todo: "bg-foreground",
+  in_progress: "bg-primary",
+  review: "bg-accent",
+  done: "bg-primary",
 };
 
 const detailLinkClassName =
-  "inline-flex items-center rounded-full border border-border/70 bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-foreground transition-[background-color,border-color,color] hover:border-border hover:bg-stone-100";
+  "inline-flex items-center rounded-full border border-border/70 bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-foreground transition-[background-color,border-color,color] hover:border-border hover:bg-muted";
 
 function dateToKey(date: Date) {
   return format(date, "yyyy-MM-dd");
@@ -273,7 +273,7 @@ function ProjectBadge({ projectName }: { projectName?: string }) {
 }
 
 export function OperationsCalendarSkeleton() {
-  return <Spinner className="h-full rounded-[1.75rem] border bg-card" />;
+  return <Spinner className="h-full rounded-3xl border bg-card" />;
 }
 
 export function OperationsCalendar({
@@ -565,7 +565,7 @@ export function OperationsCalendar({
       <div className="flex flex-col gap-8">
         <ProjectPageHeader title={title} icon={<CalendarDays />} subtitle={subtitle} />
 
-        <Card className="overflow-hidden rounded-[1.75rem] border-border/70 bg-white shadow-none">
+        <Card className="overflow-hidden rounded-3xl border-border/70 bg-white shadow-none">
           <CardHeader className="gap-5 border-b border-border/60 bg-muted/15">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex items-center gap-2">
@@ -648,8 +648,8 @@ export function OperationsCalendar({
             </div>
           </CardHeader>
 
-          <CardContent className="space-y-6 p-6">
-            <div className="overflow-hidden rounded-[1.5rem] border border-border/70">
+          <CardContent className="flex flex-col gap-6 p-6">
+            <div className="overflow-hidden rounded-3xl border border-border/70">
               <div className="grid grid-cols-7 border-b border-border/60 bg-muted/20">
                 {WEEKDAY_HEADERS.map((day) => (
                   <div
@@ -689,9 +689,9 @@ export function OperationsCalendar({
                             onClick={() => setSelectedDate(isSelected ? null : key)}
                             className={cn(
                               "flex flex-col border-b border-r border-border/60 bg-white p-3 text-left transition-[background-color,border-color,box-shadow]",
-                              !isSameMonth(day, monthDate) && "bg-stone-50/80 text-muted-foreground",
-                              isSelected && "bg-stone-50 shadow-[inset_0_0_0_1px_rgba(70,52,37,0.14)]",
-                              !isSelected && "hover:bg-stone-50/60",
+                              !isSameMonth(day, monthDate) && "bg-muted/80 text-muted-foreground",
+                              isSelected && "bg-muted shadow-sm",
+                              !isSelected && "hover:bg-muted/60",
                             )}
                             style={{ minHeight: `${rowMinHeight}px` }}
                             >
@@ -700,7 +700,7 @@ export function OperationsCalendar({
                                   className={cn(
                                     "inline-flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-sm font-semibold",
                                   isToday(day)
-                                    ? "bg-stone-900 text-white"
+                                    ? "bg-foreground text-white"
                                     : "bg-transparent text-foreground",
                                 )}
                                 >
@@ -711,8 +711,8 @@ export function OperationsCalendar({
                                     className={cn(
                                       "inline-flex h-7 min-w-7 items-center justify-center rounded-full px-2 text-[11px] font-semibold shadow-sm",
                                       isSelected
-                                        ? "bg-stone-900 text-white"
-                                        : "bg-stone-100 text-stone-700",
+                                        ? "bg-foreground text-white"
+                                        : "bg-muted text-foreground",
                                     )}
                                   >
                                     {visibleCount}
@@ -732,18 +732,18 @@ export function OperationsCalendar({
                                               isSingleDayRange(task.startDate, task.endDate),
                                             )!.status
                                           ]
-                                        : "bg-stone-500",
+                                        : "bg-foreground",
                                     )}
                                   />
                                 ) : null}
                                 {visibleTypes.has("shopping") && (singleEventDots?.shopping ?? 0) > 0 ? (
-                                  <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
+                                  <span className="h-2.5 w-2.5 rounded-full bg-accent" />
                                 ) : null}
                                 {visibleTypes.has("labor") && (singleEventDots?.labor ?? 0) > 0 ? (
-                                  <span className="h-2.5 w-2.5 rounded-full bg-sky-600" />
+                                  <span className="h-2.5 w-2.5 rounded-full bg-primary" />
                                 ) : null}
                                 {visibleTypes.has("invoice") && (singleEventDots?.invoice ?? 0) > 0 ? (
-                                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" />
+                                  <span className="h-2.5 w-2.5 rounded-full bg-primary" />
                                 ) : null}
                               </div>
 
@@ -752,7 +752,7 @@ export function OperationsCalendar({
                                   {data?.invoices.slice(0, 1).map((invoice) => (
                                     <div
                                       key={invoice._id}
-                                      className="truncate rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700"
+                                      className="truncate rounded-full bg-primary px-2.5 py-1 text-[11px] font-medium text-primary"
                                     >
                                       {getInvoiceDateLabel(invoice.dateType)}: {invoice.title}
                                     </div>
@@ -777,7 +777,7 @@ export function OperationsCalendar({
                               <div
                                 key={`${bar.task._id}-${weekIndex}`}
                                 className={cn(
-                                  "absolute flex h-5 items-center overflow-hidden px-3 text-[11px] font-medium shadow-[0_1px_3px_rgba(0,0,0,0.05)]",
+                                  "absolute flex h-5 items-center overflow-hidden px-3 text-[11px] font-medium shadow-sm",
                                   taskCalendarBarClassNames[bar.task.status],
                                   bar.startsWithinWeek ? "rounded-l-full" : "rounded-l-sm border-l-0",
                                   bar.endsWithinWeek ? "rounded-r-full" : "rounded-r-sm border-r-0",
@@ -802,13 +802,13 @@ export function OperationsCalendar({
               </div>
             </div>
 
-            <Card className="rounded-[1.5rem] border-border/70 bg-muted/10 shadow-none">
+            <Card className="rounded-3xl border-border/70 bg-muted/10 shadow-none">
               <CardHeader className="border-b border-border/60">
                 <CardTitle className="text-lg font-semibold tracking-tight">
                   {selectedDateLabel ?? "Select a day"}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-5 pt-6">
+              <CardContent className="flex flex-col gap-5 pt-6">
                 {!selectedDayData ? (
                   <p className="text-sm leading-6 text-muted-foreground">
                     Click any day to inspect planned work, purchases, labor windows and invoice deadlines.
@@ -816,14 +816,14 @@ export function OperationsCalendar({
                 ) : (
                   <>
                     {visibleTypes.has("task") && selectedDayData.tasks.length > 0 ? (
-                      <section className="space-y-3">
+                      <section className="flex flex-col gap-3">
                         <div className="flex items-center gap-2">
-                          <CheckSquare className="h-4 w-4 text-stone-700" />
+                          <CheckSquare className="h-4 w-4 text-foreground" />
                           <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                             Tasks
                           </h3>
                         </div>
-                        <div className="space-y-3">
+                        <div className="flex flex-col gap-3">
                           {selectedDayData.tasks.map((task) => {
                             const projectBasePath = buildProjectBasePath(task.projectSlug);
                             return (
@@ -874,14 +874,14 @@ export function OperationsCalendar({
                     ) : null}
 
                     {visibleTypes.has("shopping") && selectedDayData.shopping.length > 0 ? (
-                      <section className="space-y-3">
+                      <section className="flex flex-col gap-3">
                         <div className="flex items-center gap-2">
-                          <ShoppingBag className="h-4 w-4 text-amber-600" />
+                          <ShoppingBag className="h-4 w-4 text-accent-foreground" />
                           <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                             Shopping
                           </h3>
                         </div>
-                        <div className="space-y-3">
+                        <div className="flex flex-col gap-3">
                           {selectedDayData.shopping.map((item) => {
                             const projectBasePath = buildProjectBasePath(item.projectSlug);
                             return (
@@ -926,14 +926,14 @@ export function OperationsCalendar({
                     ) : null}
 
                     {visibleTypes.has("labor") && selectedDayData.labor.length > 0 ? (
-                      <section className="space-y-3">
+                      <section className="flex flex-col gap-3">
                         <div className="flex items-center gap-2">
-                          <Hammer className="h-4 w-4 text-sky-700" />
+                          <Hammer className="h-4 w-4 text-primary" />
                           <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                             Labor
                           </h3>
                         </div>
-                        <div className="space-y-3">
+                        <div className="flex flex-col gap-3">
                           {selectedDayData.labor.map((item) => {
                             const projectBasePath = buildProjectBasePath(item.projectSlug);
                             return (
@@ -965,14 +965,14 @@ export function OperationsCalendar({
                     ) : null}
 
                     {visibleTypes.has("invoice") && selectedDayData.invoices.length > 0 ? (
-                      <section className="space-y-3">
+                      <section className="flex flex-col gap-3">
                         <div className="flex items-center gap-2">
-                          <Receipt className="h-4 w-4 text-emerald-700" />
+                          <Receipt className="h-4 w-4 text-primary" />
                           <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                             Invoices
                           </h3>
                         </div>
-                        <div className="space-y-3">
+                        <div className="flex flex-col gap-3">
                           {selectedDayData.invoices.map((invoice) => {
                             const projectBasePath = buildProjectBasePath(invoice.projectSlug);
                             return (

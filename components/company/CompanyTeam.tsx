@@ -173,7 +173,7 @@ export default function CompanyTeam() {
 
                   <div className="mt-4">
                     {visiblePendingInvitations.length > 0 ? (
-                      <div className="space-y-2">
+                      <div className="flex flex-col gap-2">
                         {visiblePendingInvitations.slice(0, 4).map((inv) => (
                           <div key={inv._id} className="flex items-center justify-between rounded-xl border bg-secondary/70 px-3 py-3">
                             <div className="min-w-0">

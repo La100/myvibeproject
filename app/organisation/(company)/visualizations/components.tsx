@@ -44,7 +44,7 @@ export const VisualizationComposer = memo(function VisualizationComposer({
     <div data-visualization-composer>
       <Composer
         className={[
-          "max-w-[58rem] [&_[data-slot=input-group]]:border-slate-200 [&_[data-slot=input-group]]:bg-white [&_[data-slot=input-group]]:shadow-[0_10px_30px_rgba(15,23,42,0.08)] [&_textarea]:bg-transparent [&_textarea]:text-slate-900 [&_textarea]:placeholder:text-slate-500",
+          "max-w-[58rem] [&_[data-slot=input-group]]:border-border [&_[data-slot=input-group]]:bg-white [&_[data-slot=input-group]]:shadow-sm [&_textarea]:bg-transparent [&_textarea]:text-foreground [&_textarea]:placeholder:text-muted-foreground",
           className,
         ]
           .filter(Boolean)
@@ -149,7 +149,7 @@ export const VisualizationSuggestions = memo(function VisualizationSuggestions({
               key={suggestion.title}
               onClick={() => handleSuggestionClick(suggestion.text)}
               className={cn(
-                "group relative w-full overflow-hidden rounded-[28px] border border-border/70 bg-card text-left shadow-lg transition-all duration-300 hover:-translate-y-1 hover:border-border hover:shadow-xl",
+                "group relative w-full overflow-hidden rounded-3xl border border-border/70 bg-card text-left shadow-lg transition-all duration-300 hover:-translate-y-1 hover:border-border hover:shadow-xl",
                 isFeatured
                   ? "min-h-[260px] sm:col-span-2 sm:row-span-2 sm:min-h-0 xl:col-span-1"
                   : "min-h-[220px] sm:min-h-0"

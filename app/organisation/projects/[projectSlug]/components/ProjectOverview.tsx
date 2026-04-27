@@ -791,15 +791,15 @@ function ProjectOverviewContent() {
   const projectStatusBadgeClass = cn(
     "border-border/80 bg-card text-foreground shadow-none backdrop-blur-md",
     project.status === "cancelled" &&
-      "border-red-200/80 bg-red-50/90 text-red-900",
+      "border-destructive/80 bg-destructive/90 text-destructive",
     project.status === "completed" &&
-      "border-emerald-200/80 bg-emerald-50/90 text-emerald-900",
+      "border-primary/80 bg-primary/90 text-primary",
   );
 
   return (
     <ProjectPageLayout>
       <section className="w-full">
-        <div className="vibe-panel overflow-hidden rounded-[34px]">
+        <div className="vibe-panel overflow-hidden rounded-3xl">
           <div className="border-b border-border/70 bg-card px-5 py-5 sm:px-7 sm:py-7 lg:px-9">
             <div className="flex items-start justify-between gap-3">
               <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-secondary/70 px-3 py-1.5 text-[11px] font-medium tracking-[0.08em] text-muted-foreground backdrop-blur-md">
@@ -913,7 +913,7 @@ function ProjectOverviewContent() {
 
               {hasProjectCover ? (
                 <div className="relative lg:mr-4 lg:justify-self-end lg:w-full lg:max-w-[480px] lg:pb-3 xl:mr-6 xl:max-w-[560px] xl:pb-4 2xl:mr-8 2xl:max-w-[610px] 2xl:pb-5">
-                  <div className="group relative min-h-[240px] overflow-hidden rounded-[30px] border border-border/60 bg-secondary/70 shadow-md sm:min-h-[290px] lg:min-h-[320px] xl:min-h-[345px]">
+                  <div className="group relative min-h-[240px] overflow-hidden rounded-3xl border border-border/60 bg-secondary/70 shadow-md sm:min-h-[290px] lg:min-h-[320px] xl:min-h-[345px]">
                     <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-[10%] bg-[linear-gradient(90deg,rgba(255,255,255,0.22)_0%,rgba(255,255,255,0)_100%)]" />
                     <Image
                       src={projectCoverUrl}
@@ -933,11 +933,11 @@ function ProjectOverviewContent() {
               <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-3 text-[13px] text-muted-foreground sm:text-[15px]">
                   <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-                    <div className="flex -space-x-2.5">
+                    <div className="flex">
                       {visibleTeamMembers.map((member) => (
                         <Avatar
                           key={member._id}
-                          className="h-10 w-10 border-[3px] border-card shadow-sm"
+                          className="-ml-2.5 h-10 w-10 border-[3px] border-card shadow-sm first:ml-0"
                         >
                           <AvatarImage
                             src={member.imageUrl}
@@ -1008,7 +1008,7 @@ function ProjectOverviewContent() {
                   <div
                     key={metric.label}
                     className={cn(
-                      "rounded-[20px] border border-border/80 bg-secondary/70 px-5 py-5 shadow-sm",
+                      "rounded-2xl border border-border/80 bg-secondary/70 px-5 py-5 shadow-sm",
                       metric.spanClass,
                       index === overviewMetrics.length - 1 && "md:col-span-2",
                     )}
@@ -1105,7 +1105,7 @@ function ProjectOverviewContent() {
                         key={card.id}
                         href={card.href}
                         className={cn(
-                          "group overflow-hidden rounded-[18px] border border-border/80 bg-secondary/70 transition-[transform,background-color,border-color] duration-200 hover:-translate-y-0.5 hover:bg-secondary",
+                          "group overflow-hidden rounded-2xl border border-border/80 bg-secondary/70 transition-[transform,background-color,border-color] duration-200 hover:-translate-y-0.5 hover:bg-secondary",
                           !hasImage &&
                             "flex min-h-[180px] flex-col bg-[linear-gradient(180deg,rgba(247,247,244,0.88)_0%,rgba(255,255,255,0.98)_100%)]",
                         )}
@@ -1121,7 +1121,7 @@ function ProjectOverviewContent() {
                                 sizes="(max-width: 1280px) 50vw, 220px"
                               />
                             </div>
-                            <div className="space-y-1 px-3 py-2.5">
+                            <div className="flex flex-col gap-1 px-3 py-2.5">
                               <p className="truncate text-[11px] font-medium text-foreground">
                                 {card.title}
                               </p>
@@ -1139,7 +1139,7 @@ function ProjectOverviewContent() {
                         ) : (
                           <>
                             <div className="flex items-center justify-between border-b border-border/70 px-3.5 py-3.5">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-[12px] border border-border/70 bg-card text-foreground shadow-sm">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border/70 bg-card text-foreground shadow-sm">
                                 <Files className="h-3.5 w-3.5" />
                               </div>
                               <Badge
@@ -1150,7 +1150,7 @@ function ProjectOverviewContent() {
                               </Badge>
                             </div>
                             <div className="flex flex-1 flex-col justify-between px-3.5 py-3.5">
-                              <div className="space-y-2">
+                              <div className="flex flex-col gap-2">
                                 <p className="line-clamp-2 text-[15px] font-medium leading-[1.15] tracking-tight text-foreground">
                                   {card.title}
                                 </p>
@@ -1165,7 +1165,7 @@ function ProjectOverviewContent() {
                     );
                   })
                 ) : (
-                  <div className="col-span-full rounded-[12px] border border-dashed border-border/80 bg-secondary/70 px-4 py-6 text-[12px] text-muted-foreground">
+                  <div className="col-span-full rounded-xl border border-dashed border-border/80 bg-secondary/70 px-4 py-6 text-[12px] text-muted-foreground">
                     Add moodboard items, files, or notes to populate the recent
                     strip.
                   </div>

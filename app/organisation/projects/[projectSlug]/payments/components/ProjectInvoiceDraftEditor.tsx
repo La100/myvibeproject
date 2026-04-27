@@ -148,7 +148,7 @@ function SummaryField({
   className?: string;
 }) {
   return (
-    <div className={cn("space-y-1.5", className)}>
+    <div className={cn("flex flex-col gap-1.5", className)}>
       <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-muted-foreground">
         {label}
       </p>
@@ -188,10 +188,10 @@ export function ProjectInvoiceDraftEditor({
   onApplyProjectClientDetailsToEditor,
 }: ProjectInvoiceDraftEditorProps) {
   return (
-    <div className="rounded-[28px] border border-border/70 bg-card shadow-sm">
+    <div className="rounded-3xl border border-border/70 bg-card shadow-sm">
       <div className="flex flex-col gap-8 p-6 md:p-10">
         <div className="flex flex-col gap-6 border-b border-border/60 pb-8 md:flex-row md:items-start md:justify-between">
-          <div className="space-y-3">
+          <div className="flex flex-col gap-3">
             <p className="text-xs font-medium uppercase tracking-[0.28em] text-muted-foreground">
               {isCreateMode ? "Invoice draft" : "Invoice editor"}
             </p>
@@ -249,7 +249,7 @@ export function ProjectInvoiceDraftEditor({
         </div>
 
         <div className="grid gap-8 md:grid-cols-2">
-          <div className="space-y-4">
+          <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between gap-3">
               <p className="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground">
                 From
@@ -385,7 +385,7 @@ export function ProjectInvoiceDraftEditor({
             )}
           </div>
 
-          <div className="space-y-4">
+          <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between gap-3">
               <p className="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground">
                 Bill to
@@ -513,7 +513,7 @@ export function ProjectInvoiceDraftEditor({
                 Add item
               </Button>
             </div>
-            <div className="space-y-4 px-4 py-4">
+            <div className="flex flex-col gap-4 px-4 py-4">
               {editorLineItems.map((item, index) => {
                 const quantity = parseDecimalInput(item.quantity);
                 const unitPrice = parseDecimalInput(item.unitPrice);
@@ -602,7 +602,7 @@ export function ProjectInvoiceDraftEditor({
               })}
             </div>
             <div className="flex flex-col gap-4 border-t border-border/60 bg-secondary/70 px-4 py-4 lg:flex-row lg:items-start lg:justify-between">
-              <div className="space-y-3">
+              <div className="flex flex-col gap-3">
                 <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
                   Payment details
                 </p>
@@ -686,7 +686,7 @@ export function ProjectInvoiceDraftEditor({
                 <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
                   Summary
                 </p>
-                <div className="mt-4 space-y-3 text-sm">
+                <div className="mt-4 flex flex-col gap-3 text-sm">
                   <div className="flex items-center justify-between gap-4">
                     <span className="text-muted-foreground">Subtotal</span>
                     <span>{formatCurrency(editorTaxBreakdown.net, activeCurrency)}</span>
