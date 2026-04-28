@@ -167,6 +167,7 @@ export default function ShoppingListView() {
         item.catalogNumber,
         item.dimensions,
         item.productLink,
+        item.customerDecisionComment,
         sectionName,
         setTitle,
       ]

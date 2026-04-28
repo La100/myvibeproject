@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { type KeyboardEvent, type ReactNode, useMemo, useState } from "react";
 import { useMutation } from "convex/react";
 import { Doc, Id } from "@/convex/_generated/dataModel";
 import type { TeamMember } from "@/lib/teamMember";
@@ -54,6 +54,23 @@ type ShoppingSet = Doc<"shoppingSets"> & {
 };
 type Priority = ShoppingListItem["priority"];
 type PrioritySelectValue = NonNullable<Priority> | "none";
+type InlineEditField =
+  | "name"
+  | "supplier"
+  | "category"
+  | "catalogNumber"
+  | "dimensions"
+  | "quantity"
+  | "unitPrice"
+  | "priority"
+  | "buyBefore"
+  | "productLink";
+
+interface InlineEditState {
+  itemId: string;
+  field: InlineEditField;
+  value: string;
+}
 
 const SHOPPING_STATUS_OPTIONS: Array<{
   value: ShoppingListItem["realizationStatus"];
@@ -202,6 +219,8 @@ export function ShoppingListSection({
   const [isEditScraping, setIsEditScraping] = useState(false);
   const [savingToLibraryItemId, setSavingToLibraryItemId] = useState<string | null>(null);
   const [updatingStatusItemId, setUpdatingStatusItemId] = useState<string | null>(null);
+  const [inlineEdit, setInlineEdit] = useState<InlineEditState | null>(null);
+  const [savingInlineEditKey, setSavingInlineEditKey] = useState<string | null>(null);
   const activeTaxRates = taxRates.filter((entry) => !entry.isArchived);
   const createProductFromShoppingListItem = useMutation(
     apiAny.productLibrary.createProductFromShoppingListItem,
@@ -288,7 +307,17 @@ export function ShoppingListSection({
     return parsed.toString();
   };
 
+  const getProductLinkLabel = (value: string) => {
+    try {
+      const parsed = new URL(value);
+      return parsed.hostname.replace(/^www\./, "");
+    } catch {
+      return value;
+    }
+  };
+
   const handleStartEdit = (item: ShoppingListItem) => {
+    setInlineEdit(null);
     setEditingItemId(String(item._id));
     setEditFormData({
       name: item.name,
@@ -311,6 +340,141 @@ export function ShoppingListSection({
       assigneeId: item.assignedTo || "none",
       hasAlternatives: Boolean(item.setId),
     });
+  };
+
+  const getInlineEditKey = (itemId: string, field: InlineEditField) => `${itemId}:${field}`;
+
+  const getInlineFieldValue = (item: ShoppingListItem, field: InlineEditField) => {
+    switch (field) {
+      case "name":
+        return item.name;
+      case "supplier":
+        return item.supplier || "";
+      case "category":
+        return item.category || "";
+      case "catalogNumber":
+        return item.catalogNumber || "";
+      case "dimensions":
+        return item.dimensions || "";
+      case "quantity":
+        return String(item.quantity);
+      case "unitPrice":
+        return item.unitPrice !== undefined ? String(item.unitPrice) : "";
+      case "priority":
+        return item.priority || "none";
+      case "buyBefore":
+        return item.buyBefore ? format(new Date(item.buyBefore), "yyyy-MM-dd") : "";
+      case "productLink":
+        return item.productLink || "";
+    }
+  };
+
+  const startInlineEdit = (item: ShoppingListItem, field: InlineEditField) => {
+    if (isPending) return;
+    setEditingItemId(null);
+    setInlineEdit({
+      itemId: String(item._id),
+      field,
+      value: getInlineFieldValue(item, field),
+    });
+  };
+
+  const cancelInlineEdit = () => {
+    setInlineEdit(null);
+  };
+
+  const saveInlineEdit = async (
+    item: ShoppingListItem,
+    field: InlineEditField,
+    rawValue: string,
+  ) => {
+    const itemId = String(item._id);
+    const key = getInlineEditKey(itemId, field);
+    const trimmed = rawValue.trim();
+    let updates: Partial<ShoppingListItem> = {};
+
+    try {
+      switch (field) {
+        case "name":
+          if (!trimmed) {
+            toast.error("Product name is required");
+            return;
+          }
+          updates = { name: trimmed };
+          break;
+        case "supplier":
+          updates = { supplier: trimmed || undefined };
+          break;
+        case "category":
+          updates = { category: trimmed || undefined };
+          break;
+        case "catalogNumber":
+          updates = { catalogNumber: trimmed || undefined };
+          break;
+        case "dimensions":
+          updates = { dimensions: trimmed || undefined };
+          break;
+        case "quantity": {
+          const quantity = Number.parseInt(trimmed, 10);
+          if (!Number.isFinite(quantity) || quantity < 1) {
+            toast.error("Quantity must be at least 1");
+            return;
+          }
+          updates = { quantity };
+          break;
+        }
+        case "unitPrice": {
+          const unitPrice = trimmed === "" ? undefined : Number.parseFloat(trimmed);
+          if (unitPrice !== undefined && (!Number.isFinite(unitPrice) || unitPrice < 0)) {
+            toast.error("Unit price must be zero or higher");
+            return;
+          }
+          updates = { unitPrice };
+          break;
+        }
+        case "priority":
+          updates = {
+            priority: trimmed === "none" ? undefined : (trimmed as NonNullable<Priority>),
+          };
+          break;
+        case "buyBefore":
+          updates = { buyBefore: trimmed ? new Date(trimmed).getTime() : undefined };
+          break;
+        case "productLink":
+          updates = { productLink: trimmed ? normalizeProductUrl(trimmed) : undefined };
+          break;
+      }
+    } catch {
+      toast.error("Invalid product URL");
+      return;
+    }
+
+    if (rawValue === getInlineFieldValue(item, field)) {
+      setInlineEdit(null);
+      return;
+    }
+
+    setSavingInlineEditKey(key);
+    try {
+      await onUpdateItem(item._id, updates);
+      setInlineEdit(null);
+    } catch (error) {
+      toast.error("Could not update product", {
+        description: toUserFacingErrorMessage(error),
+      });
+    } finally {
+      setSavingInlineEditKey((current) => (current === key ? null : current));
+    }
+  };
+
+  const handleInlineInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter") {
+      event.currentTarget.blur();
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      cancelInlineEdit();
+    }
   };
 
   const handleSaveEdit = async (itemId: Id<"shoppingListItems">) => {
@@ -491,7 +655,7 @@ export function ShoppingListSection({
     decision: ShoppingListItem["customerDecision"] | undefined,
   ) => {
     if (decision === "accepted") {
-      return "border-primary/30 bg-primary/12 text-primary dark:text-primary";
+      return "border-emerald-500/35 bg-emerald-50 text-emerald-700 dark:border-emerald-400/35 dark:bg-emerald-950/35 dark:text-emerald-300";
     }
     if (decision === "rejected") {
       return "border-destructive/20 bg-destructive/10 text-destructive";
@@ -851,6 +1015,158 @@ export function ShoppingListSection({
     </div>
   );
 
+  const renderInlineEditInput = (
+    item: ShoppingListItem,
+    field: InlineEditField,
+    options: {
+      type?: "text" | "number";
+      className?: string;
+      placeholder?: string;
+    } = {},
+  ) => {
+    const itemId = String(item._id);
+    const isActive = inlineEdit?.itemId === itemId && inlineEdit.field === field;
+    if (!isActive) return null;
+
+    return (
+      <Input
+        autoFocus
+        type={options.type ?? "text"}
+        value={inlineEdit.value}
+        min={options.type === "number" ? "0" : undefined}
+        step={field === "unitPrice" ? "0.01" : undefined}
+        placeholder={options.placeholder}
+        disabled={savingInlineEditKey === getInlineEditKey(itemId, field)}
+        onChange={(event) =>
+          setInlineEdit((current) =>
+            current?.itemId === itemId && current.field === field
+              ? { ...current, value: event.target.value }
+              : current,
+          )
+        }
+        onBlur={(event) => void saveInlineEdit(item, field, event.target.value)}
+        onKeyDown={handleInlineInputKeyDown}
+        className={cn("h-8 rounded-lg px-2.5 text-sm", options.className)}
+      />
+    );
+  };
+
+  const renderEditableValue = (
+    item: ShoppingListItem,
+    field: InlineEditField,
+    children: ReactNode,
+    options: {
+      className?: string;
+      inputClassName?: string;
+      inputType?: "text" | "number";
+      placeholder?: string;
+    } = {},
+  ) => {
+    const itemId = String(item._id);
+    const isActive = inlineEdit?.itemId === itemId && inlineEdit.field === field;
+
+    if (isActive) {
+      return renderInlineEditInput(item, field, {
+        type: options.inputType,
+        className: options.inputClassName,
+        placeholder: options.placeholder,
+      });
+    }
+
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            className={cn(
+              "min-w-0 cursor-text text-left underline-offset-4 transition-colors hover:text-foreground hover:underline focus-visible:outline-none focus-visible:underline",
+              options.className,
+            )}
+            onClick={() => startInlineEdit(item, field)}
+          >
+            {children}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>Click to edit</TooltipContent>
+      </Tooltip>
+    );
+  };
+
+  const renderEditablePriority = (item: ShoppingListItem) => {
+    const itemId = String(item._id);
+    const isActive = inlineEdit?.itemId === itemId && inlineEdit.field === "priority";
+    const priority = item.priority;
+
+    if (isActive) {
+      return (
+        <Select
+          value={inlineEdit.value || "none"}
+          onValueChange={(value) => void saveInlineEdit(item, "priority", value)}
+          disabled={savingInlineEditKey === getInlineEditKey(itemId, "priority")}
+        >
+          <SelectTrigger size="sm" className="h-8 rounded-full px-2.5 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {SHOPPING_PRIORITY_OPTIONS.map((priority) => (
+              <SelectItem key={priority.value} value={priority.value}>
+                {priority.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      );
+    }
+
+    if (!priority) {
+      return null;
+    }
+
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25"
+            onClick={() => startInlineEdit(item, "priority")}
+          >
+            <Badge variant={getPriorityBadgeVariant(priority)}>
+              {SHOPPING_PRIORITY_LABELS[priority]}
+            </Badge>
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>Click to edit</TooltipContent>
+      </Tooltip>
+    );
+  };
+
+  const renderEditableBuyBefore = (item: ShoppingListItem) => {
+    const itemId = String(item._id);
+    const isActive = inlineEdit?.itemId === itemId && inlineEdit.field === "buyBefore";
+
+    if (isActive) {
+      return (
+        <DatePicker
+          date={parseDateInput(inlineEdit.value)}
+          onDateChange={(date) =>
+            void saveInlineEdit(item, "buyBefore", formatDateInput(date))
+          }
+          placeholder="Pick a date"
+          className="h-8 w-40 rounded-lg px-2.5 text-sm"
+        />
+      );
+    }
+
+    return renderEditableValue(
+      item,
+      "buyBefore",
+      <span className="text-muted-foreground">
+        {item.buyBefore ? format(new Date(item.buyBefore), "MMM dd, yyyy") : "Set date"}
+      </span>,
+      { className: "text-muted-foreground" },
+    );
+  };
+
   const renderItemRow = (item: ShoppingListItem, set?: ShoppingSet) => {
     const itemId = String(item._id);
     const isCounted = isItemCountedInShoppingTotal(item, setContext);
@@ -858,6 +1174,13 @@ export function ShoppingListSection({
     const isEditing = editingItemId === itemId;
     const customerDecisionTone = getCustomerDecisionTone(item.customerDecision);
     const customerDecisionLabel = getCustomerDecisionLabel(item.customerDecision);
+    const headerDetails = [
+      item.category ? { label: "Category", value: item.category } : null,
+      item.dimensions ? { label: "Dimensions", value: item.dimensions } : null,
+      item.catalogNumber ? { label: "Catalog #", value: item.catalogNumber } : null,
+    ].filter(Boolean) as Array<{ label: string; value: string }>;
+    const hasHeaderDetails = headerDetails.length > 0 || Boolean(item.productLink);
+    const hasExpandedDetails = Boolean(item.notes || item.customerDecisionComment);
 
     const handleInlineStatusChange = async (value: string) => {
       const nextStatus = value as ShoppingListItem["realizationStatus"];
@@ -885,7 +1208,7 @@ export function ShoppingListSection({
           "rounded-3xl border border-border/70 px-5 py-4",
           customerDecisionTone &&
             (item.customerDecision === "accepted"
-              ? "border-primary/25 bg-primary/6"
+              ? "border-emerald-500/25 bg-emerald-50/60 dark:border-emerald-400/25 dark:bg-emerald-950/20"
               : "border-destructive/20 bg-destructive/5"),
           !isCounted && "border-border/70 bg-secondary/55",
           !customerDecisionTone && "bg-secondary/70",
@@ -895,7 +1218,7 @@ export function ShoppingListSection({
           renderEditForm(item)
         ) : (
           <div>
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div className="flex min-w-0 flex-1 items-start gap-4">
                 {item.imageUrl ? (
                   <div className="h-20 w-20 overflow-hidden rounded-2xl border bg-secondary/55">
@@ -904,7 +1227,13 @@ export function ShoppingListSection({
                 ) : null}
                 <div className="min-w-0 flex-1">
                   <div className="mb-2 flex flex-wrap items-center gap-2">
-                    <h4 className="text-[15px] font-semibold text-foreground">{item.name}</h4>
+                    <h4 className="min-w-0 text-[15px] font-semibold text-foreground">
+                      {renderEditableValue(item, "name", item.name, {
+                        className: "max-w-full truncate font-semibold text-foreground",
+                        inputClassName: "w-64 max-w-full font-semibold",
+                        placeholder: "Product name",
+                      })}
+                    </h4>
                     {customerDecisionLabel ? (
                       <Badge variant="outline" className={cn("text-xs", customerDecisionTone)}>
                         {customerDecisionLabel}
@@ -922,27 +1251,71 @@ export function ShoppingListSection({
                     ) : null}
                   </div>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-                    <span className="font-medium text-foreground/75">Qty {item.quantity}</span>
-                    {renderPriceSpans(item.unitPrice, "unit", item)}
+                    <span className="inline-flex items-center gap-1 font-medium text-foreground/75">
+                      <span>Qty</span>
+                      {renderEditableValue(item, "quantity", item.quantity, {
+                        className: "font-medium text-foreground/75",
+                        inputClassName: "w-16",
+                        inputType: "number",
+                      })}
+                    </span>
+                    {item.unitPrice !== undefined ? (
+                      <span>
+                        Unit:{" "}
+                        {renderEditableValue(
+                          item,
+                          "unitPrice",
+                          `${item.unitPrice.toFixed(2)} ${currencySymbol}`,
+                          {
+                            inputClassName: "inline-flex w-28",
+                            inputType: "number",
+                            placeholder: "0.00",
+                          },
+                        )}
+                        {formatPriceTaxBreakdown(
+                          item.unitPrice,
+                          {
+                            priceTaxMode: item.priceTaxMode,
+                            taxRateId: item.taxRateId,
+                            taxRateSnapshot: item.taxRateSnapshot,
+                          },
+                          currencySymbol,
+                        ) ? (
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            ({formatPriceTaxBreakdown(
+                              item.unitPrice,
+                              {
+                                priceTaxMode: item.priceTaxMode,
+                                taxRateId: item.taxRateId,
+                                taxRateSnapshot: item.taxRateSnapshot,
+                              },
+                              currencySymbol,
+                            )})
+                          </span>
+                        ) : null}
+                      </span>
+                    ) : null}
                     {renderPriceSpans(item.totalPrice, "total", item)}
-                    {item.supplier ? <span>{item.supplier}</span> : null}
+                    {item.supplier ? (
+                      renderEditableValue(item, "supplier", item.supplier, {
+                        className: "max-w-40 truncate text-muted-foreground",
+                        inputClassName: "w-44",
+                        placeholder: "Supplier",
+                      })
+                    ) : null}
                   </div>
                   {item.priority || item.buyBefore ? (
                     <div className="mt-3 flex flex-wrap items-center gap-x-8 gap-y-2 text-sm text-foreground">
                       {item.priority ? (
                         <div className="flex items-center gap-2">
                           <span>Priority:</span>
-                          <Badge variant={getPriorityBadgeVariant(item.priority)}>
-                            {SHOPPING_PRIORITY_LABELS[item.priority]}
-                          </Badge>
+                          {renderEditablePriority(item)}
                         </div>
                       ) : null}
                       {item.buyBefore ? (
                         <div className="flex items-center gap-2">
                           <span>Buy Before:</span>
-                          <span className="text-muted-foreground">
-                            {format(new Date(item.buyBefore), "MMM dd, yyyy")}
-                          </span>
+                          {renderEditableBuyBefore(item)}
                         </div>
                       ) : null}
                     </div>
@@ -959,74 +1332,118 @@ export function ShoppingListSection({
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-1 lg:justify-end">
-                <Select
-                  value={item.realizationStatus}
-                  onValueChange={(value) => void handleInlineStatusChange(value)}
-                  disabled={isPending || updatingStatusItemId === itemId}
-                >
-                  <SelectTrigger
-                    size="sm"
-                    aria-label={`Change status for ${item.name}`}
-                    className={cn(
-                      "h-10 w-fit min-w-0 rounded-full px-3.5 pr-2.5 text-xs font-semibold tracking-[0.01em] shadow-none transition-colors",
-                      "focus-visible:border-ring/40 focus-visible:ring-ring/15 disabled:opacity-70",
-                      getInlineStatusClassName(item.realizationStatus),
-                    )}
+              <div className="flex shrink-0 flex-col gap-2 xl:max-w-[46rem] xl:items-end">
+                <div className="flex flex-wrap items-center gap-1 xl:justify-end">
+                  <Select
+                    value={item.realizationStatus}
+                    onValueChange={(value) => void handleInlineStatusChange(value)}
+                    disabled={isPending || updatingStatusItemId === itemId}
                   >
-                    <span>{getStatusLabel(item.realizationStatus)}</span>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SHOPPING_STATUS_OPTIONS.map((status) => (
-                      <SelectItem key={status.value} value={status.value}>
-                        {status.label}
-                      </SelectItem>
+                    <SelectTrigger
+                      size="sm"
+                      aria-label={`Change status for ${item.name}`}
+                      className={cn(
+                        "h-10 w-fit min-w-0 rounded-full px-3.5 pr-2.5 text-xs font-semibold tracking-[0.01em] shadow-none transition-colors",
+                        "focus-visible:border-ring/40 focus-visible:ring-ring/15 disabled:opacity-70",
+                        getInlineStatusClassName(item.realizationStatus),
+                      )}
+                    >
+                      <span>{getStatusLabel(item.realizationStatus)}</span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SHOPPING_STATUS_OPTIONS.map((status) => (
+                        <SelectItem key={status.value} value={status.value}>
+                          {status.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {item.productLink ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          className="rounded-full text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
+                          onClick={() => window.open(item.productLink, "_blank")}
+                        >
+                          <ExternalLinkIcon className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Open link</TooltipContent>
+                    </Tooltip>
+                  ) : null}
+                  {hasExpandedDetails ? (
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="rounded-full text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
+                      onClick={() => toggleDetails(itemId)}
+                    >
+                      {expandedDetails[itemId] ? <ChevronUpIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
+                    </Button>
+                  ) : null}
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="rounded-full text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
+                    onClick={() => handleStartEdit(item)}
+                  >
+                    <EditIcon className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => onDeleteItem(item._id)}
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                {hasHeaderDetails ? (
+                  <div className="grid w-full max-w-[34rem] grid-cols-1 gap-x-7 gap-y-1.5 text-sm text-muted-foreground sm:grid-cols-2 xl:min-w-[34rem]">
+                    {headerDetails.map((detail) => (
+                      <div key={detail.label} className="flex min-w-0 items-center gap-2 xl:justify-end">
+                        <span className="shrink-0 font-medium text-foreground">{detail.label}:</span>
+                        {renderEditableValue(
+                          item,
+                          detail.label === "Category"
+                            ? "category"
+                            : detail.label === "Dimensions"
+                              ? "dimensions"
+                              : "catalogNumber",
+                          <span className="block max-w-36 truncate">{detail.value}</span>,
+                          {
+                            className: "max-w-36 text-muted-foreground",
+                            inputClassName: "w-36",
+                          },
+                        )}
+                      </div>
                     ))}
-                  </SelectContent>
-                </Select>
-                {item.productLink ? (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        className="rounded-full text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
-                        onClick={() => window.open(item.productLink, "_blank")}
-                      >
-                        <ExternalLinkIcon className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Open link</TooltipContent>
-                  </Tooltip>
+                    {item.productLink ? (
+                      <div className="flex min-w-0 items-center gap-2 xl:justify-end">
+                        <span className="shrink-0 font-medium text-foreground">Link:</span>
+                        {renderEditableValue(
+                          item,
+                          "productLink",
+                          <span className="block max-w-36 truncate text-primary">
+                            {getProductLinkLabel(item.productLink)}
+                          </span>,
+                          {
+                            className: "max-w-36",
+                            inputClassName: "w-44",
+                            placeholder: "https://...",
+                          },
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
                 ) : null}
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="rounded-full text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
-                  onClick={() => toggleDetails(itemId)}
-                >
-                  {expandedDetails[itemId] ? <ChevronUpIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="rounded-full text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
-                  onClick={() => handleStartEdit(item)}
-                >
-                  <EditIcon className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                  onClick={() => onDeleteItem(item._id)}
-                >
-                  <TrashIcon className="h-4 w-4" />
-                </Button>
               </div>
             </div>
 
-            {expandedDetails[itemId] ? (
+            {expandedDetails[itemId] && hasExpandedDetails ? (
               <div className="mt-4 border-t pt-4">
                 <ShoppingListItemDetails item={item} teamMembers={teamMembers} />
               </div>

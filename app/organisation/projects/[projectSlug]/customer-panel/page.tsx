@@ -332,11 +332,21 @@ export default function CustomerPanelPage() {
                 variant="outline"
                 className={
                   hasPublishedPortal
-                    ? "rounded-full border-[color-mix(in_oklab,var(--chart-2)_28%,var(--background)_72%)] bg-[color-mix(in_oklab,var(--chart-2)_12%,var(--card)_88%)] px-3 py-1.5 text-[12px] font-semibold text-[var(--chart-2)]"
+                    ? "gap-2 rounded-full border-[#bbf7d0] bg-[#f0fdf4] px-3 py-1.5 text-[12px] font-semibold text-[#047857]"
                     : "rounded-full border-border/70 bg-card px-3 py-1.5 text-[12px] font-semibold text-muted-foreground"
                 }
               >
-                {hasPublishedPortal ? "Live" : "Draft"}
+                {hasPublishedPortal ? (
+                  <>
+                    <span className="relative flex size-2.5" aria-hidden="true">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#4ade80] opacity-75" />
+                      <span className="relative inline-flex size-2.5 rounded-full bg-[#22c55e]" />
+                    </span>
+                    Live
+                  </>
+                ) : (
+                  "Draft"
+                )}
               </Badge>
             </>
           }

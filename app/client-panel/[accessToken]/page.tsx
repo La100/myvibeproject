@@ -1481,10 +1481,16 @@ export default function PublicClientPanelPage() {
       item.customerDecision === "rejected";
     const decisionTone =
       item.customerDecision === "accepted"
-        ? "border-primary/30 bg-primary/12 text-primary dark:text-primary"
+        ? "border-emerald-500/35 bg-emerald-50 text-emerald-700 dark:border-emerald-400/35 dark:bg-emerald-950/35 dark:text-emerald-300"
         : item.customerDecision === "rejected"
           ? "border-destructive/20 bg-destructive/10 text-destructive"
           : "";
+    const feedbackTone =
+      item.customerDecision === "accepted"
+        ? "border-emerald-500/25 bg-emerald-50/60 dark:border-emerald-400/25 dark:bg-emerald-950/20"
+        : item.customerDecision === "rejected"
+          ? "border-destructive/20 bg-destructive/5"
+          : "border-border/70 bg-muted/20";
     const hasDraftComment =
       (shoppingItemComments[itemId] || "").trim().length > 0;
     const hasSavedComment = Boolean(item.customerDecisionComment);
@@ -1492,7 +1498,7 @@ export default function PublicClientPanelPage() {
       expandedShoppingItemComments[itemId] ?? hasDraftComment;
 
     return (
-      <div className="mt-4 rounded-2xl border border-border/70 bg-muted/20 px-4 py-4">
+      <div className={cn("mt-4 rounded-2xl border px-4 py-4", feedbackTone)}>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="text-xs">
@@ -1663,17 +1669,23 @@ export default function PublicClientPanelPage() {
       item.customerDecision === "rejected";
     const decisionTone =
       item.customerDecision === "accepted"
-        ? "border-primary/30 bg-primary/12 text-primary dark:text-primary"
+        ? "border-emerald-500/35 bg-emerald-50 text-emerald-700 dark:border-emerald-400/35 dark:bg-emerald-950/35 dark:text-emerald-300"
         : item.customerDecision === "rejected"
           ? "border-destructive/20 bg-destructive/10 text-destructive"
           : "";
+    const feedbackTone =
+      item.customerDecision === "accepted"
+        ? "border-emerald-500/25 bg-emerald-50/60 dark:border-emerald-400/25 dark:bg-emerald-950/20"
+        : item.customerDecision === "rejected"
+          ? "border-destructive/20 bg-destructive/5"
+          : "border-border/70 bg-muted/20";
     const hasDraftComment = (laborItemComments[itemId] || "").trim().length > 0;
     const hasSavedComment = Boolean(item.customerDecisionComment);
     const isCommentExpanded =
       expandedLaborItemComments[itemId] ?? hasDraftComment;
 
     return (
-      <div className="mt-4 rounded-2xl border border-border/70 bg-muted/20 px-4 py-4">
+      <div className={cn("mt-4 rounded-2xl border px-4 py-4", feedbackTone)}>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="text-xs">
