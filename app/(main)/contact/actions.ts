@@ -58,7 +58,7 @@ export async function submitContactForm(
     console.error("Contact form email skipped: Resend is not configured.");
     return {
       status: "error",
-      message: "Email is not configured yet. Please email contact@myvibeproject.com directly.",
+      message: "Message delivery is temporarily unavailable. Email us directly at contact@myvibeproject.com.",
     };
   }
 
@@ -90,7 +90,7 @@ export async function submitContactForm(
     );
     return {
       status: "error",
-      message: "We could not send the message. Please email contact@myvibeproject.com directly.",
+      message: "We could not send the message. Email us directly at contact@myvibeproject.com.",
     };
   }
 

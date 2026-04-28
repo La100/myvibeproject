@@ -1,11 +1,11 @@
 "use client";
 
 import { useActionState } from "react";
-import { Send } from "lucide-react";
+import { AlertCircle, CheckCircle2, Send } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Field,
-  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
@@ -20,11 +20,13 @@ const initialState: ContactFormState = {
 
 export function ContactForm() {
   const [state, formAction, isPending] = useActionState(submitContactForm, initialState);
+  const hasStatusMessage = Boolean(state.message);
+  const isSuccess = state.status === "success";
 
   return (
-    <form action={formAction} className="flex flex-col gap-6">
-      <FieldGroup>
-        <div className="grid gap-5 md:grid-cols-2">
+    <form action={formAction} className="flex flex-col gap-7">
+      <FieldGroup className="gap-5">
+        <div className="grid gap-4 md:grid-cols-2">
           <Field data-invalid={Boolean(state.fieldErrors?.name)}>
             <FieldLabel htmlFor="name">Name</FieldLabel>
             <Input
@@ -70,14 +72,11 @@ export function ContactForm() {
           <Textarea
             id="message"
             name="message"
-            className="min-h-40"
+            className="min-h-36 resize-none"
             aria-invalid={Boolean(state.fieldErrors?.message)}
             disabled={isPending}
             required
           />
-          <FieldDescription>
-            Share the account email, project context, or anything we need to route the request.
-          </FieldDescription>
           <FieldError>{state.fieldErrors?.message}</FieldError>
         </Field>
 
@@ -87,30 +86,19 @@ export function ContactForm() {
         </Field>
       </FieldGroup>
 
-      {state.message ? (
-        <p
-          className={
-            state.status === "success"
-              ? "text-sm font-medium text-foreground"
-              : "text-sm font-medium text-destructive"
-          }
-          role="status"
-        >
-          {state.message}
-        </p>
+      {hasStatusMessage ? (
+        <Alert variant={isSuccess ? "default" : "destructive"} className="rounded-xl">
+          {isSuccess ? <CheckCircle2 /> : <AlertCircle />}
+          <AlertTitle>{isSuccess ? "Message sent" : "Email unavailable"}</AlertTitle>
+          <AlertDescription>{state.message}</AlertDescription>
+        </Alert>
       ) : null}
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <Button type="submit" className="h-10 px-5" disabled={isPending}>
+      <div className="flex justify-end pt-1">
+        <Button type="submit" size="lg" className="w-full px-5 sm:w-auto" disabled={isPending}>
           <Send data-icon="inline-start" />
           {isPending ? "Sending" : "Send message"}
         </Button>
-        <a
-          href="mailto:contact@myvibeproject.com"
-          className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-        >
-          contact@myvibeproject.com
-        </a>
       </div>
     </form>
   );
