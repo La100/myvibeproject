@@ -2,10 +2,17 @@
 
 import { v } from "convex/values";
 import { action } from "../_generated/server";
-import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { GoogleGenAI } from "@google/genai";
 import { IMAGE_GENERATION_CONFIG } from "./imageGen/config";
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const internalAny = require("../_generated/api").internal as any;
+
+const LEGACY_GEMINI_IMAGE_MODEL_ID = "gemini-2.5-flash-image";
+const LEGACY_GEMINI_GENERATION_CONFIG = {
+  responseModalities: ["TEXT", "IMAGE"],
+};
 
 /**
  * Gemini Image Generation for Architectural Visualizations
@@ -62,7 +69,7 @@ export const generateVisualization = action({
     }
 
     try {
-      const aiAccess = await ctx.runQuery(internal.stripe.checkAIFeatureAccessByProject, {
+      const aiAccess = await ctx.runQuery(internalAny.stripe.checkAIFeatureAccessByProject, {
         projectId: args.projectId,
       });
 
@@ -146,9 +153,9 @@ export const generateVisualization = action({
 
       // Generate with full conversation context
       const response = await ai.models.generateContent({
-        model: IMAGE_GENERATION_CONFIG.MODEL_ID,
+        model: LEGACY_GEMINI_IMAGE_MODEL_ID,
         contents: contents,
-        config: IMAGE_GENERATION_CONFIG.GENERATION_CONFIG,
+        config: LEGACY_GEMINI_GENERATION_CONFIG,
       });
 
       const duration = Date.now() - startTime;
@@ -156,7 +163,7 @@ export const generateVisualization = action({
       // Log usage information
       const usageMetadata = response.usageMetadata;
       console.log("=== GEMINI IMAGE GENERATION (Chat Mode) ===");
-      console.log("Model:", IMAGE_GENERATION_CONFIG.MODEL_ID);
+      console.log("Model:", LEGACY_GEMINI_IMAGE_MODEL_ID);
       console.log("User prompt:", args.prompt);
       console.log("History length:", args.history?.length || 0, "messages");
       console.log("Reference images:", args.referenceImages?.length || 0);
@@ -243,7 +250,7 @@ export const saveGeneratedImage = action({
     try {
       // Get project and team info
       const project: { teamId: Id<"teams">; teamSlug: string; projectSlug: string } | null = 
-        await ctx.runQuery(internal.ai.imageGen.helpers.getProjectInfo, {
+        await ctx.runQuery(internalAny.ai.imageGen.helpers.getProjectInfo, {
           projectId: args.projectId,
         });
 
@@ -260,7 +267,7 @@ export const saveGeneratedImage = action({
       const fileKey: string = `${project.teamSlug}/${project.projectSlug}/ai-visualizations/${uuid}-${args.fileName}.${extension}`;
 
       // Get upload URL from R2
-      const uploadData: { url: string } = await ctx.runMutation(internal.ai.imageGen.helpers.generateR2UploadUrl, {
+      const uploadData: { url: string } = await ctx.runMutation(internalAny.ai.imageGen.helpers.generateR2UploadUrl, {
         key: fileKey,
       });
 
@@ -281,7 +288,7 @@ export const saveGeneratedImage = action({
       }
 
       // Save file record to database
-      const fileId: Id<"files"> = await ctx.runMutation(internal.ai.imageGen.helpers.createFileRecord, {
+      const fileId: Id<"files"> = await ctx.runMutation(internalAny.ai.imageGen.helpers.createFileRecord, {
         projectId: args.projectId,
         teamId: project.teamId,
         fileName: `${args.fileName}.${extension}`,
@@ -292,7 +299,7 @@ export const saveGeneratedImage = action({
       });
 
       // Get the file URL
-      const fileUrl: string | null = await ctx.runQuery(internal.ai.imageGen.helpers.getFileUrl, {
+      const fileUrl: string | null = await ctx.runQuery(internalAny.ai.imageGen.helpers.getFileUrl, {
         fileKey,
       });
 

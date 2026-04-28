@@ -6,6 +6,9 @@ export const GPT_OUTPUT_COST_PER_1M_USD = 15;
 export const GEMINI_FLASH_IMAGE_INPUT_COST_PER_1M_USD = 0.3;
 export const GEMINI_FLASH_IMAGE_OUTPUT_COST_PER_1M_USD = 30;
 export const DEFAULT_GEMINI_FLASH_IMAGE_OUTPUT_TOKENS = 1290;
+export const GPT_IMAGE_INPUT_COST_PER_1M_USD = 5;
+export const GPT_IMAGE_OUTPUT_COST_PER_1M_USD = 30;
+export const DEFAULT_GPT_IMAGE_OUTPUT_TOKENS = 6208;
 
 export function usdToCredits(usd: number): number {
   if (!Number.isFinite(usd) || usd <= 0) {
@@ -50,5 +53,19 @@ export function calculateGeminiFlashImageCostUsd(
   return (
     (normalizedInputTokens / 1_000_000) * GEMINI_FLASH_IMAGE_INPUT_COST_PER_1M_USD +
     (normalizedOutputTokens / 1_000_000) * GEMINI_FLASH_IMAGE_OUTPUT_COST_PER_1M_USD
+  );
+}
+
+export function calculateGptImageCostUsd(
+  inputTokens: number,
+  outputTokens: number
+): number {
+  const normalizedInputTokens = Math.max(0, inputTokens);
+  const normalizedOutputTokens =
+    outputTokens > 0 ? outputTokens : DEFAULT_GPT_IMAGE_OUTPUT_TOKENS;
+
+  return (
+    (normalizedInputTokens / 1_000_000) * GPT_IMAGE_INPUT_COST_PER_1M_USD +
+    (normalizedOutputTokens / 1_000_000) * GPT_IMAGE_OUTPUT_COST_PER_1M_USD
   );
 }

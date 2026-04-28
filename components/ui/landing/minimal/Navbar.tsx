@@ -11,6 +11,7 @@ const navLinks = [
   { label: "Product", href: "/#product" },
   { label: "Workflow", href: "/#workflow" },
   { label: "Resources", href: "/#resources" },
+  { label: "Contact", href: "/contact" },
 ];
 
 export function Navbar() {

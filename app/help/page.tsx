@@ -1,6 +1,9 @@
 "use client";
 
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function HelpPage() {
   return (
@@ -8,8 +11,16 @@ export default function HelpPage() {
       <Card className="mx-auto max-w-3xl">
         <CardHeader>
           <CardTitle className="text-3xl">Help</CardTitle>
-          <CardDescription>Coming soon.</CardDescription>
+          <CardDescription>Coming soon. For direct support, send us a message.</CardDescription>
         </CardHeader>
+        <CardContent>
+          <Button asChild>
+            <Link href="/contact">
+              Contact support
+              <ArrowRight data-icon="inline-end" />
+            </Link>
+          </Button>
+        </CardContent>
       </Card>
     </div>
   );

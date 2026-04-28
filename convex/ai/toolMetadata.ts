@@ -107,7 +107,7 @@ const assistantToolMetadata: Record<AssistantToolName, ToolMetadata> = {
   },
   search_items: {
     readOnly: true,
-    promptSummary: "Search existing tasks, notes, shopping, labor, surveys, contacts, moodboard content, or semantically search AI knowledge files.",
+    promptSummary: "Search existing tasks, notes, shopping, labor, surveys, contacts, team members, moodboard content, or semantically search AI knowledge files.",
     approvalMode: "read-only",
     shouldPersistPending: () => false,
   },

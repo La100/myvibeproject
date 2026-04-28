@@ -3,9 +3,9 @@
 import { v } from "convex/values";
 import { action } from "../../_generated/server";
 import type { Id } from "../../_generated/dataModel";
-import { GoogleGenAI } from "@google/genai";
+import OpenAI, { toFile } from "openai";
 import {
-  calculateGeminiFlashImageCostUsd,
+  calculateGptImageCostUsd,
   usdToCredits,
 } from "../billing";
 import { IMAGE_GENERATION_CONFIG } from "./config";
@@ -17,8 +17,8 @@ const apiAny = require("../../_generated/api").api as any;
 const internalAny = require("../../_generated/api").internal as any;
 
 /**
- * Gemini Image Generation for Architectural Visualizations
- * Uses Gemini image model with official SDK and chat history
+ * OpenAI image generation for architectural visualizations.
+ * Uses GPT Image with image edits when prior or reference images are present.
  */
 
 // History message type - includes image data for model responses
@@ -31,7 +31,7 @@ const historyMessageValidator = v.object({
 });
 
 /**
- * Generate architectural visualization using Gemini API with chat history
+ * Generate architectural visualization using GPT Image with chat history
  */
 // Reference image type
 const referenceImageValidator = v.object({
@@ -49,6 +49,30 @@ const DEFAULT_MOODBOARD_SECTION_KEY = "1";
 const DEFAULT_MOODBOARD_SECTION_LABEL = "CONCEPT";
 const DEFAULT_TEXT_ONLY_FAILURE =
   "No image was generated. The model may have returned only text.";
+
+const getOpenAIClient = () => {
+  const apiKey = process.env.OPENAI_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY is not configured. Please add it to your environment variables.");
+  }
+
+  return new OpenAI({ apiKey });
+};
+
+const fileExtensionForMimeType = (mimeType?: string) => {
+  const normalized = mimeType?.split(";")[0].trim().toLowerCase();
+  if (normalized === "image/jpeg") return "jpg";
+  if (normalized === "image/webp") return "webp";
+  return "png";
+};
+
+const toImageFile = async (
+  image: { data: string; mimeType: string },
+  name: string,
+) =>
+  toFile(Buffer.from(image.data, "base64"), name, {
+    type: image.mimeType,
+  });
 
 const normalizeMoodboardSection = (section?: string) => {
   const normalized = section?.trim();
@@ -118,11 +142,10 @@ export const generateVisualization = action({
     error?: string;
     generationId?: Id<"aiGeneratedImages">;
   }> => {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
+    if (!process.env.OPENAI_API_KEY?.trim()) {
       return {
         success: false,
-        error: "GEMINI_API_KEY is not configured. Please add it to your environment variables.",
+        error: "OPENAI_API_KEY is not configured. Please add it to your environment variables.",
       };
     }
 
@@ -155,13 +178,7 @@ export const generateVisualization = action({
     const startTime = Date.now();
     
     try {
-      const ai = new GoogleGenAI({ apiKey });
-
-      // Build contents array - single turn only
-      type Part = { text: string } | { inlineData: { mimeType: string; data: string } };
-      type ContentItem = { role: "user" | "model"; parts: Part[] };
-      
-      const contents: ContentItem[] = [];
+      const client = getOpenAIClient();
       
       // Helper to resolve image data (base64) from storage key if needed
       const fetchRemoteImage = async (
@@ -259,8 +276,8 @@ export const generateVisualization = action({
         return null;
       };
       
-      // Find the last generated image from history to use as context
-      let lastGeneratedImage: { base64: string; mimeType: string } | null = null;
+      // Find the last generated image from history to use as edit context.
+      let lastGeneratedImage: { data: string; mimeType: string } | null = null;
       let conversationContext = "";
       
       if (args.history && args.history.length > 0) {
@@ -280,10 +297,7 @@ export const generateVisualization = action({
                 mimeType: msg.imageMimeType,
               });
               if (resolvedImage) {
-                lastGeneratedImage = {
-                  base64: resolvedImage.data,
-                  mimeType: resolvedImage.mimeType,
-                };
+                lastGeneratedImage = resolvedImage;
               }
             }
           }
@@ -299,22 +313,18 @@ export const generateVisualization = action({
         : args.prompt;
       const enhancedPrompt = `${IMAGE_GENERATION_CONFIG.SYSTEM_PROMPT}\n\n${userPrompt}`;
       
-      const currentParts: Part[] = [{ text: enhancedPrompt }];
-      
-      // Add the last generated image first (for context/editing)
+      const editImages: Array<{ data: string; mimeType: string; name: string }> = [];
       if (lastGeneratedImage) {
-        currentParts.push({
-          inlineData: {
-            mimeType: lastGeneratedImage.mimeType,
-            data: lastGeneratedImage.base64,
-          },
+        editImages.push({
+          ...lastGeneratedImage,
+          name: `previous.${fileExtensionForMimeType(lastGeneratedImage.mimeType)}`,
         });
       }
       
       // Add user-provided reference images
       if (args.referenceImages && args.referenceImages.length > 0) {
         let resolvedReferenceImageCount = 0;
-        for (const img of args.referenceImages) {
+        for (const [index, img] of args.referenceImages.entries()) {
           const resolvedImage = await resolveImage({
             storageKey: img.storageKey,
             base64: img.base64,
@@ -323,11 +333,9 @@ export const generateVisualization = action({
           });
           if (resolvedImage) {
             resolvedReferenceImageCount += 1;
-            currentParts.push({
-              inlineData: {
-                mimeType: resolvedImage.mimeType,
-                data: resolvedImage.data,
-              },
+            editImages.push({
+              ...resolvedImage,
+              name: img.name || `reference-${index + 1}.${fileExtensionForMimeType(resolvedImage.mimeType)}`,
             });
           }
         }
@@ -339,43 +347,61 @@ export const generateVisualization = action({
           };
         }
       }
-      
-      contents.push({ role: "user", parts: currentParts });
-
-      // Generate with full conversation context
-      const response = await ai.models.generateContent({
+      const identity = await ctx.auth.getUserIdentity();
+      const imageRequestBase = {
         model: IMAGE_GENERATION_CONFIG.MODEL_ID,
-        contents: contents,
-        config: IMAGE_GENERATION_CONFIG.GENERATION_CONFIG,
-      });
+        prompt: enhancedPrompt,
+        n: 1,
+        size: IMAGE_GENERATION_CONFIG.SIZE,
+        quality: IMAGE_GENERATION_CONFIG.QUALITY,
+        output_format: IMAGE_GENERATION_CONFIG.OUTPUT_FORMAT,
+        user: identity?.subject,
+      };
+
+      const response =
+        editImages.length > 0
+          ? await client.images.edit({
+              ...imageRequestBase,
+              image: await Promise.all(
+                editImages.map((image) =>
+                  toImageFile(
+                    image,
+                    image.name.includes(".")
+                      ? image.name
+                      : `${image.name}.${fileExtensionForMimeType(image.mimeType)}`,
+                  ),
+                ),
+              ),
+            } as never)
+          : await client.images.generate(imageRequestBase as never);
 
       const duration = Date.now() - startTime;
 
       // Log usage information
-      const usageMetadata = response.usageMetadata;
-      aiDebugLog("=== GEMINI IMAGE GENERATION (Chat Mode) ===");
+      const usageMetadata = response.usage;
+      aiDebugLog("=== OPENAI IMAGE GENERATION (Chat Mode) ===");
       aiDebugLog("Model:", IMAGE_GENERATION_CONFIG.MODEL_ID);
       aiDebugLog("User prompt:", args.prompt);
       aiDebugLog("History length:", args.history?.length || 0, "messages");
       aiDebugLog("Reference images:", args.referenceImages?.length || 0);
       aiDebugLog("Duration:", duration, "ms");
-      aiDebugLog("Prompt tokens:", usageMetadata?.promptTokenCount || "N/A");
-      aiDebugLog("Response tokens:", usageMetadata?.candidatesTokenCount || "N/A");
-      aiDebugLog("Total tokens:", usageMetadata?.totalTokenCount || "N/A");
+      aiDebugLog("Input tokens:", usageMetadata?.input_tokens || "N/A");
+      aiDebugLog("Output tokens:", usageMetadata?.output_tokens || "N/A");
+      aiDebugLog("Total tokens:", usageMetadata?.total_tokens || "N/A");
       aiDebugLog("============================================");
 
-      if (!response.candidates || response.candidates.length === 0) {
+      if (!response.data || response.data.length === 0) {
         return {
           success: false,
-          error: "No response generated from Gemini API",
+          error: "No response generated from OpenAI Images API",
         };
       }
 
-      const inputTokens = usageMetadata?.promptTokenCount || 0;
-      const outputTokens = usageMetadata?.candidatesTokenCount || 0;
+      const inputTokens = usageMetadata?.input_tokens || 0;
+      const outputTokens = usageMetadata?.output_tokens || 0;
       const totalTokens =
-        usageMetadata?.totalTokenCount ?? (inputTokens + outputTokens);
-      const estimatedCostUsd = calculateGeminiFlashImageCostUsd(
+        usageMetadata?.total_tokens ?? (inputTokens + outputTokens);
+      const estimatedCostUsd = calculateGptImageCostUsd(
         inputTokens,
         outputTokens
       );
@@ -399,22 +425,9 @@ export const generateVisualization = action({
         console.error("Failed to resolve visualization storage context:", error);
       }
 
-      // Extract image and text from response
-      let imageBase64: string | undefined;
-      let mimeType: string | undefined;
-      let textResponse: string | undefined;
-
-      for (const part of response.candidates[0].content?.parts || []) {
-        if (part.inlineData) {
-          imageBase64 = part.inlineData.data;
-          mimeType = part.inlineData.mimeType;
-        }
-        if (part.text) {
-          textResponse = part.text;
-        }
-      }
-
-      const cleanedTextResponse = textResponse?.trim();
+      const imageBase64 = response.data[0]?.b64_json;
+      const mimeType = IMAGE_GENERATION_CONFIG.OUTPUT_MIME_TYPE;
+      const cleanedTextResponse = undefined;
 
       if (!imageBase64) {
         if (args.sessionId && cleanedTextResponse) {
@@ -439,7 +452,6 @@ export const generateVisualization = action({
         };
       }
 
-      const identity = await ctx.auth.getUserIdentity();
       const userClerkId = identity?.subject || "anonymous";
 
       try {
@@ -532,8 +544,8 @@ export const generateVisualization = action({
             mimeType: mimeType || "image/png",
             sizeBytes: binaryData.length,
             durationMs: duration,
-            promptTokens: usageMetadata?.promptTokenCount,
-            responseTokens: usageMetadata?.candidatesTokenCount,
+            promptTokens: inputTokens,
+            responseTokens: outputTokens,
             totalTokens,
             billableTokens,
             estimatedCostCents,
@@ -590,7 +602,7 @@ export const generateVisualization = action({
         generationId,
       };
     } catch (error) {
-      console.error("Error calling Gemini API:", error);
+      console.error("Error calling OpenAI Images API:", error);
       
       // Log failed generation
       try {

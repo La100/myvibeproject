@@ -57,6 +57,9 @@ type PublicApi = {
   projects: {
     updateProject: unknown;
   };
+  teams: {
+    getTeamMembers: unknown;
+  };
   files: {
     deleteFile: unknown;
   };
@@ -352,7 +355,7 @@ export const deleteItemSchema = z.object({
 
 // Generic search schema
 export const searchItemsSchema = z.object({
-  type: z.enum(["task", "note", "payment", "shopping", "labor", "survey", "contact", "moodboard"]).describe("Type of items to search"),
+  type: z.enum(["task", "note", "payment", "shopping", "labor", "survey", "contact", "team_members", "moodboard"]).describe("Type of items to search"),
   query: z.string().optional().describe("Search query"),
   filters: z
     .record(z.union([z.string(), z.number(), z.boolean()]))
@@ -514,6 +517,7 @@ const webSearchSchema = z.object({
 // Types for tool options
 interface StreamingToolOptions {
   projectId?: string;
+  teamId?: string;
   teamSlug?: string;
   userClerkId?: string;
   runAction?: RunActionFn;
@@ -1859,7 +1863,7 @@ function hasFallbackUpdateFields(
 
 type PrepareToolOptions = Pick<
   StreamingToolOptions,
-  "projectId" | "runQuery" | "loadSnapshot" | "runAction" | "userClerkId" | "teamSlug"
+  "projectId" | "teamId" | "runQuery" | "loadSnapshot" | "runAction" | "userClerkId" | "teamSlug"
 >;
 
 export async function prepareCreatePayload(
@@ -2203,7 +2207,7 @@ export function createStreamingTools(options?: StreamingToolOptions) {
     }, options),
 
     search_items: createAssistantTool({
-      description: "Search for and list items in the project (tasks, notes, invoices/payments, shopping items, labor items, surveys, contacts, or moodboard sections/images). Use this tool when the user asks to see, list, show, or find existing items. Use type-specific filters for advanced queries. This is a READ-ONLY operation - it does not create or modify anything.",
+      description: "Search for and list items in the project (tasks, notes, invoices/payments, shopping items, labor items, surveys, contacts, team members, or moodboard sections/images). Use this tool when the user asks to see, list, show, or find existing items. Use type-specific filters for advanced queries. This is a READ-ONLY operation - it does not create or modify anything.",
       inputSchema: searchItemsSchema,
       inputExamples: [
         { type: "task", query: "bathroom", limit: 5 },
@@ -2213,7 +2217,9 @@ export function createStreamingTools(options?: StreamingToolOptions) {
         const toolOptions = options;
         const needsProjectContext = args.type !== "contact";
         const canRunSearch =
-          args.type === "moodboard" || args.type === "payment"
+          args.type === "moodboard" ||
+          args.type === "payment" ||
+          args.type === "team_members"
             ? !!toolOptions?.runQuery
             : !!toolOptions?.runAction;
 
@@ -2279,6 +2285,82 @@ export function createStreamingTools(options?: StreamingToolOptions) {
                     limit: args.limit,
                     ...filters,
                   });
+                })()
+            : args.type === "team_members"
+              ? await (async () => {
+                  if (!toolOptions?.runQuery) {
+                    return {
+                      error:
+                        "Team member search not available - missing query runtime",
+                    };
+                  }
+
+                  const publicApi = getPublicApi();
+                  let teamId = toolOptions.teamId;
+                  if (!teamId && toolOptions.loadSnapshot) {
+                    const snapshot = await toolOptions.loadSnapshot();
+                    teamId = snapshot.project?.teamId;
+                  }
+                  if (!teamId) {
+                    return {
+                      error:
+                        "Team member search not available - project has no team",
+                    };
+                  }
+
+                  const members = await toolOptions.runQuery(
+                    publicApi.teams.getTeamMembers,
+                    { teamId },
+                  );
+                  const query = (args.query ?? "").trim().toLowerCase();
+                  const filtered = Array.isArray(members)
+                    ? members
+                        .map((member) => {
+                          const record = member as Record<string, unknown>;
+                          return {
+                            clerkUserId:
+                              typeof record.clerkUserId === "string"
+                                ? record.clerkUserId
+                                : undefined,
+                            name:
+                              typeof record.name === "string"
+                                ? record.name
+                                : undefined,
+                            email:
+                              typeof record.email === "string"
+                                ? record.email
+                                : undefined,
+                            role:
+                              typeof record.role === "string"
+                                ? record.role
+                                : undefined,
+                            isActive:
+                              typeof record.isActive === "boolean"
+                                ? record.isActive
+                                : undefined,
+                          };
+                        })
+                        .filter((member) => {
+                          if (!query) return true;
+                          return [
+                            member.clerkUserId,
+                            member.name,
+                            member.email,
+                            member.role,
+                            member.isActive === false ? "inactive" : "active",
+                          ].some((value) =>
+                            String(value ?? "").toLowerCase().includes(query),
+                          );
+                        })
+                        .slice(0, args.limit)
+                    : [];
+
+                  return {
+                    ok: true,
+                    type: "team_members",
+                    results: filtered,
+                    count: filtered.length,
+                  };
                 })()
             : await (() => {
                 if (!toolOptions?.projectId || !toolOptions.runAction) {
@@ -2487,7 +2569,7 @@ export function createStreamingTools(options?: StreamingToolOptions) {
     }, options),
 
     generate_moodboard_image: createAssistantTool({
-      description: "Generate a moodboard image with the Gemini image model and save it directly to the current project's moodboard. Use this when the user explicitly asks to create a moodboard, concept image, or visual. If the moodboard should be based on shopping list items, pass the shopping reference fields so the tool can collect project product images automatically.",
+      description: "Generate a moodboard image with GPT Image and save it directly to the current project's moodboard. Use this when the user explicitly asks to create a moodboard, concept image, or visual. If the moodboard should be based on shopping list items, pass the shopping reference fields so the tool can collect project product images automatically.",
       inputSchema: generateMoodboardImageSchema,
       inputExamples: [
         {

@@ -59,7 +59,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   AI_PRO_MONTHLY_TOKENS,
   AI_SCALE_MONTHLY_TOKENS,
-  GEMINI_FLASH_IMAGE_TYPICAL_CREDITS,
+  GPT_IMAGE_TYPICAL_CREDITS,
   formatTokens,
 } from "@/lib/aiPricing";
 import { DEFAULT_ORGANIZATION_TAX_SETTINGS } from "@/lib/organizationTax";
@@ -1290,7 +1290,7 @@ export default function CompanySettings({
                           Estimated per run
                         </p>
                         <p className="mt-2 text-xl font-semibold tabular-nums">
-                          {formatTokens(GEMINI_FLASH_IMAGE_TYPICAL_CREDITS)}
+                          {formatTokens(GPT_IMAGE_TYPICAL_CREDITS)}
                         </p>
                       </div>
                     </div>
@@ -1806,7 +1806,7 @@ export default function CompanySettings({
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Typical visualization runs about{" "}
-                    {formatTokens(GEMINI_FLASH_IMAGE_TYPICAL_CREDITS)} credits,
+                    {formatTokens(GPT_IMAGE_TYPICAL_CREDITS)} credits,
                     with higher usage for long prompts, edits, and reference
                     images.
                   </p>

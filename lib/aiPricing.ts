@@ -5,9 +5,9 @@ export const INTERNAL_CREDIT_COST_PER_1M_USD = 5;
 export const GPT_INPUT_COST_PER_1M = 2.5;
 export const GPT_OUTPUT_COST_PER_1M = 15.0;
 
-export const GEMINI_FLASH_IMAGE_INPUT_COST_PER_1M = 0.3;
-export const GEMINI_FLASH_IMAGE_OUTPUT_COST_PER_1M = 30.0;
-export const GEMINI_FLASH_IMAGE_TYPICAL_OUTPUT_TOKENS = 1290;
+export const GPT_IMAGE_INPUT_COST_PER_1M = 5.0;
+export const GPT_IMAGE_OUTPUT_COST_PER_1M = 30.0;
+export const GPT_IMAGE_TYPICAL_OUTPUT_TOKENS = 6208;
 export const CLOUDFLARE_BROWSER_RENDERING_COST_PER_HOUR_USD = 0.09;
 
 export const FREE_MONTHLY_TOKENS = 200_000;
@@ -40,21 +40,21 @@ export const calculateGPTCostCents = (inputTokens: number, outputTokens: number)
   return Math.round(calculateGPTCostUSD(inputTokens, outputTokens) * 100);
 };
 
-export const calculateGeminiFlashImageCostUSD = (
+export const calculateGptImageCostUSD = (
   inputTokens = 0,
-  outputTokens = GEMINI_FLASH_IMAGE_TYPICAL_OUTPUT_TOKENS
+  outputTokens = GPT_IMAGE_TYPICAL_OUTPUT_TOKENS
 ): number => {
   const normalizedOutputTokens =
-    outputTokens > 0 ? outputTokens : GEMINI_FLASH_IMAGE_TYPICAL_OUTPUT_TOKENS;
+    outputTokens > 0 ? outputTokens : GPT_IMAGE_TYPICAL_OUTPUT_TOKENS;
 
   return (
-    (Math.max(0, inputTokens) / 1_000_000) * GEMINI_FLASH_IMAGE_INPUT_COST_PER_1M +
-    (normalizedOutputTokens / 1_000_000) * GEMINI_FLASH_IMAGE_OUTPUT_COST_PER_1M
+    (Math.max(0, inputTokens) / 1_000_000) * GPT_IMAGE_INPUT_COST_PER_1M +
+    (normalizedOutputTokens / 1_000_000) * GPT_IMAGE_OUTPUT_COST_PER_1M
   );
 };
 
-export const GEMINI_FLASH_IMAGE_TYPICAL_CREDITS = usdToCredits(
-  calculateGeminiFlashImageCostUSD()
+export const GPT_IMAGE_TYPICAL_CREDITS = usdToCredits(
+  calculateGptImageCostUSD()
 );
 
 export const calculateCloudflareBrowserRenderingCostUSD = (

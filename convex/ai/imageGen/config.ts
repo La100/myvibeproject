@@ -1,6 +1,9 @@
 export const IMAGE_GENERATION_CONFIG = {
-  // Stable lower-cost model for team-wide visualization quotas
-  MODEL_ID: "gemini-2.5-flash-image",
+  // OpenAI image model for team-wide architectural visualizations.
+  MODEL_ID: "gpt-image-2",
+  OUTPUT_FORMAT: "png",
+  QUALITY: "medium",
+  SIZE: "1536x1024",
 
   // System prompt for architectural visualizations
   SYSTEM_PROMPT: `You are an expert architectural visualization artist. When generating images:
@@ -12,8 +15,5 @@ export const IMAGE_GENERATION_CONFIG = {
 - Add subtle details like furniture, plants, and people where appropriate
 - When user asks to modify or refine an image, keep the same general style but apply the requested changes`,
 
-  // Generation parameters
-  GENERATION_CONFIG: {
-    responseModalities: ["TEXT", "IMAGE"],
-  },
+  OUTPUT_MIME_TYPE: "image/png",
 };

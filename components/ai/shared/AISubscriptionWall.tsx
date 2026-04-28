@@ -49,7 +49,7 @@ const AI_FEATURES = [
   {
     icon: ImageIcon,
     title: "AI Image Generation",
-    description: "Create moodboards and visualizations with Gemini AI",
+    description: "Create moodboards and visualizations with GPT Image",
   },
   {
     icon: Brain,

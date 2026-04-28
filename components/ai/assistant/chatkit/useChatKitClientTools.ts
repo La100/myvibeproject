@@ -141,6 +141,15 @@ const NON_TASK_DOMAIN_QUERY_WORDS = new Set([
   "labor",
   "contacts",
   "contact",
+  "team",
+  "teammate",
+  "teammates",
+  "member",
+  "members",
+  "zespol",
+  "zespolu",
+  "czlonek",
+  "czlonkowie",
   "survey",
   "surveys",
   "moodboard",
@@ -149,6 +158,25 @@ const NON_TASK_DOMAIN_QUERY_WORDS = new Set([
   "pdf",
   "document",
   "documents",
+]);
+const TEAM_MEMBER_QUERY_WORDS = new Set([
+  "assignee",
+  "assignees",
+  "collaborator",
+  "collaborators",
+  "member",
+  "members",
+  "team",
+  "teammate",
+  "teammates",
+  "czlonek",
+  "czlonkowie",
+  "osoba",
+  "osoby",
+  "teamie",
+  "zespol",
+  "zespole",
+  "zespolu",
 ]);
 const MOODBOARD_QUERY_WORDS = new Set([
   "moodboard",
@@ -352,6 +380,8 @@ type TeamMemberRecord = {
   clerkUserId?: string;
   name?: string;
   email?: string;
+  role?: string;
+  isActive?: boolean;
 };
 
 function normalizeLookupValue(value: string): string {
@@ -402,6 +432,9 @@ function buildTaskSearchPlan(
   fallbackLimit: number,
 ): TaskSearchPlan {
   const tokens = tokenizeSearchText(rawQueryInput);
+  const hasTeamMemberWord = tokens.some((token) =>
+    TEAM_MEMBER_QUERY_WORDS.has(token),
+  );
   const hasTaskWord = tokens.some((token) =>
     TASK_DOMAIN_QUERY_WORDS.has(token),
   );
@@ -409,7 +442,11 @@ function buildTaskSearchPlan(
     NON_TASK_DOMAIN_QUERY_WORDS.has(token),
   );
   const effectiveScope =
-    scope === "all" && hasTaskWord && !hasNonTaskDomainWord ? "tasks" : scope;
+    scope === "all" && hasTeamMemberWord
+      ? "team_members"
+      : scope === "all" && hasTaskWord && !hasNonTaskDomainWord
+        ? "tasks"
+        : scope;
   const shouldInspectTasks =
     effectiveScope === "all" || effectiveScope === "tasks";
 
@@ -1502,6 +1539,11 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               ),
               name: asNonEmptyString((entry as Record<string, unknown>).name),
               email: asNonEmptyString((entry as Record<string, unknown>).email),
+              role: asNonEmptyString((entry as Record<string, unknown>).role),
+              isActive:
+                typeof (entry as Record<string, unknown>).isActive === "boolean"
+                  ? ((entry as Record<string, unknown>).isActive as boolean)
+                  : undefined,
             }))
           : [];
       };
@@ -1518,7 +1560,6 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
           teamMembers,
           userClerkId,
         );
-
         return resolved;
       };
 
@@ -4593,7 +4634,6 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             const shouldFetchMoodboard =
               scope === "moodboard" ||
               (scope === "all" && looksLikeMoodboardQuery(rawQuery));
-
             const [
               tasks,
               notes,
@@ -4604,6 +4644,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               laborSections,
               surveys,
               contacts,
+              teamMembers,
               moodboardSections,
               aiKnowledgeFiles,
               aiKnowledgeSearch,
@@ -4656,6 +4697,14 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 ? convex.query(apiAny.contacts.getProjectContacts, {
                     projectId,
                   })
+                : Promise.resolve([]),
+              scope === "all" ||
+              scope === "team" ||
+              scope === "teams" ||
+              scope === "team_member" ||
+              scope === "team_members" ||
+              scope === "members"
+                ? getTeamMembers()
                 : Promise.resolve([]),
               shouldFetchMoodboard
                 ? convex.query(apiAny.files.getMoodboardSections, { projectId })
@@ -4874,6 +4923,17 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               )
               .slice(0, limit);
 
+            const filteredTeamMembers = (teamMembers as TeamMemberRecord[])
+              .filter(
+                (member) =>
+                  includes(member.name) ||
+                  includes(member.email) ||
+                  includes(member.role) ||
+                  includes(member.clerkUserId) ||
+                  includes(member.isActive === false ? "inactive" : "active"),
+              )
+              .slice(0, limit);
+
             const filteredMoodboardSections = moodboardSectionRecords
               .map((section) =>
                 summarizeMoodboardSection(section, {
@@ -4935,6 +4995,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 laborSections: filteredLaborSections,
                 surveys: filteredSurveys,
                 contacts: filteredContacts,
+                teamMembers: filteredTeamMembers,
                 moodboardSections: filteredMoodboardSections,
                 moodboardImages: filteredMoodboardImages,
                 files: filteredFiles,
@@ -4949,6 +5010,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 laborSections: filteredLaborSections.length,
                 surveys: filteredSurveys.length,
                 contacts: filteredContacts.length,
+                teamMembers: filteredTeamMembers.length,
                 moodboardSections: filteredMoodboardSections.length,
                 moodboardImages: filteredMoodboardImages.length,
                 files: filteredFiles.length,

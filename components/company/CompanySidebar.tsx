@@ -49,12 +49,12 @@ import {
   Package,
   Percent,
   Sparkles,
-  LifeBuoy,
   LogOut,
   Settings2,
   ChevronDown,
   BellRing,
   ClipboardList,
+  Mail,
 } from "lucide-react";
 
 function OrganizationAvatar({
@@ -148,7 +148,7 @@ function CompanySidebarContent() {
   const footerItems = [
     { href: "/organisation/settings", label: "Settings", icon: Settings, isActive: pathname === "/organisation/settings" },
     { href: "/organisation/subscription", label: "Subscription", icon: CreditCard, isActive: pathname === "/organisation/subscription" },
-    { href: "/help", label: "Help", icon: LifeBuoy, isActive: pathname.startsWith("/help") },
+    { href: "/contact", label: "Contact", icon: Mail, isActive: pathname.startsWith("/contact") },
   ];
 
   const userInitial =
