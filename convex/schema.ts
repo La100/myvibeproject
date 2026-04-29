@@ -1383,14 +1383,14 @@ export default defineSchema({
     .index("by_session", ["sessionId"])
     .index("by_session_and_index", ["sessionId", "messageIndex"]),
 
-  // AI Generated Images - tracks all image generations from Gemini
+  // AI Generated Images - tracks all image generations from OpenAI Images.
   aiGeneratedImages: defineTable({
     projectId: v.optional(v.id("projects")),
     teamId: v.id("teams"),
     userClerkId: v.string(),
     sessionId: v.optional(v.id("aiVisualizationSessions")), // Link to conversation session
     prompt: v.string(),
-    model: v.string(), // e.g. "gemini-3-pro-image-preview" or "gemini-2.5-flash-image"
+    model: v.string(), // e.g. "gpt-image-2"
     storageKey: v.optional(v.string()), // R2 storage key
     fileUrl: v.optional(v.string()), // Direct URL to image
     mimeType: v.string(),

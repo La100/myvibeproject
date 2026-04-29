@@ -102,7 +102,7 @@ See [docs/local-main-workflow.md](./docs/local-main-workflow.md) for the exact l
 - **Auth**: [Clerk](https://clerk.com/)
 - **UI System**: [Tailwind CSS](https://tailwindcss.com/)
 - **Payments**: [Stripe](https://stripe.com/)
-- **AI**: OpenAI, Google GenAI
+- **AI**: OpenAI
 
 ## 🤝 Contributing
 

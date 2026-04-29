@@ -39,8 +39,6 @@ import type * as ai_helpers_workflowRuntime from "../ai/helpers/workflowRuntime.
 import type * as ai_imageGen_config from "../ai/imageGen/config.js";
 import type * as ai_imageGen_generation from "../ai/imageGen/generation.js";
 import type * as ai_imageGen_helpers from "../ai/imageGen/helpers.js";
-import type * as ai_imageGen_videoGeneration from "../ai/imageGen/videoGeneration.js";
-import type * as ai_imageGeneration from "../ai/imageGeneration.js";
 import type * as ai_longContextQueries from "../ai/longContextQueries.js";
 import type * as ai_openaiFileParts from "../ai/openaiFileParts.js";
 import type * as ai_prompt from "../ai/prompt.js";
@@ -130,8 +128,6 @@ declare const fullApi: ApiFromModules<{
   "ai/imageGen/config": typeof ai_imageGen_config;
   "ai/imageGen/generation": typeof ai_imageGen_generation;
   "ai/imageGen/helpers": typeof ai_imageGen_helpers;
-  "ai/imageGen/videoGeneration": typeof ai_imageGen_videoGeneration;
-  "ai/imageGeneration": typeof ai_imageGeneration;
   "ai/longContextQueries": typeof ai_longContextQueries;
   "ai/openaiFileParts": typeof ai_openaiFileParts;
   "ai/prompt": typeof ai_prompt;

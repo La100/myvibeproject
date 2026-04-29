@@ -35,7 +35,6 @@ import {
   Image,
   Hammer,
   Calculator,
-  LifeBuoy,
   LogOut,
   Settings2,
   ChevronDown,
@@ -44,6 +43,7 @@ import {
   FolderOpen,
   DraftingCompass,
   Wallet,
+  Mail,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -143,7 +143,7 @@ function ProjectSidebarContent() {
   const architectureNavItems = allNavItems.filter((item) => item.group === "architecture");
   const footerItems = [
     settingsItem,
-    { href: "/help", label: "Help", icon: LifeBuoy },
+    { href: "/contact", label: "Contact", icon: Mail },
   ];
 
   const userInitial =

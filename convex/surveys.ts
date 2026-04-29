@@ -638,11 +638,7 @@ export const updateSurvey = mutation({
 export const deleteSurvey = mutation({
   args: { surveyId: v.id("surveys") },
   async handler(ctx, args) {
-    const { survey, membership } = await getSurveyWithAccess(ctx, args.surveyId);
-
-    if (membership.role !== "admin") {
-      throw new Error("Only admins can delete surveys");
-    }
+    const { survey } = await getSurveyWithAccess(ctx, args.surveyId);
 
     await ctx.runMutation(logActivityMutation, {
       teamId: survey.teamId,
@@ -1314,10 +1310,7 @@ export const getSurveyQuestions = query({
 export const deleteSurveyQuestion = mutation({
   args: { questionId: v.id("surveyQuestions") },
   handler: async (ctx, args) => {
-    const { membership } = await getSurveyQuestionWithAccess(ctx, args.questionId);
-    if (membership.role !== "admin") {
-      throw new Error("Only admins can delete survey questions");
-    }
+    await getSurveyQuestionWithAccess(ctx, args.questionId);
 
     await ctx.db.delete(args.questionId);
   },

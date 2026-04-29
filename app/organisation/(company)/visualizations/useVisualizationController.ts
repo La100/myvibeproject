@@ -314,7 +314,7 @@ export function useVisualizationController() {
   };
 
   const handleStopResponse = () => {
-    // Gemini generation is still single-flight; stop support can be added once the action supports cancellation.
+    // Image generation is still single-flight; stop support can be added once the action supports cancellation.
   };
 
   const handleDownload = async (imageUrl: string) => {
