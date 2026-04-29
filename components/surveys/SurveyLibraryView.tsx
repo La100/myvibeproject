@@ -12,7 +12,12 @@ import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import { Id } from "@/convex/_generated/dataModel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 
@@ -20,8 +25,6 @@ type SurveyTemplateSummary = {
   _id: Id<"surveyTemplates">;
   title: string;
   description?: string;
-  isRequired?: boolean;
-  allowMultipleResponses?: boolean;
   questionCount: number;
   updatedAt: number;
 };
@@ -30,7 +33,9 @@ export function SurveyLibraryView() {
   const router = useRouter();
   const { organization } = useOrganization();
   const [searchTerm, setSearchTerm] = useState("");
-  const [deletingId, setDeletingId] = useState<Id<"surveyTemplates"> | null>(null);
+  const [deletingId, setDeletingId] = useState<Id<"surveyTemplates"> | null>(
+    null,
+  );
 
   const team = useQuery(
     apiAny.teams.getTeamByClerkOrg,
@@ -127,12 +132,17 @@ export function SurveyLibraryView() {
                     <div className="flex items-center gap-2">
                       <ClipboardList data-icon="inline-start" />
                       <Badge variant="secondary">
-                        {template.questionCount} {template.questionCount === 1 ? "question" : "questions"}
+                        {template.questionCount}{" "}
+                        {template.questionCount === 1
+                          ? "question"
+                          : "questions"}
                       </Badge>
                     </div>
                     <div className="flex items-center gap-1">
                       <Button asChild variant="ghost" size="icon-sm">
-                        <Link href={`/organisation/survey-library/${template._id}/edit`}>
+                        <Link
+                          href={`/organisation/survey-library/${template._id}/edit`}
+                        >
                           <Edit />
                           <span className="sr-only">Edit template</span>
                         </Link>
@@ -156,14 +166,6 @@ export function SurveyLibraryView() {
                     </CardDescription>
                   ) : null}
                 </CardHeader>
-                <CardContent>
-                  <div className="flex flex-wrap gap-2">
-                    {template.isRequired ? <Badge variant="outline">Required</Badge> : null}
-                    {template.allowMultipleResponses ? (
-                      <Badge variant="outline">Multiple responses</Badge>
-                    ) : null}
-                  </div>
-                </CardContent>
               </Card>
             ))}
           </div>

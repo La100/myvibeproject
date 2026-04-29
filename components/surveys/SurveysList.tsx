@@ -41,8 +41,6 @@ type SurveyTemplateSummary = {
   title: string;
   description?: string;
   questionCount: number;
-  isRequired?: boolean;
-  allowMultipleResponses?: boolean;
 };
 
 interface SurveysListProps {
@@ -234,12 +232,6 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
                           ? "question"
                           : "questions"}
                       </Badge>
-                      {template.isRequired ? (
-                        <Badge variant="outline">Required</Badge>
-                      ) : null}
-                      {template.allowMultipleResponses ? (
-                        <Badge variant="outline">Multiple responses</Badge>
-                      ) : null}
                     </div>
                     <CardTitle className="text-lg">{template.title}</CardTitle>
                     {template.description ? (

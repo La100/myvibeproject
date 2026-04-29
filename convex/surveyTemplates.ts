@@ -407,9 +407,8 @@ export const createSurveyFromTemplate = mutation({
       projectId: args.projectId,
       createdBy: clerkUserId,
       status: "draft",
-      isRequired: args.isRequired ?? template.isRequired,
-      allowMultipleResponses:
-        args.allowMultipleResponses ?? template.allowMultipleResponses,
+      isRequired: args.isRequired ?? false,
+      allowMultipleResponses: args.allowMultipleResponses ?? false,
       startDate: args.startDate === null ? undefined : args.startDate,
       endDate: args.endDate === null ? undefined : args.endDate,
       updatedAt: Date.now(),
@@ -483,9 +482,8 @@ export const saveSurveyAsTemplate = mutation({
             : args.description,
       teamId: survey.teamId,
       createdBy: clerkUserId,
-      isRequired: args.isRequired ?? survey.isRequired,
-      allowMultipleResponses:
-        args.allowMultipleResponses ?? survey.allowMultipleResponses,
+      isRequired: args.isRequired ?? false,
+      allowMultipleResponses: args.allowMultipleResponses ?? false,
       isActive: true,
       updatedAt: Date.now(),
     });

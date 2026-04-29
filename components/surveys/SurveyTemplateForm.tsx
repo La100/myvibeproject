@@ -104,8 +104,6 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
   const { organization } = useOrganization();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [isRequired, setIsRequired] = useState(false);
-  const [allowMultipleResponses, setAllowMultipleResponses] = useState(false);
   const [questions, setQuestions] = useState<TemplateQuestion[]>([
     newQuestion(),
   ]);
@@ -144,8 +142,6 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
 
     setTitle(template.title);
     setDescription(template.description || "");
-    setIsRequired(Boolean(template.isRequired));
-    setAllowMultipleResponses(Boolean(template.allowMultipleResponses));
     setQuestions(
       template.questions.length > 0
         ? template.questions.map(
@@ -226,8 +222,6 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
           teamId: team._id,
           title: title.trim(),
           description: description.trim() || undefined,
-          isRequired,
-          allowMultipleResponses,
           questions: validQuestions.map(toQuestionPayload),
         });
       } else {
@@ -235,8 +229,6 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
           templateId,
           title: title.trim(),
           description: description.trim() || undefined,
-          isRequired,
-          allowMultipleResponses,
         });
 
         const retainedExistingIds = new Set(
@@ -317,7 +309,7 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
             <div className="flex flex-col gap-1">
               <CardTitle className="text-xl">Template Details</CardTitle>
               <CardDescription>
-                Name and default behavior for project copies.
+                Name and reusable context for this question set.
               </CardDescription>
             </div>
           </div>
@@ -348,31 +340,6 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
               rows={4}
               className="resize-none text-base"
             />
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/30 p-4">
-              <div className="flex flex-col gap-1">
-                <Label className="text-sm font-medium">Required Survey</Label>
-                <p className="text-xs text-muted-foreground">
-                  New project copies inherit this setting.
-                </p>
-              </div>
-              <Switch checked={isRequired} onCheckedChange={setIsRequired} />
-            </div>
-            <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/30 p-4">
-              <div className="flex flex-col gap-1">
-                <Label className="text-sm font-medium">
-                  Multiple Responses
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  Allow repeated submissions by the same respondent.
-                </p>
-              </div>
-              <Switch
-                checked={allowMultipleResponses}
-                onCheckedChange={setAllowMultipleResponses}
-              />
-            </div>
           </div>
         </CardContent>
       </Card>

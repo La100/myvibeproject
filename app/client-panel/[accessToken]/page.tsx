@@ -2619,23 +2619,25 @@ export default function PublicClientPanelPage() {
       {settings.showSurveys &&
       activeSectionId === "portal-surveys" &&
       publicSurveysData !== undefined ? (
-        <div className="mb-10 rounded-3xl border border-border bg-card p-4 shadow-sm sm:rounded-3xl sm:p-8">
-          <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
-            <h2 className="text-xl font-medium font-serif text-foreground sm:text-2xl">
-              Surveys
-            </h2>
-            <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
+        <div className="mb-10 rounded-3xl border border-border bg-card p-4 shadow-sm sm:p-8">
+          <div className="mb-7 flex flex-col gap-3 border-b border-border/70 pb-6 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="font-serif text-2xl font-medium text-foreground">
+                Surveys
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                Share your feedback directly in the portal. Responses are sent
+                to the project team.
+              </p>
+            </div>
+            <span className="inline-flex w-fit items-center justify-center rounded-full border border-border bg-secondary px-3 py-1 text-xs font-medium text-muted-foreground">
               {surveys.length} available
             </span>
           </div>
-          <p className="mb-6 text-sm text-muted-foreground">
-            Share your feedback directly in the portal. Responses are sent to
-            the project team.
-          </p>
           {surveys.length === 0 ? (
             <p className="text-sm text-muted-foreground">No surveys shared.</p>
           ) : (
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-5">
               {surveys.map((survey) => {
                 const surveyId = String(survey._id);
                 const isOpen = openSurveyId === surveyId;
@@ -2647,19 +2649,26 @@ export default function PublicClientPanelPage() {
                 return (
                   <div
                     key={surveyId}
-                    className="rounded-2xl border border-border/70 bg-card p-5"
+                    className={cn(
+                      "overflow-hidden rounded-2xl border bg-card shadow-sm transition-[border-color,box-shadow]",
+                      isOpen
+                        ? "border-primary/20 shadow-sm"
+                        : "border-border/70",
+                    )}
                   >
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div className="min-w-0 flex flex-col gap-2">
+                    <div className="flex flex-wrap items-start justify-between gap-4 p-5 sm:p-6">
+                      <div className="min-w-0 flex flex-1 flex-col gap-2">
                         <div className="flex flex-wrap items-center gap-2">
-                          <ClipboardList className="h-4 w-4 text-primary" />
-                          <h3 className="text-lg font-medium text-foreground">
+                          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary text-foreground">
+                            <ClipboardList className="h-4 w-4" />
+                          </span>
+                          <h3 className="text-lg font-semibold text-foreground">
                             {survey.title}
                           </h3>
                           {survey.isRequired ? (
                             <Badge
-                              variant="destructive"
-                              className="text-[10px]"
+                              variant="outline"
+                              className="border-destructive/20 bg-destructive/10 text-[10px] text-destructive"
                             >
                               Required
                             </Badge>
@@ -2689,6 +2698,7 @@ export default function PublicClientPanelPage() {
                           <Button
                             type="button"
                             variant={isOpen ? "outline" : "default"}
+                            size="sm"
                             onClick={() => handleOpenSurvey(surveyId)}
                           >
                             {isOpen
@@ -2708,11 +2718,11 @@ export default function PublicClientPanelPage() {
                     ) : null}
 
                     {isOpen ? (
-                      <div className="mt-6 flex flex-col gap-4 border-t border-border pt-5">
-                        <div className="max-w-md flex flex-col gap-2">
+                      <div className="flex flex-col gap-5 border-t border-border/70 bg-secondary/35 p-4 sm:p-6">
+                        <div className="max-w-xl rounded-2xl border border-border/70 bg-card p-4 shadow-sm">
                           <Label
                             htmlFor={`respondent-name-${surveyId}`}
-                            className="text-sm font-medium"
+                            className="text-sm font-medium text-foreground"
                           >
                             Who is answering survey "{survey.title}"?
                           </Label>
@@ -2724,6 +2734,7 @@ export default function PublicClientPanelPage() {
                             }
                             placeholder="Your name"
                             maxLength={120}
+                            className="mt-2 bg-background"
                           />
                         </div>
 
@@ -2733,25 +2744,25 @@ export default function PublicClientPanelPage() {
                           return (
                             <div
                               key={questionId}
-                              className="rounded-lg border border-border/60 bg-muted p-4"
+                              className="rounded-2xl border border-border/70 bg-card p-4 shadow-sm sm:p-6"
                             >
-                              <div className="mb-3 flex flex-wrap items-center gap-2">
+                              <div className="mb-4 flex flex-wrap items-center gap-2">
                                 <Badge
                                   variant="outline"
-                                  className="text-[10px]"
+                                  className="rounded-full bg-secondary text-[11px]"
                                 >
                                   Question {index + 1}
                                 </Badge>
                                 {question.isRequired ? (
                                   <Badge
-                                    variant="destructive"
-                                    className="text-[10px]"
+                                    variant="outline"
+                                    className="rounded-full border-destructive/20 bg-destructive/10 text-[11px] text-destructive"
                                   >
                                     Required
                                   </Badge>
                                 ) : null}
                               </div>
-                              <p className="mb-3 text-sm font-medium text-foreground">
+                              <p className="mb-4 text-base font-medium leading-6 text-foreground">
                                 {question.questionText}
                               </p>
 
@@ -2773,6 +2784,7 @@ export default function PublicClientPanelPage() {
                                     }
                                     placeholder="Your answer"
                                     rows={4}
+                                    className="bg-background"
                                   />
                                 ) : (
                                   <Input
@@ -2789,6 +2801,7 @@ export default function PublicClientPanelPage() {
                                       )
                                     }
                                     placeholder="Your answer"
+                                    className="bg-background"
                                   />
                                 )
                               ) : null}
@@ -2807,31 +2820,34 @@ export default function PublicClientPanelPage() {
                                       value,
                                     )
                                   }
-                                  className="flex flex-col gap-2"
+                                  className="grid gap-2 sm:grid-cols-2"
                                 >
                                   {(question.options || []).map(
                                     (option, optionIndex) => (
-                                      <div
+                                      <Label
                                         key={`${questionId}-${optionIndex}`}
-                                        className="flex items-center gap-2"
+                                        htmlFor={`${questionId}-option-${optionIndex}`}
+                                        className={cn(
+                                          "flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-3 text-sm font-medium transition-[background-color,border-color]",
+                                          answerValue === option
+                                            ? "border-primary/35 bg-primary/5"
+                                            : "border-border bg-background hover:border-primary/20 hover:bg-secondary/60",
+                                        )}
                                       >
                                         <RadioGroupItem
                                           value={option}
                                           id={`${questionId}-option-${optionIndex}`}
+                                          className="h-5 w-5"
                                         />
-                                        <Label
-                                          htmlFor={`${questionId}-option-${optionIndex}`}
-                                        >
-                                          {option}
-                                        </Label>
-                                      </div>
+                                        <span>{option}</span>
+                                      </Label>
                                     ),
                                   )}
                                 </RadioGroup>
                               ) : null}
 
                               {question.questionType === "multiple_choice" ? (
-                                <div className="flex flex-col gap-2">
+                                <div className="grid gap-2 sm:grid-cols-2">
                                   {(question.options || []).map(
                                     (option, optionIndex) => {
                                       const selectedValues = Array.isArray(
@@ -2845,13 +2861,20 @@ export default function PublicClientPanelPage() {
                                       const checked =
                                         selectedValues.includes(option);
                                       return (
-                                        <div
+                                        <Label
                                           key={`${questionId}-${optionIndex}`}
-                                          className="flex items-center gap-2"
+                                          htmlFor={`${questionId}-option-${optionIndex}`}
+                                          className={cn(
+                                            "flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-3 text-sm font-medium transition-[background-color,border-color]",
+                                            checked
+                                              ? "border-primary/35 bg-primary/5"
+                                              : "border-border bg-background hover:border-primary/20 hover:bg-secondary/60",
+                                          )}
                                         >
                                           <Checkbox
                                             id={`${questionId}-option-${optionIndex}`}
                                             checked={checked}
+                                            className="h-5 w-5 rounded-md"
                                             onCheckedChange={(nextChecked) => {
                                               const nextValues = nextChecked
                                                 ? [...selectedValues, option]
@@ -2865,12 +2888,8 @@ export default function PublicClientPanelPage() {
                                               );
                                             }}
                                           />
-                                          <Label
-                                            htmlFor={`${questionId}-option-${optionIndex}`}
-                                          >
-                                            {option}
-                                          </Label>
-                                        </div>
+                                          <span>{option}</span>
+                                        </Label>
                                       );
                                     },
                                   )}
@@ -2891,9 +2910,9 @@ export default function PublicClientPanelPage() {
                                       Number.parseInt(value, 10),
                                     )
                                   }
-                                  className="flex flex-col gap-2"
+                                  className="flex flex-col gap-3"
                                 >
-                                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                  <div className="flex items-center justify-between rounded-full bg-secondary px-3 py-1.5 text-xs text-muted-foreground">
                                     <span>
                                       {question.ratingScale?.minLabel ||
                                         question.ratingScale?.min ||
@@ -2905,7 +2924,7 @@ export default function PublicClientPanelPage() {
                                         5}
                                     </span>
                                   </div>
-                                  <div className="flex flex-wrap gap-3">
+                                  <div className="grid grid-cols-5 gap-2 sm:flex sm:flex-wrap">
                                     {Array.from(
                                       {
                                         length:
@@ -2916,20 +2935,23 @@ export default function PublicClientPanelPage() {
                                       (_, i) =>
                                         (question.ratingScale?.min || 1) + i,
                                     ).map((value) => (
-                                      <div
+                                      <Label
                                         key={value}
-                                        className="flex items-center gap-2"
+                                        htmlFor={`${questionId}-${value}`}
+                                        className={cn(
+                                          "flex h-11 cursor-pointer items-center justify-center rounded-xl border text-sm font-semibold transition-[background-color,border-color,color]",
+                                          answerValue === value
+                                            ? "border-primary bg-primary text-primary-foreground"
+                                            : "border-border bg-background hover:border-primary/25",
+                                        )}
                                       >
                                         <RadioGroupItem
                                           value={String(value)}
                                           id={`${questionId}-${value}`}
+                                          className="sr-only"
                                         />
-                                        <Label
-                                          htmlFor={`${questionId}-${value}`}
-                                        >
-                                          {value}
-                                        </Label>
-                                      </div>
+                                        {value}
+                                      </Label>
                                     ))}
                                   </div>
                                 </RadioGroup>
@@ -2949,26 +2971,40 @@ export default function PublicClientPanelPage() {
                                       value === "true",
                                     )
                                   }
-                                  className="flex flex-col gap-2"
+                                  className="grid gap-2 sm:grid-cols-2"
                                 >
-                                  <div className="flex items-center gap-2">
+                                  <Label
+                                    htmlFor={`${questionId}-yes`}
+                                    className={cn(
+                                      "flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-3 text-sm font-medium transition-[background-color,border-color]",
+                                      answerValue === true
+                                        ? "border-primary/35 bg-primary/5"
+                                        : "border-border bg-background hover:border-primary/20 hover:bg-secondary/60",
+                                    )}
+                                  >
                                     <RadioGroupItem
                                       value="true"
                                       id={`${questionId}-yes`}
+                                      className="h-5 w-5"
                                     />
-                                    <Label htmlFor={`${questionId}-yes`}>
-                                      Yes
-                                    </Label>
-                                  </div>
-                                  <div className="flex items-center gap-2">
+                                    <span>Yes</span>
+                                  </Label>
+                                  <Label
+                                    htmlFor={`${questionId}-no`}
+                                    className={cn(
+                                      "flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-3 text-sm font-medium transition-[background-color,border-color]",
+                                      answerValue === false
+                                        ? "border-primary/35 bg-primary/5"
+                                        : "border-border bg-background hover:border-primary/20 hover:bg-secondary/60",
+                                    )}
+                                  >
                                     <RadioGroupItem
                                       value="false"
                                       id={`${questionId}-no`}
+                                      className="h-5 w-5"
                                     />
-                                    <Label htmlFor={`${questionId}-no`}>
-                                      No
-                                    </Label>
-                                  </div>
+                                    <span>No</span>
+                                  </Label>
                                 </RadioGroup>
                               ) : null}
 
@@ -2998,6 +3034,7 @@ export default function PublicClientPanelPage() {
                                     );
                                   }}
                                   placeholder="Enter number"
+                                  className="max-w-xs bg-background"
                                 />
                               ) : null}
 
@@ -3020,8 +3057,10 @@ export default function PublicClientPanelPage() {
 
                                     return (
                                       <>
-                                        <Input
+                                        <input
+                                          id={`${questionId}-file`}
                                           type="file"
+                                          className="sr-only"
                                           disabled={isUploading}
                                           onChange={(event) => {
                                             const file =
@@ -3035,6 +3074,28 @@ export default function PublicClientPanelPage() {
                                             event.target.value = "";
                                           }}
                                         />
+                                        <Label
+                                          htmlFor={`${questionId}-file`}
+                                          className={cn(
+                                            "flex min-h-14 cursor-pointer items-center justify-between gap-3 rounded-xl border border-dashed border-border bg-background px-4 py-3 text-sm font-medium text-foreground transition-[background-color,border-color]",
+                                            isUploading
+                                              ? "cursor-wait opacity-70"
+                                              : "hover:border-primary/25 hover:bg-secondary/60",
+                                          )}
+                                        >
+                                          <span className="flex min-w-0 items-center gap-2">
+                                            <Upload className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                            <span className="truncate">
+                                              {fileAnswer?.fileName ||
+                                                "Choose file"}
+                                            </span>
+                                          </span>
+                                          <span className="shrink-0 text-xs text-muted-foreground">
+                                            {isUploading
+                                              ? "Uploading..."
+                                              : "Browse"}
+                                          </span>
+                                        </Label>
                                         {fileAnswer?.fileName ? (
                                           <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-xs text-muted-foreground">
                                             <Upload data-icon="inline-start" />
@@ -3061,7 +3122,7 @@ export default function PublicClientPanelPage() {
                           );
                         })}
 
-                        <div className="flex justify-end">
+                        <div className="flex justify-end border-t border-border/70 pt-1">
                           <Button
                             type="button"
                             onClick={() =>
