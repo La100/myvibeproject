@@ -521,13 +521,13 @@ function ItemImage({
 }) {
   const sizeClass =
     size === "sm"
-      ? "aspect-[4/3] w-full sm:aspect-auto sm:h-20 sm:w-20"
-      : "h-24 w-24 sm:h-20 sm:w-20";
+      ? "aspect-[4/3] w-full sm:aspect-auto sm:h-24 sm:w-24"
+      : "h-24 w-24";
 
   if (imageUrl) {
     return (
       <div
-        className={`${sizeClass} overflow-hidden rounded-xl border border-border bg-muted`}
+        className={`${sizeClass} overflow-hidden rounded-[18px] border border-black/6 bg-[#eee9df]`}
       >
         <img src={imageUrl} alt={name} className="h-full w-full object-cover" />
       </div>
@@ -557,7 +557,12 @@ function PortalItemCard({
   className?: string;
 }) {
   return (
-    <div className={cn("rounded-2xl border p-4", className)}>
+    <div
+      className={cn(
+        "rounded-[22px] border border-black/7 bg-white/74 p-4 shadow-[0_18px_48px_rgba(24,20,16,0.04)]",
+        className,
+      )}
+    >
       <div className="flex flex-col">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div
@@ -573,18 +578,18 @@ function PortalItemCard({
             ) : null}
             <div className="min-w-0 flex-1">
               <div className="mb-2 flex flex-wrap items-center gap-2">
-                <h4 className="text-base font-medium text-foreground sm:text-lg">
+                <h4 className="text-base font-medium tracking-[-0.02em] text-foreground sm:text-lg">
                   {name}
                 </h4>
                 {badges}
               </div>
               {metadata ? (
-                <div className="flex flex-col gap-1 text-sm text-muted-foreground sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+                <div className="flex flex-col gap-1 text-sm text-foreground/54 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
                   {metadata}
                 </div>
               ) : null}
               {description ? (
-                <p className="mt-2 text-sm text-muted-foreground">
+                <p className="mt-3 text-sm leading-6 text-foreground/56">
                   {description}
                 </p>
               ) : null}
@@ -1536,18 +1541,15 @@ export default function PublicClientPanelPage() {
           : "";
     const feedbackTone =
       item.customerDecision === "accepted"
-        ? "border-emerald-500/30 bg-emerald-50/70"
+        ? "border-emerald-500/24 bg-[linear-gradient(180deg,rgba(240,253,244,0.82),rgba(255,255,255,0.58))]"
         : item.customerDecision === "rejected"
           ? "border-destructive/20 bg-destructive/5"
-          : "border-border/70 bg-muted/20";
-    const hasDraftComment =
-      (shoppingItemComments[itemId] || "").trim().length > 0;
+          : "border-black/7 bg-[#f8f6f1]/76";
     const hasSavedComment = Boolean(item.customerDecisionComment);
-    const isCommentExpanded =
-      expandedShoppingItemComments[itemId] ?? hasDraftComment;
+    const isCommentExpanded = expandedShoppingItemComments[itemId] ?? false;
 
     return (
-      <div className={cn("mt-4 rounded-2xl border px-4 py-4", feedbackTone)}>
+      <div className={cn("mt-5 rounded-[20px] border px-4 py-4", feedbackTone)}>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="text-xs">
@@ -1724,17 +1726,15 @@ export default function PublicClientPanelPage() {
           : "";
     const feedbackTone =
       item.customerDecision === "accepted"
-        ? "border-emerald-500/30 bg-emerald-50/70"
+        ? "border-emerald-500/24 bg-[linear-gradient(180deg,rgba(240,253,244,0.82),rgba(255,255,255,0.58))]"
         : item.customerDecision === "rejected"
           ? "border-destructive/20 bg-destructive/5"
-          : "border-border/70 bg-muted/20";
-    const hasDraftComment = (laborItemComments[itemId] || "").trim().length > 0;
+          : "border-black/7 bg-[#f8f6f1]/76";
     const hasSavedComment = Boolean(item.customerDecisionComment);
-    const isCommentExpanded =
-      expandedLaborItemComments[itemId] ?? hasDraftComment;
+    const isCommentExpanded = expandedLaborItemComments[itemId] ?? false;
 
     return (
-      <div className={cn("mt-4 rounded-2xl border px-4 py-4", feedbackTone)}>
+      <div className={cn("mt-5 rounded-[20px] border px-4 py-4", feedbackTone)}>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="text-xs">
@@ -3879,23 +3879,29 @@ export default function PublicClientPanelPage() {
               return (
                 <div
                   key={sectionName}
-                  className="mb-10 rounded-3xl border border-border bg-card p-4 shadow-sm sm:rounded-3xl sm:p-8"
+                  className="mb-10 overflow-hidden rounded-[28px] border border-black/7 bg-[#e6ded1] p-3 shadow-[0_24px_70px_rgba(24,20,16,0.08)]"
                 >
-                  <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
-                    <h2 className="text-lg font-medium text-foreground sm:text-xl">
-                      {sectionName}
-                    </h2>
-                    <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-                      {itemCount} items
-                    </span>
-                    {settings.showPrice ? (
-                      <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-foreground">
-                        {formatPrimaryDisplayAmount(total)}
-                      </span>
-                    ) : null}
+                  <div className="rounded-t-[22px] border border-white/64 border-b-black/7 bg-[rgba(253,251,247,0.94)] px-5 py-5 sm:px-6">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                      <div>
+                        <h2 className="font-serif text-xl font-medium leading-tight tracking-[-0.02em] text-foreground sm:text-2xl">
+                          {sectionName}
+                        </h2>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <span className="inline-flex items-center justify-center rounded-full border border-black/7 bg-white/72 px-3 py-1 text-xs font-medium text-foreground/52">
+                          {itemCount} items
+                        </span>
+                        {settings.showPrice ? (
+                          <span className="inline-flex items-center justify-center rounded-full border border-black/7 bg-white/72 px-3 py-1 text-xs font-medium text-foreground/76">
+                            {formatPrimaryDisplayAmount(total)}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-3 rounded-b-[22px] border border-t-0 border-white/64 bg-[rgba(253,251,247,0.94)] p-3 sm:p-4">
                     {sectionGroups.map((group) => {
                       const selectedIds = getSelectedIdsForGroup(
                         group,
@@ -3994,7 +4000,7 @@ export default function PublicClientPanelPage() {
                       return (
                         <div
                           key={group.key}
-                          className="rounded-2xl border border-border/60 bg-muted/20 p-5"
+                          className="rounded-[22px] border border-black/7 bg-[#f8f6f1]/86 p-4"
                         >
                           <div className="mb-4 flex flex-col gap-3 border-b pb-4 lg:flex-row lg:items-start lg:justify-between">
                             <div>
