@@ -70,12 +70,21 @@ function asSurveyQuestionType(value: unknown): SurveyQuestionType | undefined {
   return undefined;
 }
 
-function asRecordArray(value: unknown): Array<Record<string, unknown>> | undefined {
+function asRecordArray(value: unknown): Array<Record<string, unknown> | string> | undefined {
   if (!Array.isArray(value)) return undefined;
-  const normalized = value.filter(
-    (entry): entry is Record<string, unknown> =>
-      typeof entry === "object" && entry !== null && !Array.isArray(entry),
-  );
+  const normalized = value
+    .map((entry) => {
+      const text = asNonEmptyString(entry);
+      if (text) return text;
+      if (typeof entry === "object" && entry !== null && !Array.isArray(entry)) {
+        return entry as Record<string, unknown>;
+      }
+      return undefined;
+    })
+    .filter(
+      (entry): entry is Record<string, unknown> | string =>
+        entry !== undefined,
+    );
   return normalized.length > 0 ? normalized : undefined;
 }
 
@@ -84,7 +93,15 @@ function extractSurveyQuestions(value: unknown) {
   if (!items) return undefined;
 
   const questions = items
-    .map((item) => {
+    .map((item, index) => {
+      if (typeof item === "string") {
+        return {
+          questionText: item,
+          questionType: "text_long" as const,
+          order: index + 1,
+        };
+      }
+
       const questionText =
         asNonEmptyString(item.questionText) ??
         asNonEmptyString(item.text) ??
@@ -109,7 +126,7 @@ function extractSurveyQuestions(value: unknown) {
         questionType,
         options: asStringArray(item.options),
         isRequired: asBoolean(item.isRequired),
-        order: asNumber(item.order),
+        order: asNumber(item.order) ?? index + 1,
       };
     })
     .filter((item) => item.questionText || item.questionId || item.operation);

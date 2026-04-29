@@ -131,6 +131,7 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
           teamId: team._id,
           teamSlug: team.slug,
           userClerkId: userId ?? undefined,
+          timezone: team.timezone,
           canMakeChanges,
         }
       : null,

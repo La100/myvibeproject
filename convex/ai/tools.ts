@@ -204,6 +204,22 @@ const surveyQuestionUpdateFields = z
   })
   .passthrough();
 
+function asSurveyQuestionType(value: unknown) {
+  if (
+    value === "text_short" ||
+    value === "text_long" ||
+    value === "multiple_choice" ||
+    value === "single_choice" ||
+    value === "rating" ||
+    value === "yes_no" ||
+    value === "number" ||
+    value === "file"
+  ) {
+    return value;
+  }
+  return undefined;
+}
+
 const surveyFields = z.object({
   title: z.string().describe("Survey title"),
   description: z.string().optional().describe("Survey description"),
@@ -1126,21 +1142,48 @@ async function executeSinglePayload(
 
   const surveyCreateQuestions = Array.isArray(data.questions)
     ? data.questions
+        .map((question, index) => {
+          if (typeof question === "string" && question.trim().length > 0) {
+            return {
+              questionText: question.trim(),
+              questionType: "text_long" as const,
+              order: index + 1,
+            };
+          }
+
+          if (!question || typeof question !== "object" || Array.isArray(question)) {
+            return null;
+          }
+
+          const questionRecord = question as Record<string, unknown>;
+          const options = Array.isArray(questionRecord.options)
+            ? questionRecord.options.filter((option): option is string => typeof option === "string")
+            : undefined;
+          const questionText =
+            typeof questionRecord.questionText === "string"
+              ? questionRecord.questionText
+              : typeof questionRecord.title === "string"
+                ? questionRecord.title
+                : typeof questionRecord.text === "string"
+                  ? questionRecord.text
+                  : "";
+
+          return {
+            questionText,
+            questionType:
+              asSurveyQuestionType(questionRecord.questionType) ??
+              asSurveyQuestionType(questionRecord.type) ??
+              (options ? "single_choice" : "text_long"),
+            options,
+            isRequired:
+              typeof questionRecord.isRequired === "boolean" ? questionRecord.isRequired : undefined,
+            order: typeof questionRecord.order === "number" ? questionRecord.order : index + 1,
+          };
+        })
         .filter(
-          (question): question is Record<string, unknown> =>
-            !!question && typeof question === "object" && !Array.isArray(question),
+          (question): question is NonNullable<typeof question> =>
+            Boolean(question?.questionText),
         )
-        .map((question) => ({
-          questionText:
-            typeof question.questionText === "string" ? question.questionText : "",
-          questionType: question.questionType,
-          options: Array.isArray(question.options)
-            ? question.options.filter((option): option is string => typeof option === "string")
-            : undefined,
-          isRequired:
-            typeof question.isRequired === "boolean" ? question.isRequired : undefined,
-          order: typeof question.order === "number" ? question.order : undefined,
-        }))
     : typeof data.questionText === "string" && typeof data.questionType === "string"
       ? [{
           questionText: data.questionText,
@@ -1608,13 +1651,40 @@ function normalizeSurveyCreateData(rawData: Record<string, unknown>): Record<str
 
   if (Array.isArray(data.questions)) {
     const normalizedQuestions = data.questions
-      .map((question) => toRecord(question))
-      .map((question) => ({
-        questionText: question.questionText,
-        questionType: question.questionType,
-        options: question.options,
-        isRequired: question.isRequired,
-      }))
+      .map((question, index) => {
+        if (typeof question === "string" && question.trim().length > 0) {
+          return {
+            questionText: question.trim(),
+            questionType: "text_long",
+            order: index + 1,
+          };
+        }
+
+        const questionRecord = toRecord(question);
+        const options = Array.isArray(questionRecord.options)
+          ? questionRecord.options.filter((option): option is string => typeof option === "string")
+          : undefined;
+        return {
+          questionText:
+            typeof questionRecord.questionText === "string"
+              ? questionRecord.questionText
+              : typeof questionRecord.title === "string"
+                ? questionRecord.title
+                : typeof questionRecord.text === "string"
+                  ? questionRecord.text
+                  : undefined,
+          questionType:
+            asSurveyQuestionType(questionRecord.questionType) ??
+            asSurveyQuestionType(questionRecord.type) ??
+            (options ? "single_choice" : "text_long"),
+          options,
+          isRequired: questionRecord.isRequired,
+          order:
+            typeof questionRecord.order === "number"
+              ? questionRecord.order
+              : index + 1,
+        };
+      })
       .filter(
         (question) =>
           typeof question.questionText === "string" &&

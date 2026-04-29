@@ -29,6 +29,7 @@ type UseChatKitClientToolsArgs = {
   teamId: Id<"teams">;
   teamSlug: string;
   userClerkId?: string;
+  timezone?: string;
   canMakeChanges: boolean;
 };
 type BulkFailure = {
@@ -317,6 +318,68 @@ function compactDefinedFields(
   );
 }
 
+function getDatePartInTimezone(date: Date, timezone: string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function getDateTimePartInTimezone(date: Date, timezone: string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}T${values.hour}:${values.minute}:${values.second}`;
+}
+
+function normalizeTimezone(value: string): string {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: value }).format(new Date());
+    return value;
+  } catch {
+    return "Europe/Warsaw";
+  }
+}
+
+function buildRuntimeSessionContext(args: {
+  userClerkId?: string;
+  teamId: string;
+  projectId: string;
+  timezone: string;
+}) {
+  const now = new Date();
+  const timezone = normalizeTimezone(args.timezone || "Europe/Warsaw");
+  return {
+    identity: {
+      clerkUserId: args.userClerkId ?? null,
+      teamId: args.teamId,
+      projectId: args.projectId,
+      selfReferenceRule:
+        "Resolve 'me', 'myself', 'my tasks', and 'assign to me' to clerkUserId unless the user explicitly says otherwise.",
+    },
+    time: {
+      timezone,
+      currentLocalDate: getDatePartInTimezone(now, timezone),
+      currentLocalDateTime: getDateTimePartInTimezone(now, timezone),
+      currentUtcDateTime: now.toISOString(),
+      relativeDateRule:
+        "Resolve today, tomorrow, dzisiaj, jutro, pojutrze, next Monday, o 13, na 13:30, and at 4pm from this current time and pass concrete ISO strings to tools.",
+    },
+  };
+}
+
 function formatConfirmedActionResult(
   result: unknown,
   successFallback: string,
@@ -490,13 +553,62 @@ function buildTaskSearchPlan(
 }
 
 function sortTasksByRecency<
-  T extends { updatedAt?: number; createdAt?: number },
+  T extends { updatedAt?: number; _creationTime?: number; createdAt?: number },
 >(tasks: T[]): T[] {
   return [...tasks].sort(
     (left, right) =>
-      (right.updatedAt ?? right.createdAt ?? 0) -
-      (left.updatedAt ?? left.createdAt ?? 0),
+      (right.updatedAt ?? right._creationTime ?? right.createdAt ?? 0) -
+      (left.updatedAt ?? left._creationTime ?? left.createdAt ?? 0),
   );
+}
+
+function selectSearchResultKeys(scope: string): string[] {
+  switch (scope) {
+    case "tasks":
+      return ["tasks"];
+    case "notes":
+      return ["notes"];
+    case "payment":
+    case "payments":
+    case "invoice":
+    case "invoices":
+      return ["payments"];
+    case "shopping":
+      return ["shopping", "shoppingSections"];
+    case "labor":
+      return ["labor", "laborSections"];
+    case "survey":
+    case "surveys":
+      return ["surveys"];
+    case "contacts":
+      return ["contacts"];
+    case "team":
+    case "teams":
+    case "team_member":
+    case "team_members":
+    case "members":
+      return ["teamMembers"];
+    case "moodboard":
+      return ["moodboardSections", "moodboardImages"];
+    case "files":
+      return ["files"];
+    default:
+      return [
+        "tasks",
+        "notes",
+        "payments",
+        "shopping",
+        "shoppingSections",
+        "labor",
+        "laborSections",
+        "surveys",
+        "contacts",
+        "teamMembers",
+        "moodboardSections",
+        "moodboardImages",
+        "files",
+      ];
+  }
 }
 
 function resolveAssigneeFromTeamMembers(
@@ -1178,8 +1290,6 @@ function truncate(
 function summarizeTask(task: Record<string, unknown>) {
   const startDate = asNumber(task.startDate);
   const endDate = asNumber(task.endDate);
-  const createdAt = asNumber(task._creationTime);
-  const updatedAt = asNumber(task.updatedAt) ?? createdAt;
   return {
     id: typeof task._id === "string" ? task._id : undefined,
     title:
@@ -1190,16 +1300,8 @@ function summarizeTask(task: Record<string, unknown>) {
     status: asNonEmptyString(task.status) ?? "todo",
     priority: asNonEmptyString(task.priority) ?? "medium",
     assignedTo: asNonEmptyString(task.assignedTo),
-    startDate,
     startDateIso: formatTimestampAsIso(startDate),
-    endDate,
     endDateIso: formatTimestampAsIso(endDate),
-    dueDate: endDate,
-    dueDateIso: formatTimestampAsIso(endDate),
-    createdAt,
-    createdAtIso: formatTimestampAsIso(createdAt),
-    updatedAt,
-    updatedAtIso: formatTimestampAsIso(updatedAt),
     sectionId: asNonEmptyString(task.sectionId),
     description: truncate(
       asNonEmptyString(task.description) ?? asNonEmptyString(task.content),
@@ -1496,6 +1598,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
   const teamId = args?.teamId;
   const teamSlug = args?.teamSlug;
   const userClerkId = args?.userClerkId;
+  const timezone = args?.timezone || "Europe/Warsaw";
   const canMakeChanges = args?.canMakeChanges ?? false;
 
   return useCallback(
@@ -1812,6 +1915,12 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               ok: true,
               canMakeChanges,
               currentUserClerkId: userClerkId ?? null,
+              session: buildRuntimeSessionContext({
+                userClerkId,
+                teamId,
+                projectId,
+                timezone,
+              }),
               mode: canMakeChanges ? "read_write" : "read_only",
               allowedTools: canMakeChanges
                 ? [
@@ -4809,7 +4918,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               normalizeSearchText(value ?? "").includes(taskSearchPlan.query);
 
             const filteredTasks = sortTasksByRecency(
-              (tasks as Array<Record<string, unknown>>)
+              tasks as Array<Record<string, unknown>>,
+            )
                 .map(summarizeTask)
                 .filter(
                   (task) =>
@@ -4819,11 +4929,9 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                     taskIncludes(task.priority) ||
                     taskIncludes(task.status) ||
                     taskIncludes(task.startDateIso) ||
-                    taskIncludes(task.endDateIso) ||
-                    taskIncludes(task.createdAtIso) ||
-                    taskIncludes(task.updatedAtIso),
-                ),
-            ).slice(0, taskSearchPlan.limit);
+                    taskIncludes(task.endDateIso),
+                )
+                .slice(0, taskSearchPlan.limit);
 
             const filteredNotes = (notes as Array<Record<string, unknown>>)
               .map(summarizeNote)
@@ -4980,41 +5088,43 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                     )
                     .slice(0, limit);
 
+            const allResults = {
+              tasks: filteredTasks,
+              notes: filteredNotes,
+              payments: filteredPayments,
+              shopping: filteredShopping,
+              shoppingSections: filteredShoppingSections,
+              labor: filteredLabor,
+              laborSections: filteredLaborSections,
+              surveys: filteredSurveys,
+              contacts: filteredContacts,
+              teamMembers: filteredTeamMembers,
+              moodboardSections: filteredMoodboardSections,
+              moodboardImages: filteredMoodboardImages,
+              files: filteredFiles,
+            };
+            const resultKeys = selectSearchResultKeys(scope);
+            const scopedResults = Object.fromEntries(
+              resultKeys.map((key) => [
+                key,
+                allResults[key as keyof typeof allResults],
+              ]),
+            );
+            const scopedCounts = Object.fromEntries(
+              resultKeys.map((key) => [
+                key,
+                allResults[key as keyof typeof allResults].length,
+              ]),
+            );
+
             return {
               ok: true,
               query,
               scope,
               requestedScope,
-              results: {
-                tasks: filteredTasks,
-                notes: filteredNotes,
-                payments: filteredPayments,
-                shopping: filteredShopping,
-                shoppingSections: filteredShoppingSections,
-                labor: filteredLabor,
-                laborSections: filteredLaborSections,
-                surveys: filteredSurveys,
-                contacts: filteredContacts,
-                teamMembers: filteredTeamMembers,
-                moodboardSections: filteredMoodboardSections,
-                moodboardImages: filteredMoodboardImages,
-                files: filteredFiles,
-              },
-              counts: {
-                tasks: filteredTasks.length,
-                notes: filteredNotes.length,
-                payments: filteredPayments.length,
-                shopping: filteredShopping.length,
-                shoppingSections: filteredShoppingSections.length,
-                labor: filteredLabor.length,
-                laborSections: filteredLaborSections.length,
-                surveys: filteredSurveys.length,
-                contacts: filteredContacts.length,
-                teamMembers: filteredTeamMembers.length,
-                moodboardSections: filteredMoodboardSections.length,
-                moodboardImages: filteredMoodboardImages.length,
-                files: filteredFiles.length,
-              },
+              limit: scope === "tasks" ? taskSearchPlan.limit : limit,
+              results: scopedResults,
+              counts: scopedCounts,
             };
           }
 
@@ -5055,10 +5165,9 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               }),
             ]);
 
-            const taskSummaries = (tasks as Array<Record<string, unknown>>).map(
-              summarizeTask,
-            );
-            const sortedTaskSummaries = sortTasksByRecency(taskSummaries);
+            const sortedTaskSummaries = sortTasksByRecency(
+              tasks as Array<Record<string, unknown>>,
+            ).map(summarizeTask);
             const noteSummaries = (notes as Array<Record<string, unknown>>).map(
               summarizeNote,
             );
@@ -5127,7 +5236,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 (project as Record<string, unknown> | null) ?? null,
               ),
               counts: {
-                tasks: taskSummaries.length,
+                tasks: sortedTaskSummaries.length,
                 openTasks: openTasks.length,
                 notes: noteSummaries.length,
                 payments: paymentSummaries.length,
@@ -5196,6 +5305,6 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
         };
       }
     },
-    [canMakeChanges, convex, projectId, teamId, teamSlug, userClerkId],
+    [canMakeChanges, convex, projectId, teamId, teamSlug, timezone, userClerkId],
   );
 }
