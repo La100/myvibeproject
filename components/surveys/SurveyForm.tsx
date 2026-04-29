@@ -40,23 +40,23 @@ import {
 import { toast } from "sonner";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
-
-type QuestionType =
-  | "text_short"
-  | "text_long"
-  | "multiple_choice"
-  | "single_choice"
-  | "rating"
-  | "yes_no"
-  | "number"
-  | "file";
+import {
+  ChoiceOptionsEditor,
+  RatingScaleEditor,
+  SurveyQuestionType,
+  createDefaultQuestionBuilderFields,
+  normalizeChoiceOptions,
+  surveyQuestionTypes,
+  usesChoiceOptions,
+  usesRatingScale,
+} from "@/components/surveys/QuestionBuilderFields";
 
 interface Question {
   id: string;
   questionText: string;
-  questionType: QuestionType;
+  questionType: SurveyQuestionType;
   isRequired: boolean;
-  optionsText: string;
+  options: string[];
   ratingMin: number;
   ratingMax: number;
   ratingMinLabel: string;
@@ -65,28 +65,6 @@ interface Question {
 
 interface SurveyFormProps {
   projectSlug: string;
-}
-
-const questionTypes: Array<{ value: QuestionType; label: string }> = [
-  { value: "text_short", label: "Short Text" },
-  { value: "text_long", label: "Long Text" },
-  { value: "single_choice", label: "Single Choice" },
-  { value: "multiple_choice", label: "Multiple Choice" },
-  { value: "rating", label: "Rating Scale" },
-  { value: "yes_no", label: "Yes/No" },
-  { value: "number", label: "Number" },
-  { value: "file", label: "File Upload" },
-];
-
-function normalizeOptions(optionsText: string) {
-  return optionsText
-    .split("\n")
-    .map((option) => option.trim())
-    .filter(Boolean);
-}
-
-function usesChoiceOptions(questionType: QuestionType) {
-  return questionType === "single_choice" || questionType === "multiple_choice";
 }
 
 export function SurveyForm({ projectSlug }: SurveyFormProps) {
@@ -106,11 +84,7 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
       questionText: "",
       questionType: "text_long",
       isRequired: true,
-      optionsText: "",
-      ratingMin: 1,
-      ratingMax: 5,
-      ratingMinLabel: "",
-      ratingMaxLabel: "",
+      ...createDefaultQuestionBuilderFields(),
     };
     setQuestions([...questions, newQuestion]);
   };
@@ -135,7 +109,7 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
     const invalidChoiceQuestion = validQuestions.find(
       (question) =>
         usesChoiceOptions(question.questionType) &&
-        normalizeOptions(question.optionsText).length < 2,
+        normalizeChoiceOptions(question.options).length < 2,
     );
 
     if (invalidChoiceQuestion) {
@@ -157,7 +131,7 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
       // Add questions
       for (const question of validQuestions) {
         const usesOptions = usesChoiceOptions(question.questionType);
-        const usesRating = question.questionType === "rating";
+        const usesRating = usesRatingScale(question.questionType);
 
         await addQuestion({
           surveyId,
@@ -165,7 +139,7 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
           questionType: question.questionType,
           isRequired: question.isRequired,
           options: usesOptions
-            ? normalizeOptions(question.optionsText)
+            ? normalizeChoiceOptions(question.options)
             : undefined,
           ratingScale: usesRating
             ? {
@@ -324,7 +298,7 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
                     const usesOptions = usesChoiceOptions(
                       question.questionType,
                     );
-                    const usesRating = question.questionType === "rating";
+                    const usesRating = usesRatingScale(question.questionType);
 
                     return (
                       <Card key={question.id}>
@@ -384,7 +358,7 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
                                 </Label>
                                 <Select
                                   value={question.questionType}
-                                  onValueChange={(value: QuestionType) =>
+                                  onValueChange={(value: SurveyQuestionType) =>
                                     updateQuestion(question.id, {
                                       questionType: value,
                                     })
@@ -394,7 +368,7 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
                                     <SelectValue placeholder="Select question type" />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {questionTypes.map((type) => (
+                                    {surveyQuestionTypes.map((type) => (
                                       <SelectItem
                                         key={type.value}
                                         value={type.value}
@@ -408,83 +382,31 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
                             </div>
 
                             {usesOptions ? (
-                              <div className="flex flex-col gap-3">
-                                <Label className="text-sm font-semibold">
-                                  Options
-                                </Label>
-                                <Textarea
-                                  value={question.optionsText}
-                                  onChange={(e) =>
-                                    updateQuestion(question.id, {
-                                      optionsText: e.target.value,
-                                    })
-                                  }
-                                  placeholder={
-                                    "One option per line\nOption A\nOption B"
-                                  }
-                                  rows={4}
-                                  className="resize-none text-base"
-                                />
-                              </div>
+                              <ChoiceOptionsEditor
+                                options={question.options}
+                                onChange={(options) =>
+                                  updateQuestion(question.id, { options })
+                                }
+                              />
                             ) : null}
 
                             {usesRating ? (
-                              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                                <div className="flex flex-col gap-2">
-                                  <Label className="text-sm font-semibold">
-                                    Min
-                                  </Label>
-                                  <Input
-                                    type="number"
-                                    value={question.ratingMin}
-                                    onChange={(e) =>
-                                      updateQuestion(question.id, {
-                                        ratingMin: Number(e.target.value),
-                                      })
-                                    }
-                                  />
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                  <Label className="text-sm font-semibold">
-                                    Max
-                                  </Label>
-                                  <Input
-                                    type="number"
-                                    value={question.ratingMax}
-                                    onChange={(e) =>
-                                      updateQuestion(question.id, {
-                                        ratingMax: Number(e.target.value),
-                                      })
-                                    }
-                                  />
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                  <Label className="text-sm font-semibold">
-                                    Min Label
-                                  </Label>
-                                  <Input
-                                    value={question.ratingMinLabel}
-                                    onChange={(e) =>
-                                      updateQuestion(question.id, {
-                                        ratingMinLabel: e.target.value,
-                                      })
-                                    }
-                                  />
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                  <Label className="text-sm font-semibold">
-                                    Max Label
-                                  </Label>
-                                  <Input
-                                    value={question.ratingMaxLabel}
-                                    onChange={(e) =>
-                                      updateQuestion(question.id, {
-                                        ratingMaxLabel: e.target.value,
-                                      })
-                                    }
-                                  />
-                                </div>
-                              </div>
+                              <RatingScaleEditor
+                                value={{
+                                  min: question.ratingMin,
+                                  max: question.ratingMax,
+                                  minLabel: question.ratingMinLabel,
+                                  maxLabel: question.ratingMaxLabel,
+                                }}
+                                onChange={(ratingScale) =>
+                                  updateQuestion(question.id, {
+                                    ratingMin: ratingScale.min,
+                                    ratingMax: ratingScale.max,
+                                    ratingMinLabel: ratingScale.minLabel,
+                                    ratingMaxLabel: ratingScale.maxLabel,
+                                  })
+                                }
+                              />
                             ) : null}
 
                             {/* Required toggle */}

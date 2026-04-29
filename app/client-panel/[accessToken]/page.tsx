@@ -1523,13 +1523,13 @@ export default function PublicClientPanelPage() {
       item.customerDecision === "rejected";
     const decisionTone =
       item.customerDecision === "accepted"
-        ? "border-emerald-500/35 bg-emerald-50 text-emerald-700 dark:border-emerald-400/35 dark:bg-emerald-950/35 dark:text-emerald-300"
+        ? "border-primary/30 bg-primary/10 text-primary"
         : item.customerDecision === "rejected"
           ? "border-destructive/20 bg-destructive/10 text-destructive"
           : "";
     const feedbackTone =
       item.customerDecision === "accepted"
-        ? "border-emerald-500/25 bg-emerald-50/60 dark:border-emerald-400/25 dark:bg-emerald-950/20"
+        ? "border-primary/25 bg-primary/5"
         : item.customerDecision === "rejected"
           ? "border-destructive/20 bg-destructive/5"
           : "border-border/70 bg-muted/20";
@@ -1617,7 +1617,7 @@ export default function PublicClientPanelPage() {
                   <Button
                     type="button"
                     size="sm"
-                    className="bg-primary text-white hover:bg-primary focus-visible:border-primary focus-visible:ring-emerald-200"
+                    className="bg-primary text-primary-foreground hover:bg-primary focus-visible:border-primary"
                     onClick={() =>
                       void handleRespondToShoppingItem(item, "accepted")
                     }
@@ -1711,13 +1711,13 @@ export default function PublicClientPanelPage() {
       item.customerDecision === "rejected";
     const decisionTone =
       item.customerDecision === "accepted"
-        ? "border-emerald-500/35 bg-emerald-50 text-emerald-700 dark:border-emerald-400/35 dark:bg-emerald-950/35 dark:text-emerald-300"
+        ? "border-primary/30 bg-primary/10 text-primary"
         : item.customerDecision === "rejected"
           ? "border-destructive/20 bg-destructive/10 text-destructive"
           : "";
     const feedbackTone =
       item.customerDecision === "accepted"
-        ? "border-emerald-500/25 bg-emerald-50/60 dark:border-emerald-400/25 dark:bg-emerald-950/20"
+        ? "border-primary/25 bg-primary/5"
         : item.customerDecision === "rejected"
           ? "border-destructive/20 bg-destructive/5"
           : "border-border/70 bg-muted/20";

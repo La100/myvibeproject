@@ -4,38 +4,58 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { useOrganization } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ClipboardList, GripVertical, HelpCircle, Plus, Save, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  ClipboardList,
+  GripVertical,
+  HelpCircle,
+  Plus,
+  Save,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { apiAny } from "@/lib/convexApiAny";
 import { Id } from "@/convex/_generated/dataModel";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-
-type QuestionType =
-  | "text_short"
-  | "text_long"
-  | "multiple_choice"
-  | "single_choice"
-  | "rating"
-  | "yes_no"
-  | "number"
-  | "file";
+import {
+  ChoiceOptionsEditor,
+  RatingScaleEditor,
+  SurveyQuestionType,
+  createDefaultQuestionBuilderFields,
+  normalizeChoiceOptions,
+  surveyQuestionTypes,
+  usesChoiceOptions,
+  usesRatingScale,
+} from "@/components/surveys/QuestionBuilderFields";
 
 type TemplateQuestion = {
   _id?: Id<"surveyTemplateQuestions">;
   id: string;
   questionText: string;
-  questionType: QuestionType;
-  optionsText: string;
+  questionType: SurveyQuestionType;
+  options: string[];
   isRequired: boolean;
   order?: number;
   ratingMin: number;
@@ -48,50 +68,26 @@ type SurveyTemplateFormProps = {
   templateId?: Id<"surveyTemplates">;
 };
 
-const questionTypes: Array<{ value: QuestionType; label: string }> = [
-  { value: "text_short", label: "Short Text" },
-  { value: "text_long", label: "Long Text" },
-  { value: "single_choice", label: "Single Choice" },
-  { value: "multiple_choice", label: "Multiple Choice" },
-  { value: "rating", label: "Rating Scale" },
-  { value: "yes_no", label: "Yes/No" },
-  { value: "number", label: "Number" },
-  { value: "file", label: "File Upload" },
-];
-
 function newQuestion(): TemplateQuestion {
   return {
     id: crypto.randomUUID(),
     questionText: "",
     questionType: "text_long",
-    optionsText: "",
     isRequired: true,
-    ratingMin: 1,
-    ratingMax: 5,
-    ratingMinLabel: "",
-    ratingMaxLabel: "",
+    ...createDefaultQuestionBuilderFields(),
   };
 }
 
-function normalizeOptions(optionsText: string) {
-  return optionsText
-    .split("\n")
-    .map((option) => option.trim())
-    .filter(Boolean);
-}
-
 function toQuestionPayload(question: TemplateQuestion, index: number) {
-  const usesOptions =
-    question.questionType === "single_choice" ||
-    question.questionType === "multiple_choice";
-  const usesRating = question.questionType === "rating";
+  const usesOptions = usesChoiceOptions(question.questionType);
+  const usesRating = usesRatingScale(question.questionType);
 
   return {
     questionText: question.questionText.trim(),
     questionType: question.questionType,
     isRequired: question.isRequired,
     order: index + 1,
-    options: usesOptions ? normalizeOptions(question.optionsText) : undefined,
+    options: usesOptions ? normalizeChoiceOptions(question.options) : undefined,
     ratingScale: usesRating
       ? {
           min: question.ratingMin,
@@ -110,7 +106,9 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
   const [description, setDescription] = useState("");
   const [isRequired, setIsRequired] = useState(false);
   const [allowMultipleResponses, setAllowMultipleResponses] = useState(false);
-  const [questions, setQuestions] = useState<TemplateQuestion[]>([newQuestion()]);
+  const [questions, setQuestions] = useState<TemplateQuestion[]>([
+    newQuestion(),
+  ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const team = useQuery(
@@ -129,7 +127,13 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
   const deleteQuestion = useMutation(apiAny.surveyTemplates.deleteQuestion);
 
   const existingQuestionIds = useMemo<Set<string>>(
-    () => new Set((template?.questions ?? []).map((question: { _id: Id<"surveyTemplateQuestions"> }) => String(question._id))),
+    () =>
+      new Set(
+        (template?.questions ?? []).map(
+          (question: { _id: Id<"surveyTemplateQuestions"> }) =>
+            String(question._id),
+        ),
+      ),
     [template?.questions],
   );
 
@@ -144,37 +148,45 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
     setAllowMultipleResponses(Boolean(template.allowMultipleResponses));
     setQuestions(
       template.questions.length > 0
-        ? template.questions.map((question: {
-            _id: Id<"surveyTemplateQuestions">;
-            questionText: string;
-            questionType: QuestionType;
-            options?: string[];
-            isRequired: boolean;
-            order: number;
-            ratingScale?: {
-              min: number;
-              max: number;
-              minLabel?: string;
-              maxLabel?: string;
-            };
-          }) => ({
-            _id: question._id,
-            id: String(question._id),
-            questionText: question.questionText,
-            questionType: question.questionType,
-            optionsText: (question.options ?? []).join("\n"),
-            isRequired: question.isRequired,
-            order: question.order,
-            ratingMin: question.ratingScale?.min ?? 1,
-            ratingMax: question.ratingScale?.max ?? 5,
-            ratingMinLabel: question.ratingScale?.minLabel ?? "",
-            ratingMaxLabel: question.ratingScale?.maxLabel ?? "",
-          }))
+        ? template.questions.map(
+            (question: {
+              _id: Id<"surveyTemplateQuestions">;
+              questionText: string;
+              questionType: SurveyQuestionType;
+              options?: string[];
+              isRequired: boolean;
+              order: number;
+              ratingScale?: {
+                min: number;
+                max: number;
+                minLabel?: string;
+                maxLabel?: string;
+              };
+            }) => ({
+              _id: question._id,
+              id: String(question._id),
+              questionText: question.questionText,
+              questionType: question.questionType,
+              options:
+                question.options && question.options.length >= 2
+                  ? question.options
+                  : createDefaultQuestionBuilderFields().options,
+              isRequired: question.isRequired,
+              order: question.order,
+              ratingMin: question.ratingScale?.min ?? 1,
+              ratingMax: question.ratingScale?.max ?? 5,
+              ratingMinLabel: question.ratingScale?.minLabel ?? "",
+              ratingMaxLabel: question.ratingScale?.maxLabel ?? "",
+            }),
+          )
         : [newQuestion()],
     );
   }, [template, templateId]);
 
-  const updateLocalQuestion = (id: string, updates: Partial<TemplateQuestion>) => {
+  const updateLocalQuestion = (
+    id: string,
+    updates: Partial<TemplateQuestion>,
+  ) => {
     setQuestions((current) =>
       current.map((question) =>
         question.id === id ? { ...question, ...updates } : question,
@@ -192,12 +204,14 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
       return;
     }
 
-    const validQuestions = questions.filter((question) => question.questionText.trim());
+    const validQuestions = questions.filter((question) =>
+      question.questionText.trim(),
+    );
     const invalidChoiceQuestion = validQuestions.find((question) => {
-      const needsOptions =
-        question.questionType === "single_choice" ||
-        question.questionType === "multiple_choice";
-      return needsOptions && normalizeOptions(question.optionsText).length < 2;
+      const needsOptions = usesChoiceOptions(question.questionType);
+      return (
+        needsOptions && normalizeChoiceOptions(question.options).length < 2
+      );
     });
 
     if (invalidChoiceQuestion) {
@@ -257,7 +271,9 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
         }
       }
 
-      toast.success(templateId ? "Survey template updated" : "Survey template created");
+      toast.success(
+        templateId ? "Survey template updated" : "Survey template created",
+      );
       router.push("/organisation/survey-library");
     } catch (error) {
       toast.error("Could not save survey template", {
@@ -270,7 +286,10 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mx-auto flex w-full max-w-5xl flex-col gap-8">
+    <form
+      onSubmit={handleSubmit}
+      className="mx-auto flex w-full max-w-5xl flex-col gap-8"
+    >
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
           <h1 className="font-serif text-[2rem] leading-none tracking-[-0.04em] text-foreground">
@@ -280,7 +299,12 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
             Build a reusable question set your team can copy into any project.
           </p>
         </div>
-        <Button type="button" variant="outline" size="sm" onClick={() => router.back()}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => router.back()}
+        >
           <ArrowLeft data-icon="inline-start" />
           Back
         </Button>
@@ -292,7 +316,9 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
             <ClipboardList data-icon="inline-start" />
             <div className="flex flex-col gap-1">
               <CardTitle className="text-xl">Template Details</CardTitle>
-              <CardDescription>Name and default behavior for project copies.</CardDescription>
+              <CardDescription>
+                Name and default behavior for project copies.
+              </CardDescription>
             </div>
           </div>
         </CardHeader>
@@ -327,16 +353,25 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
             <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/30 p-4">
               <div className="flex flex-col gap-1">
                 <Label className="text-sm font-medium">Required Survey</Label>
-                <p className="text-xs text-muted-foreground">New project copies inherit this setting.</p>
+                <p className="text-xs text-muted-foreground">
+                  New project copies inherit this setting.
+                </p>
               </div>
               <Switch checked={isRequired} onCheckedChange={setIsRequired} />
             </div>
             <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/30 p-4">
               <div className="flex flex-col gap-1">
-                <Label className="text-sm font-medium">Multiple Responses</Label>
-                <p className="text-xs text-muted-foreground">Allow repeated submissions by the same respondent.</p>
+                <Label className="text-sm font-medium">
+                  Multiple Responses
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Allow repeated submissions by the same respondent.
+                </p>
               </div>
-              <Switch checked={allowMultipleResponses} onCheckedChange={setAllowMultipleResponses} />
+              <Switch
+                checked={allowMultipleResponses}
+                onCheckedChange={setAllowMultipleResponses}
+              />
             </div>
           </div>
         </CardContent>
@@ -349,10 +384,17 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
               <HelpCircle data-icon="inline-start" />
               <div className="flex flex-col gap-1">
                 <CardTitle className="text-xl">Questions</CardTitle>
-                <CardDescription>Questions copied into a project survey.</CardDescription>
+                <CardDescription>
+                  Questions copied into a project survey.
+                </CardDescription>
               </div>
             </div>
-            <Button type="button" onClick={() => setQuestions((current) => [...current, newQuestion()])}>
+            <Button
+              type="button"
+              onClick={() =>
+                setQuestions((current) => [...current, newQuestion()])
+              }
+            >
               <Plus data-icon="inline-start" />
               Add Question
             </Button>
@@ -374,10 +416,8 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
           ) : (
             <div className="flex flex-col gap-6">
               {questions.map((question, index) => {
-                const usesOptions =
-                  question.questionType === "single_choice" ||
-                  question.questionType === "multiple_choice";
-                const usesRating = question.questionType === "rating";
+                const usesOptions = usesChoiceOptions(question.questionType);
+                const usesRating = usesRatingScale(question.questionType);
 
                 return (
                   <Card key={question.id}>
@@ -386,7 +426,9 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
                         <div className="flex items-center justify-between gap-3">
                           <div className="flex items-center gap-3">
                             <GripVertical className="text-muted-foreground" />
-                            <Badge variant="outline">Question {index + 1}</Badge>
+                            <Badge variant="outline">
+                              Question {index + 1}
+                            </Badge>
                           </div>
                           <Button
                             type="button"
@@ -401,7 +443,9 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
                         <Separator />
                         <div className="grid gap-6 lg:grid-cols-2">
                           <div className="flex flex-col gap-3">
-                            <Label className="text-sm font-semibold">Question Content *</Label>
+                            <Label className="text-sm font-semibold">
+                              Question Content *
+                            </Label>
                             <Textarea
                               value={question.questionText}
                               onChange={(event) =>
@@ -415,10 +459,12 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
                             />
                           </div>
                           <div className="flex flex-col gap-3">
-                            <Label className="text-sm font-semibold">Question Type</Label>
+                            <Label className="text-sm font-semibold">
+                              Question Type
+                            </Label>
                             <Select
                               value={question.questionType}
-                              onValueChange={(value: QuestionType) =>
+                              onValueChange={(value: SurveyQuestionType) =>
                                 updateLocalQuestion(question.id, {
                                   questionType: value,
                                 })
@@ -428,8 +474,11 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
                                 <SelectValue placeholder="Select question type" />
                               </SelectTrigger>
                               <SelectContent>
-                                {questionTypes.map((type) => (
-                                  <SelectItem key={type.value} value={type.value}>
+                                {surveyQuestionTypes.map((type) => (
+                                  <SelectItem
+                                    key={type.value}
+                                    value={type.value}
+                                  >
                                     {type.label}
                                   </SelectItem>
                                 ))}
@@ -439,76 +488,38 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
                         </div>
 
                         {usesOptions ? (
-                          <div className="flex flex-col gap-3">
-                            <Label className="text-sm font-semibold">Options</Label>
-                            <Textarea
-                              value={question.optionsText}
-                              onChange={(event) =>
-                                updateLocalQuestion(question.id, {
-                                  optionsText: event.target.value,
-                                })
-                              }
-                              placeholder={"One option per line\nOption A\nOption B"}
-                              rows={4}
-                              className="resize-none text-base"
-                            />
-                          </div>
+                          <ChoiceOptionsEditor
+                            options={question.options}
+                            onChange={(options) =>
+                              updateLocalQuestion(question.id, { options })
+                            }
+                          />
                         ) : null}
 
                         {usesRating ? (
-                          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                            <div className="flex flex-col gap-2">
-                              <Label className="text-sm font-semibold">Min</Label>
-                              <Input
-                                type="number"
-                                value={question.ratingMin}
-                                onChange={(event) =>
-                                  updateLocalQuestion(question.id, {
-                                    ratingMin: Number(event.target.value),
-                                  })
-                                }
-                              />
-                            </div>
-                            <div className="flex flex-col gap-2">
-                              <Label className="text-sm font-semibold">Max</Label>
-                              <Input
-                                type="number"
-                                value={question.ratingMax}
-                                onChange={(event) =>
-                                  updateLocalQuestion(question.id, {
-                                    ratingMax: Number(event.target.value),
-                                  })
-                                }
-                              />
-                            </div>
-                            <div className="flex flex-col gap-2">
-                              <Label className="text-sm font-semibold">Min Label</Label>
-                              <Input
-                                value={question.ratingMinLabel}
-                                onChange={(event) =>
-                                  updateLocalQuestion(question.id, {
-                                    ratingMinLabel: event.target.value,
-                                  })
-                                }
-                              />
-                            </div>
-                            <div className="flex flex-col gap-2">
-                              <Label className="text-sm font-semibold">Max Label</Label>
-                              <Input
-                                value={question.ratingMaxLabel}
-                                onChange={(event) =>
-                                  updateLocalQuestion(question.id, {
-                                    ratingMaxLabel: event.target.value,
-                                  })
-                                }
-                              />
-                            </div>
-                          </div>
+                          <RatingScaleEditor
+                            value={{
+                              min: question.ratingMin,
+                              max: question.ratingMax,
+                              minLabel: question.ratingMinLabel,
+                              maxLabel: question.ratingMaxLabel,
+                            }}
+                            onChange={(ratingScale) =>
+                              updateLocalQuestion(question.id, {
+                                ratingMin: ratingScale.min,
+                                ratingMax: ratingScale.max,
+                                ratingMinLabel: ratingScale.minLabel,
+                                ratingMaxLabel: ratingScale.maxLabel,
+                              })
+                            }
+                          />
                         ) : null}
 
                         <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/30 p-4">
                           <div className="flex flex-col gap-1">
-                            <Label className="text-sm font-medium">Required Question</Label>
+                            <Label className="text-sm font-medium">
+                              Required Question
+                            </Label>
                             <p className="text-xs text-muted-foreground">
                               Respondents have to answer this question.
                             </p>

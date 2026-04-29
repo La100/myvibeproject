@@ -32,25 +32,24 @@ import { ArrowLeft, Save, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
-
-type QuestionType =
-  | "text_short"
-  | "text_long"
-  | "multiple_choice"
-  | "single_choice"
-  | "rating"
-  | "yes_no"
-  | "number"
-  | "file";
+import {
+  ChoiceOptionsEditor,
+  RatingScaleEditor,
+  SurveyQuestionType,
+  createDefaultQuestionBuilderFields,
+  normalizeChoiceOptions,
+  surveyQuestionTypes,
+  usesChoiceOptions,
+  usesRatingScale,
+} from "@/components/surveys/QuestionBuilderFields";
 
 interface Question {
   _id?: Id<"surveyQuestions">;
   id: string;
   questionText: string;
-  questionType: QuestionType;
+  questionType: SurveyQuestionType;
   isRequired: boolean;
-  options?: string[];
-  optionsText: string;
+  options: string[];
   ratingScale?: {
     min: number;
     max: number;
@@ -73,28 +72,6 @@ interface Survey {
 
 interface EditSurveyFormProps {
   survey: Survey;
-}
-
-const questionTypes: Array<{ value: QuestionType; label: string }> = [
-  { value: "text_short", label: "Short Text" },
-  { value: "text_long", label: "Long Text" },
-  { value: "single_choice", label: "Single Choice" },
-  { value: "multiple_choice", label: "Multiple Choice" },
-  { value: "rating", label: "Rating Scale" },
-  { value: "yes_no", label: "Yes/No" },
-  { value: "number", label: "Number" },
-  { value: "file", label: "File Upload" },
-];
-
-function normalizeOptions(optionsText: string) {
-  return optionsText
-    .split("\n")
-    .map((option) => option.trim())
-    .filter(Boolean);
-}
-
-function usesChoiceOptions(questionType: QuestionType) {
-  return questionType === "single_choice" || questionType === "multiple_choice";
 }
 
 export function EditSurveyForm({ survey }: EditSurveyFormProps) {
@@ -128,8 +105,10 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
           questionText: q.questionText,
           questionType: q.questionType as Question["questionType"],
           isRequired: q.isRequired,
-          options: q.options,
-          optionsText: (q.options ?? []).join("\n"),
+          options:
+            q.options && q.options.length >= 2
+              ? q.options
+              : createDefaultQuestionBuilderFields().options,
           ratingScale: q.ratingScale,
           order: q.order,
           ratingMin: q.ratingScale?.min ?? 1,
@@ -147,11 +126,7 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
       questionText: "",
       questionType: "text_long",
       isRequired: true,
-      optionsText: "",
-      ratingMin: 1,
-      ratingMax: 5,
-      ratingMinLabel: "",
-      ratingMaxLabel: "",
+      ...createDefaultQuestionBuilderFields(),
     };
     setQuestions([...questions, newQuestion]);
   };
@@ -174,7 +149,7 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
     const invalidChoiceQuestion = validQuestions.find(
       (question) =>
         usesChoiceOptions(question.questionType) &&
-        normalizeOptions(question.optionsText).length < 2,
+        normalizeChoiceOptions(question.options).length < 2,
     );
 
     if (invalidChoiceQuestion) {
@@ -213,13 +188,13 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
       for (let index = 0; index < validQuestions.length; index += 1) {
         const question = validQuestions[index];
         const usesOptions = usesChoiceOptions(question.questionType);
-        const usesRating = question.questionType === "rating";
+        const usesRating = usesRatingScale(question.questionType);
         const questionPayload = {
           questionText: question.questionText.trim(),
           questionType: question.questionType,
           isRequired: question.isRequired,
           options: usesOptions
-            ? normalizeOptions(question.optionsText)
+            ? normalizeChoiceOptions(question.options)
             : undefined,
           order: index + 1,
           ratingScale: usesRating
@@ -397,7 +372,7 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
                     const usesOptions = usesChoiceOptions(
                       question.questionType,
                     );
-                    const usesRating = question.questionType === "rating";
+                    const usesRating = usesRatingScale(question.questionType);
 
                     return (
                       <Card key={question.id}>
@@ -444,7 +419,7 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
                                 </Label>
                                 <Select
                                   value={question.questionType}
-                                  onValueChange={(value: QuestionType) =>
+                                  onValueChange={(value: SurveyQuestionType) =>
                                     updateQuestionLocal(question.id, {
                                       questionType: value,
                                     })
@@ -454,7 +429,7 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
                                     <SelectValue placeholder="Select question type" />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {questionTypes.map((type) => (
+                                    {surveyQuestionTypes.map((type) => (
                                       <SelectItem
                                         key={type.value}
                                         value={type.value}
@@ -468,83 +443,31 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
                             </div>
 
                             {usesOptions ? (
-                              <div className="flex flex-col gap-3">
-                                <Label className="text-sm font-semibold">
-                                  Options
-                                </Label>
-                                <Textarea
-                                  value={question.optionsText}
-                                  onChange={(e) =>
-                                    updateQuestionLocal(question.id, {
-                                      optionsText: e.target.value,
-                                    })
-                                  }
-                                  placeholder={
-                                    "One option per line\nOption A\nOption B"
-                                  }
-                                  rows={4}
-                                  className="resize-none text-base"
-                                />
-                              </div>
+                              <ChoiceOptionsEditor
+                                options={question.options}
+                                onChange={(options) =>
+                                  updateQuestionLocal(question.id, { options })
+                                }
+                              />
                             ) : null}
 
                             {usesRating ? (
-                              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                                <div className="flex flex-col gap-2">
-                                  <Label className="text-sm font-semibold">
-                                    Min
-                                  </Label>
-                                  <Input
-                                    type="number"
-                                    value={question.ratingMin}
-                                    onChange={(e) =>
-                                      updateQuestionLocal(question.id, {
-                                        ratingMin: Number(e.target.value),
-                                      })
-                                    }
-                                  />
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                  <Label className="text-sm font-semibold">
-                                    Max
-                                  </Label>
-                                  <Input
-                                    type="number"
-                                    value={question.ratingMax}
-                                    onChange={(e) =>
-                                      updateQuestionLocal(question.id, {
-                                        ratingMax: Number(e.target.value),
-                                      })
-                                    }
-                                  />
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                  <Label className="text-sm font-semibold">
-                                    Min Label
-                                  </Label>
-                                  <Input
-                                    value={question.ratingMinLabel}
-                                    onChange={(e) =>
-                                      updateQuestionLocal(question.id, {
-                                        ratingMinLabel: e.target.value,
-                                      })
-                                    }
-                                  />
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                  <Label className="text-sm font-semibold">
-                                    Max Label
-                                  </Label>
-                                  <Input
-                                    value={question.ratingMaxLabel}
-                                    onChange={(e) =>
-                                      updateQuestionLocal(question.id, {
-                                        ratingMaxLabel: e.target.value,
-                                      })
-                                    }
-                                  />
-                                </div>
-                              </div>
+                              <RatingScaleEditor
+                                value={{
+                                  min: question.ratingMin,
+                                  max: question.ratingMax,
+                                  minLabel: question.ratingMinLabel,
+                                  maxLabel: question.ratingMaxLabel,
+                                }}
+                                onChange={(ratingScale) =>
+                                  updateQuestionLocal(question.id, {
+                                    ratingMin: ratingScale.min,
+                                    ratingMax: ratingScale.max,
+                                    ratingMinLabel: ratingScale.minLabel,
+                                    ratingMaxLabel: ratingScale.maxLabel,
+                                  })
+                                }
+                              />
                             ) : null}
 
                             <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/30 p-4">
