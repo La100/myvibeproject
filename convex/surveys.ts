@@ -25,6 +25,16 @@ const logActivityMutation = makeFunctionReference<"mutation">(
 // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
 const internalAny = require("./_generated/api").internal as any;
 
+const buildPublicR2FileUrl = (key: string) => {
+  const publicBaseUrl = (
+    process.env.NEXT_PUBLIC_R2_PUBLIC_URL ||
+    process.env.R2_PUBLIC_URL ||
+    ""
+  ).replace(/\/$/, "");
+
+  return publicBaseUrl ? `${publicBaseUrl}/${key}` : undefined;
+};
+
 const isSurveyVisibleInPublicPortal = (survey: Doc<"surveys">, now: number) => {
   if (survey.status === "closed") return false;
   if (typeof survey.startDate === "number" && survey.startDate > now)
@@ -538,7 +548,7 @@ export const submitPublicSurveyResponseByAccessToken = mutation({
 
     for (const answer of args.answers) {
       const question = questionById.get(String(answer.questionId));
-      if (!question || question.questionType === "file") {
+      if (!question) {
         continue;
       }
 
@@ -1126,10 +1136,27 @@ export const getSurveyResponses = query({
           .query("surveyAnswers")
           .withIndex("by_response", (q) => q.eq("responseId", response._id))
           .collect();
+        const answersWithFileUrls = await Promise.all(
+          answers.map(async (answer) => {
+            if (answer.answerType !== "file" || !answer.fileAnswer?.fileId) {
+              return answer;
+            }
+            const file = await ctx.db.get(answer.fileAnswer.fileId);
+            return {
+              ...answer,
+              fileAnswer: {
+                ...answer.fileAnswer,
+                fileUrl: file?.storageId
+                  ? buildPublicR2FileUrl(file.storageId)
+                  : undefined,
+              },
+            };
+          }),
+        );
 
         return {
           ...response,
-          answers,
+          answers: answersWithFileUrls,
         };
       }),
     );

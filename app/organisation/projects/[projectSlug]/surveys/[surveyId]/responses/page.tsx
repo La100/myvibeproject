@@ -13,7 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ArrowLeft, Users, FileText } from "lucide-react";
+import { ArrowLeft, ExternalLink, FileText, ImageIcon, Users } from "lucide-react";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 import {
@@ -69,7 +69,14 @@ export default function SurveyResponsesPage({
     return <div>Loading...</div>;
   }
 
-  const getAnswerDisplay = (answer: {
+  const formatFileSize = (size?: number) => {
+    if (typeof size !== "number") return null;
+    if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+    if (size >= 1024) return `${(size / 1024).toFixed(1)} KB`;
+    return `${size} B`;
+  };
+
+  const renderAnswerDisplay = (answer: {
     answerType: string;
     textAnswer?: string;
     choiceAnswers?: string[];
@@ -78,6 +85,9 @@ export default function SurveyResponsesPage({
     booleanAnswer?: boolean;
     fileAnswer?: {
       fileName?: string;
+      fileSize?: number;
+      fileType?: string;
+      fileUrl?: string;
     };
   }) => {
     switch (answer.answerType) {
@@ -97,8 +107,73 @@ export default function SurveyResponsesPage({
           : "-";
       case "boolean":
         return answer.booleanAnswer ? "Yes" : "No";
-      case "file":
-        return answer.fileAnswer?.fileName || "-";
+      case "file": {
+        const file = answer.fileAnswer;
+        if (!file?.fileName) return "-";
+
+        const isImage = file.fileType?.startsWith("image/");
+        const fileSize = formatFileSize(file.fileSize);
+        if (isImage && file.fileUrl) {
+          return (
+            <a
+              href={file.fileUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="group block overflow-hidden rounded-xl border border-border bg-card"
+            >
+              <div className="aspect-[16/9] max-h-72 bg-secondary">
+                <img
+                  src={file.fileUrl}
+                  alt={file.fileName}
+                  className="h-full w-full object-cover transition-transform group-hover:scale-[1.01]"
+                />
+              </div>
+              <div className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+                <span className="min-w-0 truncate font-medium">
+                  {file.fileName}
+                </span>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {fileSize || "Open"}
+                </span>
+              </div>
+            </a>
+          );
+        }
+
+        if (file.fileUrl) {
+          return (
+            <a
+              href={file.fileUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3 text-sm transition-colors hover:bg-secondary/60"
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                <ImageIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="truncate font-medium">{file.fileName}</span>
+              </span>
+              <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+                {fileSize || "Open"}
+                <ExternalLink className="h-3.5 w-3.5" />
+              </span>
+            </a>
+          );
+        }
+
+        return (
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3 text-sm">
+            <span className="flex min-w-0 items-center gap-2">
+              <ImageIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span className="truncate font-medium">{file.fileName}</span>
+            </span>
+            {fileSize ? (
+              <span className="shrink-0 text-xs text-muted-foreground">
+                {fileSize}
+              </span>
+            ) : null}
+          </div>
+        );
+      }
       default:
         return "-";
     }
@@ -274,9 +349,9 @@ export default function SurveyResponsesPage({
                                 <div className="mb-2 font-medium">
                                   {question.questionText}
                                 </div>
-                                <div className="rounded-lg bg-secondary/70 p-3">
+                                <div className="rounded-xl bg-secondary/70 p-3 text-sm">
                                   {answer ? (
-                                    getAnswerDisplay(answer)
+                                    renderAnswerDisplay(answer)
                                   ) : (
                                     <span className="italic text-muted-foreground">
                                       No answer

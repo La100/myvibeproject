@@ -2712,9 +2712,12 @@ export default function PublicClientPanelPage() {
                     </div>
 
                     {isLocked ? (
-                      <p className="mt-4 text-sm text-muted-foreground">
-                        You already submitted this survey.
-                      </p>
+                      <div className="border-t border-border/70 bg-secondary/35 px-5 py-4 sm:px-6">
+                        <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-card px-4 py-3 text-sm text-muted-foreground">
+                          <CheckCircle2 className="h-4 w-4 shrink-0 text-foreground" />
+                          <span>You already submitted this survey.</span>
+                        </div>
+                      </div>
                     ) : null}
 
                     {isOpen ? (
@@ -2912,19 +2915,22 @@ export default function PublicClientPanelPage() {
                                   }
                                   className="flex flex-col gap-3"
                                 >
-                                  <div className="flex items-center justify-between rounded-full bg-secondary px-3 py-1.5 text-xs text-muted-foreground">
-                                    <span>
-                                      {question.ratingScale?.minLabel ||
-                                        question.ratingScale?.min ||
-                                        1}
-                                    </span>
-                                    <span>
-                                      {question.ratingScale?.maxLabel ||
-                                        question.ratingScale?.max ||
-                                        5}
-                                    </span>
-                                  </div>
-                                  <div className="grid grid-cols-5 gap-2 sm:flex sm:flex-wrap">
+                                  {(question.ratingScale?.minLabel ||
+                                    question.ratingScale?.maxLabel) ? (
+                                    <div className="flex items-center justify-between gap-3 rounded-xl bg-secondary px-3 py-2 text-xs text-muted-foreground">
+                                      <span className="min-w-0 truncate">
+                                        {question.ratingScale?.minLabel ||
+                                          question.ratingScale?.min ||
+                                          1}
+                                      </span>
+                                      <span className="min-w-0 truncate text-right">
+                                        {question.ratingScale?.maxLabel ||
+                                          question.ratingScale?.max ||
+                                          5}
+                                      </span>
+                                    </div>
+                                  ) : null}
+                                  <div className="grid grid-cols-5 gap-2 sm:max-w-sm">
                                     {Array.from(
                                       {
                                         length:
@@ -2939,7 +2945,7 @@ export default function PublicClientPanelPage() {
                                         key={value}
                                         htmlFor={`${questionId}-${value}`}
                                         className={cn(
-                                          "flex h-11 cursor-pointer items-center justify-center rounded-xl border text-sm font-semibold transition-[background-color,border-color,color]",
+                                          "relative flex h-12 cursor-pointer items-center justify-center rounded-xl border text-sm font-semibold transition-[background-color,border-color,color]",
                                           answerValue === value
                                             ? "border-primary bg-primary text-primary-foreground"
                                             : "border-border bg-background hover:border-primary/25",
@@ -2948,9 +2954,11 @@ export default function PublicClientPanelPage() {
                                         <RadioGroupItem
                                           value={String(value)}
                                           id={`${questionId}-${value}`}
-                                          className="sr-only"
+                                          className="absolute inset-0 h-full w-full opacity-0"
                                         />
-                                        {value}
+                                        <span className="pointer-events-none">
+                                          {value}
+                                        </span>
                                       </Label>
                                     ))}
                                   </div>
