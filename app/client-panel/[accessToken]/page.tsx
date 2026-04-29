@@ -1530,13 +1530,13 @@ export default function PublicClientPanelPage() {
       item.customerDecision === "rejected";
     const decisionTone =
       item.customerDecision === "accepted"
-        ? "border-primary/30 bg-primary/10 text-primary"
+        ? "border-emerald-500/35 bg-emerald-50 text-emerald-700"
         : item.customerDecision === "rejected"
           ? "border-destructive/20 bg-destructive/10 text-destructive"
           : "";
     const feedbackTone =
       item.customerDecision === "accepted"
-        ? "border-primary/25 bg-primary/5"
+        ? "border-emerald-500/30 bg-emerald-50/70"
         : item.customerDecision === "rejected"
           ? "border-destructive/20 bg-destructive/5"
           : "border-border/70 bg-muted/20";
@@ -1624,7 +1624,7 @@ export default function PublicClientPanelPage() {
                   <Button
                     type="button"
                     size="sm"
-                    className="bg-primary text-primary-foreground hover:bg-primary focus-visible:border-primary"
+                    className="bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:border-emerald-600 focus-visible:ring-emerald-200"
                     onClick={() =>
                       void handleRespondToShoppingItem(item, "accepted")
                     }
@@ -1718,13 +1718,13 @@ export default function PublicClientPanelPage() {
       item.customerDecision === "rejected";
     const decisionTone =
       item.customerDecision === "accepted"
-        ? "border-primary/30 bg-primary/10 text-primary"
+        ? "border-emerald-500/35 bg-emerald-50 text-emerald-700"
         : item.customerDecision === "rejected"
           ? "border-destructive/20 bg-destructive/10 text-destructive"
           : "";
     const feedbackTone =
       item.customerDecision === "accepted"
-        ? "border-primary/25 bg-primary/5"
+        ? "border-emerald-500/30 bg-emerald-50/70"
         : item.customerDecision === "rejected"
           ? "border-destructive/20 bg-destructive/5"
           : "border-border/70 bg-muted/20";
@@ -1802,7 +1802,7 @@ export default function PublicClientPanelPage() {
                 <Button
                   type="button"
                   size="sm"
-                  className="bg-primary text-white hover:bg-primary focus-visible:border-primary focus-visible:ring-emerald-200"
+                  className="bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:border-emerald-600 focus-visible:ring-emerald-200"
                   onClick={() =>
                     void handleRespondToLaborItem(item, "accepted")
                   }
@@ -2355,12 +2355,12 @@ export default function PublicClientPanelPage() {
               </span>
             ) : null}
           </div>
-          <p className="max-w-4xl text-sm text-muted-foreground">
-            Choose a section shared by the project team.
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+            Shared sections
           </p>
           {sectionCards.length > 0 ? (
             <>
-              <div className="flex flex-wrap gap-3">
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                 {sectionCards.map((section) => {
                   const isActive = activeSectionId === section.id;
                   const Icon = section.icon;
@@ -2373,31 +2373,31 @@ export default function PublicClientPanelPage() {
                       variant="outline"
                       size="sm"
                       className={cn(
-                        "h-auto min-h-0 items-center gap-3 rounded-full border px-3 py-3 text-left transition-all duration-150 sm:px-4",
+                        "h-auto min-h-16 justify-start gap-3 rounded-2xl border px-3.5 py-3 text-left shadow-none transition-[background-color,border-color,box-shadow] sm:px-4",
                         isActive
-                          ? "border-foreground/15 bg-background text-foreground shadow-sm hover:border-foreground/25 hover:bg-background"
-                          : "border-border bg-white text-foreground hover:-translate-y-0.5 hover:border-foreground/20 hover:bg-background hover:shadow-sm",
+                          ? "border-foreground/15 bg-foreground text-background shadow-sm hover:bg-foreground/90"
+                          : "border-border bg-card text-foreground hover:border-foreground/20 hover:bg-secondary/50",
                       )}
                     >
                       <div
                         className={cn(
-                          "flex size-9 items-center justify-center rounded-full border",
+                          "flex size-9 shrink-0 items-center justify-center rounded-xl border",
                           isActive
-                            ? "border-foreground/10 bg-white text-foreground"
+                            ? "border-white/15 bg-white/10 text-background"
                             : "border-border bg-muted/30 text-muted-foreground",
                         )}
                       >
                         <Icon className="size-4" />
                       </div>
-                      <div className="flex flex-col items-start leading-none">
-                        <span className="text-sm font-medium sm:text-[15px]">
+                      <div className="min-w-0 flex-1 leading-none">
+                        <span className="block truncate text-sm font-medium sm:text-[15px]">
                           {section.label}
                         </span>
                         <span
                           className={cn(
-                            "mt-1 text-xs",
+                            "mt-1.5 block text-xs",
                             isActive
-                              ? "text-foreground/65"
+                              ? "text-background/70"
                               : "text-muted-foreground",
                           )}
                         >
@@ -2405,7 +2405,7 @@ export default function PublicClientPanelPage() {
                         </span>
                       </div>
                       {isActive ? (
-                        <span className="rounded-full border border-foreground/10 bg-white px-2.5 py-1 text-[11px] font-medium text-foreground/70">
+                        <span className="shrink-0 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-medium text-background/80">
                           Current
                         </span>
                       ) : null}
@@ -3286,7 +3286,7 @@ export default function PublicClientPanelPage() {
                           className={cn(
                             "border-border/70",
                             item.customerDecision === "accepted" &&
-                              "border-primary/25 bg-primary/6",
+                              "border-emerald-500/30 bg-emerald-50/70",
                             item.customerDecision === "rejected" &&
                               "border-destructive/20 bg-destructive/5",
                           )}
@@ -3297,7 +3297,7 @@ export default function PublicClientPanelPage() {
                                 className={cn(
                                   "text-xs",
                                   item.customerDecision === "accepted"
-                                    ? "border-primary/30 bg-primary/12 text-primary dark:text-primary"
+                                    ? "border-emerald-500/35 bg-emerald-50 text-emerald-700"
                                     : "border-destructive/20 bg-destructive/10 text-destructive",
                                 )}
                               >
@@ -4096,7 +4096,7 @@ export default function PublicClientPanelPage() {
                                         {isSelected ? (
                                           <Badge
                                             variant="secondary"
-                                            className="border-primary/30 bg-primary/10 text-primary"
+                                            className="border-emerald-500/35 bg-emerald-50 text-emerald-700"
                                           >
                                             {group.selectionMode === "multiple"
                                               ? "Included"
