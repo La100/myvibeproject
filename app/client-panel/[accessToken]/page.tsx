@@ -18,6 +18,7 @@ import {
   MoreHorizontal,
   Send,
   ShoppingCart,
+  Upload,
   Users,
   Wallet,
   XCircle,
@@ -213,12 +214,18 @@ type PublicSurvey = {
 };
 type PublicSurveyAnswerPayload = {
   questionId: Id<"surveyQuestions">;
-  answerType: "text" | "choice" | "rating" | "number" | "boolean";
+  answerType: "text" | "choice" | "rating" | "number" | "boolean" | "file";
   textAnswer?: string;
   choiceAnswers?: string[];
   ratingAnswer?: number;
   numberAnswer?: number;
   booleanAnswer?: boolean;
+  fileAnswer?: {
+    fileId: Id<"files">;
+    fileName: string;
+    fileSize: number;
+    fileType: string;
+  };
 };
 type ShoppingGroup = {
   key: string;
@@ -401,7 +408,29 @@ const buildPublicSurveyAnswerPayload = (
   question: PublicSurveyQuestion,
   value: unknown,
 ): PublicSurveyAnswerPayload | null => {
-  if (question.questionType === "file") return null;
+  if (question.questionType === "file") {
+    if (
+      !value ||
+      typeof value !== "object" ||
+      !("fileId" in value) ||
+      !("fileName" in value) ||
+      !("fileSize" in value) ||
+      !("fileType" in value)
+    ) {
+      return null;
+    }
+    const fileAnswer = value as {
+      fileId: Id<"files">;
+      fileName: string;
+      fileSize: number;
+      fileType: string;
+    };
+    return {
+      questionId: question._id,
+      answerType: "file",
+      fileAnswer,
+    };
+  }
 
   if (
     question.questionType === "text_short" ||
@@ -417,6 +446,8 @@ const buildPublicSurveyAnswerPayload = (
 
   if (question.questionType === "single_choice") {
     if (typeof value !== "string" || value.trim().length === 0) return null;
+    const allowedOptions = new Set(question.options || []);
+    if (!allowedOptions.has(value)) return null;
     return {
       questionId: question._id,
       answerType: "choice",
@@ -426,8 +457,10 @@ const buildPublicSurveyAnswerPayload = (
 
   if (question.questionType === "multiple_choice") {
     if (!Array.isArray(value)) return null;
+    const allowedOptions = new Set(question.options || []);
     const selectedValues = value.filter(
-      (option): option is string => typeof option === "string",
+      (option): option is string =>
+        typeof option === "string" && allowedOptions.has(option),
     );
     if (selectedValues.length === 0) return null;
     return {
@@ -439,6 +472,9 @@ const buildPublicSurveyAnswerPayload = (
 
   if (question.questionType === "rating") {
     if (typeof value !== "number" || Number.isNaN(value)) return null;
+    const min = question.ratingScale?.min ?? 1;
+    const max = question.ratingScale?.max ?? 5;
+    if (value < min || value > max) return null;
     return {
       questionId: question._id,
       answerType: "rating",
@@ -596,6 +632,10 @@ export default function PublicClientPanelPage() {
   const submitPublicSurvey = useMutation(
     apiAny.surveys.submitPublicSurveyResponseByAccessToken,
   );
+  const generatePublicSurveyUploadUrl = useMutation(
+    apiAny.files.generatePublicSurveyUploadUrl,
+  );
+  const addPublicSurveyFile = useMutation(apiAny.files.addPublicSurveyFile);
   const getInvoiceDownloadUrl = useAction(
     apiAny.projectPaymentActions
       .getProjectPaymentInvoiceDownloadUrlByAccessToken,
@@ -628,6 +668,8 @@ export default function PublicClientPanelPage() {
   const [surveyAnswers, setSurveyAnswers] = useState<
     Record<string, Record<string, unknown>>
   >({});
+  const [uploadingSurveyFileQuestionId, setUploadingSurveyFileQuestionId] =
+    useState<string | null>(null);
   const [isExportingMaterialsPdf, setIsExportingMaterialsPdf] = useState(false);
   const [isExportingLaborPdf, setIsExportingLaborPdf] = useState(false);
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
@@ -2057,6 +2099,60 @@ export default function PublicClientPanelPage() {
     }));
   };
 
+  const handlePublicSurveyFileUpload = async (
+    survey: PublicSurvey,
+    question: PublicSurveyQuestion,
+    file: File,
+  ) => {
+    if (!respondentKey) return;
+
+    const uploadKey = `${survey._id}:${question._id}`;
+    setUploadingSurveyFileQuestionId(uploadKey);
+    try {
+      const mimeType = file.type || "application/octet-stream";
+      const uploadData = await generatePublicSurveyUploadUrl({
+        accessToken,
+        surveyId: survey._id,
+        questionId: question._id,
+        respondentKey,
+        fileName: file.name,
+        fileSize: file.size,
+      });
+
+      const uploadResponse = await fetch(uploadData.url, {
+        method: "PUT",
+        body: file,
+        headers: {
+          "Content-Type": mimeType,
+        },
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error("Upload failed");
+      }
+
+      const fileAnswer = await addPublicSurveyFile({
+        accessToken,
+        surveyId: survey._id,
+        questionId: question._id,
+        respondentKey,
+        fileKey: uploadData.key,
+        fileName: file.name,
+        fileType: mimeType,
+        fileSize: file.size,
+      });
+
+      updateSurveyAnswer(String(survey._id), String(question._id), fileAnswer);
+      toast.success("File uploaded");
+    } catch (error) {
+      toast.error("Could not upload file", {
+        description: toUserFacingErrorMessage(error),
+      });
+    } finally {
+      setUploadingSurveyFileQuestionId(null);
+    }
+  };
+
   const handleOpenSurvey = (surveyId: string) => {
     setOpenSurveyId((current) => (current === surveyId ? null : surveyId));
     setSurveyStartTimes((prev) =>
@@ -2083,7 +2179,7 @@ export default function PublicClientPanelPage() {
         payload.push(answer);
         continue;
       }
-      if (question.isRequired && question.questionType !== "file") {
+      if (question.isRequired) {
         missingRequired.push(question);
       }
     }
@@ -2546,10 +2642,6 @@ export default function PublicClientPanelPage() {
                 const isSubmitting = submittingSurveyId === surveyId;
                 const isLocked =
                   survey.hasSubmitted && !survey.allowMultipleResponses;
-                const hasRequiredFileQuestion = survey.questions.some(
-                  (question) =>
-                    question.questionType === "file" && question.isRequired,
-                );
                 const answersForSurvey = surveyAnswers[surveyId] || {};
 
                 return (
@@ -2717,67 +2809,71 @@ export default function PublicClientPanelPage() {
                                   }
                                   className="flex flex-col gap-2"
                                 >
-                                  {(question.options || []).map((option) => (
-                                    <div
-                                      key={option}
-                                      className="flex items-center gap-2"
-                                    >
-                                      <RadioGroupItem
-                                        value={option}
-                                        id={`${questionId}-${option}`}
-                                      />
-                                      <Label
-                                        htmlFor={`${questionId}-${option}`}
+                                  {(question.options || []).map(
+                                    (option, optionIndex) => (
+                                      <div
+                                        key={`${questionId}-${optionIndex}`}
+                                        className="flex items-center gap-2"
                                       >
-                                        {option}
-                                      </Label>
-                                    </div>
-                                  ))}
+                                        <RadioGroupItem
+                                          value={option}
+                                          id={`${questionId}-option-${optionIndex}`}
+                                        />
+                                        <Label
+                                          htmlFor={`${questionId}-option-${optionIndex}`}
+                                        >
+                                          {option}
+                                        </Label>
+                                      </div>
+                                    ),
+                                  )}
                                 </RadioGroup>
                               ) : null}
 
                               {question.questionType === "multiple_choice" ? (
                                 <div className="flex flex-col gap-2">
-                                  {(question.options || []).map((option) => {
-                                    const selectedValues = Array.isArray(
-                                      answerValue,
-                                    )
-                                      ? answerValue.filter(
-                                          (value): value is string =>
-                                            typeof value === "string",
-                                        )
-                                      : [];
-                                    const checked =
-                                      selectedValues.includes(option);
-                                    return (
-                                      <div
-                                        key={option}
-                                        className="flex items-center gap-2"
-                                      >
-                                        <Checkbox
-                                          id={`${questionId}-${option}`}
-                                          checked={checked}
-                                          onCheckedChange={(nextChecked) => {
-                                            const nextValues = nextChecked
-                                              ? [...selectedValues, option]
-                                              : selectedValues.filter(
-                                                  (value) => value !== option,
-                                                );
-                                            updateSurveyAnswer(
-                                              surveyId,
-                                              questionId,
-                                              nextValues,
-                                            );
-                                          }}
-                                        />
-                                        <Label
-                                          htmlFor={`${questionId}-${option}`}
+                                  {(question.options || []).map(
+                                    (option, optionIndex) => {
+                                      const selectedValues = Array.isArray(
+                                        answerValue,
+                                      )
+                                        ? answerValue.filter(
+                                            (value): value is string =>
+                                              typeof value === "string",
+                                          )
+                                        : [];
+                                      const checked =
+                                        selectedValues.includes(option);
+                                      return (
+                                        <div
+                                          key={`${questionId}-${optionIndex}`}
+                                          className="flex items-center gap-2"
                                         >
-                                          {option}
-                                        </Label>
-                                      </div>
-                                    );
-                                  })}
+                                          <Checkbox
+                                            id={`${questionId}-option-${optionIndex}`}
+                                            checked={checked}
+                                            onCheckedChange={(nextChecked) => {
+                                              const nextValues = nextChecked
+                                                ? [...selectedValues, option]
+                                                : selectedValues.filter(
+                                                    (value) => value !== option,
+                                                  );
+                                              updateSurveyAnswer(
+                                                surveyId,
+                                                questionId,
+                                                nextValues,
+                                              );
+                                            }}
+                                          />
+                                          <Label
+                                            htmlFor={`${questionId}-option-${optionIndex}`}
+                                          >
+                                            {option}
+                                          </Label>
+                                        </div>
+                                      );
+                                    },
+                                  )}
                                 </div>
                               ) : null}
 
@@ -2906,21 +3002,64 @@ export default function PublicClientPanelPage() {
                               ) : null}
 
                               {question.questionType === "file" ? (
-                                <p className="text-xs text-muted-foreground">
-                                  File uploads are not available in the public
-                                  portal yet.
-                                </p>
+                                <div className="flex flex-col gap-3">
+                                  {(() => {
+                                    const fileAnswer =
+                                      answerValue &&
+                                      typeof answerValue === "object" &&
+                                      "fileName" in answerValue
+                                        ? (answerValue as {
+                                            fileName?: string;
+                                            fileSize?: number;
+                                          })
+                                        : null;
+                                    const uploadKey = `${survey._id}:${question._id}`;
+                                    const isUploading =
+                                      uploadingSurveyFileQuestionId ===
+                                      uploadKey;
+
+                                    return (
+                                      <>
+                                        <Input
+                                          type="file"
+                                          disabled={isUploading}
+                                          onChange={(event) => {
+                                            const file =
+                                              event.target.files?.[0];
+                                            if (!file) return;
+                                            void handlePublicSurveyFileUpload(
+                                              survey,
+                                              question,
+                                              file,
+                                            );
+                                            event.target.value = "";
+                                          }}
+                                        />
+                                        {fileAnswer?.fileName ? (
+                                          <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-xs text-muted-foreground">
+                                            <Upload data-icon="inline-start" />
+                                            <span>
+                                              {fileAnswer.fileName}
+                                              {typeof fileAnswer.fileSize ===
+                                              "number"
+                                                ? ` • ${formatFileSize(fileAnswer.fileSize)}`
+                                                : ""}
+                                            </span>
+                                          </div>
+                                        ) : null}
+                                        {isUploading ? (
+                                          <p className="text-xs text-muted-foreground">
+                                            Uploading file...
+                                          </p>
+                                        ) : null}
+                                      </>
+                                    );
+                                  })()}
+                                </div>
                               ) : null}
                             </div>
                           );
                         })}
-
-                        {hasRequiredFileQuestion ? (
-                          <p className="text-xs text-destructive">
-                            This survey has required file upload questions and
-                            cannot be submitted in the public portal.
-                          </p>
-                        ) : null}
 
                         <div className="flex justify-end">
                           <Button
@@ -2928,7 +3067,10 @@ export default function PublicClientPanelPage() {
                             onClick={() =>
                               void handleSubmitPublicSurvey(survey)
                             }
-                            disabled={isSubmitting || hasRequiredFileQuestion}
+                            disabled={
+                              isSubmitting ||
+                              uploadingSurveyFileQuestionId !== null
+                            }
                           >
                             <Send data-icon="inline-start" />
                             {isSubmitting ? "Submitting..." : "Submit survey"}

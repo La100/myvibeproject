@@ -17,13 +17,17 @@ import { canAccessProjectWithMembership } from "./authz";
 import { resolveActorFromExtensionSessionToken } from "./extensionSessions";
 
 export const r2 = new R2(components.r2);
-const checkStorageLimitQueryRef =
-  makeFunctionReference<"query">("files:checkStorageLimit");
-const FILE_KNOWLEDGE_INDEX_ACTION = "fileKnowledgeActions:indexProjectFileKnowledge";
-const FILE_KNOWLEDGE_REMOVE_ACTION = "fileKnowledgeActions:removeProjectFileKnowledgeEntry";
+const checkStorageLimitQueryRef = makeFunctionReference<"query">(
+  "files:checkStorageLimit",
+);
+const FILE_KNOWLEDGE_INDEX_ACTION =
+  "fileKnowledgeActions:indexProjectFileKnowledge";
+const FILE_KNOWLEDGE_REMOVE_ACTION =
+  "fileKnowledgeActions:removeProjectFileKnowledgeEntry";
 
 const isPdfFile = (file: { name?: string; mimeType?: string }) =>
-  file.mimeType === "application/pdf" || file.name?.toLowerCase().endsWith(".pdf") === true;
+  file.mimeType === "application/pdf" ||
+  file.name?.toLowerCase().endsWith(".pdf") === true;
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const DEFAULT_MOODBOARD_SECTIONS = [
@@ -31,7 +35,8 @@ const DEFAULT_MOODBOARD_SECTIONS = [
   { id: "2", title: "DETAILS", order: 1 },
 ];
 
-const normalizeMoodboardSectionTitle = (title: string) => title.trim().toUpperCase();
+const normalizeMoodboardSectionTitle = (title: string) =>
+  title.trim().toUpperCase();
 
 const formatMoodboardSectionLabel = (section: string) => {
   const normalized = section.trim();
@@ -40,8 +45,12 @@ const formatMoodboardSectionLabel = (section: string) => {
   return normalized.toUpperCase();
 };
 
-const sortMoodboardSections = <T extends { order: number; title: string }>(sections: T[]) =>
-  [...sections].sort((a, b) => a.order - b.order || a.title.localeCompare(b.title));
+const sortMoodboardSections = <T extends { order: number; title: string }>(
+  sections: T[],
+) =>
+  [...sections].sort(
+    (a, b) => a.order - b.order || a.title.localeCompare(b.title),
+  );
 
 const sortMoodboardFiles = <
   T extends { moodboardOrder?: number; _creationTime: number; name?: string },
@@ -71,8 +80,9 @@ const getNextMoodboardFileOrder = async (
   if (files.length === 0) return 0;
   return (
     Math.max(
-      ...files.map((file: { moodboardOrder?: number; _creationTime: number }) =>
-        file.moodboardOrder ?? file._creationTime,
+      ...files.map(
+        (file: { moodboardOrder?: number; _creationTime: number }) =>
+          file.moodboardOrder ?? file._creationTime,
       ),
     ) + 1
   );
@@ -111,7 +121,11 @@ const resolveMoodboardSections = (
   }));
 };
 
-const getProjectAccess = async (ctx: any, projectId: Id<"projects">, clerkUserId: string) => {
+const getProjectAccess = async (
+  ctx: any,
+  projectId: Id<"projects">,
+  clerkUserId: string,
+) => {
   const project = await ctx.db.get(projectId);
   if (!project) {
     throw new Error("Project not found");
@@ -120,7 +134,7 @@ const getProjectAccess = async (ctx: any, projectId: Id<"projects">, clerkUserId
   const teamMember = await ctx.db
     .query("teamMembers")
     .withIndex("by_team_and_user", (q: any) =>
-      q.eq("teamId", project.teamId).eq("clerkUserId", clerkUserId)
+      q.eq("teamId", project.teamId).eq("clerkUserId", clerkUserId),
     )
     .unique();
 
@@ -148,7 +162,10 @@ const requireCurrentProjectAccess = async (
   return { identity, membership: access.teamMember, project: access.project };
 };
 
-const scheduleKnowledgeIndex = async (ctx: MutationCtx, fileId: Id<"files">) => {
+const scheduleKnowledgeIndex = async (
+  ctx: MutationCtx,
+  fileId: Id<"files">,
+) => {
   const scheduler = ctx.scheduler as {
     runAfter: (
       delayMs: number,
@@ -190,8 +207,12 @@ const listMoodboardFileSectionIds = async (
   return [
     ...new Set(
       files
-        .map((file: { moodboardSection?: string }) => file.moodboardSection?.trim())
-        .filter((section: string | undefined): section is string => Boolean(section)),
+        .map((file: { moodboardSection?: string }) =>
+          file.moodboardSection?.trim(),
+        )
+        .filter((section: string | undefined): section is string =>
+          Boolean(section),
+        ),
     ),
   ] as string[];
 };
@@ -202,18 +223,21 @@ const patchProjectMoodboardSections = async (
   sections: { id: string; title: string; order: number }[],
 ) => {
   await ctx.db.patch(projectId, {
-    moodboardSections: sortMoodboardSections(sections).map((section, index) => ({
-      id: section.id,
-      title: section.title,
-      order: index,
-    })),
+    moodboardSections: sortMoodboardSections(sections).map(
+      (section, index) => ({
+        id: section.id,
+        title: section.title,
+        order: index,
+      }),
+    ),
   } as any);
 };
 
 const getStoredMoodboardSections = (
   project: unknown,
 ): { id: string; title: string; order: number }[] | undefined => {
-  const sections = (project as { moodboardSections?: unknown })?.moodboardSections;
+  const sections = (project as { moodboardSections?: unknown })
+    ?.moodboardSections;
   if (!Array.isArray(sections)) {
     return undefined;
   }
@@ -224,7 +248,11 @@ const getStoredMoodboardSections = (
         return null;
       }
 
-      const record = section as { id?: unknown; title?: unknown; order?: unknown };
+      const record = section as {
+        id?: unknown;
+        title?: unknown;
+        order?: unknown;
+      };
       if (
         typeof record.id !== "string" ||
         typeof record.title !== "string" ||
@@ -239,7 +267,10 @@ const getStoredMoodboardSections = (
         order: record.order,
       };
     })
-    .filter((section): section is { id: string; title: string; order: number } => Boolean(section));
+    .filter(
+      (section): section is { id: string; title: string; order: number } =>
+        Boolean(section),
+    );
 };
 
 const deleteStoredFile = async (ctx: any, storageId: string) => {
@@ -258,7 +289,11 @@ const deleteStoredFile = async (ctx: any, storageId: string) => {
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 const buildPublicR2FileUrl = (key: string) => {
-  const publicBaseUrl = (process.env.NEXT_PUBLIC_R2_PUBLIC_URL || process.env.R2_PUBLIC_URL || "")
+  const publicBaseUrl = (
+    process.env.NEXT_PUBLIC_R2_PUBLIC_URL ||
+    process.env.R2_PUBLIC_URL ||
+    ""
+  )
     .trim()
     .replace(/\/+$/, "");
   if (!publicBaseUrl) {
@@ -269,6 +304,65 @@ const buildPublicR2FileUrl = (key: string) => {
     .map((segment) => encodeURIComponent(segment))
     .join("/");
   return `${publicBaseUrl}/${encodedKey}`;
+};
+
+const getPortalSurveyContext = async (
+  ctx: QueryCtx | MutationCtx,
+  args: {
+    accessToken: string;
+    surveyId: Id<"surveys">;
+    questionId: Id<"surveyQuestions">;
+  },
+) => {
+  const token = args.accessToken.trim();
+  if (!token) {
+    throw new Error("Invalid portal link");
+  }
+
+  const project = await ctx.db
+    .query("projects")
+    .withIndex("by_client_panel_access_token", (q) =>
+      q.eq("clientPanelAccessToken", token),
+    )
+    .unique();
+
+  if (!project) {
+    throw new Error("Invalid portal link");
+  }
+  if (project.clientPanelPublishedSettings?.showSurveys !== true) {
+    throw new Error("Surveys are hidden in this portal");
+  }
+
+  const survey = await ctx.db.get(args.surveyId);
+  if (!survey || survey.projectId !== project._id) {
+    throw new Error("Survey not found");
+  }
+  if (survey.status === "closed") {
+    throw new Error("Survey is not available");
+  }
+  const now = Date.now();
+  if (typeof survey.startDate === "number" && survey.startDate > now) {
+    throw new Error("Survey is not available");
+  }
+  if (typeof survey.endDate === "number" && survey.endDate < now) {
+    throw new Error("Survey is not available");
+  }
+
+  const question = await ctx.db.get(args.questionId);
+  if (
+    !question ||
+    question.surveyId !== survey._id ||
+    question.questionType !== "file"
+  ) {
+    throw new Error("File upload question not found");
+  }
+
+  const team = (await ctx.db.get(project.teamId)) as Doc<"teams"> | null;
+  if (!team) {
+    throw new Error("Team not found");
+  }
+
+  return { project, question, survey, team };
 };
 
 // Get team storage usage in bytes
@@ -290,7 +384,7 @@ export const getTeamStorageUsage = query({
     const membership = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", args.teamId).eq("clerkUserId", identity.subject)
+        q.eq("teamId", args.teamId).eq("clerkUserId", identity.subject),
       )
       .filter((q) => q.eq(q.field("isActive"), true))
       .unique();
@@ -307,7 +401,7 @@ export const getTeamStorageUsage = query({
     // Get all projects for this team
     const projects = await ctx.db
       .query("projects")
-      .withIndex("by_team", q => q.eq("teamId", args.teamId))
+      .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
       .collect();
 
     // Sum up all file sizes across projects
@@ -315,8 +409,8 @@ export const getTeamStorageUsage = query({
     for (const project of projects) {
       const files = await ctx.db
         .query("files")
-        .withIndex("by_project", q => q.eq("projectId", project._id))
-        .filter(q => q.eq(q.field("isLatest"), true))
+        .withIndex("by_project", (q) => q.eq("projectId", project._id))
+        .filter((q) => q.eq(q.field("isLatest"), true))
         .collect();
 
       totalBytes += files.reduce((sum, file) => sum + (file.size || 0), 0);
@@ -354,7 +448,7 @@ export const checkStorageLimit = internalQuery({
     // Get all projects for this team
     const projects = await ctx.db
       .query("projects")
-      .withIndex("by_team", q => q.eq("teamId", args.teamId))
+      .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
       .collect();
 
     // Sum up all file sizes
@@ -362,8 +456,8 @@ export const checkStorageLimit = internalQuery({
     for (const project of projects) {
       const files = await ctx.db
         .query("files")
-        .withIndex("by_project", q => q.eq("projectId", project._id))
-        .filter(q => q.eq(q.field("isLatest"), true))
+        .withIndex("by_project", (q) => q.eq("projectId", project._id))
+        .filter((q) => q.eq(q.field("isLatest"), true))
         .collect();
 
       totalBytes += files.reduce((sum, file) => sum + (file.size || 0), 0);
@@ -400,11 +494,11 @@ export const { generateUploadUrl, syncMetadata } = r2.clientApi({
     if (!identity) {
       throw new Error("You must be logged in to upload files");
     }
-    
+
     // Additional permission checks can be added here
     aiDebugLog(`User ${identity.subject} is uploading to bucket ${bucket}`);
   },
-  
+
   onUpload: async (_ctx, key) => {
     // Logic executed after upload - we can create a database record
     aiDebugLog(`File uploaded with key: ${key}`);
@@ -462,26 +556,25 @@ export const generateUploadUrlWithCustomKey = mutation({
     const newTotal = totalBytes + args.fileSize;
 
     if (newTotal >= limitBytes) {
-      throw new Error(`Storage limit reached (${limits.maxStorageGB} GB). Please upgrade your plan.`);
+      throw new Error(
+        `Storage limit reached (${limits.maxStorageGB} GB). Please upgrade your plan.`,
+      );
     }
 
-    const contextFolder = args.origin === "ai"
-      ? "ai"
-      : args.taskId
-      ? "tasks"
-      : "files";
+    const contextFolder =
+      args.origin === "ai" ? "ai" : args.taskId ? "tasks" : "files";
     const path = `${team.slug}/${project.slug}/${contextFolder}`;
 
     // Generate folder structure: team/project/context/uuid-filename
-    const fileExtension = args.fileName.includes('.')
-      ? args.fileName.split('.').pop()
-      : '';
+    const fileExtension = args.fileName.includes(".")
+      ? args.fileName.split(".").pop()
+      : "";
     const baseName = args.fileName.replace(/\.[^/.]+$/, ""); // Remove extension
     const uuid = crypto.randomUUID();
-    const customKey = `${path}/${uuid}-${baseName}${fileExtension ? '.' + fileExtension : ''}`;
+    const customKey = `${path}/${uuid}-${baseName}${fileExtension ? "." + fileExtension : ""}`;
 
     const uploadData = await r2.generateUploadUrl(customKey);
-    
+
     return {
       url: uploadData.url,
       key: customKey,
@@ -508,8 +601,15 @@ export const generateUploadUrlWithCustomKeyForExtensionSession = mutation({
       throw new Error("Invalid file size");
     }
 
-    const user = await resolveActorFromExtensionSessionToken(ctx, args.extensionToken);
-    const access = await getProjectAccessForUser(ctx, args.projectId, user.clerkUserId);
+    const user = await resolveActorFromExtensionSessionToken(
+      ctx,
+      args.extensionToken,
+    );
+    const access = await getProjectAccessForUser(
+      ctx,
+      args.projectId,
+      user.clerkUserId,
+    );
     if (!access) {
       throw new Error("Permission denied.");
     }
@@ -538,7 +638,9 @@ export const generateUploadUrlWithCustomKeyForExtensionSession = mutation({
     const newTotal = totalBytes + args.fileSize;
 
     if (newTotal >= limitBytes) {
-      throw new Error(`Storage limit reached (${limits.maxStorageGB} GB). Please upgrade your plan.`);
+      throw new Error(
+        `Storage limit reached (${limits.maxStorageGB} GB). Please upgrade your plan.`,
+      );
     }
 
     const path = `${team.slug}/${project.slug}/files`;
@@ -558,10 +660,142 @@ export const generateUploadUrlWithCustomKeyForExtensionSession = mutation({
   },
 });
 
+export const generatePublicSurveyUploadUrl = mutation({
+  args: {
+    accessToken: v.string(),
+    surveyId: v.id("surveys"),
+    questionId: v.id("surveyQuestions"),
+    respondentKey: v.string(),
+    fileName: v.string(),
+    fileSize: v.number(),
+  },
+  returns: v.object({
+    url: v.string(),
+    key: v.string(),
+    publicUrl: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    if (!args.respondentKey.trim()) {
+      throw new Error("Invalid survey respondent");
+    }
+    if (!Number.isFinite(args.fileSize) || args.fileSize < 0) {
+      throw new Error("Invalid file size");
+    }
+    const maxPublicUploadBytes = 25 * 1024 * 1024;
+    if (args.fileSize > maxPublicUploadBytes) {
+      throw new Error("File is too large. Maximum upload size is 25 MB.");
+    }
+
+    const { project, team } = await getPortalSurveyContext(ctx, args);
+    const storageCheck = (await ctx.runQuery(checkStorageLimitQueryRef, {
+      teamId: project.teamId,
+      additionalBytes: args.fileSize,
+    })) as { allowed: boolean; message: string };
+    if (!storageCheck.allowed) {
+      throw new Error(storageCheck.message);
+    }
+
+    const fileExtension = args.fileName.includes(".")
+      ? args.fileName.split(".").pop()
+      : "";
+    const baseName = args.fileName.replace(/\.[^/.]+$/, "");
+    const uuid = crypto.randomUUID();
+    const respondentSegment = args.respondentKey
+      .trim()
+      .replace(/[^a-zA-Z0-9_-]/g, "")
+      .slice(0, 64);
+    const customKey = `${team.slug}/${project.slug}/survey-uploads/${args.surveyId}/${args.questionId}/${respondentSegment}/${uuid}-${baseName}${fileExtension ? "." + fileExtension : ""}`;
+
+    const uploadData = await r2.generateUploadUrl(customKey);
+
+    return {
+      url: uploadData.url,
+      key: customKey,
+      publicUrl: buildPublicR2FileUrl(customKey),
+    };
+  },
+});
+
+export const addPublicSurveyFile = mutation({
+  args: {
+    accessToken: v.string(),
+    surveyId: v.id("surveys"),
+    questionId: v.id("surveyQuestions"),
+    respondentKey: v.string(),
+    fileKey: v.string(),
+    fileName: v.string(),
+    fileType: v.string(),
+    fileSize: v.number(),
+  },
+  returns: v.object({
+    fileId: v.id("files"),
+    fileName: v.string(),
+    fileSize: v.number(),
+    fileType: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    if (!args.respondentKey.trim()) {
+      throw new Error("Invalid survey respondent");
+    }
+    if (!Number.isFinite(args.fileSize) || args.fileSize < 0) {
+      throw new Error("Invalid file size");
+    }
+
+    const { project, survey } = await getPortalSurveyContext(ctx, args);
+    if (
+      !args.fileKey.includes(
+        `/survey-uploads/${args.surveyId}/${args.questionId}/`,
+      )
+    ) {
+      throw new Error("Invalid uploaded file");
+    }
+
+    const fileId = await ctx.db.insert("files", {
+      name: args.fileName,
+      teamId: project.teamId,
+      projectId: project._id,
+      fileType: resolveFileType(args.fileType),
+      storageId: args.fileKey,
+      size: args.fileSize,
+      mimeType: args.fileType,
+      uploadedBy: `client-portal:${project._id}`,
+      version: 1,
+      isLatest: true,
+      origin: "general",
+      aiKnowledgeEnabled: false,
+      aiKnowledgeStatus: "excluded",
+      aiKnowledgeEntryId: undefined,
+      aiKnowledgeIndexedAt: undefined,
+      showInClientPortal: false,
+    });
+
+    await ctx.db.insert("activityLog", {
+      teamId: project.teamId,
+      projectId: project._id,
+      userId: `client-portal:${project._id}`,
+      actionType: "survey.file.upload",
+      entityId: fileId,
+      entityType: "file",
+      details: {
+        surveyTitle: survey.title,
+        fileName: args.fileName,
+      },
+    });
+
+    return {
+      fileId,
+      fileName: args.fileName,
+      fileSize: args.fileSize,
+      fileType: args.fileType,
+    };
+  },
+});
+
 const resolveFileType = (mimeType: string) => {
   if (mimeType.startsWith("image/")) return "image";
   if (mimeType.startsWith("video/")) return "video";
-  if (mimeType === "application/pdf" || mimeType.includes("document")) return "document";
+  if (mimeType === "application/pdf" || mimeType.includes("document"))
+    return "document";
   if (mimeType.includes("dwg") || mimeType.includes("dxf")) return "drawing";
   return "other";
 };
@@ -578,12 +812,15 @@ const getProjectAccessForUser = async (
   const membership = await ctx.db
     .query("teamMembers")
     .withIndex("by_team_and_user", (q) =>
-      q.eq("teamId", project.teamId).eq("clerkUserId", actorUserId)
+      q.eq("teamId", project.teamId).eq("clerkUserId", actorUserId),
     )
     .filter((q) => q.eq(q.field("isActive"), true))
     .first();
 
-  if (!membership || (membership.role !== "admin" && membership.role !== "member")) {
+  if (
+    !membership ||
+    (membership.role !== "admin" && membership.role !== "member")
+  ) {
     return null;
   }
 
@@ -608,7 +845,11 @@ export const generateUploadUrlWithCustomKeyInternal = internalMutation({
     key: v.string(),
   }),
   handler: async (ctx, args) => {
-    const access = await getProjectAccessForUser(ctx, args.projectId, args.actorUserId);
+    const access = await getProjectAccessForUser(
+      ctx,
+      args.projectId,
+      args.actorUserId,
+    );
     if (!access) throw new Error("No access to this project");
 
     const project = access.project;
@@ -625,7 +866,9 @@ export const generateUploadUrlWithCustomKeyInternal = internalMutation({
 
     const contextFolder = args.origin === "ai" ? "ai" : "files";
     const path = `${team.slug}/${project.slug}/${contextFolder}`;
-    const fileExtension = args.fileName.includes(".") ? args.fileName.split(".").pop() : "";
+    const fileExtension = args.fileName.includes(".")
+      ? args.fileName.split(".").pop()
+      : "";
     const baseName = args.fileName.replace(/\.[^/.]+$/, "");
     const uuid = crypto.randomUUID();
     const customKey = `${path}/${uuid}-${baseName}${fileExtension ? "." + fileExtension : ""}`;
@@ -647,7 +890,11 @@ export const createFileRecordInternal = internalMutation({
     origin: v.optional(v.union(v.literal("ai"), v.literal("general"))),
   },
   handler: async (ctx, args) => {
-    const access = await getProjectAccessForUser(ctx, args.projectId, args.actorUserId);
+    const access = await getProjectAccessForUser(
+      ctx,
+      args.projectId,
+      args.actorUserId,
+    );
     if (!access) throw new Error("No access to this project");
 
     const project = access.project;
@@ -684,7 +931,10 @@ export const createFolder = mutation({
     parentFolderId: v.optional(v.id("folders")),
   },
   handler: async (ctx, args) => {
-    const { project, identity } = await requireCurrentProjectAccess(ctx, args.projectId);
+    const { project, identity } = await requireCurrentProjectAccess(
+      ctx,
+      args.projectId,
+    );
 
     if (args.parentFolderId) {
       const parentFolder = await ctx.db.get(args.parentFolderId);
@@ -710,7 +960,10 @@ export const ensureLaborFolder = mutation({
   },
   returns: v.id("folders"),
   handler: async (ctx, args) => {
-    const { project, identity } = await requireCurrentProjectAccess(ctx, args.projectId);
+    const { project, identity } = await requireCurrentProjectAccess(
+      ctx,
+      args.projectId,
+    );
 
     const rootFolders = await ctx.db
       .query("folders")
@@ -719,7 +972,7 @@ export const ensureLaborFolder = mutation({
       .collect();
 
     const existingLaborFolder = rootFolders.find(
-      (folder) => folder.name.trim().toLowerCase() === "labor"
+      (folder) => folder.name.trim().toLowerCase() === "labor",
     );
 
     if (existingLaborFolder) {
@@ -742,7 +995,10 @@ export const ensureMoodboardFolder = mutation({
   },
   returns: v.id("folders"),
   handler: async (ctx, args) => {
-    const { project, identity } = await requireCurrentProjectAccess(ctx, args.projectId);
+    const { project, identity } = await requireCurrentProjectAccess(
+      ctx,
+      args.projectId,
+    );
 
     const rootFolders = await ctx.db
       .query("folders")
@@ -751,7 +1007,7 @@ export const ensureMoodboardFolder = mutation({
       .collect();
 
     const existingMoodboardFolder = rootFolders.find(
-      (folder) => folder.name.trim().toLowerCase() === "moodboard"
+      (folder) => folder.name.trim().toLowerCase() === "moodboard",
     );
 
     if (existingMoodboardFolder) {
@@ -785,12 +1041,18 @@ export const addFile = mutation({
       throw new Error("Invalid file size");
     }
 
-    const { project, identity } = await requireCurrentProjectAccess(ctx, args.projectId);
+    const { project, identity } = await requireCurrentProjectAccess(
+      ctx,
+      args.projectId,
+    );
 
     const origin = args.origin ?? "general";
     const hasMoodboardSection =
-      typeof args.moodboardSection === "string" && args.moodboardSection.trim().length > 0;
-    const moodboardSection = hasMoodboardSection ? args.moodboardSection?.trim() : undefined;
+      typeof args.moodboardSection === "string" &&
+      args.moodboardSection.trim().length > 0;
+    const moodboardSection = hasMoodboardSection
+      ? args.moodboardSection?.trim()
+      : undefined;
     const moodboardOrder = moodboardSection
       ? await getNextMoodboardFileOrder(ctx, args.projectId, moodboardSection)
       : undefined;
@@ -814,8 +1076,10 @@ export const addFile = mutation({
     const getFileType = (mimeType: string) => {
       if (mimeType.startsWith("image/")) return "image";
       if (mimeType.startsWith("video/")) return "video";
-      if (mimeType === "application/pdf" || mimeType.includes("document")) return "document";
-      if (mimeType.includes("dwg") || mimeType.includes("dxf")) return "drawing";
+      if (mimeType === "application/pdf" || mimeType.includes("document"))
+        return "document";
+      if (mimeType.includes("dwg") || mimeType.includes("dxf"))
+        return "drawing";
       return "other";
     };
 
@@ -853,7 +1117,11 @@ export const addFile = mutation({
         taskId: args.taskId,
         userId: identity.subject,
         actionType: "task.file.add",
-        details: { taskTitle: task?.title, fileName: args.fileName, fileType: getFileType(args.fileType) },
+        details: {
+          taskTitle: task?.title,
+          fileName: args.fileName,
+          fileType: getFileType(args.fileType),
+        },
         entityId: fileId,
         entityType: "file",
       });
@@ -865,9 +1133,9 @@ export const addFile = mutation({
 
 // Pobierz foldery projektu
 export const getProjectFolders = query({
-  args: { 
+  args: {
     projectId: v.id("projects"),
-    parentFolderId: v.optional(v.id("folders"))
+    parentFolderId: v.optional(v.id("folders")),
   },
   handler: async (ctx, args) => {
     try {
@@ -878,17 +1146,17 @@ export const getProjectFolders = query({
 
     return await ctx.db
       .query("folders")
-      .withIndex("by_project", q => q.eq("projectId", args.projectId))
-      .filter(q => q.eq(q.field("parentFolderId"), args.parentFolderId))
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .filter((q) => q.eq(q.field("parentFolderId"), args.parentFolderId))
       .collect();
   },
 });
 
 // Get project files (in a specific folder or root)
 export const getProjectFiles = query({
-  args: { 
+  args: {
     projectId: v.id("projects"),
-    folderId: v.optional(v.id("folders"))
+    folderId: v.optional(v.id("folders")),
   },
   handler: async (ctx, args) => {
     try {
@@ -899,8 +1167,8 @@ export const getProjectFiles = query({
 
     const files = await ctx.db
       .query("files")
-      .withIndex("by_project", q => q.eq("projectId", args.projectId))
-      .filter(q => q.eq(q.field("folderId"), args.folderId))
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .filter((q) => q.eq(q.field("folderId"), args.folderId))
       .collect();
 
     const visibleFiles = files.filter((file) => file.origin !== "ai");
@@ -917,7 +1185,7 @@ export const getProjectFiles = query({
           console.error(`Error generating URL for file ${file._id}:`, error);
           return { ...file, url: null };
         }
-      })
+      }),
     );
 
     return filesWithUrls;
@@ -926,9 +1194,9 @@ export const getProjectFiles = query({
 
 // Pobierz wszystkie pliki i foldery dla konkretnej lokalizacji
 export const getProjectContent = query({
-  args: { 
+  args: {
     projectId: v.id("projects"),
-    folderId: v.optional(v.id("folders"))
+    folderId: v.optional(v.id("folders")),
   },
   handler: async (ctx, args) => {
     try {
@@ -940,15 +1208,15 @@ export const getProjectContent = query({
     // Pobierz foldery
     const folders = await ctx.db
       .query("folders")
-      .withIndex("by_project", q => q.eq("projectId", args.projectId))
-      .filter(q => q.eq(q.field("parentFolderId"), args.folderId))
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .filter((q) => q.eq(q.field("parentFolderId"), args.folderId))
       .collect();
 
     // Pobierz pliki
     const files = await ctx.db
       .query("files")
-      .withIndex("by_project", q => q.eq("projectId", args.projectId))
-      .filter(q => q.eq(q.field("folderId"), args.folderId))
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .filter((q) => q.eq(q.field("folderId"), args.folderId))
       .collect();
 
     const visibleFiles = files.filter((file) => file.origin !== "ai");
@@ -965,7 +1233,7 @@ export const getProjectContent = query({
           console.error(`Error generating URL for file ${file._id}:`, error);
           return { ...file, url: null };
         }
-      })
+      }),
     );
 
     return { folders, files: filesWithUrls };
@@ -978,19 +1246,20 @@ export const deleteFolder = mutation({
   handler: async (ctx, args) => {
     const folder = await ctx.db.get(args.folderId);
     if (!folder) throw new Error("Folder not found");
-    if (!folder.projectId) throw new Error("Folder is not attached to a project");
+    if (!folder.projectId)
+      throw new Error("Folder is not attached to a project");
 
     await requireCurrentProjectAccess(ctx, folder.projectId);
 
     // Check whether the folder is empty (no files or subfolders)
     const filesInFolder = await ctx.db
       .query("files")
-      .withIndex("by_folder", q => q.eq("folderId", args.folderId))
+      .withIndex("by_folder", (q) => q.eq("folderId", args.folderId))
       .first();
 
     const subfolders = await ctx.db
       .query("folders")
-      .withIndex("by_parent", q => q.eq("parentFolderId", args.folderId))
+      .withIndex("by_parent", (q) => q.eq("parentFolderId", args.folderId))
       .first();
 
     if (filesInFolder || subfolders) {
@@ -999,7 +1268,7 @@ export const deleteFolder = mutation({
 
     // Delete folder
     await ctx.db.delete(args.folderId);
-    
+
     return { success: true };
   },
 });
@@ -1015,10 +1284,17 @@ export const deleteFile = mutation({
     if (!file) throw new Error("File not found");
     if (!file.projectId) throw new Error("File is not attached to a project");
 
-    const { membership } = await requireCurrentProjectAccess(ctx, file.projectId);
+    const { membership } = await requireCurrentProjectAccess(
+      ctx,
+      file.projectId,
+    );
 
     // Check whether the user can delete the file
-    if (file.uploadedBy !== identity.subject && membership.role !== "admin" && membership.role !== "member") {
+    if (
+      file.uploadedBy !== identity.subject &&
+      membership.role !== "admin" &&
+      membership.role !== "member"
+    ) {
       throw new Error("No permission to delete this file");
     }
 
@@ -1038,10 +1314,10 @@ export const deleteFile = mutation({
     }
 
     await scheduleKnowledgeRemoval(ctx, file.aiKnowledgeEntryId);
-    
+
     // Delete from the database
     await ctx.db.delete(args.fileId);
-    
+
     return { success: true };
   },
 });
@@ -1069,7 +1345,7 @@ export const setFileCustomerPortalVisibility = mutation({
     const member = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
+        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject),
       )
       .unique();
 
@@ -1126,7 +1402,7 @@ export const setFileAiKnowledgeInclusion = mutation({
     const member = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
+        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject),
       )
       .unique();
 
@@ -1146,13 +1422,17 @@ export const setFileAiKnowledgeInclusion = mutation({
       throw new Error("AI knowledge is only available for PDF files");
     }
 
-    const nextStatus: "pending" | "excluded" = args.enabled ? "pending" : "excluded";
+    const nextStatus: "pending" | "excluded" = args.enabled
+      ? "pending"
+      : "excluded";
     await ctx.db.patch(args.fileId, {
       aiKnowledgeEnabled: args.enabled,
       aiKnowledgeStatus: nextStatus,
       aiKnowledgeError: undefined,
       aiKnowledgeEntryId: args.enabled ? file.aiKnowledgeEntryId : undefined,
-      aiKnowledgeIndexedAt: args.enabled ? file.aiKnowledgeIndexedAt : undefined,
+      aiKnowledgeIndexedAt: args.enabled
+        ? file.aiKnowledgeIndexedAt
+        : undefined,
     });
 
     if (args.enabled) {
@@ -1177,12 +1457,14 @@ export const setFileAiKnowledgeInclusion = mutation({
 export const setFileAiKnowledgeStateInternal = internalMutation({
   args: {
     fileId: v.id("files"),
-    status: v.optional(v.union(
-      v.literal("excluded"),
-      v.literal("pending"),
-      v.literal("ready"),
-      v.literal("failed"),
-    )),
+    status: v.optional(
+      v.union(
+        v.literal("excluded"),
+        v.literal("pending"),
+        v.literal("ready"),
+        v.literal("failed"),
+      ),
+    ),
     error: v.optional(v.union(v.string(), v.null())),
     entryId: v.optional(v.union(v.string(), v.null())),
     indexedAt: v.optional(v.union(v.number(), v.null())),
@@ -1226,7 +1508,7 @@ export const getProjectAiKnowledgeFiles = query({
     const hasAccess = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject)
+        q.eq("teamId", project.teamId).eq("clerkUserId", identity.subject),
       )
       .unique();
 
@@ -1235,11 +1517,13 @@ export const getProjectAiKnowledgeFiles = query({
     const files = await ctx.db
       .query("files")
       .withIndex("by_project_and_ai_knowledge", (q) =>
-        q.eq("projectId", args.projectId).eq("aiKnowledgeEnabled", true)
+        q.eq("projectId", args.projectId).eq("aiKnowledgeEnabled", true),
       )
       .collect();
 
-    const visibleFiles = files.filter((file) => file.origin !== "ai" && isPdfFile(file));
+    const visibleFiles = files.filter(
+      (file) => file.origin !== "ai" && isPdfFile(file),
+    );
 
     return Promise.all(
       visibleFiles.map(async (file) => {
@@ -1249,19 +1533,22 @@ export const getProjectAiKnowledgeFiles = query({
           });
           return { ...file, url };
         } catch (error) {
-          console.error(`Error generating URL for AI knowledge file ${file._id}:`, error);
+          console.error(
+            `Error generating URL for AI knowledge file ${file._id}:`,
+            error,
+          );
           return { ...file, url: null };
         }
-      })
+      }),
     );
   },
 });
 
 // Get moodboard images for a project by section
 export const getMoodboardImagesBySection = query({
-  args: { 
+  args: {
     projectId: v.id("projects"),
-    section: v.string()
+    section: v.string(),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -1276,10 +1563,10 @@ export const getMoodboardImagesBySection = query({
     // Get only image files for this specific moodboard section
     const files = await ctx.db
       .query("files")
-      .withIndex("by_moodboard_section", q => 
-        q.eq("projectId", args.projectId).eq("moodboardSection", args.section)
+      .withIndex("by_moodboard_section", (q) =>
+        q.eq("projectId", args.projectId).eq("moodboardSection", args.section),
       )
-      .filter(q => q.eq(q.field("fileType"), "image"))
+      .filter((q) => q.eq(q.field("fileType"), "image"))
       .collect();
 
     // Generate URLs for files
@@ -1289,24 +1576,24 @@ export const getMoodboardImagesBySection = query({
           const url = await r2.getUrl(file.storageId as string, {
             expiresIn: 60 * 60 * 24, // 24 hours
           });
-          return { 
+          return {
             id: file.storageId as string,
             url,
             name: file.name,
             order: file.moodboardOrder ?? index,
-            _creationTime: file._creationTime
+            _creationTime: file._creationTime,
           };
         } catch (error) {
           console.error(`Error generating URL for file ${file._id}:`, error);
-          return { 
+          return {
             id: file.storageId as string,
             url: "",
             name: file.name,
             order: file.moodboardOrder ?? index,
-            _creationTime: file._creationTime
+            _creationTime: file._creationTime,
           };
         }
-      })
+      }),
     );
 
     return filesWithUrls;
@@ -1317,19 +1604,31 @@ export const getMoodboardSections = query({
   args: {
     projectId: v.id("projects"),
   },
-  returns: v.array(v.object({
-    id: v.string(),
-    title: v.string(),
-    order: v.number(),
-  })),
+  returns: v.array(
+    v.object({
+      id: v.string(),
+      title: v.string(),
+      order: v.number(),
+    }),
+  ),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return [];
 
-    const { project } = await getProjectAccess(ctx, args.projectId, identity.subject);
-    const fileSectionIds = await listMoodboardFileSectionIds(ctx, args.projectId);
+    const { project } = await getProjectAccess(
+      ctx,
+      args.projectId,
+      identity.subject,
+    );
+    const fileSectionIds = await listMoodboardFileSectionIds(
+      ctx,
+      args.projectId,
+    );
 
-    return resolveMoodboardSections(getStoredMoodboardSections(project), fileSectionIds);
+    return resolveMoodboardSections(
+      getStoredMoodboardSections(project),
+      fileSectionIds,
+    );
   },
 });
 
@@ -1349,14 +1648,24 @@ export const createMoodboardSection = mutation({
       throw new Error("Not authenticated");
     }
 
-    const { project } = await getProjectAccess(ctx, args.projectId, identity.subject);
+    const { project } = await getProjectAccess(
+      ctx,
+      args.projectId,
+      identity.subject,
+    );
     const normalizedTitle = normalizeMoodboardSectionTitle(args.title);
     if (!normalizedTitle) {
       throw new Error("Section title is required");
     }
 
-    const fileSectionIds = await listMoodboardFileSectionIds(ctx, args.projectId);
-    const sections = resolveMoodboardSections(getStoredMoodboardSections(project), fileSectionIds);
+    const fileSectionIds = await listMoodboardFileSectionIds(
+      ctx,
+      args.projectId,
+    );
+    const sections = resolveMoodboardSections(
+      getStoredMoodboardSections(project),
+      fileSectionIds,
+    );
     const titleAlreadyExists = sections.some(
       (section) =>
         normalizeMoodboardSectionTitle(section.title) === normalizedTitle ||
@@ -1373,7 +1682,10 @@ export const createMoodboardSection = mutation({
       order: sections.length,
     };
 
-    await patchProjectMoodboardSections(ctx, args.projectId, [...sections, createdSection]);
+    await patchProjectMoodboardSections(ctx, args.projectId, [
+      ...sections,
+      createdSection,
+    ]);
 
     return createdSection;
   },
@@ -1396,15 +1708,27 @@ export const renameMoodboardSection = mutation({
       throw new Error("Not authenticated");
     }
 
-    const { project } = await getProjectAccess(ctx, args.projectId, identity.subject);
+    const { project } = await getProjectAccess(
+      ctx,
+      args.projectId,
+      identity.subject,
+    );
     const normalizedTitle = normalizeMoodboardSectionTitle(args.title);
     if (!normalizedTitle) {
       throw new Error("Section title is required");
     }
 
-    const fileSectionIds = await listMoodboardFileSectionIds(ctx, args.projectId);
-    const sections = resolveMoodboardSections(getStoredMoodboardSections(project), fileSectionIds);
-    const sectionToRename = sections.find((section) => section.id === args.sectionId);
+    const fileSectionIds = await listMoodboardFileSectionIds(
+      ctx,
+      args.projectId,
+    );
+    const sections = resolveMoodboardSections(
+      getStoredMoodboardSections(project),
+      fileSectionIds,
+    );
+    const sectionToRename = sections.find(
+      (section) => section.id === args.sectionId,
+    );
 
     if (!sectionToRename) {
       throw new Error("Section not found");
@@ -1436,7 +1760,9 @@ export const renameMoodboardSection = mutation({
       const filesInSection = await ctx.db
         .query("files")
         .withIndex("by_moodboard_section", (q) =>
-          q.eq("projectId", args.projectId).eq("moodboardSection", args.sectionId)
+          q
+            .eq("projectId", args.projectId)
+            .eq("moodboardSection", args.sectionId),
         )
         .collect();
 
@@ -1472,9 +1798,19 @@ export const deleteMoodboardSection = mutation({
       throw new Error("Not authenticated");
     }
 
-    const { project } = await getProjectAccess(ctx, args.projectId, identity.subject);
-    const fileSectionIds = await listMoodboardFileSectionIds(ctx, args.projectId);
-    const sections = resolveMoodboardSections(getStoredMoodboardSections(project), fileSectionIds);
+    const { project } = await getProjectAccess(
+      ctx,
+      args.projectId,
+      identity.subject,
+    );
+    const fileSectionIds = await listMoodboardFileSectionIds(
+      ctx,
+      args.projectId,
+    );
+    const sections = resolveMoodboardSections(
+      getStoredMoodboardSections(project),
+      fileSectionIds,
+    );
 
     if (!sections.some((section) => section.id === args.sectionId)) {
       throw new Error("Section not found");
@@ -1483,7 +1819,9 @@ export const deleteMoodboardSection = mutation({
     const filesInSection = await ctx.db
       .query("files")
       .withIndex("by_moodboard_section", (q) =>
-        q.eq("projectId", args.projectId).eq("moodboardSection", args.sectionId)
+        q
+          .eq("projectId", args.projectId)
+          .eq("moodboardSection", args.sectionId),
       )
       .collect();
 
@@ -1493,7 +1831,9 @@ export const deleteMoodboardSection = mutation({
       await ctx.db.delete(file._id);
     }
 
-    const remainingSections = sections.filter((section) => section.id !== args.sectionId);
+    const remainingSections = sections.filter(
+      (section) => section.id !== args.sectionId,
+    );
     await patchProjectMoodboardSections(ctx, args.projectId, remainingSections);
 
     return {
@@ -1515,9 +1855,19 @@ export const reorderMoodboardSections = mutation({
       throw new Error("Not authenticated");
     }
 
-    const { project } = await getProjectAccess(ctx, args.projectId, identity.subject);
-    const fileSectionIds = await listMoodboardFileSectionIds(ctx, args.projectId);
-    const sections = resolveMoodboardSections(getStoredMoodboardSections(project), fileSectionIds);
+    const { project } = await getProjectAccess(
+      ctx,
+      args.projectId,
+      identity.subject,
+    );
+    const fileSectionIds = await listMoodboardFileSectionIds(
+      ctx,
+      args.projectId,
+    );
+    const sections = resolveMoodboardSections(
+      getStoredMoodboardSections(project),
+      fileSectionIds,
+    );
     const byId = new Map(sections.map((section) => [section.id, section]));
     const seen = new Set<string>();
     const orderedSections: { id: string; title: string; order: number }[] = [];
@@ -1554,9 +1904,19 @@ export const moveMoodboardImage = mutation({
       throw new Error("Not authenticated");
     }
 
-    const { project } = await getProjectAccess(ctx, args.projectId, identity.subject);
-    const fileSectionIds = await listMoodboardFileSectionIds(ctx, args.projectId);
-    const sections = resolveMoodboardSections(getStoredMoodboardSections(project), fileSectionIds);
+    const { project } = await getProjectAccess(
+      ctx,
+      args.projectId,
+      identity.subject,
+    );
+    const fileSectionIds = await listMoodboardFileSectionIds(
+      ctx,
+      args.projectId,
+    );
+    const sections = resolveMoodboardSections(
+      getStoredMoodboardSections(project),
+      fileSectionIds,
+    );
     if (!sections.some((section) => section.id === args.targetSectionId)) {
       throw new Error("Target section not found");
     }
@@ -1645,7 +2005,7 @@ export const saveGeneratedMoodboardImageInternal = internalMutation({
       .collect();
 
     const existingMoodboardFolder = rootFolders.find(
-      (folder) => folder.name.trim().toLowerCase() === "moodboard"
+      (folder) => folder.name.trim().toLowerCase() === "moodboard",
     );
 
     const folderId =
@@ -1692,9 +2052,9 @@ export const saveGeneratedMoodboardImageInternal = internalMutation({
 
 // Find file by storageId for moodboard deletion
 export const getFileByStorageId = query({
-  args: { 
+  args: {
     projectId: v.id("projects"),
-    storageId: v.string()
+    storageId: v.string(),
   },
   handler: async (ctx, args) => {
     try {
@@ -1706,8 +2066,8 @@ export const getFileByStorageId = query({
     // Find file by storageId
     const file = await ctx.db
       .query("files")
-      .withIndex("by_project", q => q.eq("projectId", args.projectId))
-      .filter(q => q.eq(q.field("storageId"), args.storageId))
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .filter((q) => q.eq(q.field("storageId"), args.storageId))
       .unique();
 
     return file;
@@ -1732,7 +2092,10 @@ export const getFileUrlByStorageId = query({
         expiresIn: 60 * 60 * 2,
       });
     } catch (error) {
-      console.error(`Error generating signed URL for storage key ${args.storageId}:`, error);
+      console.error(
+        `Error generating signed URL for storage key ${args.storageId}:`,
+        error,
+      );
       return null;
     }
   },
@@ -1740,20 +2103,23 @@ export const getFileUrlByStorageId = query({
 
 // Delete file by storageId (for moodboard)
 export const deleteFileByStorageId = mutation({
-  args: { 
+  args: {
     projectId: v.id("projects"),
-    storageId: v.string()
+    storageId: v.string(),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
-    const { membership } = await requireCurrentProjectAccess(ctx, args.projectId);
+    const { membership } = await requireCurrentProjectAccess(
+      ctx,
+      args.projectId,
+    );
 
     // Find file by storageId
     const file = await ctx.db
       .query("files")
-      .withIndex("by_project", q => q.eq("projectId", args.projectId))
-      .filter(q => q.eq(q.field("storageId"), args.storageId))
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .filter((q) => q.eq(q.field("storageId"), args.storageId))
       .unique();
 
     if (!file) {
@@ -1761,7 +2127,11 @@ export const deleteFileByStorageId = mutation({
     }
 
     // Check if user can delete file (same logic as deleteFile)
-    if (file.uploadedBy !== identity.subject && membership.role !== "admin" && membership.role !== "member") {
+    if (
+      file.uploadedBy !== identity.subject &&
+      membership.role !== "admin" &&
+      membership.role !== "member"
+    ) {
       throw new Error("No permission to delete this file");
     }
 
@@ -1769,10 +2139,10 @@ export const deleteFileByStorageId = mutation({
     await deleteStoredFile(ctx, file.storageId);
 
     await scheduleKnowledgeRemoval(ctx, file.aiKnowledgeEntryId);
-    
+
     // Delete from database
     await ctx.db.delete(file._id);
-    
+
     return { success: true };
   },
 });
@@ -1803,30 +2173,30 @@ export const getFolder = query({
 });
 
 export const getFilesForTask = query({
-    args: { taskId: v.id("tasks") },
-    handler: async (ctx, args) => {
-        const task = await ctx.db.get(args.taskId);
-        if (!task) return [];
+  args: { taskId: v.id("tasks") },
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task) return [];
 
-        if (!task.projectId) return [];
-        try {
-          await requireCurrentProjectAccess(ctx, task.projectId);
-        } catch {
-          return [];
-        }
-
-        const files = await ctx.db
-            .query("files")
-            .withIndex("by_task", q => q.eq("taskId", args.taskId))
-            .collect();
-
-        return Promise.all(
-            files.map(async (file) => {
-                const url = await r2.getUrl(file.storageId);
-                return { ...file, url };
-            })
-        );
+    if (!task.projectId) return [];
+    try {
+      await requireCurrentProjectAccess(ctx, task.projectId);
+    } catch {
+      return [];
     }
+
+    const files = await ctx.db
+      .query("files")
+      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .collect();
+
+    return Promise.all(
+      files.map(async (file) => {
+        const url = await r2.getUrl(file.storageId);
+        return { ...file, url };
+      }),
+    );
+  },
 });
 
 // ====== TEXT EXTRACTION SUPPORT ======
@@ -1851,9 +2221,9 @@ export const updateTextExtractionStatus = internalMutation({
     fileId: v.id("files"),
     status: v.union(
       v.literal("pending"),
-      v.literal("processing"), 
+      v.literal("processing"),
       v.literal("completed"),
-      v.literal("failed")
+      v.literal("failed"),
     ),
   },
   handler: async (ctx, args) => {
@@ -1926,4 +2296,4 @@ export const updateFileAnalysis = internalMutation({
       analysisStatus: "completed",
     });
   },
-}); 
+});

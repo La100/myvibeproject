@@ -1,23 +1,34 @@
 import { v } from "convex/values";
-import { query, mutation, internalQuery, type MutationCtx, type QueryCtx } from "./_generated/server";
+import {
+  query,
+  mutation,
+  internalQuery,
+  type MutationCtx,
+  type QueryCtx,
+} from "./_generated/server";
 import { makeFunctionReference } from "convex/server";
 import { Doc, Id } from "./_generated/dataModel";
 import { ensureProjectAccess } from "./authz";
 
-const getPortalRespondentId = (projectId: Id<"projects">, respondentKey: string) =>
-  `portal:${projectId}:${respondentKey.trim().toLowerCase()}`;
+const getPortalRespondentId = (
+  projectId: Id<"projects">,
+  respondentKey: string,
+) => `portal:${projectId}:${respondentKey.trim().toLowerCase()}`;
 const getPortalActorName = (name?: string) => {
   const trimmed = typeof name === "string" ? name.trim() : "";
   return trimmed.length > 0 ? trimmed : "Client (portal)";
 };
-const logActivityMutation = makeFunctionReference<"mutation">("activityLog:logActivity");
+const logActivityMutation = makeFunctionReference<"mutation">(
+  "activityLog:logActivity",
+);
 // Keep internal scheduler refs runtime-loaded here to avoid deep TS instantiation.
 // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
 const internalAny = require("./_generated/api").internal as any;
 
 const isSurveyVisibleInPublicPortal = (survey: Doc<"surveys">, now: number) => {
   if (survey.status === "closed") return false;
-  if (typeof survey.startDate === "number" && survey.startDate > now) return false;
+  if (typeof survey.startDate === "number" && survey.startDate > now)
+    return false;
   if (typeof survey.endDate === "number" && survey.endDate < now) return false;
   return true;
 };
@@ -65,7 +76,10 @@ export const createSurvey = mutation({
     endDate: v.optional(v.union(v.number(), v.null())),
   },
   async handler(ctx, args) {
-    const { project, clerkUserId } = await ensureProjectAccess(ctx, args.projectId);
+    const { project, clerkUserId } = await ensureProjectAccess(
+      ctx,
+      args.projectId,
+    );
 
     const surveyId = await ctx.db.insert("surveys", {
       title: args.title,
@@ -84,7 +98,7 @@ export const createSurvey = mutation({
     await ctx.runMutation(logActivityMutation, {
       teamId: project.teamId,
       projectId: args.projectId,
-      
+
       actionType: "survey.create",
       entityId: surveyId,
       entityType: "survey",
@@ -104,31 +118,40 @@ export const createSurveyWithQuestions = mutation({
     allowMultipleResponses: v.boolean(),
     startDate: v.optional(v.union(v.number(), v.null())),
     endDate: v.optional(v.union(v.number(), v.null())),
-    questions: v.optional(v.array(v.object({
-      questionText: v.string(),
-      questionType: v.union(
-        v.literal("text_short"),
-        v.literal("text_long"),
-        v.literal("multiple_choice"),
-        v.literal("single_choice"),
-        v.literal("rating"),
-        v.literal("yes_no"),
-        v.literal("number"),
-        v.literal("file")
+    questions: v.optional(
+      v.array(
+        v.object({
+          questionText: v.string(),
+          questionType: v.union(
+            v.literal("text_short"),
+            v.literal("text_long"),
+            v.literal("multiple_choice"),
+            v.literal("single_choice"),
+            v.literal("rating"),
+            v.literal("yes_no"),
+            v.literal("number"),
+            v.literal("file"),
+          ),
+          options: v.optional(v.array(v.string())),
+          isRequired: v.optional(v.boolean()),
+          order: v.optional(v.number()),
+          ratingScale: v.optional(
+            v.object({
+              min: v.number(),
+              max: v.number(),
+              minLabel: v.optional(v.string()),
+              maxLabel: v.optional(v.string()),
+            }),
+          ),
+        }),
       ),
-      options: v.optional(v.array(v.string())),
-      isRequired: v.optional(v.boolean()),
-      order: v.optional(v.number()),
-      ratingScale: v.optional(v.object({
-        min: v.number(),
-        max: v.number(),
-        minLabel: v.optional(v.string()),
-        maxLabel: v.optional(v.string()),
-      })),
-    }))),
+    ),
   },
   async handler(ctx, args) {
-    const { project, clerkUserId } = await ensureProjectAccess(ctx, args.projectId);
+    const { project, clerkUserId } = await ensureProjectAccess(
+      ctx,
+      args.projectId,
+    );
 
     const surveyId = await ctx.db.insert("surveys", {
       title: args.title,
@@ -185,7 +208,7 @@ export const getSurveysByProject = query({
 
     const surveys = await ctx.db
       .query("surveys")
-      .withIndex("by_project", q => q.eq("projectId", args.projectId))
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
 
     return surveys;
@@ -193,18 +216,20 @@ export const getSurveysByProject = query({
 });
 
 export const getSurveysChangedAfter = internalQuery({
-  args: { 
-    projectId: v.id("projects"), 
-    since: v.number() 
+  args: {
+    projectId: v.id("projects"),
+    since: v.number(),
   },
   handler: async (ctx, args) => {
     return await ctx.db
       .query("surveys")
-      .withIndex("by_project", q => q.eq("projectId", args.projectId))
-      .filter(q => q.or(
-        q.gt(q.field("_creationTime"), args.since),
-        q.gt(q.field("updatedAt"), args.since)
-      ))
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .filter((q) =>
+        q.or(
+          q.gt(q.field("_creationTime"), args.since),
+          q.gt(q.field("updatedAt"), args.since),
+        ),
+      )
       .collect();
   },
 });
@@ -221,7 +246,7 @@ export const getSurvey = query({
 
     const questions = await ctx.db
       .query("surveyQuestions")
-      .withIndex("by_survey", q => q.eq("surveyId", args.surveyId))
+      .withIndex("by_survey", (q) => q.eq("surveyId", args.surveyId))
       .collect();
 
     questions.sort((a, b) => a.order - b.order);
@@ -247,7 +272,7 @@ export const getPublicSurveysByAccessToken = query({
     const project = await ctx.db
       .query("projects")
       .withIndex("by_client_panel_access_token", (q) =>
-        q.eq("clientPanelAccessToken", token)
+        q.eq("clientPanelAccessToken", token),
       )
       .unique();
 
@@ -264,7 +289,9 @@ export const getPublicSurveysByAccessToken = query({
       .withIndex("by_project", (q) => q.eq("projectId", project._id))
       .collect();
 
-    const publicSurveys = surveys.filter((survey) => isSurveyVisibleInPublicPortal(survey, now));
+    const publicSurveys = surveys.filter((survey) =>
+      isSurveyVisibleInPublicPortal(survey, now),
+    );
     const respondentId = args.respondentKey?.trim()
       ? getPortalRespondentId(project._id, args.respondentKey)
       : null;
@@ -282,7 +309,7 @@ export const getPublicSurveysByAccessToken = query({
           latestResponse = await ctx.db
             .query("surveyResponses")
             .withIndex("by_survey_and_respondent", (q) =>
-              q.eq("surveyId", survey._id).eq("respondentId", respondentId)
+              q.eq("surveyId", survey._id).eq("respondentId", respondentId),
             )
             .order("desc")
             .first();
@@ -300,7 +327,7 @@ export const getPublicSurveysByAccessToken = query({
           hasSubmitted: !!latestResponse?.isComplete,
           submittedAt: latestResponse?.submittedAt,
         };
-      })
+      }),
     );
 
     surveysWithQuestionsAndStatus.sort((a, b) => {
@@ -323,25 +350,38 @@ export const submitPublicSurveyResponseByAccessToken = mutation({
     surveyId: v.id("surveys"),
     respondentKey: v.string(),
     respondentName: v.optional(v.string()),
-    answers: v.array(v.object({
-      questionId: v.id("surveyQuestions"),
-      answerType: v.union(
-        v.literal("text"),
-        v.literal("choice"),
-        v.literal("rating"),
-        v.literal("number"),
-        v.literal("boolean")
-      ),
-      textAnswer: v.optional(v.string()),
-      choiceAnswers: v.optional(v.array(v.string())),
-      ratingAnswer: v.optional(v.number()),
-      numberAnswer: v.optional(v.number()),
-      booleanAnswer: v.optional(v.boolean()),
-    })),
-    metadata: v.optional(v.object({
-      userAgent: v.optional(v.string()),
-      timeSpent: v.optional(v.number()),
-    })),
+    answers: v.array(
+      v.object({
+        questionId: v.id("surveyQuestions"),
+        answerType: v.union(
+          v.literal("text"),
+          v.literal("choice"),
+          v.literal("rating"),
+          v.literal("number"),
+          v.literal("boolean"),
+          v.literal("file"),
+        ),
+        textAnswer: v.optional(v.string()),
+        choiceAnswers: v.optional(v.array(v.string())),
+        ratingAnswer: v.optional(v.number()),
+        numberAnswer: v.optional(v.number()),
+        booleanAnswer: v.optional(v.boolean()),
+        fileAnswer: v.optional(
+          v.object({
+            fileId: v.id("files"),
+            fileName: v.string(),
+            fileSize: v.number(),
+            fileType: v.string(),
+          }),
+        ),
+      }),
+    ),
+    metadata: v.optional(
+      v.object({
+        userAgent: v.optional(v.string()),
+        timeSpent: v.optional(v.number()),
+      }),
+    ),
   },
   async handler(ctx, args) {
     const token = args.accessToken.trim();
@@ -353,7 +393,7 @@ export const submitPublicSurveyResponseByAccessToken = mutation({
     const project = await ctx.db
       .query("projects")
       .withIndex("by_client_panel_access_token", (q) =>
-        q.eq("clientPanelAccessToken", token)
+        q.eq("clientPanelAccessToken", token),
       )
       .unique();
 
@@ -380,37 +420,57 @@ export const submitPublicSurveyResponseByAccessToken = mutation({
       .collect();
     questions.sort((a, b) => a.order - b.order);
 
-    const questionById = new Map(questions.map((question) => [String(question._id), question]));
-    const answerByQuestionId = new Map(args.answers.map((answer) => [String(answer.questionId), answer]));
-
-    const unsupportedRequiredQuestion = questions.find(
-      (question) => question.isRequired && question.questionType === "file"
+    const questionById = new Map(
+      questions.map((question) => [String(question._id), question]),
     );
-    if (unsupportedRequiredQuestion) {
-      throw new Error("Required file uploads are not supported in the public portal");
-    }
+    const answerByQuestionId = new Map(
+      args.answers.map((answer) => [String(answer.questionId), answer]),
+    );
 
     const missingRequired = questions.filter((question) => {
-      if (!question.isRequired || question.questionType === "file") {
+      if (!question.isRequired) {
         return false;
       }
       const answer = answerByQuestionId.get(String(question._id));
       if (!answer) return true;
 
-      if (question.questionType === "text_short" || question.questionType === "text_long") {
+      if (
+        question.questionType === "text_short" ||
+        question.questionType === "text_long"
+      ) {
         return !answer.textAnswer || answer.textAnswer.trim().length === 0;
       }
-      if (question.questionType === "single_choice" || question.questionType === "multiple_choice") {
-        return !answer.choiceAnswers || answer.choiceAnswers.length === 0;
+      if (
+        question.questionType === "single_choice" ||
+        question.questionType === "multiple_choice"
+      ) {
+        const allowedOptions = new Set(question.options || []);
+        const validChoices = (answer.choiceAnswers || []).filter((value) =>
+          allowedOptions.has(value),
+        );
+        return validChoices.length === 0;
       }
       if (question.questionType === "yes_no") {
         return typeof answer.booleanAnswer !== "boolean";
       }
       if (question.questionType === "number") {
-        return typeof answer.numberAnswer !== "number" || Number.isNaN(answer.numberAnswer);
+        return (
+          typeof answer.numberAnswer !== "number" ||
+          Number.isNaN(answer.numberAnswer)
+        );
       }
       if (question.questionType === "rating") {
-        return typeof answer.ratingAnswer !== "number" || Number.isNaN(answer.ratingAnswer);
+        const min = question.ratingScale?.min ?? 1;
+        const max = question.ratingScale?.max ?? 5;
+        return (
+          typeof answer.ratingAnswer !== "number" ||
+          Number.isNaN(answer.ratingAnswer) ||
+          answer.ratingAnswer < min ||
+          answer.ratingAnswer > max
+        );
+      }
+      if (question.questionType === "file") {
+        return !answer.fileAnswer?.fileId;
       }
 
       return true;
@@ -429,7 +489,7 @@ export const submitPublicSurveyResponseByAccessToken = mutation({
       const existingCompletedResponse = await ctx.db
         .query("surveyResponses")
         .withIndex("by_survey_and_respondent", (q) =>
-          q.eq("surveyId", args.surveyId).eq("respondentId", respondentId)
+          q.eq("surveyId", args.surveyId).eq("respondentId", respondentId),
         )
         .filter((q) => q.eq(q.field("isComplete"), true))
         .first();
@@ -442,7 +502,7 @@ export const submitPublicSurveyResponseByAccessToken = mutation({
     let response = await ctx.db
       .query("surveyResponses")
       .withIndex("by_survey_and_respondent", (q) =>
-        q.eq("surveyId", args.surveyId).eq("respondentId", respondentId)
+        q.eq("surveyId", args.surveyId).eq("respondentId", respondentId),
       )
       .filter((q) => q.eq(q.field("isComplete"), false))
       .first();
@@ -472,7 +532,9 @@ export const submitPublicSurveyResponseByAccessToken = mutation({
       .query("surveyAnswers")
       .withIndex("by_response", (q) => q.eq("responseId", response._id))
       .collect();
-    await Promise.all(existingAnswers.map((answer) => ctx.db.delete(answer._id)));
+    await Promise.all(
+      existingAnswers.map((answer) => ctx.db.delete(answer._id)),
+    );
 
     for (const answer of args.answers) {
       const question = questionById.get(String(answer.questionId));
@@ -480,7 +542,10 @@ export const submitPublicSurveyResponseByAccessToken = mutation({
         continue;
       }
 
-      if (question.questionType === "text_short" || question.questionType === "text_long") {
+      if (
+        question.questionType === "text_short" ||
+        question.questionType === "text_long"
+      ) {
         const textValue = answer.textAnswer?.trim();
         if (!textValue) continue;
         await ctx.db.insert("surveyAnswers", {
@@ -493,21 +558,36 @@ export const submitPublicSurveyResponseByAccessToken = mutation({
         continue;
       }
 
-      if (question.questionType === "single_choice" || question.questionType === "multiple_choice") {
-        const choices = (answer.choiceAnswers || []).filter((value) => value.trim().length > 0);
+      if (
+        question.questionType === "single_choice" ||
+        question.questionType === "multiple_choice"
+      ) {
+        const allowedOptions = new Set(question.options || []);
+        const choices = (answer.choiceAnswers || []).filter(
+          (value) => value.trim().length > 0 && allowedOptions.has(value),
+        );
         if (choices.length === 0) continue;
         await ctx.db.insert("surveyAnswers", {
           responseId: response._id,
           questionId: question._id,
           surveyId: args.surveyId,
           answerType: "choice",
-          choiceAnswers: question.questionType === "single_choice" ? [choices[0]] : choices,
+          choiceAnswers:
+            question.questionType === "single_choice" ? [choices[0]] : choices,
         });
         continue;
       }
 
       if (question.questionType === "rating") {
-        if (typeof answer.ratingAnswer !== "number" || Number.isNaN(answer.ratingAnswer)) continue;
+        const min = question.ratingScale?.min ?? 1;
+        const max = question.ratingScale?.max ?? 5;
+        if (
+          typeof answer.ratingAnswer !== "number" ||
+          Number.isNaN(answer.ratingAnswer) ||
+          answer.ratingAnswer < min ||
+          answer.ratingAnswer > max
+        )
+          continue;
         await ctx.db.insert("surveyAnswers", {
           responseId: response._id,
           questionId: question._id,
@@ -519,7 +599,11 @@ export const submitPublicSurveyResponseByAccessToken = mutation({
       }
 
       if (question.questionType === "number") {
-        if (typeof answer.numberAnswer !== "number" || Number.isNaN(answer.numberAnswer)) continue;
+        if (
+          typeof answer.numberAnswer !== "number" ||
+          Number.isNaN(answer.numberAnswer)
+        )
+          continue;
         await ctx.db.insert("surveyAnswers", {
           responseId: response._id,
           questionId: question._id,
@@ -538,6 +622,32 @@ export const submitPublicSurveyResponseByAccessToken = mutation({
           surveyId: args.surveyId,
           answerType: "boolean",
           booleanAnswer: answer.booleanAnswer,
+        });
+        continue;
+      }
+
+      if (question.questionType === "file") {
+        if (!answer.fileAnswer?.fileId) continue;
+        const file = await ctx.db.get(answer.fileAnswer.fileId);
+        if (!file || file.projectId !== survey.projectId) continue;
+        if (
+          !file.storageId.includes(
+            `/survey-uploads/${args.surveyId}/${question._id}/`,
+          )
+        ) {
+          continue;
+        }
+        await ctx.db.insert("surveyAnswers", {
+          responseId: response._id,
+          questionId: question._id,
+          surveyId: args.surveyId,
+          answerType: "file",
+          fileAnswer: {
+            fileId: file._id,
+            fileName: answer.fileAnswer.fileName,
+            fileSize: answer.fileAnswer.fileSize,
+            fileType: answer.fileAnswer.fileType,
+          },
         });
       }
     }
@@ -578,7 +688,7 @@ export const submitPublicSurveyResponseByAccessToken = mutation({
           entityType: "survey",
           surveyTitle: survey.title,
         },
-      }
+      },
     );
 
     return { success: true, responseId: response._id };
@@ -610,11 +720,14 @@ export const updateSurvey = mutation({
     if (Object.prototype.hasOwnProperty.call(updates, "isRequired")) {
       patch.isRequired = updates.isRequired;
     }
-    if (Object.prototype.hasOwnProperty.call(updates, "allowMultipleResponses")) {
+    if (
+      Object.prototype.hasOwnProperty.call(updates, "allowMultipleResponses")
+    ) {
       patch.allowMultipleResponses = updates.allowMultipleResponses;
     }
     if (Object.prototype.hasOwnProperty.call(updates, "startDate")) {
-      patch.startDate = updates.startDate === null ? undefined : updates.startDate;
+      patch.startDate =
+        updates.startDate === null ? undefined : updates.startDate;
     }
     if (Object.prototype.hasOwnProperty.call(updates, "endDate")) {
       patch.endDate = updates.endDate === null ? undefined : updates.endDate;
@@ -624,7 +737,7 @@ export const updateSurvey = mutation({
     await ctx.runMutation(logActivityMutation, {
       teamId: survey.teamId,
       projectId: survey.projectId,
-      
+
       actionType: "survey.update",
       entityId: args.surveyId,
       entityType: "survey",
@@ -643,7 +756,7 @@ export const deleteSurvey = mutation({
     await ctx.runMutation(logActivityMutation, {
       teamId: survey.teamId,
       projectId: survey.projectId,
-      
+
       actionType: "survey.delete",
       entityId: args.surveyId,
       entityType: "survey",
@@ -653,22 +766,22 @@ export const deleteSurvey = mutation({
     // Delete all related data
     const questions = await ctx.db
       .query("surveyQuestions")
-      .withIndex("by_survey", q => q.eq("surveyId", args.surveyId))
+      .withIndex("by_survey", (q) => q.eq("surveyId", args.surveyId))
       .collect();
 
     const responses = await ctx.db
       .query("surveyResponses")
-      .withIndex("by_survey", q => q.eq("surveyId", args.surveyId))
+      .withIndex("by_survey", (q) => q.eq("surveyId", args.surveyId))
       .collect();
 
     const answers = await ctx.db
       .query("surveyAnswers")
-      .withIndex("by_survey", q => q.eq("surveyId", args.surveyId))
+      .withIndex("by_survey", (q) => q.eq("surveyId", args.surveyId))
       .collect();
 
-    await Promise.all(answers.map(answer => ctx.db.delete(answer._id)));
-    await Promise.all(responses.map(response => ctx.db.delete(response._id)));
-    await Promise.all(questions.map(question => ctx.db.delete(question._id)));
+    await Promise.all(answers.map((answer) => ctx.db.delete(answer._id)));
+    await Promise.all(responses.map((response) => ctx.db.delete(response._id)));
+    await Promise.all(questions.map((question) => ctx.db.delete(question._id)));
     await ctx.db.delete(args.surveyId);
 
     return { success: true };
@@ -689,16 +802,18 @@ export const addQuestion = mutation({
       v.literal("rating"),
       v.literal("yes_no"),
       v.literal("number"),
-      v.literal("file")
+      v.literal("file"),
     ),
     isRequired: v.boolean(),
     options: v.optional(v.array(v.string())),
-    ratingScale: v.optional(v.object({
-      min: v.number(),
-      max: v.number(),
-      minLabel: v.optional(v.string()),
-      maxLabel: v.optional(v.string()),
-    })),
+    ratingScale: v.optional(
+      v.object({
+        min: v.number(),
+        max: v.number(),
+        minLabel: v.optional(v.string()),
+        maxLabel: v.optional(v.string()),
+      }),
+    ),
   },
   async handler(ctx, args) {
     const { survey } = await getSurveyWithAccess(ctx, args.surveyId);
@@ -706,10 +821,13 @@ export const addQuestion = mutation({
     // Get next order number
     const existingQuestions = await ctx.db
       .query("surveyQuestions")
-      .withIndex("by_survey", q => q.eq("surveyId", args.surveyId))
+      .withIndex("by_survey", (q) => q.eq("surveyId", args.surveyId))
       .collect();
 
-    const maxOrder = existingQuestions.reduce((max, q) => Math.max(max, q.order), 0);
+    const maxOrder = existingQuestions.reduce(
+      (max, q) => Math.max(max, q.order),
+      0,
+    );
 
     const questionId = await ctx.db.insert("surveyQuestions", {
       surveyId: args.surveyId,
@@ -724,7 +842,7 @@ export const addQuestion = mutation({
     await ctx.runMutation(logActivityMutation, {
       teamId: survey.teamId,
       projectId: survey.projectId,
-      
+
       actionType: "survey.question.create",
       entityId: questionId,
       entityType: "survey_question",
@@ -739,22 +857,35 @@ export const updateQuestion = mutation({
   args: {
     questionId: v.id("surveyQuestions"),
     questionText: v.optional(v.string()),
-    questionType: v.optional(v.union(
-      v.literal("text_short"),
-      v.literal("text_long"),
-      v.literal("multiple_choice"),
-      v.literal("single_choice"),
-      v.literal("rating"),
-      v.literal("yes_no"),
-      v.literal("number"),
-      v.literal("file")
-    )),
+    questionType: v.optional(
+      v.union(
+        v.literal("text_short"),
+        v.literal("text_long"),
+        v.literal("multiple_choice"),
+        v.literal("single_choice"),
+        v.literal("rating"),
+        v.literal("yes_no"),
+        v.literal("number"),
+        v.literal("file"),
+      ),
+    ),
     isRequired: v.optional(v.boolean()),
     options: v.optional(v.array(v.string())),
     order: v.optional(v.number()),
+    ratingScale: v.optional(
+      v.object({
+        min: v.number(),
+        max: v.number(),
+        minLabel: v.optional(v.string()),
+        maxLabel: v.optional(v.string()),
+      }),
+    ),
   },
   async handler(ctx, args) {
-    const { question, survey } = await getSurveyQuestionWithAccess(ctx, args.questionId);
+    const { question, survey } = await getSurveyQuestionWithAccess(
+      ctx,
+      args.questionId,
+    );
 
     const { questionId, ...updates } = args;
     await ctx.db.patch(questionId, updates);
@@ -762,11 +893,14 @@ export const updateQuestion = mutation({
     await ctx.runMutation(logActivityMutation, {
       teamId: survey.teamId,
       projectId: survey.projectId,
-      
+
       actionType: "survey.question.update",
       entityId: args.questionId,
       entityType: "survey_question",
-      details: { surveyTitle: survey.title, questionText: question.questionText },
+      details: {
+        surveyTitle: survey.title,
+        questionText: question.questionText,
+      },
     });
 
     return args.questionId;
@@ -776,25 +910,31 @@ export const updateQuestion = mutation({
 export const deleteQuestion = mutation({
   args: { questionId: v.id("surveyQuestions") },
   async handler(ctx, args) {
-    const { question, survey } = await getSurveyQuestionWithAccess(ctx, args.questionId);
+    const { question, survey } = await getSurveyQuestionWithAccess(
+      ctx,
+      args.questionId,
+    );
 
     await ctx.runMutation(logActivityMutation, {
       teamId: survey.teamId,
       projectId: survey.projectId,
-      
+
       actionType: "survey.question.delete",
       entityId: args.questionId,
       entityType: "survey_question",
-      details: { surveyTitle: survey.title, questionText: question.questionText },
+      details: {
+        surveyTitle: survey.title,
+        questionText: question.questionText,
+      },
     });
 
     // Delete related answers first
     const answers = await ctx.db
       .query("surveyAnswers")
-      .withIndex("by_question", q => q.eq("questionId", args.questionId))
+      .withIndex("by_question", (q) => q.eq("questionId", args.questionId))
       .collect();
 
-    await Promise.all(answers.map(answer => ctx.db.delete(answer._id)));
+    await Promise.all(answers.map((answer) => ctx.db.delete(answer._id)));
     await ctx.db.delete(args.questionId);
 
     return { success: true };
@@ -806,17 +946,19 @@ export const deleteQuestion = mutation({
 export const startSurveyResponse = mutation({
   args: { surveyId: v.id("surveys") },
   async handler(ctx, args) {
-    const { survey, clerkUserId } = await getSurveyWithAccess(ctx, args.surveyId);
-
+    const { survey, clerkUserId } = await getSurveyWithAccess(
+      ctx,
+      args.surveyId,
+    );
 
     // Check if already responded and multiple responses not allowed
     if (!survey.allowMultipleResponses) {
       const existingResponse = await ctx.db
         .query("surveyResponses")
-        .withIndex("by_survey_and_respondent", q => 
-          q.eq("surveyId", args.surveyId).eq("respondentId", clerkUserId)
+        .withIndex("by_survey_and_respondent", (q) =>
+          q.eq("surveyId", args.surveyId).eq("respondentId", clerkUserId),
         )
-        .filter(q => q.eq(q.field("isComplete"), true))
+        .filter((q) => q.eq(q.field("isComplete"), true))
         .first();
 
       if (existingResponse) {
@@ -827,10 +969,10 @@ export const startSurveyResponse = mutation({
     // Create or get existing incomplete response
     let response = await ctx.db
       .query("surveyResponses")
-      .withIndex("by_survey_and_respondent", q => 
-        q.eq("surveyId", args.surveyId).eq("respondentId", clerkUserId)
+      .withIndex("by_survey_and_respondent", (q) =>
+        q.eq("surveyId", args.surveyId).eq("respondentId", clerkUserId),
       )
-      .filter(q => q.eq(q.field("isComplete"), false))
+      .filter((q) => q.eq(q.field("isComplete"), false))
       .first();
 
     if (!response) {
@@ -858,19 +1000,21 @@ export const saveAnswer = mutation({
       v.literal("rating"),
       v.literal("number"),
       v.literal("boolean"),
-      v.literal("file")
+      v.literal("file"),
     ),
     textAnswer: v.optional(v.string()),
     choiceAnswers: v.optional(v.array(v.string())),
     ratingAnswer: v.optional(v.number()),
     numberAnswer: v.optional(v.number()),
     booleanAnswer: v.optional(v.boolean()),
-    fileAnswer: v.optional(v.object({
-      fileId: v.id("files"),
-      fileName: v.string(),
-      fileSize: v.number(),
-      fileType: v.string()
-    })),
+    fileAnswer: v.optional(
+      v.object({
+        fileId: v.id("files"),
+        fileName: v.string(),
+        fileSize: v.number(),
+        fileType: v.string(),
+      }),
+    ),
   },
   async handler(ctx, args) {
     const identity = await ctx.auth.getUserIdentity();
@@ -902,8 +1046,8 @@ export const saveAnswer = mutation({
     // Check if answer already exists
     const existingAnswer = await ctx.db
       .query("surveyAnswers")
-      .withIndex("by_response", q => q.eq("responseId", args.responseId))
-      .filter(q => q.eq(q.field("questionId"), args.questionId))
+      .withIndex("by_response", (q) => q.eq("responseId", args.responseId))
+      .filter((q) => q.eq(q.field("questionId"), args.questionId))
       .first();
 
     const answerData = {
@@ -972,22 +1116,22 @@ export const getSurveyResponses = query({
 
     const responses = await ctx.db
       .query("surveyResponses")
-      .withIndex("by_survey", q => q.eq("surveyId", args.surveyId))
-      .filter(q => q.eq(q.field("isComplete"), true))
+      .withIndex("by_survey", (q) => q.eq("surveyId", args.surveyId))
+      .filter((q) => q.eq(q.field("isComplete"), true))
       .collect();
 
     const responsesWithAnswers = await Promise.all(
       responses.map(async (response) => {
         const answers = await ctx.db
           .query("surveyAnswers")
-          .withIndex("by_response", q => q.eq("responseId", response._id))
+          .withIndex("by_response", (q) => q.eq("responseId", response._id))
           .collect();
 
         return {
           ...response,
           answers,
         };
-      })
+      }),
     );
 
     return responsesWithAnswers;
@@ -1010,8 +1154,8 @@ export const getUserSurveyResponses = query({
 
     const responses = await ctx.db
       .query("surveyResponses")
-      .withIndex("by_project", q => q.eq("projectId", args.projectId))
-      .filter(q => q.eq(q.field("respondentId"), identity.subject))
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .filter((q) => q.eq(q.field("respondentId"), identity.subject))
       .collect();
 
     return responses;
@@ -1034,8 +1178,8 @@ export const getUserSurveyResponse = query({
 
     const response = await ctx.db
       .query("surveyResponses")
-      .withIndex("by_survey_and_respondent", q => 
-        q.eq("surveyId", args.surveyId).eq("respondentId", identity.subject)
+      .withIndex("by_survey_and_respondent", (q) =>
+        q.eq("surveyId", args.surveyId).eq("respondentId", identity.subject),
       )
       .order("desc")
       .first();
@@ -1046,7 +1190,7 @@ export const getUserSurveyResponse = query({
 
     const answers = await ctx.db
       .query("surveyAnswers")
-      .withIndex("by_response", q => q.eq("responseId", response._id))
+      .withIndex("by_response", (q) => q.eq("responseId", response._id))
       .collect();
 
     return {
@@ -1060,28 +1204,30 @@ export const getUserSurveyResponse = query({
 
 export const getSurveysForIndexing = internalQuery({
   args: { projectId: v.id("projects") },
-  returns: v.array(v.object({
-    _id: v.id("surveys"),
-    _creationTime: v.number(),
-    title: v.string(),
-    description: v.optional(v.string()),
-    status: v.union(
-      v.literal("draft"),
-      v.literal("active"),
-      v.literal("closed")
-    ),
-    isRequired: v.boolean(),
-    allowMultipleResponses: v.boolean(),
-    startDate: v.optional(v.number()),
-    endDate: v.optional(v.number()),
-  })),
+  returns: v.array(
+    v.object({
+      _id: v.id("surveys"),
+      _creationTime: v.number(),
+      title: v.string(),
+      description: v.optional(v.string()),
+      status: v.union(
+        v.literal("draft"),
+        v.literal("active"),
+        v.literal("closed"),
+      ),
+      isRequired: v.boolean(),
+      allowMultipleResponses: v.boolean(),
+      startDate: v.optional(v.number()),
+      endDate: v.optional(v.number()),
+    }),
+  ),
   handler: async (ctx, args) => {
     const surveys = await ctx.db
       .query("surveys")
-      .withIndex("by_project", q => q.eq("projectId", args.projectId))
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
 
-    return surveys.map(survey => ({
+    return surveys.map((survey) => ({
       _id: survey._id,
       _creationTime: survey._creationTime,
       title: survey.title,
@@ -1109,17 +1255,19 @@ export const createSurveyQuestion = mutation({
       v.literal("rating"),
       v.literal("yes_no"),
       v.literal("number"),
-      v.literal("file")
+      v.literal("file"),
     ),
     isRequired: v.boolean(),
     order: v.number(),
     options: v.optional(v.array(v.string())),
-    ratingScale: v.optional(v.object({
-      min: v.number(),
-      max: v.number(),
-      minLabel: v.optional(v.string()),
-      maxLabel: v.optional(v.string())
-    })),
+    ratingScale: v.optional(
+      v.object({
+        min: v.number(),
+        max: v.number(),
+        minLabel: v.optional(v.string()),
+        maxLabel: v.optional(v.string()),
+      }),
+    ),
   },
   async handler(ctx, args) {
     await getSurveyWithAccess(ctx, args.surveyId);
@@ -1146,7 +1294,10 @@ export const createSurveyResponse = mutation({
     submittedAt: v.optional(v.number()),
   },
   async handler(ctx, args) {
-    const { project, clerkUserId } = await ensureProjectAccess(ctx, args.projectId);
+    const { project, clerkUserId } = await ensureProjectAccess(
+      ctx,
+      args.projectId,
+    );
     const survey = await ctx.db.get(args.surveyId);
     if (!survey || survey.projectId !== args.projectId) {
       throw new Error("Survey not found");
@@ -1176,19 +1327,21 @@ export const createSurveyAnswer = mutation({
       v.literal("rating"),
       v.literal("number"),
       v.literal("boolean"),
-      v.literal("file")
+      v.literal("file"),
     ),
     textAnswer: v.optional(v.string()),
     choiceAnswers: v.optional(v.array(v.string())),
     ratingAnswer: v.optional(v.number()),
     numberAnswer: v.optional(v.number()),
     booleanAnswer: v.optional(v.boolean()),
-    fileAnswer: v.optional(v.object({
-      fileId: v.id("files"),
-      fileName: v.string(),
-      fileSize: v.number(),
-      fileType: v.string()
-    })),
+    fileAnswer: v.optional(
+      v.object({
+        fileId: v.id("files"),
+        fileName: v.string(),
+        fileSize: v.number(),
+        fileType: v.string(),
+      }),
+    ),
   },
   async handler(ctx, args) {
     const identity = await ctx.auth.getUserIdentity();
@@ -1239,28 +1392,32 @@ export const getSurveyResponsesForIndexing = internalQuery({
   handler: async (ctx, args) => {
     const surveys = await ctx.db
       .query("surveys")
-      .withIndex("by_project", q => q.eq("projectId", args.projectId))
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
 
-    const responses: Array<Doc<"surveyResponses"> & {
-      surveyTitle: string;
-      answers: Array<Doc<"surveyAnswers"> & { questionText: string }>;
-    }> = [];
-    
+    const responses: Array<
+      Doc<"surveyResponses"> & {
+        surveyTitle: string;
+        answers: Array<Doc<"surveyAnswers"> & { questionText: string }>;
+      }
+    > = [];
+
     for (const survey of surveys) {
       const surveyResponses = await ctx.db
         .query("surveyResponses")
-        .withIndex("by_survey", q => q.eq("surveyId", survey._id))
-        .filter(q => q.eq(q.field("isComplete"), true))
+        .withIndex("by_survey", (q) => q.eq("surveyId", survey._id))
+        .filter((q) => q.eq(q.field("isComplete"), true))
         .collect();
 
       for (const response of surveyResponses) {
         const answers = await ctx.db
           .query("surveyAnswers")
-          .withIndex("by_response", q => q.eq("responseId", response._id))
+          .withIndex("by_response", (q) => q.eq("responseId", response._id))
           .collect();
 
-        const answersWithQuestions: Array<Doc<"surveyAnswers"> & { questionText: string }> = [];
+        const answersWithQuestions: Array<
+          Doc<"surveyAnswers"> & { questionText: string }
+        > = [];
         for (const answer of answers) {
           const question = await ctx.db.get(answer.questionId);
           if (question) {
@@ -1300,7 +1457,7 @@ export const getSurveyQuestions = query({
 
     return await ctx.db
       .query("surveyQuestions")
-      .withIndex("by_survey", q => q.eq("surveyId", args.surveyId))
+      .withIndex("by_survey", (q) => q.eq("surveyId", args.surveyId))
       .order("asc")
       .collect();
   },

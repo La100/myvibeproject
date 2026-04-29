@@ -7,7 +7,13 @@ import { Id } from "@/convex/_generated/dataModel";
 import { useProject } from "@/components/providers/ProjectProvider";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
   Dialog,
@@ -17,7 +23,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit, BarChart3, ClipboardList, Library } from "lucide-react";
+import {
+  Plus,
+  Edit,
+  BarChart3,
+  ClipboardList,
+  Library,
+  Eye,
+} from "lucide-react";
 import Link from "next/link";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 import { toast } from "sonner";
@@ -51,7 +64,7 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
   }) as SurveyTemplateSummary[] | undefined;
 
   const currentUserMember = useQuery(apiAny.teams.getCurrentUserTeamMember, {
-    teamId: project.teamId
+    teamId: project.teamId,
   });
   const createSurveyFromTemplate = useMutation(
     apiAny.surveyTemplates.createSurveyFromTemplate,
@@ -97,7 +110,9 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
                 Use Template
               </Button>
               <Button asChild>
-                <Link href={`/organisation/projects/${projectSlug}/surveys/new`}>
+                <Link
+                  href={`/organisation/projects/${projectSlug}/surveys/new`}
+                >
                   <Plus data-icon="inline-start" />
                   New Survey
                 </Link>
@@ -113,11 +128,18 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
           icon={BarChart3}
           title="No Surveys"
           description="You don't have any surveys yet. Create your first survey to start collecting feedback."
-          action={canEdit ? {
-            label: "Create First Survey",
-            onClick: () => router.push(`/organisation/projects/${projectSlug}/surveys/new`),
-            icon: Plus,
-          } : undefined}
+          action={
+            canEdit
+              ? {
+                  label: "Create First Survey",
+                  onClick: () =>
+                    router.push(
+                      `/organisation/projects/${projectSlug}/surveys/new`,
+                    ),
+                  icon: Plus,
+                }
+              : undefined
+          }
           secondaryAction={
             canEdit
               ? {
@@ -141,16 +163,28 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
               </CardHeader>
               <CardContent>
                 <div className="mt-4 flex flex-wrap gap-2">
+                  <Button asChild variant="outline" size="sm">
+                    <Link
+                      href={`/organisation/projects/${projectSlug}/surveys/${survey._id}`}
+                    >
+                      <Eye data-icon="inline-start" />
+                      View
+                    </Link>
+                  </Button>
                   {canEdit && (
                     <>
                       <Button asChild variant="outline" size="sm">
-                        <Link href={`/organisation/projects/${projectSlug}/surveys/${survey._id}/edit`}>
+                        <Link
+                          href={`/organisation/projects/${projectSlug}/surveys/${survey._id}/edit`}
+                        >
                           <Edit data-icon="inline-start" />
                           Edit
                         </Link>
                       </Button>
                       <Button asChild variant="outline" size="sm">
-                        <Link href={`/organisation/projects/${projectSlug}/surveys/${survey._id}/responses`}>
+                        <Link
+                          href={`/organisation/projects/${projectSlug}/surveys/${survey._id}/responses`}
+                        >
                           <BarChart3 data-icon="inline-start" />
                           Responses
                         </Link>
@@ -164,7 +198,10 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
         </div>
       )}
 
-      <Dialog open={isTemplateDialogOpen} onOpenChange={setIsTemplateDialogOpen}>
+      <Dialog
+        open={isTemplateDialogOpen}
+        onOpenChange={setIsTemplateDialogOpen}
+      >
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Use Survey Template</DialogTitle>
@@ -192,9 +229,14 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
                   <CardHeader className="pb-3">
                     <div className="mb-2 flex flex-wrap items-center gap-2">
                       <Badge variant="secondary">
-                        {template.questionCount} {template.questionCount === 1 ? "question" : "questions"}
+                        {template.questionCount}{" "}
+                        {template.questionCount === 1
+                          ? "question"
+                          : "questions"}
                       </Badge>
-                      {template.isRequired ? <Badge variant="outline">Required</Badge> : null}
+                      {template.isRequired ? (
+                        <Badge variant="outline">Required</Badge>
+                      ) : null}
                       {template.allowMultipleResponses ? (
                         <Badge variant="outline">Multiple responses</Badge>
                       ) : null}
@@ -214,7 +256,9 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
                       onClick={() => handleUseTemplate(template)}
                     >
                       <ClipboardList data-icon="inline-start" />
-                      {creatingFromTemplateId === template._id ? "Creating..." : "Use Template"}
+                      {creatingFromTemplateId === template._id
+                        ? "Creating..."
+                        : "Use Template"}
                     </Button>
                   </CardContent>
                 </Card>

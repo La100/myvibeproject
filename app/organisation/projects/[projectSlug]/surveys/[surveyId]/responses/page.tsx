@@ -6,7 +6,13 @@ import { apiAny } from "@/lib/convexApiAny";
 import { useRouter } from "next/navigation";
 import { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { ArrowLeft, Users, FileText } from "lucide-react";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
@@ -24,7 +30,9 @@ interface SurveyResponsesPageProps {
   }>;
 }
 
-export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps) {
+export default function SurveyResponsesPage({
+  params,
+}: SurveyResponsesPageProps) {
   const router = useRouter();
   const [routeParams, setRouteParams] = useState<{
     surveyId: Id<"surveys">;
@@ -33,7 +41,7 @@ export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps
   const [expandedResponseId, setExpandedResponseId] = useState<string>("");
 
   useEffect(() => {
-    params.then(p => {
+    params.then((p) => {
       setRouteParams({
         surveyId: p.surveyId as Id<"surveys">,
         projectSlug: p.projectSlug,
@@ -41,17 +49,20 @@ export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps
     });
   }, [params]);
 
-  const survey = useQuery(apiAny.surveys.getSurvey,
-    routeParams ? { surveyId: routeParams.surveyId } : "skip"
+  const survey = useQuery(
+    apiAny.surveys.getSurvey,
+    routeParams ? { surveyId: routeParams.surveyId } : "skip",
   );
-  const responses = useQuery(apiAny.surveys.getSurveyResponses,
-    routeParams ? { surveyId: routeParams.surveyId } : "skip"
+  const responses = useQuery(
+    apiAny.surveys.getSurveyResponses,
+    routeParams ? { surveyId: routeParams.surveyId } : "skip",
   );
 
   // Get user info for each response
-  const userIds = responses?.map(r => r.respondentId).filter(Boolean) || [];
-  const users = useQuery(apiAny.users.getByClerkIds,
-    userIds.length > 0 ? { clerkUserIds: userIds } : "skip"
+  const userIds = responses?.map((r) => r.respondentId).filter(Boolean) || [];
+  const users = useQuery(
+    apiAny.users.getByClerkIds,
+    userIds.length > 0 ? { clerkUserIds: userIds } : "skip",
   );
 
   if (!survey || !routeParams) {
@@ -61,26 +72,45 @@ export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps
   const getAnswerDisplay = (answer: {
     answerType: string;
     textAnswer?: string;
+    choiceAnswers?: string[];
+    ratingAnswer?: number;
+    numberAnswer?: number;
     booleanAnswer?: boolean;
+    fileAnswer?: {
+      fileName?: string;
+    };
   }) => {
     switch (answer.answerType) {
       case "text":
         return answer.textAnswer || "-";
+      case "choice":
+        return answer.choiceAnswers?.length
+          ? answer.choiceAnswers.join(", ")
+          : "-";
+      case "rating":
+        return typeof answer.ratingAnswer === "number"
+          ? String(answer.ratingAnswer)
+          : "-";
+      case "number":
+        return typeof answer.numberAnswer === "number"
+          ? String(answer.numberAnswer)
+          : "-";
       case "boolean":
         return answer.booleanAnswer ? "Yes" : "No";
+      case "file":
+        return answer.fileAnswer?.fileName || "-";
       default:
         return "-";
     }
   };
 
-
   const getUserName = (respondentId: string) => {
-    const user = users?.find(u => u.clerkUserId === respondentId);
+    const user = users?.find((u) => u.clerkUserId === respondentId);
     return user?.name || user?.email || "Unknown user";
   };
 
   const sortedResponses = [...(responses || [])].sort(
-    (a, b) => (b.submittedAt || 0) - (a.submittedAt || 0)
+    (a, b) => (b.submittedAt || 0) - (a.submittedAt || 0),
   );
 
   return (
@@ -94,7 +124,11 @@ export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps
             <Button
               variant="outline"
               size="sm"
-              onClick={() => router.push(`/organisation/projects/${routeParams.projectSlug}/surveys`)}
+              onClick={() =>
+                router.push(
+                  `/organisation/projects/${routeParams.projectSlug}/surveys`,
+                )
+              }
               className="shrink-0 bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:text-primary-foreground"
             >
               <ArrowLeft className="mr-2 h-5 w-5 stroke-[2.4]" />
@@ -112,9 +146,7 @@ export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {responses?.length ?? 0}
-              </div>
+              <div className="text-2xl font-bold">{responses?.length ?? 0}</div>
               <p className="text-sm text-muted-foreground">Total responses</p>
             </CardContent>
           </Card>
@@ -130,16 +162,20 @@ export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps
               <div className="text-2xl font-bold">
                 {survey.questions ? survey.questions.length : 0}
               </div>
-              <p className="text-sm text-muted-foreground">Number of questions</p>
+              <p className="text-sm text-muted-foreground">
+                Number of questions
+              </p>
             </CardContent>
           </Card>
         </div>
 
-        {((responses?.length ?? 0) === 0) ? (
+        {(responses?.length ?? 0) === 0 ? (
           <Card>
             <CardHeader>
               <CardTitle>No responses</CardTitle>
-              <CardDescription>No one has responded to this survey yet.</CardDescription>
+              <CardDescription>
+                No one has responded to this survey yet.
+              </CardDescription>
             </CardHeader>
           </Card>
         ) : (
@@ -160,17 +196,19 @@ export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps
                       type="button"
                       onClick={() =>
                         setExpandedResponseId((current) =>
-                          current === responseId ? "" : responseId
+                          current === responseId ? "" : responseId,
                         )
                       }
                       className="flex w-full items-center justify-between rounded-lg border border-border bg-card px-4 py-3 text-left transition-colors hover:bg-accent"
                     >
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold">
-                          {response.respondentName || getUserName(response.respondentId)}
+                          {response.respondentName ||
+                            getUserName(response.respondentId)}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Submitted: {new Date(response.submittedAt || 0).toLocaleString()}
+                          Submitted:{" "}
+                          {new Date(response.submittedAt || 0).toLocaleString()}
                         </p>
                       </div>
                       <span className="ml-4 inline-block rounded border border-border px-2 py-1 text-xs font-semibold">
@@ -192,15 +230,23 @@ export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps
               {sortedResponses.map((response, responseIndex) => {
                 const responseId = String(response._id);
                 return (
-                  <AccordionItem key={responseId} value={responseId} className="border-b border-border last:border-b-0">
+                  <AccordionItem
+                    key={responseId}
+                    value={responseId}
+                    className="border-b border-border last:border-b-0"
+                  >
                     <AccordionTrigger className="py-5 hover:no-underline">
                       <div className="flex w-full items-start justify-between pr-3 text-left">
                         <div>
                           <p className="text-xl font-bold">
-                            {response.respondentName || getUserName(response.respondentId)}
+                            {response.respondentName ||
+                              getUserName(response.respondentId)}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            Submitted: {new Date(response.submittedAt || 0).toLocaleString()}
+                            Submitted:{" "}
+                            {new Date(
+                              response.submittedAt || 0,
+                            ).toLocaleString()}
                           </p>
                         </div>
                         <span className="inline-block rounded border border-border bg-transparent px-2 py-1 text-xs font-semibold">
@@ -211,19 +257,30 @@ export default function SurveyResponsesPage({ params }: SurveyResponsesPageProps
                     <AccordionContent>
                       <div className="flex flex-col gap-6 pb-6">
                         {survey.questions.map((question, questionIndex) => {
-                          const answer = response.answers.find(a => a.questionId === question._id);
+                          const answer = response.answers.find(
+                            (a) => a.questionId === question._id,
+                          );
                           return (
-                            <Card key={question._id} className="border border-border/80 bg-card shadow-sm">
+                            <Card
+                              key={question._id}
+                              className="border border-border/80 bg-card shadow-sm"
+                            >
                               <CardContent className="p-6">
                                 <div className="mb-2 flex items-center gap-3">
                                   <span className="inline-block border border-border text-foreground bg-transparent rounded px-2 py-1 text-xs font-semibold">
                                     Question {questionIndex + 1}
                                   </span>
                                 </div>
-                                <div className="mb-2 font-medium">{question.questionText}</div>
+                                <div className="mb-2 font-medium">
+                                  {question.questionText}
+                                </div>
                                 <div className="rounded-lg bg-secondary/70 p-3">
-                                  {answer ? getAnswerDisplay(answer) : (
-                                    <span className="italic text-muted-foreground">No answer</span>
+                                  {answer ? (
+                                    getAnswerDisplay(answer)
+                                  ) : (
+                                    <span className="italic text-muted-foreground">
+                                      No answer
+                                    </span>
                                   )}
                                 </div>
                               </CardContent>

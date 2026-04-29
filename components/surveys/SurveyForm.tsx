@@ -7,29 +7,86 @@ import { Id } from "@/convex/_generated/dataModel";
 import { useRouter } from "next/navigation";
 import { useProject } from "@/components/providers/ProjectProvider";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Plus, Trash2, ArrowLeft, Save, FileText, HelpCircle, GripVertical } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  ArrowLeft,
+  Save,
+  FileText,
+  HelpCircle,
+  GripVertical,
+} from "lucide-react";
 import { toast } from "sonner";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
+type QuestionType =
+  | "text_short"
+  | "text_long"
+  | "multiple_choice"
+  | "single_choice"
+  | "rating"
+  | "yes_no"
+  | "number"
+  | "file";
+
 interface Question {
   id: string;
   questionText: string;
-  questionType: "text_long" | "yes_no";
+  questionType: QuestionType;
   isRequired: boolean;
+  optionsText: string;
+  ratingMin: number;
+  ratingMax: number;
+  ratingMinLabel: string;
+  ratingMaxLabel: string;
 }
 
 interface SurveyFormProps {
   projectSlug: string;
+}
+
+const questionTypes: Array<{ value: QuestionType; label: string }> = [
+  { value: "text_short", label: "Short Text" },
+  { value: "text_long", label: "Long Text" },
+  { value: "single_choice", label: "Single Choice" },
+  { value: "multiple_choice", label: "Multiple Choice" },
+  { value: "rating", label: "Rating Scale" },
+  { value: "yes_no", label: "Yes/No" },
+  { value: "number", label: "Number" },
+  { value: "file", label: "File Upload" },
+];
+
+function normalizeOptions(optionsText: string) {
+  return optionsText
+    .split("\n")
+    .map((option) => option.trim())
+    .filter(Boolean);
+}
+
+function usesChoiceOptions(questionType: QuestionType) {
+  return questionType === "single_choice" || questionType === "multiple_choice";
 }
 
 export function SurveyForm({ projectSlug }: SurveyFormProps) {
@@ -49,23 +106,42 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
       questionText: "",
       questionType: "text_long",
       isRequired: true,
+      optionsText: "",
+      ratingMin: 1,
+      ratingMax: 5,
+      ratingMinLabel: "",
+      ratingMaxLabel: "",
     };
     setQuestions([...questions, newQuestion]);
   };
 
   const updateQuestion = (id: string, updates: Partial<Question>) => {
-    setQuestions(questions.map(q => 
-      q.id === id ? { ...q, ...updates } : q
-    ));
+    setQuestions(
+      questions.map((q) => (q.id === id ? { ...q, ...updates } : q)),
+    );
   };
 
   const removeQuestion = (id: string) => {
-    setQuestions(questions.filter(q => q.id !== id));
+    setQuestions(questions.filter((q) => q.id !== id));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
+
+    const validQuestions = questions.filter((question) =>
+      question.questionText.trim(),
+    );
+    const invalidChoiceQuestion = validQuestions.find(
+      (question) =>
+        usesChoiceOptions(question.questionType) &&
+        normalizeOptions(question.optionsText).length < 2,
+    );
+
+    if (invalidChoiceQuestion) {
+      toast.error("Choice questions need at least two options");
+      return;
+    }
 
     setIsSubmitting(true);
 
@@ -79,15 +155,27 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
       });
 
       // Add questions
-      for (const question of questions) {
-        if (question.questionText.trim()) {
-          await addQuestion({
-            surveyId,
-            questionText: question.questionText.trim(),
-            questionType: question.questionType,
-            isRequired: question.isRequired,
-          });
-        }
+      for (const question of validQuestions) {
+        const usesOptions = usesChoiceOptions(question.questionType);
+        const usesRating = question.questionType === "rating";
+
+        await addQuestion({
+          surveyId,
+          questionText: question.questionText.trim(),
+          questionType: question.questionType,
+          isRequired: question.isRequired,
+          options: usesOptions
+            ? normalizeOptions(question.optionsText)
+            : undefined,
+          ratingScale: usesRating
+            ? {
+                min: question.ratingMin,
+                max: question.ratingMax,
+                minLabel: question.ratingMinLabel.trim() || undefined,
+                maxLabel: question.ratingMaxLabel.trim() || undefined,
+              }
+            : undefined,
+        });
       }
 
       toast.success("Survey has been created!");
@@ -108,6 +196,9 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
         return <FileText className="h-4 w-4" />;
       case "yes_no":
         return <HelpCircle className="h-4 w-4" />;
+      case "single_choice":
+      case "multiple_choice":
+        return <HelpCircle className="h-4 w-4" />;
       default:
         return <FileText className="h-4 w-4" />;
     }
@@ -119,6 +210,18 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
         return "Text";
       case "yes_no":
         return "Yes/No";
+      case "single_choice":
+        return "Single Choice";
+      case "multiple_choice":
+        return "Multiple Choice";
+      case "text_short":
+        return "Short Text";
+      case "rating":
+        return "Rating Scale";
+      case "number":
+        return "Number";
+      case "file":
+        return "File Upload";
       default:
         return "Text";
     }
@@ -130,11 +233,7 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
         title="New Survey"
         icon={<FileText className="h-8 w-8 text-primary" />}
         actions={
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.back()}
-          >
+          <Button variant="outline" size="sm" onClick={() => router.back()}>
             <ArrowLeft data-icon="inline-start" />
             Back
           </Button>
@@ -150,7 +249,9 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
                 <FileText className="h-5 w-5 text-foreground" />
                 <div className="flex flex-col gap-1">
                   <CardTitle className="text-xl">Basic Information</CardTitle>
-                  <CardDescription>Provide basic information about the survey</CardDescription>
+                  <CardDescription>
+                    Provide basic information about the survey
+                  </CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -193,13 +294,12 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
                   <HelpCircle className="h-5 w-5 text-foreground" />
                   <div className="flex flex-col gap-1">
                     <CardTitle className="text-xl">Questions</CardTitle>
-                    <CardDescription>Add questions to your survey</CardDescription>
+                    <CardDescription>
+                      Add questions to your survey
+                    </CardDescription>
                   </div>
                 </div>
-                <Button
-                  type="button"
-                  onClick={addNewQuestion}
-                >
+                <Button type="button" onClick={addNewQuestion}>
                   <Plus data-icon="inline-start" />
                   Add Question
                 </Button>
@@ -220,96 +320,200 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
                 />
               ) : (
                 <div className="flex flex-col gap-6">
-                  {questions.map((question, index) => (
-                    <Card key={question.id}>
-                      <CardContent className="p-6">
-                        <div className="flex flex-col gap-5">
-                          {/* Question Header */}
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <GripVertical className="h-4 w-4 text-muted-foreground" />
-                              <Badge variant="outline">Question {index + 1}</Badge>
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                {getQuestionTypeIcon(question.questionType)}
-                                <span>{getQuestionTypeLabel(question.questionType)}</span>
+                  {questions.map((question, index) => {
+                    const usesOptions = usesChoiceOptions(
+                      question.questionType,
+                    );
+                    const usesRating = question.questionType === "rating";
+
+                    return (
+                      <Card key={question.id}>
+                        <CardContent className="p-6">
+                          <div className="flex flex-col gap-5">
+                            {/* Question Header */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <GripVertical className="h-4 w-4 text-muted-foreground" />
+                                <Badge variant="outline">
+                                  Question {index + 1}
+                                </Badge>
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  {getQuestionTypeIcon(question.questionType)}
+                                  <span>
+                                    {getQuestionTypeLabel(
+                                      question.questionType,
+                                    )}
+                                  </span>
+                                </div>
                               </div>
-                            </div>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeQuestion(question.id)}
-                            >
-                              <Trash2 data-icon="inline-start" />
-                            </Button>
-                          </div>
-
-                          <Separator />
-
-                          {/* Question Content */}
-                          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                            <div className="flex flex-col gap-3">
-                              <Label className="text-sm font-semibold">
-                                Question Content *
-                              </Label>
-                              <Textarea
-                                value={question.questionText}
-                                onChange={(e) => updateQuestion(question.id, { questionText: e.target.value })}
-                                placeholder="Enter question content"
-                                required
-                                rows={3}
-                                className="resize-none text-base"
-                                />
-                            </div>
-
-                            <div className="flex flex-col gap-3">
-                              <Label className="text-sm font-semibold">
-                                Question Type
-                              </Label>
-                              <Select
-                                value={question.questionType}
-                                onValueChange={(value: "text_long" | "yes_no") => updateQuestion(question.id, { questionType: value })}
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeQuestion(question.id)}
                               >
-                                <SelectTrigger className="h-11">
-                                  <SelectValue placeholder="Select question type" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="text_long">
-                                    <div className="flex items-center gap-2">
-                                      <FileText className="h-4 w-4 text-foreground" />
-                                      Text
-                                    </div>
-                                  </SelectItem>
-                                  <SelectItem value="yes_no">
-                                    <div className="flex items-center gap-2">
-                                      <HelpCircle className="h-4 w-4 text-foreground" />
-                                      Yes/No
-                                    </div>
-                                  </SelectItem>
-                                </SelectContent>
-                              </Select>
+                                <Trash2 data-icon="inline-start" />
+                              </Button>
                             </div>
-                          </div>
 
-                          {/* Required toggle */}
-                          <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/30 p-4">
-                            <div className="flex items-center gap-3">
-                              <Switch
-                                checked={question.isRequired}
-                                onCheckedChange={(checked) => updateQuestion(question.id, { isRequired: checked })}
-                              />
-                              <div className="flex flex-col gap-1">
-                                <Label className="text-sm font-medium">Required Question</Label>
-                                <p className="text-xs text-muted-foreground">
-                                  Respondents will have to answer this question
-                                </p>
+                            <Separator />
+
+                            {/* Question Content */}
+                            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                              <div className="flex flex-col gap-3">
+                                <Label className="text-sm font-semibold">
+                                  Question Content *
+                                </Label>
+                                <Textarea
+                                  value={question.questionText}
+                                  onChange={(e) =>
+                                    updateQuestion(question.id, {
+                                      questionText: e.target.value,
+                                    })
+                                  }
+                                  placeholder="Enter question content"
+                                  required
+                                  rows={3}
+                                  className="resize-none text-base"
+                                />
+                              </div>
+
+                              <div className="flex flex-col gap-3">
+                                <Label className="text-sm font-semibold">
+                                  Question Type
+                                </Label>
+                                <Select
+                                  value={question.questionType}
+                                  onValueChange={(value: QuestionType) =>
+                                    updateQuestion(question.id, {
+                                      questionType: value,
+                                    })
+                                  }
+                                >
+                                  <SelectTrigger className="h-11">
+                                    <SelectValue placeholder="Select question type" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {questionTypes.map((type) => (
+                                      <SelectItem
+                                        key={type.value}
+                                        value={type.value}
+                                      >
+                                        {type.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+
+                            {usesOptions ? (
+                              <div className="flex flex-col gap-3">
+                                <Label className="text-sm font-semibold">
+                                  Options
+                                </Label>
+                                <Textarea
+                                  value={question.optionsText}
+                                  onChange={(e) =>
+                                    updateQuestion(question.id, {
+                                      optionsText: e.target.value,
+                                    })
+                                  }
+                                  placeholder={
+                                    "One option per line\nOption A\nOption B"
+                                  }
+                                  rows={4}
+                                  className="resize-none text-base"
+                                />
+                              </div>
+                            ) : null}
+
+                            {usesRating ? (
+                              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                                <div className="flex flex-col gap-2">
+                                  <Label className="text-sm font-semibold">
+                                    Min
+                                  </Label>
+                                  <Input
+                                    type="number"
+                                    value={question.ratingMin}
+                                    onChange={(e) =>
+                                      updateQuestion(question.id, {
+                                        ratingMin: Number(e.target.value),
+                                      })
+                                    }
+                                  />
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                  <Label className="text-sm font-semibold">
+                                    Max
+                                  </Label>
+                                  <Input
+                                    type="number"
+                                    value={question.ratingMax}
+                                    onChange={(e) =>
+                                      updateQuestion(question.id, {
+                                        ratingMax: Number(e.target.value),
+                                      })
+                                    }
+                                  />
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                  <Label className="text-sm font-semibold">
+                                    Min Label
+                                  </Label>
+                                  <Input
+                                    value={question.ratingMinLabel}
+                                    onChange={(e) =>
+                                      updateQuestion(question.id, {
+                                        ratingMinLabel: e.target.value,
+                                      })
+                                    }
+                                  />
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                  <Label className="text-sm font-semibold">
+                                    Max Label
+                                  </Label>
+                                  <Input
+                                    value={question.ratingMaxLabel}
+                                    onChange={(e) =>
+                                      updateQuestion(question.id, {
+                                        ratingMaxLabel: e.target.value,
+                                      })
+                                    }
+                                  />
+                                </div>
+                              </div>
+                            ) : null}
+
+                            {/* Required toggle */}
+                            <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/30 p-4">
+                              <div className="flex items-center gap-3">
+                                <Switch
+                                  checked={question.isRequired}
+                                  onCheckedChange={(checked) =>
+                                    updateQuestion(question.id, {
+                                      isRequired: checked,
+                                    })
+                                  }
+                                />
+                                <div className="flex flex-col gap-1">
+                                  <Label className="text-sm font-medium">
+                                    Required Question
+                                  </Label>
+                                  <p className="text-xs text-muted-foreground">
+                                    Respondents will have to answer this
+                                    question
+                                  </p>
+                                </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
