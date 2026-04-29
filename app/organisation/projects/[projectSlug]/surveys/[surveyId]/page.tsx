@@ -5,10 +5,12 @@ import { useQuery } from "convex/react";
 import {
   ArrowLeft,
   BarChart3,
+  CheckCircle2,
   Edit,
   Eye,
   FileText,
   HelpCircle,
+  Paperclip,
 } from "lucide-react";
 import Link from "next/link";
 import { apiAny } from "@/lib/convexApiAny";
@@ -22,7 +24,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 
@@ -53,6 +54,14 @@ function getQuestionTypeLabel(questionType: string) {
 
 function questionNeedsOptions(questionType: string) {
   return questionType === "single_choice" || questionType === "multiple_choice";
+}
+
+function getRatingValues(question: {
+  ratingScale?: { min?: number; max?: number };
+}) {
+  const min = question.ratingScale?.min ?? 1;
+  const max = question.ratingScale?.max ?? 5;
+  return Array.from({ length: Math.max(0, max - min + 1) }, (_, index) => min + index);
 }
 
 export default function SurveyPreviewPage() {
@@ -151,88 +160,117 @@ export default function SurveyPreviewPage() {
                 {survey.status}
               </Badge>
               <p className="mt-3 text-sm text-muted-foreground">
-                {survey.allowMultipleResponses
-                  ? "Multiple responses allowed"
-                  : "One response per respondent"}
+                Clients can submit another response whenever needed.
               </p>
             </CardContent>
           </Card>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Survey Questions</CardTitle>
-            <CardDescription>
-              Read-only structure of the survey shown to clients.
-            </CardDescription>
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b border-border/70">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <CardTitle>Survey Questions</CardTitle>
+                <CardDescription>
+                  Read-only preview of the structure clients will answer.
+                </CardDescription>
+              </div>
+              <Badge variant="secondary">
+                {requiredQuestionCount} required
+              </Badge>
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             {survey.questions.length === 0 ? (
-              <div className="rounded-lg border border-border bg-muted/30 p-6 text-sm text-muted-foreground">
+              <div className="m-5 rounded-xl border border-border bg-secondary/60 p-6 text-sm text-muted-foreground">
                 This survey has no questions yet.
               </div>
             ) : (
-              <div className="flex flex-col gap-5">
+              <div className="divide-y divide-border/70">
                 {survey.questions.map((question, index) => (
                   <div
                     key={question._id}
-                    className="rounded-lg border border-border bg-card p-5"
+                    className="grid gap-5 p-5 md:grid-cols-[220px_1fr]"
                   >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="outline">Question {index + 1}</Badge>
-                      <Badge variant="secondary">
+                    <div>
+                      <Badge variant="outline" className="rounded-full">
+                        Question {index + 1}
+                      </Badge>
+                      <Badge variant="secondary" className="mt-2 block w-fit">
                         {getQuestionTypeLabel(question.questionType)}
                       </Badge>
                       {question.isRequired ? (
-                        <Badge variant="destructive">Required</Badge>
+                        <Badge variant="outline" className="mt-2 block w-fit">
+                          <CheckCircle2 data-icon="inline-start" />
+                          Required
+                        </Badge>
                       ) : null}
                     </div>
 
-                    <h2 className="mt-4 text-lg font-semibold">
-                      {question.questionText}
-                    </h2>
+                    <div>
+                      <h2 className="text-lg font-semibold leading-7">
+                        {question.questionText}
+                      </h2>
 
-                    {questionNeedsOptions(question.questionType) ? (
-                      <>
-                        <Separator className="my-4" />
-                        {(question.options?.length ?? 0) > 0 ? (
-                          <div className="flex flex-col gap-2">
+                      {questionNeedsOptions(question.questionType) ? (
+                        (question.options?.length ?? 0) > 0 ? (
+                          <div className="mt-4 grid gap-2 sm:grid-cols-2">
                             {question.options?.map((option, optionIndex) => (
                               <div
                                 key={`${question._id}-${optionIndex}`}
-                                className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm"
+                                className="flex min-h-11 items-center gap-3 rounded-xl border border-border bg-secondary/60 px-3 py-2 text-sm"
                               >
+                                <span className="h-4 w-4 rounded-full border border-primary/50 bg-card" />
                                 {option}
                               </div>
                             ))}
                           </div>
                         ) : (
-                          <p className="text-sm text-muted-foreground">
+                          <p className="mt-4 text-sm text-muted-foreground">
                             No options configured.
                           </p>
-                        )}
-                      </>
-                    ) : null}
+                        )
+                      ) : null}
 
-                    {question.questionType === "rating" ? (
-                      <>
-                        <Separator className="my-4" />
-                        <div className="grid gap-3 text-sm md:grid-cols-2">
-                          <div>
-                            <span className="font-medium">Min:</span>{" "}
-                            {question.ratingScale?.minLabel ||
-                              question.ratingScale?.min ||
-                              1}
-                          </div>
-                          <div>
-                            <span className="font-medium">Max:</span>{" "}
-                            {question.ratingScale?.maxLabel ||
-                              question.ratingScale?.max ||
-                              5}
+                      {question.questionType === "rating" ? (
+                        <div className="mt-4 max-w-lg">
+                          {(question.ratingScale?.minLabel ||
+                            question.ratingScale?.maxLabel) ? (
+                            <div className="mb-3 flex items-center justify-between gap-3 rounded-xl bg-secondary px-3 py-2 text-xs text-muted-foreground">
+                              <span className="min-w-0 truncate">
+                                {question.ratingScale?.minLabel ||
+                                  question.ratingScale?.min ||
+                                  1}
+                              </span>
+                              <span className="min-w-0 truncate text-right">
+                                {question.ratingScale?.maxLabel ||
+                                  question.ratingScale?.max ||
+                                  5}
+                              </span>
+                            </div>
+                          ) : null}
+                          <div className="grid grid-cols-5 gap-2">
+                            {getRatingValues(question).map((value) => (
+                              <div
+                                key={value}
+                                className="flex h-11 items-center justify-center rounded-xl border border-border bg-secondary/60 text-sm font-semibold"
+                              >
+                                {value}
+                              </div>
+                            ))}
                           </div>
                         </div>
-                      </>
-                    ) : null}
+                      ) : null}
+
+                      {question.questionType === "file" ? (
+                        <div className="mt-4 flex min-h-12 items-center justify-between rounded-xl border border-dashed border-border bg-secondary/60 px-4 py-3 text-sm text-muted-foreground">
+                          <span className="flex items-center gap-2">
+                            <Paperclip className="h-4 w-4" />
+                            File upload field
+                          </span>
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
                 ))}
               </div>

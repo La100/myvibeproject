@@ -30,6 +30,8 @@ import {
   ClipboardList,
   Library,
   Eye,
+  CheckCircle2,
+  HelpCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
@@ -41,6 +43,18 @@ type SurveyTemplateSummary = {
   title: string;
   description?: string;
   questionCount: number;
+};
+
+type SurveySummary = {
+  _id: Id<"surveys">;
+  title: string;
+  description?: string;
+  status: "draft" | "active" | "closed";
+  isRequired: boolean;
+  allowMultipleResponses: boolean;
+  questionCount?: number;
+  requiredQuestionCount?: number;
+  responseCount?: number;
 };
 
 interface SurveysListProps {
@@ -56,7 +70,7 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
 
   const surveys = useQuery(apiAny.surveys.getSurveysByProject, {
     projectId: project._id,
-  });
+  }) as SurveySummary[] | undefined;
   const templates = useQuery(apiAny.surveyTemplates.listTemplates, {
     teamId: project.teamId,
   }) as SurveyTemplateSummary[] | undefined;
@@ -148,20 +162,61 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
           }
         />
       ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {surveys?.map((survey) => (
-            <Card key={survey._id}>
+            <Card key={survey._id} className="overflow-hidden">
               <CardHeader className="pb-3">
-                <CardTitle className="text-xl">{survey.title}</CardTitle>
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                  <Badge variant="outline" className="capitalize">
+                    {survey.status}
+                  </Badge>
+                  {survey.isRequired ? (
+                    <Badge variant="secondary">Required</Badge>
+                  ) : null}
+                  <Badge variant="outline">Repeat submissions</Badge>
+                </div>
+                <CardTitle className="line-clamp-2 text-xl">
+                  {survey.title}
+                </CardTitle>
                 {survey.description && (
-                  <CardDescription className="line-clamp-2">
+                  <CardDescription className="line-clamp-2 leading-6">
                     {survey.description}
                   </CardDescription>
                 )}
               </CardHeader>
-              <CardContent>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <Button asChild variant="outline" size="sm">
+              <CardContent className="flex flex-col gap-4">
+                <div className="grid grid-cols-3 gap-2 rounded-xl border border-border bg-secondary/60 p-2 text-xs">
+                  <div className="rounded-lg bg-card px-2.5 py-2">
+                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                      <HelpCircle className="h-3.5 w-3.5" />
+                      Questions
+                    </div>
+                    <p className="mt-1 text-base font-semibold text-foreground">
+                      {survey.questionCount ?? 0}
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-card px-2.5 py-2">
+                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Required
+                    </div>
+                    <p className="mt-1 text-base font-semibold text-foreground">
+                      {survey.requiredQuestionCount ?? 0}
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-card px-2.5 py-2">
+                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                      <BarChart3 className="h-3.5 w-3.5" />
+                      Responses
+                    </div>
+                    <p className="mt-1 text-base font-semibold text-foreground">
+                      {survey.responseCount ?? 0}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <Button asChild variant="outline" size="sm" className="flex-1">
                     <Link
                       href={`/organisation/projects/${projectSlug}/surveys/${survey._id}`}
                     >
@@ -179,7 +234,7 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
                           Edit
                         </Link>
                       </Button>
-                      <Button asChild variant="outline" size="sm">
+                      <Button asChild size="sm">
                         <Link
                           href={`/organisation/projects/${projectSlug}/surveys/${survey._id}/responses`}
                         >

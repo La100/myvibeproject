@@ -146,6 +146,15 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
     const validQuestions = questions.filter((question) =>
       question.questionText.trim(),
     );
+    if (!title.trim()) {
+      toast.error("Survey title is required");
+      return;
+    }
+    if (validQuestions.length === 0) {
+      toast.error("Add at least one question before saving the survey");
+      return;
+    }
+
     const invalidChoiceQuestion = validQuestions.find(
       (question) =>
         usesChoiceOptions(question.questionType) &&
@@ -162,8 +171,8 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
     try {
       await updateSurvey({
         surveyId: survey._id,
-        title: title,
-        description: description || undefined,
+        title: title.trim(),
+        description: description.trim() || undefined,
       });
 
       const retainedQuestionIds = new Set(
@@ -199,8 +208,8 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
           order: index + 1,
           ratingScale: usesRating
             ? {
-                min: question.ratingMin,
-                max: question.ratingMax,
+                min: Math.min(question.ratingMin, question.ratingMax),
+                max: Math.max(question.ratingMin, question.ratingMax),
                 minLabel: question.ratingMinLabel.trim() || undefined,
                 maxLabel: question.ratingMaxLabel.trim() || undefined,
               }

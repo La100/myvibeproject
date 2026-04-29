@@ -157,6 +157,8 @@ export function RatingScaleEditor({ value, onChange }: RatingScaleEditorProps) {
           <Input
             type="number"
             value={value.min}
+            min={0}
+            max={20}
             onChange={(event) =>
               onChange({ ...value, min: Number(event.target.value) })
             }
@@ -167,6 +169,8 @@ export function RatingScaleEditor({ value, onChange }: RatingScaleEditorProps) {
           <Input
             type="number"
             value={value.max}
+            min={1}
+            max={20}
             onChange={(event) =>
               onChange({ ...value, max: Number(event.target.value) })
             }
@@ -197,16 +201,20 @@ export function RatingScaleEditor({ value, onChange }: RatingScaleEditorProps) {
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-muted/30 p-4">
+      <div className="rounded-xl border border-border bg-secondary/60 p-4">
         <div className="mb-3 flex items-center justify-between gap-3 text-xs text-muted-foreground">
-          <span>{value.minLabel.trim() || previewMin}</span>
-          <span>{value.maxLabel.trim() || previewMax}</span>
+          <span className="min-w-0 truncate">
+            {value.minLabel.trim() || previewMin}
+          </span>
+          <span className="min-w-0 truncate text-right">
+            {value.maxLabel.trim() || previewMax}
+          </span>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-5 gap-2 sm:flex sm:flex-wrap">
           {previewValues.map((previewValue) => (
             <span
               key={previewValue}
-              className="inline-flex size-9 items-center justify-center rounded-full border border-border bg-card text-sm font-medium"
+              className="inline-flex h-10 min-w-10 items-center justify-center rounded-xl border border-border bg-card px-3 text-sm font-medium"
             >
               {previewValue}
             </span>

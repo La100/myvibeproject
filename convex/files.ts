@@ -732,6 +732,7 @@ export const addPublicSurveyFile = mutation({
     fileName: v.string(),
     fileSize: v.number(),
     fileType: v.string(),
+    fileUrl: v.optional(v.string()),
   }),
   handler: async (ctx, args) => {
     if (!args.respondentKey.trim()) {
@@ -782,11 +783,21 @@ export const addPublicSurveyFile = mutation({
       },
     });
 
+    let fileUrl: string | undefined;
+    try {
+      fileUrl = await r2.getUrl(args.fileKey, {
+        expiresIn: 60 * 60 * 24,
+      });
+    } catch (error) {
+      console.error(`Error generating survey upload URL ${fileId}:`, error);
+    }
+
     return {
       fileId,
       fileName: args.fileName,
       fileSize: args.fileSize,
       fileType: args.fileType,
+      fileUrl,
     };
   },
 });

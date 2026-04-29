@@ -1,4 +1,6 @@
 import { v } from "convex/values";
+import { R2 } from "@convex-dev/r2";
+import { components } from "./_generated/api";
 import {
   query,
   mutation,
@@ -21,19 +23,10 @@ const getPortalActorName = (name?: string) => {
 const logActivityMutation = makeFunctionReference<"mutation">(
   "activityLog:logActivity",
 );
+const r2 = new R2(components.r2);
 // Keep internal scheduler refs runtime-loaded here to avoid deep TS instantiation.
 // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
 const internalAny = require("./_generated/api").internal as any;
-
-const buildPublicR2FileUrl = (key: string) => {
-  const publicBaseUrl = (
-    process.env.NEXT_PUBLIC_R2_PUBLIC_URL ||
-    process.env.R2_PUBLIC_URL ||
-    ""
-  ).replace(/\/$/, "");
-
-  return publicBaseUrl ? `${publicBaseUrl}/${key}` : undefined;
-};
 
 const isSurveyVisibleInPublicPortal = (survey: Doc<"surveys">, now: number) => {
   if (survey.status === "closed") return false;
@@ -221,7 +214,31 @@ export const getSurveysByProject = query({
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
 
-    return surveys;
+    const surveysWithStats = await Promise.all(
+      surveys.map(async (survey) => {
+        const questions = await ctx.db
+          .query("surveyQuestions")
+          .withIndex("by_survey", (q) => q.eq("surveyId", survey._id))
+          .collect();
+        const completeResponses = await ctx.db
+          .query("surveyResponses")
+          .withIndex("by_survey", (q) => q.eq("surveyId", survey._id))
+          .filter((q) => q.eq(q.field("isComplete"), true))
+          .collect();
+
+        return {
+          ...survey,
+          questionCount: questions.length,
+          requiredQuestionCount: questions.filter((question) => question.isRequired)
+            .length,
+          responseCount: completeResponses.length,
+        };
+      }),
+    );
+
+    return surveysWithStats.sort(
+      (left, right) => (right.updatedAt ?? 0) - (left.updatedAt ?? 0),
+    );
   },
 });
 
@@ -494,20 +511,6 @@ export const submitPublicSurveyResponseByAccessToken = mutation({
     const respondentName = args.respondentName?.trim()
       ? args.respondentName.trim().slice(0, 120)
       : undefined;
-
-    if (!survey.allowMultipleResponses) {
-      const existingCompletedResponse = await ctx.db
-        .query("surveyResponses")
-        .withIndex("by_survey_and_respondent", (q) =>
-          q.eq("surveyId", args.surveyId).eq("respondentId", respondentId),
-        )
-        .filter((q) => q.eq(q.field("isComplete"), true))
-        .first();
-
-      if (existingCompletedResponse) {
-        throw new Error("Survey has already been submitted");
-      }
-    }
 
     let response = await ctx.db
       .query("surveyResponses")
@@ -961,21 +964,6 @@ export const startSurveyResponse = mutation({
       args.surveyId,
     );
 
-    // Check if already responded and multiple responses not allowed
-    if (!survey.allowMultipleResponses) {
-      const existingResponse = await ctx.db
-        .query("surveyResponses")
-        .withIndex("by_survey_and_respondent", (q) =>
-          q.eq("surveyId", args.surveyId).eq("respondentId", clerkUserId),
-        )
-        .filter((q) => q.eq(q.field("isComplete"), true))
-        .first();
-
-      if (existingResponse) {
-        throw new Error("You have already responded to this survey");
-      }
-    }
-
     // Create or get existing incomplete response
     let response = await ctx.db
       .query("surveyResponses")
@@ -1142,13 +1130,25 @@ export const getSurveyResponses = query({
               return answer;
             }
             const file = await ctx.db.get(answer.fileAnswer.fileId);
+            let fileUrl: string | undefined;
+            if (file?.storageId) {
+              try {
+                fileUrl = await r2.getUrl(file.storageId, {
+                  expiresIn: 60 * 60 * 24,
+                });
+              } catch (error) {
+                console.error(
+                  `Error generating survey answer file URL ${answer._id}:`,
+                  error,
+                );
+              }
+            }
+
             return {
               ...answer,
               fileAnswer: {
                 ...answer.fileAnswer,
-                fileUrl: file?.storageId
-                  ? buildPublicR2FileUrl(file.storageId)
-                  : undefined,
+                fileUrl,
               },
             };
           }),

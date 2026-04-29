@@ -225,6 +225,7 @@ type PublicSurveyAnswerPayload = {
     fileName: string;
     fileSize: number;
     fileType: string;
+    fileUrl?: string;
   };
 };
 type ShoppingGroup = {
@@ -424,11 +425,17 @@ const buildPublicSurveyAnswerPayload = (
       fileName: string;
       fileSize: number;
       fileType: string;
+      fileUrl?: string;
     };
     return {
       questionId: question._id,
       answerType: "file",
-      fileAnswer,
+      fileAnswer: {
+        fileId: fileAnswer.fileId,
+        fileName: fileAnswer.fileName,
+        fileSize: fileAnswer.fileSize,
+        fileType: fileAnswer.fileType,
+      },
     };
   }
 
@@ -2105,6 +2112,13 @@ export default function PublicClientPanelPage() {
     file: File,
   ) => {
     if (!respondentKey) return;
+    const maxPublicUploadBytes = 25 * 1024 * 1024;
+    if (file.size > maxPublicUploadBytes) {
+      toast.error("File is too large", {
+        description: "Maximum upload size is 25 MB.",
+      });
+      return;
+    }
 
     const uploadKey = `${survey._id}:${question._id}`;
     setUploadingSurveyFileQuestionId(uploadKey);
@@ -2642,8 +2656,6 @@ export default function PublicClientPanelPage() {
                 const surveyId = String(survey._id);
                 const isOpen = openSurveyId === surveyId;
                 const isSubmitting = submittingSurveyId === surveyId;
-                const isLocked =
-                  survey.hasSubmitted && !survey.allowMultipleResponses;
                 const answersForSurvey = surveyAnswers[surveyId] || {};
 
                 return (
@@ -2694,31 +2706,20 @@ export default function PublicClientPanelPage() {
                         </p>
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
-                        {!isLocked ? (
-                          <Button
-                            type="button"
-                            variant={isOpen ? "outline" : "default"}
-                            size="sm"
-                            onClick={() => handleOpenSurvey(surveyId)}
-                          >
-                            {isOpen
-                              ? "Hide"
-                              : survey.hasSubmitted
-                                ? "Submit again"
-                                : "Fill survey"}
-                          </Button>
-                        ) : null}
+                        <Button
+                          type="button"
+                          variant={isOpen ? "outline" : "default"}
+                          size="sm"
+                          onClick={() => handleOpenSurvey(surveyId)}
+                        >
+                          {isOpen
+                            ? "Hide"
+                            : survey.hasSubmitted
+                              ? "Submit another"
+                              : "Fill survey"}
+                        </Button>
                       </div>
                     </div>
-
-                    {isLocked ? (
-                      <div className="border-t border-border/70 bg-secondary/35 px-5 py-4 sm:px-6">
-                        <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-card px-4 py-3 text-sm text-muted-foreground">
-                          <CheckCircle2 className="h-4 w-4 shrink-0 text-foreground" />
-                          <span>You already submitted this survey.</span>
-                        </div>
-                      </div>
-                    ) : null}
 
                     {isOpen ? (
                       <div className="flex flex-col gap-5 border-t border-border/70 bg-secondary/35 p-4 sm:p-6">
@@ -3056,6 +3057,8 @@ export default function PublicClientPanelPage() {
                                         ? (answerValue as {
                                             fileName?: string;
                                             fileSize?: number;
+                                            fileType?: string;
+                                            fileUrl?: string;
                                           })
                                         : null;
                                     const uploadKey = `${survey._id}:${question._id}`;
@@ -3070,6 +3073,7 @@ export default function PublicClientPanelPage() {
                                           type="file"
                                           className="sr-only"
                                           disabled={isUploading}
+                                          accept="image/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
                                           onChange={(event) => {
                                             const file =
                                               event.target.files?.[0];
@@ -3105,16 +3109,47 @@ export default function PublicClientPanelPage() {
                                           </span>
                                         </Label>
                                         {fileAnswer?.fileName ? (
-                                          <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-xs text-muted-foreground">
-                                            <Upload data-icon="inline-start" />
-                                            <span>
-                                              {fileAnswer.fileName}
+                                          fileAnswer.fileType?.startsWith(
+                                            "image/",
+                                          ) && fileAnswer.fileUrl ? (
+                                            <div className="overflow-hidden rounded-xl border border-border bg-card">
+                                              <img
+                                                src={fileAnswer.fileUrl}
+                                                alt={fileAnswer.fileName}
+                                                className="max-h-64 w-full object-contain bg-secondary"
+                                              />
+                                              <div className="flex items-center justify-between gap-3 px-3 py-2 text-xs text-muted-foreground">
+                                                <span className="min-w-0 truncate">
+                                                  {fileAnswer.fileName}
+                                                </span>
+                                                {typeof fileAnswer.fileSize ===
+                                                "number" ? (
+                                                  <span className="shrink-0">
+                                                    {formatFileSize(
+                                                      fileAnswer.fileSize,
+                                                    )}
+                                                  </span>
+                                                ) : null}
+                                              </div>
+                                            </div>
+                                          ) : (
+                                            <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2 text-xs text-muted-foreground">
+                                              <span className="flex min-w-0 items-center gap-2">
+                                                <Upload data-icon="inline-start" />
+                                                <span className="truncate">
+                                                  {fileAnswer.fileName}
+                                                </span>
+                                              </span>
                                               {typeof fileAnswer.fileSize ===
-                                              "number"
-                                                ? ` • ${formatFileSize(fileAnswer.fileSize)}`
-                                                : ""}
-                                            </span>
-                                          </div>
+                                              "number" ? (
+                                                <span className="shrink-0">
+                                                  {formatFileSize(
+                                                    fileAnswer.fileSize,
+                                                  )}
+                                                </span>
+                                              ) : null}
+                                            </div>
+                                          )
                                         ) : null}
                                         {isUploading ? (
                                           <p className="text-xs text-muted-foreground">

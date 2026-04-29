@@ -106,6 +106,11 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
     const validQuestions = questions.filter((question) =>
       question.questionText.trim(),
     );
+    if (validQuestions.length === 0) {
+      toast.error("Add at least one question before creating the survey");
+      return;
+    }
+
     const invalidChoiceQuestion = validQuestions.find(
       (question) =>
         usesChoiceOptions(question.questionType) &&
@@ -143,8 +148,8 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
             : undefined,
           ratingScale: usesRating
             ? {
-                min: question.ratingMin,
-                max: question.ratingMax,
+                min: Math.min(question.ratingMin, question.ratingMax),
+                max: Math.max(question.ratingMin, question.ratingMax),
                 minLabel: question.ratingMinLabel.trim() || undefined,
                 maxLabel: question.ratingMaxLabel.trim() || undefined,
               }

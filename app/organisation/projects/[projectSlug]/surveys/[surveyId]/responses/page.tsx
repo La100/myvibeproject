@@ -6,6 +6,7 @@ import { apiAny } from "@/lib/convexApiAny";
 import { useRouter } from "next/navigation";
 import { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -13,15 +14,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ArrowLeft, ExternalLink, FileText, ImageIcon, Users } from "lucide-react";
+import {
+  ArrowLeft,
+  ExternalLink,
+  FileText,
+  ImageIcon,
+  Users,
+} from "lucide-react";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+import { cn } from "@/lib/utils";
 
 interface SurveyResponsesPageProps {
   params: Promise<{
@@ -92,21 +94,43 @@ export default function SurveyResponsesPage({
   }) => {
     switch (answer.answerType) {
       case "text":
-        return answer.textAnswer || "-";
+        return answer.textAnswer ? (
+          <p className="whitespace-pre-wrap leading-6">{answer.textAnswer}</p>
+        ) : (
+          "-"
+        );
       case "choice":
-        return answer.choiceAnswers?.length
-          ? answer.choiceAnswers.join(", ")
-          : "-";
+        return answer.choiceAnswers?.length ? (
+          <div className="flex flex-wrap gap-2">
+            {answer.choiceAnswers.map((choice) => (
+              <Badge key={choice} variant="secondary" className="rounded-full">
+                {choice}
+              </Badge>
+            ))}
+          </div>
+        ) : (
+          "-"
+        );
       case "rating":
-        return typeof answer.ratingAnswer === "number"
-          ? String(answer.ratingAnswer)
-          : "-";
+        return typeof answer.ratingAnswer === "number" ? (
+          <span className="inline-flex h-10 min-w-10 items-center justify-center rounded-xl bg-primary px-3 text-sm font-semibold text-primary-foreground">
+            {answer.ratingAnswer}
+          </span>
+        ) : (
+          "-"
+        );
       case "number":
-        return typeof answer.numberAnswer === "number"
-          ? String(answer.numberAnswer)
-          : "-";
+        return typeof answer.numberAnswer === "number" ? (
+          <span className="font-medium tabular-nums">{answer.numberAnswer}</span>
+        ) : (
+          "-"
+        );
       case "boolean":
-        return answer.booleanAnswer ? "Yes" : "No";
+        return (
+          <Badge variant={answer.booleanAnswer ? "secondary" : "outline"}>
+            {answer.booleanAnswer ? "Yes" : "No"}
+          </Badge>
+        );
       case "file": {
         const file = answer.fileAnswer;
         if (!file?.fileName) return "-";
@@ -187,6 +211,11 @@ export default function SurveyResponsesPage({
   const sortedResponses = [...(responses || [])].sort(
     (a, b) => (b.submittedAt || 0) - (a.submittedAt || 0),
   );
+  const selectedResponseId =
+    expandedResponseId || (sortedResponses[0]?._id ? String(sortedResponses[0]._id) : "");
+  const selectedResponse = sortedResponses.find(
+    (response) => String(response._id) === selectedResponseId,
+  );
 
   return (
     <ProjectPageLayout>
@@ -212,10 +241,10 @@ export default function SurveyResponsesPage({
           }
         />
 
-        <div className="grid gap-6 md:grid-cols-2 mb-6">
+        <div className="mb-2 grid gap-4 md:grid-cols-3">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <Users className="h-5 w-5 text-foreground" />
                 Responses
               </CardTitle>
@@ -228,7 +257,7 @@ export default function SurveyResponsesPage({
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <FileText className="h-5 w-5 text-foreground" />
                 Questions
               </CardTitle>
@@ -239,6 +268,30 @@ export default function SurveyResponsesPage({
               </div>
               <p className="text-sm text-muted-foreground">
                 Number of questions
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <ImageIcon className="h-5 w-5 text-foreground" />
+                Attachments
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {(responses || []).reduce(
+                  (count, response) =>
+                    count +
+                    response.answers.filter(
+                      (answer) => answer.answerType === "file",
+                    ).length,
+                  0,
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Uploaded with responses
               </p>
             </CardContent>
           </Card>
@@ -254,27 +307,29 @@ export default function SurveyResponsesPage({
             </CardHeader>
           </Card>
         ) : (
-          <div className="flex flex-col gap-6">
-            <Card>
+          <div className="grid gap-6 lg:grid-cols-[minmax(280px,360px)_1fr]">
+            <Card className="h-fit">
               <CardHeader>
                 <CardTitle>Responses list</CardTitle>
                 <CardDescription>
-                  Select a response to expand details.
+                  Select a response to review answers.
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-3">
                 {sortedResponses.map((response, responseIndex) => {
                   const responseId = String(response._id);
+                  const isSelected = responseId === selectedResponseId;
                   return (
                     <button
                       key={responseId}
                       type="button"
-                      onClick={() =>
-                        setExpandedResponseId((current) =>
-                          current === responseId ? "" : responseId,
-                        )
-                      }
-                      className="flex w-full items-center justify-between rounded-lg border border-border bg-card px-4 py-3 text-left transition-colors hover:bg-accent"
+                      onClick={() => setExpandedResponseId(responseId)}
+                      className={cn(
+                        "flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left transition-colors",
+                        isSelected
+                          ? "border-primary/25 bg-secondary"
+                          : "border-border bg-card hover:bg-secondary/60",
+                      )}
                     >
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold">
@@ -285,8 +340,12 @@ export default function SurveyResponsesPage({
                           Submitted:{" "}
                           {new Date(response.submittedAt || 0).toLocaleString()}
                         </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {response.answers.length} answer
+                          {response.answers.length === 1 ? "" : "s"}
+                        </p>
                       </div>
-                      <span className="ml-4 inline-block rounded border border-border px-2 py-1 text-xs font-semibold">
+                      <span className="ml-4 inline-block rounded-full border border-border bg-card px-2 py-1 text-xs font-semibold">
                         #{responseIndex + 1}
                       </span>
                     </button>
@@ -295,79 +354,75 @@ export default function SurveyResponsesPage({
               </CardContent>
             </Card>
 
-            <Accordion
-              type="single"
-              collapsible
-              value={expandedResponseId}
-              onValueChange={setExpandedResponseId}
-              className="rounded-xl border border-border bg-secondary/70 px-4"
-            >
-              {sortedResponses.map((response, responseIndex) => {
-                const responseId = String(response._id);
-                return (
-                  <AccordionItem
-                    key={responseId}
-                    value={responseId}
-                    className="border-b border-border last:border-b-0"
-                  >
-                    <AccordionTrigger className="py-5 hover:no-underline">
-                      <div className="flex w-full items-start justify-between pr-3 text-left">
-                        <div>
-                          <p className="text-xl font-bold">
-                            {response.respondentName ||
-                              getUserName(response.respondentId)}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            Submitted:{" "}
-                            {new Date(
-                              response.submittedAt || 0,
-                            ).toLocaleString()}
-                          </p>
-                        </div>
-                        <span className="inline-block rounded border border-border bg-transparent px-2 py-1 text-xs font-semibold">
-                          Response #{responseIndex + 1}
-                        </span>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="flex flex-col gap-6 pb-6">
-                        {survey.questions.map((question, questionIndex) => {
-                          const answer = response.answers.find(
-                            (a) => a.questionId === question._id,
-                          );
-                          return (
-                            <Card
-                              key={question._id}
-                              className="border border-border/80 bg-card shadow-sm"
-                            >
-                              <CardContent className="p-6">
-                                <div className="mb-2 flex items-center gap-3">
-                                  <span className="inline-block border border-border text-foreground bg-transparent rounded px-2 py-1 text-xs font-semibold">
-                                    Question {questionIndex + 1}
-                                  </span>
-                                </div>
-                                <div className="mb-2 font-medium">
-                                  {question.questionText}
-                                </div>
-                                <div className="rounded-xl bg-secondary/70 p-3 text-sm">
-                                  {answer ? (
-                                    renderAnswerDisplay(answer)
-                                  ) : (
-                                    <span className="italic text-muted-foreground">
-                                      No answer
-                                    </span>
-                                  )}
-                                </div>
-                              </CardContent>
-                            </Card>
-                          );
-                        })}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                );
-              })}
-            </Accordion>
+            <Card>
+              <CardHeader className="border-b border-border/70">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <CardTitle>
+                      {selectedResponse
+                        ? selectedResponse.respondentName ||
+                          getUserName(selectedResponse.respondentId)
+                        : "Response"}
+                    </CardTitle>
+                    <CardDescription>
+                      {selectedResponse?.submittedAt
+                        ? `Submitted ${new Date(selectedResponse.submittedAt).toLocaleString()}`
+                        : "No response selected"}
+                    </CardDescription>
+                  </div>
+                  {selectedResponse ? (
+                    <Badge variant="outline">
+                      {selectedResponse.answers.length} answer
+                      {selectedResponse.answers.length === 1 ? "" : "s"}
+                    </Badge>
+                  ) : null}
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                {selectedResponse ? (
+                  <div className="divide-y divide-border/70">
+                    {survey.questions.map((question, questionIndex) => {
+                      const answer = selectedResponse.answers.find(
+                        (entry) => entry.questionId === question._id,
+                      );
+                      return (
+                        <section
+                          key={question._id}
+                          className="grid gap-4 p-5 md:grid-cols-[220px_1fr]"
+                        >
+                          <div>
+                            <Badge variant="outline" className="rounded-full">
+                              Question {questionIndex + 1}
+                            </Badge>
+                            <p className="mt-2 text-xs text-muted-foreground">
+                              {question.questionType.replace(/_/g, " ")}
+                            </p>
+                          </div>
+                          <div>
+                            <h3 className="font-medium leading-6 text-foreground">
+                              {question.questionText}
+                            </h3>
+                            <div className="mt-3 rounded-xl border border-border bg-secondary/60 p-3 text-sm">
+                              {answer ? (
+                                renderAnswerDisplay(answer)
+                              ) : (
+                                <span className="italic text-muted-foreground">
+                                  No answer
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </section>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="p-6 text-sm text-muted-foreground">
+                    Select a response to view answers.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         )}
       </div>

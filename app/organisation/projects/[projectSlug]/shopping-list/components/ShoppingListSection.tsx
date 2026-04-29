@@ -655,7 +655,7 @@ export function ShoppingListSection({
     decision: ShoppingListItem["customerDecision"] | undefined,
   ) => {
     if (decision === "accepted") {
-      return "border-emerald-500/35 bg-emerald-50 text-emerald-700 dark:border-emerald-400/35 dark:bg-emerald-950/35 dark:text-emerald-300";
+      return "border-primary/25 bg-secondary text-primary";
     }
     if (decision === "rejected") {
       return "border-destructive/20 bg-destructive/10 text-destructive";
@@ -1208,7 +1208,7 @@ export function ShoppingListSection({
           "rounded-3xl border border-border/70 px-5 py-4",
           customerDecisionTone &&
             (item.customerDecision === "accepted"
-              ? "border-emerald-500/25 bg-emerald-50/60 dark:border-emerald-400/25 dark:bg-emerald-950/20"
+              ? "border-primary/20 bg-secondary/70"
               : "border-destructive/20 bg-destructive/5"),
           !isCounted && "border-border/70 bg-secondary/55",
           !customerDecisionTone && "bg-secondary/70",
