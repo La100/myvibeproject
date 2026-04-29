@@ -1,0 +1,1891 @@
+{
+  "finding_counts": {
+    "app/(main)/contact/actions.ts": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "app/(main)/contact/contact-form.tsx": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "app/api/chatkit/self-hosted/[[...path]]/route.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "app/api/chatkit/visualizations/[[...path]]/route.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "app/api/clipper/route.ts": {
+      "complexity_critical": {
+        "count": 2
+      },
+      "crap_critical": {
+        "count": 3
+      },
+      "crap_high": {
+        "count": 4
+      },
+      "crap_moderate": {
+        "count": 4
+      }
+    },
+    "app/api/image-proxy/route.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "app/api/shopping/scrape/route.ts": {
+      "complexity_critical": {
+        "count": 3
+      },
+      "crap_critical": {
+        "count": 9
+      },
+      "crap_high": {
+        "count": 5
+      },
+      "crap_moderate": {
+        "count": 6
+      }
+    },
+    "app/auth/extension/page.tsx": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "app/client-panel/[accessToken]/page.tsx": {
+      "complexity_critical": {
+        "count": 10
+      },
+      "crap_critical": {
+        "count": 12
+      },
+      "crap_high": {
+        "count": 6
+      },
+      "crap_moderate": {
+        "count": 14
+      }
+    },
+    "app/onboarding/page.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_high": {
+        "count": 3
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "app/organisation/(company)/contacts/components/ContactForm.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "app/organisation/(company)/contacts/components/ContactsView.tsx": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "app/organisation/(company)/layout.tsx": {
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "app/organisation/(company)/product-library/components/AddProductForm.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 3
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "app/organisation/(company)/product-library/components/AddToProjectModal.tsx": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "app/organisation/(company)/product-library/components/EditProductModal.tsx": {
+      "complexity_critical": {
+        "count": 2
+      },
+      "crap_critical": {
+        "count": 2
+      }
+    },
+    "app/organisation/(company)/product-library/components/ProductModal.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "app/organisation/(company)/product-library/new/page.tsx": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "app/organisation/(company)/product-library/page.tsx": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "app/organisation/(company)/projects/new/page.tsx": {
+      "complexity_critical": {
+        "count": 2
+      },
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 3
+      }
+    },
+    "app/organisation/(company)/tax/page.tsx": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "app/organisation/(company)/visualizations/components.tsx": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "app/organisation/(company)/visualizations/useVisualizationController.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "app/organisation/projects/[projectSlug]/components/ProjectClientNotifications.tsx": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "app/organisation/projects/[projectSlug]/components/ProjectOverview.tsx": {
+      "complexity_critical": {
+        "count": 2
+      },
+      "crap_critical": {
+        "count": 3
+      },
+      "crap_high": {
+        "count": 5
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "app/organisation/projects/[projectSlug]/contacts/page.tsx": {
+      "crap_high": {
+        "count": 2
+      }
+    },
+    "app/organisation/projects/[projectSlug]/customer-panel/page.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "app/organisation/projects/[projectSlug]/estimations/components/CreateEstimationDialog.tsx": {
+      "complexity_critical": {
+        "count": 3
+      },
+      "crap_critical": {
+        "count": 5
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 5
+      }
+    },
+    "app/organisation/projects/[projectSlug]/estimations/components/EstimationsView.tsx": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "app/organisation/projects/[projectSlug]/files/components/FilesView.tsx": {
+      "complexity_critical": {
+        "count": 2
+      },
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "app/organisation/projects/[projectSlug]/labor/components/AddLaborItemForm.tsx": {
+      "complexity_critical": {
+        "count": 3
+      },
+      "crap_critical": {
+        "count": 3
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "app/organisation/projects/[projectSlug]/labor/components/LaborExportDialog.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "app/organisation/projects/[projectSlug]/labor/components/LaborListSection.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "app/organisation/projects/[projectSlug]/labor/components/LaborListView.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "app/organisation/projects/[projectSlug]/labor/components/LaborSectionManager.tsx": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "app/organisation/projects/[projectSlug]/moodboard/page.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 4
+      }
+    },
+    "app/organisation/projects/[projectSlug]/notes/components/NotesView.tsx": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "app/organisation/projects/[projectSlug]/payments/components/ProjectInvoiceDraftEditor.tsx": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "app/organisation/projects/[projectSlug]/payments/components/ProjectPaymentsInvoiceListSections.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "app/organisation/projects/[projectSlug]/payments/components/ProjectPaymentsOverviewCards.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "app/organisation/projects/[projectSlug]/payments/components/ProjectPaymentsSetupTabContent.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "app/organisation/projects/[projectSlug]/payments/components/ProjectPaymentsView.tsx": {
+      "complexity_critical": {
+        "count": 5
+      },
+      "crap_critical": {
+        "count": 7
+      },
+      "crap_high": {
+        "count": 3
+      },
+      "crap_moderate": {
+        "count": 4
+      }
+    },
+    "app/organisation/projects/[projectSlug]/settings/components/ProjectMembers.tsx": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "app/organisation/projects/[projectSlug]/settings/components/ProjectSettings.tsx": {
+      "complexity_critical": {
+        "count": 3
+      },
+      "crap_critical": {
+        "count": 5
+      },
+      "crap_moderate": {
+        "count": 3
+      }
+    },
+    "app/organisation/projects/[projectSlug]/settings/components/TaskStatusSettings.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "app/organisation/projects/[projectSlug]/shopping-list/components/AddItemForm.tsx": {
+      "complexity_critical": {
+        "count": 2
+      },
+      "crap_critical": {
+        "count": 3
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "app/organisation/projects/[projectSlug]/shopping-list/components/ExportModal.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "app/organisation/projects/[projectSlug]/shopping-list/components/SectionManager.tsx": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "app/organisation/projects/[projectSlug]/shopping-list/components/ShoppingListItemDetails.tsx": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "app/organisation/projects/[projectSlug]/shopping-list/components/ShoppingListOnboarding.tsx": {
+      "crap_high": {
+        "count": 2
+      }
+    },
+    "app/organisation/projects/[projectSlug]/shopping-list/components/ShoppingListSection.tsx": {
+      "complexity_critical": {
+        "count": 6
+      },
+      "crap_critical": {
+        "count": 9
+      },
+      "crap_high": {
+        "count": 4
+      },
+      "crap_moderate": {
+        "count": 4
+      }
+    },
+    "app/organisation/projects/[projectSlug]/shopping-list/components/ShoppingListView.tsx": {
+      "complexity_critical": {
+        "count": 2
+      },
+      "crap_critical": {
+        "count": 4
+      },
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "app/organisation/projects/[projectSlug]/surveys/[surveyId]/page.tsx": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "app/organisation/projects/[projectSlug]/surveys/[surveyId]/responses/page.tsx": {
+      "complexity_critical": {
+        "count": 2
+      },
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "app/organisation/projects/[projectSlug]/tasks/[taskId]/components/TaskDetail.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "app/organisation/projects/[projectSlug]/tasks/[taskId]/components/TaskDetailSidebar.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 3
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 5
+      }
+    },
+    "app/organisation/projects/[projectSlug]/tasks/components/TaskForm.tsx": {
+      "complexity_critical": {
+        "count": 2
+      },
+      "crap_critical": {
+        "count": 3
+      }
+    },
+    "app/organisation/projects/[projectSlug]/tasks/components/TasksView.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 3
+      },
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "app/select-organization/page.tsx": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 2
+      }
+    },
+    "app/sign-in/[[...index]]/page.tsx": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "chrome-extension/src/background.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 3
+      },
+      "crap_moderate": {
+        "count": 3
+      }
+    },
+    "chrome-extension/src/components/App.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_high": {
+        "count": 2
+      }
+    },
+    "chrome-extension/src/components/views/ClipperView.tsx": {
+      "complexity_critical": {
+        "count": 4
+      },
+      "crap_critical": {
+        "count": 6
+      },
+      "crap_high": {
+        "count": 3
+      },
+      "crap_moderate": {
+        "count": 3
+      }
+    },
+    "chrome-extension/src/components/views/LoginView.tsx": {
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 3
+      }
+    },
+    "chrome-extension/src/content.tsx": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 6
+      },
+      "crap_moderate": {
+        "count": 7
+      }
+    },
+    "chrome-extension/src/lib/auth.ts": {
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "chrome-extension/src/utils/ProductDetector.ts": {
+      "complexity_critical": {
+        "count": 12
+      },
+      "complexity_high": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 14
+      },
+      "crap_high": {
+        "count": 10
+      },
+      "crap_moderate": {
+        "count": 6
+      }
+    },
+    "components/ai/assistant/chatkit/useChatKitClientTools.ts": {
+      "complexity_critical": {
+        "count": 4
+      },
+      "crap_critical": {
+        "count": 14
+      },
+      "crap_high": {
+        "count": 17
+      },
+      "crap_moderate": {
+        "count": 33
+      }
+    },
+    "components/ai/assistant/ui/Sidebar.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "components/ai/assistant/ui/messages/Message.tsx": {
+      "crap_critical": {
+        "count": 2
+      }
+    },
+    "components/ai/chatkit/FloatingChatKitLauncher.tsx": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "components/ai/chatkit/HostedChatKit.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 3
+      }
+    },
+    "components/ai/chatkit/OnboardingHostedChatKit.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 3
+      }
+    },
+    "components/ai/chatkit/VisualizationChatKit.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "components/ai/primitives/prompt-input.tsx": {
+      "crap_critical": {
+        "count": 4
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 5
+      }
+    },
+    "components/ai/shared/AIAccessGate.tsx": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "components/ai/shared/AIQuotaUpsellCard.tsx": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "components/ai/shared/AISubscriptionWall.tsx": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "components/ai/shared/ToolIcons.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "components/calendar/OperationsCalendar.tsx": {
+      "complexity_critical": {
+        "count": 3
+      },
+      "crap_critical": {
+        "count": 4
+      },
+      "crap_moderate": {
+        "count": 4
+      }
+    },
+    "components/company/CompanyProjects.tsx": {
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 3
+      }
+    },
+    "components/company/CompanyReports.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 3
+      },
+      "crap_high": {
+        "count": 7
+      },
+      "crap_moderate": {
+        "count": 6
+      }
+    },
+    "components/company/CompanySettings.tsx": {
+      "complexity_critical": {
+        "count": 3
+      },
+      "crap_critical": {
+        "count": 5
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 8
+      }
+    },
+    "components/company/CompanySidebar.tsx": {
+      "complexity_critical": {
+        "count": 2
+      },
+      "crap_critical": {
+        "count": 2
+      }
+    },
+    "components/company/CompanyTeam.tsx": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "components/company/OrganizationChangelog.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "components/company/OrganizationClientNotifications.tsx": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "components/company/OrganizationImagePicker.tsx": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "components/company/ReportsExportDialog.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "components/dashboard/ActivityLog.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 3
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "components/dashboard/SmartDashboard.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_high": {
+        "count": 2
+      }
+    },
+    "components/project/ProjectPageHeader.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "components/project/ProjectSidebar.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "components/providers/ProjectProvider.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "components/shared/ActivityChangelog.tsx": {
+      "complexity_critical": {
+        "count": 3
+      },
+      "crap_critical": {
+        "count": 5
+      },
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 3
+      }
+    },
+    "components/shared/ClientNotificationsFeed.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "components/surveys/EditSurveyForm.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "components/surveys/QuestionBuilderFields.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "components/surveys/SurveyForm.tsx": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "components/surveys/SurveyLibraryView.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "components/surveys/SurveyTemplateForm.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "components/surveys/SurveysList.tsx": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "components/team/MemberDetailsModal.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "components/ui/Breadcrumbs.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "components/ui/PDFThumbnail.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "components/ui/advanced-editor/index.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "components/ui/data-table-faceted-filter.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "components/ui/empty-state.tsx": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "components/ui/field.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "components/ui/form.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "components/ui/landing/minimal/HeroSection.tsx": {
+      "complexity_critical": {
+        "count": 2
+      },
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "components/ui/landing/minimal/ProductSections.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "components/ui/shadcn-io/kanban/index.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "components/ui/sheet.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "components/ui/sidebar.tsx": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "convex/activityLog.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 3
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "convex/ai/access.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "convex/ai/actions.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "convex/ai/confirmedActions/contacts.ts": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "convex/ai/confirmedActions/helpers.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "convex/ai/confirmedActions/labor.ts": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "convex/ai/confirmedActions/notes.ts": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "convex/ai/confirmedActions/payments.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "convex/ai/confirmedActions/shopping.ts": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 3
+      }
+    },
+    "convex/ai/confirmedActions/surveys.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "convex/ai/confirmedActions/tasks.ts": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "convex/ai/files.ts": {
+      "complexity_critical": {
+        "count": 2
+      },
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "convex/ai/helpers/contextBuilder.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "convex/ai/helpers/fileProcessor.ts": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "convex/ai/helpers/functionCallHandler.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 3
+      }
+    },
+    "convex/ai/helpers/replayStatus.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "convex/ai/helpers/sanitizeToolHistory.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "convex/ai/helpers/shoppingMoodboard.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 2
+      }
+    },
+    "convex/ai/helpers/streamResponseBuilder.ts": {
+      "complexity_critical": {
+        "count": 2
+      },
+      "crap_critical": {
+        "count": 3
+      },
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "convex/ai/helpers/tokenUtils.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "convex/ai/helpers/workflowContextBuilder.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "convex/ai/helpers/workflowRuntime.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "convex/ai/imageGen/generation.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 3
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "convex/ai/imageGen/helpers.ts": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "convex/ai/longContextQueries.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "convex/ai/openaiFileParts.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "convex/ai/search.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 9
+      }
+    },
+    "convex/ai/tools.ts": {
+      "complexity_critical": {
+        "count": 12
+      },
+      "crap_critical": {
+        "count": 21
+      },
+      "crap_high": {
+        "count": 5
+      },
+      "crap_moderate": {
+        "count": 5
+      }
+    },
+    "convex/ai/usage.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 7
+      }
+    },
+    "convex/ai/visualizationSessions.ts": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "convex/authz.ts": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "convex/calendar.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 17
+      }
+    },
+    "convex/clerk.ts": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "convex/clientPortalActions.ts": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "convex/clipper.ts": {
+      "crap_high": {
+        "count": 2
+      }
+    },
+    "convex/comments.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "convex/contacts.ts": {
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 4
+      }
+    },
+    "convex/costEstimations.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 5
+      }
+    },
+    "convex/extensionSessions.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "convex/fileKnowledgeActions.ts": {
+      "complexity_critical": {
+        "count": 2
+      },
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "convex/files.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 5
+      },
+      "crap_high": {
+        "count": 12
+      },
+      "crap_moderate": {
+        "count": 12
+      }
+    },
+    "convex/http.ts": {
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 6
+      }
+    },
+    "convex/labor.ts": {
+      "crap_critical": {
+        "count": 4
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "convex/myFunctions.ts": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "convex/notes.ts": {
+      "crap_high": {
+        "count": 3
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "convex/notifications.ts": {
+      "complexity_critical": {
+        "count": 3
+      },
+      "crap_critical": {
+        "count": 5
+      },
+      "crap_high": {
+        "count": 2
+      }
+    },
+    "convex/onboarding.ts": {
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "convex/productLibrary.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "convex/projectBudget.ts": {
+      "crap_high": {
+        "count": 2
+      }
+    },
+    "convex/projectDiagnostics.ts": {
+      "complexity_critical": {
+        "count": 2
+      },
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "convex/projectPaymentActions.ts": {
+      "complexity_critical": {
+        "count": 2
+      },
+      "crap_critical": {
+        "count": 8
+      },
+      "crap_high": {
+        "count": 4
+      },
+      "crap_moderate": {
+        "count": 4
+      }
+    },
+    "convex/projectPaymentHelpers.ts": {
+      "complexity_critical": {
+        "count": 2
+      },
+      "crap_critical": {
+        "count": 5
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "convex/projectPayments.ts": {
+      "complexity_critical": {
+        "count": 5
+      },
+      "crap_critical": {
+        "count": 6
+      },
+      "crap_high": {
+        "count": 5
+      },
+      "crap_moderate": {
+        "count": 7
+      }
+    },
+    "convex/projects.ts": {
+      "complexity_critical": {
+        "count": 6
+      },
+      "crap_critical": {
+        "count": 8
+      },
+      "crap_high": {
+        "count": 5
+      },
+      "crap_moderate": {
+        "count": 13
+      }
+    },
+    "convex/rag.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "convex/shopping.ts": {
+      "complexity_critical": {
+        "count": 4
+      },
+      "crap_critical": {
+        "count": 9
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "convex/stripe.ts": {
+      "crap_critical": {
+        "count": 7
+      },
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 4
+      }
+    },
+    "convex/stripeActions.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "convex/stripeConnectActions.ts": {
+      "crap_high": {
+        "count": 3
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "convex/surveyTemplates.ts": {
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "convex/surveys.ts": {
+      "complexity_critical": {
+        "count": 2
+      },
+      "crap_critical": {
+        "count": 3
+      },
+      "crap_high": {
+        "count": 4
+      },
+      "crap_moderate": {
+        "count": 5
+      }
+    },
+    "convex/tasks.ts": {
+      "complexity_critical": {
+        "count": 2
+      },
+      "crap_critical": {
+        "count": 4
+      },
+      "crap_high": {
+        "count": 4
+      },
+      "crap_moderate": {
+        "count": 4
+      }
+    },
+    "convex/taxRates.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "convex/teamMembership.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "convex/teams.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 3
+      },
+      "crap_high": {
+        "count": 5
+      },
+      "crap_moderate": {
+        "count": 14
+      }
+    },
+    "convex/users.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "lib/activityLogDeduplication.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 2
+      }
+    },
+    "lib/assistant/chatkitSurveyPayload.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 4
+      }
+    },
+    "lib/assistant/serverAccess.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "lib/assistant/surveyPayload.ts": {
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 3
+      }
+    },
+    "lib/coverImageUpload.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "lib/dateInput.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "lib/estimationPdfExport.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "lib/invoicePdf.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "lib/numberInput.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "lib/onboardingPreferences.ts": {
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "lib/openaiUsage.ts": {
+      "crap_critical": {
+        "count": 3
+      },
+      "crap_moderate": {
+        "count": 3
+      }
+    },
+    "lib/organizationTax.ts": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 3
+      }
+    },
+    "lib/pdfExport.ts": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "lib/priceTax.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "lib/projectBookPdfExport.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "lib/projectBudgetSummary.ts": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "lib/sectionedTablePdfExport.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "lib/security/remoteUrlSafety.ts": {
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 4
+      }
+    },
+    "lib/shoppingListExport.ts": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "lib/shoppingSets.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "lib/userFacingErrors.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 2
+      }
+    },
+    "lib/utils.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "lib/xlsxExport.ts": {
+      "crap_moderate": {
+        "count": 2
+      }
+    }
+  },
+  "runtime_coverage_findings": [],
+  "target_keys": [
+    "components/ui/button-group.tsx:dead code",
+    "components/ui/hover-card.tsx:dead code",
+    "components/ui/accordion.tsx:dead code",
+    "lib/assistant/surveyPayload.ts:untested risk",
+    "app/organisation/(company)/visualizations/components.tsx:dead code",
+    "lib/openaiUsage.ts:dead code",
+    "lib/security/remoteUrlSafety.ts:high impact",
+    "components/ai/primitives/message.tsx:dead code",
+    "chrome-extension/src/components/ui/card.tsx:dead code",
+    "chrome-extension/src/components/ui/select.tsx:dead code",
+    "components/ai/shared/ToolIcons.tsx:dead code",
+    "components/ai/primitives/prompt-input.tsx:dead code",
+    "components/ui/dropdown-menu.tsx:dead code",
+    "lib/userFacingErrors.ts:high impact",
+    "lib/ui-system/vibe.ts:dead code",
+    "lib/aiPricing.ts:dead code",
+    "chrome-extension/src/utils/ProductDetector.ts:complexity",
+    "components/ui/select.tsx:dead code",
+    "app/organisation/projects/[projectSlug]/shopping-list/components/ShoppingListSection.tsx:complexity",
+    "app/organisation/projects/[projectSlug]/components/ProjectOverview.tsx:complexity",
+    "components/company/CompanySettings.tsx:complexity",
+    "app/organisation/projects/[projectSlug]/estimations/components/CreateEstimationDialog.tsx:complexity",
+    "lib/assistant/chatkitSurveyPayload.ts:untested risk",
+    "app/organisation/projects/[projectSlug]/payments/components/ProjectPaymentsView.tsx:complexity",
+    "app/client-panel/[accessToken]/page.tsx:complexity",
+    "lib/activityLogDeduplication.ts:untested risk",
+    "app/organisation/projects/[projectSlug]/labor/components/AddLaborItemForm.tsx:complexity",
+    "lib/onboardingPreferences.ts:dead code",
+    "lib/shoppingSets.ts:high impact",
+    "convex/ai/helpers/functionCallHandler.ts:complexity",
+    "components/company/CompanyReports.tsx:complexity",
+    "convex/ai/tools.ts:complexity",
+    "components/ai/assistant/chatkit/useChatKitClientTools.ts:complexity",
+    "components/shared/ClientNotificationsFeed.tsx:complexity",
+    "components/shared/ActivityChangelog.tsx:complexity",
+    "convex/projects.ts:complexity",
+    "convex/ai/helpers/shoppingMoodboard.ts:untested risk",
+    "components/ai/chatkit/HostedChatKit.tsx:complexity",
+    "convex/ai/helpers/streamResponseBuilder.ts:untested risk",
+    "convex/ai/files.ts:complexity",
+    "convex/shopping.ts:complexity",
+    "components/calendar/OperationsCalendar.tsx:complexity",
+    "convex/projectPayments.ts:complexity",
+    "convex/calendar.ts:untested risk",
+    "app/api/chatkit/self-hosted/[[...path]]/route.ts:complexity",
+    "convex/ai/confirmedActions/payments.ts:complexity",
+    "convex/projectDiagnostics.ts:complexity",
+    "convex/ai/confirmedActions/surveys.ts:complexity",
+    "convex/ai/imageGen/generation.ts:complexity",
+    "convex/ai/helpers/sanitizeToolHistory.ts:complexity",
+    "app/organisation/projects/[projectSlug]/payments/components/ProjectPaymentsSetupTabContent.tsx:complexity",
+    "app/api/chatkit/visualizations/[[...path]]/route.ts:complexity",
+    "lib/projectBookPdfExport.ts:complexity",
+    "convex/surveys.ts:complexity"
+  ]
+}

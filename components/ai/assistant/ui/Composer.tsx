@@ -39,7 +39,7 @@ type ComposerProps = {
   className?: string;
 };
 
-export function Composer({
+function Composer({
   submitStatus,
   onSubmit,
   onStopResponse,
@@ -98,3 +98,5 @@ export function Composer({
 }
 
 export default Composer;
+
+export { Composer };

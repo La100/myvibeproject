@@ -163,7 +163,7 @@ const NOISE_TITLE_PATTERN =
 const MAX_GENERIC_PRICE_SCAN = 1200
 const MAX_SEMANTIC_PRICE_SCAN = 500
 
-export default class ProductDetector {
+class ProductDetector {
   private readonly debug: boolean
 
   constructor(options: ProductDetectorOptions = {}) {
@@ -1767,3 +1767,5 @@ export default class ProductDetector {
     return values.find((value): value is string => Boolean(value && value.trim().length > 0))
   }
 }
+
+export default ProductDetector

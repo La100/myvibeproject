@@ -20,7 +20,7 @@ export type CurrencyCode =
   | "SGD"
   | "HKD";
 
-export const currencyOptions: Array<{ code: CurrencyCode; label: string }> = [
+const currencyOptions: Array<{ code: CurrencyCode; label: string }> = [
   { code: "USD", label: "US Dollar ($)" },
   { code: "EUR", label: "Euro (EUR)" },
   { code: "PLN", label: "Polish Zloty (PLN)" },
@@ -160,7 +160,7 @@ type DetectCurrencyOptions = {
   fallback?: CurrencyCode;
 };
 
-export const detectCurrency = ({
+const detectCurrency = ({
   countryCode,
   locale,
   locales,
@@ -225,3 +225,5 @@ export const detectBrowserCurrency = ({
     fallback,
   });
 };
+
+export { currencyOptions, detectCurrency };

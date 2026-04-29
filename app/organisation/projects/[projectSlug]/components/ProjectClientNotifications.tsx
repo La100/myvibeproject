@@ -17,7 +17,7 @@ type ProjectClientNotificationsProps = {
   className?: string;
 };
 
-export function ProjectClientNotificationsSkeleton({ className }: { className?: string }) {
+function ProjectClientNotificationsSkeleton({ className }: { className?: string }) {
   return <Spinner className={cn("px-4 lg:px-0", className)} />;
 }
 
@@ -100,3 +100,5 @@ export function ProjectClientNotifications({
     </div>
   );
 }
+
+export { ProjectClientNotificationsSkeleton };

@@ -1,6 +1,6 @@
 export type MeasurementSystem = 'metric' | 'imperial';
 
-export const METRIC_LABOR_UNITS = [
+const METRIC_LABOR_UNITS = [
   { value: 'm²', label: 'Square meters (m²)' },
   { value: 'm', label: 'Linear meters (m)' },
   { value: 'hours', label: 'Hours' },
@@ -12,7 +12,7 @@ export const METRIC_LABOR_UNITS = [
   { value: 'item', label: 'Per item' },
 ] as const;
 
-export const IMPERIAL_LABOR_UNITS = [
+const IMPERIAL_LABOR_UNITS = [
   { value: 'sq ft', label: 'Square feet (sq ft)' },
   { value: 'ft', label: 'Linear feet (ft)' },
   { value: 'hours', label: 'Hours' },
@@ -35,3 +35,5 @@ export function getLaborUnitsForMeasurementSystem(measurementSystem: Measurement
 export function getDefaultLaborUnit(measurementSystem: MeasurementSystem) {
   return measurementSystem === 'imperial' ? 'sq ft' : 'm²';
 }
+
+export { IMPERIAL_LABOR_UNITS, METRIC_LABOR_UNITS };

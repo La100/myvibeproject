@@ -191,7 +191,7 @@ async function syncTokenWithMainApp(
   }
 }
 
-export async function ensureUsableToken(options?: {
+async function ensureUsableToken(options?: {
   forceSync?: boolean
   allowInteractiveAuth?: boolean
 }): Promise<string | null> {
@@ -227,7 +227,7 @@ function withAuthHeader(init: RequestInit | undefined, token: string): RequestIn
   }
 }
 
-export async function authenticatedFetch(
+async function authenticatedFetch(
   input: RequestInfo | URL,
   init?: RequestInit,
   options?: {
@@ -264,3 +264,5 @@ export async function authenticatedFetch(
 
   return fetch(input, withAuthHeader(init, refreshedToken))
 }
+
+export { authenticatedFetch, ensureUsableToken }

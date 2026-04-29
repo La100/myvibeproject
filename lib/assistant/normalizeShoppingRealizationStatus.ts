@@ -15,7 +15,7 @@ const SHOPPING_REALIZATION_STATUS_MAP: Record<string, ShoppingRealizationStatus>
   CANCELLED: "CANCELLED",
 };
 
-export function normalizeShoppingRealizationStatus(
+function normalizeShoppingRealizationStatus(
   value: unknown,
 ): ShoppingRealizationStatus | undefined {
   if (typeof value !== "string") return undefined;
@@ -34,3 +34,5 @@ export function extractShoppingRealizationStatus(
   if (!value) return undefined;
   return normalizeShoppingRealizationStatus(value.realizationStatus ?? value.status);
 }
+
+export { normalizeShoppingRealizationStatus };

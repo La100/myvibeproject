@@ -41,7 +41,7 @@ function truncateWords(value: string, maxWords: number): string {
   return `${words.slice(0, maxWords).join(" ")}...`
 }
 
-export function htmlToPlainText(html: string, maxWords: number = 20): string {
+function htmlToPlainText(html: string, maxWords: number = 20): string {
   if (!html) {
     return ""
   }
@@ -50,6 +50,8 @@ export function htmlToPlainText(html: string, maxWords: number = 20): string {
   const decodedText = decodeHtmlEntities(plainText)
   return truncateWords(decodedText, maxWords)
 }
+
+export { htmlToPlainText };
 
 export function getTaskPreview(
   task: { content?: string; description?: string },

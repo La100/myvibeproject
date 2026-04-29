@@ -1,8 +1,10 @@
-export const ORGANIZATION_PRICE_DISPLAY_OPTIONS = [
+const ORGANIZATION_PRICE_DISPLAY_OPTIONS = [
   "net",
   "gross",
   "both",
 ] as const;
+
+export { ORGANIZATION_PRICE_DISPLAY_OPTIONS };
 
 export type OrganizationPriceDisplay =
   (typeof ORGANIZATION_PRICE_DISPLAY_OPTIONS)[number];

@@ -10,7 +10,7 @@ function getConvexUrl() {
   return convexUrl;
 }
 
-export function getServerConvexClient(convexToken: string) {
+function getServerConvexClient(convexToken: string) {
   const token = convexToken.trim();
   if (!token) {
     throw new Error("Missing Convex token.");
@@ -41,6 +41,8 @@ export async function verifyProjectScope(
 
   return project;
 }
+
+export { getServerConvexClient };
 
 export async function verifyTeamScope(
   convexToken: string,

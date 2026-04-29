@@ -21,7 +21,7 @@ export interface ToolConfig {
   color: string;
 }
 
-export const TOOL_CONFIGS: Record<string, ToolConfig> = {
+const TOOL_CONFIGS: Record<string, ToolConfig> = {
   manage_tasks: {
     icon: Layers,
     label: "Managing Tasks",
@@ -105,7 +105,7 @@ export const TOOL_CONFIGS: Record<string, ToolConfig> = {
  * Get tool configuration by name
  * Returns a default config if tool is not found
  */
-export function getToolConfig(toolName: string): ToolConfig {
+function getToolConfig(toolName: string): ToolConfig {
   const config = TOOL_CONFIGS[toolName];
   if (config) return config;
 
@@ -121,7 +121,7 @@ export function getToolConfig(toolName: string): ToolConfig {
 /**
  * Get category-based styling
  */
-export function getCategoryStyles(category: ToolConfig["category"]) {
+function getCategoryStyles(category: ToolConfig["category"]) {
   switch (category) {
     case "context":
       return {
@@ -155,3 +155,5 @@ export function getCategoryStyles(category: ToolConfig["category"]) {
       };
   }
 }
+
+export { TOOL_CONFIGS, getCategoryStyles, getToolConfig };

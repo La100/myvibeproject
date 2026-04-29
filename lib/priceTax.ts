@@ -4,7 +4,9 @@ import {
   type TeamTaxRate,
 } from "./organizationTax";
 
-export const PRICE_TAX_MODES = ["unspecified", "net", "gross", "exempt"] as const;
+const PRICE_TAX_MODES = ["unspecified", "net", "gross", "exempt"] as const;
+
+export { PRICE_TAX_MODES };
 
 export type PriceTaxMode = (typeof PRICE_TAX_MODES)[number];
 

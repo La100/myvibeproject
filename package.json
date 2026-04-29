@@ -15,6 +15,9 @@
     "lint:extension": "pnpm --dir chrome-extension lint",
     "typecheck": "pnpm exec tsc --noEmit",
     "typecheck:extension": "pnpm --dir chrome-extension type-check",
+    "fallow:audit": "fallow audit --changed-since HEAD",
+    "fallow:health": "fallow health --targets --top 20",
+    "fallow:dupes": "fallow dupes --top 20",
     "elo": "bash ./elo",
     "elo:prod": "bash ./elo-prod"
   },

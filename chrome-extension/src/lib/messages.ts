@@ -1,4 +1,4 @@
-export const ACTIONS = {
+const ACTIONS = {
   INITIATE_AUTH: "initiate-auth",
   PING: "ping",
   CAN_OPEN_CLIPPER: "canOpenClipper",
@@ -52,6 +52,8 @@ export type RuntimeMessage =
   | AuthInitiateMessage
   | PickerStatusChangedMessage
 
-export function isObjectMessage(value: unknown): value is RuntimeMessage {
+function isObjectMessage(value: unknown): value is RuntimeMessage {
   return typeof value === "object" && value !== null && "action" in value
 }
+
+export { ACTIONS, isObjectMessage }

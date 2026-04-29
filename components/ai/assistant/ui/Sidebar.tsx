@@ -200,7 +200,7 @@ function ChatSidebarBody({
   );
 }
 
-export function ChatSidebar({
+function ChatSidebar({
   showHistory,
   setShowHistory,
   isDisabled = false,
@@ -284,3 +284,5 @@ export function ChatSidebar({
 }
 
 export default ChatSidebar;
+
+export { ChatSidebar };

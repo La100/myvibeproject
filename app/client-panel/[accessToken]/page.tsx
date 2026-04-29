@@ -527,7 +527,7 @@ function ItemImage({
   if (imageUrl) {
     return (
       <div
-        className={`${sizeClass} overflow-hidden rounded-[18px] border border-black/6 bg-[#eee9df]`}
+        className={`${sizeClass} overflow-hidden rounded-2xl border border-black/6 bg-[#eee9df]`}
       >
         <img src={imageUrl} alt={name} className="h-full w-full object-cover" />
       </div>
@@ -559,7 +559,7 @@ function PortalItemCard({
   return (
     <div
       className={cn(
-        "rounded-[22px] border border-black/7 bg-white/74 p-4 shadow-[0_18px_48px_rgba(24,20,16,0.04)]",
+        "rounded-2xl border border-black/7 bg-white/74 p-4 shadow-sm",
         className,
       )}
     >
@@ -1535,13 +1535,13 @@ export default function PublicClientPanelPage() {
       item.customerDecision === "rejected";
     const decisionTone =
       item.customerDecision === "accepted"
-        ? "border-emerald-500/35 bg-emerald-50 text-emerald-700"
+        ? "border-primary/30 bg-primary/10 text-primary"
         : item.customerDecision === "rejected"
           ? "border-destructive/20 bg-destructive/10 text-destructive"
           : "";
     const feedbackTone =
       item.customerDecision === "accepted"
-        ? "border-emerald-500/24 bg-[linear-gradient(180deg,rgba(240,253,244,0.82),rgba(255,255,255,0.58))]"
+        ? "border-primary/25 bg-primary/5"
         : item.customerDecision === "rejected"
           ? "border-destructive/20 bg-destructive/5"
           : "border-black/7 bg-[#f8f6f1]/76";
@@ -1549,7 +1549,7 @@ export default function PublicClientPanelPage() {
     const isCommentExpanded = expandedShoppingItemComments[itemId] ?? false;
 
     return (
-      <div className={cn("mt-5 rounded-[20px] border px-4 py-4", feedbackTone)}>
+      <div className={cn("mt-5 rounded-2xl border px-4 py-4", feedbackTone)}>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="text-xs">
@@ -1626,7 +1626,7 @@ export default function PublicClientPanelPage() {
                   <Button
                     type="button"
                     size="sm"
-                    className="bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:border-emerald-600 focus-visible:ring-emerald-200"
+                    className="bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:border-primary focus-visible:ring-primary/20"
                     onClick={() =>
                       void handleRespondToShoppingItem(item, "accepted")
                     }
@@ -1720,13 +1720,13 @@ export default function PublicClientPanelPage() {
       item.customerDecision === "rejected";
     const decisionTone =
       item.customerDecision === "accepted"
-        ? "border-emerald-500/35 bg-emerald-50 text-emerald-700"
+        ? "border-primary/30 bg-primary/10 text-primary"
         : item.customerDecision === "rejected"
           ? "border-destructive/20 bg-destructive/10 text-destructive"
           : "";
     const feedbackTone =
       item.customerDecision === "accepted"
-        ? "border-emerald-500/24 bg-[linear-gradient(180deg,rgba(240,253,244,0.82),rgba(255,255,255,0.58))]"
+        ? "border-primary/25 bg-primary/5"
         : item.customerDecision === "rejected"
           ? "border-destructive/20 bg-destructive/5"
           : "border-black/7 bg-[#f8f6f1]/76";
@@ -1734,7 +1734,7 @@ export default function PublicClientPanelPage() {
     const isCommentExpanded = expandedLaborItemComments[itemId] ?? false;
 
     return (
-      <div className={cn("mt-5 rounded-[20px] border px-4 py-4", feedbackTone)}>
+      <div className={cn("mt-5 rounded-2xl border px-4 py-4", feedbackTone)}>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="text-xs">
@@ -1802,7 +1802,7 @@ export default function PublicClientPanelPage() {
                 <Button
                   type="button"
                   size="sm"
-                  className="bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:border-emerald-600 focus-visible:ring-emerald-200"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:border-primary focus-visible:ring-primary/20"
                   onClick={() =>
                     void handleRespondToLaborItem(item, "accepted")
                   }
@@ -3286,7 +3286,7 @@ export default function PublicClientPanelPage() {
                           className={cn(
                             "border-border/70",
                             item.customerDecision === "accepted" &&
-                              "border-emerald-500/30 bg-emerald-50/70",
+                              "border-primary/30 bg-primary/10",
                             item.customerDecision === "rejected" &&
                               "border-destructive/20 bg-destructive/5",
                           )}
@@ -3297,7 +3297,7 @@ export default function PublicClientPanelPage() {
                                 className={cn(
                                   "text-xs",
                                   item.customerDecision === "accepted"
-                                    ? "border-emerald-500/35 bg-emerald-50 text-emerald-700"
+                                    ? "border-primary/30 bg-primary/10 text-primary"
                                     : "border-destructive/20 bg-destructive/10 text-destructive",
                                 )}
                               >
@@ -3879,9 +3879,9 @@ export default function PublicClientPanelPage() {
               return (
                 <div
                   key={sectionName}
-                  className="mb-10 overflow-hidden rounded-[28px] border border-black/7 bg-[#e6ded1] p-3 shadow-[0_24px_70px_rgba(24,20,16,0.08)]"
+                  className="mb-10 overflow-hidden rounded-3xl border border-black/7 bg-[#e6ded1] p-3 shadow-sm"
                 >
-                  <div className="rounded-t-[22px] border border-white/64 border-b-black/7 bg-[rgba(253,251,247,0.94)] px-5 py-5 sm:px-6">
+                  <div className="rounded-t-2xl border border-white/64 border-b-black/7 bg-[rgba(253,251,247,0.94)] px-5 py-5 sm:px-6">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                       <div>
                         <h2 className="font-serif text-xl font-medium leading-tight tracking-[-0.02em] text-foreground sm:text-2xl">
@@ -4000,7 +4000,7 @@ export default function PublicClientPanelPage() {
                       return (
                         <div
                           key={group.key}
-                          className="rounded-[22px] border border-black/7 bg-[#f8f6f1]/86 p-4"
+                          className="rounded-2xl border border-black/7 bg-[#f8f6f1]/86 p-4"
                         >
                           <div className="mb-4 flex flex-col gap-3 border-b pb-4 lg:flex-row lg:items-start lg:justify-between">
                             <div>
@@ -4102,7 +4102,7 @@ export default function PublicClientPanelPage() {
                                         {isSelected ? (
                                           <Badge
                                             variant="secondary"
-                                            className="border-emerald-500/35 bg-emerald-50 text-emerald-700"
+                                            className="border-primary/30 bg-primary/10 text-primary"
                                           >
                                             {group.selectionMode === "multiple"
                                               ? "Included"

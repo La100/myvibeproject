@@ -40,7 +40,7 @@ function normalizeHost(hostname: string): string {
     .replace(/\.+$/, "");
 }
 
-export function isPrivateIpv4(hostname: string): boolean {
+function isPrivateIpv4(hostname: string): boolean {
   const parts = hostname.split(".").map((part) => Number.parseInt(part, 10));
   if (parts.length !== 4 || parts.some((part) => Number.isNaN(part) || part < 0 || part > 255)) {
     return false;
@@ -56,7 +56,7 @@ export function isPrivateIpv4(hostname: string): boolean {
   return false;
 }
 
-export function isPrivateIpv6(hostname: string): boolean {
+function isPrivateIpv6(hostname: string): boolean {
   const normalized = normalizeHost(hostname);
 
   if (normalized.startsWith("::ffff:")) {
@@ -70,7 +70,7 @@ export function isPrivateIpv6(hostname: string): boolean {
   return false;
 }
 
-export function isBlockedHostname(hostname: string): boolean {
+function isBlockedHostname(hostname: string): boolean {
   const normalized = normalizeHost(hostname);
   if (!normalized) {
     return true;
@@ -88,6 +88,8 @@ export function isBlockedHostname(hostname: string): boolean {
   if (ipVersion === 6) return isPrivateIpv6(normalized);
   return false;
 }
+
+export { isBlockedHostname, isPrivateIpv4, isPrivateIpv6 };
 
 async function resolveSafeRemoteAddress(
   url: URL,

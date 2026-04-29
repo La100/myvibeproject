@@ -15,7 +15,7 @@ type AccessGateProps = {
   team: { _id: Id<"teams">; slug: string } | null | undefined;
 };
 
-export const renderAccessGate = ({ aiAccess, team }: AccessGateProps) => {
+const renderAccessGate = ({ aiAccess, team }: AccessGateProps) => {
   const hasTeam = !!team?._id;
   if (!hasTeam) return null;
 
@@ -89,3 +89,5 @@ export const renderAccessGate = ({ aiAccess, team }: AccessGateProps) => {
 
   return null;
 };
+
+export { renderAccessGate };

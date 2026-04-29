@@ -1,4 +1,4 @@
-export const STORAGE_KEYS = {
+const STORAGE_KEYS = {
   TOKEN: "myvibeproject_convex_token",
   TOKEN_TIMESTAMP: "token_timestamp",
   USER: "user",
@@ -7,3 +7,5 @@ export const STORAGE_KEYS = {
   SELECTED_PROJECT_ID: "selected_project_id",
   CLIPPER_PENDING_IMAGE: "clipper_pending_image",
 } as const
+
+export { STORAGE_KEYS }

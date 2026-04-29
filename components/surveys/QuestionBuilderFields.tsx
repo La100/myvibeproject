@@ -48,7 +48,7 @@ export function normalizeChoiceOptions(options: string[]) {
   return options.map((option) => option.trim()).filter(Boolean);
 }
 
-export function createDefaultOptions() {
+function createDefaultOptions() {
   return ["", ""];
 }
 
@@ -133,6 +133,8 @@ export function ChoiceOptionsEditor({
     </div>
   );
 }
+
+export { createDefaultOptions };
 
 type RatingScaleEditorProps = {
   value: RatingScaleValue;

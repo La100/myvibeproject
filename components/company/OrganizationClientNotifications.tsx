@@ -28,7 +28,7 @@ type OrganizationClientNotificationsProps = {
   className?: string;
 };
 
-export function OrganizationClientNotificationsSkeleton({
+function OrganizationClientNotificationsSkeleton({
   className,
 }: {
   className?: string;
@@ -143,3 +143,5 @@ export function OrganizationClientNotifications({
     </div>
   );
 }
+
+export { OrganizationClientNotificationsSkeleton };

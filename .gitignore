@@ -54,3 +54,6 @@ package-lock.json
 
 # local chatkit workspace
 /myvibe-chatkit/
+
+# local fallow analysis cache
+/.fallow/
