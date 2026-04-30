@@ -266,7 +266,7 @@ export function ShoppingListSection({
     );
 
     return (
-      <span>
+      <span className="inline-flex flex-wrap items-baseline gap-x-1.5 whitespace-nowrap">
         {scope === "unit"
           ? `Unit: ${amount.toFixed(2)} ${currencySymbol}`
           : `Total: ${amount.toFixed(2)} ${currencySymbol}`}
@@ -1218,18 +1218,18 @@ export function ShoppingListSection({
           renderEditForm(item)
         ) : (
           <div>
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(24rem,34rem)_auto] xl:items-start">
-              <div className="flex min-w-0 flex-1 items-start gap-4">
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+              <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start">
                 {item.imageUrl ? (
-                  <div className="h-20 w-20 overflow-hidden rounded-2xl border bg-secondary/55">
+                  <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl border bg-secondary/55">
                     <img src={item.imageUrl} alt={item.name} className="h-full w-full object-cover" />
                   </div>
                 ) : null}
                 <div className="min-w-0 flex-1">
                   <div className="mb-2 flex flex-wrap items-center gap-2">
-                    <h4 className="min-w-0 text-[15px] font-semibold text-foreground">
+                    <h4 className="min-w-0 max-w-full text-[15px] font-semibold text-foreground">
                       {renderEditableValue(item, "name", item.name, {
-                        className: "max-w-full truncate font-semibold text-foreground",
+                        className: "block max-w-full truncate font-semibold text-foreground",
                         inputClassName: "w-64 max-w-full font-semibold",
                         placeholder: "Product name",
                       })}
@@ -1250,8 +1250,8 @@ export function ShoppingListSection({
                       </Badge>
                     ) : null}
                   </div>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-                    <span className="inline-flex items-center gap-1 font-medium text-foreground/75">
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-muted-foreground">
+                    <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap font-medium text-foreground/75">
                       <span>Qty</span>
                       {renderEditableValue(item, "quantity", item.quantity, {
                         className: "font-medium text-foreground/75",
@@ -1260,7 +1260,7 @@ export function ShoppingListSection({
                       })}
                     </span>
                     {item.unitPrice !== undefined ? (
-                      <span>
+                      <span className="inline-flex flex-wrap items-baseline gap-x-1.5 whitespace-nowrap">
                         Unit:{" "}
                         {renderEditableValue(
                           item,
@@ -1298,7 +1298,7 @@ export function ShoppingListSection({
                     {renderPriceSpans(item.totalPrice, "total", item)}
                     {item.supplier ? (
                       renderEditableValue(item, "supplier", item.supplier, {
-                        className: "max-w-40 truncate text-muted-foreground",
+                        className: "block max-w-full truncate text-muted-foreground sm:max-w-40",
                         inputClassName: "w-44",
                         placeholder: "Supplier",
                       })
@@ -1332,50 +1332,8 @@ export function ShoppingListSection({
                 </div>
               </div>
 
-              {hasHeaderDetails ? (
-                <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5 text-sm text-muted-foreground xl:grid xl:grid-cols-2 xl:gap-x-8 xl:gap-y-2">
-                  {headerDetails.map((detail) => (
-                    <div key={detail.label} className="flex min-w-0 items-center gap-2">
-                      <span className="shrink-0 font-medium text-foreground">{detail.label}:</span>
-                      {renderEditableValue(
-                        item,
-                        detail.label === "Category"
-                          ? "category"
-                          : detail.label === "Dimensions"
-                            ? "dimensions"
-                            : "catalogNumber",
-                        <span className="block max-w-44 truncate">{detail.value}</span>,
-                        {
-                          className: "max-w-44 text-muted-foreground",
-                          inputClassName: "w-40",
-                        },
-                      )}
-                    </div>
-                  ))}
-                  {item.productLink ? (
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span className="shrink-0 font-medium text-foreground">Link:</span>
-                      {renderEditableValue(
-                        item,
-                        "productLink",
-                        <span className="block max-w-44 truncate text-primary">
-                          {getProductLinkLabel(item.productLink)}
-                        </span>,
-                        {
-                          className: "max-w-44",
-                          inputClassName: "w-52",
-                          placeholder: "https://...",
-                        },
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-              ) : (
-                <div className="hidden xl:block" />
-              )}
-
-              <div className="flex shrink-0 xl:justify-end">
-                <div className="flex flex-wrap items-center gap-1 xl:justify-end">
+              <div className="flex shrink-0 lg:justify-end">
+                <div className="flex flex-wrap items-center gap-1 lg:justify-end">
                   <Select
                     value={item.realizationStatus}
                     onValueChange={(value) => void handleInlineStatusChange(value)}
@@ -1443,6 +1401,46 @@ export function ShoppingListSection({
                   </Button>
                 </div>
               </div>
+
+              {hasHeaderDetails ? (
+                <div className="grid min-w-0 grid-cols-1 gap-x-6 gap-y-2 text-sm text-muted-foreground sm:grid-cols-2 lg:col-span-2 xl:grid-cols-4">
+                  {headerDetails.map((detail) => (
+                    <div key={detail.label} className="flex min-w-0 items-center gap-2">
+                      <span className="shrink-0 font-medium text-foreground">{detail.label}:</span>
+                      {renderEditableValue(
+                        item,
+                        detail.label === "Category"
+                          ? "category"
+                          : detail.label === "Dimensions"
+                            ? "dimensions"
+                            : "catalogNumber",
+                        <span className="block max-w-full truncate">{detail.value}</span>,
+                        {
+                          className: "min-w-0 max-w-full text-muted-foreground",
+                          inputClassName: "w-40",
+                        },
+                      )}
+                    </div>
+                  ))}
+                  {item.productLink ? (
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="shrink-0 font-medium text-foreground">Link:</span>
+                      {renderEditableValue(
+                        item,
+                        "productLink",
+                        <span className="block max-w-full truncate text-primary">
+                          {getProductLinkLabel(item.productLink)}
+                        </span>,
+                        {
+                          className: "min-w-0 max-w-full",
+                          inputClassName: "w-52",
+                          placeholder: "https://...",
+                        },
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
 
             {expandedDetails[itemId] && hasExpandedDetails ? (
