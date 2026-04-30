@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SidebarSubscriptionNudge } from "@/components/shared/SidebarSubscriptionNudge";
 import {
   Settings,
   CreditCard,
@@ -221,7 +222,7 @@ function CompanySidebarContent() {
                             isActive={isActive}
                             className={`h-9 justify-start gap-2.5 rounded-2xl border px-3 text-[13px] font-medium ${
                               isActive
-                                ? "border-sidebar-border/90 bg-sidebar-accent/70 text-sidebar-foreground shadow-sm"
+                                ? "border-sidebar-border/90 bg-white text-sidebar-foreground shadow-sm"
                                 : "border-transparent bg-transparent text-sidebar-foreground/82 hover:bg-sidebar-accent/34 hover:text-sidebar-foreground"
                             }`}
                           >
@@ -243,7 +244,7 @@ function CompanySidebarContent() {
                                     isActive={isChildActive}
                                     className={`h-8 rounded-xl text-[13px] ${
                                       isChildActive
-                                        ? "bg-sidebar-accent/62 text-sidebar-foreground"
+                                        ? "bg-white text-sidebar-foreground shadow-sm"
                                         : "text-sidebar-foreground/76 hover:bg-sidebar-accent/34 hover:text-sidebar-foreground"
                                     }`}
                                   >
@@ -273,7 +274,7 @@ function CompanySidebarContent() {
                       isActive={isActive}
                       className={`h-9 justify-start gap-2.5 rounded-2xl border px-3 text-[13px] font-medium ${
                         isActive
-                          ? "border-sidebar-border/90 bg-sidebar-accent/70 text-sidebar-foreground shadow-sm"
+                          ? "border-sidebar-border/90 bg-white text-sidebar-foreground shadow-sm"
                           : "border-transparent bg-transparent text-sidebar-foreground/82 hover:bg-sidebar-accent/34 hover:text-sidebar-foreground"
                       }`}
                     >
@@ -301,6 +302,12 @@ function CompanySidebarContent() {
           </SidebarGroupContent>
         </SidebarGroup>
 
+        <SidebarSubscriptionNudge
+          teamId={team?._id}
+          className="mb-3"
+          onNavigate={handleLinkClick}
+        />
+
         <SidebarGroup className="mt-auto border-t border-sidebar-border/70 px-2 pb-1 pt-2.5">
           <SidebarGroupContent className="pt-2">
             <SidebarMenu className="gap-0.5">
@@ -313,7 +320,7 @@ function CompanySidebarContent() {
                       isActive={isActive}
                       className={`h-9 justify-start gap-2.5 rounded-2xl border px-3 text-[13px] font-medium ${
                         isActive
-                          ? "border-sidebar-border/90 bg-sidebar-accent/70 text-sidebar-foreground shadow-sm"
+                          ? "border-sidebar-border/90 bg-white text-sidebar-foreground shadow-sm"
                           : "border-transparent text-sidebar-foreground/78 hover:bg-sidebar-accent/34 hover:text-sidebar-foreground"
                       }`}
                     >

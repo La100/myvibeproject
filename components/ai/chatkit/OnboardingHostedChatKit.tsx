@@ -24,10 +24,16 @@ import {
 import { useChatKitClientTools } from "@/components/ai/assistant/chatkit/useChatKitClientTools";
 
 const DEFAULT_SELF_HOSTED_CHATKIT_URL = "/api/chatkit/self-hosted";
-const CLIENT_TOOL_TIMEOUT_MS = 45_000;
+const DEFAULT_CLIENT_TOOL_TIMEOUT_MS = 90_000;
+const IMAGE_CLIENT_TOOL_TIMEOUT_MS = 180_000;
 const ONBOARDING_PROJECT_NAME = "Onboarding Workspace";
 const GENERIC_SETUP_ERROR =
   "We couldn't start your guided setup. Please try again.";
+
+const getClientToolTimeoutMs = (toolName: string) =>
+  toolName === "generate_moodboard_image"
+    ? IMAGE_CLIENT_TOOL_TIMEOUT_MS
+    : DEFAULT_CLIENT_TOOL_TIMEOUT_MS;
 
 const ONBOARDING_PROMPTS: StartScreenPrompt[] = [
   {
@@ -50,11 +56,13 @@ const ONBOARDING_PROMPTS: StartScreenPrompt[] = [
 export default function OnboardingHostedChatKit() {
   const { userId, getToken, isLoaded: isAuthLoaded } = useAuth();
   const { organization, isLoaded: isOrganizationLoaded } = useOrganization();
-  const onboardingStatus = useQuery(apiAny.onboarding.getStatus);
+  const onboardingTeamSettings = useQuery(
+    apiAny.teams.getTeamSettingsByClerkOrg,
+    organization?.id ? { clerkOrgId: organization.id } : "skip",
+  );
   const createProjectInOrg = useMutation(apiAny.projects.createProjectInOrg);
 
-  const activeOrganization = onboardingStatus?.activeOrganization ?? null;
-  const teamId = activeOrganization?.teamId;
+  const teamId = onboardingTeamSettings?.teamId;
 
   const team = useQuery(apiAny.teams.getTeam, teamId ? { teamId } : "skip");
   const projects = useQuery(
@@ -146,16 +154,17 @@ export default function OnboardingHostedChatKit() {
           teamId,
         });
 
+        const toolTimeoutMs = getClientToolTimeoutMs(toolName);
         let timeoutId: ReturnType<typeof setTimeout> | undefined;
         const timeout = new Promise<Record<string, unknown>>((resolve) => {
           timeoutId = setTimeout(() => {
             resolve({
               ok: false,
               tool: toolName,
-              error: `Client tool timed out after ${Math.round(CLIENT_TOOL_TIMEOUT_MS / 1000)} seconds.`,
+              error: `Client tool did not finish after ${Math.round(toolTimeoutMs / 1000)} seconds.`,
               timedOut: true,
             });
-          }, CLIENT_TOOL_TIMEOUT_MS);
+          }, toolTimeoutMs);
         });
 
         const result = await Promise.race([
@@ -273,8 +282,8 @@ export default function OnboardingHostedChatKit() {
   const showLoading =
     !isAuthLoaded ||
     !isOrganizationLoaded ||
-    onboardingStatus === undefined ||
-    !activeOrganization ||
+    onboardingTeamSettings === undefined ||
+    !onboardingTeamSettings ||
     team === undefined ||
     projects === undefined ||
     isCreatingProject ||

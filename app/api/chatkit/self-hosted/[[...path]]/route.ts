@@ -15,7 +15,7 @@ const HOP_BY_HOP_RESPONSE_HEADERS = new Set([
   "transfer-encoding",
   "upgrade",
 ]);
-const CHATKIT_PROXY_TIMEOUT_MS = 55_000;
+const CHATKIT_PROXY_TIMEOUT_MS = 180_000;
 const SLOW_CHATKIT_PROXY_MS = 5_000;
 
 function buildTargetUrl(request: Request, path: string[]) {
@@ -217,7 +217,7 @@ async function proxyRequest(
   } catch (error) {
     const message =
       error instanceof Error && error.name === "TimeoutError"
-        ? "The self-hosted ChatKit service timed out after 55 seconds."
+        ? "The self-hosted ChatKit service timed out after 180 seconds."
         : error instanceof Error
           ? error.message
           : "Failed to reach the self-hosted ChatKit service.";

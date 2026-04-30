@@ -189,7 +189,7 @@ function ProjectSidebarContent() {
                   asChild
                   isActive={isActive}
                   className={`h-9 justify-start gap-2.5 rounded-2xl border px-3 text-[13px] font-medium ${isActive
-                      ? "border-sidebar-border/90 bg-sidebar-accent/70 text-sidebar-foreground shadow-sm"
+                      ? "border-sidebar-border/90 bg-white text-sidebar-foreground shadow-sm"
                       : "border-transparent bg-transparent text-sidebar-foreground/82 hover:bg-sidebar-accent/34 hover:text-sidebar-foreground"
                     }`}
                 >
@@ -266,7 +266,7 @@ function ProjectSidebarContent() {
                       asChild
                       isActive={isActive}
                       className={`h-9 justify-start gap-2.5 rounded-2xl border px-3 text-[13px] font-medium ${isActive
-                          ? "border-sidebar-border/90 bg-sidebar-accent/70 text-sidebar-foreground shadow-sm"
+                          ? "border-sidebar-border/90 bg-white text-sidebar-foreground shadow-sm"
                           : "border-transparent text-sidebar-foreground/78 hover:bg-sidebar-accent/34 hover:text-sidebar-foreground"
                         }`}
                     >

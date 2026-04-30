@@ -1,6 +1,6 @@
 "use client";
 
-import { useOrganization, useOrganizationList } from "@clerk/nextjs";
+import { useAuth, useOrganization, useOrganizationList } from "@clerk/nextjs";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
@@ -67,7 +67,7 @@ function ErrorState({
 
 export function SmartDashboard() {
   const router = useRouter();
-  const onboardingStatus = useQuery(apiAny.onboarding.getStatus);
+  const { isLoaded: isAuthLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });
   const ensureCurrentUserTeamMembership = useMutation(
     apiAny.teamMembership.ensureCurrentUserTeamMembership,
   );
@@ -75,6 +75,10 @@ export function SmartDashboard() {
     userMemberships: { infinite: true },
   });
   const { organization: activeOrganization } = useOrganization();
+  const activeTeamSettings = useQuery(
+    apiAny.teams.getTeamSettingsByClerkOrg,
+    activeOrganization?.id ? { clerkOrgId: activeOrganization.id } : "skip",
+  );
   const [isEnsuringMembership, setIsEnsuringMembership] = useState(false);
   const [activationAttempt, setActivationAttempt] = useState(0);
   const [activationError, setActivationError] = useState<string | null>(null);
@@ -97,10 +101,9 @@ export function SmartDashboard() {
   useEffect(() => {
     if (
       !isLoaded ||
-      onboardingStatus === undefined ||
-      !onboardingStatus.authenticated ||
       !activeOrganization?.id ||
-      onboardingStatus.activeOrganization ||
+      activeTeamSettings === undefined ||
+      activeTeamSettings ||
       ensuredActiveOrgIdRef.current === activeOrganization.id
     ) {
       return;
@@ -129,29 +132,33 @@ export function SmartDashboard() {
   }, [
     activeOrganization?.id,
     activeOrganization?.name,
+    activeTeamSettings,
     ensureCurrentUserTeamMembership,
     isLoaded,
-    onboardingStatus,
   ]);
 
   useEffect(() => {
     if (
+      !isAuthLoaded ||
       !isLoaded ||
-      onboardingStatus === undefined ||
+      !isSignedIn ||
       hasRedirectedRef.current ||
       isEnsuringMembership
     ) {
       return;
     }
-    if (!onboardingStatus.authenticated) return;
 
-    if (activeOrganization?.id && !onboardingStatus.activeOrganization) {
+    if (activeOrganization?.id && activeTeamSettings === undefined) {
       return;
     }
 
-    if (activeOrganization?.id && onboardingStatus.activeOrganization) {
+    if (activeOrganization?.id && !activeTeamSettings) {
+      return;
+    }
+
+    if (activeOrganization?.id && activeTeamSettings) {
       router.replace(
-        onboardingStatus.activeOrganization.onboardingCompleted
+        activeTeamSettings.onboardingCompleted
           ? "/organisation"
           : "/onboarding",
       );
@@ -215,9 +222,11 @@ export function SmartDashboard() {
     })();
   }, [
     activationAttempt,
+    activeTeamSettings,
+    isAuthLoaded,
     isEnsuringMembership,
+    isSignedIn,
     isLoaded,
-    onboardingStatus,
     organizations,
     activeOrganization?.id,
     setActive,
@@ -231,15 +240,15 @@ export function SmartDashboard() {
     if (organizations.length === 0) {
       return "Opening workspace setup...";
     }
-    if (activeOrganization?.id && onboardingStatus?.activeOrganization) {
-      return onboardingStatus.activeOrganization.onboardingCompleted
+    if (activeOrganization?.id && activeTeamSettings) {
+      return activeTeamSettings.onboardingCompleted
         ? "Redirecting to your organization..."
         : "Opening workspace setup...";
     }
     return "Activating your workspace...";
   }, [
     isEnsuringMembership,
-    onboardingStatus?.activeOrganization,
+    activeTeamSettings,
     activeOrganization?.id,
     organizations.length,
   ]);
@@ -266,16 +275,16 @@ export function SmartDashboard() {
   }, []);
 
   // Show loading while checking organizations
-  if (!isLoaded) {
+  if (!isAuthLoaded || !isLoaded) {
     return <LoadingState title="Loading your workspace..." description="Please wait a moment." />;
   }
 
-  if (onboardingStatus === undefined) {
-    return <LoadingState title="Loading your workspace..." description="We are checking your setup." />;
+  if (!isSignedIn) {
+    return <LoadingState title="Authorizing workspace..." description="One moment while we verify access." />;
   }
 
-  if (!onboardingStatus.authenticated) {
-    return <LoadingState title="Authorizing workspace..." description="One moment while we verify access." />;
+  if (activeOrganization?.id && activeTeamSettings === undefined) {
+    return <LoadingState title="Loading your workspace..." description="We are checking your setup." />;
   }
 
   if (activationError) {

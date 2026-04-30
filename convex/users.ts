@@ -98,3 +98,26 @@ export const getByClerkIds = query({
         return users;
     }
 });
+
+export const getCurrentUserExtensionStatus = query({
+  args: {},
+  async handler(ctx) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return {
+        authenticated: false,
+        clipperConnected: false,
+      };
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_user_id", (q) => q.eq("clerkUserId", identity.subject))
+      .unique();
+
+    return {
+      authenticated: true,
+      clipperConnected: Boolean(user?.clipperConnectedAt),
+    };
+  },
+});

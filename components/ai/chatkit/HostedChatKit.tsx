@@ -33,7 +33,13 @@ import { useChatKitClientTools } from "@/components/ai/assistant/chatkit/useChat
 
 const CHANGE_MODE_STORAGE_KEY = "myvibeproject-chatkit-can-make-changes";
 const DEFAULT_SELF_HOSTED_CHATKIT_URL = "/api/chatkit/self-hosted";
-const CLIENT_TOOL_TIMEOUT_MS = 45_000;
+const DEFAULT_CLIENT_TOOL_TIMEOUT_MS = 90_000;
+const IMAGE_CLIENT_TOOL_TIMEOUT_MS = 180_000;
+
+const getClientToolTimeoutMs = (toolName: string) =>
+  toolName === "generate_moodboard_image"
+    ? IMAGE_CLIENT_TOOL_TIMEOUT_MS
+    : DEFAULT_CLIENT_TOOL_TIMEOUT_MS;
 
 const START_PROMPT_ICONS: Record<string, StartScreenPrompt["icon"]> = {
   "Project Status": "chart",
@@ -152,16 +158,17 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
           teamId: team?._id,
         });
 
+        const toolTimeoutMs = getClientToolTimeoutMs(toolName);
         let timeoutId: ReturnType<typeof setTimeout> | undefined;
         const timeout = new Promise<Record<string, unknown>>((resolve) => {
           timeoutId = setTimeout(() => {
             resolve({
               ok: false,
               tool: toolName,
-              error: `Client tool timed out after ${Math.round(CLIENT_TOOL_TIMEOUT_MS / 1000)} seconds.`,
+              error: `Client tool did not finish after ${Math.round(toolTimeoutMs / 1000)} seconds.`,
               timedOut: true,
             });
-          }, CLIENT_TOOL_TIMEOUT_MS);
+          }, toolTimeoutMs);
         });
 
         const result = await Promise.race([

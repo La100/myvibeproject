@@ -611,7 +611,7 @@ function PortalItemCard({
 
 function ClientPanelSkeleton() {
   return (
-    <Spinner className="mx-auto w-full max-w-6xl px-6 pb-24 pt-8 sm:px-8" />
+    <Spinner className="mx-auto w-full max-w-[1600px] px-6 pb-24 pt-8 sm:px-8 2xl:px-10" />
   );
 }
 
@@ -1626,7 +1626,7 @@ export default function PublicClientPanelPage() {
                   <Button
                     type="button"
                     size="sm"
-                    className="bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:border-primary focus-visible:ring-primary/20"
+                    className="bg-[#1f4f3b] text-white hover:bg-[#1a4332] focus-visible:border-[#1f4f3b] focus-visible:ring-[#1f4f3b]/20"
                     onClick={() =>
                       void handleRespondToShoppingItem(item, "accepted")
                     }
@@ -1802,7 +1802,7 @@ export default function PublicClientPanelPage() {
                 <Button
                   type="button"
                   size="sm"
-                  className="bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:border-primary focus-visible:ring-primary/20"
+                  className="bg-[#1f4f3b] text-white hover:bg-[#1a4332] focus-visible:border-[#1f4f3b] focus-visible:ring-[#1f4f3b]/20"
                   onClick={() =>
                     void handleRespondToLaborItem(item, "accepted")
                   }
@@ -2330,7 +2330,7 @@ export default function PublicClientPanelPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-6 pb-24 pt-8 sm:px-8">
+    <div className="mx-auto w-full max-w-[1600px] px-6 pb-24 pt-8 sm:px-8 2xl:px-10">
       <div className="mb-10 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-3">
@@ -2355,12 +2355,12 @@ export default function PublicClientPanelPage() {
               </span>
             ) : null}
           </div>
-          <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-foreground/34">
             Shared sections
           </p>
           {sectionCards.length > 0 ? (
             <>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {sectionCards.map((section) => {
                   const isActive = activeSectionId === section.id;
                   const Icon = section.icon;
@@ -2373,42 +2373,45 @@ export default function PublicClientPanelPage() {
                       variant="outline"
                       size="sm"
                       className={cn(
-                        "h-auto min-h-16 justify-start gap-3 rounded-2xl border px-3.5 py-3 text-left shadow-none transition-[background-color,border-color,box-shadow] sm:px-4",
+                        "group h-auto min-h-[5.75rem] justify-start gap-3 rounded-[18px] border px-3.5 py-3.5 text-left backdrop-blur transition-[background-color,border-color,box-shadow,transform] hover:-translate-y-0.5 sm:px-4",
                         isActive
-                          ? "border-foreground/15 bg-foreground text-background shadow-sm hover:bg-foreground/90"
-                          : "border-border bg-card text-foreground hover:border-foreground/20 hover:bg-secondary/50",
+                          ? "border-black/7 bg-white/88 text-foreground shadow-[0_14px_34px_rgba(24,20,16,0.08)] hover:bg-white"
+                          : "border-black/6 bg-white/58 text-foreground hover:border-black/10 hover:bg-white/76 hover:shadow-[0_10px_24px_rgba(24,20,16,0.045)]",
                       )}
                     >
                       <div
                         className={cn(
-                          "flex size-9 shrink-0 items-center justify-center rounded-xl border",
+                          "flex size-10 shrink-0 items-center justify-center rounded-[14px] border transition-colors",
                           isActive
-                            ? "border-white/15 bg-white/10 text-background"
-                            : "border-border bg-muted/30 text-muted-foreground",
+                            ? "border-black/10 bg-[#f8f6f1]/86 text-foreground"
+                            : "border-black/6 bg-[#f8f6f1]/86 text-foreground/42 group-hover:text-foreground/58",
                         )}
                       >
-                        <Icon className="size-4" />
+                        <Icon className="size-[17px]" />
                       </div>
-                      <div className="min-w-0 flex-1 leading-none">
-                        <span className="block truncate text-sm font-medium sm:text-[15px]">
+                      <div className="min-w-0 flex-1">
+                        <span
+                          className={cn(
+                            "block text-[10px] font-semibold uppercase tracking-[0.2em]",
+                            isActive ? "text-foreground" : "text-foreground/34",
+                          )}
+                        >
+                          {section.eyebrow}
+                        </span>
+                        <span className="mt-1.5 block truncate text-[15px] font-medium tracking-[-0.02em] text-foreground/84 sm:text-[16px]">
                           {section.label}
                         </span>
                         <span
                           className={cn(
-                            "mt-1.5 block text-xs",
+                            "mt-1 block text-[12px]",
                             isActive
-                              ? "text-background/70"
-                              : "text-muted-foreground",
+                              ? "text-foreground/58"
+                              : "text-foreground/42",
                           )}
                         >
                           {section.count} items
                         </span>
                       </div>
-                      {isActive ? (
-                        <span className="shrink-0 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-medium text-background/80">
-                          Current
-                        </span>
-                      ) : null}
                     </Button>
                   );
                 })}
@@ -2540,7 +2543,7 @@ export default function PublicClientPanelPage() {
                       </span>
                     </div>
 
-                    <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
+                    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
                       {section.files.map((file) => {
                         const isImage = file.mimeType.startsWith("image/");
                         return (
@@ -3879,9 +3882,9 @@ export default function PublicClientPanelPage() {
               return (
                 <div
                   key={sectionName}
-                  className="mb-10 overflow-hidden rounded-3xl border border-black/7 bg-[#e6ded1] p-3 shadow-sm"
+                  className="mb-10 overflow-hidden rounded-3xl border border-border/70 bg-white shadow-sm"
                 >
-                  <div className="rounded-t-2xl border border-white/64 border-b-black/7 bg-[rgba(253,251,247,0.94)] px-5 py-5 sm:px-6">
+                  <div className="rounded-t-2xl border border-border/70 border-b-border/60 bg-white px-5 py-5 sm:px-6">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                       <div>
                         <h2 className="font-serif text-xl font-medium leading-tight tracking-[-0.02em] text-foreground sm:text-2xl">
@@ -3901,7 +3904,7 @@ export default function PublicClientPanelPage() {
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-3 rounded-b-[22px] border border-t-0 border-white/64 bg-[rgba(253,251,247,0.94)] p-3 sm:p-4">
+                  <div className="flex flex-col gap-3 rounded-b-[22px] border border-t-0 border-border/70 bg-white p-3 sm:p-4">
                     {sectionGroups.map((group) => {
                       const selectedIds = getSelectedIdsForGroup(
                         group,
@@ -4000,7 +4003,7 @@ export default function PublicClientPanelPage() {
                       return (
                         <div
                           key={group.key}
-                          className="rounded-2xl border border-black/7 bg-[#f8f6f1]/86 p-4"
+                          className="rounded-2xl border border-border/70 bg-white p-4"
                         >
                           <div className="mb-4 flex flex-col gap-3 border-b pb-4 lg:flex-row lg:items-start lg:justify-between">
                             <div>

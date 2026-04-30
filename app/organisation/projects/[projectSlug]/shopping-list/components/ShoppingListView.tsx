@@ -110,8 +110,8 @@ export default function ShoppingListView() {
   const sets = useQuery(apiAny.shopping.listShoppingSets, { projectId: project._id }) as ShoppingSet[] | undefined;
   const teamMembers = useQuery(apiAny.teams.getTeamMembers, { teamId: project.teamId }) as TeamMember[] | undefined;
   const team = useQuery(apiAny.teams.getTeamById, { teamId: project.teamId }) as Doc<"teams"> | undefined;
-  const onboardingStatus = useQuery(apiAny.onboarding.getStatus);
-  const extensionReady = onboardingStatus?.clipperConnected === true;
+  const extensionStatus = useQuery(apiAny.users.getCurrentUserExtensionStatus);
+  const extensionReady = extensionStatus?.clipperConnected === true;
 
   const createItem = useMutation(apiAny.shopping.createShoppingListItem);
   const updateItem = useMutation(apiAny.shopping.updateShoppingListItem);
@@ -123,7 +123,7 @@ export default function ShoppingListView() {
   const updateSet = useMutation(apiAny.shopping.updateShoppingSet);
   const deleteSet = useMutation(apiAny.shopping.deleteShoppingSet);
 
-  if (items === undefined || sections === undefined || sets === undefined || team === undefined || onboardingStatus === undefined) {
+  if (items === undefined || sections === undefined || sets === undefined || team === undefined || extensionStatus === undefined) {
     return null;
   }
 

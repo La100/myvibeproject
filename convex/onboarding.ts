@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import type { UserIdentity } from "convex/server";
 import type { Id } from "./_generated/dataModel";
-import { mutation, query } from "./_generated/server";
+import { mutation } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
 const internalAny = require("./_generated/api").internal as any;
@@ -52,9 +52,6 @@ type ActiveTeamContext = {
     isActive: boolean;
   };
 };
-
-const isOrganizationSetupCompleted = (team: ActiveTeamContext["team"]) =>
-  Boolean(team.onboardingCompletedAt && team.onboardingCompletedAt > 0);
 
 const getCurrentUser = async (ctx: QueryCtx, identity: UserIdentity): Promise<OnboardingUserDoc | null> => {
   return (await ctx.db
@@ -139,47 +136,6 @@ const getActiveTeamContext = async (ctx: QueryCtx, identity: UserIdentity): Prom
     },
   };
 };
-
-export const getStatus = query({
-  args: {},
-  async handler(ctx) {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return {
-        authenticated: false,
-        completed: false,
-        profile: {
-          displayName: undefined,
-        },
-        activeOrganization: null,
-        clipperConnected: false,
-      };
-    }
-
-    const user = await getCurrentUser(ctx, identity);
-    const teamContext = await getActiveTeamContext(ctx, identity);
-
-    return {
-      authenticated: true,
-      completed: Boolean(user?.onboardingCompletedAt),
-      profile: {
-        displayName: user?.name ?? identity.name ?? undefined,
-      },
-      clipperConnected: Boolean(user?.clipperConnectedAt),
-      activeOrganization: teamContext
-        ? {
-            teamId: teamContext.team._id,
-            teamName: teamContext.team.name,
-            role: teamContext.membership.role,
-            currency: teamContext.team.currency ?? undefined,
-            timezone: teamContext.team.timezone ?? undefined,
-            onboardingCompleted: isOrganizationSetupCompleted(teamContext.team),
-            canUpdateTeamSettings: teamContext.membership.role === "admin",
-          }
-        : null,
-    };
-  },
-});
 
 export const markClipperConnected = mutation({
   args: {},

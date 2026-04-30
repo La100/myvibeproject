@@ -420,6 +420,7 @@ export const getTeamSettingsByClerkOrg = query({
       description: team.description,
       imageUrl: team.imageUrl,
       hasCustomOrganizationImage: Boolean(team.customOrganizationImageSetAt),
+      onboardingCompleted: Boolean(team.onboardingCompletedAt && team.onboardingCompletedAt > 0),
       currency: team.currency || "PLN",
       timezone: team.timezone,
       billingProfile: resolveOrganizationBillingProfile(
@@ -440,6 +441,7 @@ export const getTeamSettingsByClerkOrg = query({
         teamMember.notificationSettings,
       ),
       userRole: teamMember.role,
+      canUpdateTeamSettings: teamMember.role === "admin",
     };
   },
 });

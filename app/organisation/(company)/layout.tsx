@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Spinner } from "@/components/ui/spinner";
 import { CompanySidebar } from "@/components/company/CompanySidebar";
-import { useOrganization } from "@clerk/nextjs";
+import { useAuth, useOrganization } from "@clerk/nextjs";
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { postAuthResolverUrl } from "@/lib/authRedirects";
@@ -22,16 +22,17 @@ export default function CompanyLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { isLoaded: isAuthLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });
   const { organization, isLoaded } = useOrganization();
   const ensureCurrentUserTeamMembership = useMutation(apiAny.teamMembership.ensureCurrentUserTeamMembership);
   const ensuredOrgIdRef = useRef<string | null>(null);
-  const onboardingStatus = useQuery(apiAny.onboarding.getStatus);
+  const teamSettings = useQuery(
+    apiAny.teams.getTeamSettingsByClerkOrg,
+    organization?.id ? { clerkOrgId: organization.id } : "skip",
+  );
 
   useEffect(() => {
-    if (onboardingStatus === undefined) {
-      return;
-    }
-    if (!onboardingStatus.authenticated) {
+    if (!isAuthLoaded || !isSignedIn) {
       return;
     }
     if (isLoaded && !organization?.id) {
@@ -41,12 +42,12 @@ export default function CompanyLayout({
     if (
       isLoaded &&
       organization?.id &&
-      onboardingStatus.activeOrganization &&
-      !onboardingStatus.activeOrganization.onboardingCompleted
+      teamSettings &&
+      !teamSettings.onboardingCompleted
     ) {
       router.replace("/onboarding");
     }
-  }, [onboardingStatus, isLoaded, organization?.id, router]);
+  }, [isAuthLoaded, isSignedIn, isLoaded, organization?.id, router, teamSettings]);
 
   useEffect(() => {
     if (!isLoaded || !organization?.id) {
@@ -142,9 +143,11 @@ export default function CompanyLayout({
   const isCompanyOverviewRoute = pathname === "/organisation";
 
   if (
-    onboardingStatus === undefined ||
-    !onboardingStatus.authenticated ||
-    onboardingStatus.activeOrganization?.onboardingCompleted === false ||
+    !isAuthLoaded ||
+    !isSignedIn ||
+    teamSettings === undefined ||
+    teamSettings === null ||
+    teamSettings.onboardingCompleted === false ||
     !isLoaded ||
     !organization
   ) {

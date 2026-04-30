@@ -494,7 +494,7 @@ function MoodboardRow({
       <div
         ref={setSectionDropRef}
         className={cn(
-          "grid min-h-28 grid-cols-1 gap-6 rounded-2xl transition-colors sm:grid-cols-2 lg:grid-cols-3",
+          "grid min-h-28 grid-cols-1 gap-6 rounded-2xl transition-colors sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4",
           isSectionOver && "bg-primary/5 outline outline-2 outline-primary/30",
         )}
       >

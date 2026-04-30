@@ -28,18 +28,14 @@ export function ProjectProvider({ children }: {
   const router = useRouter();
   const params = useParams<{ projectSlug: string }>();
   const { organization, isLoaded } = useOrganization();
-  const onboardingStatus = useQuery(apiAny.onboarding.getStatus);
   const [localClientNotificationsLastReadAt, setLocalClientNotificationsLastReadAt] =
     useState<number | null>(null);
 
   useEffect(() => {
-    if (onboardingStatus === undefined || !onboardingStatus.authenticated) {
-      return;
-    }
     if (isLoaded && !organization?.id) {
       router.replace(postAuthResolverUrl);
     }
-  }, [onboardingStatus, isLoaded, organization?.id, router]);
+  }, [isLoaded, organization?.id, router]);
   
   // Simple regular query approach
   const project = useQuery(

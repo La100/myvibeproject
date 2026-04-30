@@ -321,14 +321,14 @@ export default function CustomerPanelPage() {
           icon={<ExternalLink className="h-8 w-8 text-[var(--chart-2)]" />}
           subtitle="Control what your client sees in the portal. Toggle sections, copy the link, and publish when ready."
           tags={
-            <div className="flex flex-wrap items-start gap-3">
-              <Badge
-                variant="outline"
-                className="rounded-full border-border/70 bg-card px-3 py-1.5 text-[12px] font-semibold text-foreground"
-              >
-                v{publishedVersion}
-              </Badge>
-              <div className="flex flex-col items-start gap-3">
+            <div className="flex flex-col items-start gap-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <Badge
+                  variant="outline"
+                  className="rounded-full border-border/70 bg-card px-3 py-1.5 text-[12px] font-semibold text-foreground"
+                >
+                  v{publishedVersion}
+                </Badge>
                 <Badge
                   variant="outline"
                   className={
@@ -349,15 +349,15 @@ export default function CustomerPanelPage() {
                     "Draft"
                   )}
                 </Badge>
-                <Button
-                  type="button"
-                  onClick={handlePublishPortal}
-                  disabled={isPublishingPortal}
-                  className={UPDATE_PORTAL_BUTTON_CLASSNAME}
-                >
-                  {isPublishingPortal ? "Updating..." : "Update portal"}
-                </Button>
               </div>
+              <Button
+                type="button"
+                onClick={handlePublishPortal}
+                disabled={isPublishingPortal}
+                className={UPDATE_PORTAL_BUTTON_CLASSNAME}
+              >
+                {isPublishingPortal ? "Updating..." : "Update portal"}
+              </Button>
             </div>
           }
         />

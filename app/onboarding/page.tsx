@@ -65,7 +65,6 @@ function OnboardingContent() {
   const router = useRouter();
   const { isLoaded: isAuthLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });
   const { organization, isLoaded: isOrganizationLoaded } = useOrganization();
-  const onboardingStatus = useQuery(apiAny.onboarding.getStatus);
   const onboardingTeamSettings = useQuery(
     apiAny.teams.getTeamSettingsByClerkOrg,
     organization?.id ? { clerkOrgId: organization.id } : "skip",
@@ -95,10 +94,35 @@ function OnboardingContent() {
 
     if (!isSignedIn) {
       router.replace("/sign-in");
+      return;
     }
-  }, [isAuthLoaded, isSignedIn, router]);
 
-  const activeOrganization = onboardingStatus?.activeOrganization ?? null;
+    if (isOrganizationLoaded && !organization?.id) {
+      router.replace(safePostAuthResolverUrl);
+    }
+  }, [
+    isAuthLoaded,
+    isOrganizationLoaded,
+    isSignedIn,
+    organization?.id,
+    router,
+    safePostAuthResolverUrl,
+  ]);
+
+  const activeOrganization = useMemo(() => {
+    if (!organization?.id || !onboardingTeamSettings) {
+      return null;
+    }
+
+    return {
+      teamId: onboardingTeamSettings.teamId,
+      teamName: onboardingTeamSettings.name,
+      currency: onboardingTeamSettings.currency,
+      timezone: onboardingTeamSettings.timezone,
+      onboardingCompleted: onboardingTeamSettings.onboardingCompleted,
+      canUpdateTeamSettings: onboardingTeamSettings.canUpdateTeamSettings,
+    };
+  }, [onboardingTeamSettings, organization?.id]);
   const canUpdateOrganization = Boolean(activeOrganization?.canUpdateTeamSettings);
   const organizationSetupCompleted = Boolean(activeOrganization?.onboardingCompleted);
   const organizationHasImage = organization?.hasImage ?? false;
@@ -111,7 +135,7 @@ function OnboardingContent() {
     Boolean(organization?.imageUrl?.trim());
 
   const completionDefaults = useMemo(() => {
-    if (!onboardingStatus) {
+    if (!activeOrganization) {
       return { currency: "USD" as CurrencyCode, timezone: "UTC" };
     }
 
@@ -127,10 +151,10 @@ function OnboardingContent() {
       currency: (currency || "USD") as CurrencyCode,
       timezone,
     };
-  }, [activeOrganization?.currency, activeOrganization?.timezone, onboardingStatus]);
+  }, [activeOrganization]);
 
   useEffect(() => {
-    if (hasInitializedPreferences || onboardingStatus === undefined || !activeOrganization) {
+    if (hasInitializedPreferences || onboardingTeamSettings === undefined || !activeOrganization) {
       return;
     }
 
@@ -142,7 +166,7 @@ function OnboardingContent() {
     completionDefaults.currency,
     completionDefaults.timezone,
     hasInitializedPreferences,
-    onboardingStatus,
+    onboardingTeamSettings,
   ]);
 
   useEffect(() => {
@@ -160,7 +184,7 @@ function OnboardingContent() {
   }, []);
 
   useEffect(() => {
-    if (onboardingStatus === undefined || !isOrganizationLoaded) {
+    if (onboardingTeamSettings === undefined || !isOrganizationLoaded) {
       return;
     }
 
@@ -170,20 +194,19 @@ function OnboardingContent() {
   }, [
     activeOrganization,
     isOrganizationLoaded,
-    onboardingStatus,
+    onboardingTeamSettings,
     organization?.id,
     organizationSetupCompleted,
     router,
   ]);
 
   useEffect(() => {
-    if (onboardingStatus === undefined || !isOrganizationLoaded) {
+    if (onboardingTeamSettings === undefined || !isOrganizationLoaded) {
       return;
     }
 
     if (
       organization?.id &&
-      onboardingStatus.authenticated &&
       !activeOrganization &&
       ensuredMembershipOrgIdRef.current !== organization.id
     ) {
@@ -208,7 +231,7 @@ function OnboardingContent() {
     activeOrganization,
     ensureCurrentUserTeamMembership,
     isOrganizationLoaded,
-    onboardingStatus,
+    onboardingTeamSettings,
     organization?.id,
     organization?.name,
     router,
@@ -313,7 +336,7 @@ function OnboardingContent() {
     void handleSaveOrganizationImage(file);
   };
 
-  if (!isAuthLoaded || !isSignedIn || onboardingStatus === undefined || !isOrganizationLoaded) {
+  if (!isAuthLoaded || !isSignedIn || onboardingTeamSettings === undefined || !isOrganizationLoaded) {
     return <LoadingState message="Loading workspace setup..." />;
   }
 
