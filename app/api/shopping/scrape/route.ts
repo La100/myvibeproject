@@ -44,6 +44,11 @@ type CloudflareScrapeResult = {
   browserMsUsed: number;
 };
 
+type DimensionCandidate = {
+  value: string;
+  score: number;
+};
+
 interface ScrapedProductData {
   name?: string;
   supplier?: string;
@@ -77,8 +82,21 @@ const CLOUDFLARE_SCRAPE_SELECTORS = [
   "[data-price]",
   "[data-product-price]",
   "[data-testid*='price']",
+  "[itemprop='width'], [itemprop='height'], [itemprop='depth'], [itemprop='size']",
+  "[class*='dimension' i], [id*='dimension' i]",
+  "[class*='dimensions' i], [id*='dimensions' i]",
+  "[class*='size' i], [id*='size' i]",
+  "[class*='wymiar' i], [id*='wymiar' i]",
+  "[class*='rozmiar' i], [id*='rozmiar' i]",
+  "table tr",
+  "dl",
+  "li",
 ];
 const CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4/accounts";
+const DIMENSION_UNIT_PATTERN = "(?:mm|cm|m|in|inch|inches|\"|″)";
+const DIMENSION_NUMBER_PATTERN = "\\d{1,4}(?:[.,]\\d{1,2})?";
+const DIMENSION_LABEL_PATTERN =
+  "(?:dimensions?|size|sizes|wymiary|wymiar|rozmiar|szeroko(?:ść|sc)|wysoko(?:ść|sc)|g(?:ł|l)(?:ę|e)boko(?:ść|sc)|d(?:ł|l)ugo(?:ść|sc)|width|height|depth|length)";
 export const runtime = "nodejs";
 
 function getCloudflareConfig() {
@@ -319,6 +337,19 @@ function buildCloudflareHtml(
 
   if (currencyText) {
     htmlParts.push(`<meta name="currency" content="${escapeHtmlAttribute(currencyText)}">`);
+  }
+
+  const dimensionTextCandidates = CLOUDFLARE_SCRAPE_SELECTORS.slice(10)
+    .flatMap((selector) => getScrapeMatchesBySelector(results, selector))
+    .map((match) => normalizeScrapeText(match.text))
+    .filter((value): value is string => Boolean(value));
+
+  if (dimensionTextCandidates.length > 0) {
+    htmlParts.push("<body>");
+    for (const candidate of dimensionTextCandidates.slice(0, 80)) {
+      htmlParts.push(`<p>${escapeHtmlText(candidate)}</p>`);
+    }
+    htmlParts.push("</body>");
   }
 
   return {
@@ -606,6 +637,244 @@ function extractBrand(value: unknown): string | undefined {
   return undefined;
 }
 
+function extractStructuredDimensionValue(value: unknown): string | undefined {
+  if (!value) return undefined;
+
+  if (typeof value === "string" || typeof value === "number") {
+    return extractString(value);
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const dimension = extractStructuredDimensionValue(item);
+      if (dimension) return dimension;
+    }
+    return undefined;
+  }
+
+  if (typeof value === "object") {
+    const obj = value as JsonLdNode;
+    const rawValue = extractString(obj.value ?? obj.minValue ?? obj.maxValue);
+    if (!rawValue) {
+      return extractString(obj.name ?? obj.description);
+    }
+
+    const unit = extractString(obj.unitText ?? obj.unitCode);
+    return normalizeDimensionText(unit ? `${rawValue} ${unit}` : rawValue);
+  }
+
+  return undefined;
+}
+
+function normalizeDimensionText(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+
+  const normalized = normalizeWhitespace(value)
+    .replace(/\bcentimeters?\b/gi, "cm")
+    .replace(/\bcentimetres?\b/gi, "cm")
+    .replace(/\bmillimeters?\b/gi, "mm")
+    .replace(/\bmillimetres?\b/gi, "mm")
+    .replace(/\bmeters?\b/gi, "m")
+    .replace(/\bmetres?\b/gi, "m")
+    .replace(/\s*([x×])\s*/gi, " x ")
+    .replace(/\s+([,;])\s+/g, "$1 ")
+    .trim();
+
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function extractDimensionsFromAdditionalProperties(product: JsonLdNode): string | undefined {
+  const properties = product.additionalProperty ?? product.additionalProperties;
+  if (!properties) return undefined;
+
+  const propertyList = Array.isArray(properties) ? properties : [properties];
+  const dimensions: DimensionCandidate[] = [];
+  const parts: Array<{ label: string; value: string }> = [];
+
+  for (const entry of propertyList) {
+    if (!entry || typeof entry !== "object") continue;
+
+    const property = entry as JsonLdNode;
+    const name = extractString(property.name ?? property.propertyID);
+    const value = extractStructuredDimensionValue(property.value ?? property.description);
+    if (!name || !value) continue;
+
+    const normalizedName = name.toLowerCase();
+    if (!new RegExp(DIMENSION_LABEL_PATTERN, "i").test(normalizedName)) continue;
+
+    if (/dimensions?|wymiary|wymiar|size|rozmiar/i.test(normalizedName)) {
+      dimensions.push({ value, score: 90 });
+      continue;
+    }
+
+    const label =
+      /width|szeroko/i.test(normalizedName)
+        ? "W"
+        : /height|wysoko/i.test(normalizedName)
+          ? "H"
+          : /depth|g(?:ł|l)(?:ę|e)boko/i.test(normalizedName)
+            ? "D"
+            : /length|d(?:ł|l)ugo/i.test(normalizedName)
+              ? "L"
+              : name;
+    parts.push({ label, value });
+  }
+
+  if (dimensions.length > 0) {
+    return dimensions.sort((a, b) => b.score - a.score)[0].value;
+  }
+
+  if (parts.length >= 2) {
+    return parts.map((part) => `${part.label} ${part.value}`).join(" x ");
+  }
+
+  return parts[0] ? `${parts[0].label} ${parts[0].value}` : undefined;
+}
+
+function extractStructuredDimensions(product: JsonLdNode | undefined): string | undefined {
+  if (!product) return undefined;
+
+  const directDimension = extractStructuredDimensionValue(product.size);
+  if (directDimension) return directDimension;
+
+  const additionalPropertyDimension = extractDimensionsFromAdditionalProperties(product);
+  if (additionalPropertyDimension) return additionalPropertyDimension;
+
+  const dimensions = [
+    { label: "W", value: extractStructuredDimensionValue(product.width) },
+    { label: "H", value: extractStructuredDimensionValue(product.height) },
+    { label: "D", value: extractStructuredDimensionValue(product.depth) },
+    { label: "L", value: extractStructuredDimensionValue(product.length) },
+  ].filter((entry): entry is { label: string; value: string } => Boolean(entry.value));
+
+  if (dimensions.length >= 2) {
+    return dimensions.map((entry) => `${entry.label} ${entry.value}`).join(" x ");
+  }
+
+  return dimensions[0] ? `${dimensions[0].label} ${dimensions[0].value}` : undefined;
+}
+
+function stripHtmlToSearchText(html: string): string {
+  return normalizeWhitespace(
+    html
+      .replace(/<script\b[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style\b[\s\S]*?<\/style>/gi, " ")
+      .replace(/<[^>]+>/g, " "),
+  );
+}
+
+function scoreDimensionCandidate(candidate: string, context: string): number {
+  const lowerContext = context.toLowerCase();
+  let score = 0;
+
+  if (new RegExp(DIMENSION_LABEL_PATTERN, "i").test(lowerContext)) score += 45;
+  if (/\b(product|item|specification|technical|parametry|produkt|specyfikacja)\b/i.test(lowerContext)) {
+    score += 14;
+  }
+  if (/\b(?:mm|cm|m|in|inch|inches|″)\b|["″]/i.test(candidate)) score += 24;
+  if (/\d/.test(candidate)) score += 10;
+  if (/(?:x|×)/i.test(candidate)) score += 18;
+  if (/(?:px|pixels?|viewport|image|thumbnail|zdj(?:ę|e)cie|photo|shipping|package)/i.test(lowerContext)) {
+    score -= 45;
+  }
+  if (/(?:price|cena|pln|eur|usd|zł|vat|tax)/i.test(lowerContext)) score -= 35;
+
+  return score;
+}
+
+function collectDimensionCandidatesFromText(text: string): DimensionCandidate[] {
+  const candidates: DimensionCandidate[] = [];
+  const number = DIMENSION_NUMBER_PATTERN;
+  const unit = DIMENSION_UNIT_PATTERN;
+  const dimensionBlock = `${number}\\s*(?:${unit})?(?:\\s*(?:x|×|X|\\*)\\s*${number}\\s*(?:${unit})?){1,3}\\s*(?:${unit})?`;
+  const labeledBlock = `${DIMENSION_LABEL_PATTERN}\\s*[:\\-–—]?\\s*(${dimensionBlock})`;
+  const labeledRegex = new RegExp(labeledBlock, "gi");
+  const dimensionRegex = new RegExp(`(${dimensionBlock})`, "gi");
+  const axisRegex = new RegExp(
+    `((?:W|H|D|L|width|height|depth|length|szer\\.?|wys\\.?|g(?:ł|l)\\.?|d(?:ł|l)\\.?)[\\s:]*${number}\\s*(?:${unit})?\\s*){2,4}`,
+    "gi",
+  );
+
+  for (const match of text.matchAll(labeledRegex)) {
+    const raw = match[1];
+    if (!raw) continue;
+    const start = match.index ?? 0;
+    const context = text.slice(Math.max(0, start - 80), Math.min(text.length, start + 180));
+    const normalized = normalizeDimensionText(raw);
+    if (normalized) {
+      candidates.push({ value: normalized, score: scoreDimensionCandidate(normalized, context) + 35 });
+    }
+  }
+
+  for (const match of text.matchAll(axisRegex)) {
+    const raw = match[0];
+    if (!raw) continue;
+    const start = match.index ?? 0;
+    const context = text.slice(Math.max(0, start - 80), Math.min(text.length, start + 180));
+    const normalized = normalizeDimensionText(raw.replace(/\s+/g, " "));
+    if (normalized) {
+      candidates.push({ value: normalized, score: scoreDimensionCandidate(normalized, context) + 20 });
+    }
+  }
+
+  for (const match of text.matchAll(dimensionRegex)) {
+    const raw = match[1];
+    if (!raw) continue;
+    const normalized = normalizeDimensionText(raw);
+    if (!normalized) continue;
+
+    const start = match.index ?? 0;
+    const context = text.slice(Math.max(0, start - 90), Math.min(text.length, start + 170));
+    candidates.push({ value: normalized, score: scoreDimensionCandidate(normalized, context) });
+  }
+
+  return candidates;
+}
+
+function pickBestDimensionCandidate(candidates: DimensionCandidate[]): string | undefined {
+  const bestByValue = new Map<string, DimensionCandidate>();
+
+  for (const candidate of candidates) {
+    const value = normalizeDimensionText(candidate.value);
+    if (!value || value.length > 120) continue;
+
+    const normalizedKey = value.toLowerCase();
+    const existing = bestByValue.get(normalizedKey);
+    if (!existing || candidate.score > existing.score) {
+      bestByValue.set(normalizedKey, { value, score: candidate.score });
+    }
+  }
+
+  const best = [...bestByValue.values()].sort((a, b) => b.score - a.score)[0];
+  return best && best.score >= 35 ? best.value : undefined;
+}
+
+function extractDimensionsFromHtml(html: string, meta: ReturnType<typeof parseMetaTags>): string | undefined {
+  const metaDimension = [
+    pickMeta(meta, ["product:dimension", "product:dimensions", "dimensions", "dimension"]),
+    pickMeta(meta, ["product:size", "size", "itemprop:size"]),
+    pickMeta(meta, ["width"]),
+    pickMeta(meta, ["height"]),
+    pickMeta(meta, ["depth"]),
+  ].find((value): value is string => Boolean(value));
+
+  const candidates: DimensionCandidate[] = [];
+  if (metaDimension) {
+    candidates.push(...collectDimensionCandidatesFromText(metaDimension).map((candidate) => ({
+      ...candidate,
+      score: candidate.score + 30,
+    })));
+    const normalized = normalizeDimensionText(metaDimension);
+    if (normalized && /\d/.test(normalized)) {
+      candidates.push({ value: normalized, score: 60 });
+    }
+  }
+
+  const text = stripHtmlToSearchText(html);
+  candidates.push(...collectDimensionCandidatesFromText(text));
+  return pickBestDimensionCandidate(candidates);
+}
+
 function parsePrice(value: unknown): number | undefined {
   if (typeof value === "number" && Number.isFinite(value) && value > 0) {
     return value;
@@ -689,7 +958,7 @@ function extractStructuredData(
     supplier: extractBrand(product.brand),
     category: extractString(product.category),
     catalogNumber: extractString(product.sku ?? product.mpn ?? product.gtin),
-    dimensions: extractString(product.size ?? product.width ?? product.height),
+    dimensions: extractStructuredDimensions(product),
     imageUrl: extractImageUrl(product.image, pageUrl),
     unitPrice: offerData.price,
     currency: offerData.currency,
@@ -761,12 +1030,14 @@ function extractProductData(html: string, finalUrl: URL): ScrapedProductData {
     structured.currency ??
     pickMeta(meta, ["product:price:currency", "og:price:currency", "currency"]);
 
+  const dimensions = structured.dimensions ?? extractDimensionsFromHtml(html, meta);
+
   const data: ScrapedProductData = {
     name: name ? normalizeWhitespace(name) : undefined,
     supplier: supplier ? normalizeWhitespace(supplier) : undefined,
     category: structured.category,
     catalogNumber: structured.catalogNumber,
-    dimensions: structured.dimensions,
+    dimensions,
     unitPrice,
     currency,
     imageUrl,

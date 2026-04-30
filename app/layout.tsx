@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import "./globals.css";
 import ConvexClientProvider from "@/components/providers/ConvexClientProvider";
 import { ClerkProvider } from "@clerk/nextjs";
-import type { ComponentProps, CSSProperties } from "react";
+import { Suspense, type ComponentProps, type CSSProperties } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import localFont from "next/font/local";
 import { cn } from "@/lib/utils";
+import AnalyticsProvider from "@/components/providers/AnalyticsProvider";
 import {
   signInFallbackRedirectUrl,
   signInUrl,
@@ -97,6 +98,9 @@ export default function RootLayout({
           signUpFallbackRedirectUrl={signUpFallbackRedirectUrl}
         >
           <ConvexClientProvider>
+            <Suspense fallback={null}>
+              <AnalyticsProvider />
+            </Suspense>
             {children}
             <Toaster />
           </ConvexClientProvider>

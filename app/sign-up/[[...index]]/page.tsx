@@ -13,9 +13,10 @@ import {
   signUpFallbackRedirectUrl,
   signUpUrl,
 } from "@/lib/authRedirects";
+import { trackCompleteRegistration } from "@/lib/marketingEvents";
 
 export default function SignUpPage() {
-  const { isLoaded, isSignedIn } = useUser();
+  const { isLoaded, isSignedIn, user } = useUser();
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectUrl = resolveLocalRedirectUrl(
@@ -25,9 +26,12 @@ export default function SignUpPage() {
 
   useEffect(() => {
     if (isLoaded && isSignedIn) {
+      if (user?.id) {
+        trackCompleteRegistration(user.id);
+      }
       router.replace(redirectUrl);
     }
-  }, [isLoaded, isSignedIn, redirectUrl, router]);
+  }, [isLoaded, isSignedIn, redirectUrl, router, user?.id]);
 
   return (
     <AuthShell termsVerb="up">

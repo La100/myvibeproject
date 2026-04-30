@@ -222,7 +222,13 @@ export const createBillingPortalSession = action({
 });
 
 type EnsureSubscriptionSyncedResult =
-  | { synced: true; plan: string; status: string }
+  | {
+      synced: true;
+      plan: string;
+      status: string;
+      subscriptionId: string;
+      priceId: string;
+    }
   | { synced: false };
 
 const getSubscriptionCustomerId = (subscription: Stripe.Subscription) => {
@@ -284,6 +290,8 @@ export const ensureSubscriptionSynced = action({
       synced: v.literal(true),
       plan: v.string(),
       status: v.string(),
+      subscriptionId: v.string(),
+      priceId: v.string(),
     }),
     v.object({
       synced: v.literal(false),
@@ -368,6 +376,8 @@ export const ensureSubscriptionSynced = action({
       synced: true,
       plan,
       status: subscription.status,
+      subscriptionId: subscription.id,
+      priceId,
     };
   },
 });

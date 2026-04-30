@@ -68,6 +68,7 @@ import {
   type TeamMemberNotificationSettings,
 } from "@/lib/teamMemberNotificationSettings";
 import { cn } from "@/lib/utils";
+import { trackSubscriptionConversion } from "@/lib/marketingEvents";
 import { OrganizationImagePicker } from "@/components/company/OrganizationImagePicker";
 import { BillingActionErrorDialog } from "@/components/billing/BillingActionErrorDialog";
 import { BillingPlanCard } from "@/components/billing/BillingPlanCard";
@@ -326,7 +327,10 @@ export default function CompanySettings({
   }, [organization?.id, organization?.name, ensureCurrentUserTeamMembership]);
 
   const syncSubscriptionFromStripe = useCallback(
-    async ({ showResult = false }: { showResult?: boolean } = {}) => {
+    async ({
+      showResult = false,
+      trackConversion = false,
+    }: { showResult?: boolean; trackConversion?: boolean } = {}) => {
       if (!teamData?.teamId) return;
 
       setSyncingSubscription(true);
@@ -336,6 +340,14 @@ export default function CompanySettings({
         });
 
         if (result.synced) {
+          if (trackConversion) {
+            trackSubscriptionConversion({
+              teamId: teamData.teamId,
+              planKey: result.plan,
+              subscriptionId: result.subscriptionId,
+              priceId: result.priceId,
+            });
+          }
           toast.success("Subscription synced from Stripe.");
           router.refresh();
         } else if (showResult) {
@@ -479,7 +491,10 @@ export default function CompanySettings({
     }
 
     checkoutSyncAttemptedRef.current = teamData.teamId;
-    void syncSubscriptionFromStripe({ showResult: true });
+    void syncSubscriptionFromStripe({
+      showResult: true,
+      trackConversion: true,
+    });
   }, [
     checkoutState,
     isSubscriptionPage,
