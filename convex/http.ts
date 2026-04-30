@@ -33,6 +33,37 @@ const getSubscriptionPeriod = (subscription: Stripe.Subscription) => {
   };
 };
 
+const syncSubscriptionAndQueueEmail = async (
+  ctx: any,
+  args: {
+    teamId: string;
+    subscriptionId: string;
+    status: string;
+    priceId: string;
+    currentPeriodStart: number;
+    currentPeriodEnd: number;
+    cancelAtPeriodEnd: boolean;
+  },
+) => {
+  const result = await ctx.runMutation(
+    internalAny.stripe.syncSubscriptionFromStripeEvent,
+    args,
+  );
+
+  if (result?.success === true) {
+    await ctx.scheduler.runAfter(
+      0,
+      internalAny.stripeActions.sendSubscriptionActivatedEmail,
+      {
+        teamId: args.teamId,
+        subscriptionId: args.subscriptionId,
+        status: args.status,
+        priceId: args.priceId,
+      },
+    );
+  }
+};
+
 http.route({
   path: "/clerk",
   method: "POST",
@@ -64,7 +95,7 @@ registerRoutes(http, components.stripe, {
           console.log(`Checkout completed for team ${teamId}, subscription: ${subscriptionId}, status: ${subscription.status}`);
 
           // Sync directly without relying on Stripe component database
-          await ctx.runMutation(internalAny.stripe.syncSubscriptionFromStripeEvent, {
+          await syncSubscriptionAndQueueEmail(ctx, {
             teamId,
             subscriptionId: subscriptionId,
             status: subscription.status,
@@ -89,7 +120,7 @@ registerRoutes(http, components.stripe, {
       if (teamId) {
         console.log(`Subscription CREATED for team ${teamId}: ${subscription.status}`);
 
-        await ctx.runMutation(internalAny.stripe.syncSubscriptionFromStripeEvent, {
+        await syncSubscriptionAndQueueEmail(ctx, {
           teamId,
           subscriptionId: subscription.id,
           status: subscription.status,
@@ -113,7 +144,7 @@ registerRoutes(http, components.stripe, {
       if (teamId) {
         console.log(`Subscription updated for team ${teamId}: ${subscription.status}`);
 
-        await ctx.runMutation(internalAny.stripe.syncSubscriptionFromStripeEvent, {
+        await syncSubscriptionAndQueueEmail(ctx, {
           teamId,
           subscriptionId: subscription.id,
           status: subscription.status,

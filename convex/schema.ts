@@ -374,6 +374,25 @@ export default defineSchema({
     .index("by_slug", ["slug"])
     .index("by_createdBy", ["createdBy"]), // Added index
 
+  subscriptionEmailEvents: defineTable({
+    teamId: v.id("teams"),
+    subscriptionId: v.string(),
+    eventType: v.literal("activated"),
+    recipientEmail: v.optional(v.string()),
+    status: v.union(
+      v.literal("sending"),
+      v.literal("sent"),
+      v.literal("failed"),
+    ),
+    attempts: v.number(),
+    lastError: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+    sentAt: v.optional(v.number()),
+  })
+    .index("by_subscription_event", ["subscriptionId", "eventType"])
+    .index("by_team", ["teamId"]),
+
   // Architectural projects
   projects: defineTable({
     name: v.string(),

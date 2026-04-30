@@ -1,7 +1,7 @@
 "use node";
 
 import { v } from "convex/values";
-import { action } from "./_generated/server";
+import { action, internalAction } from "./_generated/server";
 import { components } from "./_generated/api";
 import { anyApi } from "convex/server";
 import { StripeSubscriptions } from "@convex-dev/stripe";
@@ -68,6 +68,8 @@ const internalApi = anyApi as unknown as {
     getTeamForStripe: unknown;
     updateTeamStripeCustomer: unknown;
     syncSubscriptionDirectly: unknown;
+    claimSubscriptionActivatedEmail: unknown;
+    markSubscriptionActivatedEmail: unknown;
   };
   teams: {
     getTeamMemberByClerkId: unknown;
@@ -385,5 +387,168 @@ export const ensureSubscriptionSynced = action({
       subscriptionId: subscription.id,
       priceId,
     };
+  },
+});
+
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+
+const getPlanNameFromPriceId = (priceId: string) =>
+  process.env.STRIPE_AI_SCALE_PRICE_ID === priceId ? "AI Scale" : "AI Pro";
+
+const normalizeEmail = (value: unknown) => {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim().toLowerCase();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) ? trimmed : null;
+};
+
+const getSubscriptionCustomerEmail = async (subscriptionId: string) => {
+  const subscription = await getStripe().subscriptions.retrieve(subscriptionId);
+  const customerId =
+    typeof subscription.customer === "string"
+      ? subscription.customer
+      : subscription.customer.id;
+  const customer = await getStripe().customers.retrieve(customerId);
+
+  if (customer.deleted) {
+    return null;
+  }
+
+  return normalizeEmail(customer.email);
+};
+
+export const sendSubscriptionActivatedEmail = internalAction({
+  args: {
+    teamId: v.id("teams"),
+    subscriptionId: v.string(),
+    status: v.string(),
+    priceId: v.string(),
+  },
+  async handler(ctx, args) {
+    if (args.status !== "active" && args.status !== "trialing") {
+      return { sent: false, skipped: true, reason: "inactive_status" };
+    }
+
+    const resendApiKey = process.env.RESEND_API_KEY;
+    const resendFromEmail = process.env.RESEND_FROM_EMAIL;
+    if (!resendApiKey || !resendFromEmail) {
+      console.warn(
+        "Subscription email skipped: RESEND_API_KEY or RESEND_FROM_EMAIL not configured.",
+      );
+      return { sent: false, skipped: true, reason: "resend_not_configured" };
+    }
+
+    const runQuery = ctx.runQuery as (
+      query: unknown,
+      args: unknown,
+    ) => Promise<unknown>;
+    const runMutation = ctx.runMutation as (
+      mutation: unknown,
+      args: unknown,
+    ) => Promise<unknown>;
+
+    const team = (await runQuery(internalApi.stripe.getTeamForStripe, {
+      teamId: args.teamId,
+    })) as StripeTeamRecord | null;
+    if (!team) {
+      return { sent: false, skipped: true, reason: "team_not_found" };
+    }
+
+    const recipientEmail = await getSubscriptionCustomerEmail(
+      args.subscriptionId,
+    );
+    if (!recipientEmail) {
+      console.warn(
+        `Subscription email skipped: no customer email for ${args.subscriptionId}`,
+      );
+      return { sent: false, skipped: true, reason: "missing_email" };
+    }
+
+    const claim = (await runMutation(
+      internalApi.stripe.claimSubscriptionActivatedEmail,
+      {
+        teamId: args.teamId,
+        subscriptionId: args.subscriptionId,
+        recipientEmail,
+      },
+    )) as { claimed: boolean };
+
+    if (!claim.claimed) {
+      return { sent: false, skipped: true, reason: "already_sent" };
+    }
+
+    const planName = getPlanNameFromPriceId(args.priceId);
+    const baseUrl = normalizeBaseUrl();
+    const subscriptionUrl = `${baseUrl}/organisation/subscription`;
+    const teamName = team.name || "your workspace";
+    const subject = `${planName} is active`;
+    const text = [
+      `Your ${planName} subscription is active for ${teamName}.`,
+      "",
+      "You can manage billing and view your credit usage here:",
+      subscriptionUrl,
+      "",
+      "Thanks for using Myvibe.",
+    ].join("\n");
+    const html = [
+      `<p>Your <strong>${escapeHtml(planName)}</strong> subscription is active for <strong>${escapeHtml(teamName)}</strong>.</p>`,
+      `<p>You can manage billing and view your credit usage here:</p>`,
+      `<p><a href="${escapeHtml(subscriptionUrl)}">Open subscription settings</a></p>`,
+      `<p>Thanks for using Myvibe.</p>`,
+    ].join("");
+
+    try {
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: resendFromEmail,
+          to: [recipientEmail],
+          subject,
+          text,
+          html,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        const lastError = `${response.status} ${response.statusText} ${errorText}`;
+        await runMutation(internalApi.stripe.markSubscriptionActivatedEmail, {
+          subscriptionId: args.subscriptionId,
+          status: "failed",
+          recipientEmail,
+          lastError,
+        });
+        console.error(
+          `Subscription email failed for ${recipientEmail}: ${lastError}`,
+        );
+        return { sent: false, skipped: false, reason: "send_failed" };
+      }
+
+      await runMutation(internalApi.stripe.markSubscriptionActivatedEmail, {
+        subscriptionId: args.subscriptionId,
+        status: "sent",
+        recipientEmail,
+      });
+      return { sent: true, skipped: false };
+    } catch (error) {
+      const lastError = error instanceof Error ? error.message : String(error);
+      await runMutation(internalApi.stripe.markSubscriptionActivatedEmail, {
+        subscriptionId: args.subscriptionId,
+        status: "failed",
+        recipientEmail,
+        lastError,
+      });
+      console.error(`Subscription email failed for ${recipientEmail}:`, error);
+      return { sent: false, skipped: false, reason: "send_failed" };
+    }
   },
 });

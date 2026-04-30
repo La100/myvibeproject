@@ -2373,15 +2373,15 @@ export default function PublicClientPanelPage() {
                       variant="outline"
                       size="sm"
                       className={cn(
-                        "group h-auto min-h-[5.75rem] justify-start gap-3 rounded-[18px] border px-3.5 py-3.5 text-left backdrop-blur transition-[background-color,border-color,box-shadow,transform] hover:-translate-y-0.5 sm:px-4",
+                        "group h-auto min-h-[5.75rem] justify-start gap-3 rounded-xl border px-3.5 py-3.5 text-left backdrop-blur transition-[background-color,border-color,box-shadow,transform] hover:-translate-y-0.5 sm:px-4",
                         isActive
-                          ? "border-black/7 bg-white/88 text-foreground shadow-[0_14px_34px_rgba(24,20,16,0.08)] hover:bg-white"
-                          : "border-black/6 bg-white/58 text-foreground hover:border-black/10 hover:bg-white/76 hover:shadow-[0_10px_24px_rgba(24,20,16,0.045)]",
+                          ? "border-black/7 bg-white/88 text-foreground shadow-md hover:bg-white"
+                          : "border-black/6 bg-white/58 text-foreground hover:border-black/10 hover:bg-white/76 hover:shadow-sm",
                       )}
                     >
                       <div
                         className={cn(
-                          "flex size-10 shrink-0 items-center justify-center rounded-[14px] border transition-colors",
+                          "flex size-10 shrink-0 items-center justify-center rounded-lg border transition-colors",
                           isActive
                             ? "border-black/10 bg-[#f8f6f1]/86 text-foreground"
                             : "border-black/6 bg-[#f8f6f1]/86 text-foreground/42 group-hover:text-foreground/58",
