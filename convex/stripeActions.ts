@@ -63,6 +63,21 @@ type TeamMembershipRecord = {
   isActive?: boolean | null;
 };
 
+type TeamSubscriptionInvoice = {
+  stripeInvoiceId: string;
+  stripeCustomerId: string;
+  stripeSubscriptionId?: string;
+  status: string;
+  amountDue: number;
+  amountPaid: number;
+  created: number;
+  currency: string;
+};
+
+type StripeInvoiceWithSubscription = Stripe.Invoice & {
+  subscription?: string | { id?: string | null } | null;
+};
+
 const internalApi = anyApi as unknown as {
   stripe: {
     getTeamForStripe: unknown;
@@ -74,6 +89,40 @@ const internalApi = anyApi as unknown as {
   teams: {
     getTeamMemberByClerkId: unknown;
   };
+};
+
+const assertSubscriptionTeamAccess = async (
+  ctx: any,
+  teamId: string,
+  clerkUserId: string,
+) => {
+  const runQuery = ctx.runQuery as (
+    query: unknown,
+    args: unknown,
+  ) => Promise<unknown>;
+
+  const team = (await runQuery(internalApi.stripe.getTeamForStripe, {
+    teamId,
+  })) as StripeTeamRecord | null;
+
+  if (!team) {
+    throw new Error("Team not found");
+  }
+
+  const membership = (await runQuery(internalApi.teams.getTeamMemberByClerkId, {
+    teamId,
+    clerkUserId,
+  })) as TeamMembershipRecord | null;
+
+  if (
+    !membership ||
+    membership.isActive === false ||
+    (membership.role !== "admin" && membership.role !== "member")
+  ) {
+    throw new Error("Only team members can manage subscriptions");
+  }
+
+  return team;
 };
 
 // Public action to create checkout session with promotion codes support
@@ -180,39 +229,15 @@ export const createBillingPortalSession = action({
     if (!identity) {
       throw new Error("Not authenticated");
     }
-    const runQuery = ctx.runQuery as (
-      query: unknown,
-      args: unknown,
-    ) => Promise<unknown>;
 
-    // Get team info
-    const team = (await runQuery(internalApi.stripe.getTeamForStripe, {
-      teamId: args.teamId,
-    })) as StripeTeamRecord | null;
-
-    if (!team) {
-      throw new Error("Team not found");
-    }
+    const team = await assertSubscriptionTeamAccess(
+      ctx,
+      args.teamId,
+      identity.subject,
+    );
 
     if (!team.stripeCustomerId) {
       throw new Error("No Stripe customer found. Please subscribe first.");
-    }
-
-    // Any active team member can open the workspace billing portal.
-    const membership = (await runQuery(
-      internalApi.teams.getTeamMemberByClerkId,
-      {
-        teamId: args.teamId,
-        clerkUserId: identity.subject,
-      },
-    )) as TeamMembershipRecord | null;
-
-    if (
-      !membership ||
-      membership.isActive === false ||
-      (membership.role !== "admin" && membership.role !== "member")
-    ) {
-      throw new Error("Only team members can manage subscriptions");
     }
 
     // Create portal session using component
@@ -222,6 +247,66 @@ export const createBillingPortalSession = action({
     });
 
     return { url: session.url };
+  },
+});
+
+export const listTeamInvoicesFromStripe = action({
+  args: {
+    teamId: v.id("teams"),
+  },
+  returns: v.array(
+    v.object({
+      stripeInvoiceId: v.string(),
+      stripeCustomerId: v.string(),
+      stripeSubscriptionId: v.optional(v.string()),
+      status: v.string(),
+      amountDue: v.number(),
+      amountPaid: v.number(),
+      created: v.number(),
+      currency: v.string(),
+    }),
+  ),
+  async handler(ctx, args): Promise<TeamSubscriptionInvoice[]> {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const team = await assertSubscriptionTeamAccess(
+      ctx,
+      args.teamId,
+      identity.subject,
+    );
+
+    if (!team.stripeCustomerId) {
+      return [];
+    }
+
+    const invoices = await getStripe().invoices.list({
+      customer: team.stripeCustomerId,
+      limit: 24,
+    });
+
+    return invoices.data
+      .filter((invoice) => invoice.id)
+      .map((invoice) => {
+        const stripeInvoice = invoice as StripeInvoiceWithSubscription;
+        const subscription =
+          typeof stripeInvoice.subscription === "string"
+            ? stripeInvoice.subscription
+            : stripeInvoice.subscription?.id;
+
+        return {
+          stripeInvoiceId: invoice.id!,
+          stripeCustomerId: team.stripeCustomerId!,
+          stripeSubscriptionId: subscription || undefined,
+          status: invoice.status || "unknown",
+          amountDue: invoice.amount_due || 0,
+          amountPaid: invoice.amount_paid || 0,
+          created: invoice.created,
+          currency: (invoice.currency || "usd").toUpperCase(),
+        };
+      });
   },
 });
 

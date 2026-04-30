@@ -73,6 +73,17 @@ import { OrganizationImagePicker } from "@/components/company/OrganizationImageP
 import { BillingActionErrorDialog } from "@/components/billing/BillingActionErrorDialog";
 import { BillingPlanCard } from "@/components/billing/BillingPlanCard";
 
+type SubscriptionInvoice = {
+  stripeInvoiceId: string;
+  stripeCustomerId: string;
+  stripeSubscriptionId?: string;
+  status: string;
+  amountDue: number;
+  amountPaid: number;
+  created: number;
+  currency?: string;
+};
+
 type BillingProfileForm = {
   sellerName: string;
   sellerEmail: string;
@@ -202,10 +213,19 @@ export default function CompanySettings({
   const ensureSubscriptionSynced = useAction(
     apiAny.stripeActions.ensureSubscriptionSynced,
   );
+  const listTeamInvoicesFromStripe = useAction(
+    apiAny.stripeActions.listTeamInvoicesFromStripe,
+  );
   const teamInvoices = useQuery(
     apiAny.stripe.getTeamInvoices,
     isSubscriptionPage && teamId ? { teamId } : "skip",
-  );
+  ) as SubscriptionInvoice[] | undefined;
+  const [stripeInvoices, setStripeInvoices] = useState<
+    SubscriptionInvoice[] | null
+  >(null);
+  const [stripeInvoicesLoading, setStripeInvoicesLoading] = useState(false);
+  const displayedInvoices =
+    stripeInvoices && stripeInvoices.length > 0 ? stripeInvoices : teamInvoices;
 
   // Local state for team settings
   const [teamSettings, setTeamSettings] = useState<{
@@ -517,6 +537,43 @@ export default function CompanySettings({
       ensureBillingWindow({ teamId: teamData.teamId }).catch(console.error);
     }
   }, [isSubscriptionPage, subscription, teamData?.teamId, ensureBillingWindow]);
+
+  useEffect(() => {
+    if (!isSubscriptionPage || !teamId || !subscription?.stripeCustomerId) {
+      setStripeInvoices(null);
+      return;
+    }
+
+    let cancelled = false;
+    setStripeInvoicesLoading(true);
+
+    listTeamInvoicesFromStripe({ teamId })
+      .then((invoices) => {
+        if (!cancelled) {
+          setStripeInvoices(invoices as SubscriptionInvoice[]);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to load Stripe invoices", error);
+        if (!cancelled) {
+          setStripeInvoices(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setStripeInvoicesLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    isSubscriptionPage,
+    listTeamInvoicesFromStripe,
+    subscription?.stripeCustomerId,
+    teamId,
+  ]);
 
   if (shouldRedirectToSubscription) {
     return (
@@ -1386,12 +1443,12 @@ export default function CompanySettings({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {teamInvoices && teamInvoices.length > 0 ? (
+                {displayedInvoices && displayedInvoices.length > 0 ? (
                   <div className="flex flex-col gap-4">
-                    {teamInvoices.map((invoice) => {
+                    {displayedInvoices.map((invoice) => {
                       const amount =
                         (invoice.amountPaid || invoice.amountDue || 0) / 100;
-                      const currency = "USD";
+                      const currency = invoice.currency || "USD";
                       const formatted = new Intl.NumberFormat("en-US", {
                         style: "currency",
                         currency,
@@ -1424,6 +1481,10 @@ export default function CompanySettings({
                         </div>
                       );
                     })}
+                  </div>
+                ) : stripeInvoicesLoading || teamInvoices === undefined ? (
+                  <div className="flex flex-col items-center justify-center gap-2 py-8 text-muted-foreground">
+                    <Loader2 className="h-6 w-6 animate-spin" />
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center gap-2 py-8 text-muted-foreground">
