@@ -20,6 +20,19 @@ const isConnectOnboardingComplete = (account: Stripe.Account) =>
   account.charges_enabled === true &&
   account.payouts_enabled === true;
 
+const getSubscriptionPeriod = (subscription: Stripe.Subscription) => {
+  const subscriptionItem = subscription.items.data[0];
+  return {
+    priceId: subscriptionItem?.price.id || "",
+    currentPeriodStart: subscriptionItem?.current_period_start
+      ? subscriptionItem.current_period_start * 1000
+      : Date.now(),
+    currentPeriodEnd: subscriptionItem?.current_period_end
+      ? subscriptionItem.current_period_end * 1000
+      : Date.now() + 30 * 24 * 60 * 60 * 1000,
+  };
+};
+
 http.route({
   path: "/clerk",
   method: "POST",
@@ -44,21 +57,19 @@ registerRoutes(http, components.stripe, {
 
         const subscription = await stripe.subscriptions.retrieve(subscriptionId);
         const teamId = subscription.metadata?.teamId;
-        const subscriptionItem = subscription.items.data[0];
-        const priceId = subscriptionItem?.price.id || "";
-        const currentPeriodEnd = subscriptionItem?.current_period_end
-          ? subscriptionItem.current_period_end * 1000
-          : Date.now() + 30 * 24 * 60 * 60 * 1000;
+        const { priceId, currentPeriodStart, currentPeriodEnd } =
+          getSubscriptionPeriod(subscription);
 
         if (teamId) {
           console.log(`Checkout completed for team ${teamId}, subscription: ${subscriptionId}, status: ${subscription.status}`);
 
           // Sync directly without relying on Stripe component database
-          await ctx.runMutation(internalAny.stripe.syncSubscriptionDirectly, {
-            teamId: teamId as any,
+          await ctx.runMutation(internalAny.stripe.syncSubscriptionFromStripeEvent, {
+            teamId,
             subscriptionId: subscriptionId,
             status: subscription.status,
             priceId,
+            currentPeriodStart,
             currentPeriodEnd,
             cancelAtPeriodEnd: subscription.cancel_at_period_end,
           });
@@ -72,20 +83,18 @@ registerRoutes(http, components.stripe, {
     "customer.subscription.created": async (ctx, event: Stripe.CustomerSubscriptionCreatedEvent) => {
       const subscription = event.data.object;
       const teamId = subscription.metadata?.teamId;
-      const subscriptionItem = subscription.items.data[0];
-      const priceId = subscriptionItem?.price.id || "";
-      const currentPeriodEnd = subscriptionItem?.current_period_end
-        ? subscriptionItem.current_period_end * 1000
-        : Date.now() + 30 * 24 * 60 * 60 * 1000;
+      const { priceId, currentPeriodStart, currentPeriodEnd } =
+        getSubscriptionPeriod(subscription);
 
       if (teamId) {
         console.log(`Subscription CREATED for team ${teamId}: ${subscription.status}`);
 
-        await ctx.runMutation(internalAny.stripe.syncSubscriptionDirectly, {
-          teamId: teamId as any,
+        await ctx.runMutation(internalAny.stripe.syncSubscriptionFromStripeEvent, {
+          teamId,
           subscriptionId: subscription.id,
           status: subscription.status,
           priceId,
+          currentPeriodStart,
           currentPeriodEnd,
           cancelAtPeriodEnd: subscription.cancel_at_period_end,
         });
@@ -98,20 +107,18 @@ registerRoutes(http, components.stripe, {
     "customer.subscription.updated": async (ctx, event: Stripe.CustomerSubscriptionUpdatedEvent) => {
       const subscription = event.data.object;
       const teamId = subscription.metadata?.teamId;
-      const subscriptionItem = subscription.items.data[0];
-      const priceId = subscriptionItem?.price.id || "";
-      const currentPeriodEnd = subscriptionItem?.current_period_end
-        ? subscriptionItem.current_period_end * 1000
-        : Date.now() + 30 * 24 * 60 * 60 * 1000;
+      const { priceId, currentPeriodStart, currentPeriodEnd } =
+        getSubscriptionPeriod(subscription);
 
       if (teamId) {
         console.log(`Subscription updated for team ${teamId}: ${subscription.status}`);
 
-        await ctx.runMutation(internalAny.stripe.syncSubscriptionDirectly, {
-          teamId: teamId as any,
+        await ctx.runMutation(internalAny.stripe.syncSubscriptionFromStripeEvent, {
+          teamId,
           subscriptionId: subscription.id,
           status: subscription.status,
           priceId,
+          currentPeriodStart,
           currentPeriodEnd,
           cancelAtPeriodEnd: subscription.cancel_at_period_end,
         });

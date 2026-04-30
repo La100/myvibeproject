@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Instagram } from "lucide-react";
 import Logo from "../Logo";
 
 const footerLinks = [
@@ -67,11 +68,21 @@ export function Footer() {
           ))}
         </div>
 
-        <div className="flex flex-col md:flex-row justify-between items-center pt-6 border-t border-border/30">
+        <div className="flex flex-col gap-4 md:flex-row justify-between items-center pt-6 border-t border-border/30">
           <p className="text-xs text-muted-foreground">
             &copy; {new Date().getFullYear()} Myvibe project Inc. All rights
             reserved.
           </p>
+          <Link
+            href="https://www.instagram.com/myvibeproject/"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Myvibe project on Instagram"
+            className="inline-flex items-center gap-2 text-sm text-foreground/70 transition-colors hover:text-foreground"
+          >
+            <Instagram className="size-4" aria-hidden="true" />
+            Instagram
+          </Link>
         </div>
       </div>
     </footer>

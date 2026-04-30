@@ -1,0 +1,109 @@
+- main "Myvibe app overview graphic" [ref=e2]:
+  - generic [ref=e3]:
+    - paragraph [ref=e4]: Myvibe
+    - heading "Run design projects with AI." [level=1] [ref=e5]:
+      - text: Run design projects with
+      - emphasis [ref=e6]: AI.
+    - paragraph [ref=e7]: Plan interiors, organize decisions, and keep every project moving in one calm workspace.
+    - generic [ref=e8]:
+      - generic [ref=e9]:
+        - img [ref=e11]
+        - text: Project visuals, files, and notes
+      - generic [ref=e14]:
+        - img [ref=e16]
+        - text: Tasks, budgets, and schedules
+      - generic [ref=e19]:
+        - img [ref=e21]
+        - text: Client-ready direction packs
+    - generic [ref=e27]:
+      - complementary [ref=e28]:
+        - generic [ref=e30]: Overview
+        - generic [ref=e32]: Client Portal
+        - generic [ref=e34]: Projects
+        - generic [ref=e36]: Notes
+        - generic [ref=e38]: Files
+        - generic [ref=e40]: Estimates
+        - generic [ref=e42]: Shopping
+      - generic [ref=e44]:
+        - generic [ref=e45]: Projects / Concept pack
+        - generic [ref=e46]: Lounge Refresh
+        - generic [ref=e47]: Warm minimalism with oak, stone, tactile fabrics, and review-ready options.
+  - generic [ref=e53]:
+    - heading "From brief to decision pack. Fast." [level=2] [ref=e54]:
+      - text: From brief to decision pack.
+      - emphasis [ref=e55]: Fast.
+    - paragraph [ref=e56]: Use AI to turn messy inputs into visuals, lists, and next steps your team can act on.
+    - generic [ref=e57]:
+      - generic [ref=e58]:
+        - generic [ref=e59]: "1"
+        - generic [ref=e60]:
+          - generic [ref=e61]: Collect context
+          - generic [ref=e62]: Briefs, floor plans, references, photos, and constraints.
+      - generic [ref=e63]:
+        - generic [ref=e64]: "2"
+        - generic [ref=e65]:
+          - generic [ref=e66]: Generate options
+          - generic [ref=e67]: Room visuals, material palettes, estimates, and tasks.
+      - generic [ref=e68]:
+        - generic [ref=e69]: "3"
+        - generic [ref=e70]:
+          - generic [ref=e71]: Share the pack
+          - generic [ref=e72]: Keep approvals and sourcing attached to the project.
+    - generic [ref=e73]:
+      - generic [ref=e74]:
+        - generic [ref=e75]: Brief
+        - generic [ref=e76]: Visuals
+        - generic [ref=e77]: Materials
+        - generic [ref=e78]: Review
+      - generic [ref=e80]: Warm lounge direction
+      - generic [ref=e81]: $12,480 estimated FF&E
+    - generic [ref=e82]:
+      - generic [ref=e83]:
+        - img [ref=e85]
+        - text: Vibe assistant
+      - generic [ref=e87]: Create a client pack with room visuals, material palette, budget estimate, and next actions.
+  - generic [ref=e90]:
+    - generic [ref=e91]:
+      - heading "Everything stays organized." [level=2] [ref=e92]:
+        - text: Everything stays
+        - emphasis [ref=e93]: organized.
+      - paragraph [ref=e94]: "Coordinate the work after the idea: tasks, sourcing, budgets, approvals, and client communication."
+      - generic [ref=e95]:
+        - generic [ref=e96]:
+          - img [ref=e98]
+          - text: Turn ideas into assigned tasks
+        - generic [ref=e101]:
+          - img [ref=e103]
+          - text: Track cost, quantity, and priority
+        - generic [ref=e104]:
+          - img [ref=e106]
+          - text: Share a clean client view
+    - generic [ref=e109]:
+      - generic [ref=e110]:
+        - generic [ref=e111]: Project hub
+        - generic [ref=e112]: $24,879.50
+      - generic [ref=e113]:
+        - generic [ref=e115]:
+          - generic [ref=e116]: Client approval
+          - generic [ref=e117]: Lounge direction pack
+        - generic [ref=e118]: Review
+      - generic [ref=e119]:
+        - generic [ref=e121]:
+          - generic [ref=e122]: Shopping list
+          - generic [ref=e123]: 18 items · 4 suppliers
+        - generic [ref=e124]: Live
+      - generic [ref=e125]:
+        - generic [ref=e127]:
+          - generic [ref=e128]: Task schedule
+          - generic [ref=e129]: Install, order, site visit
+        - generic [ref=e130]: Today
+      - generic [ref=e131]:
+        - generic [ref=e133]:
+          - generic [ref=e134]: Budget estimate
+          - generic [ref=e135]: Materials + labor
+        - generic [ref=e136]: Planned
+      - generic [ref=e137]:
+        - generic [ref=e139]:
+          - generic [ref=e140]: Shared files
+          - generic [ref=e141]: Drawings, notes, exports
+        - generic [ref=e142]: Ready

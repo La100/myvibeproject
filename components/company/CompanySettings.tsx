@@ -202,8 +202,8 @@ export default function CompanySettings({
   const ensureSubscriptionSynced = useAction(
     apiAny.stripeActions.ensureSubscriptionSynced,
   );
-  const teamPayments = useQuery(
-    apiAny.stripe.getTeamPayments,
+  const teamInvoices = useQuery(
+    apiAny.stripe.getTeamInvoices,
     isSubscriptionPage && teamId ? { teamId } : "skip",
   );
 
@@ -623,7 +623,7 @@ export default function CompanySettings({
       usageBreakdown === undefined ||
       storageUsage === undefined ||
       resourceUsage === undefined ||
-      teamPayments === undefined);
+      teamInvoices === undefined);
 
   if (isSubscriptionDataLoading) {
     return (
@@ -1369,30 +1369,6 @@ export default function CompanySettings({
                         Billing unavailable
                       </Button>
                     )}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full"
-                      onClick={() =>
-                        void syncSubscriptionFromStripe({ showResult: true })
-                      }
-                      disabled={isBillingActionPending || !teamData?.teamId}
-                    >
-                      {syncingSubscription ? (
-                        <>
-                          <Loader2
-                            data-icon="inline-start"
-                            className="animate-spin"
-                          />
-                          Syncing with Stripe...
-                        </>
-                      ) : (
-                        <>
-                          <CreditCard data-icon="inline-start" />
-                          Sync with Stripe
-                        </>
-                      )}
-                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -1410,17 +1386,18 @@ export default function CompanySettings({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {teamPayments && teamPayments.length > 0 ? (
+                {teamInvoices && teamInvoices.length > 0 ? (
                   <div className="flex flex-col gap-4">
-                    {teamPayments.map((payment) => {
-                      const amount = payment.amount / 100;
-                      const currency = payment.currency?.toUpperCase() || "USD";
+                    {teamInvoices.map((invoice) => {
+                      const amount =
+                        (invoice.amountPaid || invoice.amountDue || 0) / 100;
+                      const currency = "USD";
                       const formatted = new Intl.NumberFormat("en-US", {
                         style: "currency",
                         currency,
                       }).format(amount);
                       const createdAt = new Date(
-                        payment.created * 1000,
+                        invoice.created * 1000,
                       ).toLocaleDateString("en-US", {
                         month: "short",
                         day: "numeric",
@@ -1429,19 +1406,19 @@ export default function CompanySettings({
 
                       return (
                         <div
-                          key={payment.stripePaymentIntentId}
+                          key={invoice.stripeInvoiceId}
                           className="flex flex-col gap-1 rounded-lg border border-border/40 bg-secondary/70 px-4 py-3 text-sm"
                         >
                           <div className="flex items-center justify-between">
                             <span className="font-medium">{formatted}</span>
                             <span className="text-xs uppercase tracking-wide text-muted-foreground">
-                              {payment.status}
+                              {invoice.status}
                             </span>
                           </div>
                           <div className="flex items-center justify-between text-xs text-muted-foreground">
                             <span>{createdAt}</span>
                             <span>
-                              {payment.stripePaymentIntentId.slice(-8)}
+                              {invoice.stripeInvoiceId.slice(-8)}
                             </span>
                           </div>
                         </div>

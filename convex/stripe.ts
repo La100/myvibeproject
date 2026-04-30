@@ -477,11 +477,64 @@ function determinePlanFromPriceId(priceId: string): string {
   return "ai"; // Default to base AI plan if unknown
 }
 
+const resolveTeamId = (ctx: any, teamId: string): Id<"teams"> | null =>
+  ctx.db.normalizeId("teams", teamId);
+
+const buildSubscriptionPatch = (
+  team: any,
+  args: {
+    subscriptionId: string;
+    status: string;
+    priceId: string;
+    currentPeriodStart?: number;
+    currentPeriodEnd: number;
+    cancelAtPeriodEnd: boolean;
+  },
+) => {
+  const plan = determinePlanFromPriceId(args.priceId);
+  const planKey = plan as keyof typeof SUBSCRIPTION_PLANS;
+  const limits = SUBSCRIPTION_PLANS[planKey] || SUBSCRIPTION_PLANS.free;
+  const isPaidActivePlan =
+    (args.status === "active" || args.status === "trialing") &&
+    (limits.aiMonthlyTokens || 0) > 0;
+  const shouldRestorePaidCredits =
+    isPaidActivePlan &&
+    (typeof team.aiTokens !== "number" ||
+      team.aiTokens <= 0 ||
+      team.subscriptionId !== args.subscriptionId ||
+      team.subscriptionPlan !== planKey);
+
+  return {
+    plan,
+    patch: {
+      subscriptionId: args.subscriptionId,
+      subscriptionStatus: args.status as any,
+      subscriptionPlan: planKey,
+      subscriptionPriceId: args.priceId,
+      ...(typeof args.currentPeriodStart === "number"
+        ? { currentPeriodStart: args.currentPeriodStart }
+        : {}),
+      currentPeriodEnd: args.currentPeriodEnd,
+      cancelAtPeriodEnd: args.cancelAtPeriodEnd,
+      subscriptionLimits: limits,
+      ...(shouldRestorePaidCredits
+        ? { aiTokens: limits.aiMonthlyTokens || 0 }
+        : {}),
+    },
+  };
+};
+
 // Update team to free plan
 export const updateTeamToFree = internalMutation({
   args: { teamId: v.string() },
   async handler(ctx, args) {
-    await ctx.db.patch(args.teamId as Id<"teams">, {
+    const teamId = resolveTeamId(ctx, args.teamId);
+    if (!teamId) {
+      console.warn(`Ignoring Stripe subscription delete for invalid teamId: ${args.teamId}`);
+      return { success: false, reason: "invalid_team_id" };
+    }
+
+    await ctx.db.patch(teamId, {
       subscriptionStatus: null,
       subscriptionId: undefined,
       subscriptionPlan: "free",
@@ -493,6 +546,8 @@ export const updateTeamToFree = internalMutation({
       subscriptionLimits: SUBSCRIPTION_PLANS.free,
       aiTokens: SUBSCRIPTION_PLANS.free.aiMonthlyTokens,
     });
+
+    return { success: true };
   },
 });
 
@@ -503,6 +558,7 @@ export const syncSubscriptionDirectly = internalMutation({
     subscriptionId: v.string(),
     status: v.string(),
     priceId: v.string(),
+    currentPeriodStart: v.optional(v.number()),
     currentPeriodEnd: v.number(),
     cancelAtPeriodEnd: v.boolean(),
   },
@@ -512,34 +568,49 @@ export const syncSubscriptionDirectly = internalMutation({
       throw new Error("Team not found");
     }
 
-    const plan = determinePlanFromPriceId(args.priceId);
-    const planKey = plan as keyof typeof SUBSCRIPTION_PLANS;
-    const limits = SUBSCRIPTION_PLANS[planKey] || SUBSCRIPTION_PLANS.free;
-    const isPaidActivePlan =
-      (args.status === "active" || args.status === "trialing") &&
-      (limits.aiMonthlyTokens || 0) > 0;
-    const shouldRestorePaidCredits =
-      isPaidActivePlan &&
-      (typeof team.aiTokens !== "number" ||
-        team.aiTokens <= 0 ||
-        team.subscriptionId !== args.subscriptionId ||
-        team.subscriptionPlan !== planKey);
+    const { plan, patch } = buildSubscriptionPatch(team, args);
 
-    await ctx.db.patch(args.teamId, {
-      subscriptionId: args.subscriptionId,
-      subscriptionStatus: args.status as any,
-      subscriptionPlan: planKey,
-      subscriptionPriceId: args.priceId,
-      currentPeriodEnd: args.currentPeriodEnd,
-      cancelAtPeriodEnd: args.cancelAtPeriodEnd,
-      subscriptionLimits: limits,
-      ...(shouldRestorePaidCredits
-        ? { aiTokens: limits.aiMonthlyTokens || 0 }
-        : {}),
-    });
+    await ctx.db.patch(args.teamId, patch);
 
     console.log(
       `Team ${args.teamId} subscription synced directly: plan=${plan}, status=${args.status}`,
+    );
+    return { success: true, plan, status: args.status };
+  },
+});
+
+export const syncSubscriptionFromStripeEvent = internalMutation({
+  args: {
+    teamId: v.string(),
+    subscriptionId: v.string(),
+    status: v.string(),
+    priceId: v.string(),
+    currentPeriodStart: v.optional(v.number()),
+    currentPeriodEnd: v.number(),
+    cancelAtPeriodEnd: v.boolean(),
+  },
+  async handler(ctx, args) {
+    const teamId = resolveTeamId(ctx, args.teamId);
+    if (!teamId) {
+      console.warn(
+        `Ignoring Stripe subscription event for invalid teamId metadata: ${args.teamId}`,
+      );
+      return { success: false, reason: "invalid_team_id" };
+    }
+
+    const team = await ctx.db.get(teamId);
+    if (!team) {
+      console.warn(
+        `Ignoring Stripe subscription event for missing team: ${args.teamId}`,
+      );
+      return { success: false, reason: "team_not_found" };
+    }
+
+    const { plan, patch } = buildSubscriptionPatch(team, args);
+    await ctx.db.patch(teamId, patch);
+
+    console.log(
+      `Team ${teamId} subscription synced from Stripe event: plan=${plan}, status=${args.status}`,
     );
     return { success: true, plan, status: args.status };
   },
@@ -917,8 +988,8 @@ export const getTeamSubscriptionsFromStripe = query({
   },
 });
 
-// Query to get team's payments from Stripe component (by org ID)
-export const getTeamPayments = query({
+// Query to get team's subscription invoices from Stripe component.
+export const getTeamInvoices = query({
   args: { teamId: v.id("teams") },
   async handler(ctx, args) {
     const identity = await ctx.auth.getUserIdentity();
@@ -936,11 +1007,14 @@ export const getTeamPayments = query({
 
     if (!membership || !membership.isActive) return [];
 
-    const payments = await ctx.runQuery(
-      components.stripe.public.listPaymentsByOrgId,
-      { orgId: team.clerkOrgId },
-    );
+    const invoices = team.stripeCustomerId
+      ? await ctx.runQuery(components.stripe.public.listInvoices, {
+          stripeCustomerId: team.stripeCustomerId,
+        })
+      : await ctx.runQuery(components.stripe.public.listInvoicesByOrgId, {
+          orgId: team.clerkOrgId,
+        });
 
-    return payments.sort((a, b) => b.created - a.created);
+    return invoices.sort((a, b) => b.created - a.created);
   },
 });

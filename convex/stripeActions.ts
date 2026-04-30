@@ -53,6 +53,7 @@ const getBillingSettingsUrl = (
 
 type StripeTeamRecord = {
   name: string;
+  clerkOrgId: string;
   stripeCustomerId?: string | null;
   subscriptionStatus?: string | null;
 };
@@ -153,6 +154,7 @@ export const createCheckoutSession = action({
       subscription_data: {
         metadata: {
           teamId: args.teamId,
+          orgId: team.clerkOrgId,
           userId: identity.subject,
         },
       },
@@ -350,6 +352,9 @@ export const ensureSubscriptionSynced = action({
     const currentPeriodEnd = subscriptionItem?.current_period_end
       ? subscriptionItem.current_period_end * 1000
       : Date.now() + 30 * 24 * 60 * 60 * 1000;
+    const currentPeriodStart = subscriptionItem?.current_period_start
+      ? subscriptionItem.current_period_start * 1000
+      : Date.now();
     const plan =
       subscriptionItem?.price.id &&
       process.env.STRIPE_AI_SCALE_PRICE_ID === subscriptionItem.price.id
@@ -368,6 +373,7 @@ export const ensureSubscriptionSynced = action({
       subscriptionId: subscription.id,
       status: subscription.status,
       priceId,
+      currentPeriodStart,
       currentPeriodEnd,
       cancelAtPeriodEnd: subscription.cancel_at_period_end,
     });
