@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Menu } from "lucide-react";
+import { Menu, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UserButton, useUser } from "@clerk/nextjs";
 import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -10,7 +10,9 @@ import Logo from "../Logo";
 const navLinks = [
   { label: "Product", href: "/#product" },
   { label: "Workflow", href: "/#workflow" },
+  { label: "Web Clipper", href: "/#web-clipper" },
   { label: "Resources", href: "/#resources" },
+  { label: "Pricing", href: "/#pricing" },
   { label: "Contact", href: "/contact" },
 ];
 
@@ -41,18 +43,20 @@ export function Navbar() {
         <div className="hidden items-center gap-2.5 md:flex">
           {isSignedIn ? (
             <>
-            <Button
-              asChild
-              variant="ghost"
-              className="h-9 rounded-full px-3 text-sm font-medium"
-            >
-              <Link href="/organisation">Dashboard</Link>
-            </Button>
-            <UserButton
-              appearance={{
-                elements: { userButtonAvatarBox: "rounded-full" },
-              }}
-            />
+              <Button
+                asChild
+                className="h-9 rounded-full bg-foreground px-4 text-sm font-medium text-background hover:bg-foreground/92"
+              >
+                <Link href="/organisation">
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Dashboard
+                </Link>
+              </Button>
+              <UserButton
+                appearance={{
+                  elements: { userButtonAvatarBox: "rounded-full" },
+                }}
+              />
             </>
           ) : (
             <Button
@@ -94,8 +98,14 @@ export function Navbar() {
                 {isSignedIn ? (
                   <div className="flex items-center gap-3">
                     <SheetClose asChild>
-                      <Button asChild className="h-11 flex-1 rounded-full">
-                        <Link href="/organisation">Go to dashboard</Link>
+                      <Button
+                        asChild
+                        className="h-11 flex-1 rounded-full bg-foreground px-4 text-sm font-medium text-background hover:bg-foreground/92"
+                      >
+                        <Link href="/organisation">
+                          <Sparkles className="mr-2 h-4 w-4" />
+                          Dashboard
+                        </Link>
                       </Button>
                     </SheetClose>
                     <UserButton

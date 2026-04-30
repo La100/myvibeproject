@@ -7,12 +7,17 @@ const footerLinks = [
     links: [
       { label: "Overview", href: "/#product" },
       { label: "Workflow", href: "/#workflow" },
+      { label: "Web Clipper", href: "/#web-clipper" },
       { label: "Client Portal", href: "/#client-collaboration" },
     ],
   },
   {
     title: "Resources",
-    links: [{ label: "Studio Memory", href: "/#resources" }],
+    links: [
+      { label: "Studio Memory", href: "/#resources" },
+      { label: "Pricing", href: "/#pricing" },
+      { label: "FAQ", href: "/#faq" },
+    ],
   },
   {
     title: "Legal",

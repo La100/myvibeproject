@@ -4,10 +4,14 @@ import { useUser } from "@clerk/nextjs";
 import {
   ArrowRight,
   BarChart3,
+  Camera,
   CheckCircle2,
+  ChevronDown,
+  Chrome,
   CircleDollarSign,
   Clock3,
   CreditCard,
+  ExternalLink,
   FileCheck2,
   ImageIcon,
   ListChecks,
@@ -19,7 +23,9 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ComponentType, ReactNode } from "react";
 
+import { BillingPlanCard } from "@/components/billing/BillingPlanCard";
 import { Button } from "@/components/ui/button";
+import { BILLING_PLANS } from "@/lib/billingPlans";
 
 type LandingIcon = ComponentType<{ className?: string }>;
 
@@ -133,6 +139,9 @@ const libraryProducts = [
   landingProducts[9],
 ];
 
+const CHROME_WEB_STORE_URL =
+  "https://chromewebstore.google.com/detail/myvibeproject-web-clipper/nklbcopiimkboameblhnmdookkelncih";
+
 const projectTasks = [
   { title: "Confirm tile grout tone", meta: "Client review", status: "Review" },
   { title: "Send chair lead time to supplier", meta: "Sourcing", status: "Today" },
@@ -162,6 +171,105 @@ const reportMetrics = [
   { label: "Budget locked", value: "72%" },
   { label: "Pending approvals", value: "2" },
   { label: "Products reused", value: "4" },
+];
+
+const faqItems = [
+  {
+    category: "Product scope",
+    question: "What is Myvibe built to manage?",
+    answer:
+      "Myvibe is a workspace for architecture and interior studios that need project delivery, visual exploration, client collaboration, sourcing, files, reports, and AI support in one place. It connects the creative side of a project with the operational work that follows.",
+  },
+  {
+    category: "Organization workspace",
+    question: "What lives at the organization level?",
+    answer:
+      "The organization workspace brings together projects, team notifications, the global calendar, AI visualizations, product and survey libraries, team contacts, reports, tax settings, billing settings, team members, and subscription management.",
+  },
+  {
+    category: "Project workspace",
+    question: "What can a studio manage inside one project?",
+    answer:
+      "Each project has an overview, client portal, notifications, tasks, moodboard, notes, contacts, calendar, payments, surveys, files, shopping list, labor tracking, estimations, settings, and an AI assistant that works with the project context.",
+  },
+  {
+    category: "AI assistant",
+    question: "What can the AI assistant actually do inside a project?",
+    answer:
+      "The project assistant can load project context, search project items, summarize status, suggest next steps, review budget signals, scrape product data for sourcing, and work with tasks, notes, contacts, payments, shopping lists, labor, surveys, moodboard sections, and project settings when the user enables change mode.",
+  },
+  {
+    category: "AI safety",
+    question: "Can the assistant change project data automatically?",
+    answer:
+      "By default the assistant runs in read-only mode. Write tools are blocked until the user explicitly enables the setting that allows changes, and AI output still needs human review before it is used for client, budget, procurement, construction, legal, or compliance decisions.",
+  },
+  {
+    category: "AI attachments",
+    question: "Can the assistant work with uploaded files?",
+    answer:
+      "The assistant composer supports image and PDF attachments up to 32 MB, with up to 5 attachments in a message. Project PDFs can also be added to AI knowledge from the Files area so the assistant can search indexed document content during project conversations.",
+  },
+  {
+    category: "Visualizations",
+    question: "What is the visualizations workspace for?",
+    answer:
+      "The visualizations area gives the team a dedicated AI surface for creating project imagery from prompts and reference files. It is useful for concept directions, material studies, room moods, product context, and fast visual exploration before a decision becomes part of the project.",
+  },
+  {
+    category: "Sourcing",
+    question: "How do shopping lists and product libraries work together?",
+    answer:
+      "Shopping lists track products, finishes, suppliers, costs, statuses, sections, and project-specific decisions. Approved or reusable items can move into the product library so future projects can start from known products instead of rebuilding every selection from scratch.",
+  },
+  {
+    category: "Client collaboration",
+    question: "What can clients review without entering the full workspace?",
+    answer:
+      "The client portal and survey flows let clients review selected project information, respond to approvals, leave comments, and submit structured decisions. Client activity is surfaced back to the studio through project and organization notifications.",
+  },
+  {
+    category: "Commercial workflow",
+    question: "How does Myvibe handle budgets, labor, payments, and estimates?",
+    answer:
+      "Project delivery can include shopping totals, labor items, payment tracking, tax settings, estimates, invoice defaults, and budget reporting. These tools keep commercial decisions close to the design context instead of splitting them into separate spreadsheets.",
+  },
+  {
+    category: "Files and exports",
+    question: "What happens to project files and generated documents?",
+    answer:
+      "Files are stored inside the project with folders, breadcrumbs, previews, downloads, and deletion controls. Teams can upload images, videos, PDFs, DWG/DXF files, Office documents, and other project assets, then decide which files are visible in the client portal and which PDFs should be indexed for AI knowledge.",
+  },
+  {
+    category: "Generated documents",
+    question: "Which workflows create documents or exports?",
+    answer:
+      "Myvibe supports exports and generated documents across shopping lists, labor documentation, company reports, project books, estimates, invoices, and client-facing survey file responses. These artifacts stay connected to the project instead of living only in external folders.",
+  },
+  {
+    category: "Planning",
+    question: "How are tasks, calendars, contacts, and notes connected?",
+    answer:
+      "Tasks, due dates, calendar views, project contacts, notes, and notifications are part of the same project record. The organization calendar rolls work up across projects, while each project keeps its own operational context.",
+  },
+  {
+    category: "Team and access",
+    question: "How does team access work?",
+    answer:
+      "A studio works inside an organization with internal team members, role-aware navigation, shared libraries, organization settings, and subscription limits. Clients are handled through client-facing workflows rather than being dropped into the full internal workspace.",
+  },
+  {
+    category: "Web clipper",
+    question: "What does the MyVibeProject Web Clipper do?",
+    answer:
+      "The optional browser extension helps signed-in users capture product information from merchant or product pages and save it into Myvibe shopping lists, including visible product details such as title, price, URL, image, and related product metadata when the user launches the clipper.",
+  },
+  {
+    category: "Plans",
+    question: "What is included in the paid plans?",
+    answer:
+      "AI Pro is built for weekly assistant and visualization workflows with 20 active projects, 2 team members, and 50 GB storage. AI Scale increases the workspace capacity to 75 active projects, 100 team members, 250 GB storage, and higher monthly AI volume.",
+  },
 ];
 
 function StatusPill({ children }: { children: ReactNode }) {
@@ -522,8 +630,8 @@ function ClientReviewMock() {
 
 function CommercialLayerSection() {
   return (
-    <section className="grid items-center gap-10 border-t border-black/6 py-14 lg:grid-cols-[0.34fr_minmax(0,0.66fr)] lg:py-16">
-      <div className="max-w-[30rem]">
+    <section className="grid items-center gap-10 border-t border-black/6 py-14 lg:grid-cols-[minmax(0,0.66fr)_0.34fr] lg:py-16">
+      <div className="max-w-[30rem] lg:order-2">
         <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-foreground/42">
           Commercial layer
         </p>
@@ -534,16 +642,9 @@ function CommercialLayerSection() {
           Track what was approved, paid, and still waiting without rebuilding the story
           for every client update.
         </p>
-        <Link
-          href="/#resources"
-          className="mt-6 inline-flex text-[1rem] font-medium text-[#f06422] transition-colors hover:text-foreground"
-        >
-          See studio memory
-          <ArrowRight className="ml-1.5 h-5 w-5" />
-        </Link>
       </div>
 
-      <div className="overflow-hidden rounded-[28px] border border-black/7 bg-[#e6ded1] p-3 shadow-[0_24px_70px_rgba(24,20,16,0.08)]">
+      <div className="overflow-hidden rounded-[28px] border border-black/7 bg-[#e6ded1] p-3 shadow-[0_24px_70px_rgba(24,20,16,0.08)] lg:order-1">
         <div className="overflow-hidden rounded-[22px] border border-white/64 bg-[rgba(253,251,247,0.94)] shadow-[0_22px_60px_rgba(24,20,16,0.08)]">
           <BrowserChrome label="projects/lounge-refresh/commercial" />
           <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1.05fr)_minmax(17rem,0.95fr)]">
@@ -689,13 +790,169 @@ function ProductLibraryMock() {
   );
 }
 
+function WebClipperMock() {
+  return (
+    <div className="absolute inset-0 overflow-hidden rounded-[28px] bg-[#efebe4] text-foreground">
+      <div className="absolute inset-0 grid grid-cols-[minmax(0,1fr)_21rem]">
+        <div className="relative min-w-0 overflow-hidden bg-[#f4f1eb]">
+          <div className="flex h-12 items-center justify-center gap-10 border-b border-black/7 bg-white/64 text-[13px] font-semibold text-foreground/48">
+            <span className="font-serif text-[24px] font-normal tracking-[-0.05em] text-foreground/42">
+              JAPANDI
+            </span>
+            <span className="hidden sm:inline">Lighting</span>
+            <span className="hidden sm:inline">Home Decor</span>
+            <span className="hidden sm:inline">Furniture</span>
+          </div>
+          <div className="grid min-h-full gap-6 p-5 pr-10 opacity-52 lg:grid-cols-[minmax(0,0.58fr)_minmax(20rem,0.42fr)]">
+            <div className="relative min-h-[28rem] overflow-hidden rounded-[20px] bg-white">
+              <Image
+                src="/landing/generated/boucle-lounge-sofa.png"
+                alt="Japandi rattan sofa product"
+                fill
+                className="object-cover"
+                sizes="620px"
+                unoptimized
+              />
+            </div>
+            <div className="hidden pt-8 lg:block">
+              <h4 className="max-w-[12ch] text-[34px] font-semibold leading-[1.02] tracking-[-0.05em] text-foreground">
+                Japandi Rattan Sofa
+              </h4>
+              <p className="mt-5 text-[18px] text-foreground/72">$1,529.00</p>
+              <div className="mt-6 border-t border-black/10 pt-6 text-[15px] leading-7 text-foreground/56">
+                Introduce a touch of classic charm and modern design to your lounge package.
+              </div>
+              <div className="mt-10 rounded-full bg-[#8f8177] px-8 py-4 text-center text-sm font-semibold uppercase tracking-[0.06em] text-white">
+                Shop at Chita Living
+              </div>
+            </div>
+          </div>
+          <div className="absolute inset-0 bg-[#1f2428]/24" />
+        </div>
+
+        <aside className="relative z-10 hidden border-l border-black/7 bg-[#f8f6f1] p-3 shadow-[-24px_0_70px_rgba(24,20,16,0.18)] lg:block">
+          <div className="rounded-[18px] border border-black/7 bg-white/86 p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-foreground/38">
+              Active project
+            </p>
+            <div className="mt-2 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[15px] font-semibold tracking-[-0.02em] text-foreground">
+                  Richardson
+                </p>
+                <p className="mt-1 text-[11px] text-foreground/44">Sonia Projects</p>
+              </div>
+              <StatusPill>Live</StatusPill>
+            </div>
+          </div>
+
+          <div className="mt-3 rounded-[18px] border border-black/7 bg-white/86 p-4">
+            <p className="text-[13px] font-semibold text-foreground/86">Product image</p>
+            <div className="relative mt-4 aspect-[1.55/1] overflow-hidden rounded-[16px] bg-[#eee9df]">
+              <Image
+                src="/landing/generated/boucle-lounge-sofa.png"
+                alt="Captured sofa product"
+                fill
+                className="object-cover"
+                sizes="320px"
+                unoptimized
+              />
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button className="inline-flex h-9 items-center justify-center gap-2 rounded-[12px] bg-[#f4f1eb] text-[12px] font-medium text-foreground/72">
+                <ImageIcon className="h-3.5 w-3.5" />
+                Pick existing
+              </button>
+              <button className="inline-flex h-9 items-center justify-center gap-2 rounded-[12px] border border-black/7 bg-white text-[12px] font-medium text-foreground/72">
+                <Camera className="h-3.5 w-3.5" />
+                Capture area
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-3 rounded-[18px] border border-black/7 bg-white/86 p-4">
+            <p className="text-[13px] font-semibold text-foreground/86">Product details</p>
+            <div className="mt-4 grid gap-3">
+              <div>
+                <p className="text-[11px] font-medium text-foreground/60">Product name *</p>
+                <div className="mt-1 rounded-[12px] border border-black/8 bg-white px-3 py-2 text-[13px] text-foreground/76">
+                  Japandi Rattan Sofa
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-[11px] font-medium text-foreground/60">Price</p>
+                  <div className="mt-1 rounded-[12px] border border-black/8 bg-white px-3 py-2 text-[13px] text-foreground/76">
+                    1529.00
+                  </div>
+                </div>
+                <div>
+                  <p className="text-[11px] font-medium text-foreground/60">Quantity</p>
+                  <div className="mt-1 rounded-[12px] border border-black/8 bg-white px-3 py-2 text-[13px] text-foreground/76">
+                    1
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-[12px] border border-black/8 bg-white px-3 py-2 text-[13px] text-foreground/68">
+                Uncategorized (default)
+              </div>
+            </div>
+          </div>
+
+          <div className="absolute inset-x-3 bottom-3 rounded-[18px] bg-white p-2 shadow-[0_-10px_24px_rgba(24,20,16,0.08)]">
+            <button className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[12px] bg-foreground text-sm font-medium text-background">
+              <ShoppingCart className="h-4 w-4" />
+              Add to shopping list
+            </button>
+          </div>
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+function WebClipperSection() {
+  return (
+    <section
+      id="web-clipper"
+      className="grid items-center gap-8 border-t border-black/6 py-12 lg:grid-cols-[minmax(0,0.64fr)_minmax(18rem,0.36fr)] lg:gap-12 lg:py-16"
+    >
+      <div className="relative aspect-[1.34/1] min-h-[300px] w-full max-w-[860px] overflow-hidden rounded-[28px] border border-black/6 bg-[#e8e4dc] shadow-[0_22px_60px_rgba(24,20,16,0.05)] sm:min-h-[340px]">
+        <WebClipperMock />
+      </div>
+
+      <div className="max-w-[30rem] lg:pl-2">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-foreground/42">
+          Chrome web clipper
+        </p>
+        <h3 className="mt-5 text-balance text-[clamp(1.75rem,2.4vw,2.35rem)] font-medium leading-[1.08] tracking-[-0.03em] text-foreground">
+          Save product pages directly into the project shopping list.
+        </h3>
+        <p className="mt-3 text-pretty text-[1.05rem] leading-8 text-foreground/58">
+          Capture the image, price, supplier link, and project section while you browse
+          furniture, lighting, and finishes.
+        </p>
+        <Button
+          asChild
+          className="mt-6 h-10 rounded-full bg-foreground px-4 text-sm font-medium text-background hover:bg-foreground/90"
+        >
+          <Link href={CHROME_WEB_STORE_URL} target="_blank" rel="noreferrer">
+            <Chrome className="mr-2 h-4 w-4" />
+            Chrome Web Store
+            <ExternalLink className="ml-2 h-4 w-4" />
+          </Link>
+        </Button>
+      </div>
+    </section>
+  );
+}
+
 function ShowcaseSection({
   id,
   visual,
   eyebrow,
   title,
   body,
-  action,
   reverse = false,
   children,
 }: {
@@ -704,7 +961,6 @@ function ShowcaseSection({
   eyebrow: string;
   title: string;
   body: string;
-  action: string;
   reverse?: boolean;
   children: ReactNode;
 }) {
@@ -737,13 +993,6 @@ function ShowcaseSection({
         <p className="mt-3 text-pretty text-[1.05rem] leading-8 text-foreground/58">
           {body}
         </p>
-        <Link
-          href={id === "product" ? "/#workflow" : id === "resources" ? "/sign-in" : `/#${id}`}
-          className="mt-5 inline-flex text-[1rem] font-medium text-[#f06422] transition-colors hover:text-foreground"
-        >
-          {action}
-          <ArrowRight className="ml-1.5 h-5 w-5" />
-        </Link>
       </div>
     </section>
   );
@@ -751,8 +1000,8 @@ function ShowcaseSection({
 
 function ProjectSystemSection() {
   return (
-    <section className="grid items-center gap-10 border-t border-black/6 py-14 lg:grid-cols-[0.34fr_minmax(0,0.66fr)] lg:py-16">
-      <div className="max-w-[30rem]">
+    <section className="grid items-center gap-10 border-t border-black/6 py-14 lg:grid-cols-[minmax(0,0.66fr)_0.34fr] lg:py-16">
+      <div className="max-w-[30rem] lg:order-2">
         <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-foreground/42">
           Project operating system
         </p>
@@ -763,16 +1012,9 @@ function ProjectSystemSection() {
           Myvibe turns the approved direction into tasks, budget movement, client approvals,
           and reusable product decisions without splitting the workspace.
         </p>
-        <Link
-          href="/#client-collaboration"
-          className="mt-6 inline-flex text-[1rem] font-medium text-[#f06422] transition-colors hover:text-foreground"
-        >
-          Follow the project
-          <ArrowRight className="ml-1.5 h-5 w-5" />
-        </Link>
       </div>
 
-      <div className="overflow-hidden rounded-[28px] border border-black/7 bg-[#e6ded1] p-3 shadow-[0_24px_70px_rgba(24,20,16,0.08)]">
+      <div className="overflow-hidden rounded-[28px] border border-black/7 bg-[#e6ded1] p-3 shadow-[0_24px_70px_rgba(24,20,16,0.08)] lg:order-1">
         <div className="overflow-hidden rounded-[22px] border border-white/64 bg-[rgba(253,251,247,0.94)] shadow-[0_22px_60px_rgba(24,20,16,0.08)]">
           <BrowserChrome label="projects/lounge-refresh/overview" />
           <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(17rem,0.9fr)]">
@@ -882,6 +1124,94 @@ function ProjectSystemSection() {
   );
 }
 
+function PricingSection({ isSignedIn }: { isSignedIn: boolean }) {
+  return (
+    <section
+      id="pricing"
+      className="grid items-start gap-10 border-t border-black/6 py-14 lg:grid-cols-[0.34fr_minmax(0,0.66fr)] lg:py-16"
+    >
+      <div className="max-w-[30rem]">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-foreground/42">
+          Pricing
+        </p>
+        <h3 className="mt-5 text-balance text-[clamp(1.85rem,2.7vw,2.7rem)] font-medium leading-[1.03] tracking-[-0.04em] text-foreground">
+          Start with the AI capacity your studio actually needs.
+        </h3>
+        <p className="mt-4 text-pretty text-[1.05rem] leading-8 text-foreground/58">
+          Choose a monthly plan for project workflows, visualizations, storage, and team
+          collaboration.
+        </p>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        {BILLING_PLANS.map((plan) => (
+          <BillingPlanCard
+            key={plan.key}
+            plan={plan}
+            availabilityLabel={plan.key === "ai_scale" ? "Best value" : "Available"}
+            availabilityVariant={plan.key === "ai_scale" ? "secondary" : "outline"}
+            footer={
+              <Button
+                asChild
+                className="w-full"
+              >
+                <Link href={isSignedIn ? "/organisation/subscription" : "/sign-in"}>
+                  {isSignedIn ? "Open subscription" : "Start with Myvibe"}
+                </Link>
+              </Button>
+            }
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function FAQSection() {
+  return (
+    <section
+      id="faq"
+      className="grid items-start gap-10 border-t border-black/6 py-14 lg:grid-cols-[0.34fr_minmax(0,0.66fr)] lg:py-16"
+    >
+      <div className="max-w-[30rem]">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-foreground/42">
+          FAQ
+        </p>
+        <h3 className="mt-5 text-balance text-[clamp(1.85rem,2.7vw,2.7rem)] font-medium leading-[1.03] tracking-[-0.04em] text-foreground">
+          Clear answers for studios evaluating the full Myvibe workspace.
+        </h3>
+        <p className="mt-4 text-pretty text-[1.05rem] leading-8 text-foreground/58">
+          A practical overview of what the app covers, where each workflow lives,
+          and how the pieces connect across the studio.
+        </p>
+      </div>
+
+      <div className="divide-y divide-black/7 border-y border-black/7">
+        {faqItems.map((item, index) => (
+          <details key={item.question} className="group" open={index === 0}>
+            <summary className="grid cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto] items-start gap-4 py-5 text-left marker:hidden">
+              <span className="min-w-0">
+                <span className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-foreground/36">
+                  {item.category}
+                </span>
+                <span className="mt-2 block text-[1.05rem] font-medium leading-7 tracking-[-0.02em] text-foreground/86">
+                  {item.question}
+                </span>
+              </span>
+              <span className="mt-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-black/7 bg-white/70 text-foreground/54 transition group-open:rotate-180">
+                <ChevronDown className="h-4 w-4" />
+              </span>
+            </summary>
+            <p className="max-w-3xl pb-6 pr-12 text-sm leading-7 text-foreground/56">
+              {item.answer}
+            </p>
+          </details>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function ProductSections() {
   const { isSignedIn } = useUser();
 
@@ -907,7 +1237,6 @@ export function ProductSections() {
           eyebrow="Concept workflow"
           title="Show the actual project, not an abstract dashboard."
           body="Use curated product data, visuals, and decisions so the landing page feels like a real studio workflow."
-          action="See workflow"
         >
           <ConceptWorkspaceMock />
         </ShowcaseSection>
@@ -918,7 +1247,6 @@ export function ProductSections() {
           eyebrow="Everywhere in the workflow"
           title="Turn aesthetic decisions into sourcing work."
           body="The shopping list keeps furniture, finishes, quotes, and next steps attached to the same visual direction."
-          action="Explore workflow"
           reverse
         >
           <ShoppingWorkspaceMock />
@@ -932,7 +1260,7 @@ export function ProductSections() {
           eyebrow="Client collaboration"
           title="Approvals stay attached to the direction they saw."
           body="Collect structured feedback, estimates, and reporting without splitting the conversation from the concept."
-          action="Review delivery"
+          reverse
         >
           <ClientReviewMock />
         </ShowcaseSection>
@@ -945,11 +1273,16 @@ export function ProductSections() {
           eyebrow="Studio memory"
           title="Reuse approved products instead of rebuilding every choice."
           body="Save the final direction, reports, and product decisions so the next project starts with context."
-          action="Start with Myvibe"
           reverse
         >
           <ProductLibraryMock />
         </ShowcaseSection>
+
+        <WebClipperSection />
+
+        <PricingSection isSignedIn={isSignedIn ?? false} />
+
+        <FAQSection />
 
         <section className="flex flex-col items-start justify-between gap-6 border-t border-black/6 pt-10 sm:flex-row sm:items-center">
           <div>

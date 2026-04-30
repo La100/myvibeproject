@@ -133,7 +133,7 @@ const FLAT_PRIMARY_BUTTON_CLASSNAME =
   "rounded-full bg-primary/92 text-primary-foreground shadow-none hover:bg-primary/92 focus-visible:ring-0 active:translate-y-0";
 
 const UPDATE_PORTAL_BUTTON_CLASSNAME =
-  "h-10 rounded-full bg-primary/92 px-5 text-sm font-medium text-primary-foreground shadow-none hover:bg-primary/92 focus-visible:ring-0 active:translate-y-0";
+  "h-12 rounded-full bg-primary/92 px-7 text-[15px] font-medium text-primary-foreground shadow-none hover:bg-primary/92 focus-visible:ring-0 active:translate-y-0";
 
 const PORTAL_SWITCH_CLASSNAME =
   "h-6 w-11 border-0 bg-muted/90 shadow-none data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted/90";
@@ -321,44 +321,44 @@ export default function CustomerPanelPage() {
           icon={<ExternalLink className="h-8 w-8 text-[var(--chart-2)]" />}
           subtitle="Control what your client sees in the portal. Toggle sections, copy the link, and publish when ready."
           tags={
-            <>
+            <div className="flex flex-wrap items-start gap-3">
               <Badge
                 variant="outline"
                 className="rounded-full border-border/70 bg-card px-3 py-1.5 text-[12px] font-semibold text-foreground"
               >
                 v{publishedVersion}
               </Badge>
-              <Badge
-                variant="outline"
-                className={
-                  hasPublishedPortal
-                    ? "gap-2 rounded-full border-[#bbf7d0] bg-[#f0fdf4] px-3 py-1.5 text-[12px] font-semibold text-[#047857]"
-                    : "rounded-full border-border/70 bg-card px-3 py-1.5 text-[12px] font-semibold text-muted-foreground"
-                }
-              >
-                {hasPublishedPortal ? (
-                  <>
-                    <span className="relative flex size-2.5" aria-hidden="true">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#4ade80] opacity-75" />
-                      <span className="relative inline-flex size-2.5 rounded-full bg-[#22c55e]" />
-                    </span>
-                    Live
-                  </>
-                ) : (
-                  "Draft"
-                )}
-              </Badge>
-            </>
-          }
-          actions={
-            <Button
-              type="button"
-              onClick={handlePublishPortal}
-              disabled={isPublishingPortal}
-              className={UPDATE_PORTAL_BUTTON_CLASSNAME}
-            >
-              {isPublishingPortal ? "Updating..." : "Update portal"}
-            </Button>
+              <div className="flex flex-col items-start gap-3">
+                <Badge
+                  variant="outline"
+                  className={
+                    hasPublishedPortal
+                      ? "gap-2 rounded-full border-[#bbf7d0] bg-[#f0fdf4] px-3 py-1.5 text-[12px] font-semibold text-[#047857]"
+                      : "rounded-full border-border/70 bg-card px-3 py-1.5 text-[12px] font-semibold text-muted-foreground"
+                  }
+                >
+                  {hasPublishedPortal ? (
+                    <>
+                      <span className="relative flex size-2.5" aria-hidden="true">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#4ade80] opacity-75" />
+                        <span className="relative inline-flex size-2.5 rounded-full bg-[#22c55e]" />
+                      </span>
+                      Live
+                    </>
+                  ) : (
+                    "Draft"
+                  )}
+                </Badge>
+                <Button
+                  type="button"
+                  onClick={handlePublishPortal}
+                  disabled={isPublishingPortal}
+                  className={UPDATE_PORTAL_BUTTON_CLASSNAME}
+                >
+                  {isPublishingPortal ? "Updating..." : "Update portal"}
+                </Button>
+              </div>
+            </div>
           }
         />
 

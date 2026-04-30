@@ -57,11 +57,10 @@ import { TimezonePicker } from "@/components/ui/timezone-picker";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
-  AI_PRO_MONTHLY_TOKENS,
-  AI_SCALE_MONTHLY_TOKENS,
   GPT_IMAGE_TYPICAL_CREDITS,
   formatTokens,
 } from "@/lib/aiPricing";
+import { BILLING_PLANS, type BillingPlanKey } from "@/lib/billingPlans";
 import { DEFAULT_ORGANIZATION_TAX_SETTINGS } from "@/lib/organizationTax";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import {
@@ -71,6 +70,7 @@ import {
 import { cn } from "@/lib/utils";
 import { OrganizationImagePicker } from "@/components/company/OrganizationImagePicker";
 import { BillingActionErrorDialog } from "@/components/billing/BillingActionErrorDialog";
+import { BillingPlanCard } from "@/components/billing/BillingPlanCard";
 
 type BillingProfileForm = {
   sellerName: string;
@@ -108,27 +108,6 @@ const EMPTY_BILLING_PROFILE: BillingProfileForm = {
   defaultPaymentTermDays: "14",
 };
 
-const BILLING_PLANS = [
-  {
-    key: "ai",
-    name: "AI Pro",
-    price: 39,
-    monthlyCredits: AI_PRO_MONTHLY_TOKENS,
-    description:
-      "Best for teams using the assistant and visualizations every week.",
-    limits: ["20 active projects", "2 team members", "50 GB storage"],
-  },
-  {
-    key: "ai_scale",
-    name: "AI Scale",
-    price: 99,
-    monthlyCredits: AI_SCALE_MONTHLY_TOKENS,
-    description:
-      "Higher monthly AI volume with stronger workspace limits and better token value.",
-    limits: ["75 active projects", "100 team members", "250 GB storage"],
-  },
-] as const;
-
 const COMPANY_SETTINGS_SECTIONS = [
   {
     value: "general",
@@ -150,7 +129,6 @@ const COMPANY_SETTINGS_SECTIONS = [
   },
 ] as const;
 
-type BillingPlanKey = (typeof BILLING_PLANS)[number]["key"];
 type CompanySettingsSection =
   (typeof COMPANY_SETTINGS_SECTIONS)[number]["value"];
 
@@ -1092,67 +1070,15 @@ export default function CompanySettings({
                         : "outline";
 
                     return (
-                      <Card
+                      <BillingPlanCard
                         key={plan.key}
-                        className={cn(
-                          "h-full border-border/70 bg-card shadow-none",
-                          isRecommended &&
-                            "border-primary/30 bg-primary/[0.03]",
-                          isCurrentPlan && "border-primary/25",
-                        )}
-                      >
-                        <CardHeader className="gap-4 border-b border-border/70">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex flex-col gap-2">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <CardTitle className="text-xl">
-                                  {plan.name}
-                                </CardTitle>
-                                {isRecommended ? (
-                                  <Badge>Recommended</Badge>
-                                ) : null}
-                              </div>
-                              <CardDescription>
-                                {plan.description}
-                              </CardDescription>
-                            </div>
-                            <Badge variant={availabilityVariant}>
-                              {availabilityLabel}
-                            </Badge>
-                          </div>
-                          <div className="flex items-end gap-2">
-                            <span className="text-4xl font-semibold tracking-tight">
-                              ${plan.price}
-                            </span>
-                            <span className="pb-1 text-sm text-muted-foreground">
-                              per month
-                            </span>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="flex h-full flex-col gap-6 pt-6">
-                          <div className="rounded-xl bg-secondary/70 p-4">
-                            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                              Monthly AI credits
-                            </p>
-                            <p className="mt-2 text-2xl font-semibold tabular-nums">
-                              {formatTokens(plan.monthlyCredits)}
-                            </p>
-                          </div>
-
-                          <div className="grid gap-3 text-sm text-muted-foreground">
-                            {plan.limits.map((limit) => (
-                              <div
-                                key={limit}
-                                className="flex items-center gap-2 rounded-lg border border-transparent bg-secondary/70 px-3 py-2"
-                              >
-                                <Check className="size-4 text-primary" />
-                                <span>{limit}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </CardContent>
-                        <CardFooter className="mt-auto border-t border-border/40 pt-6">
-                          {isCurrentPlan && canOpenPortal ? (
+                        plan={plan}
+                        availabilityLabel={availabilityLabel}
+                        availabilityVariant={availabilityVariant}
+                        isCurrentPlan={isCurrentPlan}
+                        isRecommended={isRecommended}
+                        footer={
+                          isCurrentPlan && canOpenPortal ? (
                             <Button
                               onClick={handleManageSubscription}
                               disabled={isBillingActionPending}
@@ -1207,9 +1133,9 @@ export default function CompanySettings({
                             >
                               Current selection
                             </Button>
-                          )}
-                        </CardFooter>
-                      </Card>
+                          )
+                        }
+                      />
                     );
                   })}
                 </div>
