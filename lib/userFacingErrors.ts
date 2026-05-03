@@ -18,7 +18,11 @@ const extractRawErrorMessage = (error: unknown) => {
 };
 
 const normalizeErrorMessage = (message: string) => {
-  const trimmedMessage = message.trim();
+  const trimmedMessage = message
+    .trim()
+    .replace(/\[CONVEX\s+[^\]]+\]\s*/g, "")
+    .replace(/\[Request ID:\s*[^\]]+\]\s*/g, "")
+    .trim();
 
   const convexUncaughtMatch = trimmedMessage.match(
     /Uncaught Error:\s*([\s\S]*?)(?:\s+at\s+\w+\s+\(|\s+Called by client|$)/,
@@ -89,6 +93,15 @@ export const toUserFacingErrorMessage = (error: unknown) => {
     message === "You must be logged in to upload files"
   ) {
     return "Please sign in and try again.";
+  }
+
+  if (
+    message === "Active organization is still syncing. Please try again." ||
+    message === "Selected organization does not match active auth context" ||
+    message === "Server Error Called by client" ||
+    message === "Server Error"
+  ) {
+    return "Your workspace is still syncing. Please refresh and try again.";
   }
 
   if (

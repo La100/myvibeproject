@@ -1,10 +1,9 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
-import { useEffect, useRef, useMemo } from "react";
-import { toast } from "sonner";
+import { useEffect, useMemo } from "react";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Spinner } from "@/components/ui/spinner";
 import { CompanySidebar } from "@/components/company/CompanySidebar";
@@ -12,7 +11,6 @@ import { useAuth, useOrganization } from "@clerk/nextjs";
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { postAuthResolverUrl } from "@/lib/authRedirects";
-import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import { cn } from "@/lib/utils";
 
 export default function CompanyLayout({
@@ -24,8 +22,6 @@ export default function CompanyLayout({
   const pathname = usePathname();
   const { isLoaded: isAuthLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });
   const { organization, isLoaded } = useOrganization();
-  const ensureCurrentUserTeamMembership = useMutation(apiAny.teamMembership.ensureCurrentUserTeamMembership);
-  const ensuredOrgIdRef = useRef<string | null>(null);
   const teamSettings = useQuery(
     apiAny.teams.getTeamSettingsByClerkOrg,
     organization?.id ? { clerkOrgId: organization.id } : "skip",
@@ -39,6 +35,10 @@ export default function CompanyLayout({
       router.replace(postAuthResolverUrl);
       return;
     }
+    if (isLoaded && organization?.id && teamSettings === null) {
+      router.replace(postAuthResolverUrl);
+      return;
+    }
     if (
       isLoaded &&
       organization?.id &&
@@ -48,29 +48,6 @@ export default function CompanyLayout({
       router.replace("/onboarding");
     }
   }, [isAuthLoaded, isSignedIn, isLoaded, organization?.id, router, teamSettings]);
-
-  useEffect(() => {
-    if (!isLoaded || !organization?.id) {
-      ensuredOrgIdRef.current = null;
-      return;
-    }
-
-    if (ensuredOrgIdRef.current === organization.id) {
-      return;
-    }
-
-    ensuredOrgIdRef.current = organization.id;
-    ensureCurrentUserTeamMembership({
-      clerkOrgId: organization.id,
-      orgName: organization.name,
-    }).catch((error) => {
-      ensuredOrgIdRef.current = null;
-      console.error("Failed to ensure team membership", error);
-      toast.error("Could not verify workspace access.", {
-        description: toUserFacingErrorMessage(error),
-      });
-    });
-  }, [isLoaded, organization?.id, organization?.name, ensureCurrentUserTeamMembership]);
 
   const breadcrumbs = useMemo(() => {
     const routeLabels: Record<string, string> = {

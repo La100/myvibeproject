@@ -47,8 +47,10 @@ export default function SelectOrganizationPage() {
 
     void (async () => {
       try {
-        await setActive({ organization: organizations[0].id });
-        router.replace(postAuthResolverUrl);
+        await setActive({
+          organization: organizations[0].id,
+          redirectUrl: postAuthResolverUrl,
+        });
       } catch (error) {
         console.error("Failed to activate workspace", error);
         toast.error("Could not reconnect to your workspace.", {
@@ -75,8 +77,10 @@ export default function SelectOrganizationPage() {
     setIsSubmitting(true);
     try {
       const createdOrganization = await createOrganization({ name: trimmedName });
-      await setActive({ organization: createdOrganization.id });
-      router.replace(postAuthResolverUrl);
+      await setActive({
+        organization: createdOrganization.id,
+        redirectUrl: postAuthResolverUrl,
+      });
     } catch (error) {
       console.error(error);
       toast.error("Could not create workspace.", {

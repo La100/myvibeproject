@@ -70,9 +70,6 @@ function OnboardingContent() {
     organization?.id ? { clerkOrgId: organization.id } : "skip",
   );
   const completeOnboarding = useMutation(apiAny.onboarding.completeOnboarding);
-  const ensureCurrentUserTeamMembership = useMutation(
-    apiAny.teamMembership.ensureCurrentUserTeamMembership,
-  );
   const updateTeamSettings = useMutation(apiAny.teams.updateTeamSettings);
   const safePostAuthResolverUrl = resolveLocalRedirectUrl(postAuthResolverUrl, "/dashboard");
 
@@ -85,7 +82,6 @@ function OnboardingContent() {
   const [organizationImageFile, setOrganizationImageFile] = useState<File | null>(null);
   const organizationImageInputRef = useRef<HTMLInputElement | null>(null);
   const organizationImageObjectUrlRef = useRef<string | null>(null);
-  const ensuredMembershipOrgIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!isAuthLoaded) {
@@ -205,35 +201,14 @@ function OnboardingContent() {
       return;
     }
 
-    if (
-      organization?.id &&
-      !activeOrganization &&
-      ensuredMembershipOrgIdRef.current !== organization.id
-    ) {
-      ensuredMembershipOrgIdRef.current = organization.id;
-      void ensureCurrentUserTeamMembership({
-        clerkOrgId: organization.id,
-        orgName: organization.name,
-      }).catch((error) => {
-        ensuredMembershipOrgIdRef.current = null;
-        console.error("Failed to ensure onboarding membership", error);
-        toast.error("Could not verify workspace access.", {
-          description: toUserFacingErrorMessage(error),
-        });
-      });
-      return;
-    }
-
     if (!activeOrganization || !organization?.id) {
       router.replace(safePostAuthResolverUrl);
     }
   }, [
     activeOrganization,
-    ensureCurrentUserTeamMembership,
     isOrganizationLoaded,
     onboardingTeamSettings,
     organization?.id,
-    organization?.name,
     router,
     safePostAuthResolverUrl,
   ]);

@@ -1,6 +1,12 @@
-import { redirect } from "next/navigation";
+import { TaskChooseOrganization } from "@clerk/nextjs";
 import { postAuthResolverUrl } from "@/lib/authRedirects";
+import { authClerkAppearance } from "@/lib/authClerkAppearance";
 
 export default function SignUpChooseOrganizationTaskPage() {
-  redirect(postAuthResolverUrl);
+  return (
+    <TaskChooseOrganization
+      redirectUrlComplete={postAuthResolverUrl}
+      appearance={authClerkAppearance}
+    />
+  );
 }
