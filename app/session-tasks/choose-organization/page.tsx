@@ -1,12 +1,6 @@
-import { TaskChooseOrganization } from "@clerk/nextjs";
+import { redirect } from "next/navigation";
 import { postAuthResolverUrl } from "@/lib/authRedirects";
-import { authClerkAppearance } from "@/lib/authClerkAppearance";
 
 export default function ChooseOrganizationTaskPage() {
-  return (
-    <TaskChooseOrganization
-      redirectUrlComplete={postAuthResolverUrl}
-      appearance={authClerkAppearance}
-    />
-  );
+  redirect(postAuthResolverUrl);
 }
