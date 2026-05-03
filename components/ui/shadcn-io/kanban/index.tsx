@@ -70,6 +70,7 @@ export type KanbanCardProps = Pick<Feature, 'id' | 'name'> & {
   parent: string;
   children?: ReactNode;
   className?: string;
+  disabled?: boolean;
 };
 
 export const KanbanCard = ({
@@ -79,11 +80,13 @@ export const KanbanCard = ({
   parent,
   children,
   className,
+  disabled = false,
 }: KanbanCardProps) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
       id,
       data: { index, parent },
+      disabled,
     });
 
   const style = isDragging
@@ -98,13 +101,14 @@ export const KanbanCard = ({
   return (
     <Card
       className={cn(
-        'rounded-md p-3 shadow-sm touch-none',
+        'rounded-md p-3 shadow-sm',
+        !disabled && 'touch-none',
         isDragging && 'cursor-grabbing',
         className
       )}
       style={style}
-      {...listeners}
-      {...attributes}
+      {...(disabled ? {} : listeners)}
+      {...(disabled ? {} : attributes)}
       ref={setNodeRef}
     >
       {children ?? <p className="m-0 font-medium text-sm">{name}</p>}
@@ -151,6 +155,7 @@ export type KanbanProviderProps = {
   onDragStart?: (event: DragStartEvent) => void;
   onDragCancel?: (event: DragCancelEvent) => void;
   className?: string;
+  enableTouchSensor?: boolean;
 };
 
 export const KanbanProvider = ({
@@ -160,6 +165,7 @@ export const KanbanProvider = ({
   onDragStart,
   onDragCancel,
   className,
+  enableTouchSensor = true,
 }: KanbanProviderProps) => {
   const mouseSensor = useSensor(MouseSensor, {
     activationConstraint: {
@@ -174,7 +180,9 @@ export const KanbanProvider = ({
     },
   });
 
-  const sensors = useSensors(mouseSensor, touchSensor);
+  const sensors = useSensors(
+    ...(enableTouchSensor ? [mouseSensor, touchSensor] : [mouseSensor])
+  );
 
   return (
     <DndContext

@@ -16,6 +16,7 @@ import { selectOrganizationUrl } from "@/lib/authRedirects";
 const ACTIVATION_RETRY_DELAY_MS = 2500;
 const MAX_ACTIVATION_ATTEMPTS = 3;
 const ACTIVATION_RELOAD_KEY = "myvibe-dashboard-activation-reloaded";
+const ORG_SYNCING_ERROR = "Active organization is still syncing";
 
 function LoadingState({
   title,
@@ -121,6 +122,12 @@ export function SmartDashboard() {
         ensuredActiveOrgIdRef.current = null;
         console.error("Failed to ensure dashboard membership", error);
         const message = toUserFacingErrorMessage(error);
+        if (message.includes(ORG_SYNCING_ERROR) && activationAttempt < MAX_ACTIVATION_ATTEMPTS) {
+          activationRetryTimeoutRef.current = setTimeout(() => {
+            setActivationAttempt((attempt) => attempt + 1);
+          }, ACTIVATION_RETRY_DELAY_MS);
+          return;
+        }
         setActivationError(message);
         toast.error("Could not verify workspace access.", {
           description: message,
@@ -133,6 +140,7 @@ export function SmartDashboard() {
     activeOrganization?.id,
     activeOrganization?.name,
     activeTeamSettings,
+    activationAttempt,
     ensureCurrentUserTeamMembership,
     isLoaded,
   ]);

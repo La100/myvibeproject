@@ -39,7 +39,7 @@ export default function SignUpPage() {
         path={signUpUrl}
         routing="path"
         signInUrl={signInUrl}
-        fallbackRedirectUrl={signUpFallbackRedirectUrl}
+        fallbackRedirectUrl={redirectUrl}
         signInFallbackRedirectUrl={signInFallbackRedirectUrl}
         forceRedirectUrl={null}
         signInForceRedirectUrl={null}

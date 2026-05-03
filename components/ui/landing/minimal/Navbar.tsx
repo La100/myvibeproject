@@ -59,12 +59,21 @@ export function Navbar() {
               />
             </>
           ) : (
-            <Button
-              asChild
-              className="h-9 rounded-full bg-foreground px-4 text-sm font-medium text-background hover:bg-foreground/90"
-            >
-              <Link href="/sign-in">Sign in</Link>
-            </Button>
+            <>
+              <Button
+                asChild
+                variant="ghost"
+                className="h-9 rounded-full px-4 text-sm font-medium text-foreground hover:bg-muted"
+              >
+                <Link href="/sign-in">Sign in</Link>
+              </Button>
+              <Button
+                asChild
+                className="h-9 rounded-full bg-foreground px-4 text-sm font-medium text-background hover:bg-foreground/90"
+              >
+                <Link href="/sign-up">Start free</Link>
+              </Button>
+            </>
           )}
         </div>
 
@@ -120,6 +129,11 @@ export function Navbar() {
                   <div className="flex flex-col gap-3">
                     <SheetClose asChild>
                       <Button asChild className="h-11 rounded-full">
+                        <Link href="/sign-up">Start free</Link>
+                      </Button>
+                    </SheetClose>
+                    <SheetClose asChild>
+                      <Button asChild variant="outline" className="h-11 rounded-full">
                         <Link href="/sign-in">Sign in</Link>
                       </Button>
                     </SheetClose>

@@ -548,7 +548,7 @@ export const updateTeamToFree = internalMutation({
       aiTokens: SUBSCRIPTION_PLANS.free.aiMonthlyTokens,
     });
 
-    return { success: true };
+    return { success: true, teamId };
   },
 });
 
@@ -613,9 +613,99 @@ export const syncSubscriptionFromStripeEvent = internalMutation({
     console.log(
       `Team ${teamId} subscription synced from Stripe event: plan=${plan}, status=${args.status}`,
     );
-    return { success: true, plan, status: args.status };
+    return { success: true, plan, status: args.status, teamId };
   },
 });
+
+const claimSubscriptionEmailEvent = async (
+  ctx: any,
+  args: {
+    teamId: Id<"teams">;
+    subscriptionId: string;
+    eventType: "activated" | "canceled";
+    recipientEmail?: string;
+  },
+) => {
+  const existing = await ctx.db
+    .query("subscriptionEmailEvents")
+    .withIndex("by_subscription_event", (q: any) =>
+      q
+        .eq("subscriptionId", args.subscriptionId)
+        .eq("eventType", args.eventType),
+    )
+    .unique();
+
+  if (existing?.status === "sent") {
+    return { claimed: false };
+  }
+
+  const now = Date.now();
+
+  if (existing?.status === "sending") {
+    const lastClaimedAt = existing.updatedAt ?? existing._creationTime;
+    if (now - lastClaimedAt < SUBSCRIPTION_EMAIL_SENDING_TIMEOUT_MS) {
+      return { claimed: false };
+    }
+  }
+
+  if (existing) {
+    await ctx.db.patch(existing._id, {
+      status: "sending",
+      recipientEmail: args.recipientEmail,
+      attempts: existing.attempts + 1,
+      lastError: undefined,
+      updatedAt: now,
+    });
+    return { claimed: true };
+  }
+
+  await ctx.db.insert("subscriptionEmailEvents", {
+    teamId: args.teamId,
+    subscriptionId: args.subscriptionId,
+    eventType: args.eventType,
+    recipientEmail: args.recipientEmail,
+    status: "sending",
+    attempts: 1,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  return { claimed: true };
+};
+
+const markSubscriptionEmailEvent = async (
+  ctx: any,
+  args: {
+    subscriptionId: string;
+    eventType: "activated" | "canceled";
+    status: "sent" | "failed";
+    recipientEmail?: string;
+    lastError?: string;
+  },
+) => {
+  const existing = await ctx.db
+    .query("subscriptionEmailEvents")
+    .withIndex("by_subscription_event", (q: any) =>
+      q
+        .eq("subscriptionId", args.subscriptionId)
+        .eq("eventType", args.eventType),
+    )
+    .unique();
+
+  if (!existing) {
+    return null;
+  }
+
+  await ctx.db.patch(existing._id, {
+    status: args.status,
+    recipientEmail: args.recipientEmail ?? existing.recipientEmail,
+    lastError: args.lastError,
+    updatedAt: Date.now(),
+    sentAt: args.status === "sent" ? Date.now() : existing.sentAt,
+  });
+
+  return null;
+};
 
 export const claimSubscriptionActivatedEmail = internalMutation({
   args: {
@@ -624,51 +714,10 @@ export const claimSubscriptionActivatedEmail = internalMutation({
     recipientEmail: v.optional(v.string()),
   },
   async handler(ctx, args) {
-    const existing = await ctx.db
-      .query("subscriptionEmailEvents")
-      .withIndex("by_subscription_event", (q) =>
-        q
-          .eq("subscriptionId", args.subscriptionId)
-          .eq("eventType", "activated"),
-      )
-      .unique();
-
-    if (existing?.status === "sent") {
-      return { claimed: false };
-    }
-
-    const now = Date.now();
-
-    if (existing?.status === "sending") {
-      const lastClaimedAt = existing.updatedAt ?? existing._creationTime;
-      if (now - lastClaimedAt < SUBSCRIPTION_EMAIL_SENDING_TIMEOUT_MS) {
-        return { claimed: false };
-      }
-    }
-
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        status: "sending",
-        recipientEmail: args.recipientEmail,
-        attempts: existing.attempts + 1,
-        lastError: undefined,
-        updatedAt: now,
-      });
-      return { claimed: true };
-    }
-
-    await ctx.db.insert("subscriptionEmailEvents", {
-      teamId: args.teamId,
-      subscriptionId: args.subscriptionId,
+    return await claimSubscriptionEmailEvent(ctx, {
+      ...args,
       eventType: "activated",
-      recipientEmail: args.recipientEmail,
-      status: "sending",
-      attempts: 1,
-      createdAt: now,
-      updatedAt: now,
     });
-
-    return { claimed: true };
   },
 });
 
@@ -680,28 +729,39 @@ export const markSubscriptionActivatedEmail = internalMutation({
     lastError: v.optional(v.string()),
   },
   async handler(ctx, args) {
-    const existing = await ctx.db
-      .query("subscriptionEmailEvents")
-      .withIndex("by_subscription_event", (q) =>
-        q
-          .eq("subscriptionId", args.subscriptionId)
-          .eq("eventType", "activated"),
-      )
-      .unique();
-
-    if (!existing) {
-      return null;
-    }
-
-    await ctx.db.patch(existing._id, {
-      status: args.status,
-      recipientEmail: args.recipientEmail ?? existing.recipientEmail,
-      lastError: args.lastError,
-      updatedAt: Date.now(),
-      sentAt: args.status === "sent" ? Date.now() : existing.sentAt,
+    return await markSubscriptionEmailEvent(ctx, {
+      ...args,
+      eventType: "activated",
     });
+  },
+});
 
-    return null;
+export const claimSubscriptionCanceledEmail = internalMutation({
+  args: {
+    teamId: v.id("teams"),
+    subscriptionId: v.string(),
+    recipientEmail: v.optional(v.string()),
+  },
+  async handler(ctx, args) {
+    return await claimSubscriptionEmailEvent(ctx, {
+      ...args,
+      eventType: "canceled",
+    });
+  },
+});
+
+export const markSubscriptionCanceledEmail = internalMutation({
+  args: {
+    subscriptionId: v.string(),
+    status: v.union(v.literal("sent"), v.literal("failed")),
+    recipientEmail: v.optional(v.string()),
+    lastError: v.optional(v.string()),
+  },
+  async handler(ctx, args) {
+    return await markSubscriptionEmailEvent(ctx, {
+      ...args,
+      eventType: "canceled",
+    });
   },
 });
 

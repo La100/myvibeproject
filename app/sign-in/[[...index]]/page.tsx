@@ -80,10 +80,9 @@ export default function SignInPage() {
         path={signInUrl}
         routing="path"
         signUpUrl={signUpUrl}
-        fallbackRedirectUrl={signInFallbackRedirectUrl}
+        fallbackRedirectUrl={redirectUrl}
         forceRedirectUrl={null}
         oauthFlow="redirect"
-        withSignUp={false}
         appearance={authClerkAppearance}
       />
     </AuthShell>

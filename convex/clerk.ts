@@ -36,6 +36,23 @@ const normalizeClerkName = (
     : undefined;
 };
 
+const getPrimaryEmail = (data: {
+  id: string;
+  primary_email_address_id?: string | null;
+  email_addresses?: Array<{
+    id?: string;
+    email_address?: string | null;
+  }>;
+}) => {
+  const primaryEmail = data.email_addresses?.find(
+    (email) => email.id === data.primary_email_address_id,
+  )?.email_address;
+  const firstEmail = data.email_addresses?.[0]?.email_address;
+  return (primaryEmail || firstEmail || `${data.id}@placeholder.local`)
+    .trim()
+    .toLowerCase();
+};
+
 const handleClerkWebhook = httpAction(async (ctx, request) => {
   const event = await validateRequest(request);
   if (!event) {
@@ -100,7 +117,7 @@ const handleClerkWebhook = httpAction(async (ctx, request) => {
     case "user.created":
         await ctx.runMutation(internalRefs.createOrUpdateUser, {
             clerkUserId: event.data.id,
-            email: event.data.email_addresses[0].email_address,
+            email: getPrimaryEmail(event.data),
             name: normalizeClerkName(
               event.data.first_name,
               event.data.last_name,
@@ -112,7 +129,7 @@ const handleClerkWebhook = httpAction(async (ctx, request) => {
     case "user.updated":
         await ctx.runMutation(internalRefs.createOrUpdateUser, {
             clerkUserId: event.data.id,
-            email: event.data.email_addresses[0].email_address,
+            email: getPrimaryEmail(event.data),
             name: normalizeClerkName(
               event.data.first_name,
               event.data.last_name,

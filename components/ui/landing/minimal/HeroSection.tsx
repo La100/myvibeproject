@@ -184,9 +184,9 @@ export function HeroSection() {
               asChild
               className="h-9 rounded-full bg-foreground px-4 text-sm font-medium text-background hover:bg-foreground/92"
             >
-              <Link href="/sign-in">
+              <Link href="/sign-up">
                 <Sparkles className="mr-2 h-4 w-4" />
-                Sign in
+                Start free
               </Link>
             </Button>
           ) : (

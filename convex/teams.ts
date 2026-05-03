@@ -830,7 +830,7 @@ export const removeTeamMember = mutation({
       )
       .unique();
 
-    if (!callerMember || callerMember.role !== "admin") {
+    if (!callerMember || !callerMember.isActive || callerMember.role !== "admin") {
       throw new Error("Only admins can remove team members");
     }
 
@@ -851,8 +851,45 @@ export const removeTeamMember = mutation({
       throw new Error("Cannot remove yourself from the team");
     }
 
-    // Remove member
-    await ctx.db.delete(targetMember._id);
+    if (targetMember.role === "admin") {
+      const activeAdmins = await ctx.db
+        .query("teamMembers")
+        .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+        .filter((q) =>
+          q.and(
+            q.eq(q.field("isActive"), true),
+            q.eq(q.field("role"), "admin"),
+          ),
+        )
+        .collect();
+
+      if (activeAdmins.length <= 1) {
+        throw new Error("Cannot remove the last workspace admin");
+      }
+    }
+
+    const team = await ctx.db.get(args.teamId);
+    if (!team) {
+      throw new Error("Team not found");
+    }
+
+    const scheduler = ctx.scheduler as {
+      runAfter: (
+        delayMs: number,
+        functionReference: string,
+        args: {
+          clerkOrgId: string;
+          clerkUserId: string;
+        },
+      ) => Promise<unknown>;
+    };
+
+    await scheduler.runAfter(0, "teams:removeClerkOrganizationMembership", {
+      clerkOrgId: team.clerkOrgId,
+      clerkUserId: targetMember.clerkUserId,
+    });
+
+    await ctx.db.patch(targetMember._id, { isActive: false });
 
     return { success: true };
   },
@@ -882,7 +919,7 @@ export const inviteTeamMember = mutation({
       )
       .unique();
 
-    if (currentUserMember?.role !== "admin") {
+    if (currentUserMember?.role !== "admin" || !currentUserMember.isActive) {
       throw new Error("Only admins can invite members");
     }
 
@@ -1034,6 +1071,68 @@ export const revokeClerkInvitation = internalAction({
   },
 });
 
+export const removeClerkOrganizationMembership = internalAction({
+  args: {
+    clerkOrgId: v.string(),
+    clerkUserId: v.string(),
+  },
+  async handler(_ctx, args) {
+    const clerkApiKey = process.env.CLERK_SECRET_KEY;
+    if (!clerkApiKey) {
+      throw new Error("CLERK_SECRET_KEY environment variable not set");
+    }
+
+    const response = await fetch(
+      `https://api.clerk.com/v1/organizations/${args.clerkOrgId}/memberships/${args.clerkUserId}`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${clerkApiKey}`,
+        },
+      },
+    );
+
+    if (!response.ok && response.status !== 404) {
+      const errorBody = await response.text();
+      console.error("Failed to remove Clerk organization membership:", errorBody);
+      throw new Error("Failed to remove organization membership in Clerk");
+    }
+  },
+});
+
+export const updateClerkOrganizationMembershipRole = internalAction({
+  args: {
+    clerkOrgId: v.string(),
+    clerkUserId: v.string(),
+    role: v.union(v.literal("admin"), v.literal("member")),
+  },
+  async handler(_ctx, args) {
+    const clerkApiKey = process.env.CLERK_SECRET_KEY;
+    if (!clerkApiKey) {
+      throw new Error("CLERK_SECRET_KEY environment variable not set");
+    }
+
+    const clerkRole = args.role === "admin" ? "org:admin" : "org:member";
+    const response = await fetch(
+      `https://api.clerk.com/v1/organizations/${args.clerkOrgId}/memberships/${args.clerkUserId}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${clerkApiKey}`,
+        },
+        body: JSON.stringify({ role: clerkRole }),
+      },
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      console.error("Failed to update Clerk organization membership role:", errorBody);
+      throw new Error("Failed to update organization membership role in Clerk");
+    }
+  },
+});
+
 export const changeTeamMemberRole = mutation({
   args: {
     clerkUserId: v.string(),
@@ -1052,7 +1151,7 @@ export const changeTeamMemberRole = mutation({
       )
       .unique();
 
-    if (!callerMember || callerMember.role !== "admin") {
+    if (!callerMember || !callerMember.isActive || callerMember.role !== "admin") {
       throw new Error("Only admins can change member roles");
     }
 
@@ -1067,6 +1166,54 @@ export const changeTeamMemberRole = mutation({
     if (!targetMember) {
       throw new Error("Team member not found");
     }
+
+    if (!targetMember.isActive) {
+      throw new Error("Team member is not active");
+    }
+
+    if (targetMember.clerkUserId === identity.subject) {
+      throw new Error("Cannot change your own role");
+    }
+
+    if (targetMember.role === "admin" && args.role !== "admin") {
+      const activeAdmins = await ctx.db
+        .query("teamMembers")
+        .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+        .filter((q) =>
+          q.and(
+            q.eq(q.field("isActive"), true),
+            q.eq(q.field("role"), "admin"),
+          ),
+        )
+        .collect();
+
+      if (activeAdmins.length <= 1) {
+        throw new Error("Cannot demote the last workspace admin");
+      }
+    }
+
+    const team = await ctx.db.get(args.teamId);
+    if (!team) {
+      throw new Error("Team not found");
+    }
+
+    const scheduler = ctx.scheduler as {
+      runAfter: (
+        delayMs: number,
+        functionReference: string,
+        args: {
+          clerkOrgId: string;
+          clerkUserId: string;
+          role: "admin" | "member";
+        },
+      ) => Promise<unknown>;
+    };
+
+    await scheduler.runAfter(0, "teams:updateClerkOrganizationMembershipRole", {
+      clerkOrgId: team.clerkOrgId,
+      clerkUserId: targetMember.clerkUserId,
+      role: args.role,
+    });
 
     await ctx.db.patch(targetMember._id, {
       role: args.role,

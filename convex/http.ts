@@ -64,6 +64,22 @@ const syncSubscriptionAndQueueEmail = async (
   }
 };
 
+const queueSubscriptionCanceledEmail = async (
+  ctx: any,
+  args: {
+    teamId: string;
+    subscriptionId: string;
+    cancelAtPeriodEnd: boolean;
+    currentPeriodEnd?: number;
+  },
+) => {
+  await ctx.scheduler.runAfter(
+    0,
+    internalAny.stripeActions.sendSubscriptionCanceledEmail,
+    args,
+  );
+};
+
 http.route({
   path: "/clerk",
   method: "POST",
@@ -153,6 +169,15 @@ registerRoutes(http, components.stripe, {
           currentPeriodEnd,
           cancelAtPeriodEnd: subscription.cancel_at_period_end,
         });
+
+        if (subscription.cancel_at_period_end) {
+          await queueSubscriptionCanceledEmail(ctx, {
+            teamId,
+            subscriptionId: subscription.id,
+            cancelAtPeriodEnd: true,
+            currentPeriodEnd,
+          });
+        }
       }
     },
 
@@ -164,9 +189,17 @@ registerRoutes(http, components.stripe, {
       if (teamId) {
         console.log(`Subscription deleted for team ${teamId}`);
 
-        await ctx.runMutation(internalAny.stripe.updateTeamToFree, {
+        const result = await ctx.runMutation(internalAny.stripe.updateTeamToFree, {
           teamId,
         });
+
+        if (result?.success === true) {
+          await queueSubscriptionCanceledEmail(ctx, {
+            teamId: result.teamId ?? teamId,
+            subscriptionId: subscription.id,
+            cancelAtPeriodEnd: false,
+          });
+        }
       }
     },
 

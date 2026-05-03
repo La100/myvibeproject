@@ -410,14 +410,29 @@ export const createInvitation = internalMutation({
       return;
     }
 
-    await ctx.db.insert("invitations", {
-      clerkInvitationId: args.clerkInvitationId,
+    const existingInvitation = await ctx.db
+      .query("invitations")
+      .withIndex("by_clerk_invitation_id", (q) =>
+        q.eq("clerkInvitationId", args.clerkInvitationId),
+      )
+      .unique();
+
+    const invitationPatch = {
       teamId: team._id,
       email: args.email,
       role: args.role,
       status: "pending",
-      invitedBy: args.invitedBy ?? "system", // Default value
-    });
+      invitedBy: args.invitedBy ?? "system",
+    };
+
+    if (existingInvitation) {
+      await ctx.db.patch(existingInvitation._id, invitationPatch);
+    } else {
+      await ctx.db.insert("invitations", {
+        clerkInvitationId: args.clerkInvitationId,
+        ...invitationPatch,
+      });
+    }
   },
 });
 

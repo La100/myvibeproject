@@ -85,6 +85,8 @@ const internalApi = anyApi as unknown as {
     syncSubscriptionDirectly: unknown;
     claimSubscriptionActivatedEmail: unknown;
     markSubscriptionActivatedEmail: unknown;
+    claimSubscriptionCanceledEmail: unknown;
+    markSubscriptionCanceledEmail: unknown;
   };
   teams: {
     getTeamMemberByClerkId: unknown;
@@ -633,6 +635,149 @@ export const sendSubscriptionActivatedEmail = internalAction({
         lastError,
       });
       console.error(`Subscription email failed for ${recipientEmail}:`, error);
+      return { sent: false, skipped: false, reason: "send_failed" };
+    }
+  },
+});
+
+export const sendSubscriptionCanceledEmail = internalAction({
+  args: {
+    teamId: v.id("teams"),
+    subscriptionId: v.string(),
+    cancelAtPeriodEnd: v.boolean(),
+    currentPeriodEnd: v.optional(v.number()),
+  },
+  async handler(ctx, args) {
+    const resendApiKey = process.env.RESEND_API_KEY;
+    const resendFromEmail = process.env.RESEND_FROM_EMAIL;
+    if (!resendApiKey || !resendFromEmail) {
+      console.warn(
+        "Subscription cancellation email skipped: RESEND_API_KEY or RESEND_FROM_EMAIL not configured.",
+      );
+      return { sent: false, skipped: true, reason: "resend_not_configured" };
+    }
+
+    const runQuery = ctx.runQuery as (
+      query: unknown,
+      args: unknown,
+    ) => Promise<unknown>;
+    const runMutation = ctx.runMutation as (
+      mutation: unknown,
+      args: unknown,
+    ) => Promise<unknown>;
+
+    const team = (await runQuery(internalApi.stripe.getTeamForStripe, {
+      teamId: args.teamId,
+    })) as StripeTeamRecord | null;
+    if (!team) {
+      return { sent: false, skipped: true, reason: "team_not_found" };
+    }
+
+    const recipientEmail = await getSubscriptionCustomerEmail(
+      args.subscriptionId,
+    );
+    if (!recipientEmail) {
+      console.warn(
+        `Subscription cancellation email skipped: no customer email for ${args.subscriptionId}`,
+      );
+      return { sent: false, skipped: true, reason: "missing_email" };
+    }
+
+    const claim = (await runMutation(
+      internalApi.stripe.claimSubscriptionCanceledEmail,
+      {
+        teamId: args.teamId,
+        subscriptionId: args.subscriptionId,
+        recipientEmail,
+      },
+    )) as { claimed: boolean };
+
+    if (!claim.claimed) {
+      return { sent: false, skipped: true, reason: "already_sent" };
+    }
+
+    const baseUrl = normalizeBaseUrl();
+    const subscriptionUrl = `${baseUrl}/organisation/subscription`;
+    const teamName = team.name || "your workspace";
+    const accessUntil =
+      args.cancelAtPeriodEnd && args.currentPeriodEnd
+        ? new Intl.DateTimeFormat("en-US", {
+            month: "long",
+            day: "numeric",
+            year: "numeric",
+          }).format(new Date(args.currentPeriodEnd))
+        : null;
+
+    const subject = args.cancelAtPeriodEnd
+      ? "Your Myvibe subscription cancellation is scheduled"
+      : "Your Myvibe subscription has been canceled";
+    const accessLine = accessUntil
+      ? `Your paid access for ${teamName} will remain active until ${accessUntil}.`
+      : `Your paid subscription for ${teamName} has been canceled.`;
+    const text = [
+      accessLine,
+      "",
+      "Thank you for using Myvibe. You can review your billing and subscription settings here:",
+      subscriptionUrl,
+      "",
+      "We would be happy to have you back whenever it fits your workflow.",
+    ].join("\n");
+    const html = [
+      `<p>${escapeHtml(accessLine)}</p>`,
+      `<p>Thank you for using Myvibe. You can review your billing and subscription settings here:</p>`,
+      `<p><a href="${escapeHtml(subscriptionUrl)}">Open subscription settings</a></p>`,
+      `<p>We would be happy to have you back whenever it fits your workflow.</p>`,
+    ].join("");
+
+    try {
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: resendFromEmail,
+          to: [recipientEmail],
+          subject,
+          text,
+          html,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        const lastError = `${response.status} ${response.statusText} ${errorText}`;
+        await runMutation(internalApi.stripe.markSubscriptionCanceledEmail, {
+          subscriptionId: args.subscriptionId,
+          status: "failed",
+          recipientEmail,
+          lastError,
+        });
+        console.error(
+          `Subscription cancellation email failed for ${recipientEmail}: ${lastError}`,
+        );
+        return { sent: false, skipped: false, reason: "send_failed" };
+      }
+
+      await runMutation(internalApi.stripe.markSubscriptionCanceledEmail, {
+        subscriptionId: args.subscriptionId,
+        status: "sent",
+        recipientEmail,
+      });
+      return { sent: true, skipped: false };
+    } catch (error) {
+      const lastError = error instanceof Error ? error.message : String(error);
+      await runMutation(internalApi.stripe.markSubscriptionCanceledEmail, {
+        subscriptionId: args.subscriptionId,
+        status: "failed",
+        recipientEmail,
+        lastError,
+      });
+      console.error(
+        `Subscription cancellation email failed for ${recipientEmail}:`,
+        error,
+      );
       return { sent: false, skipped: false, reason: "send_failed" };
     }
   },

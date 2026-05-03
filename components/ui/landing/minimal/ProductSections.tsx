@@ -1155,7 +1155,7 @@ function PricingSection({ isSignedIn }: { isSignedIn: boolean }) {
                 asChild
                 className="w-full"
               >
-                <Link href={isSignedIn ? "/organisation/subscription" : "/sign-in"}>
+                <Link href={isSignedIn ? "/organisation/subscription" : "/sign-up"}>
                   {isSignedIn ? "Open subscription" : "Start with Myvibe"}
                 </Link>
               </Button>
@@ -1296,7 +1296,7 @@ export function ProductSections() {
           </div>
 
           <Button asChild className="h-10 rounded-full px-4 text-sm font-medium">
-            <Link href={isSignedIn ? "/organisation" : "/sign-in"}>
+            <Link href={isSignedIn ? "/organisation" : "/sign-up"}>
               {isSignedIn ? "Open dashboard" : "Start with Myvibe"}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Link>

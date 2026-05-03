@@ -20,7 +20,11 @@ export const ensureCurrentUserTeamMembership = mutation({
     }
 
     const activeOrgId = (identity.org_id as string | undefined) ?? (identity.orgId as string | undefined);
-    if (activeOrgId && activeOrgId !== args.clerkOrgId) {
+    if (!activeOrgId) {
+      throw new Error("Active organization is still syncing. Please try again.");
+    }
+
+    if (activeOrgId !== args.clerkOrgId) {
       throw new Error("Selected organization does not match active auth context");
     }
 
@@ -65,18 +69,6 @@ export const ensureCurrentUserTeamMembership = mutation({
         q.eq("teamId", team._id).eq("clerkUserId", identity.subject)
       )
       .unique();
-
-    // Right after Clerk setActive(), auth claims may temporarily miss org context.
-    // In that window, grant admin only when creating the very first team member.
-    if (!activeOrgId && !membership && !roleClaimRaw) {
-      const existingMembers = await ctx.db
-        .query("teamMembers")
-        .withIndex("by_team", (q) => q.eq("teamId", team._id))
-        .collect();
-      if (existingMembers.every((member) => !member.isActive)) {
-        fallbackRole = "admin";
-      }
-    }
 
     if (membership) {
       const patch: Record<string, unknown> = {};

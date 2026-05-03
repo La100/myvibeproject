@@ -377,7 +377,7 @@ export default defineSchema({
   subscriptionEmailEvents: defineTable({
     teamId: v.id("teams"),
     subscriptionId: v.string(),
-    eventType: v.literal("activated"),
+    eventType: v.union(v.literal("activated"), v.literal("canceled")),
     recipientEmail: v.optional(v.string()),
     status: v.union(
       v.literal("sending"),

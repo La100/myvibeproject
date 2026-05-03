@@ -40,6 +40,8 @@ import {
   MessageSquare,
   ListTodo,
   Plus,
+  MoreHorizontal,
+  CheckCircle2,
 } from "lucide-react";
 import Link from "next/link";
 import TaskForm from "./TaskForm";
@@ -54,6 +56,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 import {
   Tooltip,
@@ -87,6 +90,7 @@ type TaskStatusKey = "todo" | "in_progress" | "review" | "done";
 
 type TaskStatusLiterals = "todo" | "in_progress" | "review" | "done";
 type TaskPriority = "low" | "medium" | "high" | "urgent" | null | undefined;
+type StatusOption = { value: string; label: string; color: string };
 
 const columnOrder: TaskStatusKey[] = ["todo", "in_progress", "review", "done"];
 
@@ -247,11 +251,13 @@ export default function TasksView() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const isMobile = useIsMobile(768);
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
   const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
   const [activeDragTaskId, setActiveDragTaskId] = useState<Id<"tasks"> | null>(
     null,
   );
+  const [updatingTaskId, setUpdatingTaskId] = useState<Id<"tasks"> | null>(null);
 
   const [filters, setFilters] = useState<{
     searchQuery: string;
@@ -401,21 +407,17 @@ export default function TasksView() {
     }));
   };
 
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-    setActiveDragTaskId(null);
-    if (!over) return;
-
-    const cardId = active.id as string;
-    const columnId = (over.data.current?.parent ||
-      over.id) as TaskStatusLiterals;
-
+  const updateKanbanTaskStatus = async (
+    cardId: Id<"tasks">,
+    columnId: TaskStatusLiterals,
+  ) => {
     if (!statusOptions.some((s) => s.value === columnId)) {
       return;
     }
 
     const task = localKanbanTasks.find((t) => t.id === cardId);
     if (task && task.column !== columnId) {
+      setUpdatingTaskId(cardId);
       setLocalKanbanTasks((prev) => {
         return prev.map((t) =>
           t.id === cardId ? { ...t, column: columnId, status: columnId } : t,
@@ -424,7 +426,7 @@ export default function TasksView() {
 
       try {
         await updateTaskStatus({
-          taskId: cardId as Id<"tasks">,
+          taskId: cardId,
           status: columnId,
         });
         toast.success("Task status updated.");
@@ -438,8 +440,22 @@ export default function TasksView() {
               : t,
           );
         });
+      } finally {
+        setUpdatingTaskId(null);
       }
     }
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveDragTaskId(null);
+    if (!over) return;
+
+    const cardId = active.id as Id<"tasks">;
+    const columnId = (over.data.current?.parent ||
+      over.id) as TaskStatusLiterals;
+
+    await updateKanbanTaskStatus(cardId, columnId);
   };
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -453,6 +469,7 @@ export default function TasksView() {
   const activeDragTask = activeDragTaskId
     ? (localKanbanTasks.find((task) => task.id === activeDragTaskId) ?? null)
     : null;
+  const isKanbanDragEnabled = !isMobile;
 
   const isFiltered =
     filters.searchQuery !== "" ||
@@ -590,8 +607,11 @@ export default function TasksView() {
               onDragStart={handleDragStart}
               onDragCancel={handleDragCancel}
               onDragEnd={handleDragEnd}
+              enableTouchSensor={isKanbanDragEnabled}
               dragOverlay={
-                activeDragTask ? <TaskDragPreview task={activeDragTask} /> : null
+                isKanbanDragEnabled && activeDragTask ? (
+                  <TaskDragPreview task={activeDragTask} />
+                ) : null
               }
               className="relative z-10"
             >
@@ -617,11 +637,16 @@ export default function TasksView() {
                             name={task.name}
                             index={index}
                             parent={status.value}
+                            disabled={!isKanbanDragEnabled}
                             className="border-0 bg-transparent p-0 shadow-none"
                           >
                             <TaskCardContent
                               task={task}
                               projectSlug={params.projectSlug}
+                              statusOptions={statusOptions}
+                              isMobileActionsEnabled={!isKanbanDragEnabled}
+                              isUpdating={updatingTaskId === task.id}
+                              onStatusChange={updateKanbanTaskStatus}
                             />
                           </KanbanCard>
                         ))}
@@ -734,11 +759,27 @@ export default function TasksView() {
 const TaskCardContent = memo(function TaskCardContent({
   task,
   projectSlug,
+  statusOptions,
+  isMobileActionsEnabled,
+  isUpdating,
+  onStatusChange,
 }: {
   task: KanbanTask;
   projectSlug: string;
+  statusOptions: StatusOption[];
+  isMobileActionsEnabled: boolean;
+  isUpdating: boolean;
+  onStatusChange: (
+    taskId: Id<"tasks">,
+    status: TaskStatusLiterals,
+  ) => Promise<void>;
 }) {
   const priority = getPriorityDisplay(task.priority);
+  const doneStatus = statusOptions.find((status) => status.value === "done");
+  const nextStatuses = statusOptions.filter(
+    (status) => status.value !== task.status,
+  );
+  const canMarkDone = task.status !== "done" && !!doneStatus;
 
   return (
     <div
@@ -831,6 +872,55 @@ const TaskCardContent = memo(function TaskCardContent({
           )}
         </div>
       </div>
+      {isMobileActionsEnabled && nextStatuses.length > 0 && (
+        <div className="mt-3 flex items-center gap-2 md:hidden">
+          {canMarkDone && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={isUpdating}
+              onClick={() => onStatusChange(task.id, "done")}
+              className="flex-1"
+            >
+              <CheckCircle2 data-icon="inline-start" />
+              Mark done
+            </Button>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isUpdating}
+                className={cn(canMarkDone ? "shrink-0" : "flex-1")}
+              >
+                <MoreHorizontal data-icon="inline-start" />
+                Status
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Move to</DropdownMenuLabel>
+              <DropdownMenuGroup>
+                {nextStatuses.map((status) => (
+                  <DropdownMenuItem
+                    key={status.value}
+                    onSelect={() =>
+                      onStatusChange(
+                        task.id,
+                        status.value as TaskStatusLiterals,
+                      )
+                    }
+                  >
+                    {status.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
     </div>
   );
 });

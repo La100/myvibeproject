@@ -408,6 +408,7 @@ function OnboardingContent() {
               inputId="onboarding-organization-image-upload"
               currentImageUrl={organizationImagePreviewUrl}
               name={organization?.name || activeOrganization.teamName}
+              layout="stacked"
               onPick={() => organizationImageInputRef.current?.click()}
               disabled={!canUpdateOrganization || isUploadingOrganizationImage}
               buttonLabel={isUploadingOrganizationImage ? "Uploading..." : organizationImageReady ? "Change image" : "Upload custom image"}
@@ -448,11 +449,15 @@ function OnboardingContent() {
                 <SelectTrigger id="onboarding-currency" className="w-full bg-background/50">
                   <SelectValue placeholder="Select currency" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-w-[calc(100vw-2rem)]">
                   {CURRENCY_OPTIONS.map((currency) => (
                     <SelectItem key={currency.value} value={currency.value}>
-                      <span className="font-medium">{currency.value}</span>
-                      <span className="ml-2 text-xs text-muted-foreground">{currency.label}</span>
+                      <span className="inline-flex min-w-0 items-center">
+                        <span className="shrink-0 font-medium">{currency.value}</span>
+                        <span className="ml-2 truncate text-xs text-muted-foreground">
+                          {currency.label}
+                        </span>
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>
