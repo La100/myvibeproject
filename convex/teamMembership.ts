@@ -70,17 +70,25 @@ export const ensureCurrentUserTeamMembership = mutation({
       )
       .unique();
 
+    if (!membership && !roleClaimRaw) {
+      const existingMembers = await ctx.db
+        .query("teamMembers")
+        .withIndex("by_team", (q) => q.eq("teamId", team._id))
+        .collect();
+      if (existingMembers.every((member) => !member.isActive)) {
+        fallbackRole = "admin";
+      }
+    }
+
     if (membership) {
+      if (!membership.isActive) {
+        throw new Error("Workspace membership is inactive");
+      }
+
       const patch: Record<string, unknown> = {};
 
-      if (!membership.isActive) {
-        patch.isActive = true;
-      }
       if (membership.clerkOrgId !== args.clerkOrgId) {
         patch.clerkOrgId = args.clerkOrgId;
-      }
-      if (derivedRole === "admin" && membership.role !== "admin") {
-        patch.role = "admin";
       }
       if (Object.keys(patch).length > 0) {
         await ctx.db.patch(membership._id, patch);
