@@ -45,8 +45,6 @@ const referenceImageValidator = v.object({
 const MAX_REFERENCE_IMAGE_BYTES = 20 * 1024 * 1024;
 const MAX_REFERENCE_REDIRECTS = 3;
 
-const DEFAULT_MOODBOARD_SECTION_KEY = "1";
-const DEFAULT_MOODBOARD_SECTION_LABEL = "CONCEPT";
 const DEFAULT_TEXT_ONLY_FAILURE =
   "No image was generated. The model may have returned only text.";
 
@@ -73,36 +71,6 @@ const toImageFile = async (
   toFile(Buffer.from(image.data, "base64"), name, {
     type: image.mimeType,
   });
-
-const normalizeMoodboardSection = (section?: string) => {
-  const normalized = section?.trim();
-  if (!normalized) {
-    return {
-      key: DEFAULT_MOODBOARD_SECTION_KEY,
-      label: DEFAULT_MOODBOARD_SECTION_LABEL,
-    };
-  }
-
-  const lower = normalized.toLowerCase();
-  if (["1", "concept", "concepts", "inspiration"].includes(lower)) {
-    return {
-      key: DEFAULT_MOODBOARD_SECTION_KEY,
-      label: DEFAULT_MOODBOARD_SECTION_LABEL,
-    };
-  }
-
-  if (["2", "detail", "details", "materials", "finishes"].includes(lower)) {
-    return {
-      key: "2",
-      label: "DETAILS",
-    };
-  }
-
-  return {
-    key: normalized,
-    label: normalized.toUpperCase(),
-  };
-};
 
 const buildMoodboardFileName = (sectionLabel: string, mimeType?: string) => {
   const extension = (mimeType || "image/png").split("/")[1] || "png";
@@ -671,7 +639,13 @@ export const generateMoodboardImageForAssistant = action({
     message?: string;
     error?: string;
   }> => {
-    const section = normalizeMoodboardSection(args.section);
+    const section = await ctx.runQuery(
+      internalAny.ai.imageGen.helpers.resolveMoodboardSectionForGeneratedImage,
+      {
+        projectId: args.projectId,
+        section: args.section,
+      },
+    );
 
     const generation = await ctx.runAction(
       apiAny.ai.imageGen.generation.generateVisualization,

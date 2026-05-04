@@ -51,6 +51,10 @@ import { formatMoney, sanitizeFileName } from "@/lib/pdfExport";
 import { exportSectionedTablePdf } from "@/lib/sectionedTablePdfExport";
 import { formatShoppingExportProductLabel } from "@/lib/shoppingListExport";
 import {
+  MoodboardImageGrid,
+  MoodboardImageGridItem,
+} from "@/components/moodboard/MoodboardImageGrid";
+import {
   getShoppingExportCsvRow,
   getShoppingExportHeaders,
   type ShoppingExportRow,
@@ -2543,13 +2547,13 @@ export default function PublicClientPanelPage() {
                       </span>
                     </div>
 
-                    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+                    <MoodboardImageGrid>
                       {section.files.map((file) => {
                         const isImage = file.mimeType.startsWith("image/");
                         return (
-                          <div
+                          <MoodboardImageGridItem
                             key={file._id}
-                            className="group relative mb-4 break-inside-avoid overflow-hidden rounded-xl border border-border/70 bg-card"
+                            className="group relative overflow-hidden rounded-xl border border-border/70 bg-card"
                           >
                             {isImage ? (
                               <button
@@ -2561,7 +2565,8 @@ export default function PublicClientPanelPage() {
                                 <img
                                   src={file.url}
                                   alt={file.name}
-                                  className="w-full h-auto object-contain bg-muted transition-transform duration-300 group-hover:scale-[1.02]"
+                                  className="block h-auto w-full object-cover bg-muted transition-transform duration-300 group-hover:scale-[1.02]"
+                                  loading="lazy"
                                 />
                               </button>
                             ) : (
@@ -2594,10 +2599,10 @@ export default function PublicClientPanelPage() {
                                 <Download className="h-4 w-4" />
                               </a>
                             </div>
-                          </div>
+                          </MoodboardImageGridItem>
                         );
                       })}
-                    </div>
+                    </MoodboardImageGrid>
                   </div>
                 ))}
               </div>

@@ -8,6 +8,116 @@ import { r2 } from "../../files";
  * These run in the V8 runtime (not Node.js)
  */
 
+const DEFAULT_MOODBOARD_SECTION_KEY = "1";
+const DEFAULT_MOODBOARD_SECTION_LABEL = "CONCEPT";
+
+const normalizeMoodboardSectionTitle = (title: string) =>
+  title.trim().toUpperCase();
+
+const formatMoodboardSectionLabel = (section: string) => {
+  const normalized = section.trim();
+  if (normalized === "1") return "CONCEPT";
+  if (normalized === "2") return "DETAILS";
+  return normalized.toUpperCase();
+};
+
+const fallbackMoodboardSection = (section?: string) => {
+  const normalized = section?.trim();
+  if (!normalized) {
+    return {
+      key: DEFAULT_MOODBOARD_SECTION_KEY,
+      label: DEFAULT_MOODBOARD_SECTION_LABEL,
+    };
+  }
+
+  const lower = normalized.toLowerCase();
+  if (["1", "concept", "concepts", "inspiration"].includes(lower)) {
+    return {
+      key: DEFAULT_MOODBOARD_SECTION_KEY,
+      label: DEFAULT_MOODBOARD_SECTION_LABEL,
+    };
+  }
+
+  if (["2", "detail", "details", "materials", "finishes"].includes(lower)) {
+    return {
+      key: "2",
+      label: "DETAILS",
+    };
+  }
+
+  return {
+    key: normalized,
+    label: formatMoodboardSectionLabel(normalized),
+  };
+};
+
+/**
+ * Resolve assistant-provided moodboard section text to an existing section id.
+ */
+export const resolveMoodboardSectionForGeneratedImage = internalQuery({
+  args: {
+    projectId: v.id("projects"),
+    section: v.optional(v.string()),
+  },
+  returns: v.object({
+    key: v.string(),
+    label: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    const fallback = fallbackMoodboardSection(args.section);
+    const requested = args.section?.trim();
+    if (!requested) return fallback;
+
+    const normalizedRequested = normalizeMoodboardSectionTitle(requested);
+    const project = await ctx.db.get(args.projectId);
+    const storedSections = Array.isArray(project?.moodboardSections)
+      ? project.moodboardSections.filter(
+          (section): section is { id: string; title: string; order: number } =>
+            !!section &&
+            typeof section === "object" &&
+            typeof (section as { id?: unknown }).id === "string" &&
+            typeof (section as { title?: unknown }).title === "string" &&
+            typeof (section as { order?: unknown }).order === "number",
+        )
+      : [];
+
+    const matchingStoredSection = storedSections.find(
+      (section) =>
+        normalizeMoodboardSectionTitle(section.id) === normalizedRequested ||
+        normalizeMoodboardSectionTitle(section.title) === normalizedRequested,
+    );
+    if (matchingStoredSection) {
+      return {
+        key: matchingStoredSection.id.trim(),
+        label: formatMoodboardSectionLabel(matchingStoredSection.title),
+      };
+    }
+
+    const files = await ctx.db
+      .query("files")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .filter((q) => q.neq(q.field("moodboardSection"), undefined))
+      .collect();
+
+    const matchingFileSection = files
+      .map((file) => file.moodboardSection?.trim())
+      .find(
+        (sectionId): sectionId is string =>
+          !!sectionId &&
+          normalizeMoodboardSectionTitle(sectionId) === normalizedRequested,
+      );
+
+    if (matchingFileSection) {
+      return {
+        key: matchingFileSection,
+        label: formatMoodboardSectionLabel(matchingFileSection),
+      };
+    }
+
+    return fallback;
+  },
+});
+
 /**
  * Get context info (project/team) for file storage path
  */

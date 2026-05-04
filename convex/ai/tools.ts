@@ -393,7 +393,7 @@ export const generateMoodboardImageSchema = z.object({
   section: z
     .string()
     .optional()
-    .describe("Moodboard section name, for example Concept, Details, Kitchen, or Materials"),
+    .describe("Existing moodboard section id or title to save into, for example Concept, Details, Kitchen, or Materials. If the user names a room/section, reuse the matching existing section instead of creating a new one."),
   useShoppingListAsReference: z
     .boolean()
     .optional()
@@ -2639,7 +2639,7 @@ export function createStreamingTools(options?: StreamingToolOptions) {
     }, options),
 
     generate_moodboard_image: createAssistantTool({
-      description: "Generate a moodboard image with GPT Image and save it directly to the current project's moodboard. Use this when the user explicitly asks to create a moodboard, concept image, or visual. If the moodboard should be based on shopping list items, pass the shopping reference fields so the tool can collect project product images automatically.",
+      description: "Generate a moodboard image with GPT Image and save it directly to the current project's moodboard. Use this when the user explicitly asks to create a moodboard, concept image, or visual. If the user mentions a room or moodboard section, pass that existing section title/id in `section`; do not call manage_moodboard to create a duplicate section unless the user explicitly asks for a new section. If the moodboard should be based on shopping list items, pass the shopping reference fields so the tool can collect project product images automatically.",
       inputSchema: generateMoodboardImageSchema,
       inputExamples: [
         {

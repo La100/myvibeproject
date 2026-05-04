@@ -12,6 +12,10 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
+import {
+  MoodboardImageGrid,
+  MoodboardImageGridItem,
+} from "@/components/moodboard/MoodboardImageGrid";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import {
   DndContext,
@@ -184,55 +188,57 @@ function MoodboardImageCard({
   };
 
   return (
-    <Card
-      ref={setNodeRef}
-      style={style}
-      className={cn(
-        "group relative overflow-hidden border-border/70 bg-card py-0 transition-[box-shadow,transform,opacity] hover:-translate-y-0.5 hover:shadow-md",
-        isDragging && "opacity-30",
-        isOver && "ring-2 ring-primary/50",
-      )}
-    >
-      <CardContent className="p-0">
-        <button
-          type="button"
-          className="block w-full"
-          onClick={onPreview}
-          aria-label={image.name ? `Preview ${image.name}` : "Preview image"}
-        >
-          <img
-            src={image.url}
-            alt={image.name || ""}
-            className="h-auto w-full cursor-pointer object-contain transition-transform duration-300 group-hover:scale-[1.02]"
-            loading="lazy"
-          />
-        </button>
-        <Button
-          type="button"
-          variant="secondary"
-          size="icon-sm"
-          className="absolute left-3 top-3 cursor-grab border border-border bg-card/90 opacity-0 transition-opacity duration-200 hover:bg-muted group-hover:opacity-100"
-          aria-label="Drag image"
-          {...attributes}
-          {...listeners}
-        >
-          <GripVertical className="h-4 w-4" />
-        </Button>
-        <Button
-          type="button"
-          variant="destructive"
-          size="icon-sm"
-          className="absolute right-3 top-3 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete();
-          }}
-          aria-label="Delete image"
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      </CardContent>
-    </Card>
+    <MoodboardImageGridItem>
+      <Card
+        ref={setNodeRef}
+        style={style}
+        className={cn(
+          "group relative overflow-hidden border-border/70 bg-card py-0 transition-[box-shadow,transform,opacity] hover:-translate-y-0.5 hover:shadow-md",
+          isDragging && "opacity-30",
+          isOver && "ring-2 ring-primary/50",
+        )}
+      >
+        <CardContent className="p-0">
+          <button
+            type="button"
+            className="block w-full"
+            onClick={onPreview}
+            aria-label={image.name ? `Preview ${image.name}` : "Preview image"}
+          >
+            <img
+              src={image.url}
+              alt={image.name || ""}
+              className="block h-auto w-full cursor-pointer object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+              loading="lazy"
+            />
+          </button>
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon-sm"
+            className="absolute left-3 top-3 cursor-grab border border-border bg-card/90 opacity-0 transition-opacity duration-200 hover:bg-muted group-hover:opacity-100"
+            aria-label="Drag image"
+            {...attributes}
+            {...listeners}
+          >
+            <GripVertical className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            size="icon-sm"
+            className="absolute right-3 top-3 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            aria-label="Delete image"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </CardContent>
+      </Card>
+    </MoodboardImageGridItem>
   );
 }
 
@@ -491,10 +497,10 @@ function MoodboardRow({
         isDeleting={isDeletingSection}
       />
 
-      <div
+      <MoodboardImageGrid
         ref={setSectionDropRef}
         className={cn(
-          "grid min-h-28 grid-cols-1 gap-6 rounded-2xl transition-colors sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4",
+          "rounded-2xl transition-colors",
           isSectionOver && "bg-primary/5 outline outline-2 outline-primary/30",
         )}
       >
@@ -510,7 +516,7 @@ function MoodboardRow({
             }}
           />
         ))}
-      </div>
+      </MoodboardImageGrid>
 
       {selectedImage && (
         <div
