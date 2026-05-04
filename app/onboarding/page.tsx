@@ -219,6 +219,11 @@ function OnboardingContent() {
       return;
     }
 
+    if (!canUpdateOrganization) {
+      toast.error("An organization admin needs to finish workspace setup.");
+      return;
+    }
+
     setIsFinishing(true);
     try {
       const payload: {
@@ -451,7 +456,7 @@ function OnboardingContent() {
 
             {!canUpdateOrganization ? (
               <div className="rounded-2xl border border-border/70 bg-muted/25 px-4 py-3 text-sm text-muted-foreground">
-                Organization defaults can only be changed by an admin. You can still continue to the workspace.
+                Organization defaults can only be changed by an admin. Ask an admin to finish workspace setup.
               </div>
             ) : null}
 
@@ -459,7 +464,7 @@ function OnboardingContent() {
               <Button
                 type="button"
                 onClick={handleFinish}
-                disabled={!activeOrganization || isFinishing}
+                disabled={!activeOrganization || !canUpdateOrganization || isFinishing}
                 className="min-w-[220px]"
               >
                 {isFinishing ? "Saving..." : "Launch workspace"}

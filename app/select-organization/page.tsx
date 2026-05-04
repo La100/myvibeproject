@@ -4,17 +4,20 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useOrganization, useOrganizationList } from "@clerk/nextjs";
+import { useAuth, useOrganization, useOrganizationList } from "@clerk/nextjs";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { postAuthResolverUrl } from "@/lib/authRedirects";
+import { postAuthResolverUrl, signInUrl } from "@/lib/authRedirects";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
 export default function SelectOrganizationPage() {
   const router = useRouter();
+  const { isLoaded: isAuthLoaded, isSignedIn } = useAuth({
+    treatPendingAsSignedOut: false,
+  });
   const { organization } = useOrganization();
   const { createOrganization, isLoaded, setActive, userMemberships } = useOrganizationList({
     userMemberships: { infinite: true },
@@ -33,6 +36,17 @@ export default function SelectOrganizationPage() {
   );
 
   useEffect(() => {
+    if (!isAuthLoaded) {
+      return;
+    }
+
+    if (!isSignedIn) {
+      router.replace(
+        `${signInUrl}?redirect_url=${encodeURIComponent("/select-organization")}`,
+      );
+      return;
+    }
+
     if (!isLoaded || !setActive || isSubmitting || isActivatingExistingWorkspace) {
       return;
     }
@@ -63,7 +77,9 @@ export default function SelectOrganizationPage() {
     })();
   }, [
     isActivatingExistingWorkspace,
+    isAuthLoaded,
     isLoaded,
+    isSignedIn,
     isSubmitting,
     organization?.id,
     organizations,

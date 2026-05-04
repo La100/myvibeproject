@@ -12,6 +12,16 @@ import { selectOrganizationUrl } from "@/lib/authRedirects";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import { cn } from "@/lib/utils";
 
+const MAX_BOOTSTRAP_RETRIES = 4;
+
+const isTransientActiveOrganizationSyncError = (error: unknown) => {
+  const message = toUserFacingErrorMessage(error).toLowerCase();
+  return (
+    message.includes("active organization is still syncing") ||
+    message.includes("selected organization does not match active auth context")
+  );
+};
+
 function LoadingState({
   title,
   description,
@@ -60,7 +70,7 @@ function ErrorState({
   );
 }
 
-export function SmartDashboard() {
+export function PostAuthRouter() {
   const router = useRouter();
   const { isLoaded: isAuthLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });
   const { isLoading: isConvexAuthLoading, isAuthenticated: isConvexAuthenticated } = useConvexAuth();
@@ -109,6 +119,17 @@ export function SmartDashboard() {
         return;
       }
       bootstrappedOrgIdRef.current = null;
+      if (
+        bootstrapAttempt < MAX_BOOTSTRAP_RETRIES &&
+        isTransientActiveOrganizationSyncError(error)
+      ) {
+        window.setTimeout(() => {
+          if (!cancelled) {
+            setBootstrapAttempt((attempt) => attempt + 1);
+          }
+        }, 750);
+        return;
+      }
       console.error("Failed to bootstrap workspace membership", error);
       setBootstrapError(toUserFacingErrorMessage(error));
     });
