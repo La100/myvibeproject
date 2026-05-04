@@ -158,7 +158,6 @@ export default function CompanySettings({
     apiAny.teamMembership.ensureCurrentUserTeamMembership,
   );
   const [repairingTeamState, setRepairingTeamState] = useState(false);
-  const attemptedRepairRef = useRef<string | null>(null);
 
   // Loading actual data from backend
   const teamData = useQuery(
@@ -387,21 +386,6 @@ export default function CompanySettings({
     },
     [ensureSubscriptionSynced, router, teamData?.teamId],
   );
-
-  useEffect(() => {
-    if (!isLoaded || !organization?.id || teamData !== null) {
-      return;
-    }
-
-    if (attemptedRepairRef.current === organization.id) {
-      return;
-    }
-
-    attemptedRepairRef.current = organization.id;
-    repairTeamMembership().catch(() => {
-      // Render fallback UI below if sync cannot repair the state.
-    });
-  }, [isLoaded, organization?.id, teamData, repairTeamMembership]);
 
   // Synchronize data from backend
   useEffect(() => {
@@ -653,7 +637,6 @@ export default function CompanySettings({
             </p>
             <Button
               onClick={async () => {
-                attemptedRepairRef.current = null;
                 try {
                   await repairTeamMembership();
                   toast.success(

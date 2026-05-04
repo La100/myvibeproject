@@ -28,6 +28,18 @@ export const ensureCurrentUserTeamMembership = mutation({
       throw new Error("Selected organization does not match active auth context");
     }
 
+    const activeMemberships = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_user", (q) => q.eq("clerkUserId", identity.subject))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+    const conflictingMembership = activeMemberships.find(
+      (entry) => entry.clerkOrgId !== args.clerkOrgId,
+    );
+    if (conflictingMembership) {
+      throw new Error("User already belongs to another workspace");
+    }
+
     let team = await ctx.db
       .query("teams")
       .withIndex("by_clerk_org", (q) => q.eq("clerkOrgId", args.clerkOrgId))

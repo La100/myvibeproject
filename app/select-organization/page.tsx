@@ -21,6 +21,7 @@ export default function SelectOrganizationPage() {
   });
   const [workspaceName, setWorkspaceName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isActivatingExistingWorkspace, setIsActivatingExistingWorkspace] = useState(false);
 
   const organizations = useMemo(
     () =>
@@ -32,7 +33,7 @@ export default function SelectOrganizationPage() {
   );
 
   useEffect(() => {
-    if (!isLoaded || !setActive || isSubmitting) {
+    if (!isLoaded || !setActive || isSubmitting || isActivatingExistingWorkspace) {
       return;
     }
 
@@ -45,6 +46,7 @@ export default function SelectOrganizationPage() {
       return;
     }
 
+    setIsActivatingExistingWorkspace(true);
     void (async () => {
       try {
         await setActive({
@@ -53,12 +55,21 @@ export default function SelectOrganizationPage() {
         });
       } catch (error) {
         console.error("Failed to activate workspace", error);
+        setIsActivatingExistingWorkspace(false);
         toast.error("Could not reconnect to your workspace.", {
           description: toUserFacingErrorMessage(error),
         });
       }
     })();
-  }, [isLoaded, isSubmitting, organization?.id, organizations, router, setActive]);
+  }, [
+    isActivatingExistingWorkspace,
+    isLoaded,
+    isSubmitting,
+    organization?.id,
+    organizations,
+    router,
+    setActive,
+  ]);
 
   const handleCreateWorkspace = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -148,7 +159,7 @@ export default function SelectOrganizationPage() {
                   Your account can belong to only one workspace. Start by naming it.
                 </p>
               </div>
-              {!isLoaded || (organizations.length > 0 && !organization?.id) ? (
+              {!isLoaded || isActivatingExistingWorkspace || (organizations.length > 0 && !organization?.id) ? (
                 <div className="flex min-h-40 items-center justify-center">
                   <Spinner fullHeight={false} className="py-0" iconClassName="size-5" />
                 </div>
