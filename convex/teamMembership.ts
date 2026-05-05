@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { Id } from "./_generated/dataModel";
 import { mutation } from "./_generated/server";
 
 const generateSlug = (name: string) => {
@@ -15,6 +16,16 @@ const automaticWorkspaceDefaults = () => ({
   currency: DEFAULT_WORKSPACE_CURRENCY,
   timezone: DEFAULT_WORKSPACE_TIMEZONE,
   onboardingCompletedAt: Date.now(),
+});
+
+const syncPending = (reason: "missing_active_org" | "stale_active_org") => ({
+  status: "sync_pending" as const,
+  reason,
+});
+
+const ready = (teamId: Id<"teams">) => ({
+  status: "ready" as const,
+  teamId,
 });
 
 export const ensureCurrentUserTeamMembership = mutation({
@@ -45,15 +56,15 @@ export const ensureCurrentUserTeamMembership = mutation({
           .unique();
 
         if (existingMembership) {
-          return { teamId: existingTeam._id };
+          return ready(existingTeam._id);
         }
       }
 
-      throw new Error("Active organization is still syncing. Please try again.");
+      return syncPending("missing_active_org");
     }
 
     if (activeOrgId !== args.clerkOrgId) {
-      throw new Error("Selected organization does not match active auth context");
+      return syncPending("stale_active_org");
     }
 
     const activeMemberships = await ctx.db
@@ -163,6 +174,6 @@ export const ensureCurrentUserTeamMembership = mutation({
       });
     }
 
-    return { teamId: team._id };
+    return ready(team._id);
   },
 });

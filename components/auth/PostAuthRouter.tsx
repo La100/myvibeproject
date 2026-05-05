@@ -13,28 +13,17 @@ import { selectOrganizationUrl } from "@/lib/authRedirects";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
 const BOOTSTRAP_RETRY_DELAY_MS = 1_000;
-const BOOTSTRAP_ERROR_GRACE_PERIOD_MS = 8_000;
+const BOOTSTRAP_FATAL_AFTER_MS = 45_000;
 
-const isTransientActiveOrganizationSyncError = (error: unknown) => {
-  const rawMessage =
-    error instanceof Error
-      ? error.message
-      : typeof error === "string"
-        ? error
-        : error &&
-            typeof error === "object" &&
-            "data" in error &&
-            typeof (error as { data?: { message?: unknown } }).data?.message === "string"
-          ? (error as { data: { message: string } }).data.message
-          : "";
-  const message = `${rawMessage}\n${toUserFacingErrorMessage(error)}`.toLowerCase();
-  return (
-    message.includes("active organization is still syncing") ||
-    message.includes("selected organization does not match active auth context") ||
-    message.includes("server error called by client") ||
-    message.includes("your workspace is still syncing")
+const isSyncPendingResult = (
+  result: unknown,
+): result is { status: "sync_pending"; reason: string } =>
+  Boolean(
+    result &&
+      typeof result === "object" &&
+      "status" in result &&
+      result.status === "sync_pending",
   );
-};
 
 function ErrorState({
   title,
@@ -78,15 +67,26 @@ function WorkspaceSetupProgress({ value }: { value: number }) {
 
 export function PostAuthRouter() {
   const router = useRouter();
-  const { isLoaded: isAuthLoaded, isSignedIn } = useAuth();
+  const {
+    isLoaded: isAuthLoaded,
+    isSignedIn,
+    orgId: activeClerkOrgId,
+  } = useAuth();
   const { isLoading: isConvexAuthLoading, isAuthenticated: isConvexAuthenticated } = useConvexAuth();
   const { organization, isLoaded: isOrganizationLoaded } = useOrganization();
+  const activeWorkspaceOrgId =
+    isAuthLoaded &&
+    isSignedIn &&
+    organization?.id &&
+    activeClerkOrgId === organization.id
+      ? organization.id
+      : null;
   const ensureCurrentUserTeamMembership = useMutation(
     apiAny.teamMembership.ensureCurrentUserTeamMembership,
   );
   const teamSettings = useQuery(
     apiAny.teams.getTeamSettingsByClerkOrg,
-    organization?.id ? { clerkOrgId: organization.id } : "skip",
+    activeWorkspaceOrgId ? { clerkOrgId: activeWorkspaceOrgId } : "skip",
   );
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [bootstrapAttempt, setBootstrapAttempt] = useState(0);
@@ -104,40 +104,64 @@ export function PostAuthRouter() {
   }, [isAuthLoaded, isOrganizationLoaded, isSignedIn, organization?.id, router]);
 
   useEffect(() => {
+    bootstrapStartedAtRef.current = null;
+    bootstrappedOrgIdRef.current = null;
+    setBootstrapError(null);
+    setBootstrapAttempt(0);
+  }, [organization?.id]);
+
+  useEffect(() => {
     if (
-      !organization?.id ||
+      !activeWorkspaceOrgId ||
       teamSettings !== null ||
       isConvexAuthLoading ||
       !isConvexAuthenticated ||
-      bootstrappedOrgIdRef.current === organization.id
+      bootstrappedOrgIdRef.current === activeWorkspaceOrgId
     ) {
       return;
     }
 
     let cancelled = false;
     bootstrapStartedAtRef.current ??= Date.now();
-    bootstrappedOrgIdRef.current = organization.id;
+    bootstrappedOrgIdRef.current = activeWorkspaceOrgId;
     setBootstrapError(null);
 
+    const retryBootstrap = () => {
+      const bootstrapStartedAt = bootstrapStartedAtRef.current ?? Date.now();
+      const elapsedMs = Date.now() - bootstrapStartedAt;
+      if (elapsedMs >= BOOTSTRAP_FATAL_AFTER_MS) {
+        setBootstrapError(
+          "Workspace setup is taking longer than expected. Please try again.",
+        );
+        return;
+      }
+
+      window.setTimeout(() => {
+        if (!cancelled) {
+          setBootstrapAttempt((attempt) => attempt + 1);
+        }
+      }, BOOTSTRAP_RETRY_DELAY_MS);
+    };
+
     void ensureCurrentUserTeamMembership({
-      clerkOrgId: organization.id,
-      orgName: organization.name,
-    }).catch((error) => {
+      clerkOrgId: activeWorkspaceOrgId,
+      orgName: organization?.name,
+    })
+      .then((result) => {
+        if (cancelled) {
+          return;
+        }
+
+        if (isSyncPendingResult(result)) {
+          bootstrappedOrgIdRef.current = null;
+          retryBootstrap();
+        }
+      })
+      .catch((error) => {
       if (cancelled) {
         return;
       }
       bootstrappedOrgIdRef.current = null;
-      const bootstrapStartedAt = bootstrapStartedAtRef.current ?? Date.now();
-      const isStillWithinGracePeriod =
-        Date.now() - bootstrapStartedAt < BOOTSTRAP_ERROR_GRACE_PERIOD_MS;
-      if (isTransientActiveOrganizationSyncError(error) || isStillWithinGracePeriod) {
-        window.setTimeout(() => {
-          if (!cancelled) {
-            setBootstrapAttempt((attempt) => attempt + 1);
-          }
-        }, BOOTSTRAP_RETRY_DELAY_MS);
-        return;
-      }
       console.error("Failed to bootstrap workspace membership", error);
       setBootstrapError(toUserFacingErrorMessage(error));
     });
@@ -146,11 +170,11 @@ export function PostAuthRouter() {
       cancelled = true;
     };
   }, [
+    activeWorkspaceOrgId,
     bootstrapAttempt,
     ensureCurrentUserTeamMembership,
     isConvexAuthenticated,
     isConvexAuthLoading,
-    organization?.id,
     organization?.name,
     teamSettings,
   ]);
@@ -174,11 +198,15 @@ export function PostAuthRouter() {
     if (isConvexAuthLoading || !isConvexAuthenticated) {
       return "Connecting your session to the workspace.";
     }
+    if (!activeWorkspaceOrgId) {
+      return "Confirming your active workspace.";
+    }
     if (teamSettings === null) {
       return "Finalizing your workspace access.";
     }
     return "Opening your workspace.";
   }, [
+    activeWorkspaceOrgId,
     isAuthLoaded,
     isConvexAuthenticated,
     isConvexAuthLoading,
@@ -196,11 +224,15 @@ export function PostAuthRouter() {
     if (isConvexAuthLoading || !isConvexAuthenticated) {
       return 48;
     }
+    if (!activeWorkspaceOrgId) {
+      return 64;
+    }
     if (teamSettings === null) {
       return 78;
     }
     return 96;
   }, [
+    activeWorkspaceOrgId,
     isAuthLoaded,
     isConvexAuthenticated,
     isConvexAuthLoading,
