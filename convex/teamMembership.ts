@@ -30,6 +30,25 @@ export const ensureCurrentUserTeamMembership = mutation({
 
     const activeOrgId = (identity.org_id as string | undefined) ?? (identity.orgId as string | undefined);
     if (!activeOrgId) {
+      const existingTeam = await ctx.db
+        .query("teams")
+        .withIndex("by_clerk_org", (q) => q.eq("clerkOrgId", args.clerkOrgId))
+        .unique();
+
+      if (existingTeam) {
+        const existingMembership = await ctx.db
+          .query("teamMembers")
+          .withIndex("by_team_and_user", (q) =>
+            q.eq("teamId", existingTeam._id).eq("clerkUserId", identity.subject)
+          )
+          .filter((q) => q.eq(q.field("isActive"), true))
+          .unique();
+
+        if (existingMembership) {
+          return { teamId: existingTeam._id };
+        }
+      }
+
       throw new Error("Active organization is still syncing. Please try again.");
     }
 

@@ -9,7 +9,7 @@ import { Spinner } from "@/components/ui/spinner";
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { isLoaded: isAuthLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });
+  const { isLoaded: isAuthLoaded, isSignedIn } = useAuth();
   const { organization, isLoaded: isOrganizationLoaded } = useOrganization();
 
   useEffect(() => {

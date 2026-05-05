@@ -12,7 +12,7 @@ import { selectOrganizationUrl } from "@/lib/authRedirects";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import { cn } from "@/lib/utils";
 
-const MAX_BOOTSTRAP_RETRIES = 4;
+const BOOTSTRAP_RETRY_DELAY_MS = 1_000;
 
 const isTransientActiveOrganizationSyncError = (error: unknown) => {
   const message = toUserFacingErrorMessage(error).toLowerCase();
@@ -72,7 +72,7 @@ function ErrorState({
 
 export function PostAuthRouter() {
   const router = useRouter();
-  const { isLoaded: isAuthLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });
+  const { isLoaded: isAuthLoaded, isSignedIn } = useAuth();
   const { isLoading: isConvexAuthLoading, isAuthenticated: isConvexAuthenticated } = useConvexAuth();
   const { organization, isLoaded: isOrganizationLoaded } = useOrganization();
   const ensureCurrentUserTeamMembership = useMutation(
@@ -119,15 +119,12 @@ export function PostAuthRouter() {
         return;
       }
       bootstrappedOrgIdRef.current = null;
-      if (
-        bootstrapAttempt < MAX_BOOTSTRAP_RETRIES &&
-        isTransientActiveOrganizationSyncError(error)
-      ) {
+      if (isTransientActiveOrganizationSyncError(error)) {
         window.setTimeout(() => {
           if (!cancelled) {
             setBootstrapAttempt((attempt) => attempt + 1);
           }
-        }, 750);
+        }, BOOTSTRAP_RETRY_DELAY_MS);
         return;
       }
       console.error("Failed to bootstrap workspace membership", error);

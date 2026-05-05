@@ -15,9 +15,7 @@ import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
 export default function SelectOrganizationPage() {
   const router = useRouter();
-  const { isLoaded: isAuthLoaded, isSignedIn } = useAuth({
-    treatPendingAsSignedOut: false,
-  });
+  const { isLoaded: isAuthLoaded, isSignedIn } = useAuth();
   const { organization } = useOrganization();
   const { createOrganization, isLoaded, setActive, userMemberships } = useOrganizationList({
     userMemberships: { infinite: true },

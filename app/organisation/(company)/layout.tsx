@@ -20,7 +20,7 @@ export default function CompanyLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { isLoaded: isAuthLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });
+  const { isLoaded: isAuthLoaded, isSignedIn } = useAuth();
   const { organization, isLoaded } = useOrganization();
   const teamSettings = useQuery(
     apiAny.teams.getTeamSettingsByClerkOrg,
