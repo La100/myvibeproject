@@ -16,6 +16,14 @@ const navLinks = [
   { label: "Contact", href: "/contact" },
 ];
 
+const userButtonAppearance = {
+  elements: {
+    userButtonAvatarBox: "rounded-full",
+    userButtonPopoverCard: "z-[80] pointer-events-auto",
+    userButtonPopoverActionButton: "pointer-events-auto",
+  },
+} as const;
+
 export function Navbar() {
   const { isSignedIn } = useUser();
 
@@ -53,9 +61,7 @@ export function Navbar() {
                 </Link>
               </Button>
               <UserButton
-                appearance={{
-                  elements: { userButtonAvatarBox: "rounded-full" },
-                }}
+                appearance={userButtonAppearance}
               />
             </>
           ) : (
@@ -105,11 +111,11 @@ export function Navbar() {
                 </div>
 
                 {isSignedIn ? (
-                  <div className="flex items-center gap-3">
+                  <div className="relative flex items-center gap-3">
                     <SheetClose asChild>
                       <Button
                         asChild
-                        className="h-11 flex-1 rounded-full bg-foreground px-4 text-sm font-medium text-background hover:bg-foreground/92"
+                        className="relative z-0 h-11 flex-1 rounded-full bg-foreground px-4 text-sm font-medium text-background hover:bg-foreground/92"
                       >
                         <Link href="/organisation">
                           <Sparkles className="mr-2 h-4 w-4" />
@@ -117,11 +123,9 @@ export function Navbar() {
                         </Link>
                       </Button>
                     </SheetClose>
-                    <UserButton
-                      appearance={{
-                        elements: { userButtonAvatarBox: "rounded-full" },
-                      }}
-                    />
+                    <div className="relative z-[70] flex shrink-0">
+                      <UserButton appearance={userButtonAppearance} />
+                    </div>
                   </div>
                 ) : null}
 
