@@ -1,6 +1,5 @@
-import { TaskChooseOrganization } from "@clerk/nextjs";
-import { postAuthResolverUrl } from "@/lib/authRedirects";
+import { ChooseOrganizationTaskShell } from "@/components/auth/ChooseOrganizationTaskShell";
 
 export default function ChooseOrganizationTaskPage() {
-  return <TaskChooseOrganization redirectUrlComplete={postAuthResolverUrl} />;
+  return <ChooseOrganizationTaskShell />;
 }
