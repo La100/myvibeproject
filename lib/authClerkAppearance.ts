@@ -1,8 +1,8 @@
 export const authClerkAppearance = {
   elements: {
     rootBox:
-      "w-full overflow-hidden rounded-3xl border border-border/70 bg-background/95 shadow-xl backdrop-blur-xl",
-    cardBox: "w-full",
+      "mx-auto w-full max-w-[440px] overflow-hidden rounded-3xl border border-border/70 bg-background/95 shadow-xl backdrop-blur-xl",
+    cardBox: "mx-auto w-full max-w-[440px]",
     card: "rounded-none border-0 bg-transparent px-6 py-6 shadow-none sm:px-8 sm:py-8",
     headerTitle: "text-2xl font-semibold tracking-tight text-foreground",
     headerSubtitle: "mt-2 text-sm leading-6 text-muted-foreground",

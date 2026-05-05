@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AppLoadingState } from "@/components/ui/loading-state";
+import { Progress } from "@/components/ui/progress";
 import { apiAny } from "@/lib/convexApiAny";
 import { selectOrganizationUrl } from "@/lib/authRedirects";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
@@ -69,6 +70,22 @@ function ErrorState({
           <Button onClick={onRetry}>Try again</Button>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function WorkspaceSetupProgress({ value }: { value: number }) {
+  return (
+    <div className="flex w-full max-w-[280px] flex-col gap-2 pt-1">
+      <Progress
+        value={value}
+        className="h-2 bg-muted/70 shadow-inner"
+        indicatorClassName="bg-gradient-to-r from-foreground via-primary to-foreground transition-all duration-700 ease-out"
+      />
+      <div className="flex justify-between text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+        <span>Account</span>
+        <span>Workspace</span>
+      </div>
     </div>
   );
 }
@@ -240,12 +257,38 @@ export function PostAuthRouter() {
       return "Connecting your session to the workspace.";
     }
     if (!isConvexOrganizationClaimReady) {
-      return "Syncing your active workspace.";
+      return "Setting up your organization access.";
     }
     if (teamSettings === null) {
-      return "Preparing your workspace.";
+      return "Preparing your workspace settings.";
     }
     return "Opening your workspace.";
+  }, [
+    isAuthLoaded,
+    isConvexAuthenticated,
+    isConvexAuthLoading,
+    isConvexOrganizationClaimReady,
+    isOrganizationLoaded,
+    organization?.id,
+    teamSettings,
+  ]);
+  const workspaceSetupProgress = useMemo(() => {
+    if (!isAuthLoaded || !isOrganizationLoaded) {
+      return 18;
+    }
+    if (!organization?.id) {
+      return 32;
+    }
+    if (isConvexAuthLoading || !isConvexAuthenticated) {
+      return 48;
+    }
+    if (!isConvexOrganizationClaimReady) {
+      return 68;
+    }
+    if (teamSettings === null) {
+      return 84;
+    }
+    return 96;
   }, [
     isAuthLoaded,
     isConvexAuthenticated,
@@ -273,9 +316,12 @@ export function PostAuthRouter() {
   return (
     <AppLoadingState
       variant="section"
-      title="Loading workspace"
+      title="Creating your workspace"
       description={loadingDescription}
+      contentClassName="max-w-md gap-5"
       showBrand
-    />
+    >
+      <WorkspaceSetupProgress value={workspaceSetupProgress} />
+    </AppLoadingState>
   );
 }

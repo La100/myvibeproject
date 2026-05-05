@@ -53,7 +53,7 @@ export function AuthShell({
             />
           </Link>
 
-          <div className="w-full">{children}</div>
+          <div className="flex w-full justify-center">{children}</div>
           <div id="clerk-captcha" className="mt-4 w-full" />
 
           <p className="mt-6 max-w-[34ch] text-center text-xs leading-5 text-foreground/90">

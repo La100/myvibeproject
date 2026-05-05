@@ -1,4 +1,5 @@
 import Image from "next/image";
+import type { ReactNode } from "react";
 
 import { BrandWordmark } from "@/components/ui/brand/BrandWordmark";
 import { Spinner } from "@/components/ui/spinner";
@@ -11,6 +12,7 @@ type AppLoadingStateProps = {
   contentClassName?: string;
   variant?: "screen" | "section" | "panel" | "inline";
   showBrand?: boolean;
+  children?: ReactNode;
 };
 
 const variantClassNames: Record<NonNullable<AppLoadingStateProps["variant"]>, string> = {
@@ -27,6 +29,7 @@ export function AppLoadingState({
   contentClassName,
   variant = "panel",
   showBrand = variant === "screen",
+  children,
 }: AppLoadingStateProps) {
   return (
     <div
@@ -69,6 +72,7 @@ export function AppLoadingState({
             <p className="text-sm leading-6 text-muted-foreground">{description}</p>
           ) : null}
         </div>
+        {children}
       </div>
     </div>
   );
