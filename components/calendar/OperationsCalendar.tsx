@@ -272,7 +272,7 @@ function ProjectBadge({ projectName }: { projectName?: string }) {
   );
 }
 
-export function OperationsCalendarSkeleton() {
+export function OperationsCalendarLoading() {
   return <Spinner className="h-full rounded-3xl border bg-card" />;
 }
 
@@ -539,7 +539,7 @@ export function OperationsCalendar({
     : null;
 
   if (!calendarData) {
-    return <OperationsCalendarSkeleton />;
+    return <OperationsCalendarLoading />;
   }
 
   const toggleType = (type: EventType) => {

@@ -36,6 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { AppLoadingState } from "@/components/ui/loading-state";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   type ReportExportOptions,
@@ -187,9 +188,11 @@ export default function CompanyReports() {
 
   if (!isLoaded || !organization) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        Loading...
-      </div>
+      <AppLoadingState
+        variant="section"
+        title="Loading reports"
+        description="Loading organization reporting data."
+      />
     );
   }
 

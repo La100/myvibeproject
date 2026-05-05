@@ -63,7 +63,7 @@ type ActivityChangelogProps = {
 
 const PAGE_SIZE = 30;
 
-export function ActivityChangelogSkeleton({ className }: { className?: string }) {
+export function ActivityChangelogLoading({ className }: { className?: string }) {
   return <Spinner className={cn("px-4 lg:px-0", className)} />;
 }
 
@@ -455,7 +455,7 @@ export function ActivityChangelog({
 
       {isExpanded ? (
         !activities ? (
-          <ActivityChangelogSkeleton className="pt-2" />
+          <ActivityChangelogLoading className="pt-2" />
         ) : (
           <>
             <Card className="mb-6">

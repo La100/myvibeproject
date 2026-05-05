@@ -1,9 +1,9 @@
 import { Suspense } from "react";
-import TasksView, { TasksViewSkeleton } from "./components/TasksView";
+import TasksView, { TasksViewLoading } from "./components/TasksView";
 
 export default function ProjectTasksPage() {
   return (
-    <Suspense fallback={<TasksViewSkeleton />}>
+    <Suspense fallback={<TasksViewLoading />}>
       <TasksView />
     </Suspense>
   );

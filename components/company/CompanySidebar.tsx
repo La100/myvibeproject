@@ -36,7 +36,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { SidebarSubscriptionNudge } from "@/components/shared/SidebarSubscriptionNudge";
 import {
   Settings,
@@ -157,7 +157,7 @@ function CompanySidebarContent() {
     user?.firstName?.charAt(0) ||
     user?.primaryEmailAddress?.emailAddress?.charAt(0) ||
     "U";
-  const organizationName = organization?.name || team?.name || "Loading...";
+  const organizationName = organization?.name || team?.name || "Workspace";
   const organizationHasImage = organization?.hasImage ?? false;
   const organizationImageUrl = team?.imageUrl || organization?.imageUrl;
 
@@ -405,26 +405,8 @@ export function CompanySidebar() {
     <Suspense
       fallback={
         <Sidebar variant="inset">
-          <SidebarHeader className="border-b border-sidebar-border/70">
-            <div className="flex flex-col gap-2 py-2 px-2">
-              <div className="px-2 py-1">
-                <Skeleton className="mb-1 h-7" />
-                <Skeleton className="h-4 w-2/3" />
-              </div>
-            </div>
-          </SidebarHeader>
-          <SidebarContent>
-            <SidebarGroup>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <SidebarMenuItem key={i}>
-                      <Skeleton className="mx-2 mb-1 h-10" />
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
+          <SidebarContent className="justify-center">
+            <Spinner fullHeight={false} iconClassName="size-5" />
           </SidebarContent>
         </Sidebar>
       }

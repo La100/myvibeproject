@@ -79,7 +79,7 @@ const getToolbarStatusLabel = (status: ShoppingListItem["realizationStatus"]) =>
 const getSectionOptionLabel = (section: string) => section === 'No Section' ? 'No section' : section;
 const formatItemCountLabel = (count: number) => `${count} ${count === 1 ? 'item' : 'items'}`;
 
-export function ShoppingListViewSkeleton() {
+export function ShoppingListViewLoading() {
   return <Spinner className="p-4 sm:p-6" />;
 }
 

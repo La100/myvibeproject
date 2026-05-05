@@ -231,7 +231,7 @@ const getPriorityDisplay = (priority: TaskPriority) => {
   return priorityStyles[priority];
 };
 
-export function TasksViewSkeleton({
+export function TasksViewLoading({
   viewMode = "kanban",
 }: {
   viewMode?: "kanban" | "list";
@@ -479,7 +479,7 @@ export default function TasksView() {
     filters.tags.length > 0;
 
   if (project === undefined || teamMembers === undefined) {
-    return <TasksViewSkeleton viewMode={viewMode} />;
+    return <TasksViewLoading viewMode={viewMode} />;
   }
 
   if (project === null) {

@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Spinner } from "@/components/ui/spinner";
+import { AppLoadingState } from "@/components/ui/loading-state";
 import { postAuthResolverUrl, signInUrl } from "@/lib/authRedirects";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
@@ -174,9 +174,12 @@ export default function SelectOrganizationPage() {
                 </p>
               </div>
               {!isLoaded || isActivatingExistingWorkspace || (organizations.length > 0 && !organization?.id) ? (
-                <div className="flex min-h-40 items-center justify-center">
-                  <Spinner fullHeight={false} className="py-0" iconClassName="size-5" />
-                </div>
+                <AppLoadingState
+                  variant="inline"
+                  title="Opening workspace"
+                  description="Reconnecting this account to its organization."
+                  className="min-h-40 px-0"
+                />
               ) : (
                 <Card className="border-0 bg-transparent shadow-none">
                   <CardContent className="p-0">

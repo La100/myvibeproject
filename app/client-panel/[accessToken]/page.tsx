@@ -613,7 +613,7 @@ function PortalItemCard({
   );
 }
 
-function ClientPanelSkeleton() {
+function ClientPanelLoading() {
   return (
     <Spinner className="mx-auto w-full max-w-[1600px] px-6 pb-24 pt-8 sm:px-8 2xl:px-10" />
   );
@@ -2317,7 +2317,7 @@ export default function PublicClientPanelPage() {
   })();
 
   if (panelData === undefined) {
-    return <ClientPanelSkeleton />;
+    return <ClientPanelLoading />;
   }
 
   if (panelData === null || !project) {

@@ -44,7 +44,7 @@ type LaborItem = Doc<"laborItems">;
 const formatItemCountLabel = (count: number) => `${count} ${count === 1 ? 'item' : 'items'}`;
 const getSectionOptionLabel = (section: string) => section === 'No Section' ? 'No section' : section;
 
-export function LaborListViewSkeleton() {
+export function LaborListViewLoading() {
   return <Spinner className="p-4 sm:p-6" />;
 }
 

@@ -53,7 +53,7 @@ import {
 } from "./ProjectBookExportDialog";
 import { cn, formatCurrency, getTaskPreview } from "@/lib/utils";
 
-function ProjectOverviewSkeleton() {
+function ProjectOverviewLoading() {
   return (
     <div className="vibe-panel flex min-h-[480px] items-center justify-center">
       <Spinner />
@@ -273,7 +273,7 @@ function ProjectOverviewContent() {
     projectActivities === undefined ||
     moodboardSections === undefined
   ) {
-    return <ProjectOverviewSkeleton />;
+    return <ProjectOverviewLoading />;
   }
 
   for (const [sectionId, result] of Object.entries(moodboardImageResults)) {
@@ -1195,7 +1195,7 @@ function ProjectOverviewContent() {
 
 export default function ProjectOverview() {
   return (
-    <Suspense fallback={<ProjectOverviewSkeleton />}>
+    <Suspense fallback={<ProjectOverviewLoading />}>
       <ProjectOverviewContent />
     </Suspense>
   );

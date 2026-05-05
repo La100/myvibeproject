@@ -25,7 +25,7 @@ export default async function NewSurveyPage({ params }: NewSurveyPageProps) {
     : null;
 
   return (
-    <Suspense fallback={<NewSurveySkeleton />}>
+    <Suspense fallback={<NewSurveyLoading />}>
       <NewSurveyContent
         preloadedProject={preloadedProject}
         projectSlug={projectSlug}
@@ -84,6 +84,6 @@ async function NewSurveyContent({
   );
 }
 
-function NewSurveySkeleton() {
+function NewSurveyLoading() {
   return <Spinner className="container mx-auto max-w-4xl p-6" />;
 }

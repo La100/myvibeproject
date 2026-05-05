@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
+import { AppLoadingState } from "@/components/ui/loading-state";
 import { cn } from "@/lib/utils";
 
 interface SurveyResponsesPageProps {
@@ -68,7 +69,13 @@ export default function SurveyResponsesPage({
   );
 
   if (!survey || !routeParams) {
-    return <div>Loading...</div>;
+    return (
+      <AppLoadingState
+        variant="section"
+        title="Loading responses"
+        description="Preparing survey response data."
+      />
+    );
   }
 
   const formatFileSize = (size?: number) => {

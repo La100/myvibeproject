@@ -60,7 +60,7 @@ import { sanitizeFileName } from '@/lib/pdfExport';
 
 type VisibleEstimationStatus = 'draft' | 'accepted' | 'rejected';
 
-export function EstimationsViewSkeleton() {
+export function EstimationsViewLoading() {
   return <Spinner className="p-4 sm:p-6" />;
 }
 
@@ -81,7 +81,7 @@ export default function EstimationsView() {
   const [statusFilter, setStatusFilter] = useState<'all' | VisibleEstimationStatus>('all');
 
   if (estimations === undefined) {
-    return <EstimationsViewSkeleton />;
+    return <EstimationsViewLoading />;
   }
 
   if (project === null) {

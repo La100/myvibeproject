@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { Id } from "@/convex/_generated/dataModel";
 import MemberDetailsModal from "@/components/team/MemberDetailsModal";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
+import { AppLoadingState } from "@/components/ui/loading-state";
 
 // Define TeamMember type based on the structure returned by getTeamMembers
 type TeamMember = {
@@ -84,7 +85,14 @@ export default function CompanyTeam() {
   };
 
   if (!isLoaded || !organization || !team || !teamMembers || !currentUserMember || !pendingInvitations) {
-    return <div className="flex min-h-[40vh] items-center justify-center text-sm text-muted-foreground">Loading team...</div>;
+    return (
+      <AppLoadingState
+        variant="section"
+        title="Loading team"
+        description="Loading members, invitations, and permissions."
+        className="min-h-[40vh]"
+      />
+    );
   }
 
   // Only internal team members (no more organizational customers)

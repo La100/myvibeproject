@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/card";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
+import { AppLoadingState } from "@/components/ui/loading-state";
 
 type QuestionType =
   | "text_short"
@@ -76,7 +77,13 @@ export default function SurveyPreviewPage() {
   const survey = useQuery(apiAny.surveys.getSurvey, { surveyId });
 
   if (!survey) {
-    return <div>Loading...</div>;
+    return (
+      <AppLoadingState
+        variant="section"
+        title="Loading survey"
+        description="Preparing survey details."
+      />
+    );
   }
 
   const questionCount = survey.questions.length;

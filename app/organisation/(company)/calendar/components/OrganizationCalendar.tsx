@@ -5,12 +5,12 @@ import { useQuery } from "convex/react";
 import { useState } from "react";
 import {
   OperationsCalendar,
-  OperationsCalendarSkeleton,
+  OperationsCalendarLoading,
   type CalendarResponse,
 } from "@/components/calendar/OperationsCalendar";
 import { apiAny } from "@/lib/convexApiAny";
 
-export { OperationsCalendarSkeleton as OrganizationCalendarSkeleton };
+export { OperationsCalendarLoading as OrganizationCalendarLoading };
 
 export default function OrganizationCalendar() {
   const { organization } = useOrganization();

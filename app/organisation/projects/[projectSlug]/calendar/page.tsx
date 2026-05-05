@@ -1,9 +1,9 @@
 import { Suspense } from "react";
-import ProjectCalendar, { ProjectCalendarSkeleton } from "./components/ProjectCalendar";
+import ProjectCalendar, { ProjectCalendarLoading } from "./components/ProjectCalendar";
 
 export default function ProjectCalendarPage() {
   return (
-    <Suspense fallback={<ProjectCalendarSkeleton />}>
+    <Suspense fallback={<ProjectCalendarLoading />}>
       <ProjectCalendar />
     </Suspense>
   );

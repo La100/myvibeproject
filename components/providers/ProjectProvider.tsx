@@ -4,8 +4,7 @@ import { createContext, useCallback, useContext, ReactNode, useEffect, useState 
 import { useQuery } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import { Doc } from "@/convex/_generated/dataModel";
-import { BrandWordmark } from "@/components/ui/brand/BrandWordmark";
-import Image from "next/image";
+import { AppLoadingState } from "@/components/ui/loading-state";
 import { useParams, useRouter } from "next/navigation";
 import { useOrganization } from "@clerk/nextjs";
 import { postAuthResolverUrl } from "@/lib/authRedirects";
@@ -132,35 +131,22 @@ export function ProjectProvider({ children }: {
   if (!project) {
     if (isLoaded && !organization?.id) {
       return (
-        <div className="fixed inset-0 flex items-center justify-center bg-muted/30">
-          <div className="flex flex-col items-center gap-3 text-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent mx-auto" />
-            <p className="text-sm text-muted-foreground">Redirecting to onboarding...</p>
-          </div>
-        </div>
+        <AppLoadingState
+          variant="screen"
+          title="Opening workspace setup"
+          description="Redirecting to workspace selection."
+          className="fixed inset-0 bg-background/95"
+        />
       );
     }
 
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-muted/30">
-        <div className="flex flex-col items-center gap-4 text-center">
-          <div className="mb-6 flex items-center justify-center gap-3">
-            <Image
-              src="/logo.svg"
-              alt="Myvibe project logo"
-              width={40}
-              height={40}
-              className="h-10 w-10 animate-spin object-contain"
-              priority
-            />
-            <BrandWordmark
-              className="text-foreground"
-              myvibeClassName="text-2xl"
-              projectClassName="text-2xl"
-            />
-          </div>
-        </div>
-      </div>
+      <AppLoadingState
+        variant="screen"
+        title="Loading project"
+        description="Preparing the project workspace."
+        className="fixed inset-0 bg-background/95"
+      />
     );
   }
 

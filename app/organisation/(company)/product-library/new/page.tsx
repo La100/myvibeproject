@@ -7,6 +7,7 @@ import { Package } from "lucide-react";
 import { apiAny } from "@/lib/convexApiAny";
 import { getCurrencySymbol } from "@/lib/utils";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { AppLoadingState } from "@/components/ui/loading-state";
 
 import { AddProductForm } from "../components/AddProductForm";
 
@@ -19,9 +20,12 @@ export default function NewProductPage() {
 
   if (!isLoaded || (organization?.id && team === undefined)) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-      </div>
+      <AppLoadingState
+        variant="section"
+        title="Loading product library"
+        description="Preparing organization product settings."
+        className="min-h-[40vh]"
+      />
     );
   }
 

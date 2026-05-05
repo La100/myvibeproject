@@ -1,9 +1,9 @@
 import { Suspense } from "react";
-import FilesView, { FilesViewSkeleton } from "./components/FilesView";
+import FilesView, { FilesViewLoading } from "./components/FilesView";
 
 export default function ProjectFilesPage() {
   return (
-    <Suspense fallback={<FilesViewSkeleton />}>
+    <Suspense fallback={<FilesViewLoading />}>
       <FilesView />
     </Suspense>
   );

@@ -9,6 +9,7 @@ import { UserPlus, UserX, Crown, User } from "lucide-react";
 import { toast } from "sonner";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import { Id } from "@/convex/_generated/dataModel";
+import { AppLoadingState } from "@/components/ui/loading-state";
 
 interface ProjectMembersProps {
   project: {
@@ -45,7 +46,14 @@ export default function ProjectMembers({ project }: ProjectMembersProps) {
   const isCurrentUserAdmin = currentUserMember?.role === "admin";
 
   if (!projectMembers || !currentUserMember) {
-    return <div>Loading members...</div>;
+    return (
+      <AppLoadingState
+        variant="inline"
+        title="Loading members"
+        description="Preparing project access."
+        className="min-h-[180px]"
+      />
+    );
   }
 
   const admins = projectMembers.filter((member: TeamMember) => member.role === "admin");

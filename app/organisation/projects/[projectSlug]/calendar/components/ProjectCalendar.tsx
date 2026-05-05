@@ -5,12 +5,12 @@ import { useQuery } from "convex/react";
 import { useProject } from "@/components/providers/ProjectProvider";
 import {
   OperationsCalendar,
-  OperationsCalendarSkeleton,
+  OperationsCalendarLoading,
   type CalendarResponse,
 } from "@/components/calendar/OperationsCalendar";
 import { apiAny } from "@/lib/convexApiAny";
 
-export { OperationsCalendarSkeleton as ProjectCalendarSkeleton };
+export { OperationsCalendarLoading as ProjectCalendarLoading };
 
 export default function ProjectCalendar() {
   const { project } = useProject();

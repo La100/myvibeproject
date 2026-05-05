@@ -1,11 +1,11 @@
 import { Suspense } from "react";
 import OrganizationCalendar, {
-  OrganizationCalendarSkeleton,
+  OrganizationCalendarLoading,
 } from "./components/OrganizationCalendar";
 
 export default function OrganizationCalendarPage() {
   return (
-    <Suspense fallback={<OrganizationCalendarSkeleton />}>
+    <Suspense fallback={<OrganizationCalendarLoading />}>
       <OrganizationCalendar />
     </Suspense>
   );

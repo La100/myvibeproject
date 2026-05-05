@@ -6,6 +6,7 @@ import { apiAny } from "@/lib/convexApiAny";
 import { Id } from "@/convex/_generated/dataModel";
 import { EditSurveyForm } from "@/components/surveys/EditSurveyForm";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
+import { AppLoadingState } from "@/components/ui/loading-state";
 
 export default function EditSurveyPage() {
   const params = useParams();
@@ -14,7 +15,13 @@ export default function EditSurveyPage() {
   const survey = useQuery(apiAny.surveys.getSurvey, { surveyId });
 
   if (!survey) {
-    return <div>Loading...</div>;
+    return (
+      <AppLoadingState
+        variant="section"
+        title="Loading survey"
+        description="Preparing the editor."
+      />
+    );
   }
 
   // Transform the survey data to match the expected format

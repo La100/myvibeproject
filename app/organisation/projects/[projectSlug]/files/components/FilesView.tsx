@@ -34,7 +34,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 
-export function FilesViewSkeleton() {
+export function FilesViewLoading() {
   return <Spinner className="p-6" />;
 }
 

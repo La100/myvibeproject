@@ -56,6 +56,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { TimezonePicker } from "@/components/ui/timezone-picker";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AppLoadingState } from "@/components/ui/loading-state";
 import {
   GPT_IMAGE_TYPICAL_CREDITS,
   formatTokens,
@@ -561,25 +562,21 @@ export default function CompanySettings({
 
   if (shouldRedirectToSubscription) {
     return (
-      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        <p className="text-sm text-muted-foreground animate-pulse">
-          Opening subscription...
-        </p>
-      </div>
+      <AppLoadingState
+        variant="section"
+        title="Opening subscription"
+        description="Preparing billing access."
+      />
     );
   }
 
   if (!isLoaded) {
     return (
-      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        <p className="text-sm text-muted-foreground animate-pulse">
-          {isSubscriptionPage
-            ? "Loading subscription..."
-            : "Loading settings..."}
-        </p>
-      </div>
+      <AppLoadingState
+        variant="section"
+        title={isSubscriptionPage ? "Loading subscription" : "Loading settings"}
+        description="Loading organization data."
+      />
     );
   }
 
@@ -609,14 +606,11 @@ export default function CompanySettings({
 
   if (teamData === undefined || repairingTeamState) {
     return (
-      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        <p className="text-sm text-muted-foreground animate-pulse">
-          {isSubscriptionPage
-            ? "Loading subscription..."
-            : "Loading settings..."}
-        </p>
-      </div>
+      <AppLoadingState
+        variant="section"
+        title={isSubscriptionPage ? "Loading subscription" : "Loading settings"}
+        description={repairingTeamState ? "Syncing organization membership." : "Loading team settings."}
+      />
     );
   }
 
@@ -667,12 +661,11 @@ export default function CompanySettings({
 
   if (isSubscriptionDataLoading) {
     return (
-      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        <p className="text-sm text-muted-foreground animate-pulse">
-          Loading subscription...
-        </p>
-      </div>
+      <AppLoadingState
+        variant="section"
+        title="Loading subscription"
+        description="Loading usage, invoices, and plan limits."
+      />
     );
   }
 

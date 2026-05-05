@@ -285,11 +285,11 @@ function resolveClientPortalDigestRecipientIds(
   );
 }
 
-function ProjectSettingsSkeleton() {
+function ProjectSettingsLoading() {
   return <Spinner className="pb-8" />;
 }
 
-function SettingsTabSkeleton() {
+function SettingsTabLoading() {
   return (
     <Card className="clean-surface">
       <CardContent className="p-6 md:p-8">
@@ -606,13 +606,13 @@ function ProjectSettingsContent() {
                 ) : null}
 
                 {activeTab === "members" ? (
-                  <Suspense fallback={<SettingsTabSkeleton />}>
+                  <Suspense fallback={<SettingsTabLoading />}>
                     <MembersTab project={project} />
                   </Suspense>
                 ) : null}
 
                 {activeTab === "taskstatus" ? (
-                  <Suspense fallback={<SettingsTabSkeleton />}>
+                  <Suspense fallback={<SettingsTabLoading />}>
                     <TaskStatusTab project={project} />
                   </Suspense>
                 ) : null}
@@ -637,7 +637,7 @@ function ProjectSettingsContent() {
 
 export default function ProjectSettings() {
   return (
-    <Suspense fallback={<ProjectSettingsSkeleton />}>
+    <Suspense fallback={<ProjectSettingsLoading />}>
       <ProjectSettingsContent />
     </Suspense>
   );

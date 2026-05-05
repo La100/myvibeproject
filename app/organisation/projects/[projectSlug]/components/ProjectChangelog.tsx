@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 import {
   ActivityChangelog,
-  ActivityChangelogSkeleton,
+  ActivityChangelogLoading,
 } from "@/components/shared/ActivityChangelog";
 
 type ProjectChangelogProps = {
@@ -17,7 +17,7 @@ type ProjectChangelogProps = {
   className?: string;
 };
 
-export { ActivityChangelogSkeleton as ProjectChangelogSkeleton };
+export { ActivityChangelogLoading as ProjectChangelogLoading };
 
 export function ProjectChangelog({
   enabled = true,

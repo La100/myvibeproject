@@ -28,7 +28,7 @@ type OrganizationClientNotificationsProps = {
   className?: string;
 };
 
-function OrganizationClientNotificationsSkeleton({
+function OrganizationClientNotificationsLoading({
   className,
 }: {
   className?: string;
@@ -116,7 +116,7 @@ export function OrganizationClientNotifications({
   }
 
   if (!notificationsQuery) {
-    return <OrganizationClientNotificationsSkeleton className={className} />;
+    return <OrganizationClientNotificationsLoading className={className} />;
   }
 
   return (
@@ -144,4 +144,4 @@ export function OrganizationClientNotifications({
   );
 }
 
-export { OrganizationClientNotificationsSkeleton };
+export { OrganizationClientNotificationsLoading };

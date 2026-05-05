@@ -279,7 +279,7 @@ export default function NotesView() {
   };
 
   if (notes === undefined) {
-    return <NotesViewSkeleton />;
+    return <NotesViewLoading />;
   }
 
   return (
@@ -377,6 +377,6 @@ export default function NotesView() {
   );
 }
 
-export function NotesViewSkeleton() {
+export function NotesViewLoading() {
   return <Spinner />;
 } 

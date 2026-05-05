@@ -6,11 +6,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Spinner } from "@/components/ui/spinner";
+import { AppLoadingState } from "@/components/ui/loading-state";
 import { apiAny } from "@/lib/convexApiAny";
 import { selectOrganizationUrl } from "@/lib/authRedirects";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
-import { cn } from "@/lib/utils";
 
 const BOOTSTRAP_RETRY_DELAY_MS = 1_000;
 
@@ -21,30 +20,6 @@ const isTransientActiveOrganizationSyncError = (error: unknown) => {
     message.includes("selected organization does not match active auth context")
   );
 };
-
-function LoadingState({
-  title,
-  description,
-  className,
-}: {
-  title: string;
-  description: string;
-  className?: string;
-}) {
-  return (
-    <div className={cn("flex min-h-[220px] items-center justify-center px-4", className)}>
-      <Card className="w-full max-w-md">
-        <CardHeader className="flex flex-col gap-2 text-center">
-          <CardTitle className="text-lg font-medium">{title}</CardTitle>
-          <CardDescription>{description}</CardDescription>
-        </CardHeader>
-        <CardContent className="flex justify-center pb-8">
-          <Spinner fullHeight={false} className="py-0" iconClassName="size-5" />
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
 
 function ErrorState({
   title,
@@ -189,5 +164,12 @@ export function PostAuthRouter() {
     );
   }
 
-  return <LoadingState title="Loading your workspace..." description={loadingDescription} />;
+  return (
+    <AppLoadingState
+      variant="section"
+      title="Loading workspace"
+      description={loadingDescription}
+      showBrand
+    />
+  );
 }

@@ -29,6 +29,7 @@ import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/c
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { AppLoadingState } from "@/components/ui/loading-state";
 
 const DEFAULT_CLIENT_PANEL_SETTINGS = {
   showShoppingList: false,
@@ -307,9 +308,11 @@ export default function CustomerPanelPage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-[240px] items-center justify-center">
-        <p className="text-sm text-muted-foreground">Loading portal...</p>
-      </div>
+      <AppLoadingState
+        variant="panel"
+        title="Loading portal"
+        description="Preparing client portal settings."
+      />
     );
   }
 

@@ -23,7 +23,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty"
-import { Skeleton } from "@/components/ui/skeleton"
+import { Spinner } from "@/components/ui/spinner"
 import { apiAny } from "@/lib/convexApiAny"
 import { Id } from "@/convex/_generated/dataModel"
 import { cn } from "@/lib/utils"
@@ -204,31 +204,15 @@ const getActivityDescription = (
   }
 }
 
-function ActivityLogSkeleton() {
-  return (
-    <div className="flex flex-col gap-4">
-      {Array.from({ length: 3 }).map((_, index) => (
-        <div
-          key={index}
-          className="flex items-start gap-3 rounded-lg border bg-card p-4"
-        >
-          <Skeleton className="size-8 rounded-full" />
-          <Skeleton className="size-8 rounded-full" />
-          <div className="flex flex-1 flex-col gap-2">
-            <Skeleton className="h-4 w-3/4" />
-            <Skeleton className="h-3 w-1/2" />
-          </div>
-        </div>
-      ))}
-    </div>
-  )
+function ActivityLogLoading() {
+  return <Spinner fullHeight={false} className="py-8" iconClassName="size-5" />
 }
 
 export default function ActivityLog({ taskId }: ActivityLogProps) {
   const activities = useQuery(apiAny.activityLog.getForTask, { taskId })
 
   if (!activities) {
-    return <ActivityLogSkeleton />
+    return <ActivityLogLoading />
   }
 
   if (activities.length === 0) {

@@ -56,7 +56,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { isClientNotificationActivity } from "@/lib/projectClientNotifications";
 
 function ProjectSidebarContent() {
@@ -352,26 +352,8 @@ export function ProjectSidebar() {
     <Suspense
       fallback={
         <Sidebar variant="inset">
-          <SidebarHeader className="border-b border-sidebar-border/70">
-            <div className="flex flex-col gap-2 py-2 px-2">
-              <div className="px-2 py-1">
-                <Skeleton className="mb-1 h-7" />
-                <Skeleton className="h-4 w-2/3" />
-              </div>
-            </div>
-          </SidebarHeader>
-          <SidebarContent>
-            <SidebarGroup>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {Array.from({ length: 7 }).map((_, i) => (
-                    <SidebarMenuItem key={i}>
-                      <Skeleton className="mx-2 mb-1 h-10" />
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
+          <SidebarContent className="justify-center">
+            <Spinner fullHeight={false} iconClassName="size-5" />
           </SidebarContent>
         </Sidebar>
       }

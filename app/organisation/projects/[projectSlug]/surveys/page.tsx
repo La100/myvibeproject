@@ -25,7 +25,7 @@ export default async function SurveysPage({ params }: SurveysPageProps) {
     : null;
 
   return (
-    <Suspense fallback={<SurveysSkeleton />}>
+    <Suspense fallback={<SurveysLoading />}>
       <SurveysContent preloadedProject={preloadedProject} projectSlug={projectSlug} />
     </Suspense>
   );
@@ -75,6 +75,6 @@ async function SurveysContent({ preloadedProject, projectSlug }: { preloadedProj
   );
 }
 
-function SurveysSkeleton() {
+function SurveysLoading() {
   return <Spinner className="container mx-auto p-6" />;
 }

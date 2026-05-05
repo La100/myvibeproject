@@ -5,7 +5,7 @@ import { useQuery } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import { useEffect, useMemo } from "react";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
-import { Spinner } from "@/components/ui/spinner";
+import { AppLoadingState } from "@/components/ui/loading-state";
 import { CompanySidebar } from "@/components/company/CompanySidebar";
 import { useAuth, useOrganization } from "@clerk/nextjs";
 import { ChevronRight } from "lucide-react";
@@ -120,12 +120,12 @@ export default function CompanyLayout({
     !organization
   ) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="clean-panel flex w-full max-w-sm flex-col items-center gap-3 px-6 py-8 text-center">
-          <Spinner fullHeight={false} className="py-0" iconClassName="size-5" />
-          <p className="text-sm text-muted-foreground">Preparing workspace...</p>
-        </div>
-      </div>
+      <AppLoadingState
+        variant="section"
+        title="Preparing workspace"
+        description="Loading organization settings and access."
+        showBrand
+      />
     );
   }
 
