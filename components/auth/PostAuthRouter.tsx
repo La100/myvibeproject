@@ -15,10 +15,23 @@ import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 const BOOTSTRAP_RETRY_DELAY_MS = 1_000;
 
 const isTransientActiveOrganizationSyncError = (error: unknown) => {
-  const message = toUserFacingErrorMessage(error).toLowerCase();
+  const rawMessage =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : error &&
+            typeof error === "object" &&
+            "data" in error &&
+            typeof (error as { data?: { message?: unknown } }).data?.message === "string"
+          ? (error as { data: { message: string } }).data.message
+          : "";
+  const message = `${rawMessage}\n${toUserFacingErrorMessage(error)}`.toLowerCase();
   return (
     message.includes("active organization is still syncing") ||
-    message.includes("selected organization does not match active auth context")
+    message.includes("selected organization does not match active auth context") ||
+    message.includes("server error called by client") ||
+    message.includes("your workspace is still syncing")
   );
 };
 
