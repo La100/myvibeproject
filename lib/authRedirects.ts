@@ -7,7 +7,6 @@ const AUTH_ROUTE_PREFIXES = [
   "/sign-in",
   "/sign-up",
   "/sso-callback",
-  "/session-tasks",
 ];
 
 const normalizeRedirectTarget = (value: string | undefined, fallback: string) => {
@@ -15,11 +14,21 @@ const normalizeRedirectTarget = (value: string | undefined, fallback: string) =>
     return fallback;
   }
 
-  if (!value.startsWith("/") || value.startsWith("//")) {
-    return fallback;
+  let target = value;
+
+  if (!target.startsWith("/") || target.startsWith("//")) {
+    try {
+      const parsed = new URL(target);
+      if (parsed.hostname !== "myvibeproject.com") {
+        return fallback;
+      }
+      target = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    } catch {
+      return fallback;
+    }
   }
 
-  const pathname = value.split(/[?#]/, 1)[0] || "/";
+  const pathname = target.split(/[?#]/, 1)[0] || "/";
   if (
     AUTH_ROUTE_PREFIXES.some(
       (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
@@ -28,7 +37,7 @@ const normalizeRedirectTarget = (value: string | undefined, fallback: string) =>
     return fallback;
   }
 
-  return value;
+  return target;
 };
 
 export const signInFallbackRedirectUrl = normalizeRedirectTarget(
