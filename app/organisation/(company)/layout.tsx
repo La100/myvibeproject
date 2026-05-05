@@ -39,14 +39,6 @@ export default function CompanyLayout({
       router.replace(postAuthResolverUrl);
       return;
     }
-    if (
-      isLoaded &&
-      organization?.id &&
-      teamSettings &&
-      !teamSettings.onboardingCompleted
-    ) {
-      router.replace("/onboarding");
-    }
   }, [isAuthLoaded, isSignedIn, isLoaded, organization?.id, router, teamSettings]);
 
   const breadcrumbs = useMemo(() => {
@@ -124,7 +116,6 @@ export default function CompanyLayout({
     !isSignedIn ||
     teamSettings === undefined ||
     teamSettings === null ||
-    teamSettings.onboardingCompleted === false ||
     !isLoaded ||
     !organization
   ) {

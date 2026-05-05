@@ -8,6 +8,15 @@ const generateSlug = (name: string) => {
     .replace(/[^\w-]+/g, "");
 };
 
+const DEFAULT_WORKSPACE_CURRENCY = "PLN" as const;
+const DEFAULT_WORKSPACE_TIMEZONE = "Europe/Warsaw";
+
+const automaticWorkspaceDefaults = () => ({
+  currency: DEFAULT_WORKSPACE_CURRENCY,
+  timezone: DEFAULT_WORKSPACE_TIMEZONE,
+  onboardingCompletedAt: Date.now(),
+});
+
 export const ensureCurrentUserTeamMembership = mutation({
   args: {
     clerkOrgId: v.string(),
@@ -51,15 +60,33 @@ export const ensureCurrentUserTeamMembership = mutation({
         clerkOrgId: args.clerkOrgId,
         name: fallbackName,
         slug: generateSlug(fallbackName || args.clerkOrgId),
-        onboardingCompletedAt: 0,
+        ...automaticWorkspaceDefaults(),
       });
       team = await ctx.db.get(teamId);
       if (!team) {
         throw new Error("Failed to create team");
       }
-    } else if (args.orgName && args.orgName !== team.name) {
-      const updatedSlug = generateSlug(args.orgName.trim()) || generateSlug(args.clerkOrgId) || args.clerkOrgId;
-      await ctx.db.patch(team._id, { name: args.orgName, slug: updatedSlug });
+    } else {
+      const patch: Record<string, unknown> = {};
+
+      if (args.orgName && args.orgName !== team.name) {
+        patch.name = args.orgName;
+        patch.slug = generateSlug(args.orgName.trim()) || generateSlug(args.clerkOrgId) || args.clerkOrgId;
+      }
+      if (!team.onboardingCompletedAt || team.onboardingCompletedAt <= 0) {
+        patch.onboardingCompletedAt = Date.now();
+      }
+      if (!team.currency) {
+        patch.currency = DEFAULT_WORKSPACE_CURRENCY;
+      }
+      if (!team.timezone) {
+        patch.timezone = DEFAULT_WORKSPACE_TIMEZONE;
+      }
+
+      if (Object.keys(patch).length > 0) {
+        await ctx.db.patch(team._id, patch);
+        team = (await ctx.db.get(team._id)) ?? team;
+      }
     }
 
     const roleClaimRaw = String(

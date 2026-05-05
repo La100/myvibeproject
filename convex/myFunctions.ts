@@ -8,6 +8,16 @@ const generateSlug = (name: string) => {
     .replace(/\s+/g, "-")
     .replace(/[^\w-]+/g, "");
 };
+
+const DEFAULT_WORKSPACE_CURRENCY = "PLN" as const;
+const DEFAULT_WORKSPACE_TIMEZONE = "Europe/Warsaw";
+
+const automaticWorkspaceDefaults = () => ({
+  currency: DEFAULT_WORKSPACE_CURRENCY,
+  timezone: DEFAULT_WORKSPACE_TIMEZONE,
+  onboardingCompletedAt: Date.now(),
+});
+
 // Create a new user or update an existing one from Clerk webhook
 export const createOrUpdateUser = internalMutation({
   args: {
@@ -72,14 +82,28 @@ export const createOrUpdateTeam = internalMutation({
     const slug = args.slug || generateSlug(args.name);
 
     if (team) {
-      await ctx.db.patch(team._id, { name: args.name, slug: slug, imageUrl: args.imageUrl });
+      const patch: Record<string, unknown> = {
+        name: args.name,
+        slug: slug,
+        imageUrl: args.imageUrl,
+      };
+      if (!team.onboardingCompletedAt || team.onboardingCompletedAt <= 0) {
+        patch.onboardingCompletedAt = Date.now();
+      }
+      if (!team.currency) {
+        patch.currency = DEFAULT_WORKSPACE_CURRENCY;
+      }
+      if (!team.timezone) {
+        patch.timezone = DEFAULT_WORKSPACE_TIMEZONE;
+      }
+      await ctx.db.patch(team._id, patch);
     } else {
       await ctx.db.insert("teams", {
         clerkOrgId: args.clerkOrgId,
         name: args.name,
         slug: slug,
         imageUrl: args.imageUrl,
-        onboardingCompletedAt: 0,
+        ...automaticWorkspaceDefaults(),
         // createdBy is optional and will not be set by the webhook
       });
     }
@@ -264,12 +288,13 @@ export const createOrUpdateMembership = internalMutation({
         
         if(!team) {
             console.warn(`Team not found for clerkOrgId: ${args.clerkOrgId}. Creating it from membership webhook.`);
+            const defaults = automaticWorkspaceDefaults();
             const teamId = await ctx.db.insert("teams", {
                 clerkOrgId: args.clerkOrgId,
                 name: args.orgName,
                 slug: args.orgSlug,
                 imageUrl: args.orgImageUrl,
-                onboardingCompletedAt: 0,
+                ...defaults,
             });
             team = {
                 _id: teamId,
@@ -278,9 +303,27 @@ export const createOrUpdateMembership = internalMutation({
                 name: args.orgName,
                 slug: args.orgSlug,
                 imageUrl: args.orgImageUrl,
-                onboardingCompletedAt: 0,
+                ...defaults,
             };
+        } else {
+            const patch: Record<string, unknown> = {};
+            if (!team.onboardingCompletedAt || team.onboardingCompletedAt <= 0) {
+                patch.onboardingCompletedAt = Date.now();
+            }
+            if (!team.currency) {
+                patch.currency = DEFAULT_WORKSPACE_CURRENCY;
+            }
+            if (!team.timezone) {
+                patch.timezone = DEFAULT_WORKSPACE_TIMEZONE;
+            }
+            if (Object.keys(patch).length > 0) {
+                await ctx.db.patch(team._id, patch);
+            }
         };
+
+        if (!team) {
+            throw new Error("Failed to create team for membership");
+        }
 
         const user = await ctx.db
             .query("users")

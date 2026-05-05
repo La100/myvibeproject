@@ -587,7 +587,7 @@ export default function CompanySettings({
     return (
       <div className="flex min-h-[70vh] items-center justify-center p-6">
         <div className="flex w-full max-w-md flex-col gap-4 text-center">
-          <h1 className="text-2xl font-semibold">Finish workspace setup</h1>
+          <h1 className="text-2xl font-semibold">Select a workspace</h1>
           <p className="text-sm text-muted-foreground">
             You need an active organization to access{" "}
             {isSubscriptionPage
@@ -597,10 +597,10 @@ export default function CompanySettings({
           </p>
           <Button
             type="button"
-            onClick={() => router.replace("/onboarding")}
+            onClick={() => router.replace("/select-organization")}
             className="px-6"
           >
-            Go to onboarding
+            Select organization
           </Button>
         </div>
       </div>

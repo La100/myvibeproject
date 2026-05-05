@@ -163,7 +163,7 @@ export default function CompanyProjects() {
             <EmptyHeader className="max-w-xl gap-3">
               <EmptyMedia
                 variant="icon"
-                className="mb-3 size-14 rounded-2xl [&_svg:not([class*='size-'])]:size-8"
+                className="mb-3 size-14 rounded-2xl bg-white [&_svg:not([class*='size-'])]:size-8"
               >
                 <FolderOpen strokeWidth={1.5} />
               </EmptyMedia>

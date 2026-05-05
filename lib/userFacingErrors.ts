@@ -67,6 +67,15 @@ export const toUserFacingErrorMessage = (error: unknown) => {
   }
 
   if (
+    normalizedLowercaseMessage.includes(
+      "maximum number of team members",
+    ) ||
+    normalizedLowercaseMessage.includes("member_limit_reached")
+  ) {
+    return "You've reached the maximum number of team members for your current plan. Upgrade your subscription or remove a pending invitation before inviting someone else.";
+  }
+
+  if (
     message === "Only admins can revoke invitations" ||
     message === "Only admins can remove team members" ||
     message === "Only admins can change member roles" ||

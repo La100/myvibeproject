@@ -625,6 +625,15 @@ const generateSlug = (name: string) => {
     .replace(/[^\w-]+/g, "");
 };
 
+const DEFAULT_WORKSPACE_CURRENCY = "PLN" as const;
+const DEFAULT_WORKSPACE_TIMEZONE = "Europe/Warsaw";
+
+const automaticWorkspaceDefaults = () => ({
+  currency: DEFAULT_WORKSPACE_CURRENCY,
+  timezone: DEFAULT_WORKSPACE_TIMEZONE,
+  onboardingCompletedAt: Date.now(),
+});
+
 export const syncTeamWithClerkOrg = mutation({
   args: {
     clerkOrgId: v.string(),
@@ -643,9 +652,21 @@ export const syncTeamWithClerkOrg = mutation({
       .unique();
 
     if (existingTeam) {
-      // Update existing team if name has changed
+      const patch: Record<string, unknown> = {};
       if (existingTeam.name !== args.orgName) {
-        await ctx.db.patch(existingTeam._id, { name: args.orgName });
+        patch.name = args.orgName;
+      }
+      if (!existingTeam.onboardingCompletedAt || existingTeam.onboardingCompletedAt <= 0) {
+        patch.onboardingCompletedAt = Date.now();
+      }
+      if (!existingTeam.currency) {
+        patch.currency = DEFAULT_WORKSPACE_CURRENCY;
+      }
+      if (!existingTeam.timezone) {
+        patch.timezone = DEFAULT_WORKSPACE_TIMEZONE;
+      }
+      if (Object.keys(patch).length > 0) {
+        await ctx.db.patch(existingTeam._id, patch);
       }
     } else {
       // Create new team
@@ -653,7 +674,7 @@ export const syncTeamWithClerkOrg = mutation({
         clerkOrgId: args.clerkOrgId,
         name: args.orgName,
         slug: generateSlug(args.orgName),
-        onboardingCompletedAt: 0,
+        ...automaticWorkspaceDefaults(),
       });
     }
   },
@@ -963,6 +984,27 @@ export const inviteTeamMember = mutation({
       if (activeMemberships.length > 0) {
         throw new Error("User already belongs to another workspace");
       }
+    }
+
+    const limits = getEffectiveLimits(team);
+    const activeMemberCount = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect()
+      .then((members) => members.length);
+    const pendingInvitationCount = await ctx.db
+      .query("invitations")
+      .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+      .filter((q) => q.eq(q.field("status"), "pending"))
+      .collect()
+      .then((invitations) => invitations.length);
+
+    const reservedMemberSeats = activeMemberCount + pendingInvitationCount;
+    if (reservedMemberSeats >= limits.maxTeamMembers) {
+      throw new Error(
+        `You've reached the maximum number of team members (${limits.maxTeamMembers}) for your current plan.`,
+      );
     }
 
     const scheduler = ctx.scheduler as {

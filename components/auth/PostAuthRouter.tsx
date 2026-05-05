@@ -152,7 +152,7 @@ export function PostAuthRouter() {
       return;
     }
 
-    router.replace(teamSettings.onboardingCompleted ? "/organisation" : "/onboarding");
+    router.replace("/organisation");
   }, [organization?.id, router, teamSettings]);
 
   const loadingDescription = useMemo(() => {

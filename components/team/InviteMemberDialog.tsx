@@ -54,6 +54,13 @@ const getInviteErrorToast = (error: unknown) => {
     };
   }
 
+  if (message.startsWith("You've reached the maximum number of team members")) {
+    return {
+      title: "Team member limit reached",
+      description: message,
+    };
+  }
+
   return {
     title: "Failed to send invitation",
     description: message,
