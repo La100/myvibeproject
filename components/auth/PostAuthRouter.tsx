@@ -13,6 +13,7 @@ import { selectOrganizationUrl } from "@/lib/authRedirects";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
 const BOOTSTRAP_RETRY_DELAY_MS = 1_000;
+const BOOTSTRAP_ERROR_GRACE_PERIOD_MS = 8_000;
 
 const isTransientActiveOrganizationSyncError = (error: unknown) => {
   const rawMessage =
@@ -90,6 +91,7 @@ export function PostAuthRouter() {
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [bootstrapAttempt, setBootstrapAttempt] = useState(0);
   const bootstrappedOrgIdRef = useRef<string | null>(null);
+  const bootstrapStartedAtRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!isAuthLoaded || !isOrganizationLoaded) {
@@ -113,6 +115,7 @@ export function PostAuthRouter() {
     }
 
     let cancelled = false;
+    bootstrapStartedAtRef.current ??= Date.now();
     bootstrappedOrgIdRef.current = organization.id;
     setBootstrapError(null);
 
@@ -124,7 +127,10 @@ export function PostAuthRouter() {
         return;
       }
       bootstrappedOrgIdRef.current = null;
-      if (isTransientActiveOrganizationSyncError(error)) {
+      const bootstrapStartedAt = bootstrapStartedAtRef.current ?? Date.now();
+      const isStillWithinGracePeriod =
+        Date.now() - bootstrapStartedAt < BOOTSTRAP_ERROR_GRACE_PERIOD_MS;
+      if (isTransientActiveOrganizationSyncError(error) || isStillWithinGracePeriod) {
         window.setTimeout(() => {
           if (!cancelled) {
             setBootstrapAttempt((attempt) => attempt + 1);
@@ -154,6 +160,7 @@ export function PostAuthRouter() {
       return;
     }
 
+    bootstrapStartedAtRef.current = null;
     router.replace("/organisation");
   }, [organization?.id, router, teamSettings]);
 
