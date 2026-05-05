@@ -13,6 +13,34 @@ import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
 const BOOTSTRAP_RETRY_DELAY_MS = 1_000;
 
+const getOrganizationIdFromJwt = (token: string | null) => {
+  if (!token) {
+    return null;
+  }
+
+  const [, payload] = token.split(".");
+  if (!payload) {
+    return null;
+  }
+
+  try {
+    const normalizedPayload = payload
+      .replace(/-/g, "+")
+      .replace(/_/g, "/")
+      .padEnd(Math.ceil(payload.length / 4) * 4, "=");
+    const claims = JSON.parse(window.atob(normalizedPayload)) as {
+      org_id?: unknown;
+      orgId?: unknown;
+    };
+    const orgId = claims.org_id ?? claims.orgId;
+    return typeof orgId === "string" && orgId.trim().length > 0
+      ? orgId
+      : null;
+  } catch {
+    return null;
+  }
+};
+
 const isTransientActiveOrganizationSyncError = (error: unknown) => {
   const message = toUserFacingErrorMessage(error).toLowerCase();
   return (
@@ -47,7 +75,12 @@ function ErrorState({
 
 export function PostAuthRouter() {
   const router = useRouter();
-  const { isLoaded: isAuthLoaded, isSignedIn } = useAuth();
+  const {
+    getToken,
+    isLoaded: isAuthLoaded,
+    isSignedIn,
+    orgId: activeClerkOrgId,
+  } = useAuth();
   const { isLoading: isConvexAuthLoading, isAuthenticated: isConvexAuthenticated } = useConvexAuth();
   const { organization, isLoaded: isOrganizationLoaded } = useOrganization();
   const ensureCurrentUserTeamMembership = useMutation(
@@ -59,6 +92,7 @@ export function PostAuthRouter() {
   );
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [bootstrapAttempt, setBootstrapAttempt] = useState(0);
+  const [isConvexOrganizationClaimReady, setIsConvexOrganizationClaimReady] = useState(false);
   const bootstrappedOrgIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -72,11 +106,78 @@ export function PostAuthRouter() {
   }, [isAuthLoaded, isOrganizationLoaded, isSignedIn, organization?.id, router]);
 
   useEffect(() => {
+    if (!organization?.id) {
+      setIsConvexOrganizationClaimReady(false);
+      return;
+    }
+
+    if (
+      !isAuthLoaded ||
+      !isSignedIn ||
+      !activeClerkOrgId ||
+      activeClerkOrgId !== organization.id ||
+      isConvexAuthLoading ||
+      !isConvexAuthenticated
+    ) {
+      setIsConvexOrganizationClaimReady(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    void getToken({ template: "convex", skipCache: true })
+      .then((token) => {
+        if (cancelled) {
+          return;
+        }
+
+        const tokenOrgId = getOrganizationIdFromJwt(token);
+        if (tokenOrgId === organization.id) {
+          setIsConvexOrganizationClaimReady(true);
+          return;
+        }
+
+        setIsConvexOrganizationClaimReady(false);
+        window.setTimeout(() => {
+          if (!cancelled) {
+            setBootstrapAttempt((attempt) => attempt + 1);
+          }
+        }, BOOTSTRAP_RETRY_DELAY_MS);
+      })
+      .catch(() => {
+        if (cancelled) {
+          return;
+        }
+
+        setIsConvexOrganizationClaimReady(false);
+        window.setTimeout(() => {
+          if (!cancelled) {
+            setBootstrapAttempt((attempt) => attempt + 1);
+          }
+        }, BOOTSTRAP_RETRY_DELAY_MS);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    activeClerkOrgId,
+    bootstrapAttempt,
+    getToken,
+    isAuthLoaded,
+    isConvexAuthenticated,
+    isConvexAuthLoading,
+    isSignedIn,
+    organization?.id,
+  ]);
+
+  useEffect(() => {
     if (
       !organization?.id ||
       teamSettings !== null ||
       isConvexAuthLoading ||
       !isConvexAuthenticated ||
+      !isConvexOrganizationClaimReady ||
       bootstrappedOrgIdRef.current === organization.id
     ) {
       return;
@@ -112,6 +213,7 @@ export function PostAuthRouter() {
   }, [
     bootstrapAttempt,
     ensureCurrentUserTeamMembership,
+    isConvexOrganizationClaimReady,
     isConvexAuthenticated,
     isConvexAuthLoading,
     organization?.id,
@@ -137,6 +239,9 @@ export function PostAuthRouter() {
     if (isConvexAuthLoading || !isConvexAuthenticated) {
       return "Connecting your session to the workspace.";
     }
+    if (!isConvexOrganizationClaimReady) {
+      return "Syncing your active workspace.";
+    }
     if (teamSettings === null) {
       return "Preparing your workspace.";
     }
@@ -145,6 +250,7 @@ export function PostAuthRouter() {
     isAuthLoaded,
     isConvexAuthenticated,
     isConvexAuthLoading,
+    isConvexOrganizationClaimReady,
     isOrganizationLoaded,
     organization?.id,
     teamSettings,
