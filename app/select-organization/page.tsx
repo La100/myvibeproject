@@ -1,6 +1,6 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -122,7 +122,7 @@ export default function SelectOrganizationPage() {
           <section className="hidden lg:block">
             <div className="max-w-xl">
               <Link href="/" className="mb-8 inline-flex items-center gap-3">
-                <Image
+                <img
                   src="/logo.svg"
                   alt="Myvibe project"
                   width={56}
@@ -149,7 +149,7 @@ export default function SelectOrganizationPage() {
             <div className="mx-auto w-full max-w-[520px] rounded-3xl border border-border/70 bg-card/95 p-6 shadow-sm backdrop-blur xl:p-8">
               <div className="mb-6 lg:hidden">
                 <Link href="/" className="inline-flex items-center gap-3">
-                  <Image
+                  <img
                     src="/logo.svg"
                     alt="Myvibe project"
                     width={44}

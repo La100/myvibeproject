@@ -1,6 +1,6 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
-import Image from "next/image";
 import { Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -56,11 +56,10 @@ export function OrganizationImagePicker({
             className="h-full w-full object-cover"
           />
         ) : (
-          <Image
+          <img
             src="/logo.svg"
             alt="Myvibe Project"
-            fill
-            className="object-contain p-2"
+            className="h-full w-full object-contain p-2"
           />
         )}
       </div>

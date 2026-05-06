@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useUser } from "@clerk/nextjs";
@@ -19,7 +20,6 @@ import {
   ShoppingCart,
   Sparkles,
 } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import type { ComponentType, ReactNode } from "react";
 
@@ -288,27 +288,22 @@ function ImagePanel({
   visual,
   className,
   imageClassName = "object-cover",
-  sizes,
   children,
 }: {
   visual: (typeof conceptVisuals)[number];
   className: string;
   imageClassName?: string;
-  sizes: string;
   children?: ReactNode;
 }) {
   return (
     <div
       className={`relative overflow-hidden rounded-[28px] border border-black/6 bg-[#e8e4dc] shadow-[0_22px_60px_rgba(24,20,16,0.05)] ${className}`}
     >
-      <Image
+      <img
         src={visual.src}
         alt={visual.title}
-        fill
-        className={imageClassName}
+        className={`absolute inset-0 h-full w-full ${imageClassName}`}
         loading="eager"
-        unoptimized
-        sizes={sizes}
       />
       {children}
     </div>
@@ -338,13 +333,10 @@ function ProductThumb({
   return (
     <div className={`overflow-hidden rounded-[16px] border border-black/6 bg-white/76 ${className}`}>
       <div className="relative aspect-[1.15/1] bg-[#eee9df]">
-        <Image
+        <img
           src={product.src}
           alt={product.name}
-          fill
-          className="object-cover"
-          sizes="240px"
-          unoptimized
+          className="absolute inset-0 h-full w-full object-cover"
         />
       </div>
       <div className="space-y-1.5 p-3">
@@ -408,13 +400,10 @@ function ConceptWorkspaceMock() {
 
           <div className="mt-4 grid gap-3 sm:mt-5 sm:grid-cols-[1.2fr_0.8fr]">
             <div className="relative min-h-[9rem] overflow-hidden rounded-[18px] bg-[#e8e1d5] sm:min-h-[13.5rem] sm:rounded-[20px]">
-              <Image
+              <img
                 src="/landing/generated/barcelona-chair-room.png"
                 alt="Layered lounge interior direction"
-                fill
-                className="object-cover"
-                sizes="520px"
-                unoptimized
+                className="absolute inset-0 h-full w-full object-cover"
               />
               <div className="absolute left-3 top-3 rounded-full bg-white/76 px-3 py-1 text-[11px] font-medium text-foreground/62 backdrop-blur">
                 Room visual
@@ -471,13 +460,10 @@ function ShoppingWorkspaceMock() {
                 }`}
               >
                 <div className="relative h-12 w-12 overflow-hidden rounded-[12px] bg-[#ede8df]">
-                  <Image
+                  <img
                     src={product.src}
                     alt={product.name}
-                    fill
-                    className="object-cover"
-                    sizes="64px"
-                    unoptimized
+                    className="absolute inset-0 h-full w-full object-cover"
                   />
                 </div>
                 <div className="min-w-0">
@@ -546,13 +532,10 @@ function ClientReviewMock() {
       <div className="grid min-h-[24rem] gap-4 bg-white/62 p-4 text-foreground md:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
         <div className="grid min-w-0 gap-3">
           <div className="relative min-h-[11rem] overflow-hidden rounded-[20px] bg-[#e8e1d5]">
-            <Image
+            <img
               src="/landing/generated/walnut-fluted-cabinet.png"
               alt="Client review walnut storage direction"
-              fill
-              className="object-cover"
-              sizes="440px"
-              unoptimized
+              className="absolute inset-0 h-full w-full object-cover"
             />
             <div className="absolute left-3 top-3 rounded-full bg-white/78 px-3 py-1 text-[11px] font-medium text-foreground/62 backdrop-blur">
               Room direction
@@ -561,13 +544,10 @@ function ClientReviewMock() {
           <div className="grid grid-cols-3 gap-2">
             {reviewProducts.map((product) => (
               <div key={product.name} className="relative aspect-square overflow-hidden rounded-[14px] bg-[#eee9df]">
-                <Image
+                <img
                   src={product.src}
                   alt={product.name}
-                  fill
-                  className="object-cover"
-                  sizes="112px"
-                  unoptimized
+                  className="absolute inset-0 h-full w-full object-cover"
                 />
               </div>
             ))}
@@ -760,13 +740,10 @@ function ProductLibraryMock() {
               className="overflow-hidden rounded-[18px] border border-black/6 bg-white/76"
             >
               <div className="relative aspect-[1.35/1] bg-[#eee9df]">
-                <Image
+                <img
                   src={product.src}
                   alt={product.name}
-                  fill
-                  className="object-cover"
-                  sizes="240px"
-                  unoptimized
+                  className="absolute inset-0 h-full w-full object-cover"
                 />
               </div>
               <div className="p-3">
@@ -805,13 +782,10 @@ function WebClipperMock() {
           </div>
           <div className="grid min-h-full gap-6 p-3 opacity-52 sm:p-5 xl:grid-cols-[minmax(0,0.58fr)_minmax(20rem,0.42fr)] xl:pr-10">
             <div className="relative min-h-[14rem] overflow-hidden rounded-[18px] bg-white sm:min-h-[28rem] sm:rounded-[20px]">
-              <Image
+              <img
                 src="/landing/generated/boucle-lounge-sofa.png"
                 alt="Japandi rattan sofa product"
-                fill
-                className="object-cover object-center"
-                sizes="620px"
-                unoptimized
+                className="absolute inset-0 h-full w-full object-cover object-center"
               />
             </div>
             <div className="hidden pt-8 xl:block">
@@ -873,13 +847,10 @@ function WebClipperMock() {
           <div className="mt-3 rounded-[18px] border border-black/7 bg-white/86 p-4">
             <p className="text-[13px] font-semibold text-foreground/86">Product image</p>
             <div className="relative mt-4 aspect-[1.55/1] overflow-hidden rounded-[16px] bg-[#eee9df]">
-              <Image
+              <img
                 src="/landing/generated/boucle-lounge-sofa.png"
                 alt="Captured sofa product"
-                fill
-                className="object-cover"
-                sizes="320px"
-                unoptimized
+                className="absolute inset-0 h-full w-full object-cover"
               />
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2">
@@ -1002,7 +973,6 @@ function ShowcaseSection({
         className={`aspect-[1.34/1] min-h-[300px] w-full max-w-[860px] sm:min-h-[340px] ${
           reverse ? "lg:order-2 lg:justify-self-end" : ""
         }`}
-        sizes="(max-width: 1023px) 100vw, 860px"
       >
         {children}
       </ImagePanel>
@@ -1044,13 +1014,10 @@ function ProjectSystemSection() {
           <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(17rem,0.9fr)]">
             <div className="grid gap-4">
               <div className="relative min-h-[18rem] overflow-hidden rounded-[20px] bg-[#e8e1d5]">
-                <Image
+                <img
                   src="/landing/generated/oat-wool-grid-rug.png"
                   alt="Approved rug and material direction"
-                  fill
-                  className="object-cover"
-                  sizes="620px"
-                  unoptimized
+                  className="absolute inset-0 h-full w-full object-cover"
                 />
                 <div className="absolute inset-x-3 bottom-3 rounded-[18px] border border-white/52 bg-white/78 p-4 backdrop-blur-md">
                   <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1119,13 +1086,10 @@ function ProjectSystemSection() {
                 <div className="mt-4 grid grid-cols-4 gap-2">
                   {projectSystemProducts.map((product) => (
                     <div key={product.name} className="relative aspect-square overflow-hidden rounded-[12px] bg-[#eee9df]">
-                      <Image
+                      <img
                         src={product.src}
                         alt={product.name}
-                        fill
-                        className="object-cover"
-                        sizes="96px"
-                        unoptimized
+                        className="absolute inset-0 h-full w-full object-cover"
                       />
                     </div>
                   ))}

@@ -1,7 +1,7 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { Suspense, useMemo } from "react";
 import { useQuery } from "convex/react";
@@ -81,11 +81,10 @@ function OrganizationAvatar({
 
   return (
     <div className={`relative overflow-hidden border border-sidebar-border/70 bg-card ${className}`}>
-      <Image
+      <img
         src="/logo.svg"
         alt="Myvibe Project"
-        fill
-        className={`object-contain ${imagePaddingClassName}`}
+        className={`h-full w-full object-contain ${imagePaddingClassName}`}
       />
     </div>
   );
@@ -348,11 +347,10 @@ function CompanySidebarContent() {
                 >
                   {user?.imageUrl ? (
                     <div className="relative h-8 w-8 overflow-hidden rounded-full border border-sidebar-border/70">
-                      <Image
+                      <img
                         src={user.imageUrl}
                         alt={user.fullName || user.firstName || "User"}
-                        fill
-                        className="object-cover"
+                        className="h-full w-full object-cover"
                       />
                     </div>
                   ) : (

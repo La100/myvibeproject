@@ -1,7 +1,7 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import Link from "next/link";
-import NextImage from "next/image";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef } from "react";
 import { useMutation, useQuery } from "convex/react";
@@ -294,12 +294,10 @@ function ProjectSidebarContent() {
                 >
                   {user?.imageUrl ? (
                     <div className="relative h-8 w-8 overflow-hidden rounded-full border border-sidebar-border/70">
-                      <NextImage
+                      <img
                         src={user.imageUrl}
                         alt={user.fullName || user.firstName || "User"}
-                        fill
-                        sizes="32px"
-                        className="object-cover"
+                        className="h-full w-full object-cover"
                       />
                     </div>
                   ) : (

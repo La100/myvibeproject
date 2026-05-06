@@ -1,4 +1,4 @@
-import Image from "next/image";
+/* eslint-disable @next/next/no-img-element */
 import type { ReactNode } from "react";
 
 import { BrandWordmark } from "@/components/ui/brand/BrandWordmark";
@@ -50,13 +50,12 @@ export function AppLoadingState({
       >
         {showBrand ? (
           <div className="flex items-center justify-center gap-3">
-            <Image
+            <img
               src="/logo.svg"
               alt=""
               width={36}
               height={36}
               className="size-9 object-contain"
-              priority
             />
             <BrandWordmark
               className="text-foreground"

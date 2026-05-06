@@ -1,7 +1,7 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Suspense, useMemo, useRef, useState } from "react";
 import { useQueries, useQuery } from "convex/react";
@@ -920,14 +920,11 @@ function ProjectOverviewContent() {
                 <div className="relative lg:mr-4 lg:justify-self-end lg:w-full lg:max-w-[480px] lg:pb-3 xl:mr-6 xl:max-w-[560px] xl:pb-4 2xl:mr-8 2xl:max-w-[610px] 2xl:pb-5">
                   <div className="group relative min-h-[240px] overflow-hidden rounded-3xl border border-border/60 bg-secondary/70 shadow-md sm:min-h-[290px] lg:min-h-[320px] xl:min-h-[345px]">
                     <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-[10%] bg-[linear-gradient(90deg,rgba(255,255,255,0.22)_0%,rgba(255,255,255,0)_100%)]" />
-                    <Image
+                    <img
                       src={projectCoverUrl}
                       alt={`${project.name} cover`}
-                      fill
-                      priority
-                      className="object-cover transition-transform duration-700 ease-out will-change-transform group-hover:scale-[1.015]"
+                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out will-change-transform group-hover:scale-[1.015]"
                       style={{ objectPosition: "82% center" }}
-                      sizes="(min-width: 1536px) 610px, (min-width: 1280px) 560px, (min-width: 1024px) 480px, 100vw"
                     />
                   </div>
                 </div>
@@ -1118,12 +1115,10 @@ function ProjectOverviewContent() {
                         {hasImage ? (
                           <>
                             <div className="relative aspect-[1.38/1] border-b border-border/70 bg-secondary/70">
-                              <Image
+                              <img
                                 src={card.imageUrl}
                                 alt={card.title}
-                                fill
-                                className="object-cover"
-                                sizes="(max-width: 1280px) 50vw, 220px"
+                                className="absolute inset-0 h-full w-full object-cover"
                               />
                             </div>
                             <div className="flex flex-col gap-1 px-3 py-2.5">

@@ -1,9 +1,9 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useEffect, useRef, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { ArrowUp, Check, Loader2, Sparkles } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -204,13 +204,10 @@ export function HeroSection() {
 
         <div className="mt-8 overflow-hidden rounded-[32px] border border-black/8 bg-background shadow-[0_20px_80px_rgba(20,20,20,0.08)]">
           <div className="relative min-h-[560px] overflow-hidden lg:h-[820px]">
-            <Image
+            <img
               src="/visualization-1773318760233.jpg"
               alt="Myvibe sign up visual"
-              fill
-              priority
-              className="object-cover object-center"
-              sizes="(max-width: 1023px) 100vw, 1520px"
+              className="absolute inset-0 h-full w-full object-cover object-center"
             />
 
             <div className="absolute inset-0 bg-gradient-to-r from-black/24 via-black/8 to-transparent" />
@@ -334,12 +331,10 @@ export function HeroSection() {
                             className="hero-chatkit-enter overflow-hidden rounded-2xl border border-black/8 bg-white/78 shadow-[0_14px_30px_rgba(28,24,19,0.06)] sm:max-w-[88%]"
                           >
                             <div className="relative aspect-[2.1/1]">
-                              <Image
+                              <img
                                 src={generatedOutputs[0].src}
                                 alt={generatedOutputs[0].title}
-                                fill
-                                className="object-cover"
-                                sizes="(max-width: 1023px) 88vw, 620px"
+                                className="absolute inset-0 h-full w-full object-cover"
                               />
                             </div>
                             <div className="border-t border-black/8 px-3 py-2 text-[11px] font-medium text-foreground/70">
@@ -379,12 +374,10 @@ export function HeroSection() {
                                 className="overflow-hidden rounded-2xl border border-black/8 bg-white/78 shadow-[0_14px_30px_rgba(28,24,19,0.06)]"
                               >
                                 <div className="relative aspect-[1.12/1]">
-                                  <Image
+                                  <img
                                     src={output.src}
                                     alt={output.title}
-                                    fill
-                                    className="object-cover"
-                                    sizes="(max-width: 1023px) 44vw, 280px"
+                                    className="absolute inset-0 h-full w-full object-cover"
                                   />
                                 </div>
                                 <div className="border-t border-black/8 px-3 py-2 text-[11px] font-medium text-foreground/70">

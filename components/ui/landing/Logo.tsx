@@ -1,6 +1,6 @@
+/* eslint-disable @next/next/no-img-element */
 import React from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { BrandWordmark } from '@/components/ui/brand/BrandWordmark';
 
@@ -23,7 +23,7 @@ const Logo = ({
       className={cn("group inline-flex items-center gap-3", containerClassName)}
       aria-label="Myvibe Project"
     >
-      <Image
+      <img
         src="/logo.svg"
         alt="Myvibe Project"
         width={1024}

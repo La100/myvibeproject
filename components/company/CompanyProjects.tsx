@@ -1,7 +1,7 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useMemo, useState } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useOrganization } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
@@ -285,12 +285,10 @@ function ProjectCard({
         <div className="relative aspect-[1.68/1] overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-transform duration-200 group-hover:-translate-y-0.5">
           {hasCoverImage ? (
             <>
-              <Image
+              <img
                 src={project.coverImageUrl!}
                 alt={`${project.name} cover image`}
-                fill
-                className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
+                className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
             </>

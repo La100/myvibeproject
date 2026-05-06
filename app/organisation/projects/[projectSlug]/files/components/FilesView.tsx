@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useState } from "react";
@@ -11,7 +12,6 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import Image from "next/image";
 import PDFThumbnail from "@/components/ui/PDFThumbnail";
 import PDFViewer from "@/components/ui/PDFViewer";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
@@ -445,7 +445,7 @@ export default function FilesView() {
                 <div className="relative mb-3">
                   <div className="flex aspect-[5/4] items-center justify-center overflow-hidden rounded-2xl border border-border/60 bg-secondary/70">
                     {isImageFile(file) && file.url ? (
-                      <Image
+                      <img
                         src={file.url}
                         alt={file.name}
                         className="h-full w-full cursor-pointer object-cover"
@@ -660,7 +660,7 @@ export default function FilesView() {
             </DialogHeader>
             <div className="flex-1 overflow-auto flex items-center justify-center p-2">
               {isImageFile(fileForPreview) && fileForPreview?.url && (
-                <Image
+                <img
                   src={fileForPreview.url}
                   alt={fileForPreview.name}
                   className="max-w-full max-h-full object-contain"

@@ -1,4 +1,4 @@
-import Image from "next/image";
+/* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { BrandWordmark } from "@/components/ui/brand/BrandWordmark";
@@ -18,14 +18,10 @@ export function AuthShell({
       <section className="hidden border-b border-border/60 bg-muted/20 lg:block lg:border-b-0 lg:border-r lg:min-h-screen">
         <div className="p-4 sm:p-6 lg:h-full lg:p-8">
           <Card className="relative min-h-[320px] overflow-hidden p-0 sm:min-h-[420px] lg:min-h-[calc(100vh-4rem)]">
-            <Image
+            <img
               src="/landing/visualization-1776944094220.webp"
               alt="Myvibe workflow background"
-              fill
-              priority
-              unoptimized
-              className="object-cover object-center"
-              sizes="(max-width: 1023px) 100vw, 60vw"
+              className="absolute inset-0 h-full w-full object-cover object-center"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/18 via-transparent to-white/10" />
             <div className="absolute inset-0 flex items-center justify-center p-6 sm:p-8 lg:p-10">
@@ -44,7 +40,7 @@ export function AuthShell({
       <section className="flex min-h-screen items-center justify-center px-5 py-8 sm:px-8 lg:min-h-screen lg:px-12">
         <div className="flex w-full max-w-[440px] flex-col items-center">
           <Link href="/" className="mb-6 inline-flex">
-            <Image
+            <img
               src="/logo.svg"
               alt="Myvibe project"
               width={1024}
