@@ -792,29 +792,29 @@ function ProductLibraryMock() {
 
 function WebClipperMock() {
   return (
-    <div className="absolute inset-0 overflow-hidden rounded-[28px] bg-[#efebe4] text-foreground">
-      <div className="absolute inset-0 grid grid-cols-[minmax(0,1fr)_21rem]">
+    <div className="absolute inset-0 overflow-hidden rounded-[22px] bg-[#efebe4] text-foreground sm:rounded-[28px]">
+      <div className="absolute inset-0 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_21rem]">
         <div className="relative min-w-0 overflow-hidden bg-[#f4f1eb]">
-          <div className="flex h-12 items-center justify-center gap-10 border-b border-black/7 bg-white/64 text-[13px] font-semibold text-foreground/48">
-            <span className="font-serif text-[24px] font-normal tracking-[-0.05em] text-foreground/42">
+          <div className="flex h-10 items-center justify-center gap-5 border-b border-black/7 bg-white/64 px-4 text-[13px] font-semibold text-foreground/48 sm:h-12 sm:gap-10">
+            <span className="font-serif text-[22px] font-normal tracking-[-0.05em] text-foreground/42 sm:text-[24px]">
               JAPANDI
             </span>
             <span className="hidden sm:inline">Lighting</span>
             <span className="hidden sm:inline">Home Decor</span>
             <span className="hidden sm:inline">Furniture</span>
           </div>
-          <div className="grid min-h-full gap-6 p-5 pr-10 opacity-52 lg:grid-cols-[minmax(0,0.58fr)_minmax(20rem,0.42fr)]">
-            <div className="relative min-h-[28rem] overflow-hidden rounded-[20px] bg-white">
+          <div className="grid min-h-full gap-6 p-3 opacity-52 sm:p-5 xl:grid-cols-[minmax(0,0.58fr)_minmax(20rem,0.42fr)] xl:pr-10">
+            <div className="relative min-h-[14rem] overflow-hidden rounded-[18px] bg-white sm:min-h-[28rem] sm:rounded-[20px]">
               <Image
                 src="/landing/generated/boucle-lounge-sofa.png"
                 alt="Japandi rattan sofa product"
                 fill
-                className="object-cover"
+                className="object-cover object-center"
                 sizes="620px"
                 unoptimized
               />
             </div>
-            <div className="hidden pt-8 lg:block">
+            <div className="hidden pt-8 xl:block">
               <h4 className="max-w-[12ch] text-[34px] font-semibold leading-[1.02] tracking-[-0.05em] text-foreground">
                 Japandi Rattan Sofa
               </h4>
@@ -828,9 +828,33 @@ function WebClipperMock() {
             </div>
           </div>
           <div className="absolute inset-0 bg-[#1f2428]/24" />
+
+          <div className="absolute inset-x-3 bottom-3 z-10 rounded-[16px] border border-white/55 bg-white/88 p-3 shadow-[0_16px_40px_rgba(24,20,16,0.18)] backdrop-blur-md xl:hidden">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-foreground/40">
+                  Captured product
+                </p>
+                <p className="mt-1 truncate text-[13px] font-semibold tracking-[-0.02em] text-foreground/82">
+                  Japandi Rattan Sofa
+                </p>
+              </div>
+              <span className="shrink-0 rounded-full bg-[#f4f1eb] px-3 py-1 text-[11px] font-medium text-foreground/58">
+                $1,529
+              </span>
+            </div>
+            <div className="mt-3 flex items-center gap-2">
+              <div className="min-w-0 flex-1 rounded-[12px] border border-black/7 bg-white px-3 py-2 text-[11px] text-foreground/54">
+                Richardson / Shopping list
+              </div>
+              <button className="inline-flex h-9 shrink-0 items-center justify-center rounded-[12px] bg-foreground px-3 text-[11px] font-medium text-background">
+                Save
+              </button>
+            </div>
+          </div>
         </div>
 
-        <aside className="relative z-10 hidden border-l border-black/7 bg-[#f8f6f1] p-3 shadow-[-24px_0_70px_rgba(24,20,16,0.18)] lg:block">
+        <aside className="relative z-10 hidden border-l border-black/7 bg-[#f8f6f1] p-3 shadow-[-24px_0_70px_rgba(24,20,16,0.18)] xl:block">
           <div className="rounded-[18px] border border-black/7 bg-white/86 p-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-foreground/38">
               Active project
@@ -915,20 +939,20 @@ function WebClipperSection() {
   return (
     <section
       id="web-clipper"
-      className="grid items-center gap-8 border-t border-black/6 py-12 lg:grid-cols-[minmax(0,0.64fr)_minmax(18rem,0.36fr)] lg:gap-12 lg:py-16"
+      className="grid max-w-full items-center gap-7 overflow-hidden border-t border-black/6 py-10 xl:grid-cols-[minmax(0,0.62fr)_minmax(20rem,0.38fr)] xl:gap-12 xl:py-16"
     >
-      <div className="relative aspect-[1.34/1] min-h-[300px] w-full max-w-[860px] overflow-hidden rounded-[28px] border border-black/6 bg-[#e8e4dc] shadow-[0_22px_60px_rgba(24,20,16,0.05)] sm:min-h-[340px]">
+      <div className="relative aspect-[1.48/1] min-h-0 w-full max-w-full overflow-hidden rounded-[22px] border border-black/6 bg-[#e8e4dc] shadow-[0_18px_42px_rgba(24,20,16,0.05)] sm:aspect-[1.42/1] sm:max-w-[860px] sm:rounded-[28px] sm:shadow-[0_22px_60px_rgba(24,20,16,0.05)] xl:aspect-[1.34/1]">
         <WebClipperMock />
       </div>
 
-      <div className="max-w-[30rem] lg:pl-2">
+      <div className="w-full max-w-[34rem] xl:pl-2">
         <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-foreground/42">
           Chrome web clipper
         </p>
-        <h3 className="mt-5 text-balance text-[clamp(1.75rem,2.4vw,2.35rem)] font-medium leading-[1.08] tracking-[-0.03em] text-foreground">
+        <h3 className="mt-4 text-balance text-[clamp(1.55rem,6vw,2.05rem)] font-medium leading-[1.08] tracking-[-0.03em] text-foreground xl:mt-5 xl:text-[clamp(1.75rem,2.4vw,2.35rem)]">
           Save product pages directly into the project shopping list.
         </h3>
-        <p className="mt-3 text-pretty text-[1.05rem] leading-8 text-foreground/58">
+        <p className="mt-3 text-pretty text-[1rem] leading-7 text-foreground/58 xl:text-[1.05rem] xl:leading-8">
           Capture the image, price, supplier link, and project section while you browse
           furniture, lighting, and finishes.
         </p>
@@ -1216,7 +1240,7 @@ export function ProductSections() {
   const { isSignedIn } = useUser();
 
   return (
-    <div className="px-6 pb-14 lg:px-10">
+    <div className="overflow-x-hidden px-4 pb-14 sm:px-6 lg:px-10">
       <div className="mx-auto w-full max-w-[1520px]">
         <section className="max-w-3xl pb-14 pt-8">
           <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-foreground/42">

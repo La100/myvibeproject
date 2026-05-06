@@ -141,5 +141,13 @@ export const trackSubscriptionConversion = ({
         },
       ],
     });
+
+    trackGaEvent("conversion_event_subscribe_paid", {
+      transaction_id: transactionId,
+      value,
+      currency,
+      plan: normalizedPlanKey,
+      price_id: priceId || undefined,
+    });
   });
 };
