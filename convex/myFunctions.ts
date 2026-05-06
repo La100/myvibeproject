@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
+import { SUBSCRIPTION_PLANS } from "./stripe";
 
 // Utility function to generate a slug from a string
 const generateSlug = (name: string) => {
@@ -16,6 +17,9 @@ const automaticWorkspaceDefaults = () => ({
   currency: DEFAULT_WORKSPACE_CURRENCY,
   timezone: DEFAULT_WORKSPACE_TIMEZONE,
   onboardingCompletedAt: Date.now(),
+  subscriptionPlan: "free" as const,
+  subscriptionLimits: SUBSCRIPTION_PLANS.free,
+  aiTokens: SUBSCRIPTION_PLANS.free.aiMonthlyTokens,
 });
 
 // Create a new user or update an existing one from Clerk webhook

@@ -10,7 +10,7 @@ export const QUICK_PROMPTS: QuickPrompt[] = [
   },
   {
     label: "Next Steps",
-    prompt: "Based on the current project state, suggest the next practical steps. If tasks are missing, prepare a short action plan grouped by phase and priority.",
+    prompt: "First load the current project context. Based on the current project state, suggest the next practical steps. If tasks are missing, prepare a short action plan grouped by phase and priority.",
   },
   {
     label: "Budget Check",

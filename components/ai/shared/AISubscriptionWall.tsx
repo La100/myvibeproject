@@ -207,12 +207,12 @@ export function AISubscriptionWall({ teamId }: AISubscriptionWallProps) {
               {/* Benefits list */}
               <div className="flex flex-col gap-4">
                 {[
-                  "Unlimited AI Assistant access",
-                  "AI credits for text and images",
+                  "2.34M monthly AI credits",
+                  "Credits for text and images",
                   "Smart task generation",
                   "Context-aware suggestions",
                   "20 projects included",
-                  "25 team members",
+                  "2 team members",
                   "50 GB storage",
                   "Priority support",
                 ].map((benefit, index) => (

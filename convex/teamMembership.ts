@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { mutation } from "./_generated/server";
+import { SUBSCRIPTION_PLANS } from "./stripe";
 
 const generateSlug = (name: string) => {
   return name
@@ -16,6 +17,9 @@ const automaticWorkspaceDefaults = () => ({
   currency: DEFAULT_WORKSPACE_CURRENCY,
   timezone: DEFAULT_WORKSPACE_TIMEZONE,
   onboardingCompletedAt: Date.now(),
+  subscriptionPlan: "free" as const,
+  subscriptionLimits: SUBSCRIPTION_PLANS.free,
+  aiTokens: SUBSCRIPTION_PLANS.free.aiMonthlyTokens,
 });
 
 const syncPending = (reason: "missing_active_org" | "stale_active_org") => ({

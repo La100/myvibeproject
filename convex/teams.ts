@@ -7,7 +7,7 @@ import {
 } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
 import { r2 } from "./files";
-import { getEffectiveLimits } from "./stripe";
+import { getEffectiveLimits, SUBSCRIPTION_PLANS } from "./stripe";
 import {
   canAccessProjectWithMembership,
   ensureProjectAccess,
@@ -632,6 +632,9 @@ const automaticWorkspaceDefaults = () => ({
   currency: DEFAULT_WORKSPACE_CURRENCY,
   timezone: DEFAULT_WORKSPACE_TIMEZONE,
   onboardingCompletedAt: Date.now(),
+  subscriptionPlan: "free" as const,
+  subscriptionLimits: SUBSCRIPTION_PLANS.free,
+  aiTokens: SUBSCRIPTION_PLANS.free.aiMonthlyTokens,
 });
 
 export const syncTeamWithClerkOrg = mutation({
