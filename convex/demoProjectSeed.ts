@@ -111,13 +111,10 @@ export const ensureDemoProjectForNewWorkspace = async (
     paymentCustomerDetails: {
       name: "Emily Carter",
       email: "emily.carter@example.com",
-      address: {
-        line1: "1408 Oak Ridge Lane",
-        city: "Austin",
-        state: "TX",
-        postalCode: "78704",
-        country: "US",
-      },
+      addressLine1: "1408 Oak Ridge Lane",
+      city: "Austin",
+      postalCode: "78704",
+      country: "US",
     },
     aiAutoConfirmCrud: false,
     moodboardSections,
