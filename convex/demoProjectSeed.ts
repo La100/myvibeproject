@@ -96,8 +96,6 @@ export const ensureDemoProjectForNewWorkspace = async (
     location: "Austin, Texas",
     currency: "USD",
     measurements: "imperial",
-    taxEnabled: true,
-    taxRate: 8.25,
     createdBy: args.createdByClerkUserId,
     responsibleClerkUserId: args.createdByClerkUserId,
     clientPortalNotificationSettings: {
@@ -191,18 +189,18 @@ const seedShopping = async (
   );
 
   const items = [
-    ["Barcelona chair", sections[0], "Furniture", "/landing/generated/barcelona-chair-main.png", 2, "pcs", 4280, "Client approved", "gross"],
-    ["Green zellige tile", sections[1], "Wall finish", "/landing/generated/green-zellige-interior.png", 42, "sq ft", 118, "Sample ordered", "gross"],
-    ["Red travertine side table", sections[0], "Furniture", "/landing/generated/red-travertine-side-table.png", 1, "pcs", 1240, "Quote requested", "unspecified"],
-    ["Cream boucle swivel", sections[0], "Seating", "/landing/generated/cream-boucle-swivel-chair.png", 2, "pcs", 2180, "Alt option", "unspecified"],
-    ["Terracotta hallway tile", sections[3], "Floor finish", "/landing/generated/terracotta-tile-hallway.png", 60, "sq ft", 96, "Supplier hold", "unspecified"],
-    ["Alabaster pendant light", sections[2], "Lighting", "/landing/generated/alabaster-pendant-light.png", 3, "pcs", 760, "Client approved", "gross"],
-    ["Brushed nickel wall sconce", sections[2], "Lighting", "/landing/generated/brushed-nickel-wall-sconce.png", 6, "pcs", 340, "Order next week", "unspecified"],
-    ["Walnut fluted cabinet", sections[1], "Millwork", "/landing/generated/walnut-fluted-cabinet.png", 1, "pcs", 6800, "Shop drawing needed", "unspecified"],
+    ["Barcelona chair", sections[0], "Furniture", "/landing/generated/barcelona-chair-main.png", 2, "pcs", 4280, "Client approved"],
+    ["Green zellige tile", sections[1], "Wall finish", "/landing/generated/green-zellige-interior.png", 42, "sq ft", 118, "Sample ordered"],
+    ["Red travertine side table", sections[0], "Furniture", "/landing/generated/red-travertine-side-table.png", 1, "pcs", 1240, "Quote requested"],
+    ["Cream boucle swivel", sections[0], "Seating", "/landing/generated/cream-boucle-swivel-chair.png", 2, "pcs", 2180, "Alt option"],
+    ["Terracotta hallway tile", sections[3], "Floor finish", "/landing/generated/terracotta-tile-hallway.png", 60, "sq ft", 96, "Supplier hold"],
+    ["Alabaster pendant light", sections[2], "Lighting", "/landing/generated/alabaster-pendant-light.png", 3, "pcs", 760, "Client approved"],
+    ["Brushed nickel wall sconce", sections[2], "Lighting", "/landing/generated/brushed-nickel-wall-sconce.png", 6, "pcs", 340, "Order next week"],
+    ["Walnut fluted cabinet", sections[1], "Millwork", "/landing/generated/walnut-fluted-cabinet.png", 1, "pcs", 6800, "Shop drawing needed"],
   ] as const;
 
   await Promise.all(
-    items.map(([name, sectionId, category, imageUrl, quantity, unit, unitPrice, notes, priceTaxMode]) =>
+    items.map(([name, sectionId, category, imageUrl, quantity, unit, unitPrice, notes]) =>
       ctx.db.insert("shoppingListItems", {
         name,
         notes,
@@ -215,11 +213,6 @@ const seedShopping = async (
         unit,
         unitPrice,
         totalPrice: quantity * unitPrice,
-        priceTaxMode,
-        taxRateSnapshot:
-          priceTaxMode === "gross"
-            ? { name: "Sales tax", rate: 8.25, description: "Demo sales tax" }
-            : undefined,
         realizationStatus: name.includes("Barcelona") || name.includes("Alabaster") ? "ORDERED" : "PLANNED",
         sectionId,
         projectId,
@@ -309,7 +302,6 @@ const seedLabor = async (
         unit,
         unitPrice,
         totalPrice: quantity * unitPrice,
-        priceTaxMode: index < 2 ? "unspecified" : "net",
         sectionId,
         projectId,
         teamId,
