@@ -89,6 +89,7 @@ export const ensureCurrentUserTeamMembership = mutation({
       .withIndex("by_clerk_org", (q) => q.eq("clerkOrgId", args.clerkOrgId))
       .unique();
 
+    let createdTeam = false;
     if (!team) {
       const fallbackName = args.orgName?.trim() || "Organization";
       const teamId = await ctx.db.insert("teams", {
@@ -101,6 +102,7 @@ export const ensureCurrentUserTeamMembership = mutation({
       if (!team) {
         throw new Error("Failed to create team");
       }
+      createdTeam = true;
     } else {
       const patch: Record<string, unknown> = {};
 
@@ -144,12 +146,17 @@ export const ensureCurrentUserTeamMembership = mutation({
       )
       .unique();
 
+    const existingMembers = !membership
+      ? await ctx.db
+          .query("teamMembers")
+          .withIndex("by_team", (q) => q.eq("teamId", team._id))
+          .collect()
+      : [];
+    const isFirstTeamMembership =
+      !membership && existingMembers.every((member) => !member.isActive);
+
     if (!membership && !roleClaimRaw) {
-      const existingMembers = await ctx.db
-        .query("teamMembers")
-        .withIndex("by_team", (q) => q.eq("teamId", team._id))
-        .collect();
-      if (existingMembers.every((member) => !member.isActive)) {
+      if (isFirstTeamMembership) {
         fallbackRole = "admin";
       }
     }
@@ -179,11 +186,13 @@ export const ensureCurrentUserTeamMembership = mutation({
       });
     }
 
-    await ensureDemoProjectForNewWorkspace(ctx, {
-      teamId: team._id,
-      clerkOrgId: args.clerkOrgId,
-      createdByClerkUserId: identity.subject,
-    });
+    if (createdTeam || isFirstTeamMembership) {
+      await ensureDemoProjectForNewWorkspace(ctx, {
+        teamId: team._id,
+        clerkOrgId: args.clerkOrgId,
+        createdByClerkUserId: identity.subject,
+      });
+    }
 
     return ready(team._id);
   },

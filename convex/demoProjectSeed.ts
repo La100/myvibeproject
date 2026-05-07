@@ -52,7 +52,7 @@ const generateNextProjectId = async (ctx: SeedCtx) => {
   return (lastProject?.projectId || 0) + 1;
 };
 
-const shouldSeedDemoProject = async (
+const hasDemoProject = async (
   ctx: SeedCtx,
   teamId: Id<"teams">,
 ) => {
@@ -63,16 +63,7 @@ const shouldSeedDemoProject = async (
     )
     .first();
 
-  if (existingDemo) {
-    return false;
-  }
-
-  const existingProject = await ctx.db
-    .query("projects")
-    .withIndex("by_team", (q: any) => q.eq("teamId", teamId))
-    .first();
-
-  return !existingProject;
+  return Boolean(existingDemo);
 };
 
 export const ensureDemoProjectForNewWorkspace = async (
@@ -83,7 +74,7 @@ export const ensureDemoProjectForNewWorkspace = async (
     createdByClerkUserId: string;
   },
 ) => {
-  if (!(await shouldSeedDemoProject(ctx, args.teamId))) {
+  if (await hasDemoProject(ctx, args.teamId)) {
     return null;
   }
 
