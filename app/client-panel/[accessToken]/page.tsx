@@ -1539,13 +1539,13 @@ export default function PublicClientPanelPage() {
       item.customerDecision === "rejected";
     const decisionTone =
       item.customerDecision === "accepted"
-        ? "border-primary/30 bg-primary/10 text-primary"
+        ? "border-[#78a65a]/45 bg-[#edf6e8] text-[#2f6f3a]"
         : item.customerDecision === "rejected"
           ? "border-destructive/20 bg-destructive/10 text-destructive"
           : "";
     const feedbackTone =
       item.customerDecision === "accepted"
-        ? "border-primary/25 bg-primary/5"
+        ? "border-[#78a65a]/30 bg-[#edf6e8]/55"
         : item.customerDecision === "rejected"
           ? "border-destructive/20 bg-destructive/5"
           : "border-black/7 bg-[#f8f6f1]/76";
@@ -1724,13 +1724,13 @@ export default function PublicClientPanelPage() {
       item.customerDecision === "rejected";
     const decisionTone =
       item.customerDecision === "accepted"
-        ? "border-primary/30 bg-primary/10 text-primary"
+        ? "border-[#78a65a]/45 bg-[#edf6e8] text-[#2f6f3a]"
         : item.customerDecision === "rejected"
           ? "border-destructive/20 bg-destructive/10 text-destructive"
           : "";
     const feedbackTone =
       item.customerDecision === "accepted"
-        ? "border-primary/25 bg-primary/5"
+        ? "border-[#78a65a]/30 bg-[#edf6e8]/55"
         : item.customerDecision === "rejected"
           ? "border-destructive/20 bg-destructive/5"
           : "border-black/7 bg-[#f8f6f1]/76";
@@ -2402,19 +2402,21 @@ export default function PublicClientPanelPage() {
                         >
                           {section.eyebrow}
                         </span>
-                        <span className="mt-1.5 block truncate text-[15px] font-medium tracking-[-0.02em] text-foreground/84 sm:text-[16px]">
-                          {section.label}
-                        </span>
-                        <span
-                          className={cn(
-                            "mt-1 block text-[12px]",
-                            isActive
-                              ? "text-foreground/58"
-                              : "text-foreground/42",
-                          )}
-                        >
-                          {section.count} items
-                        </span>
+                        <div className="mt-1.5 flex min-w-0 items-baseline gap-2">
+                          <span className="min-w-0 truncate text-[15px] font-medium tracking-[-0.02em] text-foreground/84 sm:text-[16px]">
+                            {section.label}
+                          </span>
+                          <span
+                            className={cn(
+                              "ml-auto shrink-0 text-[12px]",
+                              isActive
+                                ? "text-foreground/58"
+                                : "text-foreground/42",
+                            )}
+                          >
+                            {section.count} items
+                          </span>
+                        </div>
                       </div>
                     </Button>
                   );
@@ -3294,7 +3296,7 @@ export default function PublicClientPanelPage() {
                           className={cn(
                             "border-border/70",
                             item.customerDecision === "accepted" &&
-                              "border-primary/30 bg-primary/10",
+                              "border-[#78a65a]/30 bg-[#edf6e8]/55",
                             item.customerDecision === "rejected" &&
                               "border-destructive/20 bg-destructive/5",
                           )}
@@ -3305,7 +3307,7 @@ export default function PublicClientPanelPage() {
                                 className={cn(
                                   "text-xs",
                                   item.customerDecision === "accepted"
-                                    ? "border-primary/30 bg-primary/10 text-primary"
+                                    ? "border-[#78a65a]/45 bg-[#edf6e8] text-[#2f6f3a]"
                                     : "border-destructive/20 bg-destructive/10 text-destructive",
                                 )}
                               >

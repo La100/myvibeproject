@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -94,6 +94,7 @@ export default function ShoppingListView() {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isOnboardingDismissed, setIsOnboardingDismissed] = useState(false);
   const [exportOptions, setExportOptions] = useState<ShoppingListExportOptions>({
     format: 'xlsx',
     scope: 'currentView',
@@ -112,6 +113,11 @@ export default function ShoppingListView() {
   const team = useQuery(apiAny.teams.getTeamById, { teamId: project.teamId }) as Doc<"teams"> | undefined;
   const extensionStatus = useQuery(apiAny.users.getCurrentUserExtensionStatus);
   const extensionReady = extensionStatus?.clipperConnected === true;
+  const onboardingDismissedStorageKey = `myvibe:shopping-list-onboarding-dismissed:${project._id}`;
+
+  useEffect(() => {
+    setIsOnboardingDismissed(window.localStorage.getItem(onboardingDismissedStorageKey) === 'true');
+  }, [onboardingDismissedStorageKey]);
 
   const createItem = useMutation(apiAny.shopping.createShoppingListItem);
   const updateItem = useMutation(apiAny.shopping.updateShoppingListItem);
@@ -237,7 +243,7 @@ export default function ShoppingListView() {
   const formatTotalSummary = (value: number) =>
     `Total: ${formatMoney(value, currencySymbol)}`;
   const shoppingPdfPriceColumns = [{ key: 'totalNet', label: 'Total' }];
-  const showFirstRunOnboarding = items.length === 0;
+  const showFirstRunOnboarding = items.length === 0 && !isOnboardingDismissed;
   const hasActiveFilters =
     normalizedSearchQuery.length > 0 ||
     statusFilter !== 'all' ||
@@ -271,6 +277,11 @@ export default function ShoppingListView() {
 
   const handleOpenAddProduct = () => {
     setShowMainAddForm(true);
+  };
+
+  const handleDismissOnboarding = () => {
+    window.localStorage.setItem(onboardingDismissedStorageKey, 'true');
+    setIsOnboardingDismissed(true);
   };
 
   const handleDeleteSet = async (setId: Id<"shoppingSets">) => {
@@ -581,6 +592,7 @@ export default function ShoppingListView() {
               itemsCount={items.length}
               onCreateSectionClick={handleOpenSectionSetup}
               onAddProductClick={handleOpenAddProduct}
+              onDismiss={handleDismissOnboarding}
             />
           ) : null}
 

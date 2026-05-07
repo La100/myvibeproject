@@ -104,7 +104,7 @@ export function LaborListSection({
 
   const getCustomerDecisionTone = (decision: LaborItem['customerDecision'] | undefined) => {
     if (decision === 'accepted') {
-      return 'border-primary/30 bg-primary/12 text-primary dark:text-primary';
+      return 'border-[#78a65a]/45 bg-[#edf6e8] text-[#2f6f3a]';
     }
     if (decision === 'rejected') {
       return 'border-destructive/20 bg-destructive/10 text-destructive';
@@ -203,7 +203,7 @@ export function LaborListSection({
           'rounded-3xl border border-border/70 px-5 py-4',
           customerDecisionTone &&
             (item.customerDecision === 'accepted'
-              ? 'border-primary/25 bg-primary/6'
+              ? 'border-[#78a65a]/30 bg-[#edf6e8]/25'
               : 'border-destructive/20 bg-destructive/5'),
           !customerDecisionTone && 'bg-secondary/70',
         )}

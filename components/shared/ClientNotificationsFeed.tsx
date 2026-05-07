@@ -92,11 +92,11 @@ export function ClientNotificationsFeed({
               const isAccepted = details.decision === "accepted";
               const notificationTone = isDecision
                 ? isAccepted
-                  ? "border-primary/20 bg-secondary/70"
+                  ? "border-[#78a65a]/30 bg-[#edf6e8]/55"
                   : "border-destructive/20 bg-destructive/5"
                 : "border-border bg-muted/40";
               const statusTone = isAccepted
-                ? "border-primary/25 bg-secondary text-primary"
+                ? "border-[#78a65a]/45 bg-[#edf6e8] text-[#2f6f3a]"
                 : "border-destructive/20 bg-destructive/10 text-destructive";
               const isUnread =
                 activity._creationTime > (activity.effectiveLastReadAt ?? Number.MAX_SAFE_INTEGER);
@@ -112,7 +112,7 @@ export function ClientNotificationsFeed({
                   <div className="flex min-w-0 items-start gap-2">
                     {isDecision ? (
                       isAccepted ? (
-                        <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#2f6f3a]" />
                       ) : (
                         <XCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-destructive" />
                       )

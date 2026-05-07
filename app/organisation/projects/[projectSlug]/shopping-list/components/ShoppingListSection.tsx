@@ -266,12 +266,12 @@ export function ShoppingListSection({
     );
 
     return (
-      <span className="inline-flex flex-wrap items-baseline gap-x-1.5 whitespace-nowrap">
+      <span className="inline-flex flex-wrap items-baseline gap-x-1.5 whitespace-nowrap font-semibold text-foreground">
         {scope === "unit"
           ? `Unit: ${amount.toFixed(2)} ${currencySymbol}`
           : `Total: ${amount.toFixed(2)} ${currencySymbol}`}
         {taxSummary ? (
-          <span className="ml-2 text-xs text-muted-foreground">
+          <span className="ml-2 text-xs font-normal text-muted-foreground">
             ({taxSummary})
           </span>
         ) : null}
@@ -285,8 +285,20 @@ export function ShoppingListSection({
     return member?.name || assignedTo;
   };
 
-  const getPriorityBadgeVariant = (priority: Priority) =>
-    priority === "high" || priority === "urgent" ? "destructive" : "secondary";
+  const getPriorityBadgeVariant = () => "outline" as const;
+
+  const getPriorityBadgeClassName = (priority: Priority) => {
+    if (priority === "urgent") {
+      return "border-destructive/25 bg-destructive/10 text-destructive";
+    }
+    if (priority === "high") {
+      return "border-[#d8a06b]/35 bg-[#f8ead8] text-[#7b4825]";
+    }
+    if (priority === "medium") {
+      return "border-[#d7bf70]/35 bg-[#fbf4d5] text-[#76601f]";
+    }
+    return "border-[#9ca67a]/35 bg-[#eef0e5] text-[#4f5a38]";
+  };
 
   const toggleDetails = (itemId: string) => {
     setExpandedDetails((current) => ({
@@ -655,7 +667,7 @@ export function ShoppingListSection({
     decision: ShoppingListItem["customerDecision"] | undefined,
   ) => {
     if (decision === "accepted") {
-      return "border-primary/25 bg-secondary text-primary";
+      return "border-[#78a65a]/45 bg-[#edf6e8] text-[#2f6f3a]";
     }
     if (decision === "rejected") {
       return "border-destructive/20 bg-destructive/10 text-destructive";
@@ -1074,21 +1086,16 @@ export function ShoppingListSection({
     }
 
     return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            className={cn(
-              "min-w-0 cursor-text text-left underline-offset-4 transition-colors hover:text-foreground hover:underline focus-visible:outline-none focus-visible:underline",
-              options.className,
-            )}
-            onClick={() => startInlineEdit(item, field)}
-          >
-            {children}
-          </button>
-        </TooltipTrigger>
-        <TooltipContent>Click to edit</TooltipContent>
-      </Tooltip>
+      <button
+        type="button"
+        className={cn(
+          "min-w-0 cursor-text text-left underline-offset-4 transition-colors hover:text-foreground hover:underline focus-visible:outline-none focus-visible:underline",
+          options.className,
+        )}
+        onClick={() => startInlineEdit(item, field)}
+      >
+        {children}
+      </button>
     );
   };
 
@@ -1130,7 +1137,10 @@ export function ShoppingListSection({
             className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25"
             onClick={() => startInlineEdit(item, "priority")}
           >
-            <Badge variant={getPriorityBadgeVariant(priority)}>
+            <Badge
+              variant={getPriorityBadgeVariant()}
+              className={getPriorityBadgeClassName(priority)}
+            >
               {SHOPPING_PRIORITY_LABELS[priority]}
             </Badge>
           </button>
@@ -1205,23 +1215,22 @@ export function ShoppingListSection({
       <div
         key={item._id}
         className={cn(
-          "rounded-3xl border border-border/70 px-5 py-4",
+          "rounded-2xl border border-border/80 bg-card px-4 py-4 shadow-[0_16px_44px_-34px_rgba(24,20,16,0.34)] sm:px-5",
           customerDecisionTone &&
             (item.customerDecision === "accepted"
-              ? "border-primary/20 bg-secondary/70"
+              ? "border-[#78a65a]/30 bg-[#edf6e8]/25"
               : "border-destructive/20 bg-destructive/5"),
-          !isCounted && "border-border/70 bg-secondary/55",
-          !customerDecisionTone && "bg-secondary/70",
+          !isCounted && "border-border/80 bg-secondary/35",
         )}
       >
         {isEditing ? (
           renderEditForm(item)
         ) : (
           <div>
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
               <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start">
                 {item.imageUrl ? (
-                  <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl border bg-secondary/55">
+                  <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-border/70 bg-secondary/45">
                     <img src={item.imageUrl} alt={item.name} className="h-full w-full object-cover" />
                   </div>
                 ) : null}
@@ -1250,9 +1259,9 @@ export function ShoppingListSection({
                       </Badge>
                     ) : null}
                   </div>
-                  <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-muted-foreground">
-                    <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap font-medium text-foreground/75">
-                      <span>Qty</span>
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 text-sm text-muted-foreground">
+                    <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-secondary/55 px-2.5 py-1 font-medium text-foreground/75">
+                      <span className="text-xs text-muted-foreground">Qty</span>
                       {renderEditableValue(item, "quantity", item.quantity, {
                         className: "font-medium text-foreground/75",
                         inputClassName: "w-16",
@@ -1260,8 +1269,8 @@ export function ShoppingListSection({
                       })}
                     </span>
                     {item.unitPrice !== undefined ? (
-                      <span className="inline-flex flex-wrap items-baseline gap-x-1.5 whitespace-nowrap">
-                        Unit:{" "}
+                      <span className="inline-flex flex-wrap items-baseline gap-x-1.5 whitespace-nowrap rounded-full bg-secondary/45 px-2.5 py-1">
+                        <span className="text-xs text-muted-foreground">Unit</span>
                         {renderEditableValue(
                           item,
                           "unitPrice",
@@ -1281,7 +1290,7 @@ export function ShoppingListSection({
                           },
                           currencySymbol,
                         ) ? (
-                          <span className="ml-2 text-xs text-muted-foreground">
+                          <span className="ml-1 text-xs text-muted-foreground">
                             ({formatPriceTaxBreakdown(
                               item.unitPrice,
                               {
@@ -1295,45 +1304,47 @@ export function ShoppingListSection({
                         ) : null}
                       </span>
                     ) : null}
-                    {renderPriceSpans(item.totalPrice, "total", item)}
+                    <span className="inline-flex rounded-full bg-secondary/55 px-2.5 py-1">
+                      {renderPriceSpans(item.totalPrice, "total", item)}
+                    </span>
                     {item.supplier ? (
                       renderEditableValue(item, "supplier", item.supplier, {
-                        className: "block max-w-full truncate text-muted-foreground sm:max-w-40",
+                        className: "block max-w-full truncate rounded-full bg-secondary/35 px-2.5 py-1 text-muted-foreground sm:max-w-40",
                         inputClassName: "w-44",
                         placeholder: "Supplier",
                       })
                     ) : null}
                   </div>
-                  {item.priority || item.buyBefore ? (
-                    <div className="mt-3 flex flex-wrap items-center gap-x-8 gap-y-2 text-sm text-foreground">
+                  {item.priority || item.buyBefore || assignedName ? (
+                    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-foreground">
                       {item.priority ? (
-                        <div className="flex items-center gap-2">
-                          <span>Priority:</span>
+                        <div className="flex items-center gap-2 rounded-full bg-secondary/35 px-2.5 py-1">
+                          <span className="text-xs font-medium text-muted-foreground">Priority</span>
                           {renderEditablePriority(item)}
                         </div>
                       ) : null}
                       {item.buyBefore ? (
-                        <div className="flex items-center gap-2">
-                          <span>Buy Before:</span>
+                        <div className="flex items-center gap-2 rounded-full bg-secondary/35 px-2.5 py-1">
+                          <span className="text-xs font-medium text-muted-foreground">Buy before</span>
                           {renderEditableBuyBefore(item)}
                         </div>
                       ) : null}
-                    </div>
-                  ) : null}
-                  {assignedName ? (
-                    <div className="mt-3 flex items-center gap-2">
-                      <Avatar className="h-6 w-6 border border-border/70">
-                        <AvatarImage src={teamMembers?.find((member) => member.clerkUserId === item.assignedTo)?.imageUrl} />
-                        <AvatarFallback>{assignedName[0]}</AvatarFallback>
-                      </Avatar>
-                      <span className="text-xs text-muted-foreground">{assignedName}</span>
+                      {assignedName ? (
+                        <div className="flex items-center gap-2 rounded-full bg-secondary/35 py-1 pl-1 pr-2.5">
+                          <Avatar className="h-6 w-6 border border-border/70">
+                            <AvatarImage src={teamMembers?.find((member) => member.clerkUserId === item.assignedTo)?.imageUrl} />
+                            <AvatarFallback>{assignedName[0]}</AvatarFallback>
+                          </Avatar>
+                          <span className="text-xs font-medium text-muted-foreground">{assignedName}</span>
+                        </div>
+                      ) : null}
                     </div>
                   ) : null}
                 </div>
               </div>
 
               <div className="flex shrink-0 lg:justify-end">
-                <div className="flex flex-wrap items-center gap-1 lg:justify-end">
+                <div className="flex flex-wrap items-center gap-1 rounded-full border border-border/60 bg-secondary/35 p-1 lg:justify-end">
                   <Select
                     value={item.realizationStatus}
                     onValueChange={(value) => void handleInlineStatusChange(value)}
@@ -1343,7 +1354,7 @@ export function ShoppingListSection({
                       size="sm"
                       aria-label={`Change status for ${item.name}`}
                       className={cn(
-                        "h-10 w-fit min-w-0 rounded-full px-3.5 pr-2.5 text-xs font-semibold tracking-[0.01em] shadow-none transition-colors",
+                        "h-9 w-fit min-w-0 rounded-full px-3.5 pr-2.5 text-xs font-semibold tracking-[0.01em] shadow-none transition-colors",
                         "focus-visible:border-ring/40 focus-visible:ring-ring/15 disabled:opacity-70",
                         getInlineStatusClassName(item.realizationStatus),
                       )}
@@ -1403,10 +1414,10 @@ export function ShoppingListSection({
               </div>
 
               {hasHeaderDetails ? (
-                <div className="grid min-w-0 grid-cols-1 gap-x-6 gap-y-2 text-sm text-muted-foreground sm:grid-cols-2 lg:col-span-2 xl:grid-cols-4">
+                <div className="mt-1 grid min-w-0 grid-cols-1 gap-x-4 gap-y-2 border-t border-border/60 pt-3 text-sm text-muted-foreground sm:grid-cols-2 lg:col-span-2 xl:grid-cols-4">
                   {headerDetails.map((detail) => (
-                    <div key={detail.label} className="flex min-w-0 items-center gap-2">
-                      <span className="shrink-0 font-medium text-foreground">{detail.label}:</span>
+                    <div key={detail.label} className="flex min-w-0 items-center gap-2 rounded-xl bg-secondary/35 px-3 py-2">
+                      <span className="shrink-0 text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">{detail.label}</span>
                       {renderEditableValue(
                         item,
                         detail.label === "Category"
@@ -1423,8 +1434,8 @@ export function ShoppingListSection({
                     </div>
                   ))}
                   {item.productLink ? (
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span className="shrink-0 font-medium text-foreground">Link:</span>
+                    <div className="flex min-w-0 items-center gap-2 rounded-xl bg-secondary/35 px-3 py-2">
+                      <span className="shrink-0 text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">Link</span>
                       {renderEditableValue(
                         item,
                         "productLink",

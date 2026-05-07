@@ -6,6 +6,7 @@ const chooseOrganizationAppearance = {
     rootBox: "mx-auto w-full max-w-[760px]",
     cardBox: "mx-auto w-full max-w-[760px]",
     card: "mx-auto w-full max-w-[760px]",
+    organizationAvatarUploaderContainer: { display: "none" },
   },
 } as const;
 

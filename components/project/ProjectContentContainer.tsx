@@ -9,10 +9,13 @@ export function ProjectContentContainer({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const isProjectOverviewRoute = /^\/organisation\/projects\/[^/]+(?:\/)?$/.test(pathname);
+  const isProjectOverviewRoute =
+    /^\/organisation\/projects\/[^/]+(?:\/)?$/.test(pathname);
   const isWideProjectRoute =
     isProjectOverviewRoute ||
-    /^\/organisation\/projects\/[^/]+\/(?:tasks|shopping-list|labor|calendar|moodboard)(?:\/|$)/.test(pathname);
+    /^\/organisation\/projects\/[^/]+\/(?:tasks|shopping-list|labor|calendar|moodboard|contacts)(?:\/|$)/.test(
+      pathname,
+    );
 
   return (
     <div

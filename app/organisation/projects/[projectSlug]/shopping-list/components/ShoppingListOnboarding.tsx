@@ -12,6 +12,7 @@ import {
   FolderPlusIcon,
   PlugZapIcon,
   ShoppingBagIcon,
+  XIcon,
 } from "lucide-react";
 
 interface ShoppingListOnboardingProps {
@@ -21,6 +22,7 @@ interface ShoppingListOnboardingProps {
   itemsCount: number;
   onCreateSectionClick: () => void;
   onAddProductClick: () => void;
+  onDismiss?: () => void;
 }
 
 interface OnboardingStep {
@@ -113,6 +115,7 @@ export function ShoppingListOnboarding({
   itemsCount,
   onCreateSectionClick,
   onAddProductClick,
+  onDismiss,
 }: ShoppingListOnboardingProps) {
   const chromeWebStoreUrl =
     "https://chromewebstore.google.com/detail/myvibeproject-web-clipper/nklbcopiimkboameblhnmdookkelncih";
@@ -160,7 +163,21 @@ export function ShoppingListOnboarding({
   const completedSteps = steps.filter((step) => step.done).length;
 
   return (
-    <section className="vibe-panel mb-8 overflow-hidden">
+    <section className="vibe-panel relative mb-8 overflow-hidden">
+      {onDismiss ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="absolute right-4 top-4 z-10 h-9 w-9 rounded-full text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
+          onClick={onDismiss}
+          aria-label="Hide shopping list setup"
+          title="Hide"
+        >
+          <XIcon className="h-4 w-4" aria-hidden="true" />
+        </Button>
+      ) : null}
+
       <div className="grid items-start gap-8 p-6 lg:p-8 2xl:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)]">
         <div className="flex min-w-0 flex-col justify-between gap-6 py-1 2xl:min-h-[300px]">
           <div className="flex flex-col gap-4">

@@ -20,6 +20,7 @@ import {
 import { toast } from "sonner";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
+import { emitDemoProjectTourEvent } from "@/components/project/DemoProjectTour";
 import { Badge } from "@/components/ui/badge";
 import { apiAny } from "@/lib/convexApiAny";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
@@ -261,6 +262,12 @@ export default function CustomerPanelPage() {
     }
   };
 
+  const handleOpenPortal = () => {
+    if (!panelPath || typeof window === "undefined") return;
+    window.open(panelPath, "_blank", "noopener,noreferrer");
+    emitDemoProjectTourEvent("client-portal-opened");
+  };
+
   const handleSendLink = async () => {
     const normalizedEmail = recipientEmail.trim();
     if (!normalizedEmail) {
@@ -297,6 +304,7 @@ export default function CustomerPanelPage() {
       toast.success("Client portal updated", {
         description: `Published portal version #${result.version}.`,
       });
+      emitDemoProjectTourEvent("client-portal-published");
     } catch (error) {
       toast.error("Failed to update client portal", {
         description: toUserFacingErrorMessage(error),
@@ -399,10 +407,7 @@ export default function CustomerPanelPage() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => {
-                      if (!panelPath || typeof window === "undefined") return;
-                      window.open(panelPath, "_blank", "noopener,noreferrer");
-                    }}
+                    onClick={handleOpenPortal}
                     disabled={!panelPath || isPreparingLink}
                     className="rounded-full border-border/70 bg-card"
                   >
