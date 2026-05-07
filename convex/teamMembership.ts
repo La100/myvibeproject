@@ -187,11 +187,15 @@ export const ensureCurrentUserTeamMembership = mutation({
     }
 
     if (createdTeam || isFirstTeamMembership) {
-      await ensureDemoProjectForNewWorkspace(ctx, {
-        teamId: team._id,
-        clerkOrgId: args.clerkOrgId,
-        createdByClerkUserId: identity.subject,
-      });
+      try {
+        await ensureDemoProjectForNewWorkspace(ctx, {
+          teamId: team._id,
+          clerkOrgId: args.clerkOrgId,
+          createdByClerkUserId: identity.subject,
+        });
+      } catch (error) {
+        console.error("Failed to seed demo project for new workspace", error);
+      }
     }
 
     return ready(team._id);

@@ -6,7 +6,7 @@ type SeedCtx = {
 
 const DEMO_PROJECT_SLUG = "demo-project";
 const DEMO_PROJECT_NAME = "Demo: Modern Family House";
-const DEMO_COVER_IMAGE = "/landing/visualization-1776944094220.webp";
+const DEMO_COVER_IMAGE = "/landing/generated/editorial-studio-hero-web.png";
 
 const defaultTaskStatusSettings = {
   todo: { name: "To Do", color: "#808080" },
@@ -232,12 +232,12 @@ const seedMoodboard = async (
   createdBy: string,
 ) => {
   const images = [
-    ["Warm modern house concept", "concept-direction", "/landing/visualization-1776944094220.webp"],
-    ["Facade massing reference", "concept-direction", "/landing/visualization-1776943891109.webp"],
+    ["Warm interior concept", "concept-direction", "/landing/generated/editorial-studio-hero-web.png"],
+    ["Lounge furniture direction", "concept-direction", "/landing/generated/barcelona-chair-room.png"],
     ["Green zellige wall finish", "materials-finishes", "/landing/generated/green-zellige-interior.png"],
     ["Terracotta hallway tile", "materials-finishes", "/landing/generated/terracotta-tile-hallway.png"],
-    ["Lounge seating direction", "furniture-lighting", "/landing/generated/cream-boucle-swivel-chair.png"],
-    ["Leather and stone palette", "furniture-lighting", "/landing/generated/barcelona-chair-materials.png"],
+    ["Cream boucle swivel chair", "furniture-lighting", "/landing/generated/cream-boucle-swivel-chair.png"],
+    ["Leather stone and walnut palette", "furniture-lighting", "/landing/generated/barcelona-chair-materials.png"],
   ] as const;
 
   await Promise.all(
@@ -249,8 +249,8 @@ const seedMoodboard = async (
         projectId,
         fileType: "image",
         storageId,
-        size: 1,
-        mimeType: storageId.endsWith(".webp") ? "image/webp" : "image/png",
+        size: 900000,
+        mimeType: "image/png",
         uploadedBy: createdBy,
         version: 1,
         isLatest: true,

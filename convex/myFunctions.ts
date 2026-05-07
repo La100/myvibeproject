@@ -415,11 +415,15 @@ export const createOrUpdateMembership = internalMutation({
         }
 
         if (createdTeam || isFirstTeamMembership) {
-            await ensureDemoProjectForNewWorkspace(ctx, {
-                teamId: team._id,
-                clerkOrgId: args.clerkOrgId,
-                createdByClerkUserId: args.clerkUserId,
-            });
+            try {
+                await ensureDemoProjectForNewWorkspace(ctx, {
+                    teamId: team._id,
+                    clerkOrgId: args.clerkOrgId,
+                    createdByClerkUserId: args.clerkUserId,
+                });
+            } catch (error) {
+                console.error("Failed to seed demo project for new workspace", error);
+            }
         }
     }
 });

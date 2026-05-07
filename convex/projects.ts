@@ -79,6 +79,10 @@ const extractCoverImageStorageKey = (
     return undefined;
   }
 
+  if (trimmed.startsWith("/")) {
+    return undefined;
+  }
+
   if (!/^https?:\/\//i.test(trimmed)) {
     return trimmed.replace(/^\/+/, "") || undefined;
   }

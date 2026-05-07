@@ -796,7 +796,7 @@ export const addPublicSurveyFile = mutation({
 
     let fileUrl: string | undefined;
     try {
-      fileUrl = await r2.getUrl(args.fileKey, {
+      fileUrl = await resolveStoredFileUrl(args.fileKey, {
         expiresIn: 60 * 60 * 24,
       });
     } catch (error) {
@@ -1199,7 +1199,7 @@ export const getProjectFiles = query({
     const filesWithUrls = await Promise.all(
       visibleFiles.map(async (file) => {
         try {
-          const url = await r2.getUrl(file.storageId as string, {
+          const url = await resolveStoredFileUrl(file.storageId as string, {
             expiresIn: 60 * 60 * 24, // 24 godziny
           });
           return { ...file, url };
@@ -1247,7 +1247,7 @@ export const getProjectContent = query({
     const filesWithUrls = await Promise.all(
       visibleFiles.map(async (file) => {
         try {
-          const url = await r2.getUrl(file.storageId as string, {
+          const url = await resolveStoredFileUrl(file.storageId as string, {
             expiresIn: 60 * 60 * 24, // 24 godziny
           });
           return { ...file, url };
@@ -1550,7 +1550,7 @@ export const getProjectAiKnowledgeFiles = query({
     return Promise.all(
       visibleFiles.map(async (file) => {
         try {
-          const url = await r2.getUrl(file.storageId as string, {
+          const url = await resolveStoredFileUrl(file.storageId as string, {
             expiresIn: 60 * 60 * 24,
           });
           return { ...file, url };
@@ -2110,7 +2110,7 @@ export const getFileUrlByStorageId = query({
     }
 
     try {
-      return await r2.getUrl(args.storageId, {
+      return await resolveStoredFileUrl(args.storageId, {
         expiresIn: 60 * 60 * 2,
       });
     } catch (error) {
@@ -2214,7 +2214,7 @@ export const getFilesForTask = query({
 
     return Promise.all(
       files.map(async (file) => {
-        const url = await r2.getUrl(file.storageId);
+        const url = await resolveStoredFileUrl(file.storageId);
         return { ...file, url };
       }),
     );
@@ -2295,7 +2295,7 @@ export const getFileWithURL = query({
 
     // Generate URL
     try {
-      const url = await r2.getUrl(file.storageId as string, {
+      const url = await resolveStoredFileUrl(file.storageId as string, {
         expiresIn: 60 * 60 * 2, // 2 hours
       });
       return { ...file, url };
