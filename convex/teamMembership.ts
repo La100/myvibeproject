@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { mutation } from "./_generated/server";
+import { ensureDemoProjectForNewWorkspace } from "./demoProjectSeed";
 import { SUBSCRIPTION_PLANS } from "./stripe";
 
 const generateSlug = (name: string) => {
@@ -177,6 +178,12 @@ export const ensureCurrentUserTeamMembership = mutation({
         isActive: true,
       });
     }
+
+    await ensureDemoProjectForNewWorkspace(ctx, {
+      teamId: team._id,
+      clerkOrgId: args.clerkOrgId,
+      createdByClerkUserId: identity.subject,
+    });
 
     return ready(team._id);
   },

@@ -9,6 +9,17 @@ const internalAny = require("./_generated/api").internal as any;
 const r2 = new R2(components.r2);
 const normalizeSectionKey = (name: string) => name.trim().toLocaleLowerCase();
 
+const resolveStoredFileUrl = async (
+  storageId: string,
+  options?: { expiresIn?: number },
+) => {
+  if (storageId.startsWith("/") || /^https?:\/\//i.test(storageId)) {
+    return storageId;
+  }
+
+  return await r2.getUrl(storageId, options);
+};
+
 const sortPortalMoodboardFiles = <
   T extends { moodboardOrder?: number; uploadedAt: number; name?: string },
 >(
@@ -550,7 +561,7 @@ export const getPublicShoppingListByAccessToken = query({
     const filesWithUrls = await Promise.all(
       files.map(async (file) => {
         try {
-          const url = await r2.getUrl(file.storageId as string, {
+          const url = await resolveStoredFileUrl(file.storageId as string, {
             expiresIn: 60 * 60 * 24,
           });
           return { ...file, url };

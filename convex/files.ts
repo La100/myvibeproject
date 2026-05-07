@@ -29,6 +29,17 @@ const isPdfFile = (file: { name?: string; mimeType?: string }) =>
   file.mimeType === "application/pdf" ||
   file.name?.toLowerCase().endsWith(".pdf") === true;
 
+const resolveStoredFileUrl = async (
+  storageId: string,
+  options?: { expiresIn?: number },
+) => {
+  if (storageId.startsWith("/") || /^https?:\/\//i.test(storageId)) {
+    return storageId;
+  }
+
+  return await r2.getUrl(storageId, options);
+};
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const DEFAULT_MOODBOARD_SECTIONS = [
   { id: "1", title: "CONCEPT", order: 0 },
@@ -1584,7 +1595,7 @@ export const getMoodboardImagesBySection = query({
     const filesWithUrls = await Promise.all(
       sortMoodboardFiles(files).map(async (file, index) => {
         try {
-          const url = await r2.getUrl(file.storageId as string, {
+          const url = await resolveStoredFileUrl(file.storageId as string, {
             expiresIn: 60 * 60 * 24, // 24 hours
           });
           return {

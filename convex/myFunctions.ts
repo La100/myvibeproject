@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
+import { ensureDemoProjectForNewWorkspace } from "./demoProjectSeed";
 import { SUBSCRIPTION_PLANS } from "./stripe";
 
 // Utility function to generate a slug from a string
@@ -407,6 +408,12 @@ export const createOrUpdateMembership = internalMutation({
                 permissions: [],
             });
         }
+
+        await ensureDemoProjectForNewWorkspace(ctx, {
+            teamId: team._id,
+            clerkOrgId: args.clerkOrgId,
+            createdByClerkUserId: args.clerkUserId,
+        });
     }
 });
 
