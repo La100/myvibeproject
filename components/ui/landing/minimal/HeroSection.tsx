@@ -173,10 +173,11 @@ export function HeroSection() {
         <div className="max-w-[720px] pt-8 sm:max-w-[820px] sm:pt-10 md:max-w-[900px] lg:max-w-[760px] xl:max-w-[860px] 2xl:max-w-[620px]">
           <h1 className="text-balance text-[2.25rem] font-medium leading-[0.98] tracking-[-0.04em] text-foreground sm:text-[2.85rem] md:text-[3.35rem] lg:text-[2.6rem] xl:text-[3rem] 2xl:text-[2.35rem] 2xl:leading-[1.05]">
             Built for architecture and interior design studios.
-            <br />
+          </h1>
+          <p className="mt-4 max-w-[620px] text-balance text-lg leading-[1.35] text-foreground/72 sm:text-xl lg:max-w-[560px] lg:text-lg xl:max-w-[620px] xl:text-xl 2xl:max-w-[520px] 2xl:text-lg">
             Run projects, clients, briefs, concepts, and delivery from one
             organized workspace.
-          </h1>
+          </p>
         </div>
 
         <div className="mt-6 flex flex-wrap items-center gap-3 md:mt-7">
