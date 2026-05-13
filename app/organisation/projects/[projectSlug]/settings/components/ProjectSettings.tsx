@@ -16,7 +16,7 @@ import { useOrganization } from "@clerk/nextjs";
 import { z } from "zod";
 import { toast } from "sonner";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
-import { AlertCircle, Check, ImagePlus, Save, Settings, X } from "lucide-react";
+import { AlertCircle, Check, Copy, ImagePlus, Save, Settings, X } from "lucide-react";
 
 import { apiAny } from "@/lib/convexApiAny";
 import { optimizeCoverImageForUpload } from "@/lib/coverImageUpload";
@@ -1475,6 +1475,15 @@ function AdvancedTab({
   setDeleteDialogOpen: (open: boolean) => void;
   onDeleteSubmit: (values: z.infer<typeof deleteFormSchema>) => void;
 }) {
+  const copyProjectName = async () => {
+    try {
+      await navigator.clipboard.writeText(project.name);
+      toast.success("Project name copied");
+    } catch {
+      toast.error("Could not copy project name");
+    }
+  };
+
   return (
     <div className="flex flex-col gap-8">
       <div>
@@ -1518,8 +1527,24 @@ function AdvancedTab({
                     <FormItem>
                       <FormLabel className="text-sm">
                         Type{" "}
-                        <span className="font-mono font-semibold">
-                          {project.name}
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="font-mono font-semibold">
+                            {project.name}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-xs"
+                            onClick={(event) => {
+                              event.preventDefault();
+                              void copyProjectName();
+                            }}
+                            aria-label="Copy project name"
+                            title="Copy project name"
+                            className="text-muted-foreground hover:text-foreground"
+                          >
+                            <Copy className="h-3 w-3" />
+                          </Button>
                         </span>{" "}
                         to confirm:
                       </FormLabel>

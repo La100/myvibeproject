@@ -172,9 +172,10 @@ export function HeroSection() {
       <div className="mx-auto w-full max-w-[1520px]">
         <div className="max-w-[720px] pt-8 sm:max-w-[820px] sm:pt-10 md:max-w-[900px] lg:max-w-[760px] xl:max-w-[860px] 2xl:max-w-[620px]">
           <h1 className="text-balance text-[2.25rem] font-medium leading-[0.98] tracking-[-0.04em] text-foreground sm:text-[2.85rem] md:text-[3.35rem] lg:text-[2.6rem] xl:text-[3rem] 2xl:text-[2.35rem] 2xl:leading-[1.05]">
-            For architects and interior designers,
+            Built for architecture and interior design studios.
             <br />
-            Myvibe is the best way to run projects with AI.
+            Run projects, clients, briefs, concepts, and delivery from one
+            organized workspace.
           </h1>
         </div>
 
