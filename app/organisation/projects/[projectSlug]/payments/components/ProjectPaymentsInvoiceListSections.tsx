@@ -98,6 +98,9 @@ const getStatusLabelKey = (installment: Installment) => {
 const actionButtonClassName =
   "h-8 shrink-0 rounded-full border-border/60 bg-card px-3 text-[12px] font-medium shadow-none transition-colors hover:bg-card hover:text-foreground";
 
+const actionTrayClassName =
+  "flex min-w-0 max-w-full flex-wrap items-center gap-1 rounded-2xl border border-border/60 bg-secondary/35 p-1 xl:justify-end";
+
 const metaPillClassName =
   "inline-flex max-w-full items-center rounded-full border border-border/60 bg-secondary/70 px-2.5 py-1 text-[11px] font-medium leading-none text-muted-foreground";
 
@@ -130,7 +133,7 @@ function InvoiceListItem({
 
   return (
     <div className="rounded-2xl border border-border/80 bg-card px-4 py-4 transition-[border-color,box-shadow] hover:border-border hover:shadow-sm sm:px-5">
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+      <div className="grid gap-3 xl:grid-cols-[minmax(18rem,1fr)_minmax(0,42rem)] xl:items-start">
         <div className="min-w-0">
           <div className="mb-2 flex flex-wrap items-center gap-2">
             <h3 className="min-w-0 max-w-full text-[15px] font-semibold leading-tight text-foreground">
@@ -193,8 +196,8 @@ function InvoiceListItem({
           </div>
         </div>
 
-        <div className="flex shrink-0 lg:justify-end">
-          <div className="flex flex-wrap items-center gap-1 rounded-full border border-border/60 bg-secondary/35 p-1 lg:justify-end">
+        <div className="flex min-w-0 xl:justify-end">
+          <div className={actionTrayClassName}>
             {isDraft ? (
               <>
                 <Button
