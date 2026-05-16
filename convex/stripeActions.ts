@@ -674,21 +674,21 @@ export const sendSubscriptionActivatedEmail = internalAction({
     const planName = getPlanNameFromPriceId(args.priceId);
     const baseUrl = normalizeBaseUrl();
     const subscriptionUrl = `${baseUrl}/organisation/subscription`;
-    const teamName = team.name || "your workspace";
-    const subject = `${planName} is active`;
+    const teamName = team.name || "Twój workspace";
+    const subject = `${planName} jest aktywny`;
     const text = [
-      `Your ${planName} subscription is active for ${teamName}.`,
+      `Subskrypcja ${planName} jest aktywna dla ${teamName}.`,
       "",
-      "You can manage billing and view your credit usage here:",
+      "Tutaj możesz zarządzać rozliczeniami i sprawdzić wykorzystanie kredytów:",
       subscriptionUrl,
       "",
-      "Thanks for using Myvibe.",
+      "Dziękujemy za korzystanie z Myvibe.",
     ].join("\n");
     const html = [
-      `<p>Your <strong>${escapeHtml(planName)}</strong> subscription is active for <strong>${escapeHtml(teamName)}</strong>.</p>`,
-      `<p>You can manage billing and view your credit usage here:</p>`,
-      `<p><a href="${escapeHtml(subscriptionUrl)}">Open subscription settings</a></p>`,
-      `<p>Thanks for using Myvibe.</p>`,
+      `<p>Subskrypcja <strong>${escapeHtml(planName)}</strong> jest aktywna dla <strong>${escapeHtml(teamName)}</strong>.</p>`,
+      `<p>Tutaj możesz zarządzać rozliczeniami i sprawdzić wykorzystanie kredytów:</p>`,
+      `<p><a href="${escapeHtml(subscriptionUrl)}">Otwórz ustawienia subskrypcji</a></p>`,
+      `<p>Dziękujemy za korzystanie z Myvibe.</p>`,
     ].join("");
 
     try {
@@ -800,35 +800,35 @@ export const sendSubscriptionCanceledEmail = internalAction({
 
     const baseUrl = normalizeBaseUrl();
     const subscriptionUrl = `${baseUrl}/organisation/subscription`;
-    const teamName = team.name || "your workspace";
+    const teamName = team.name || "Twój workspace";
     const accessUntil =
       args.cancelAtPeriodEnd && args.currentPeriodEnd
-        ? new Intl.DateTimeFormat("en-US", {
-            month: "long",
+        ? new Intl.DateTimeFormat("pl-PL", {
             day: "numeric",
+            month: "long",
             year: "numeric",
           }).format(new Date(args.currentPeriodEnd))
         : null;
 
     const subject = args.cancelAtPeriodEnd
-      ? "Your Myvibe subscription cancellation is scheduled"
-      : "Your Myvibe subscription has been canceled";
+      ? "Anulowanie subskrypcji Myvibe zostało zaplanowane"
+      : "Subskrypcja Myvibe została anulowana";
     const accessLine = accessUntil
-      ? `Your paid access for ${teamName} will remain active until ${accessUntil}.`
-      : `Your paid subscription for ${teamName} has been canceled.`;
+      ? `Płatny dostęp dla ${teamName} pozostanie aktywny do ${accessUntil}.`
+      : `Płatna subskrypcja dla ${teamName} została anulowana.`;
     const text = [
       accessLine,
       "",
-      "Thank you for using Myvibe. You can review your billing and subscription settings here:",
+      "Dziękujemy za korzystanie z Myvibe. Ustawienia rozliczeń i subskrypcji znajdziesz tutaj:",
       subscriptionUrl,
       "",
-      "We would be happy to have you back whenever it fits your workflow.",
+      "Chętnie powitamy Cię ponownie, gdy będzie to pasować do Twojego workflow.",
     ].join("\n");
     const html = [
       `<p>${escapeHtml(accessLine)}</p>`,
-      `<p>Thank you for using Myvibe. You can review your billing and subscription settings here:</p>`,
-      `<p><a href="${escapeHtml(subscriptionUrl)}">Open subscription settings</a></p>`,
-      `<p>We would be happy to have you back whenever it fits your workflow.</p>`,
+      `<p>Dziękujemy za korzystanie z Myvibe. Ustawienia rozliczeń i subskrypcji znajdziesz tutaj:</p>`,
+      `<p><a href="${escapeHtml(subscriptionUrl)}">Otwórz ustawienia subskrypcji</a></p>`,
+      `<p>Chętnie powitamy Cię ponownie, gdy będzie to pasować do Twojego workflow.</p>`,
     ].join("");
 
     try {

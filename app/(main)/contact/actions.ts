@@ -11,11 +11,11 @@ export type ContactFormState = {
 const CONTACT_EMAIL = "contact@myvibeproject.com";
 
 const contactFormSchema = z.object({
-  name: z.string().trim().min(2, "Enter your name."),
-  email: z.string().trim().email("Enter a valid email address."),
-  subject: z.string().trim().min(3, "Enter a subject."),
-  message: z.string().trim().min(10, "Enter a longer message."),
-  company: z.string().trim().max(0, "Unable to send this message."),
+  name: z.string().trim().min(2, "Wpisz swoje imię."),
+  email: z.string().trim().email("Wpisz poprawny adres e-mail."),
+  subject: z.string().trim().min(3, "Wpisz temat."),
+  message: z.string().trim().min(10, "Wpisz dłuższą wiadomość."),
+  company: z.string().trim().max(0, "Nie można wysłać tej wiadomości."),
 });
 
 export async function submitContactForm(
@@ -46,7 +46,7 @@ export async function submitContactForm(
 
     return {
       status: "error",
-      message: "Check the highlighted fields and try again.",
+      message: "Sprawdź zaznaczone pola i spróbuj ponownie.",
       fieldErrors,
     };
   }
@@ -58,7 +58,7 @@ export async function submitContactForm(
     console.error("Contact form email skipped: Resend is not configured.");
     return {
       status: "error",
-      message: "Message delivery is temporarily unavailable. Email us directly at contact@myvibeproject.com.",
+      message: "Wysyłka wiadomości jest chwilowo niedostępna. Napisz bezpośrednio na contact@myvibeproject.com.",
     };
   }
 
@@ -72,11 +72,11 @@ export async function submitContactForm(
       from: resendFromEmail,
       to: CONTACT_EMAIL,
       reply_to: parsed.data.email,
-      subject: `Contact form: ${parsed.data.subject}`,
+      subject: `Formularz kontaktowy: ${parsed.data.subject}`,
       text: [
-        `Name: ${parsed.data.name}`,
-        `Email: ${parsed.data.email}`,
-        `Subject: ${parsed.data.subject}`,
+        `Imię: ${parsed.data.name}`,
+        `E-mail: ${parsed.data.email}`,
+        `Temat: ${parsed.data.subject}`,
         "",
         parsed.data.message,
       ].join("\n"),
@@ -90,12 +90,12 @@ export async function submitContactForm(
     );
     return {
       status: "error",
-      message: "We could not send the message. Email us directly at contact@myvibeproject.com.",
+      message: "Nie udało się wysłać wiadomości. Napisz bezpośrednio na contact@myvibeproject.com.",
     };
   }
 
   return {
     status: "success",
-    message: "Message sent. We will reply by email.",
+    message: "Wiadomość wysłana. Odpowiemy e-mailem.",
   };
 }

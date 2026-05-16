@@ -145,8 +145,7 @@ export function ProjectProvider({ children }: {
     return (
       <AppLoadingState
         variant="screen"
-        title={t("projectProvider", "loadingProject")}
-        description={t("projectProvider", "preparingProjectWorkspace")}
+        title=""
         className="fixed inset-0 bg-background/95"
       />
     );

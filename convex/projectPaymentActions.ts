@@ -83,7 +83,7 @@ const escapeHtml = (value: string) =>
     .replace(/'/g, "&#39;");
 
 const formatAmount = (amount: number, currency: string) =>
-  new Intl.NumberFormat("en-US", {
+  new Intl.NumberFormat("pl-PL", {
     style: "currency",
     currency,
     minimumFractionDigits: 2,
@@ -92,7 +92,7 @@ const formatAmount = (amount: number, currency: string) =>
 
 const formatDate = (timestamp?: number) => {
   if (!timestamp) return "-";
-  return new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat("pl-PL", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -519,7 +519,7 @@ const buildInvoiceEmail = async (payload: InvoicePayload) => {
   const customer = getInvoiceCustomerDetails(payload.project, payload.installment);
   const email = normalizeOptionalEmail(customer.email);
   if (!email || !emailPattern.test(email)) {
-    throw new Error("Add a valid billing email before sending the invoice");
+    throw new Error("Dodaj poprawny adres e-mail do faktury przed wysłaniem");
   }
 
   const downloadUrl = payload.installment.invoicePdfStorageKey
@@ -533,29 +533,29 @@ const buildInvoiceEmail = async (payload: InvoicePayload) => {
 
   return {
     to: email,
-    subject: `Invoice ${invoiceNumber} - ${payload.project.name}`,
+    subject: `Faktura ${invoiceNumber} - ${payload.project.name}`,
     text:
-      `Hello,\n\n` +
-      `Please find invoice ${invoiceNumber} for the project "${payload.project.name}" attached.\n` +
-      `Amount: ${amount}\n` +
-      `Due date: ${dueDate}\n` +
-      `Account number: ${accountNumber}\n` +
-      `Transfer reference: ${paymentReference}\n\n` +
-      (downloadUrl ? `Download PDF: ${downloadUrl}\n\n` : "") +
-      `Best regards,\n${billingProfile.sellerName}`,
+      `Dzień dobry,\n\n` +
+      `W załączniku przesyłamy fakturę ${invoiceNumber} dla projektu "${payload.project.name}".\n` +
+      `Kwota: ${amount}\n` +
+      `Termin płatności: ${dueDate}\n` +
+      `Numer konta: ${accountNumber}\n` +
+      `Tytuł przelewu: ${paymentReference}\n\n` +
+      (downloadUrl ? `Pobierz PDF: ${downloadUrl}\n\n` : "") +
+      `Pozdrawiamy,\n${billingProfile.sellerName}`,
     html:
-      `<p>Hello,</p>` +
-      `<p>Please find invoice <strong>${escapeHtml(invoiceNumber)}</strong> for the project <strong>${escapeHtml(payload.project.name)}</strong> attached.</p>` +
+      `<p>Dzień dobry,</p>` +
+      `<p>W załączniku przesyłamy fakturę <strong>${escapeHtml(invoiceNumber)}</strong> dla projektu <strong>${escapeHtml(payload.project.name)}</strong>.</p>` +
       `<p>` +
-      `Amount: <strong>${escapeHtml(amount)}</strong><br />` +
-      `Due date: <strong>${escapeHtml(dueDate)}</strong><br />` +
-      `Account number: <strong>${escapeHtml(accountNumber)}</strong><br />` +
-      `Transfer reference: <strong>${escapeHtml(paymentReference)}</strong>` +
+      `Kwota: <strong>${escapeHtml(amount)}</strong><br />` +
+      `Termin płatności: <strong>${escapeHtml(dueDate)}</strong><br />` +
+      `Numer konta: <strong>${escapeHtml(accountNumber)}</strong><br />` +
+      `Tytuł przelewu: <strong>${escapeHtml(paymentReference)}</strong>` +
       `</p>` +
       (downloadUrl
-        ? `<p><a href="${escapeHtml(downloadUrl)}">Download invoice PDF</a></p>`
+        ? `<p><a href="${escapeHtml(downloadUrl)}">Pobierz fakturę PDF</a></p>`
         : "") +
-      `<p>Best regards,<br />${escapeHtml(billingProfile.sellerName || payload.team.name)}</p>`,
+      `<p>Pozdrawiamy,<br />${escapeHtml(billingProfile.sellerName || payload.team.name)}</p>`,
   };
 };
 

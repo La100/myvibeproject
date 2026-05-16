@@ -67,8 +67,12 @@ const isValidEmail = (email: string) =>
 const trimTrailingSlash = (value: string) => value.replace(/\/+$/, "");
 const formatDateLabel = (timestamp?: number | null) =>
   typeof timestamp === "number" && Number.isFinite(timestamp)
-    ? new Date(timestamp).toISOString().slice(0, 10)
-    : "No due date";
+    ? new Intl.DateTimeFormat("pl-PL", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      }).format(new Date(timestamp))
+    : "Brak terminu";
 const TASK_NOTIFICATION_EVENT_TO_SETTING = {
   "task.assigned": "taskAssigned",
   "task.unassigned": "taskUnassigned",
@@ -86,21 +90,35 @@ const escapeHtml = (value: string) =>
     .replace(/'/g, "&#39;");
 
 const formatDigestTime = (timestamp: number) =>
-  new Date(timestamp).toLocaleString("en-US", {
+  new Date(timestamp).toLocaleString("pl-PL", {
     dateStyle: "medium",
     timeStyle: "short",
   });
 
+const formatTaskStatusLabel = (status?: string) => {
+  if (!status) {
+    return "nieznany";
+  }
+
+  const labels: Record<string, string> = {
+    todo: "do zrobienia",
+    in_progress: "w toku",
+    review: "do sprawdzenia",
+    done: "gotowe",
+  };
+  return labels[status] || status;
+};
+
 const renderDigestEventText = (event: ClientPortalDigestEvent) => {
-  const actorName = event.actorName?.trim() || "Client";
-  const itemName = event.itemName?.trim() || "item";
-  const surveyTitle = event.surveyTitle?.trim() || "survey";
+  const actorName = event.actorName?.trim() || "Klient";
+  const itemName = event.itemName?.trim() || "pozycję";
+  const surveyTitle = event.surveyTitle?.trim() || "ankietę";
 
   if (
     event.actionType === "shopping.customer.decision" ||
     event.actionType === "labor.customer.decision"
   ) {
-    const decisionLabel = event.decision === "accepted" ? "accepted" : "rejected";
+    const decisionLabel = event.decision === "accepted" ? "zaakceptował(a)" : "odrzucił(a)";
     return `${actorName} ${decisionLabel} "${itemName}"`;
   }
 
@@ -108,22 +126,22 @@ const renderDigestEventText = (event: ClientPortalDigestEvent) => {
     event.actionType === "shopping.customer.feedback" ||
     event.actionType === "labor.customer.feedback"
   ) {
-    return `${actorName} left a comment on "${itemName}"`;
+    return `${actorName} dodał(a) komentarz do "${itemName}"`;
   }
 
-  return `${actorName} submitted survey "${surveyTitle}"`;
+  return `${actorName} przesłał(a) ankietę "${surveyTitle}"`;
 };
 
 const renderDigestEventHtml = (event: ClientPortalDigestEvent) => {
-  const actorName = escapeHtml(event.actorName?.trim() || "Client");
-  const itemName = escapeHtml(event.itemName?.trim() || "item");
-  const surveyTitle = escapeHtml(event.surveyTitle?.trim() || "survey");
+  const actorName = escapeHtml(event.actorName?.trim() || "Klient");
+  const itemName = escapeHtml(event.itemName?.trim() || "pozycję");
+  const surveyTitle = escapeHtml(event.surveyTitle?.trim() || "ankietę");
 
   if (
     event.actionType === "shopping.customer.decision" ||
     event.actionType === "labor.customer.decision"
   ) {
-    const decisionLabel = event.decision === "accepted" ? "accepted" : "rejected";
+    const decisionLabel = event.decision === "accepted" ? "zaakceptował(a)" : "odrzucił(a)";
     return `<strong>${actorName}</strong> ${decisionLabel} <strong>"${itemName}"</strong>`;
   }
 
@@ -131,10 +149,10 @@ const renderDigestEventHtml = (event: ClientPortalDigestEvent) => {
     event.actionType === "shopping.customer.feedback" ||
     event.actionType === "labor.customer.feedback"
   ) {
-    return `<strong>${actorName}</strong> left a comment on <strong>"${itemName}"</strong>`;
+    return `<strong>${actorName}</strong> dodał(a) komentarz do <strong>"${itemName}"</strong>`;
   }
 
-  return `<strong>${actorName}</strong> submitted survey <strong>"${surveyTitle}"</strong>`;
+  return `<strong>${actorName}</strong> przesłał(a) ankietę <strong>"${surveyTitle}"</strong>`;
 };
 
 const buildClientPortalDigestEmail = (args: {
@@ -144,25 +162,25 @@ const buildClientPortalDigestEmail = (args: {
 }) => {
   const subjectCount = args.events.length;
   const textLines = [
-    `Client portal updates for project "${args.projectName}" (${subjectCount})`,
+    `Aktualizacje w panelu klienta dla projektu "${args.projectName}" (${subjectCount})`,
     "",
     ...args.events.flatMap((event) => {
       const lines = [
         `- ${formatDigestTime(event.createdAt)}: ${renderDigestEventText(event)}`,
       ];
       if (event.comment?.trim()) {
-        lines.push(`  Comment: ${event.comment.trim()}`);
+        lines.push(`  Komentarz: ${event.comment.trim()}`);
       }
       return lines;
     }),
     "",
-    `Open notifications: ${args.projectUrl}`,
+    `Otwórz powiadomienia: ${args.projectUrl}`,
   ];
 
   const htmlItems = args.events
     .map((event) => {
       const commentHtml = event.comment?.trim()
-        ? `<div><strong>Comment:</strong> ${escapeHtml(event.comment.trim())}</div>`
+        ? `<div><strong>Komentarz:</strong> ${escapeHtml(event.comment.trim())}</div>`
         : "";
       return `<li><div>${escapeHtml(formatDigestTime(event.createdAt))}: ${renderDigestEventHtml(
         event,
@@ -171,9 +189,9 @@ const buildClientPortalDigestEmail = (args: {
     .join("");
 
   return {
-    subject: `[${args.projectName}] Client portal updates (${subjectCount})`,
+    subject: `[${args.projectName}] Aktualizacje w panelu klienta (${subjectCount})`,
     text: textLines.join("\n"),
-    html: `<p>Client portal updates for project <strong>${escapeHtml(args.projectName)}</strong>.</p><ul>${htmlItems}</ul><p><a href="${escapeHtml(args.projectUrl)}">Open notifications</a></p>`,
+    html: `<p>Aktualizacje w panelu klienta dla projektu <strong>${escapeHtml(args.projectName)}</strong>.</p><ul>${htmlItems}</ul><p><a href="${escapeHtml(args.projectUrl)}">Otwórz powiadomienia</a></p>`,
   };
 };
 
@@ -194,47 +212,50 @@ const buildTaskEmailMessage = (args: {
   currentDueDate?: number | null;
   commentPreview?: string;
 }) => {
-  const actorName = args.actorName?.trim() || "Someone";
-  const taskTitle = args.taskTitle.trim() || "Untitled task";
+  const actorName = args.actorName?.trim() || "Ktoś";
+  const taskTitle = args.taskTitle.trim() || "Zadanie bez tytułu";
 
   if (args.eventType === "task.assigned") {
     return {
-      subject: `[${args.projectName}] Task assigned: "${taskTitle}"`,
-      text: `${actorName} assigned you to "${taskTitle}" in project "${args.projectName}".\n\nOpen task: ${args.taskUrl}`,
-      html: `<p><strong>${escapeHtml(actorName)}</strong> assigned you to <strong>"${escapeHtml(taskTitle)}"</strong> in project <strong>${escapeHtml(args.projectName)}</strong>.</p><p><a href="${escapeHtml(args.taskUrl)}">Open task</a></p>`,
+      subject: `[${args.projectName}] Przypisano zadanie: "${taskTitle}"`,
+      text: `${actorName} przypisał(a) Cię do zadania "${taskTitle}" w projekcie "${args.projectName}".\n\nOtwórz zadanie: ${args.taskUrl}`,
+      html: `<p><strong>${escapeHtml(actorName)}</strong> przypisał(a) Cię do zadania <strong>"${escapeHtml(taskTitle)}"</strong> w projekcie <strong>${escapeHtml(args.projectName)}</strong>.</p><p><a href="${escapeHtml(args.taskUrl)}">Otwórz zadanie</a></p>`,
     };
   }
 
   if (args.eventType === "task.unassigned") {
     return {
-      subject: `[${args.projectName}] Task unassigned: "${taskTitle}"`,
-      text: `${actorName} removed you from "${taskTitle}" in project "${args.projectName}".\n\nOpen task: ${args.taskUrl}`,
-      html: `<p><strong>${escapeHtml(actorName)}</strong> removed you from <strong>"${escapeHtml(taskTitle)}"</strong> in project <strong>${escapeHtml(args.projectName)}</strong>.</p><p><a href="${escapeHtml(args.taskUrl)}">Open task</a></p>`,
+      subject: `[${args.projectName}] Usunięto przypisanie: "${taskTitle}"`,
+      text: `${actorName} usunął/usunęła Cię z zadania "${taskTitle}" w projekcie "${args.projectName}".\n\nOtwórz zadanie: ${args.taskUrl}`,
+      html: `<p><strong>${escapeHtml(actorName)}</strong> usunął/usunęła Cię z zadania <strong>"${escapeHtml(taskTitle)}"</strong> w projekcie <strong>${escapeHtml(args.projectName)}</strong>.</p><p><a href="${escapeHtml(args.taskUrl)}">Otwórz zadanie</a></p>`,
     };
   }
 
   if (args.eventType === "task.status_updated") {
+    const fromStatus = formatTaskStatusLabel(args.fromStatus);
+    const toStatus = formatTaskStatusLabel(args.toStatus);
+
     return {
-      subject: `[${args.projectName}] Task status updated: "${taskTitle}"`,
-      text: `${actorName} changed the status of "${taskTitle}" from ${args.fromStatus || "unknown"} to ${args.toStatus || "unknown"}.\n\nOpen task: ${args.taskUrl}`,
-      html: `<p><strong>${escapeHtml(actorName)}</strong> changed the status of <strong>"${escapeHtml(taskTitle)}"</strong> from <strong>${escapeHtml(args.fromStatus || "unknown")}</strong> to <strong>${escapeHtml(args.toStatus || "unknown")}</strong>.</p><p><a href="${escapeHtml(args.taskUrl)}">Open task</a></p>`,
+      subject: `[${args.projectName}] Zmieniono status zadania: "${taskTitle}"`,
+      text: `${actorName} zmienił(a) status zadania "${taskTitle}" z ${fromStatus} na ${toStatus}.\n\nOtwórz zadanie: ${args.taskUrl}`,
+      html: `<p><strong>${escapeHtml(actorName)}</strong> zmienił(a) status zadania <strong>"${escapeHtml(taskTitle)}"</strong> z <strong>${escapeHtml(fromStatus)}</strong> na <strong>${escapeHtml(toStatus)}</strong>.</p><p><a href="${escapeHtml(args.taskUrl)}">Otwórz zadanie</a></p>`,
     };
   }
 
   if (args.eventType === "task.due_date_changed") {
     return {
-      subject: `[${args.projectName}] Due date changed: "${taskTitle}"`,
-      text: `${actorName} updated the due date of "${taskTitle}".\nPrevious due date: ${formatDateLabel(args.previousDueDate)}\nNew due date: ${formatDateLabel(args.currentDueDate)}\n\nOpen task: ${args.taskUrl}`,
-      html: `<p><strong>${escapeHtml(actorName)}</strong> updated the due date of <strong>"${escapeHtml(taskTitle)}"</strong>.</p><p><strong>Previous due date:</strong> ${escapeHtml(formatDateLabel(args.previousDueDate))}<br/><strong>New due date:</strong> ${escapeHtml(formatDateLabel(args.currentDueDate))}</p><p><a href="${escapeHtml(args.taskUrl)}">Open task</a></p>`,
+      subject: `[${args.projectName}] Zmieniono termin zadania: "${taskTitle}"`,
+      text: `${actorName} zaktualizował(a) termin zadania "${taskTitle}".\nPoprzedni termin: ${formatDateLabel(args.previousDueDate)}\nNowy termin: ${formatDateLabel(args.currentDueDate)}\n\nOtwórz zadanie: ${args.taskUrl}`,
+      html: `<p><strong>${escapeHtml(actorName)}</strong> zaktualizował(a) termin zadania <strong>"${escapeHtml(taskTitle)}"</strong>.</p><p><strong>Poprzedni termin:</strong> ${escapeHtml(formatDateLabel(args.previousDueDate))}<br/><strong>Nowy termin:</strong> ${escapeHtml(formatDateLabel(args.currentDueDate))}</p><p><a href="${escapeHtml(args.taskUrl)}">Otwórz zadanie</a></p>`,
     };
   }
 
   const commentPreview =
-    args.commentPreview?.trim() || "No comment preview available.";
+    args.commentPreview?.trim() || "Brak podglądu komentarza.";
   return {
-    subject: `[${args.projectName}] New task comment: "${taskTitle}"`,
-    text: `${actorName} commented on "${taskTitle}" in project "${args.projectName}".\n\nComment: ${commentPreview}\n\nOpen task: ${args.taskUrl}`,
-    html: `<p><strong>${escapeHtml(actorName)}</strong> commented on <strong>"${escapeHtml(taskTitle)}"</strong> in project <strong>${escapeHtml(args.projectName)}</strong>.</p><p><strong>Comment:</strong> ${escapeHtml(commentPreview)}</p><p><a href="${escapeHtml(args.taskUrl)}">Open task</a></p>`,
+    subject: `[${args.projectName}] Nowy komentarz do zadania: "${taskTitle}"`,
+    text: `${actorName} dodał(a) komentarz do zadania "${taskTitle}" w projekcie "${args.projectName}".\n\nKomentarz: ${commentPreview}\n\nOtwórz zadanie: ${args.taskUrl}`,
+    html: `<p><strong>${escapeHtml(actorName)}</strong> dodał(a) komentarz do zadania <strong>"${escapeHtml(taskTitle)}"</strong> w projekcie <strong>${escapeHtml(args.projectName)}</strong>.</p><p><strong>Komentarz:</strong> ${escapeHtml(commentPreview)}</p><p><a href="${escapeHtml(args.taskUrl)}">Otwórz zadanie</a></p>`,
   };
 };
 

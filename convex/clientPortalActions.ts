@@ -41,7 +41,7 @@ export const sendClientPortalLinkEmail = action({
 
     const recipientEmail = args.recipientEmail.trim().toLowerCase();
     if (!isValidEmail(recipientEmail)) {
-      throw new Error("Please enter a valid email address.");
+      throw new Error("Wpisz poprawny adres e-mail.");
     }
 
     const project = await ctx.runQuery(internalAny.projects.getProjectByIdInternal, {
@@ -79,8 +79,8 @@ export const sendClientPortalLinkEmail = action({
       })).token;
 
     const portalUrl = `${getBaseUrl(args.baseUrl)}/client-panel/${accessToken}`;
-    const projectName = project.name?.trim() || "Project";
-    const senderName = identity.name?.trim() || identity.email?.trim() || "Project team";
+    const projectName = project.name?.trim() || "Projekt";
+    const senderName = identity.name?.trim() || identity.email?.trim() || "Zespół projektu";
 
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -91,15 +91,15 @@ export const sendClientPortalLinkEmail = action({
       body: JSON.stringify({
         from: resendFromEmail,
         to: [recipientEmail],
-        subject: `[${projectName}] Your client portal link`,
+        subject: `[${projectName}] Link do panelu klienta`,
         text:
-          `${senderName} shared the client portal for project "${projectName}".\n\n` +
-          `Open portal: ${portalUrl}\n\n` +
-          `If the link stops working, ask the project team for a new one.`,
+          `${senderName} udostępnił(a) panel klienta dla projektu "${projectName}".\n\n` +
+          `Otwórz panel: ${portalUrl}\n\n` +
+          `Jeśli link przestanie działać, poproś zespół projektu o nowy.`,
         html:
-          `<p>${escapeHtml(senderName)} shared the client portal for project <strong>${escapeHtml(projectName)}</strong>.</p>` +
-          `<p><a href="${escapeHtml(portalUrl)}">Open client portal</a></p>` +
-          `<p>If the link stops working, ask the project team for a new one.</p>`,
+          `<p>${escapeHtml(senderName)} udostępnił(a) panel klienta dla projektu <strong>${escapeHtml(projectName)}</strong>.</p>` +
+          `<p><a href="${escapeHtml(portalUrl)}">Otwórz panel klienta</a></p>` +
+          `<p>Jeśli link przestanie działać, poproś zespół projektu o nowy.</p>`,
       }),
     });
 

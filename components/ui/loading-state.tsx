@@ -2,7 +2,6 @@
 import type { ReactNode } from "react";
 
 import { BrandWordmark } from "@/components/ui/brand/BrandWordmark";
-import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
 type AppLoadingStateProps = {
@@ -31,6 +30,8 @@ export function AppLoadingState({
   showBrand = variant === "screen",
   children,
 }: AppLoadingStateProps) {
+  const hasText = Boolean(title || description);
+
   return (
     <div
       className={cn(
@@ -64,13 +65,19 @@ export function AppLoadingState({
             />
           </div>
         ) : null}
-        <Spinner fullHeight={false} className="py-0" iconClassName="size-5" />
-        <div className="flex flex-col gap-1.5">
-          <p className="text-sm font-medium text-foreground">{title}</p>
-          {description ? (
-            <p className="text-sm leading-6 text-muted-foreground">{description}</p>
-          ) : null}
+        <div className="relative flex size-9 items-center justify-center" aria-hidden="true">
+          <div className="absolute inset-0 rounded-full border border-foreground/10" />
+          <div className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-foreground/80 border-r-foreground/30" />
+          <div className="size-1.5 rounded-full bg-foreground/70" />
         </div>
+        {hasText ? (
+          <div className="flex flex-col gap-1.5">
+            {title ? <p className="text-sm font-medium text-foreground">{title}</p> : null}
+            {description ? (
+              <p className="text-sm leading-6 text-muted-foreground">{description}</p>
+            ) : null}
+          </div>
+        ) : null}
         {children}
       </div>
     </div>
