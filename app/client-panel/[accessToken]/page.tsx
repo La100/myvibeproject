@@ -1180,7 +1180,6 @@ export default function PublicClientPanelPage() {
           label: t("clientPanel", "shoppingList"),
           count: materialsItemCount,
           icon: ShoppingCart,
-          eyebrow: t("clientPanel", "materials"),
         }
       : null,
     settings.showSurveys
@@ -1189,7 +1188,6 @@ export default function PublicClientPanelPage() {
           label: t("clientPanel", "surveys"),
           count: surveys.length,
           icon: ClipboardList,
-          eyebrow: t("clientPanel", "forms"),
         }
       : null,
     settings.showFiles
@@ -1198,7 +1196,6 @@ export default function PublicClientPanelPage() {
           label: t("clientPanel", "files"),
           count: files.length,
           icon: FolderOpen,
-          eyebrow: t("clientPanel", "assets"),
         }
       : null,
     settings.showMoodboard
@@ -1207,7 +1204,6 @@ export default function PublicClientPanelPage() {
           label: t("clientPanel", "moodboard"),
           count: moodboardFiles.length,
           icon: ImageIcon,
-          eyebrow: t("clientPanel", "inspiration"),
         }
       : null,
     settings.showTasks
@@ -1216,7 +1212,6 @@ export default function PublicClientPanelPage() {
           label: t("clientPanel", "tasks"),
           count: tasks.length,
           icon: CheckSquare2,
-          eyebrow: t("clientPanel", "plan"),
         }
       : null,
     settings.showLabor
@@ -1225,7 +1220,6 @@ export default function PublicClientPanelPage() {
           label: t("clientPanel", "labor"),
           count: laborItems.length,
           icon: Hammer,
-          eyebrow: t("clientPanel", "work"),
         }
       : null,
     settings.showContacts
@@ -1234,7 +1228,6 @@ export default function PublicClientPanelPage() {
           label: t("clientPanel", "contacts"),
           count: contacts.length,
           icon: Users,
-          eyebrow: t("clientPanel", "people"),
         }
       : null,
     settings.showPayments
@@ -1243,7 +1236,6 @@ export default function PublicClientPanelPage() {
           label: t("clientPanel", "payments"),
           count: payments.length,
           icon: Wallet,
-          eyebrow: t("clientPanel", "finance"),
         }
       : null,
     settings.showBudget
@@ -1256,7 +1248,6 @@ export default function PublicClientPanelPage() {
               ? 1
               : 0,
           icon: Banknote,
-          eyebrow: t("clientPanel", "overview"),
         }
       : null,
   ].filter(
@@ -1267,7 +1258,6 @@ export default function PublicClientPanelPage() {
       label: string;
       count: number;
       icon: typeof ShoppingCart;
-      eyebrow: string;
     } => !!section,
   );
 
@@ -2399,12 +2389,9 @@ export default function PublicClientPanelPage() {
               </span>
             ) : null}
           </div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-foreground/34">
-            {t("clientPanel", "sharedSections")}
-          </p>
           {sectionCards.length > 0 ? (
             <>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="flex flex-wrap items-center gap-2">
                 {sectionCards.map((section) => {
                   const isActive = activeSectionId === section.id;
                   const Icon = section.icon;
@@ -2417,7 +2404,7 @@ export default function PublicClientPanelPage() {
                       variant="outline"
                       size="sm"
                       className={cn(
-                        "group h-auto min-h-[5.75rem] justify-start gap-3 rounded-xl border px-3.5 py-3.5 text-left backdrop-blur transition-[background-color,border-color,box-shadow,transform] hover:-translate-y-0.5 sm:px-4",
+                        "group h-11 shrink-0 justify-start gap-2.5 rounded-full border px-3.5 text-left backdrop-blur transition-[background-color,border-color,box-shadow,transform] hover:-translate-y-0.5",
                         isActive
                           ? "border-black/7 bg-white/88 text-foreground shadow-md hover:bg-white"
                           : "border-black/6 bg-white/58 text-foreground hover:border-black/10 hover:bg-white/76 hover:shadow-sm",
@@ -2425,40 +2412,30 @@ export default function PublicClientPanelPage() {
                     >
                       <div
                         className={cn(
-                          "flex size-10 shrink-0 items-center justify-center rounded-lg border transition-colors",
+                          "flex size-8 shrink-0 items-center justify-center rounded-full border transition-colors",
                           isActive
                             ? "border-black/10 bg-[#f8f6f1]/86 text-foreground"
                             : "border-black/6 bg-[#f8f6f1]/86 text-foreground/42 group-hover:text-foreground/58",
                         )}
                       >
-                        <Icon className="size-[17px]" />
+                        <Icon className="size-4" />
                       </div>
-                      <div className="min-w-0 flex-1">
+                      <div className="flex min-w-0 flex-1 items-center gap-2">
+                        <span className="whitespace-nowrap text-[14px] font-medium tracking-normal text-foreground/84">
+                          {section.label}
+                        </span>
                         <span
                           className={cn(
-                            "block text-[10px] font-semibold uppercase tracking-[0.2em]",
-                            isActive ? "text-foreground" : "text-foreground/34",
+                            "ml-auto shrink-0 text-[12px]",
+                            isActive
+                              ? "text-foreground/58"
+                              : "text-foreground/42",
                           )}
                         >
-                          {section.eyebrow}
+                          {t("clientPanel", "items", {
+                            count: section.count,
+                          })}
                         </span>
-                        <div className="mt-1.5 flex min-w-0 items-baseline gap-2">
-                          <span className="min-w-0 truncate text-[15px] font-medium tracking-[-0.02em] text-foreground/84 sm:text-[16px]">
-                            {section.label}
-                          </span>
-                          <span
-                            className={cn(
-                              "ml-auto shrink-0 text-[12px]",
-                              isActive
-                                ? "text-foreground/58"
-                                : "text-foreground/42",
-                            )}
-                          >
-                            {t("clientPanel", "items", {
-                              count: section.count,
-                            })}
-                          </span>
-                        </div>
                       </div>
                     </Button>
                   );

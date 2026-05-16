@@ -30,8 +30,7 @@ import {
   ClipboardList,
   Library,
   Eye,
-  CheckCircle2,
-  HelpCircle,
+  MessageSquareText,
 } from "lucide-react";
 import Link from "next/link";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
@@ -166,59 +165,90 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
       ) : (
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {surveys?.map((survey) => (
-            <Card key={survey._id} className="overflow-hidden">
-              <CardHeader className="pb-3">
-                <div className="mb-3 flex flex-wrap items-center gap-2">
-                  <Badge variant="outline" className="capitalize">
-                    {t("surveys", `status${survey.status.charAt(0).toUpperCase()}${survey.status.slice(1)}`)}
-                  </Badge>
-                  {survey.isRequired ? (
-                    <Badge variant="secondary">{t("surveys", "required")}</Badge>
-                  ) : null}
-                  <Badge variant="outline">{t("surveys", "repeatSubmissions")}</Badge>
+            <Card
+              key={survey._id}
+              className="group overflow-hidden rounded-[28px] border-border/70 bg-card/92 py-0 shadow-[0_24px_70px_-54px_rgba(24,20,16,0.42)] transition-[border-color,box-shadow,transform] duration-300 hover:-translate-y-0.5 hover:border-foreground/12 hover:shadow-[0_34px_90px_-58px_rgba(24,20,16,0.5)]"
+            >
+              <CardHeader className="gap-5 px-5 pb-0 pt-5">
+                {survey.isRequired || survey.allowMultipleResponses ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {survey.isRequired ? (
+                      <Badge
+                        variant="secondary"
+                        className="border-border/60 bg-[#f7eadf] px-3 py-1.5 text-[11px] text-[#7a3f1d]"
+                      >
+                        {t("surveys", "required")}
+                      </Badge>
+                    ) : null}
+                    {survey.allowMultipleResponses ? (
+                      <Badge
+                        variant="outline"
+                        className="border-border/70 bg-card px-3 py-1.5 text-[11px] text-muted-foreground"
+                      >
+                        {t("surveys", "repeatSubmissions")}
+                      </Badge>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                <div className="min-h-[116px]">
+                  <CardTitle className="clean-title line-clamp-2 text-[1.55rem] font-medium leading-[1.04] tracking-[-0.025em] text-foreground">
+                    {survey.title}
+                  </CardTitle>
+                  {survey.description && (
+                    <CardDescription className="mt-4 line-clamp-2 max-w-[34ch] text-[14px] leading-6 text-muted-foreground">
+                      {survey.description}
+                    </CardDescription>
+                  )}
                 </div>
-                <CardTitle className="line-clamp-2 text-xl">
-                  {survey.title}
-                </CardTitle>
-                {survey.description && (
-                  <CardDescription className="line-clamp-2 leading-6">
-                    {survey.description}
-                  </CardDescription>
-                )}
               </CardHeader>
-              <CardContent className="flex flex-col gap-4">
-                <div className="grid grid-cols-3 gap-2 rounded-xl border border-border bg-secondary/60 p-2 text-xs">
-                  <div className="rounded-lg bg-card px-2.5 py-2">
-                    <div className="flex items-center gap-1.5 text-muted-foreground">
-                      <HelpCircle className="h-3.5 w-3.5" />
+              <CardContent className="flex flex-col gap-5 px-5 pb-5 pt-2">
+                <div className="vibe-row grid grid-cols-2 gap-0 overflow-hidden rounded-[20px] border-border/70 bg-secondary/58 text-xs shadow-none">
+                  <div className="flex min-w-0 flex-col gap-1.5 border-r border-border/70 px-4 py-3.5">
+                    <span className="flex items-center gap-1.5 truncate text-muted-foreground">
+                      <ClipboardList className="size-3.5 shrink-0" />
                       {t("surveys", "questions")}
-                    </div>
-                    <p className="mt-1 text-base font-semibold text-foreground">
+                    </span>
+                    <span className="font-serif text-[1.6rem] font-medium leading-none tracking-[-0.04em] text-foreground">
                       {survey.questionCount ?? 0}
-                    </p>
+                    </span>
                   </div>
-                  <div className="rounded-lg bg-card px-2.5 py-2">
-                    <div className="flex items-center gap-1.5 text-muted-foreground">
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      {t("surveys", "required")}
-                    </div>
-                    <p className="mt-1 text-base font-semibold text-foreground">
-                      {survey.requiredQuestionCount ?? 0}
-                    </p>
-                  </div>
-                  <div className="rounded-lg bg-card px-2.5 py-2">
-                    <div className="flex items-center gap-1.5 text-muted-foreground">
-                      <BarChart3 className="h-3.5 w-3.5" />
+                  <div className="flex min-w-0 flex-col gap-1.5 px-4 py-3.5">
+                    <span className="flex items-center gap-1.5 truncate text-muted-foreground">
+                      <MessageSquareText className="size-3.5 shrink-0" />
                       {t("surveys", "responses")}
-                    </div>
-                    <p className="mt-1 text-base font-semibold text-foreground">
+                    </span>
+                    <span className="font-serif text-[1.6rem] font-medium leading-none tracking-[-0.04em] text-foreground">
                       {survey.responseCount ?? 0}
-                    </p>
+                    </span>
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  <Button asChild variant="outline" size="sm" className="flex-1">
+                <div
+                  className={
+                    canEdit ? "grid grid-cols-2 gap-2" : "grid grid-cols-1"
+                  }
+                >
+                  {canEdit && (
+                    <Button
+                      asChild
+                      size="sm"
+                      className="col-span-2 h-10 rounded-full px-4 shadow-[0_16px_34px_-24px_rgba(24,20,16,0.7)]"
+                    >
+                      <Link
+                        href={`/organisation/projects/${projectSlug}/surveys/${survey._id}/responses`}
+                      >
+                        <BarChart3 data-icon="inline-start" />
+                        {t("surveys", "responses")}
+                      </Link>
+                    </Button>
+                  )}
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="h-10 min-w-0 rounded-full border-border/70 bg-card px-4 shadow-none"
+                  >
                     <Link
                       href={`/organisation/projects/${projectSlug}/surveys/${survey._id}`}
                     >
@@ -226,26 +256,21 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
                       {t("surveys", "view")}
                     </Link>
                   </Button>
-                  {canEdit && (
-                    <>
-                      <Button asChild variant="outline" size="sm">
-                        <Link
-                          href={`/organisation/projects/${projectSlug}/surveys/${survey._id}/edit`}
-                        >
-                          <Edit data-icon="inline-start" />
-                          {t("surveys", "editSurvey")}
-                        </Link>
-                      </Button>
-                      <Button asChild size="sm">
-                        <Link
-                          href={`/organisation/projects/${projectSlug}/surveys/${survey._id}/responses`}
-                        >
-                          <BarChart3 data-icon="inline-start" />
-                          {t("surveys", "responses")}
-                        </Link>
-                      </Button>
-                    </>
-                  )}
+                  {canEdit ? (
+                    <Button
+                      asChild
+                      variant="outline"
+                      size="sm"
+                      className="h-10 min-w-0 rounded-full border-border/70 bg-card px-4 shadow-none"
+                    >
+                      <Link
+                        href={`/organisation/projects/${projectSlug}/surveys/${survey._id}/edit`}
+                      >
+                        <Edit data-icon="inline-start" />
+                        {t("surveys", "editSurvey")}
+                      </Link>
+                    </Button>
+                  ) : null}
                 </div>
               </CardContent>
             </Card>
